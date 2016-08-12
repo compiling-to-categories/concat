@@ -1,3 +1,4 @@
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -8,6 +9,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+-- {-# LANGUAGE TypeFamilyDependencies #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -47,7 +49,8 @@ infixr 9 .
 
 class Category (k :: u -> u -> *) where
   type Ok k :: u -> Constraint
---   type Ok k = Yes
+  -- type Ok k = (res :: u -> Constraint) | res -> k
+  -- type Ok k = Yes
   okay :: a `k` b -> (OD k a, OD k b)
   id :: Ok k a => a `k` a
   (.) :: b `k` c -> a `k` b -> a `k` c
@@ -58,7 +61,8 @@ newtype OD k a = OD (Dict (Ok k a))
 pattern Okay :: Ok k a => OD k a
 pattern Okay = OD Dict
 
--- The pattern synonym doesn't solve my type checking issue. Investigate.
+-- The pattern synonym doesn't solve my type checking issue.
+-- Investigate.
 
 -- #define OKAY Okay
 
@@ -175,12 +179,23 @@ instance Category NT where
   NT g . NT f = NT (g . f)
 #else
 -- Natural transformations
-newtype NT k m n = NT (forall a. m a `k` n a)
+newtype NT k m n =
+  NT (forall a. (Ok k (m a), Ok k (n a)) => m a `k` n a)
+
+-- o :: forall k p q r. Category k => NT k q r -> NT k p q -> NT k p r
+
+-- NT (g@OK) `o` NT (f@OK) = NT (g . f)
+
+-- Injectivity
+
+-- NT g `o` NT f = NT (g . f)
+-- NT (g :: forall a. (Ok k (q a), Ok k (r a)) => q a `k` r a) `o` NT (f :: forall a. (Ok k (p a), Ok k (q a)) => p a `k` q a) = NT (g . f)
 
 instance Category k => Category (NT k) where
-  type Ok (NT k) = Ok k
---   id = NT id
---   NT g . NT f = NT (g . f)
+  type Ok (NT k) = Yes
+  id = NT id
+  (.) :: NT k g h -> NT k f g -> NT k f h
+  NT g . NT f = NT (g . f)
 
 --   okay = const OKAY2
 #endif
