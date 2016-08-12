@@ -115,3 +115,44 @@ instance ProductCat (->) where
   lassocP = \ (a,(b,c)) -> ((a,b),c)
   rassocP = \ ((a,b),c) -> (a,(b,c))
   
+-- | Apply to both parts of a product
+twiceP :: ProductCat k => (a `k` c) -> ((a :* a) `k` (c :* c))
+twiceP f = f *** f
+
+#if 0
+
+infixl 1 <~
+infixr 1 ~>
+-- | Add post- and pre-processing
+(<~) :: Category cat =>
+        (b `cat` b') -> (a' `cat` a) -> ((a `cat` b) -> (a' `cat` b'))
+(h <~ f) g = h . g . f
+
+-- | Add pre- and post-processing
+(~>) :: Category cat =>
+        (a' `cat` a) -> (b `cat` b') -> ((a `cat` b) -> (a' `cat` b'))
+f ~> h = h <~ f
+
+#endif
+
+-- | Operate on left-associated form
+inLassocP :: forall a b c a' b' c' k. ProductCat k =>
+             (((a :* b) :* c) `k` ((a' :* b') :* c'))
+          -> ((a :* (b :* c)) `k` (a' :* (b' :* c')))
+inLassocP f@OK | OKAY2 <- okayUnProd :: (OD k (a  :* b ), OD k c )
+               , OKAY2 <- okayUnProd :: (OD k (a' :* b'), OD k c')
+               , OKAY2 <- okayUnProd :: (OD k a , OD k b )
+               , OKAY2 <- okayUnProd :: (OD k a', OD k b')
+               = rassocP . f . lassocP
+
+-- | Operate on left-associated form
+inRassocP :: forall a b c a' b' c' k. ProductCat k =>
+             ((a :* (b :* c)) `k` (a' :* (b' :* c')))
+          -> (((a :* b) :* c) `k` ((a' :* b') :* c'))
+inRassocP f@OK | OKAY2 <- okayUnProd :: (OD k a , OD k (b  :* c ))
+               , OKAY2 <- okayUnProd :: (OD k a', OD k (b' :* c'))
+               , OKAY2 <- okayUnProd :: (OD k b , OD k c )
+               , OKAY2 <- okayUnProd :: (OD k b', OD k c')
+               = lassocP . f . rassocP
+
+-- TODO: bring over more of Circat.Category
