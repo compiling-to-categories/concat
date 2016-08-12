@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PolyKinds #-}
@@ -8,7 +9,10 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DefaultSignatures #-}
 -- {-# LANGUAGE TypeFamilyDependencies #-}
 
 {-# OPTIONS_GHC -Wall #-}
@@ -23,9 +27,9 @@ import qualified Prelude as P
 import qualified Control.Arrow as A
 
 import GHC.Types (Constraint)
+-- import Data.Proxy
 
-
-import Data.Constraint (Dict(..))
+import Data.Constraint (Dict(..),(:-)(..))
 
 {--------------------------------------------------------------------
     Misc
@@ -47,12 +51,16 @@ type (:=>) = (->)
 
 infixr 9 .
 
+#define OKAY OD Dict
+#define OKAY2 (OKAY,OKAY)
+
 class Category (k :: u -> u -> *) where
   type Ok k :: u -> Constraint
-  -- type Ok k = (res :: u -> Constraint) | res -> k
-  -- type Ok k = Yes
+  type Ok k = Yes
   okay :: a `k` b -> (OD k a, OD k b)
-  id :: Ok k a => a `k` a
+--   default okay :: a `k` b -> (OD k a, OD k b)
+--   okay = const OKAY2
+  id  :: Ok k a => a `k` a
   (.) :: b `k` c -> a `k` b -> a `k` c
 
 -- Ok wrapper, avoiding non-injectivity issue
@@ -66,16 +74,13 @@ pattern Okay = OD Dict
 
 -- #define OKAY Okay
 
-#define OKAY OD Dict
-#define OKAY2 (OKAY,OKAY)
-
 #define OK (okay -> OKAY2)
 
 class    Yes a
 instance Yes a
 
 instance Category (->) where
-  type Ok (->) = Yes
+  -- type Ok (->) a = ()
   id  = P.id
   (.) = (P..)
   okay = const OKAY2
@@ -84,7 +89,7 @@ infixr 3 ***, &&&
 
 -- | Category with product.
 -- TODO: Generalize '(:*)' to an associated type.
-class Category k => ProductCat k where
+class (ProdCon (Ok k), Category k) => ProductCat k where
   okayUnit   :: OD k ()
   okayProd   :: (Ok k a, Ok k b) => OD k (a :* b)
   okayUnProd :: Ok k (a :* b) => (OD k a, OD k b)
@@ -130,22 +135,6 @@ instance ProductCat (->) where
 twiceP :: ProductCat k => (a `k` c) -> ((a :* a) `k` (c :* c))
 twiceP f = f *** f
 
-#if 0
-
-infixl 1 <~
-infixr 1 ~>
--- | Add post- and pre-processing
-(<~) :: Category cat =>
-        (b `cat` b') -> (a' `cat` a) -> ((a `cat` b) -> (a' `cat` b'))
-(h <~ f) g = h . g . f
-
--- | Add pre- and post-processing
-(~>) :: Category cat =>
-        (a' `cat` a) -> (b `cat` b') -> ((a `cat` b) -> (a' `cat` b'))
-f ~> h = h <~ f
-
-#endif
-
 -- | Operate on left-associated form
 inLassocP :: forall a b c a' b' c' k. ProductCat k =>
              (((a :* b) :* c) `k` ((a' :* b') :* c'))
@@ -173,7 +162,7 @@ inRassocP f@OK | OKAY2 <- okayUnProd :: (OD k a , OD k (b  :* c ))
 newtype NT m n = NT (forall a. m a -> n a)
 
 instance Category NT where
-  type Ok NT = Yes
+  -- type Ok NT a = ()
   okay = const OKAY2
   id = NT P.id
   NT g . NT f = NT (g . f)
@@ -182,20 +171,63 @@ instance Category NT where
 newtype NT k m n =
   NT (forall a. (Ok k (m a), Ok k (n a)) => m a `k` n a)
 
--- o :: forall k p q r. Category k => NT k q r -> NT k p q -> NT k p r
+o :: forall k p q r. Category k => Proxy k -> NT k q r -> NT k p q -> NT k p r
 
 -- NT (g@OK) `o` NT (f@OK) = NT (g . f)
 
 -- Injectivity
 
+o Proxy (NT (g@OK)) (NT (f@OK)) = NT (g . f)
+
 -- NT g `o` NT f = NT (g . f)
--- NT (g :: forall a. (Ok k (q a), Ok k (r a)) => q a `k` r a) `o` NT (f :: forall a. (Ok k (p a), Ok k (q a)) => p a `k` q a) = NT (g . f)
+-- o Proxy (NT (g :: forall a. (Ok k (q a), Ok k (r a)) => q a `k` r a)) (NT (f :: forall a. (Ok k (p a), Ok k (q a)) => p a `k` q a)) = NT (g . f)
 
 instance Category k => Category (NT k) where
-  type Ok (NT k) = Yes
+  -- type Ok (NT k) a = ()
   id = NT id
-  (.) :: NT k g h -> NT k f g -> NT k f h
-  NT g . NT f = NT (g . f)
+--   (.) :: NT k g h -> NT k f g -> NT k f h
+--   (.) = o
+  -- NT g . NT f = NT (g . f)
 
 --   okay = const OKAY2
 #endif
+
+-- Experiment
+class ProdCon (con :: * -> Constraint) where
+  unitC  :: () :- con ()
+  joinC  :: (con a, con b) :- con (a :* b)
+  splitC :: con (a :* b) :- (con a, con b)
+
+instance ProdCon Yes where
+  unitC  = Sub Dict
+  joinC  = Sub Dict
+  splitC = Sub Dict
+
+class Foo (a :: *) where
+  type Conseq a :: Constraint
+  type Conseq a = ()
+  conseq :: Foo a :- Conseq a
+  default conseq :: Foo a :- ()
+  conseq = Sub Dict
+  size :: a -> Int              -- anything
+
+instance Foo () where
+  conseq = Sub Dict
+  size _ = 0
+
+instance Foo Int where
+  conseq = Sub Dict
+  size _ = 1
+
+instance (Foo a, Foo b) => Foo (a :* b) where
+  type Conseq (a :* b) = (Foo a, Foo b)
+  conseq = Sub Dict
+  size (a,b) = size a + size b
+
+instance ProdCon Foo where
+  unitC  = Sub Dict
+  joinC  = Sub Dict
+  splitC = Sub splitF'
+
+splitF' :: forall a b. Foo (a :* b) => Dict (Foo a, Foo b)
+splitF' | Sub Dict <- conseq @(a :* b) = Dict
