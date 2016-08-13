@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE RankNTypes #-}
@@ -227,7 +228,91 @@ instance (Foo a, Foo b) => Foo (a :* b) where
 instance ProdCon Foo where
   unitC  = Sub Dict
   joinC  = Sub Dict
-  splitC = Sub splitF'
+  splitC = Sub splitF
 
-splitF' :: forall a b. Foo (a :* b) => Dict (Foo a, Foo b)
-splitF' | Sub Dict <- conseq @(a :* b) = Dict
+splitF :: forall a b. Foo (a :* b) => Dict (Foo a, Foo b)
+splitF | Sub Dict <- conseq @(a :* b) = Dict
+
+--------
+
+#if 0
+
+class Bar c (a :: *) where
+  type Conseq' c a :: Constraint
+  conseq' :: c a :- Conseq' c a
+  -- Defaults:
+  type Conseq' c a = ()
+  default conseq' :: c a :- ()
+  conseq' = Sub Dict
+
+class Bar Foo' a => Foo' (a :: *) where
+  size' :: a -> Int              -- anything
+
+instance Bar Foo' ()
+instance Foo' () where size' _ = 0
+
+instance Bar Foo' Int
+instance Foo' Int where size' _ = 1
+
+instance (Foo' a, Foo' b) => Bar Foo' (a :* b) where
+  type Conseq' Foo' (a :* b) = (Foo' a, Foo' b)
+  conseq' = Sub Dict
+
+-- Can I make this instance into a Bar instance? Maybe make Conseq' into
+-- a closed type family with instances for a :* b, a :+ b, and a :=> b,
+-- and a default.
+
+instance (Foo' a, Foo' b) => Foo' (a :* b) where
+  size' (a,b) = size' a + size' b
+
+instance ProdCon Foo' where
+  unitC  = Sub Dict
+  joinC  = Sub Dict
+--   splitC = Sub splitF'
+
+splitF' :: forall a b. Foo' (a :* b) => Dict (Foo' a, Foo' b)
+splitF' | Sub Dict <- conseq' @(a :* b) = Dict
+
+#else
+
+type family Conseq' c a :: Constraint where
+  Conseq' c (a :* b) = (c a, c b)
+  Conseq' c (a :+ b) = (c a, c b)
+  Conseq' c t        = ()
+
+class Bar c (a :: *) where
+  conseq' :: c a :- Conseq' c a
+  default conseq' :: c a :- ()
+  conseq' = Sub Dict
+
+instance (c a, c b) => Bar c (a :* b) where
+  conseq' = Sub Dict
+
+instance (c a, c b) => Bar c (a :+ b) where
+  conseq' = Sub Dict
+
+-- class Bar Foo' a => Foo' (a :: *) where
+--   size' :: a -> Int              -- anything
+
+-- instance Bar Foo' ()
+-- instance Foo' () where size' _ = 0
+
+-- instance Bar Foo' Int
+-- instance Foo' Int where size' _ = 1
+
+-- -- Can I make this instance into a Bar instance? Maybe make Conseq' into
+-- -- a closed type family with instances for a :* b, a :+ b, and a :=> b,
+-- -- and a default.
+
+-- instance (Foo' a, Foo' b) => Foo' (a :* b) where
+--   size' (a,b) = size' a + size' b
+
+-- instance ProdCon Foo' where
+--   unitC  = Sub Dict
+--   joinC  = Sub Dict
+-- --   splitC = Sub splitF'
+
+-- -- splitF' :: forall a b. Foo' (a :* b) => Dict (Foo' a, Foo' b)
+-- -- splitF' | Sub Dict <- conseq' @(a :* b) = Dict
+
+#endif
