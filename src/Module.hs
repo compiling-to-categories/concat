@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -26,27 +27,32 @@ class AdditiveGroup v => Module v where
   -- | Scale a vector
   (*^) :: Scalar v -> v -> v
 
-infixr 7 <.>
+infixr 7 ^*^
 
 -- | Adds inner (dot) products.
 class (Module v, AdditiveGroup (Scalar v)) => InnerSpace v where
   -- | Inner/dot product
-  (<.>) :: v -> v -> Scalar v
+  (^*^) :: v -> v -> Scalar v
 
 infixr 7 ^/
 infixl 7 ^*
 
+-- Module over a given scalar type
+type Mod s u = (Module u, Scalar u ~ s)
+
+-- Inner space over a given scalar type
+type Inner s u = (InnerSpace u, Scalar u ~ s)
+
 -- | Vector divided by scalar
-(^/) :: (Module v, s ~ Scalar v, Fractional s) => v -> s -> v
+(^/) :: (Mod s v, Fractional s) => v -> s -> v
 v ^/ s = (1/s) *^ v
 
 -- | Vector multiplied by scalar
-(^*) :: (Module v, s ~ Scalar v) => v -> s -> v
+(^*) :: (Mod s v) => v -> s -> v
 (^*) = flip (*^)
 
 -- | Linear interpolation between @a@ (when @t==0@) and @b@ (when @t==1@).
 
--- lerp :: (Module v, s ~ Scalar v, Num s) => v -> v -> s -> v
 lerp :: Module v => v -> v -> Scalar v -> v
 lerp a b t = a ^+^ t *^ (b ^-^ a)
 
@@ -56,27 +62,27 @@ linearCombo ps = sumV [v ^* s | (v,s) <- ps]
 
 -- | Square of the length of a vector.  Sometimes useful for efficiency.
 -- See also 'magnitude'.
-magnitudeSq :: (InnerSpace v, s ~ Scalar v) => v -> s
-magnitudeSq v = v <.> v
+magnitudeSq :: (Inner s v) => v -> s
+magnitudeSq v = v ^*^ v
 
 -- | Length of a vector.   See also 'magnitudeSq'.
-magnitude :: (InnerSpace v, s ~ Scalar v, Floating s) =>  v -> s
+magnitude :: (Inner s v, Floating s) =>  v -> s
 magnitude = sqrt . magnitudeSq
 
 -- | Vector in same direction as given one but with length of one.  If
 -- given the zero vector, then return it.
-normalized :: (InnerSpace v, s ~ Scalar v, Floating s) =>  v -> v
+normalized :: (Inner s v, Floating s) =>  v -> v
 normalized v = v ^/ magnitude v
 
 -- | @project u v@ computes the projection of @v@ onto @u@.
-project :: (InnerSpace v, s ~ Scalar v, Fractional s) => v -> v -> v
-project u v = ((v <.> u) / magnitudeSq u) *^ u
+project :: (Inner s v, Fractional s) => v -> v -> v
+project u v = ((v ^*^ u) / magnitudeSq u) *^ u
 
 #define ScalarType(t) \
   instance Module (t) where \
     { type Scalar t = (t) \
     ; (*^) = (*) } ; \
-  instance InnerSpace (t) where (<.>) = (*)
+  instance InnerSpace (t) where (^*^) = (*)
 
 ScalarType(Int)
 ScalarType(Integer)
@@ -94,7 +100,7 @@ ScalarType(CFloat)
 instance Integral a => Module (Ratio a) where
   type Scalar (Ratio a) = Ratio a
   (*^) = (*)
-instance Integral a => InnerSpace (Ratio a) where (<.>) = (*)
+instance Integral a => InnerSpace (Ratio a) where (^*^) = (*)
 
 -- instance (RealFloat v, Module v) => Module (Complex v) where
 --   type Scalar (Complex v) = Scalar v
@@ -102,43 +108,26 @@ instance Integral a => InnerSpace (Ratio a) where (<.>) = (*)
 
 -- instance (RealFloat v, InnerSpace v)
 --      => InnerSpace (Complex v) where
---   (u :+ v) <.> (u' :+ v') = (u <.> u') ^+^ (v <.> v')
+--   (u :+ v) ^*^ (u' :+ v') = (u ^*^ u') ^+^ (v ^*^ v')
 
-instance ( Module u, s ~ Scalar u
-         , Module v, s ~ Scalar v )
-      => Module (u,v) where
+instance (Mod s u, Mod s v) => Module (u,v) where
   type Scalar (u,v) = Scalar u
   s *^ (u,v) = (s*^u,s*^v)
 
-instance ( InnerSpace u, s ~ Scalar u
-         , InnerSpace v, s ~ Scalar v )
-    => InnerSpace (u,v) where
-  (u,v) <.> (u',v') = (u <.> u') ^+^ (v <.> v')
+instance (Inner s u, Inner s v) => InnerSpace (u,v) where
+  (u,v) ^*^ (u',v') = (u ^*^ u') ^+^ (v ^*^ v')
 
-instance ( Module u, s ~ Scalar u
-         , Module v, s ~ Scalar v
-         , Module w, s ~ Scalar w )
-    => Module (u,v,w) where
+instance (Mod s u, Mod s v, Mod s w) => Module (u,v,w) where
   type Scalar (u,v,w) = Scalar u
   s *^ (u,v,w) = (s*^u,s*^v,s*^w)
 
-instance ( InnerSpace u, s ~ Scalar u
-         , InnerSpace v, s ~ Scalar v
-         , InnerSpace w, s ~ Scalar w )
-    => InnerSpace (u,v,w) where
-  (u,v,w) <.> (u',v',w') = u<.>u' ^+^ v<.>v' ^+^ w<.>w'
+instance (Inner s u, Inner s v, Inner s w) => InnerSpace (u,v,w) where
+  (u,v,w) ^*^ (u',v',w') = u^*^u' ^+^ v^*^v' ^+^ w^*^w'
 
-instance ( Module u, s ~ Scalar u
-         , Module v, s ~ Scalar v
-         , Module w, s ~ Scalar w
-         , Module x, s ~ Scalar x )
-    => Module (u,v,w,x) where
+instance (Mod s u, Mod s v, Mod s w, Mod s x) => Module (u,v,w,x) where
   type Scalar (u,v,w,x) = Scalar u
   s *^ (u,v,w,x) = (s*^u,s*^v,s*^w,s*^x)
 
-instance ( InnerSpace u, s ~ Scalar u
-         , InnerSpace v, s ~ Scalar v
-         , InnerSpace w, s ~ Scalar w
-         , InnerSpace x, s ~ Scalar x )
-    => InnerSpace (u,v,w,x) where
-  (u,v,w,x) <.> (u',v',w',x') = u<.>u' ^+^ v<.>v' ^+^ w<.>w' ^+^ x<.>x'
+instance (Inner s u, Inner s v, Inner s w, Inner s x)
+      => InnerSpace (u,v,w,x) where
+  (u,v,w,x) ^*^ (u',v',w',x') = u^*^u' ^+^ v^*^v' ^+^ w^*^w' ^+^ x^*^x'

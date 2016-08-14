@@ -26,8 +26,8 @@ import ConCat
 import Module
 import Basis
 
-class    (Module u, Scalar u ~ s, HasBasis u, HasTrie (Basis u)) => OkL s u
-instance (Module u, Scalar u ~ s, HasBasis u, HasTrie (Basis u)) => OkL s u
+class    (Mod s u, HasBasis u, HasTrie (Basis u)) => OkL s u
+instance (Mod s u, HasBasis u, HasTrie (Basis u)) => OkL s u
 
 type LMap' u v = Basis u :->: v
 
