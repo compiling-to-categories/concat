@@ -211,3 +211,15 @@ inRassocP = lassocP <~ rassocP
               <+ inProdL @(Ok k) @a' @b' @c'
               <+ inProdR @(Ok k) @a  @b  @c
               <+ inProdR @(Ok k) @a' @b' @c'
+
+transposeP :: forall k a b c d. (ProductCat k, Ok k a, Ok k b, Ok k c, Ok k d)
+           => ((a :* b) :* (c :* d)) `k` ((a :* c) :* (b :* d))
+transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
+  <+ inProd @(Ok k) @(a :* b) @(c :* d)
+  <+ inProd @(Ok k) @c @d
+  <+ inProd @(Ok k) @a @b
+  <+ inProd @(Ok k) @b @d
+  <+ inProd @(Ok k) @a @c
+
+-- transposeS :: CoproductCat k => ((p :+ q) :+ (r :+ s)) `k` ((p :+ r) :+ (q :+ s))
+-- transposeS = (inl.inl ||| inr.inl) ||| (inl.inr ||| inr.inr)
