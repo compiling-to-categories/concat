@@ -33,7 +33,8 @@ import qualified Control.Arrow as A
 
 import GHC.Types (Constraint)
 
-import Data.Constraint (Dict(..),(:-)(..),(\\),trans,weaken1)
+import Data.Constraint hiding ((&&&),(***))
+import qualified Data.Constraint as C
 
 import Misc
 
@@ -53,6 +54,12 @@ infixl 1 <+
 -- | Synonym for '(\\)'
 (<+) :: a => (b => r) -> (a :- b) -> r
 (<+) = (\\)
+
+lassocC :: (a,(b,c)) :- ((a,b),c)
+lassocC = secondC weaken1 C.&&& (weaken2 `trans` weaken2)
+
+rassocC :: ((a,b),c) :- (a,(b,c))
+rassocC = (weaken1 `trans` weaken1) C.&&& firstC weaken2
 
 {--------------------------------------------------------------------
     Constraints with consequences
@@ -145,10 +152,37 @@ class ProdCon (con :: * -> Constraint) where
   inProd :: (con a, con b) :- con (a :* b)
   exProd :: con (a :* b) :- (con a, con b)
 
-exProdL :: forall con a b c. ProdCon con => con ((a,b),c) :- ((con a,con b),con c)
+-- Hm. I have no more uses of `exProd`. Consider removing it.
+
+inProdL :: ProdCon con => ((con a,con b),con c) :- con ((a,b),c)
+inProdL = inProd `trans` firstC  inProd
+
+inProdR :: ProdCon con => (con a,(con b,con c)) :- con (a,(b,c))
+inProdR = inProd `trans` secondC inProd
+
+inProdL' :: ProdCon con =>
+           ((con a,con b),con c) :- (con (a,b), con ((a,b),c))
+inProdL' = secondC inProd `trans` rassocC `trans` firstC (contract `trans` inProd)
+
+-- ((con a,con b),con c)
+-- (con (a,b),con c)
+-- ((con (a,b),con (a,b)),con c)
+-- (con (a,b),(con (a,b),con c))
+-- (con (a,b),con ((a,b),c))
+
+inProdR' :: ProdCon con => (con a,(con b,con c)) :- (con (a,(b,c)), con (b,c))
+inProdR' = firstC inProd `trans` lassocC `trans` secondC (contract `trans` inProd)
+
+-- (con a,(con b,con c))
+-- (con a,con (b,c))
+-- (con a,(con (b,c),con (b,c)))
+-- ((con a,con (b,c)),con (b,c))
+-- (con (a,(b,c)),con (b,c))
+
+exProdL :: ProdCon con => con ((a,b),c) :- ((con a,con b),con c)
 exProdL = firstC  exProd `trans` exProd
 
-exProdR :: forall con a b c. ProdCon con => con (a,(b,c)) :- (con a,(con b,con c))
+exProdR :: ProdCon con => con (a,(b,c)) :- (con a,(con b,con c))
 exProdR = secondC exProd `trans` exProd
 
 instance ProdCon Yes where
@@ -162,47 +196,28 @@ instance ProdCon Yes where
 
 infixr 9 .
 
-#define OKAY OD Dict
-#define OKAY2 (OKAY,OKAY)
-
 class Category (k :: u -> u -> *) where
   type Ok k :: u -> Constraint
   type Ok k = Yes
-  okay :: a `k` b -> (OD k a, OD k b)
---   default okay :: a `k` b -> (OD k a, OD k b)
---   okay = const OKAY2
   id  :: Ok k a => a `k` a
-  (.) :: b `k` c -> a `k` b -> a `k` c
+  (.) :: (Ok k a, Ok k b, Ok k c) =>
+         b `k` c -> a `k` b -> a `k` c
 
 infixl 1 <~
 infixr 1 ~>
 -- | Add post- and pre-processing
-(<~) :: Category cat =>
-        (b `cat` b') -> (a' `cat` a) -> ((a `cat` b) -> (a' `cat` b'))
+(<~) :: (Category k, Ok k a, Ok k b, Ok k a', Ok k b') =>
+        (b `k` b') -> (a' `k` a) -> ((a `k` b) -> (a' `k` b'))
 (h <~ f) g = h . g . f
 
 -- | Add pre- and post-processing
-(~>) :: Category cat =>
-        (a' `cat` a) -> (b `cat` b') -> ((a `cat` b) -> (a' `cat` b'))
+(~>) :: (Category k, Ok k a, Ok k b, Ok k a', Ok k b') =>
+        (a' `k` a) -> (b `k` b') -> ((a `k` b) -> (a' `k` b'))
 f ~> h = h <~ f
-
--- Ok wrapper, avoiding non-injectivity issue
-newtype OD k a = OD (Dict (Ok k a))
-
-pattern Okay :: Ok k a => OD k a
-pattern Okay = OD Dict
-
--- The pattern synonym doesn't solve my type checking issue.
--- Investigate.
-
--- #define OKAY Okay
-
-#define OK (okay -> OKAY2)
 
 instance Category (->) where
   id  = P.id
   (.) = (P..)
-  okay = const OKAY2
 
 infixr 3 ***, &&&
 
@@ -213,23 +228,35 @@ class (ProdCon (Ok k), Category k) => ProductCat k where
   exr :: (Ok k a, Ok k b) => (a :* b) `k` b
   dup :: Ok k a => a `k` (a :* a)
   dup = id &&& id
-  swapP :: (Ok k a, Ok k b) => (a :* b) `k` (b :* a)
-  swapP =  exr &&& exl
-  (***) :: (a `k` c) -> (b `k` d) -> ((a :* b) `k` (c :* d))
-  f@OK *** g@OK = f . exl &&& g . exr
-  (&&&) :: (a `k` c) -> (a `k` d) -> (a `k` (c :* d))
-  f@OK &&& g = (f *** g) . dup
-  first :: Ok k b => (a `k` a') -> ((a :* b) `k` (a' :* b))
+  swapP :: forall a b. (Ok k a, Ok k b) => (a :* b) `k` (b :* a)
+  swapP =  exr &&& exl  <+ inProd @(Ok k) @a @b
+  (***) :: forall a b c d. (Ok k a, Ok k b, Ok k c, Ok k d) =>
+           (a `k` c) -> (b `k` d) -> ((a :* b) `k` (c :* d))
+  f *** g = f . exl &&& g . exr  <+ inProd @(Ok k) @a @b
+  (&&&) :: forall a c d. (Ok k a, Ok k c, Ok k d) =>
+           (a `k` c) -> (a `k` d) -> (a `k` (c :* d))
+  f &&& g = (f *** g) . dup
+    <+ inProd @(Ok k) @a @a
+    <+ inProd @(Ok k) @c @d
+  first :: forall a a' b. (Ok k a, Ok k b, Ok k a') =>
+           (a `k` a') -> ((a :* b) `k` (a' :* b))
   first = (*** id)
-  second :: Ok k a => (b `k` b') -> ((a :* b) `k` (a :* b'))
+  second :: forall a b b'. (Ok k a, Ok k b, Ok k b') =>
+            (b `k` b') -> ((a :* b) `k` (a :* b'))
   second =  (id ***)
   lassocP :: forall a b c. (Ok k a, Ok k b, Ok k c)
           => (a :* (b :* c)) `k` ((a :* b) :* c)
-  lassocP = second exl &&& (exr . exr) <+ inProd @(Ok k) @b @c
+  lassocP = second exl &&& (exr . exr)
+    <+ inProd   @(Ok k) @a @b
+    <+ inProdR' @(Ok k) @a @b @c
   rassocP :: forall a b c. (Ok k a, Ok k b, Ok k c)
           => ((a :* b) :* c) `k` (a :* (b :* c))
-  rassocP =  (exl . exl) &&& first  exr <+ inProd @(Ok k) @a @b
+  rassocP =  (exl . exl) &&& first  exr
+    <+ inProd   @(Ok k) @b @c
+    <+ inProdL' @(Ok k) @a @b @c
   {-# MINIMAL exl, exr, ((&&&) | ((***), dup)) #-}
+
+-- TODO: tweak inProdL to generate both con (a :* b) and con ()
 
 -- Alternatively:
 -- 
@@ -249,33 +276,32 @@ instance ProductCat (->) where
   rassocP    = \ ((a,b),c) -> (a,(b,c))
   
 -- | Apply to both parts of a product
-twiceP :: ProductCat k => (a `k` c) -> ((a :* a) `k` (c :* c))
+twiceP :: (ProductCat k, Ok k a, Ok k c) =>
+          (a `k` c) -> ((a :* a) `k` (c :* c))
 twiceP f = f *** f
 
 -- | Operate on left-associated form
-inLassocP :: forall a b c a' b' c' k. ProductCat k =>
+inLassocP :: forall k a b c a' b' c'.
+             ProductCat k =>
+             (Ok k a, Ok k b, Ok k c, Ok k a', Ok k b', Ok k c') =>
              (((a :* b) :* c) `k` ((a' :* b') :* c'))
           -> ((a :* (b :* c)) `k` (a' :* (b' :* c')))
-inLassocP f@OK =
+inLassocP f =
   rassocP . f . lassocP
-    <+ exProdL @(Ok k) @a  @b  @c
-    <+ exProdL @(Ok k) @a' @b' @c'
-
--- Equivalently,
--- 
---     <+ firstC (exProd @(Ok k) @a  @b ) `trans` (exProd @(Ok k) @(a  :* b ) @c )
---     <+ firstC (exProd @(Ok k) @a' @b') `trans` (exProd @(Ok k) @(a' :* b') @c')
--- Or
---     <+ exProd @(Ok k) @a @b
---     <+ exProd @(Ok k) @(a  :* b ) @c
---     <+ exProd @(Ok k) @a' @b'
---     <+ exProd @(Ok k) @(a' :* b') @c'
+    <+ inProdL @(Ok k) @a  @b  @c
+    <+ inProdL @(Ok k) @a' @b' @c'
+    <+ inProdR @(Ok k) @a  @b  @c
+    <+ inProdR @(Ok k) @a' @b' @c'
 
 -- | Operate on right-associated form
-inRassocP :: forall a b c a' b' c' k. ProductCat k =>
+inRassocP :: forall a b c a' b' c' k.
+             ProductCat k =>
+             (Ok k a, Ok k b, Ok k c, Ok k a', Ok k b', Ok k c') =>
              ((a :* (b :* c)) `k` (a' :* (b' :* c')))
           -> (((a :* b) :* c) `k` ((a' :* b') :* c'))
-inRassocP f@OK =
+inRassocP f =
   lassocP . f . rassocP
-    <+ exProdR @(Ok k) @a  @b  @c
-    <+ exProdR @(Ok k) @a' @b' @c'
+    <+ inProdL @(Ok k) @a  @b  @c
+    <+ inProdL @(Ok k) @a' @b' @c'
+    <+ inProdR @(Ok k) @a  @b  @c
+    <+ inProdR @(Ok k) @a' @b' @c'

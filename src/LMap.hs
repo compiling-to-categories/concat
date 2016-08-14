@@ -58,27 +58,11 @@ lapply :: (OkL s u, OkL s v) =>
           LMap s u v -> (u -> v)
 lapply (LMap tr) = linearCombo . fmap (first (untrie tr)) . decompose
 
--- | Compose linear maps
-(*.*) :: (OkL s v, OkL s w) =>
-         LMap s v w -> LMap s u v -> LMap s u w
-vw *.* LMap uv = LMap (trie (lapply vw . untrie uv))
-
-
 {--------------------------------------------------------------------
     Category instances
 --------------------------------------------------------------------}
 
-#define OKAY OD Dict
-#define OKAY2 (OKAY,OKAY)
-
-#define OK (okay -> OKAY2)
-
 instance Category (LMap s) where
   type Ok (LMap s) = OkL s
-  okay (LMap _) = OKAY2
   id = linear id   
-  vw@OK . uv@OK = vw *.* uv
-
---   vw@OK . uv@OK = LMap (trie (lapply vw . untrie (unLMap uv)))
-
--- Oh!! Can I move @OK into (.) and all other methods that take arrows?
+  vw . LMap uv = LMap (lapply vw <$> uv)
