@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wall #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeOperators #-}
