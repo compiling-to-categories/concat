@@ -27,26 +27,15 @@ module ConCat where
 
 import Prelude hiding (id,(.))
 import qualified Prelude as P
-
+import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
+import Data.Ratio
 import qualified Control.Arrow as A
 
 import GHC.Types (Constraint)
 
 import Data.Constraint (Dict(..),(:-)(..),(\\),trans,weaken1)
 
-{--------------------------------------------------------------------
-    Type abbreviations
---------------------------------------------------------------------}
-
-infixl 7 :*
-infixl 6 :+
-infixr 1 :=>
-
-type Unit  = ()
-
-type (:*)  = (,)
-type (:+)  = Either
-type (:=>) = (->)
+import Misc
 
 {--------------------------------------------------------------------
     Constraint utilities
@@ -69,11 +58,52 @@ infixl 1 <+
     Constraints with consequences
 --------------------------------------------------------------------}
 
+#if 0
+
 -- Constraint consequences
 type family Conseq c a :: Constraint where
+  Conseq c (p,q,r)  = (c p, c q, c r)
+  Conseq c (p,q,r,s) = (c p, c q, c r, c s)
   Conseq c (a :* b) = (c a, c b)
   Conseq c (a :+ b) = (c a, c b)
   Conseq c t        = ()
+
+#else
+
+-- Open type family
+
+-- Constraint consequences
+type family Conseq (c :: u -> Constraint) (a :: u) :: Constraint
+
+type instance Conseq c (p :* q) = (c p, c q)
+type instance Conseq c (p :+ q) = (c p, c q)
+
+-- Others
+
+type instance Conseq c (p,q,r)  = (c p, c q, c r)
+type instance Conseq c (p,q,r,s) = (c p, c q, c r, c s)
+
+#define ScalarType(t) type instance Conseq c (t) = ()
+
+ScalarType(())
+ScalarType(Int)
+ScalarType(Integer)
+ScalarType(Float)
+ScalarType(Double)
+ScalarType(CSChar)
+ScalarType(CInt)
+ScalarType(CShort)
+ScalarType(CLong)
+ScalarType(CLLong)
+ScalarType(CIntMax)
+ScalarType(CDouble)
+ScalarType(CFloat)
+-- etc
+
+instance (c p, c q, c r     ) => HasConseq c (p,q,r  ) where conseq = Sub Dict
+instance (c p, c q, c r, c s) => HasConseq c (p,q,r,s) where conseq = Sub Dict
+
+#endif
 
 -- TODO: Try recursively adding consequences
 
@@ -121,6 +151,11 @@ exProdL = firstC  exProd `trans` exProd
 exProdR :: forall con a b c. ProdCon con => con (a,(b,c)) :- (con a,(con b,con c))
 exProdR = secondC exProd `trans` exProd
 
+instance ProdCon Yes where
+  unit   = Sub Dict
+  inProd = Sub Dict
+  exProd = Sub Dict
+
 {--------------------------------------------------------------------
     Category classes
 --------------------------------------------------------------------}
@@ -139,6 +174,18 @@ class Category (k :: u -> u -> *) where
   id  :: Ok k a => a `k` a
   (.) :: b `k` c -> a `k` b -> a `k` c
 
+infixl 1 <~
+infixr 1 ~>
+-- | Add post- and pre-processing
+(<~) :: Category cat =>
+        (b `cat` b') -> (a' `cat` a) -> ((a `cat` b) -> (a' `cat` b'))
+(h <~ f) g = h . g . f
+
+-- | Add pre- and post-processing
+(~>) :: Category cat =>
+        (a' `cat` a) -> (b `cat` b') -> ((a `cat` b) -> (a' `cat` b'))
+f ~> h = h <~ f
+
 -- Ok wrapper, avoiding non-injectivity issue
 newtype OD k a = OD (Dict (Ok k a))
 
@@ -151,9 +198,6 @@ pattern Okay = OD Dict
 -- #define OKAY Okay
 
 #define OK (okay -> OKAY2)
-
-class    Yes a
-instance Yes a
 
 instance Category (->) where
   id  = P.id
@@ -193,6 +237,20 @@ class (ProdCon (Ok k), Category k) => ProductCat k where
 --     <+ (inProd :: (Ok k b, Ok k c) :- Ok k (b :* c))
 --   rassocP =  (exl . exl) &&& first  exr
 --     <+ (inProd :: (Ok k a, Ok k b) :- Ok k (a :* b))
+
+instance ProductCat (->) where
+  exl        = fst
+  exr        = snd
+  (&&&)      = (A.&&&)
+  (***)      = (A.***)
+  first      = A.first
+  second     = A.second
+  lassocP    = \ (a,(b,c)) -> ((a,b),c)
+  rassocP    = \ ((a,b),c) -> (a,(b,c))
+  
+-- | Apply to both parts of a product
+twiceP :: ProductCat k => (a `k` c) -> ((a :* a) `k` (c :* c))
+twiceP f = f *** f
 
 -- | Operate on left-associated form
 inLassocP :: forall a b c a' b' c' k. ProductCat k =>
