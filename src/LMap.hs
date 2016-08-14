@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -Wall #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeOperators #-}
@@ -8,6 +7,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE CPP #-}
 
 {-# OPTIONS_GHC -Wall #-}
@@ -28,30 +28,19 @@ import ConCat
 import Ring
 import Basis
 
-class    (Ring u, HasBasis u, HasTrie (Basis u)) => OkL u
-instance (Ring u, HasBasis u, HasTrie (Basis u)) => OkL u
+class    (Ring u, Scalar u ~ s, HasBasis u, HasTrie (Basis u)) => OkL s u
+instance (Ring u, Scalar u ~ s, HasBasis u, HasTrie (Basis u)) => OkL s u
 
 type LMap' u v = Basis u :->: v
 
 -- | Linear map, represented as an optional memo-trie from basis to
 -- values
-data u :-* v = (OkL u, OkL v) => LMap { unLMap :: LMap' u v }
+data LMap s u v = (OkL s u, OkL s v) => LMap { unLMap :: LMap' u v }
 
-inLMap :: (OkL t, OkL u) =>
-          (LMap' r s -> LMap' t u) -> ((r :-* s) -> (t :-* u))
-inLMap = unLMap ~> LMap
+-- scale1 :: LMap s s s
+-- scale1 = LMap (trie id)
 
 -- The OkL constraints on u & v allow okay to work.
-
-inLMap2 :: (OkL v, OkL w) =>
-           (LMap' r s -> LMap' t u -> LMap' v w)
-        -> ((r :-* s) -> (t :-* u) -> (v :-* w))
-inLMap2 = unLMap ~> inLMap
-
-inLMap3 :: (OkL x, OkL y) =>
-           (LMap' r s -> LMap' t u -> LMap' v w -> LMap' x y)
-        -> ((r :-* s) -> (t :-* u) -> (v :-* w) -> (x :-* y))
-inLMap3 = unLMap ~> inLMap2
 
 -- deriving instance (HasTrie (Basis u), AdditiveGroup v) => AdditiveGroup (u :-* v)
 
@@ -61,18 +50,18 @@ inLMap3 = unLMap ~> inLMap2
 --   (*^) s = fmap (s *^)
 
 -- | Function (assumed linear) as linear map.
-linear :: (OkL u, OkL v) => (u -> v) -> (u :-* v)
+linear :: (OkL s u, OkL s v) => (u -> v) -> LMap s u v
 linear f = LMap (trie (f . basisValue))
 
 -- | Apply a linear map to a vector.
-lapply :: (OkL u, OkL v, Scalar u ~ Scalar v) =>
-          (u :-* v) -> (u -> v)
+lapply :: (OkL s u, OkL s v) =>
+          LMap s u v -> (u -> v)
 lapply (LMap tr) = linearCombo . fmap (first (untrie tr)) . decompose
 
 -- | Compose linear maps
-(*.*) :: (OkL v, OkL w, Functor ((:-*) u), Scalar v ~ Scalar w) =>
-         (v :-* w) -> (u :-* v) -> (u :-* w)
-(*.*) vw = fmap (lapply vw)
+(*.*) :: (OkL s v, OkL s w) =>
+         LMap s v w -> LMap s u v -> LMap s u w
+vw *.* LMap uv = LMap (trie (lapply vw . untrie uv))
 
 
 {--------------------------------------------------------------------
@@ -82,9 +71,14 @@ lapply (LMap tr) = linearCombo . fmap (first (untrie tr)) . decompose
 #define OKAY OD Dict
 #define OKAY2 (OKAY,OKAY)
 
-instance Category (:-*) where
-  type Ok (:-*) = OkL
+#define OK (okay -> OKAY2)
+
+instance Category (LMap s) where
+  type Ok (LMap s) = OkL s
   okay (LMap _) = OKAY2
   id = linear id   
---   (.) = inLMap2 (*.*)
-  -- LMap g . LMap f = LMap (g *.* f)
+  vw@OK . uv@OK = vw *.* uv
+
+--   vw@OK . uv@OK = LMap (trie (lapply vw . untrie (unLMap uv)))
+
+-- Oh!! Can I move @OK into (.) and all other methods that take arrows?
