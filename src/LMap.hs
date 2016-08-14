@@ -26,11 +26,11 @@ import Data.MemoTrie      (HasTrie(..),(:->:))
 import Data.AdditiveGroup (Sum(..), AdditiveGroup(..))
 
 import ConCat
-import Ring
+import Module
 import Basis
 
-class    (Ring u, Scalar u ~ s, HasBasis u, HasTrie (Basis u)) => OkL s u
-instance (Ring u, Scalar u ~ s, HasBasis u, HasTrie (Basis u)) => OkL s u
+class    (Module u, Scalar u ~ s, HasBasis u, HasTrie (Basis u)) => OkL s u
+instance (Module u, Scalar u ~ s, HasBasis u, HasTrie (Basis u)) => OkL s u
 
 type LMap' u v = Basis u :->: v
 
@@ -60,7 +60,7 @@ instance (OkL s u, OkL s v) => AdditiveGroup (LMap s u v) where
   (^+^)   = inLMap2 (^+^)
   negateV = inLMap negateV
 
-instance (OkL s u, OkL s v) => Ring (LMap s u v) where
+instance (OkL s u, OkL s v) => Module (LMap s u v) where
   type Scalar (LMap s u v) = Scalar v
   s *^ m = m . scaleL s
 

@@ -23,9 +23,9 @@ import Foreign.C.Types (CFloat, CDouble)
 
 import Data.AdditiveGroup
 
-import Ring
+import Module
 
-class Ring v => HasBasis v where
+class Module v => HasBasis v where
   -- | Representation of the canonical basis for @v@
   type Basis v :: *
   -- | Interpret basis rep as a vector

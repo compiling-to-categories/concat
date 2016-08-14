@@ -8,7 +8,7 @@
 
 -- | Linear maps as constrained category
 
-module Ring where
+module Module where
 
 import Prelude hiding (id,(.))
 import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
@@ -23,7 +23,7 @@ import ConCat
 infixr 7 *^
 
 -- | Vector space @v@.
-class AdditiveGroup v => Ring v where
+class AdditiveGroup v => Module v where
   type Scalar v :: *
   -- | Scale a vector
   (*^) :: Scalar v -> v -> v
@@ -31,7 +31,7 @@ class AdditiveGroup v => Ring v where
 infixr 7 <.>
 
 -- | Adds inner (dot) products.
-class (Ring v, AdditiveGroup (Scalar v)) => InnerSpace v where
+class (Module v, AdditiveGroup (Scalar v)) => InnerSpace v where
   -- | Inner/dot product
   (<.>) :: v -> v -> Scalar v
 
@@ -39,21 +39,21 @@ infixr 7 ^/
 infixl 7 ^*
 
 -- | Vector divided by scalar
-(^/) :: (Ring v, s ~ Scalar v, Fractional s) => v -> s -> v
+(^/) :: (Module v, s ~ Scalar v, Fractional s) => v -> s -> v
 v ^/ s = (1/s) *^ v
 
 -- | Vector multiplied by scalar
-(^*) :: (Ring v, s ~ Scalar v) => v -> s -> v
+(^*) :: (Module v, s ~ Scalar v) => v -> s -> v
 (^*) = flip (*^)
 
 -- | Linear interpolation between @a@ (when @t==0@) and @b@ (when @t==1@).
 
--- lerp :: (Ring v, s ~ Scalar v, Num s) => v -> v -> s -> v
-lerp :: Ring v => v -> v -> Scalar v -> v
+-- lerp :: (Module v, s ~ Scalar v, Num s) => v -> v -> s -> v
+lerp :: Module v => v -> v -> Scalar v -> v
 lerp a b t = a ^+^ t *^ (b ^-^ a)
 
 -- | Linear combination of vectors
-linearCombo :: Ring v => [(v,Scalar v)] -> v
+linearCombo :: Module v => [(v,Scalar v)] -> v
 linearCombo ps = sumV [v ^* s | (v,s) <- ps]
 
 -- | Square of the length of a vector.  Sometimes useful for efficiency.
@@ -75,7 +75,7 @@ project :: (InnerSpace v, s ~ Scalar v, Fractional s) => v -> v -> v
 project u v = ((v <.> u) / magnitudeSq u) *^ u
 
 #define ScalarType(t) \
-  instance Ring (t) where \
+  instance Module (t) where \
     { type Scalar t = (t) \
     ; (*^) = (*) } ; \
   instance InnerSpace (t) where (<.>) = (*)
@@ -93,12 +93,12 @@ ScalarType(CIntMax)
 ScalarType(CDouble)
 ScalarType(CFloat)
 
-instance Integral a => Ring (Ratio a) where
+instance Integral a => Module (Ratio a) where
   type Scalar (Ratio a) = Ratio a
   (*^) = (*)
 instance Integral a => InnerSpace (Ratio a) where (<.>) = (*)
 
--- instance (RealFloat v, Ring v) => Ring (Complex v) where
+-- instance (RealFloat v, Module v) => Module (Complex v) where
 --   type Scalar (Complex v) = Scalar v
 --   s*^(u :+ v) = s*^u :+ s*^v
 
@@ -106,9 +106,9 @@ instance Integral a => InnerSpace (Ratio a) where (<.>) = (*)
 --      => InnerSpace (Complex v) where
 --   (u :+ v) <.> (u' :+ v') = (u <.> u') ^+^ (v <.> v')
 
-instance ( Ring u, s ~ Scalar u
-         , Ring v, s ~ Scalar v )
-      => Ring (u,v) where
+instance ( Module u, s ~ Scalar u
+         , Module v, s ~ Scalar v )
+      => Module (u,v) where
   type Scalar (u,v) = Scalar u
   s *^ (u,v) = (s*^u,s*^v)
 
@@ -117,10 +117,10 @@ instance ( InnerSpace u, s ~ Scalar u
     => InnerSpace (u,v) where
   (u,v) <.> (u',v') = (u <.> u') ^+^ (v <.> v')
 
-instance ( Ring u, s ~ Scalar u
-         , Ring v, s ~ Scalar v
-         , Ring w, s ~ Scalar w )
-    => Ring (u,v,w) where
+instance ( Module u, s ~ Scalar u
+         , Module v, s ~ Scalar v
+         , Module w, s ~ Scalar w )
+    => Module (u,v,w) where
   type Scalar (u,v,w) = Scalar u
   s *^ (u,v,w) = (s*^u,s*^v,s*^w)
 
@@ -130,11 +130,11 @@ instance ( InnerSpace u, s ~ Scalar u
     => InnerSpace (u,v,w) where
   (u,v,w) <.> (u',v',w') = u<.>u' ^+^ v<.>v' ^+^ w<.>w'
 
-instance ( Ring u, s ~ Scalar u
-         , Ring v, s ~ Scalar v
-         , Ring w, s ~ Scalar w
-         , Ring x, s ~ Scalar x )
-    => Ring (u,v,w,x) where
+instance ( Module u, s ~ Scalar u
+         , Module v, s ~ Scalar v
+         , Module w, s ~ Scalar w
+         , Module x, s ~ Scalar x )
+    => Module (u,v,w,x) where
   type Scalar (u,v,w,x) = Scalar u
   s *^ (u,v,w,x) = (s*^u,s*^v,s*^w,s*^x)
 
