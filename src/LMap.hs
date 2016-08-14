@@ -37,6 +37,10 @@ type LMap' u v = Basis u :->: v
 -- values
 data LMap s u v = (OkL s u, OkL s v) => LMap { unLMap :: LMap' u v }
 
+inLMap :: (OkL s c, OkL s d) =>
+          (LMap' a b -> LMap' c d) -> (LMap s a b -> LMap s c d)
+inLMap h (LMap ab) = LMap (h ab)
+
 -- scale1 :: LMap s s s
 -- scale1 = LMap (trie id)
 
@@ -64,5 +68,11 @@ lapply (LMap tr) = linearCombo . fmap (first (untrie tr)) . decompose
 
 instance Category (LMap s) where
   type Ok (LMap s) = OkL s
-  id = linear id   
-  vw . LMap uv = LMap (lapply vw <$> uv)
+  id  = linear id   
+  (.) = inLMap . fmap . lapply
+
+-- Alternatively,
+-- 
+--   vw . LMap uv = LMap (lapply vw <$> uv)
+--
+--   (.) vw = inLMap (fmap (lapply vw))
