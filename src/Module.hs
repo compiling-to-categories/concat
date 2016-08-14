@@ -4,7 +4,6 @@
 {-# LANGUAGE CPP #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
 
 -- | Linear maps as constrained category
 
@@ -17,7 +16,6 @@ import Data.Ratio
 
 import Data.AdditiveGroup
 
-import Misc
 import ConCat
 
 infixr 7 *^

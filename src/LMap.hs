@@ -12,7 +12,6 @@
 {-# LANGUAGE CPP #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
 
 -- | Linear maps as constrained category
 
@@ -20,10 +19,8 @@ module LMap where
 
 import Prelude hiding (id,(.))
 
-import Data.Constraint
-
 import Data.MemoTrie      (HasTrie(..),(:->:))
-import Data.AdditiveGroup (Sum(..), AdditiveGroup(..))
+import Data.AdditiveGroup (AdditiveGroup(..))
 
 import ConCat
 import Module

@@ -13,8 +13,6 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
--- {-# OPTIONS_GHC -fno-warn-unused-imports #-}
-
 -- | Constrained categories
 
 module ConCat where
