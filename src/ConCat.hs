@@ -1,21 +1,15 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DefaultSignatures #-}
--- {-# LANGUAGE TypeFamilyDependencies #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -286,12 +280,11 @@ inLassocP :: forall k a b c a' b' c'.
              (Ok k a, Ok k b, Ok k c, Ok k a', Ok k b', Ok k c') =>
              (((a :* b) :* c) `k` ((a' :* b') :* c'))
           -> ((a :* (b :* c)) `k` (a' :* (b' :* c')))
-inLassocP f =
-  rassocP . f . lassocP
-    <+ inProdL @(Ok k) @a  @b  @c
-    <+ inProdL @(Ok k) @a' @b' @c'
-    <+ inProdR @(Ok k) @a  @b  @c
-    <+ inProdR @(Ok k) @a' @b' @c'
+inLassocP = rassocP <~ lassocP
+              <+ inProdL @(Ok k) @a  @b  @c
+              <+ inProdL @(Ok k) @a' @b' @c'
+              <+ inProdR @(Ok k) @a  @b  @c
+              <+ inProdR @(Ok k) @a' @b' @c'
 
 -- | Operate on right-associated form
 inRassocP :: forall a b c a' b' c' k.
@@ -299,9 +292,8 @@ inRassocP :: forall a b c a' b' c' k.
              (Ok k a, Ok k b, Ok k c, Ok k a', Ok k b', Ok k c') =>
              ((a :* (b :* c)) `k` (a' :* (b' :* c')))
           -> (((a :* b) :* c) `k` ((a' :* b') :* c'))
-inRassocP f =
-  lassocP . f . rassocP
-    <+ inProdL @(Ok k) @a  @b  @c
-    <+ inProdL @(Ok k) @a' @b' @c'
-    <+ inProdR @(Ok k) @a  @b  @c
-    <+ inProdR @(Ok k) @a' @b' @c'
+inRassocP = lassocP <~ rassocP
+              <+ inProdL @(Ok k) @a  @b  @c
+              <+ inProdL @(Ok k) @a' @b' @c'
+              <+ inProdR @(Ok k) @a  @b  @c
+              <+ inProdR @(Ok k) @a' @b' @c'
