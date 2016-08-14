@@ -21,11 +21,10 @@ import Data.Ratio
 import Foreign.C.Types (CFloat, CDouble)
 -- import Data.Either
 
-import Data.AdditiveGroup
+import Additive
+import Semimodule
 
-import Module
-
-class Module v => HasBasis v where
+class Semimodule v => HasBasis v where
   -- | Representation of the canonical basis for @v@
   type Basis v :: *
   -- | Interpret basis rep as a vector
@@ -71,8 +70,8 @@ instance ( HasBasis u, s ~ Scalar u
          , HasBasis v, s ~ Scalar v )
       => HasBasis (u,v) where
   type Basis (u,v)     = Basis u `Either` Basis v
-  basisValue (Left  a) = (basisValue a, zeroV)
-  basisValue (Right b) = (zeroV, basisValue b)
+  basisValue (Left  a) = (basisValue a, zero)
+  basisValue (Right b) = (zero, basisValue b)
   decompose  (u,v)     = decomp2 Left u ++ decomp2 Right v
   decompose' (u,v)     = decompose' u `either` decompose' v
 

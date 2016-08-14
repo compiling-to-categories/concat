@@ -20,10 +20,10 @@ module LMap where
 import Prelude hiding (id,(.))
 
 import Data.MemoTrie      (HasTrie(..),(:->:))
-import Data.AdditiveGroup (AdditiveGroup(..))
 
 import ConCat
-import Module
+import Additive
+import Semimodule
 import Basis
 
 class    (Mod s u, HasBasis u, HasTrie (Basis u)) => OkL s u
@@ -44,7 +44,7 @@ inLMap2 :: (OkL s e, OkL s f) =>
         -> (LMap s a b -> LMap s c d -> LMap s e f)
 inLMap2 h (LMap ab) (LMap cd) = LMap (h ab cd)
 
--- | Function (assumed linear) as linear map.
+-- | Function (assumed linear) as linear map. Only sampled on basis.
 linear :: (OkL s u, OkL s v) => (u -> v) -> LMap s u v
 linear f = LMap (trie (f . basisValue))
 
@@ -52,12 +52,11 @@ linear f = LMap (trie (f . basisValue))
 lapply :: (OkL s u, OkL s v) => LMap s u v -> (u -> v)
 lapply (LMap tr) = linearCombo . fmap (first (untrie tr)) . decompose
 
-instance (OkL s u, OkL s v) => AdditiveGroup (LMap s u v) where
-  zeroV   = linear (const zeroV)
-  (^+^)   = inLMap2 (^+^)
-  negateV = inLMap negateV
+instance (OkL s u, OkL s v) => Additive (LMap s u v) where
+  zero  = linear zero
+  (^+^) = inLMap2 (^+^)
 
-instance (OkL s u, OkL s v) => Module (LMap s u v) where
+instance (OkL s u, OkL s v) => Semimodule (LMap s u v) where
   type Scalar (LMap s u v) = Scalar v
   s *^ m = m . scaleL s
 

@@ -6,63 +6,61 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
+{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+
 -- | Linear maps as constrained category
 
-module Module where
+module Semimodule where
 
-import Prelude hiding (id,(.))
 import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
 import Data.Ratio
 -- import Data.Complex hiding (magnitude)
 
-import Data.AdditiveGroup
-
-import ConCat
+import Additive
 
 infixr 7 *^
 
--- | Vector space @v@.
-class AdditiveGroup v => Module v where
+-- | A semimodule, which is like module, but over a semiring rather than a ring.
+class Additive v => Semimodule v where
   type Scalar v :: *
-  -- | Scale a vector
   (*^) :: Scalar v -> v -> v
 
 infixr 7 ^*^
 
 -- | Adds inner (dot) products.
-class (Module v, AdditiveGroup (Scalar v)) => InnerSpace v where
+class (Semimodule v, Additive (Scalar v)) => InnerSpace v where
   -- | Inner/dot product
   (^*^) :: v -> v -> Scalar v
 
-infixr 7 ^/
-infixl 7 ^*
-
--- Module over a given scalar type
-type Mod s u = (Module u, Scalar u ~ s)
+-- Semimodule over a given scalar type
+type Mod s u = (Semimodule u, Scalar u ~ s)
 
 -- Inner space over a given scalar type
 type Inner s u = (InnerSpace u, Scalar u ~ s)
+
+infixr 7 ^/
+infixl 7 ^*
 
 -- | Vector divided by scalar
 (^/) :: (Mod s v, Fractional s) => v -> s -> v
 v ^/ s = (1/s) *^ v
 
 -- | Vector multiplied by scalar
-(^*) :: (Mod s v) => v -> s -> v
+(^*) :: Mod s v => v -> s -> v
 (^*) = flip (*^)
 
 -- | Linear interpolation between @a@ (when @t==0@) and @b@ (when @t==1@).
 
-lerp :: Module v => v -> v -> Scalar v -> v
-lerp a b t = a ^+^ t *^ (b ^-^ a)
+-- lerp :: Semimodule v => v -> v -> Scalar v -> v
+-- lerp a b t = a ^+^ t *^ (b ^-^ a)
 
 -- | Linear combination of vectors
-linearCombo :: Module v => [(v,Scalar v)] -> v
-linearCombo ps = sumV [v ^* s | (v,s) <- ps]
+linearCombo :: Semimodule v => [(v,Scalar v)] -> v
+linearCombo ps = add [v ^* s | (v,s) <- ps]
 
 -- | Square of the length of a vector.  Sometimes useful for efficiency.
 -- See also 'magnitude'.
-magnitudeSq :: (Inner s v) => v -> s
+magnitudeSq :: Inner s v => v -> s
 magnitudeSq v = v ^*^ v
 
 -- | Length of a vector.   See also 'magnitudeSq'.
@@ -79,7 +77,7 @@ project :: (Inner s v, Fractional s) => v -> v -> v
 project u v = ((v ^*^ u) / magnitudeSq u) *^ u
 
 #define ScalarType(t) \
-  instance Module (t) where \
+  instance Semimodule (t) where \
     { type Scalar t = (t) \
     ; (*^) = (*) } ; \
   instance InnerSpace (t) where (^*^) = (*)
@@ -97,12 +95,12 @@ ScalarType(CIntMax)
 ScalarType(CDouble)
 ScalarType(CFloat)
 
-instance Integral a => Module (Ratio a) where
+instance Integral a => Semimodule (Ratio a) where
   type Scalar (Ratio a) = Ratio a
   (*^) = (*)
 instance Integral a => InnerSpace (Ratio a) where (^*^) = (*)
 
--- instance (RealFloat v, Module v) => Module (Complex v) where
+-- instance (RealFloat v, Semimodule v) => Semimodule (Complex v) where
 --   type Scalar (Complex v) = Scalar v
 --   s*^(u :+ v) = s*^u :+ s*^v
 
@@ -110,24 +108,25 @@ instance Integral a => InnerSpace (Ratio a) where (^*^) = (*)
 --      => InnerSpace (Complex v) where
 --   (u :+ v) ^*^ (u' :+ v') = (u ^*^ u') ^+^ (v ^*^ v')
 
-instance (Mod s u, Mod s v) => Module (u,v) where
+instance (Mod s u, Mod s v) => Semimodule (u,v) where
   type Scalar (u,v) = Scalar u
   s *^ (u,v) = (s*^u,s*^v)
 
 instance (Inner s u, Inner s v) => InnerSpace (u,v) where
   (u,v) ^*^ (u',v') = (u ^*^ u') ^+^ (v ^*^ v')
 
-instance (Mod s u, Mod s v, Mod s w) => Module (u,v,w) where
+instance (Mod s u, Mod s v, Mod s w) => Semimodule (u,v,w) where
   type Scalar (u,v,w) = Scalar u
   s *^ (u,v,w) = (s*^u,s*^v,s*^w)
 
 instance (Inner s u, Inner s v, Inner s w) => InnerSpace (u,v,w) where
   (u,v,w) ^*^ (u',v',w') = u^*^u' ^+^ v^*^v' ^+^ w^*^w'
 
-instance (Mod s u, Mod s v, Mod s w, Mod s x) => Module (u,v,w,x) where
+instance (Mod s u, Mod s v, Mod s w, Mod s x) => Semimodule (u,v,w,x) where
   type Scalar (u,v,w,x) = Scalar u
   s *^ (u,v,w,x) = (s*^u,s*^v,s*^w,s*^x)
 
 instance (Inner s u, Inner s v, Inner s w, Inner s x)
       => InnerSpace (u,v,w,x) where
   (u,v,w,x) ^*^ (u',v',w',x') = u^*^u' ^+^ v^*^v' ^+^ w^*^w' ^+^ x^*^x'
+
