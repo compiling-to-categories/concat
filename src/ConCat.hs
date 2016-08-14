@@ -60,6 +60,11 @@ firstC f = Sub (Dict \\ f)
 secondC :: (c :- d) -> ((a,c) :- (a,d))
 secondC g = Sub (Dict \\ g)
 
+infixl 1 <+
+-- | Synonym for '(\\)'
+(<+) :: a => (b => r) -> (a :- b) -> r
+(<+) = (\\)
+
 {--------------------------------------------------------------------
     Constraints with consequences
 --------------------------------------------------------------------}
@@ -176,18 +181,18 @@ class (ProdCon (Ok k), Category k) => ProductCat k where
   second =  (id ***)
   lassocP :: forall a b c. (Ok k a, Ok k b, Ok k c)
           => (a :* (b :* c)) `k` ((a :* b) :* c)
-  lassocP = second exl &&& (exr . exr) \\ inProd @(Ok k) @b @c
+  lassocP = second exl &&& (exr . exr) <+ inProd @(Ok k) @b @c
   rassocP :: forall a b c. (Ok k a, Ok k b, Ok k c)
           => ((a :* b) :* c) `k` (a :* (b :* c))
-  rassocP =  (exl . exl) &&& first  exr \\ inProd @(Ok k) @a @b
+  rassocP =  (exl . exl) &&& first  exr <+ inProd @(Ok k) @a @b
   {-# MINIMAL exl, exr, ((&&&) | ((***), dup)) #-}
 
 -- Alternatively:
 -- 
 --   lassocP = second exl &&& (exr . exr)
---     \\ (inProd :: (Ok k b, Ok k c) :- Ok k (b :* c))
+--     <+ (inProd :: (Ok k b, Ok k c) :- Ok k (b :* c))
 --   rassocP =  (exl . exl) &&& first  exr
---     \\ (inProd :: (Ok k a, Ok k b) :- Ok k (a :* b))
+--     <+ (inProd :: (Ok k a, Ok k b) :- Ok k (a :* b))
 
 -- | Operate on left-associated form
 inLassocP :: forall a b c a' b' c' k. ProductCat k =>
@@ -195,18 +200,18 @@ inLassocP :: forall a b c a' b' c' k. ProductCat k =>
           -> ((a :* (b :* c)) `k` (a' :* (b' :* c')))
 inLassocP f@OK =
   rassocP . f . lassocP
-    \\ exProdL @(Ok k) @a  @b  @c
-    \\ exProdL @(Ok k) @a' @b' @c'
+    <+ exProdL @(Ok k) @a  @b  @c
+    <+ exProdL @(Ok k) @a' @b' @c'
 
 -- Equivalently,
 -- 
---     \\ firstC (exProd @(Ok k) @a  @b ) `trans` (exProd @(Ok k) @(a  :* b ) @c )
---     \\ firstC (exProd @(Ok k) @a' @b') `trans` (exProd @(Ok k) @(a' :* b') @c')
+--     <+ firstC (exProd @(Ok k) @a  @b ) `trans` (exProd @(Ok k) @(a  :* b ) @c )
+--     <+ firstC (exProd @(Ok k) @a' @b') `trans` (exProd @(Ok k) @(a' :* b') @c')
 -- Or
---     \\ exProd @(Ok k) @a @b
---     \\ exProd @(Ok k) @(a  :* b ) @c
---     \\ exProd @(Ok k) @a' @b'
---     \\ exProd @(Ok k) @(a' :* b') @c'
+--     <+ exProd @(Ok k) @a @b
+--     <+ exProd @(Ok k) @(a  :* b ) @c
+--     <+ exProd @(Ok k) @a' @b'
+--     <+ exProd @(Ok k) @(a' :* b') @c'
 
 -- | Operate on right-associated form
 inRassocP :: forall a b c a' b' c' k. ProductCat k =>
@@ -214,5 +219,5 @@ inRassocP :: forall a b c a' b' c' k. ProductCat k =>
           -> (((a :* b) :* c) `k` ((a' :* b') :* c'))
 inRassocP f@OK =
   lassocP . f . rassocP
-    \\ exProdR @(Ok k) @a  @b  @c
-    \\ exProdR @(Ok k) @a' @b' @c'
+    <+ exProdR @(Ok k) @a  @b  @c
+    <+ exProdR @(Ok k) @a' @b' @c'
