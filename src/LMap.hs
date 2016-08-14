@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeOperators #-}
@@ -41,26 +42,37 @@ inLMap :: (OkL s c, OkL s d) =>
           (LMap' a b -> LMap' c d) -> (LMap s a b -> LMap s c d)
 inLMap h (LMap ab) = LMap (h ab)
 
--- scale1 :: LMap s s s
--- scale1 = LMap (trie id)
+inLMap2 :: (OkL s c, OkL s d, OkL s e, OkL s f) =>
+           (LMap' a b -> LMap' c d -> LMap' e f)
+        -> (LMap s a b -> LMap s c d -> LMap s e f)
+inLMap2 h (LMap ab) (LMap cd) = LMap (h ab cd)
 
 -- The OkL constraints on u & v allow okay to work.
 
 -- deriving instance (HasTrie (Basis u), AdditiveGroup v) => AdditiveGroup (u :-* v)
-
--- instance (HasTrie (Basis u), OkL v) =>
---          OkL (u :-* v) where
---   type Scalar (u :-* v) = Scalar v
---   (*^) s = fmap (s *^)
 
 -- | Function (assumed linear) as linear map.
 linear :: (OkL s u, OkL s v) => (u -> v) -> LMap s u v
 linear f = LMap (trie (f . basisValue))
 
 -- | Apply a linear map to a vector.
-lapply :: (OkL s u, OkL s v) =>
-          LMap s u v -> (u -> v)
+lapply :: (OkL s u, OkL s v) => LMap s u v -> (u -> v)
 lapply (LMap tr) = linearCombo . fmap (first (untrie tr)) . decompose
+
+instance (OkL s u, OkL s v) => AdditiveGroup (LMap s u v) where
+  zeroV   = linear (const zeroV)
+  (^+^)   = inLMap2 (^+^)
+  negateV = inLMap negateV
+
+instance (OkL s u, OkL s v) => Ring (LMap s u v) where
+  type Scalar (LMap s u v) = Scalar v
+  s *^ m = m . scaleL s
+
+scaleL :: OkL s u => s -> LMap s u u
+scaleL = linear . (*^)
+
+type instance Conseq c (LMap s u v) = (c u, c v)
+instance (c u, c v) => HasConseq c (LMap s u v) where conseq = Sub Dict
 
 {--------------------------------------------------------------------
     Category instances
@@ -71,8 +83,6 @@ instance Category (LMap s) where
   id  = linear id   
   (.) = inLMap . fmap . lapply
 
--- Alternatively,
--- 
 --   vw . LMap uv = LMap (lapply vw <$> uv)
 --
 --   (.) vw = inLMap (fmap (lapply vw))
