@@ -13,7 +13,7 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
-{-# OPTIONS_GHC -fno-warn-unused-imports #-}
+-- {-# OPTIONS_GHC -fno-warn-unused-imports #-}
 
 -- | Constrained categories
 
@@ -21,8 +21,6 @@ module ConCat where
 
 import Prelude hiding (id,(.))
 import qualified Prelude as P
-import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
-import Data.Ratio
 import qualified Control.Arrow as A
 
 import GHC.Types (Constraint)
