@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE InstanceSigs #-}
@@ -18,6 +19,8 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
+{-# OPTIONS_GHC -fno-warn-unused-imports #-}
+
 -- | Constrained categories
 
 module ConCat where
@@ -28,12 +31,11 @@ import qualified Prelude as P
 import qualified Control.Arrow as A
 
 import GHC.Types (Constraint)
--- import Data.Proxy
 
-import Data.Constraint (Dict(..),(:-)(..))
+import Data.Constraint (Dict(..),(:-)(..),(\\),trans,weaken1)
 
 {--------------------------------------------------------------------
-    Misc
+    Type abbreviations
 --------------------------------------------------------------------}
 
 infixl 7 :*
@@ -45,6 +47,74 @@ type Unit  = ()
 type (:*)  = (,)
 type (:+)  = Either
 type (:=>) = (->)
+
+{--------------------------------------------------------------------
+    Constraint utilities
+--------------------------------------------------------------------}
+
+-- first for entailment
+firstC :: (a :- b) -> ((a,c) :- (b,c))
+firstC f = Sub (Dict \\ f)
+
+-- second for entailment
+secondC :: (c :- d) -> ((a,c) :- (a,d))
+secondC g = Sub (Dict \\ g)
+
+{--------------------------------------------------------------------
+    Constraints with consequences
+--------------------------------------------------------------------}
+
+-- Constraint consequences
+type family Conseq c a :: Constraint where
+  Conseq c (a :* b) = (c a, c b)
+  Conseq c (a :+ b) = (c a, c b)
+  Conseq c t        = ()
+
+-- TODO: Try recursively adding consequences
+
+-- Constraints with consequences
+class HasConseq c (a :: *) where
+  conseq :: c a :- Conseq c a
+  default conseq :: c a :- ()
+  conseq = Sub Dict
+
+instance (c a, c b) => HasConseq c (a :* b) where conseq = Sub Dict
+instance (c a, c b) => HasConseq c (a :+ b) where conseq = Sub Dict
+
+#if 1
+-- Example: values with sizes
+
+class HasConseq Sizable a => Sizable (a :: *) where
+  size :: a -> Int
+  
+instance HasConseq Sizable ()
+instance Sizable () where size _ = 0
+
+instance HasConseq Sizable Int
+instance Sizable Int where size _ = 1
+
+instance (Sizable a, Sizable b) => Sizable (a :* b) where
+  size (a,b) = size a + size b
+
+instance (Sizable a, Sizable b) => Sizable (a :+ b) where
+  size = size `either` size
+
+#endif
+
+{--------------------------------------------------------------------
+    Constraints with product consequences
+--------------------------------------------------------------------}
+
+class ProdCon (con :: * -> Constraint) where
+  unit   :: () :- con ()
+  inProd :: (con a, con b) :- con (a :* b)
+  exProd :: con (a :* b) :- (con a, con b)
+
+exProdL :: forall con a b c. ProdCon con => con ((a,b),c) :- ((con a,con b),con c)
+exProdL = firstC  exProd `trans` exProd
+
+exProdR :: forall con a b c. ProdCon con => con (a,(b,c)) :- (con a,(con b,con c))
+exProdR = secondC exProd `trans` exProd
 
 {--------------------------------------------------------------------
     Category classes
@@ -81,7 +151,6 @@ class    Yes a
 instance Yes a
 
 instance Category (->) where
-  -- type Ok (->) a = ()
   id  = P.id
   (.) = (P..)
   okay = const OKAY2
@@ -91,9 +160,6 @@ infixr 3 ***, &&&
 -- | Category with product.
 -- TODO: Generalize '(:*)' to an associated type.
 class (ProdCon (Ok k), Category k) => ProductCat k where
-  okayUnit   :: OD k ()
-  okayProd   :: (Ok k a, Ok k b) => OD k (a :* b)
-  okayUnProd :: Ok k (a :* b) => (OD k a, OD k b)
   exl :: (Ok k a, Ok k b) => (a :* b) `k` a
   exr :: (Ok k a, Ok k b) => (a :* b) `k` b
   dup :: Ok k a => a `k` (a :* a)
@@ -110,209 +176,43 @@ class (ProdCon (Ok k), Category k) => ProductCat k where
   second =  (id ***)
   lassocP :: forall a b c. (Ok k a, Ok k b, Ok k c)
           => (a :* (b :* c)) `k` ((a :* b) :* c)
-  lassocP | OKAY <- okayProd :: OD k (b :* c)
-          = second exl &&& (exr . exr)
+  lassocP = second exl &&& (exr . exr) \\ inProd @(Ok k) @b @c
   rassocP :: forall a b c. (Ok k a, Ok k b, Ok k c)
           => ((a :* b) :* c) `k` (a :* (b :* c))
-  rassocP | OKAY <- okayProd :: OD k (a :* b)
-          =  (exl . exl) &&& first  exr
-  {-# MINIMAL okayUnit, okayProd, okayUnProd
-            , exl, exr, ((&&&) | ((***), dup)) #-}
+  rassocP =  (exl . exl) &&& first  exr \\ inProd @(Ok k) @a @b
+  {-# MINIMAL exl, exr, ((&&&) | ((***), dup)) #-}
 
-instance ProductCat (->) where
-  okayUnit   = OKAY
-  okayProd   = OKAY
-  okayUnProd = OKAY2
-  exl        = fst
-  exr        = snd
-  (&&&)      = (A.&&&)
-  (***)      = (A.***)
-  first      = A.first
-  second     = A.second
-  lassocP    = \ (a,(b,c)) -> ((a,b),c)
-  rassocP    = \ ((a,b),c) -> (a,(b,c))
-  
--- | Apply to both parts of a product
-twiceP :: ProductCat k => (a `k` c) -> ((a :* a) `k` (c :* c))
-twiceP f = f *** f
+-- Alternatively:
+-- 
+--   lassocP = second exl &&& (exr . exr)
+--     \\ (inProd :: (Ok k b, Ok k c) :- Ok k (b :* c))
+--   rassocP =  (exl . exl) &&& first  exr
+--     \\ (inProd :: (Ok k a, Ok k b) :- Ok k (a :* b))
 
 -- | Operate on left-associated form
 inLassocP :: forall a b c a' b' c' k. ProductCat k =>
              (((a :* b) :* c) `k` ((a' :* b') :* c'))
           -> ((a :* (b :* c)) `k` (a' :* (b' :* c')))
-inLassocP f@OK | OKAY2 <- okayUnProd :: (OD k (a  :* b ), OD k c )
-               , OKAY2 <- okayUnProd :: (OD k (a' :* b'), OD k c')
-               , OKAY2 <- okayUnProd :: (OD k a , OD k b )
-               , OKAY2 <- okayUnProd :: (OD k a', OD k b')
-               = rassocP . f . lassocP
+inLassocP f@OK =
+  rassocP . f . lassocP
+    \\ exProdL @(Ok k) @a  @b  @c
+    \\ exProdL @(Ok k) @a' @b' @c'
 
--- | Operate on left-associated form
+-- Equivalently,
+-- 
+--     \\ firstC (exProd @(Ok k) @a  @b ) `trans` (exProd @(Ok k) @(a  :* b ) @c )
+--     \\ firstC (exProd @(Ok k) @a' @b') `trans` (exProd @(Ok k) @(a' :* b') @c')
+-- Or
+--     \\ exProd @(Ok k) @a @b
+--     \\ exProd @(Ok k) @(a  :* b ) @c
+--     \\ exProd @(Ok k) @a' @b'
+--     \\ exProd @(Ok k) @(a' :* b') @c'
+
+-- | Operate on right-associated form
 inRassocP :: forall a b c a' b' c' k. ProductCat k =>
              ((a :* (b :* c)) `k` (a' :* (b' :* c')))
           -> (((a :* b) :* c) `k` ((a' :* b') :* c'))
-inRassocP f@OK | OKAY2 <- okayUnProd :: (OD k a , OD k (b  :* c ))
-               , OKAY2 <- okayUnProd :: (OD k a', OD k (b' :* c'))
-               , OKAY2 <- okayUnProd :: (OD k b , OD k c )
-               , OKAY2 <- okayUnProd :: (OD k b', OD k c')
-               = lassocP . f . rassocP
-
--- TODO: bring over more of Circat.Category
-
-#if 1
--- Natural transformations
-newtype NT m n = NT (forall a. m a -> n a)
-
-instance Category NT where
-  -- type Ok NT a = ()
-  okay = const OKAY2
-  id = NT P.id
-  NT g . NT f = NT (g . f)
-#else
--- Natural transformations
-newtype NT k m n =
-  NT (forall a. (Ok k (m a), Ok k (n a)) => m a `k` n a)
-
-o :: forall k p q r. Category k => Proxy k -> NT k q r -> NT k p q -> NT k p r
-
--- NT (g@OK) `o` NT (f@OK) = NT (g . f)
-
--- Injectivity
-
-o Proxy (NT (g@OK)) (NT (f@OK)) = NT (g . f)
-
--- NT g `o` NT f = NT (g . f)
--- o Proxy (NT (g :: forall a. (Ok k (q a), Ok k (r a)) => q a `k` r a)) (NT (f :: forall a. (Ok k (p a), Ok k (q a)) => p a `k` q a)) = NT (g . f)
-
-instance Category k => Category (NT k) where
-  -- type Ok (NT k) a = ()
-  id = NT id
---   (.) :: NT k g h -> NT k f g -> NT k f h
---   (.) = o
-  -- NT g . NT f = NT (g . f)
-
---   okay = const OKAY2
-#endif
-
--- Experiment
-class ProdCon (con :: * -> Constraint) where
-  unitC  :: () :- con ()
-  joinC  :: (con a, con b) :- con (a :* b)
-  splitC :: con (a :* b) :- (con a, con b)
-
-instance ProdCon Yes where
-  unitC  = Sub Dict
-  joinC  = Sub Dict
-  splitC = Sub Dict
-
-class Foo (a :: *) where
-  type Conseq a :: Constraint
-  type Conseq a = ()
-  conseq :: Foo a :- Conseq a
-  default conseq :: Foo a :- ()
-  conseq = Sub Dict
-  size :: a -> Int              -- anything
-
-instance Foo () where
-  conseq = Sub Dict
-  size _ = 0
-
-instance Foo Int where
-  conseq = Sub Dict
-  size _ = 1
-
-instance (Foo a, Foo b) => Foo (a :* b) where
-  type Conseq (a :* b) = (Foo a, Foo b)
-  conseq = Sub Dict
-  size (a,b) = size a + size b
-
-instance ProdCon Foo where
-  unitC  = Sub Dict
-  joinC  = Sub Dict
-  splitC = Sub splitF
-
-splitF :: forall a b. Foo (a :* b) => Dict (Foo a, Foo b)
-splitF | Sub Dict <- conseq @(a :* b) = Dict
-
---------
-
-#if 0
-
-class Bar c (a :: *) where
-  type Conseq' c a :: Constraint
-  conseq' :: c a :- Conseq' c a
-  -- Defaults:
-  type Conseq' c a = ()
-  default conseq' :: c a :- ()
-  conseq' = Sub Dict
-
-class Bar Foo' a => Foo' (a :: *) where
-  size' :: a -> Int              -- anything
-
-instance Bar Foo' ()
-instance Foo' () where size' _ = 0
-
-instance Bar Foo' Int
-instance Foo' Int where size' _ = 1
-
-instance (Foo' a, Foo' b) => Bar Foo' (a :* b) where
-  type Conseq' Foo' (a :* b) = (Foo' a, Foo' b)
-  conseq' = Sub Dict
-
--- Can I make this instance into a Bar instance? Maybe make Conseq' into
--- a closed type family with instances for a :* b, a :+ b, and a :=> b,
--- and a default.
-
-instance (Foo' a, Foo' b) => Foo' (a :* b) where
-  size' (a,b) = size' a + size' b
-
-instance ProdCon Foo' where
-  unitC  = Sub Dict
-  joinC  = Sub Dict
---   splitC = Sub splitF'
-
-splitF' :: forall a b. Foo' (a :* b) => Dict (Foo' a, Foo' b)
-splitF' | Sub Dict <- conseq' @(a :* b) = Dict
-
-#else
-
-type family Conseq' c a :: Constraint where
-  Conseq' c (a :* b) = (c a, c b)
-  Conseq' c (a :+ b) = (c a, c b)
-  Conseq' c t        = ()
-
-class Bar c (a :: *) where
-  conseq' :: c a :- Conseq' c a
-  default conseq' :: c a :- ()
-  conseq' = Sub Dict
-
-instance (c a, c b) => Bar c (a :* b) where
-  conseq' = Sub Dict
-
-instance (c a, c b) => Bar c (a :+ b) where
-  conseq' = Sub Dict
-
--- class Bar Foo' a => Foo' (a :: *) where
---   size' :: a -> Int              -- anything
-
--- instance Bar Foo' ()
--- instance Foo' () where size' _ = 0
-
--- instance Bar Foo' Int
--- instance Foo' Int where size' _ = 1
-
--- -- Can I make this instance into a Bar instance? Maybe make Conseq' into
--- -- a closed type family with instances for a :* b, a :+ b, and a :=> b,
--- -- and a default.
-
--- instance (Foo' a, Foo' b) => Foo' (a :* b) where
---   size' (a,b) = size' a + size' b
-
--- instance ProdCon Foo' where
---   unitC  = Sub Dict
---   joinC  = Sub Dict
--- --   splitC = Sub splitF'
-
--- -- splitF' :: forall a b. Foo' (a :* b) => Dict (Foo' a, Foo' b)
--- -- splitF' | Sub Dict <- conseq' @(a :* b) = Dict
-
-#endif
+inRassocP f@OK =
+  lassocP . f . rassocP
+    \\ exProdR @(Ok k) @a  @b  @c
+    \\ exProdR @(Ok k) @a' @b' @c'
