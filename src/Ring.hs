@@ -23,7 +23,7 @@ import ConCat
 infixr 7 *^
 
 -- | Vector space @v@.
-class (HasConseq Ring v, AdditiveGroup v) => Ring v where
+class AdditiveGroup v => Ring v where
   type Scalar v :: *
   -- | Scale a vector
   (*^) :: Scalar v -> v -> v
@@ -75,7 +75,6 @@ project :: (InnerSpace v, s ~ Scalar v, Fractional s) => v -> v -> v
 project u v = ((v <.> u) / magnitudeSq u) *^ u
 
 #define ScalarType(t) \
-  instance HasConseq Ring (t) ; \
   instance Ring (t) where \
     { type Scalar t = (t) \
     ; (*^) = (*) } ; \
@@ -98,9 +97,6 @@ instance Integral a => Ring (Ratio a) where
   type Scalar (Ratio a) = Ratio a
   (*^) = (*)
 instance Integral a => InnerSpace (Ratio a) where (<.>) = (*)
-
-type instance Conseq Ring (Ratio a) = ()
-instance HasConseq Ring (Ratio a)
 
 -- instance (RealFloat v, Ring v) => Ring (Complex v) where
 --   type Scalar (Complex v) = Scalar v

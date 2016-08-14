@@ -42,14 +42,10 @@ inLMap :: (OkL s c, OkL s d) =>
           (LMap' a b -> LMap' c d) -> (LMap s a b -> LMap s c d)
 inLMap h (LMap ab) = LMap (h ab)
 
-inLMap2 :: (OkL s c, OkL s d, OkL s e, OkL s f) =>
+inLMap2 :: (OkL s e, OkL s f) =>
            (LMap' a b -> LMap' c d -> LMap' e f)
         -> (LMap s a b -> LMap s c d -> LMap s e f)
 inLMap2 h (LMap ab) (LMap cd) = LMap (h ab cd)
-
--- The OkL constraints on u & v allow okay to work.
-
--- deriving instance (HasTrie (Basis u), AdditiveGroup v) => AdditiveGroup (u :-* v)
 
 -- | Function (assumed linear) as linear map.
 linear :: (OkL s u, OkL s v) => (u -> v) -> LMap s u v
@@ -70,9 +66,6 @@ instance (OkL s u, OkL s v) => Ring (LMap s u v) where
 
 scaleL :: OkL s u => s -> LMap s u u
 scaleL = linear . (*^)
-
-type instance Conseq c (LMap s u v) = (c u, c v)
-instance (c u, c v) => HasConseq c (LMap s u v) where conseq = Sub Dict
 
 {--------------------------------------------------------------------
     Category instances
