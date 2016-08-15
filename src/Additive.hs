@@ -15,6 +15,8 @@ import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CD
 
 import Data.MemoTrie
 
+import Misc ((<~))
+
 -- | Commutative monoid intended to be used with a multiplicative monoid
 class Additive a where
   zero  :: a
@@ -124,18 +126,3 @@ instance Additive a => Additive (Add a) where
 
 add :: (Foldable f, Functor f, Additive a) => f a -> a
 add = getAdd . fold . fmap Add
-
-
-{--------------------------------------------------------------------
-    Misc
---------------------------------------------------------------------}
-
--- I could use the more general (<~) from ConCat instead
-
--- | Add pre- and post-processing
-(~>) :: (a' -> a) -> (b -> b') -> ((a -> b) -> (a' -> b'))
-(~>) = flip (<~)
-
--- | Add post- and pre-processing
-(<~) :: (b -> b') -> (a' -> a) -> ((a -> b) -> (a' -> b'))
-(h <~ f) g = h . g . f
