@@ -76,6 +76,11 @@ normalized v = v ^/ magnitude v
 project :: (Inner s v, Fractional s) => v -> v -> v
 project u v = ((v ^*^ u) / magnitudeSq u) *^ u
 
+-- -- Oops. What scalar type to use?
+-- instance Semimodule () where
+--   type Scalar () = ()
+--   s *^ () = ()
+
 #define ScalarType(t) \
   instance Semimodule (t) where \
     { type Scalar t = (t) \
