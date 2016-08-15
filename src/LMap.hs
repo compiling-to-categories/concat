@@ -19,6 +19,8 @@ module LMap where
 
 import Prelude hiding (id,(.))
 
+-- import Data.Constraint (Dict(..),(:-)(..))
+
 import Data.MemoTrie      (HasTrie(..),(:->:))
 
 import ConCat
@@ -72,6 +74,11 @@ instance Category (LMap s) where
   id  = linear id   
   (.) = inLMap . fmap . lapply
 
---   vw . LMap uv = LMap (lapply vw <$> uv)
---
---   (.) vw = inLMap (fmap (lapply vw))
+-- instance ProdCon (OkL s) where
+--   unit   = Sub Dict
+-- --   inProd = Sub Dict
+-- --   exProd = Sub Dict
+
+
+-- instance ProductCat (LMap s) where
+--   exl = linear exl
