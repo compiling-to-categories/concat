@@ -21,6 +21,10 @@ class Additive a where
   infixl 6 ^+^
   (^+^) :: a -> a -> a
 
+instance Additive () where
+  zero = ()
+  () ^+^ () = ()
+
 #define ScalarType(t) \
   instance Additive (t) where { zero = 0 ; (^+^) = (+) }
 
