@@ -66,7 +66,7 @@ type UnitCon con = con ()
 
 class OpCon op (con :: * -> Constraint) where
   inOp :: (con a, con b) :- con (a `op` b)
-  -- exProd :: con (a :* b) :- (con a, con b)
+  -- exOp :: con (a `op` b) :- (con a, con b)
 
 -- Hm. I have no more uses of `exProd`. Consider removing it.
 
@@ -176,18 +176,18 @@ class (OpCon (Prod k) (Ok k), Category k) => ProductCat k where
             (b `k` b') -> (Prod k a b `k` Prod k a b')
   second =  (id ***)
   lassocP :: forall a b c. (Ok k a, Ok k b, Ok k c)
-          => (Prod k a (Prod k b c)) `k` (Prod k (Prod k a b) c)
+          => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
   lassocP = second exl &&& (exr . exr)
     <+ inOp   @(Prod k) @(Ok k) @a @b
     <+ inOpR' @(Prod k) @(Ok k) @a @b @c
   rassocP :: forall a b c. (Ok k a, Ok k b, Ok k c)
-          => (Prod k (Prod k a b) c) `k` (Prod k a (Prod k b c))
+          => Prod k (Prod k a b) c `k` Prod k a (Prod k b c)
   rassocP =  (exl . exl) &&& first  exr
     <+ inOp   @(Prod k) @(Ok k) @b @c
     <+ inOpL' @(Prod k) @(Ok k) @a @b @c
   {-# MINIMAL exl, exr, ((&&&) | ((***), dup)) #-}
 
--- TODO: tweak inOpL to generate both con Prod k a b and con ()
+-- TODO: find some techniques for prettifying type operators.
 
 -- Alternatively:
 -- 
@@ -276,12 +276,13 @@ class ConstCat k where
 
 instance ConstCat (->) where konst = const
 
-
 class ProductCat k => ClosedCat k where
   type Exp k :: * -> * -> *
-  apply   :: (Ok k a, Ok k b, p ~ Prod k, e ~ Exp k) => ((a `e` b) `p` a) `k` b
+--   apply   :: (Ok k a, Ok k b        ) => Prod k (Exp k a b) a `k` b
   curry   :: (Ok k a, Ok k b, Ok k c) => (Prod k a b `k` c) -> (a `k` Exp k b c)
   uncurry :: (Ok k a, Ok k b, Ok k c) => (a `k` Exp k b c) -> (Prod k a b `k` c)
+
+  apply   :: (Ok k a, Ok k b, p ~ Prod k, e ~ Exp k) => ((a `e` b) `p` a) `k` b
 
 instance ClosedCat (->) where
   type Exp (->) = (->)
