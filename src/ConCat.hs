@@ -56,7 +56,7 @@ rassocC = (weaken1 `trans` weaken1) C.&&& firstC weaken2
 --------------------------------------------------------------------}
 
 class ProdCon (con :: * -> Constraint) where
-  unit   :: () :- con ()
+  unit   :: () :- con Unit
   inProd :: (con a, con b) :- con (a :* b)
   exProd :: con (a :* b) :- (con a, con b)
 
@@ -223,3 +223,21 @@ transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
 
 -- transposeS :: CoproductCat k => ((p :+ q) :+ (r :+ s)) `k` ((p :+ r) :+ (q :+ s))
 -- transposeS = (inl.inl ||| inr.inl) ||| (inl.inr ||| inr.inr)
+
+class ProductCat k => TerminalCat k where
+  it :: Ok k a => a `k` Unit
+
+-- Do we want the ProductCat superclass? If not, move unit out of ProdCon.
+
+instance TerminalCat (->) where it = const ()
+
+-- | Categories with constant arrows (generalized elements)
+class TerminalCat k => ConstCat k where
+  {-# MINIMAL konstU | konst #-}
+  konstU :: Ok k b => b -> (Unit `k` b)
+  konstU = konst <+ unit @(Ok k)
+  konst :: forall a b. (Ok k a, Ok k b) => b -> (a `k` b)
+  konst b = konstU b . it <+ unit @(Ok k)
+
+instance ConstCat (->) where konst = const
+
