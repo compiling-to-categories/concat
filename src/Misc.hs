@@ -47,3 +47,6 @@ inNew = pack <~ unpack
 inNew2 :: (Newtype n, Newtype n', Newtype n'') =>
           (O n -> O n' -> O n'') -> (n -> n' -> n'')
 inNew2 = inNew <~ unpack
+
+-- TODO: use inNew and inNew2 in place of ad hoc versions throughout.
+
