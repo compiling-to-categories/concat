@@ -107,7 +107,7 @@ instance OpCon op Yes where
   -- exProd = Sub Dict
 
 {--------------------------------------------------------------------
-    Category classes
+    Categories
 --------------------------------------------------------------------}
 
 class Category (k :: u -> u -> *) where
@@ -144,6 +144,10 @@ instance Category (->) where
 instance Monad m => Category (Kleisli m) where
   id  = Kleisli return
   (.) = inNew2 (<=<)
+
+{--------------------------------------------------------------------
+    Products
+--------------------------------------------------------------------}
 
 -- Experiment:
 #define InProd inOp @(Prod k) @(Ok k)
@@ -186,6 +190,8 @@ class (OpCon (Prod k) (Ok k), Category k) => ProductCat k where
     <+ inOp   @(Prod k) @(Ok k) @b @c
     <+ inOpL' @(Prod k) @(Ok k) @a @b @c
   {-# MINIMAL exl, exr, ((&&&) | ((***), dup)) #-}
+
+-- TODO: reconcile differences between lassocP/rassocP and lassocS/rassocS
 
 -- TODO: find some techniques for prettifying type operators.
 
@@ -265,16 +271,50 @@ instance Monad m => ProductCat (Kleisli m) where
 crossA :: Applicative m => (a -> m c) -> (b -> m d) -> (a :* b -> m (c :* d))
 (f `crossA` g) (a,b) = liftA2 (,) (f a) (g b)
 
-class TerminalCat k where
-  it :: (Ok k a, Ok k ()) => a `k` Unit
+{--------------------------------------------------------------------
+    Coproducts
+--------------------------------------------------------------------}
 
-instance TerminalCat (->) where it = const ()
+infixr 2 +++, |||
 
--- | Categories with constant arrows (generalized elements)
-class ConstCat k where
-  konst :: forall a b. (Ok k a, Ok k b) => b -> (a `k` b)
+-- | Category with coproduct.
+class (OpCon (Coprod k) (Ok k), Category k) => CoproductCat k where
+  type Coprod k :: * -> * -> *
+  type Coprod k = (:+)
+  inl :: (Ok k a, Ok k b) => a `k` Coprod k a b
+  inr :: (Ok k a, Ok k b) => b `k` Coprod k a b
+  jam :: (Ok k a) => Coprod k a a `k` a
+  jam = id ||| id
+  swapS :: forall a b. (Ok k a, Ok k b) => Coprod k a b `k` Coprod k b a
+  swapS =  inr ||| inl  <+ inOp @(Coprod k) @(Ok k) @b @a
+  (+++) :: forall a b c d. (Ok k a, Ok k b, Ok k c, Ok k d) =>
+           (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b)
+  f +++ g = inl . f ||| inr . g  <+ inOp @(Coprod k) @(Ok k) @a @b
+  (|||) :: forall a c d. (Ok k a, Ok k c, Ok k d) =>
+           (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a)
+  f ||| g = jam . (f +++ g)
+    <+ inOp @(Coprod k) @(Ok k) @a @a
+    <+ inOp @(Coprod k) @(Ok k) @c @d
+  left :: forall a a' b. (Ok k a, Ok k b, Ok k a') =>
+          (a `k` a') -> (Coprod k a b `k` Coprod k a' b)
+  left = (+++ id)
+  right :: forall a b b'. (Ok k a, Ok k b, Ok k b') =>
+           (b `k` b') -> (Coprod k a b `k` Coprod k a b')
+  right = (id +++)
+  lassocS :: forall a b c. (Ok k a, Ok k b, Ok k c)
+          => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c
+  lassocS = inl.inl ||| (inl.inr ||| inr)
+    <+ inOpL' @(Coprod k) @(Ok k) @a @b @c
+    <+ inOpR' @(Coprod k) @(Ok k) @a @b @c
+  rassocS :: forall a b c. (Ok k a, Ok k b, Ok k c)
+          => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c)
+  rassocS = (inl ||| inr.inl) ||| inr.inr
+    <+ inOpR' @(Coprod k) @(Ok k) @a @b @c
+    <+ inOpL' @(Coprod k) @(Ok k) @a @b @c
 
-instance ConstCat (->) where konst = const
+{--------------------------------------------------------------------
+    Exponentials
+--------------------------------------------------------------------}
 
 class ProductCat k => ClosedCat k where
   type Exp k :: * -> * -> *
@@ -303,3 +343,18 @@ instance Monad m => ClosedCat (Kleisli m) where
   apply   = applyK
   curry   = curryK
   uncurry = uncurryK
+
+{--------------------------------------------------------------------
+    Other
+--------------------------------------------------------------------}
+
+class TerminalCat k where
+  it :: (Ok k a, Ok k ()) => a `k` Unit
+
+instance TerminalCat (->) where it = const ()
+
+-- | Categories with constant arrows (generalized elements)
+class ConstCat k where
+  konst :: forall a b. (Ok k a, Ok k b) => b -> (a `k` b)
+
+instance ConstCat (->) where konst = const

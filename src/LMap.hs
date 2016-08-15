@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -81,8 +82,35 @@ instance OpCon (:*) (OkL s) where
   -- exProd = Sub Dict
 
 instance ProductCat (LMap s) where
-  exl     = linear exl
-  exr     = linear exr
+  type Prod (LMap s) = (:*)
+  exl   = linear exl
+  exr   = linear exr
   (&&&) = inLMap2 (liftA2 (,))
 
 --   f &&& g = linear (lapply f &&& lapply g)
+
+-- The instance comes from the following homomorphic specification:
+-- 
+--   lapply exl      == exl
+--   lapply exr      == exr
+--   lapply (f &&& g) == lapply f &&& lapply g
+
+instance CoproductCat (LMap s) where
+  type Coprod (LMap s) = (:*)  -- direct sum
+  inl = linear (, zero)
+  inr = linear (zero, )
+  f ||| g = linear (joinF (lapply f) (lapply g))
+
+joinF :: Additive c => (a -> c) -> (b -> c) -> (a :* b -> c)
+joinF f g (a,b) = f a ^+^ g b
+
+-- This implementation comes easily from solving the following homomorphisms:
+-- 
+--   lapply inl = (, zero)
+--   lapply inr = (zero, )
+--   lapply (f ||| g) = lapply f `joinF` lapply g
+-- 
+-- TODO: more efficient (|||)
+
+-- TODO: consider more efficient implementations of the defaulted methods for
+-- ProductCat and CoproductCat.
