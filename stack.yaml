@@ -1,1 +1,4 @@
+flags: {}
+extra-deps:
+- newtype-generics-0.4
 resolver: nightly-2016-07-18
