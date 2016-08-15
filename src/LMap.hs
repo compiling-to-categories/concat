@@ -24,6 +24,7 @@ import Data.Constraint (Dict(..),(:-)(..))
 
 import Data.MemoTrie      (HasTrie(..),(:->:))
 
+import Misc ((:*))
 import ConCat
 import Additive
 import Semimodule
@@ -75,8 +76,8 @@ instance Category (LMap s) where
   id  = linear id   
   (.) = inLMap . fmap . lapply
 
-instance ProdCon (OkL s) where
-  inProd = Sub Dict
+instance OpCon (:*) (OkL s) where
+  inOp = Sub Dict
   -- exProd = Sub Dict
 
 instance ProductCat (LMap s) where
