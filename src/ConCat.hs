@@ -19,8 +19,10 @@ module ConCat where
 
 import Prelude hiding (id,(.),curry,uncurry)
 import qualified Prelude as P
-import Control.Arrow (Kleisli)
+import Control.Arrow (Kleisli(..),arr)
 import qualified Control.Arrow as A
+import Control.Applicative (liftA2)
+import Control.Monad ((<=<))
 
 import Control.Newtype (pack,unpack)
 import GHC.Types (Constraint)
@@ -137,6 +139,10 @@ instance Category (->) where
   id  = P.id
   (.) = (P..)
 
+instance Monad m => Category (Kleisli m) where
+  id  = Kleisli return
+  (.) = inNew2 (<=<)
+
 infixr 3 ***, &&&
 
 -- | Category with product.
@@ -239,6 +245,15 @@ transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
 -- class Ok k () => TerminalCat k where
 --   it :: Ok k a => a `k` Unit
 
+instance Monad m => ProductCat (Kleisli m) where
+  exl   = arr exl
+  exr   = arr exr
+  dup   = arr dup
+  (***) = inNew2 crossM
+
+crossM :: Applicative m => (a -> m c) -> (b -> m d) -> (a :* b -> m (c :* d))
+(f `crossM` g) (a,b) = liftA2 (,) (f a) (g b)
+
 class TerminalCat k where
   it :: (Ok k a, Ok k ()) => a `k` Unit
 
@@ -252,11 +267,14 @@ instance ConstCat (->) where konst = const
 
 
 class ProductCat k => ClosedCat k where
-  apply   :: ((a :=> b) :* a) `k` b
-  curry   :: ((a :* b) `k` c) -> (a `k` (b :=> c))
-  uncurry :: (a `k` (b :=> c)) -> ((a :* b) `k` c)
+  type Exp k :: * -> * -> *
+  -- Later, Exp k :: u -> u -> u, for k :: u -> u -> *
+  apply   :: (Exp k a b :* a) `k` b
+  curry   :: ((a :* b) `k` c) -> (a `k` Exp k b c)
+  uncurry :: (a `k` Exp k b c) -> ((a :* b) `k` c)
 
 instance ClosedCat (->) where
+  type Exp (->) = (->)
   apply (f,a) = f a
   curry       = P.curry
   uncurry     = P.uncurry
@@ -268,3 +286,9 @@ uncurryK :: Monad m => Kleisli m a (Kleisli m b c) -> Kleisli m (a :* b) c
 applyK   = pack (apply . first unpack)
 curryK   = inNew $ \ h -> return . pack . curry h
 uncurryK = inNew $ \ f -> \ (a,b) -> f a >>= ($ b) . unpack
+
+instance Monad m => ClosedCat (Kleisli m) where
+  type Exp (Kleisli m) = Kleisli m
+  apply   = applyK
+  curry   = curryK
+  uncurry = uncurryK
