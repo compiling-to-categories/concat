@@ -55,10 +55,11 @@ rassocC = (weaken1 `trans` weaken1) C.&&& firstC weaken2
     Constraints with product consequences
 --------------------------------------------------------------------}
 
+type UnitCon con = con ()
+
 class ProdCon (con :: * -> Constraint) where
-  unit   :: () :- con Unit
   inProd :: (con a, con b) :- con (a :* b)
-  exProd :: con (a :* b) :- (con a, con b)
+  -- exProd :: con (a :* b) :- (con a, con b)
 
 -- Hm. I have no more uses of `exProd`. Consider removing it.
 
@@ -87,16 +88,16 @@ inProdR' = firstC inProd `trans` lassocC `trans` secondC (contract `trans` inPro
 -- ((con a,con (b,c)),con (b,c))
 -- (con (a,(b,c)),con (b,c))
 
-exProdL :: ProdCon con => con ((a,b),c) :- ((con a,con b),con c)
-exProdL = firstC  exProd `trans` exProd
+-- exProdL :: ProdCon con => con ((a,b),c) :- ((con a,con b),con c)
+-- exProdL = firstC  exProd `trans` exProd
 
-exProdR :: ProdCon con => con (a,(b,c)) :- (con a,(con b,con c))
-exProdR = secondC exProd `trans` exProd
+-- exProdR :: ProdCon con => con (a,(b,c)) :- (con a,(con b,con c))
+-- exProdR = secondC exProd `trans` exProd
 
 instance ProdCon Yes where
-  unit   = Sub Dict
+  -- unit   = Sub Dict
   inProd = Sub Dict
-  exProd = Sub Dict
+  -- exProd = Sub Dict
 
 {--------------------------------------------------------------------
     Category classes
@@ -111,12 +112,19 @@ class Category (k :: u -> u -> *) where
   (.) :: (Ok k a, Ok k b, Ok k c) =>
          b `k` c -> a `k` b -> a `k` c
 
+type CatOk k ok = (Category k, ok ~ Ok k)
+
 infixl 1 <~
 infixr 1 ~>
 -- | Add post- and pre-processing
 (<~) :: (Category k, Ok k a, Ok k b, Ok k a', Ok k b') =>
         (b `k` b') -> (a' `k` a) -> ((a `k` b) -> (a' `k` b'))
 (h <~ f) g = h . g . f
+
+-- -- Alternatively,
+-- 
+-- (<~) :: (CatOk k ok, ok a, ok b, ok a', ok b') =>
+--         (b `k` b') -> (a' `k` a) -> ((a `k` b) -> (a' `k` b'))
 
 -- | Add pre- and post-processing
 (~>) :: (Category k, Ok k a, Ok k b, Ok k a', Ok k b') =>
@@ -173,6 +181,8 @@ class (ProdCon (Ok k), Category k) => ProductCat k where
 --   rassocP =  (exl . exl) &&& first  exr
 --     <+ (inProd :: (Ok k a, Ok k b) :- Ok k (a :* b))
 
+type ProdOk k ok = (ProductCat k, ok ~ Ok k)
+
 instance ProductCat (->) where
   exl        = fst
   exr        = snd
@@ -224,20 +234,17 @@ transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
 -- transposeS :: CoproductCat k => ((p :+ q) :+ (r :+ s)) `k` ((p :+ r) :+ (q :+ s))
 -- transposeS = (inl.inl ||| inr.inl) ||| (inl.inr ||| inr.inr)
 
-class ProductCat k => TerminalCat k where
-  it :: Ok k a => a `k` Unit
+-- class Ok k () => TerminalCat k where
+--   it :: Ok k a => a `k` Unit
 
--- Do we want the ProductCat superclass? If not, move unit out of ProdCon.
+class TerminalCat k where
+  it :: (Ok k a, Ok k ()) => a `k` Unit
 
 instance TerminalCat (->) where it = const ()
 
 -- | Categories with constant arrows (generalized elements)
-class TerminalCat k => ConstCat k where
-  {-# MINIMAL konstU | konst #-}
-  konstU :: Ok k b => b -> (Unit `k` b)
-  konstU = konst <+ unit @(Ok k)
+class ConstCat k where
   konst :: forall a b. (Ok k a, Ok k b) => b -> (a `k` b)
-  konst b = konstU b . it <+ unit @(Ok k)
 
 instance ConstCat (->) where konst = const
 
