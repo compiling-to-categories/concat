@@ -17,16 +17,18 @@
 
 module ConCat where
 
-import Prelude hiding (id,(.))
+import Prelude hiding (id,(.),curry,uncurry)
 import qualified Prelude as P
+import Control.Arrow (Kleisli)
 import qualified Control.Arrow as A
 
+import Control.Newtype (pack,unpack)
 import GHC.Types (Constraint)
 
-import Data.Constraint hiding ((&&&),(***))
+import Data.Constraint hiding ((&&&),(***),(:=>))
 import qualified Data.Constraint as C
 
-import Misc
+import Misc hiding ((<~),(~>))
 
 {--------------------------------------------------------------------
     Constraint utilities
@@ -248,3 +250,21 @@ class ConstCat k where
 
 instance ConstCat (->) where konst = const
 
+
+class ProductCat k => ClosedCat k where
+  apply   :: ((a :=> b) :* a) `k` b
+  curry   :: ((a :* b) `k` c) -> (a `k` (b :=> c))
+  uncurry :: (a `k` (b :=> c)) -> ((a :* b) `k` c)
+
+instance ClosedCat (->) where
+  apply (f,a) = f a
+  curry       = P.curry
+  uncurry     = P.uncurry
+
+applyK   ::            Kleisli m (Kleisli m a b :* a) b
+curryK   :: Monad m => Kleisli m (a :* b) c -> Kleisli m a (Kleisli m b c)
+uncurryK :: Monad m => Kleisli m a (Kleisli m b c) -> Kleisli m (a :* b) c
+
+applyK   = pack (apply . first unpack)
+curryK   = inNew $ \ h -> return . pack . curry h
+uncurryK = inNew $ \ f -> \ (a,b) -> f a >>= ($ b) . unpack
