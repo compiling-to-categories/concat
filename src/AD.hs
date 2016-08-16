@@ -7,26 +7,28 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
+{-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
+
 -- | Generalized automatic differentiation
 
 module AD where
 
 import Prelude hiding (id,(.),curry,uncurry)
 
+import Control.Newtype (Newtype(..))
+
 import Misc
-import ConCat
+import ConCat hiding ((<~),(~>))
+import LMap
 
 type D' k a b = a -> b :* (a `k` b)
 
 newtype D k a b = D { getD :: D' k a b }
 
--- | Application a unary function inside a 'D'
-inD :: (D' k a b -> D' l c d) -> (D k a b -> D l c d)
-inD = D <~ getD
-
--- | Application a binary function inside a 'D'
-inD2 :: (D' k a b -> D' l c d -> D' l e f) -> (D k a b -> D l c d -> D l e f)
-inD2 = inD <~ getD
+instance Newtype (D k a b) where
+  type O (D k a b) = D' k a b
+  pack   = D
+  unpack = getD
 
 linearD :: (a -> b) -> (a `k` b) -> D k a b
 linearD f f' = D (f &&& konst f')
@@ -63,18 +65,21 @@ instance Category k => Category (D k) where
 --   (.) = inD2 $ \ q p -> \ a ->
 --     second (uncurry (.)) (rassocP . (first q . p) $ a)
 
-  (.) = inD2 $ \ q p -> second (uncurry (.)) . rassocP . (first q . p)
+  (.) = inNew2 $ \ q p -> second (uncurry (.)) . rassocP . (first q . p)
 
---   (.) = inD2 $ \ q p ->
+--   (.) = inNew2 $ \ q p ->
 --     uncurry (.) . rassocP (first q (p a))
 
 -- TODO: rewrite (.) more generally, to see if we can generalize from (->).
 
-instance ProductCat k => ProductCat (D k) where
+instance (ProductCat k, Prod k ~ (:*)) => ProductCat (D k) where
+  type Prod (D k) = Prod k
   exl = linearD exl exl
   exr = linearD exr exr
 
---   (&&&) = inD2 $ \ p q -> \ a ->
+-- TODO: Revisit the Prod k ~ (:*) constraint. Maybe just Prod (D k) = Prod k?
+
+--   (&&&) = inNew2 $ \ p q -> \ a ->
 --     let (b,p') = p a
 --         (c,q') = q a
 --     in
@@ -87,13 +92,27 @@ instance ProductCat k => ProductCat (D k) where
 --       ((b,c), p' &&& q')
 
 
---   (&&&) = inD2 $ \ p q -> \ a ->
+--   (&&&) = inNew2 $ \ p q -> \ a ->
 --     let ((b,p'),(c,q')) = (p &&& q) a in
 --       ((b,c), p' &&& q')
 
---   (&&&) = inD2 $ \ p q -> \ a ->
+--   (&&&) = inNew2 $ \ p q -> \ a ->
 --     let (bc,(p',q')) = (transposeP . (p &&& q)) a in
 --       (bc, p' &&& q')
 
-  (&&&) = inD2 $ \ p q -> second (uncurry (&&&)) . transposeP . (p &&& q)
+  (&&&) = inNew2 $ \ p q -> second (uncurry (&&&)) . transposeP . (p &&& q)
+
+-- instance Closed (D k) where
+--   apply = 
+
+-- type D' k a b = a -> b :* (a `k` b)
+-- newtype D k a b = D { getD :: D' k a b }
+
+-- applyD' :: D' k ((a -> b) :* a) b
+-- applyD' = apply &&& applyD
+
+-- applyD :: D' (LMap s) a b :* a -> LMap s ((a -> b) :* a) b
+-- applyD (ff,a) 
+
+-- applyD (f,a) (df,da) = deriv f a da ^+^ df a
 

@@ -318,11 +318,11 @@ class (OpCon (Coprod k) (Ok k), Category k) => CoproductCat k where
 
 class ProductCat k => ClosedCat k where
   type Exp k :: * -> * -> *
---   apply   :: (Ok k a, Ok k b        ) => Prod k (Exp k a b) a `k` b
+  apply   :: (Ok k a, Ok k b        ) => Prod k (Exp k a b) a `k` b
   curry   :: (Ok k a, Ok k b, Ok k c) => (Prod k a b `k` c) -> (a `k` Exp k b c)
   uncurry :: (Ok k a, Ok k b, Ok k c) => (a `k` Exp k b c) -> (Prod k a b `k` c)
 
-  apply   :: (Ok k a, Ok k b, p ~ Prod k, e ~ Exp k) => ((a `e` b) `p` a) `k` b
+--   apply   :: (Ok k a, Ok k b, p ~ Prod k, e ~ Exp k) => ((a `e` b) `p` a) `k` b
 
 instance ClosedCat (->) where
   type Exp (->) = (->)

@@ -14,7 +14,7 @@ import Data.Complex hiding (magnitude)
 import Data.Ratio
 import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
 
-import Control.Newtype
+import Control.Newtype (Newtype(..))
 import Data.MemoTrie
 
 import Misc

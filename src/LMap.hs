@@ -55,7 +55,7 @@ linear f = LMap (trie (f . basisValue))
 
 -- | Apply a linear map to a vector.
 lapply :: (OkL s u, OkL s v) => LMap s u v -> (u -> v)
-lapply (LMap tr) = linearCombo . fmap (first (untrie tr)) . decompose
+lapply (LMap tr) = linearCombo . map (first (untrie tr)) . decompose
 
 instance (OkL s u, OkL s v) => Additive (LMap s u v) where
   zero  = linear zero
@@ -98,16 +98,16 @@ instance ProductCat (LMap s) where
 instance CoproductCat (LMap s) where
   type Coprod (LMap s) = (:*)  -- direct sum
   inl = linear (, zero)
-  inr = linear (zero, )
+  inr = linear (zero ,)
   f ||| g = linear (joinF (lapply f) (lapply g))
 
 joinF :: Additive c => (a -> c) -> (b -> c) -> (a :* b -> c)
-joinF f g (a,b) = f a ^+^ g b
+(f `joinF` g) (a,b) = f a ^+^ g b
 
 -- This implementation comes easily from solving the following homomorphisms:
 -- 
 --   lapply inl = (, zero)
---   lapply inr = (zero, )
+--   lapply inr = (zero ,)
 --   lapply (f ||| g) = lapply f `joinF` lapply g
 -- 
 -- TODO: more efficient (|||)

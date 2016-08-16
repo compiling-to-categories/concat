@@ -94,7 +94,6 @@ unnest3 (a,(b,c)) = (a,b,c)
 nest3 :: (a,b,c) -> (a,(b,c))
 nest3 (a,b,c) = (a,(b,c))
 
-
 -- instance (Eq a, HasBasis u) => HasBasis (a -> u) where
 --   type Basis (a -> u) = (a, Basis u)
 --   basisValue (a,b) = f
