@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE CPP #-}
 
@@ -13,9 +14,10 @@ import Data.Complex hiding (magnitude)
 import Data.Ratio
 import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
 
+import Control.Newtype
 import Data.MemoTrie
 
-import Misc ((<~))
+import Misc
 
 -- | Commutative monoid intended to be used with a multiplicative monoid
 class Additive a where
@@ -97,28 +99,20 @@ instance (HasTrie u, Additive v) => Additive (u :->: v) where
 newtype Add a = Add { getAdd :: a }
   deriving (Eq, Ord, Read, Show, Bounded)
 
-instance Functor Add where
-  fmap f (Add a) = Add (f a)
+instance Newtype (Add a) where
+  type O (Add a) = a
+  pack   = Add
+  unpack = getAdd
 
--- instance Applicative Add where
---   pure a = Add a
---   Add f <*> Add x = Add (f x)
+instance Functor Add where fmap = inNew
 
 instance Applicative Add where
-  pure  = Add
-  (<*>) = inAdd2 ($)
+  pure  = pack
+  (<*>) = inNew2 ($)
 
 instance Additive a => Monoid (Add a) where
-  mempty  = Add zero
-  mappend = liftA2 (^+^)
-
--- | Application a unary function inside a 'Add'
-inAdd :: (a -> b) -> (Add a -> Add b)
-inAdd = Add <~ getAdd
-
--- | Application a binary function inside a 'Add'
-inAdd2 :: (a -> b -> c) -> (Add a -> Add b -> Add c)
-inAdd2 = inAdd <~ getAdd
+  mempty  = pack zero
+  mappend = inNew2 (^+^)
 
 instance Additive a => Additive (Add a) where
   zero  = mempty
