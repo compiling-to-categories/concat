@@ -11,7 +11,7 @@
 
 module AD where
 
-import Prelude hiding (id,(.))
+import Prelude hiding (id,(.),curry,uncurry)
 
 import Misc
 import ConCat
