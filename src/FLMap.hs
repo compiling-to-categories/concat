@@ -30,12 +30,12 @@ instance Mod s u => OkL s u
 
 type OkL2 s u v = (OkL s u, OkL s v)
 
+data LMap s u v = OkL2 s u v => LMap { unLMap :: u -> v }
+
 instance OkL2 s u v => Newtype (LMap s u v) where
   type O (LMap s u v) = u -> v
   pack = LMap
   unpack = unLMap
-
-data LMap s u v = OkL2 s u v => LMap { unLMap :: u -> v }
 
 -- | Function (assumed linear) as linear map. Only sampled on basis.
 linear :: OkL2 s u v => (u -> v) -> LMap s u v
@@ -78,3 +78,6 @@ instance CoproductCat (LMap s) where
 
 joinF :: Additive c => (a -> c) -> (b -> c) -> (a :* b -> c)
 (f `joinF` g) (a,b) = f a ^+^ g b
+
+applyTo :: OkL2 s a b => a -> LMap s (a -> b) b
+applyTo a = linear ($ a)
