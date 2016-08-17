@@ -106,6 +106,20 @@ instance OpCon op Yes where
   inOp = Sub Dict
   -- exProd = Sub Dict
 
+type C1 (con :: u -> Constraint) a = con a
+
+type C2 con a b         = (C1 con a, con b)
+type C3 con a b c       = (C2 con a b, con c)
+type C4 con a b c d     = (C3 con a b c, con d)
+type C5 con a b c d e   = (C4 con a b c d, con e)
+type C6 con a b c d e f = (C5 con a b c d e, con f)
+
+type Ok2 k a b         = C2 (Ok k) a b
+type Ok3 k a b c       = C3 (Ok k) a b c
+type Ok4 k a b c d     = C4 (Ok k) a b c d
+type Ok5 k a b c d e   = C5 (Ok k) a b c d e
+type Ok6 k a b c d e f = C6 (Ok k) a b c d e f
+
 {--------------------------------------------------------------------
     Categories
 --------------------------------------------------------------------}
@@ -115,7 +129,7 @@ class Category (k :: u -> u -> *) where
   type Ok k = Yes
   id  :: Ok k a => a `k` a
   infixr 9 .
-  (.) :: (Ok k a, Ok k b, Ok k c) =>
+  (.) :: C3 (Ok k) a b c =>
          b `k` c -> a `k` b -> a `k` c
 
 type CatOk k ok = (Category k, ok ~ Ok k)
@@ -123,17 +137,12 @@ type CatOk k ok = (Category k, ok ~ Ok k)
 infixl 1 <~
 infixr 1 ~>
 -- | Add post- and pre-processing
-(<~) :: (Category k, Ok k a, Ok k b, Ok k a', Ok k b') =>
+(<~) :: (Category k, C4 (Ok k) a b a' b') =>
         (b `k` b') -> (a' `k` a) -> ((a `k` b) -> (a' `k` b'))
 (h <~ f) g = h . g . f
 
--- -- Alternatively,
--- 
--- (<~) :: (CatOk k ok, ok a, ok b, ok a', ok b') =>
---         (b `k` b') -> (a' `k` a) -> ((a `k` b) -> (a' `k` b'))
-
 -- | Add pre- and post-processing
-(~>) :: (Category k, Ok k a, Ok k b, Ok k a', Ok k b') =>
+(~>) :: (Category k, Ok4 k a b a' b') =>
         (a' `k` a) -> (b `k` b') -> ((a `k` b) -> (a' `k` b'))
 f ~> h = h <~ f
 
@@ -158,33 +167,33 @@ infixr 3 ***, &&&
 class (OpCon (Prod k) (Ok k), Category k) => ProductCat k where
   type Prod k :: * -> * -> *
   type Prod k = (:*)
-  exl :: (Ok k a, Ok k b) => Prod k a b `k` a
-  exr :: (Ok k a, Ok k b) => Prod k a b `k` b
-  dup :: (Ok k a) => a `k` Prod k a a
+  exl :: Ok2 k a b => Prod k a b `k` a
+  exr :: Ok2 k a b => Prod k a b `k` b
+  dup :: Ok k a => a `k` Prod k a a
   dup = id &&& id
-  swapP :: forall a b. (Ok k a, Ok k b) => Prod k a b `k` Prod k b a
+  swapP :: forall a b. Ok2 k a b => Prod k a b `k` Prod k b a
   swapP =  exr &&& exl  <+ InProd @a @b
                            -- inOp @(Prod k) @(Ok k) @a @b
-  (***) :: forall a b c d. (Ok k a, Ok k b, Ok k c, Ok k d) =>
+  (***) :: forall a b c d. Ok4 k a b c d =>
            (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d)
   f *** g = f . exl &&& g . exr  <+ inOp @(Prod k) @(Ok k) @a @b
-  (&&&) :: forall a c d. (Ok k a, Ok k c, Ok k d) =>
+  (&&&) :: forall a c d. Ok3 k a c d =>
            (a `k` c) -> (a `k` d) -> (a `k` Prod k c d)
   f &&& g = (f *** g) . dup
     <+ inOp @(Prod k) @(Ok k) @a @a
     <+ inOp @(Prod k) @(Ok k) @c @d
-  first :: forall a a' b. (Ok k a, Ok k b, Ok k a') =>
+  first :: forall a a' b. Ok3 k a b a' =>
            (a `k` a') -> (Prod k a b `k` Prod k a' b)
   first = (*** id)
-  second :: forall a b b'. (Ok k a, Ok k b, Ok k b') =>
+  second :: forall a b b'. Ok3 k a b b' =>
             (b `k` b') -> (Prod k a b `k` Prod k a b')
   second =  (id ***)
-  lassocP :: forall a b c. (Ok k a, Ok k b, Ok k c)
+  lassocP :: forall a b c. Ok3 k a b c
           => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
   lassocP = second exl &&& (exr . exr)
     <+ inOp   @(Prod k) @(Ok k) @a @b
     <+ inOpR' @(Prod k) @(Ok k) @a @b @c
-  rassocP :: forall a b c. (Ok k a, Ok k b, Ok k c)
+  rassocP :: forall a b c. Ok3 k a b c
           => Prod k (Prod k a b) c `k` Prod k a (Prod k b c)
   rassocP =  (exl . exl) &&& first  exr
     <+ inOp   @(Prod k) @(Ok k) @b @c
@@ -194,13 +203,6 @@ class (OpCon (Prod k) (Ok k), Category k) => ProductCat k where
 -- TODO: reconcile differences between lassocP/rassocP and lassocS/rassocS
 
 -- TODO: find some techniques for prettifying type operators.
-
--- Alternatively:
--- 
---   lassocP = second exl &&& (exr . exr)
---     <+ (inOp :: (Ok k b, Ok k c) :- Ok k Prod k b c)
---   rassocP =  (exl . exl) &&& first  exr
---     <+ (inOp :: (Ok k a, Ok k b) :- Ok k Prod k a b)
 
 type ProdOk k ok = (ProductCat k, ok ~ Ok k)
 
@@ -224,8 +226,7 @@ twiceP f = f *** f
 
 -- | Operate on left-associated form
 inLassocP :: forall k a b c a' b' c'.
-             ProductCat k =>
-             (Ok k a, Ok k b, Ok k c, Ok k a', Ok k b', Ok k c') =>
+             (ProductCat k, Ok6 k a b c a' b' c') =>
              Prod k (Prod k a b) c `k` Prod k (Prod k a' b') c'
           -> Prod k a (Prod k b c) `k` (Prod k a' (Prod k b' c'))
 inLassocP = rassocP <~ lassocP
@@ -236,8 +237,7 @@ inLassocP = rassocP <~ lassocP
 
 -- | Operate on right-associated form
 inRassocP :: forall a b c a' b' c' k.
-             ProductCat k =>
-             (Ok k a, Ok k b, Ok k c, Ok k a', Ok k b', Ok k c') =>
+             (ProductCat k, Ok6 k a b c a' b' c') =>
              Prod k a (Prod k b c) `k` (Prod k a' (Prod k b' c'))
           -> Prod k (Prod k a b) c `k` Prod k (Prod k a' b') c'
 inRassocP = lassocP <~ rassocP
@@ -246,7 +246,7 @@ inRassocP = lassocP <~ rassocP
               <+ inOpR @(Prod k) @(Ok k) @a  @b  @c
               <+ inOpR @(Prod k) @(Ok k) @a' @b' @c'
 
-transposeP :: forall k a b c d. (ProductCat k, Ok k a, Ok k b, Ok k c, Ok k d)
+transposeP :: forall k a b c d. (ProductCat k, Ok4 k a b c d)
            => Prod k (Prod k a b) (Prod k c d) `k` Prod k (Prod k a c) (Prod k b d)
 transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
   <+ inOp @(Prod k) @(Ok k) @(Prod k a b) @(Prod k c d)
@@ -281,32 +281,32 @@ infixr 2 +++, |||
 class (OpCon (Coprod k) (Ok k), Category k) => CoproductCat k where
   type Coprod k :: * -> * -> *
   type Coprod k = (:+)
-  inl :: (Ok k a, Ok k b) => a `k` Coprod k a b
-  inr :: (Ok k a, Ok k b) => b `k` Coprod k a b
-  jam :: (Ok k a) => Coprod k a a `k` a
+  inl :: Ok2 k a b => a `k` Coprod k a b
+  inr :: Ok2 k a b => b `k` Coprod k a b
+  jam :: Ok k a => Coprod k a a `k` a
   jam = id ||| id
-  swapS :: forall a b. (Ok k a, Ok k b) => Coprod k a b `k` Coprod k b a
+  swapS :: forall a b. Ok2 k a b => Coprod k a b `k` Coprod k b a
   swapS =  inr ||| inl  <+ inOp @(Coprod k) @(Ok k) @b @a
-  (+++) :: forall a b c d. (Ok k a, Ok k b, Ok k c, Ok k d) =>
+  (+++) :: forall a b c d. Ok4 k a b c d =>
            (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b)
   f +++ g = inl . f ||| inr . g  <+ inOp @(Coprod k) @(Ok k) @a @b
-  (|||) :: forall a c d. (Ok k a, Ok k c, Ok k d) =>
+  (|||) :: forall a c d. Ok3 k a c d =>
            (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a)
   f ||| g = jam . (f +++ g)
     <+ inOp @(Coprod k) @(Ok k) @a @a
     <+ inOp @(Coprod k) @(Ok k) @c @d
-  left :: forall a a' b. (Ok k a, Ok k b, Ok k a') =>
+  left :: forall a a' b. Ok3 k a b a' =>
           (a `k` a') -> (Coprod k a b `k` Coprod k a' b)
   left = (+++ id)
-  right :: forall a b b'. (Ok k a, Ok k b, Ok k b') =>
+  right :: forall a b b'. Ok3 k a b b' =>
            (b `k` b') -> (Coprod k a b `k` Coprod k a b')
   right = (id +++)
-  lassocS :: forall a b c. (Ok k a, Ok k b, Ok k c)
+  lassocS :: forall a b c. Ok3 k a b c
           => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c
   lassocS = inl.inl ||| (inl.inr ||| inr)
     <+ inOpL' @(Coprod k) @(Ok k) @a @b @c
     <+ inOpR' @(Coprod k) @(Ok k) @a @b @c
-  rassocS :: forall a b c. (Ok k a, Ok k b, Ok k c)
+  rassocS :: forall a b c. Ok3 k a b c
           => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c)
   rassocS = (inl ||| inr.inl) ||| inr.inr
     <+ inOpR' @(Coprod k) @(Ok k) @a @b @c
@@ -318,11 +318,11 @@ class (OpCon (Coprod k) (Ok k), Category k) => CoproductCat k where
 
 class ProductCat k => ClosedCat k where
   type Exp k :: * -> * -> *
-  apply   :: (Ok k a, Ok k b        ) => Prod k (Exp k a b) a `k` b
-  curry   :: (Ok k a, Ok k b, Ok k c) => (Prod k a b `k` c) -> (a `k` Exp k b c)
-  uncurry :: (Ok k a, Ok k b, Ok k c) => (a `k` Exp k b c) -> (Prod k a b `k` c)
+  apply   :: Ok2 k a b   => Prod k (Exp k a b) a `k` b
+  curry   :: Ok3 k a b c => (Prod k a b `k` c) -> (a `k` Exp k b c)
+  uncurry :: Ok3 k a b c => (a `k` Exp k b c)  -> (Prod k a b `k` c)
 
---   apply   :: (Ok k a, Ok k b, p ~ Prod k, e ~ Exp k) => ((a `e` b) `p` a) `k` b
+--   apply   :: (Ok2 k a b, p ~ Prod k, e ~ Exp k) => ((a `e` b) `p` a) `k` b
 
 instance ClosedCat (->) where
   type Exp (->) = (->)
@@ -349,12 +349,12 @@ instance Monad m => ClosedCat (Kleisli m) where
 --------------------------------------------------------------------}
 
 class TerminalCat k where
-  it :: (Ok k a, Ok k ()) => a `k` Unit
+  it :: Ok2 k a () => a `k` Unit
 
 instance TerminalCat (->) where it = const ()
 
 -- | Categories with constant arrows (generalized elements)
 class ConstCat k where
-  konst :: forall a b. (Ok k a, Ok k b) => b -> (a `k` b)
+  konst :: forall a b. Ok2 k a b => b -> (a `k` b)
 
 instance ConstCat (->) where konst = const
