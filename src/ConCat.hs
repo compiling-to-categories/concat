@@ -1,3 +1,4 @@
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -100,6 +101,9 @@ inOpR' = firstC inOp `trans` lassocC `trans` secondC (contract `trans` inOp)
 
 -- exProdR :: OpCon op con => con (a `op` (b `op` c)) :- (con a,(con b,con c))
 -- exProdR = secondC exProd `trans` exProd
+
+-- Sub  :: (a => Dict b) -> a :- b
+-- Dict :: a => Dict a
 
 instance OpCon op Yes where
   -- unit   = Sub Dict
@@ -255,9 +259,6 @@ transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
   <+ inOp @(Prod k) @(Ok k) @b @d
   <+ inOp @(Prod k) @(Ok k) @a @c
 
--- transposeS :: CoproductCat k => ((p :+ q) :+ (r :+ s)) `k` ((p :+ r) :+ (q :+ s))
--- transposeS = (inl.inl ||| inr.inl) ||| (inl.inr ||| inr.inr)
-
 -- class Ok k () => TerminalCat k where
 --   it :: Ok k a => a `k` Unit
 
@@ -312,6 +313,37 @@ class (OpCon (Coprod k) (Ok k), Category k) => CoproductCat k where
     <+ inOpR' @(Coprod k) @(Ok k) @a @b @c
     <+ inOpL' @(Coprod k) @(Ok k) @a @b @c
 
+-- | Operate on left-associated form
+inLassocS :: forall k a b c a' b' c'.
+             (CoproductCat k, Ok6 k a b c a' b' c') =>
+             Coprod k (Coprod k a b) c `k` Coprod k (Coprod k a' b') c'
+          -> Coprod k a (Coprod k b c) `k` (Coprod k a' (Coprod k b' c'))
+inLassocS = rassocS <~ lassocS
+              <+ inOpL @(Coprod k) @(Ok k) @a  @b  @c
+              <+ inOpL @(Coprod k) @(Ok k) @a' @b' @c'
+              <+ inOpR @(Coprod k) @(Ok k) @a  @b  @c
+              <+ inOpR @(Coprod k) @(Ok k) @a' @b' @c'
+
+-- | Operate on right-associated form
+inRassocS :: forall a b c a' b' c' k.
+             (CoproductCat k, Ok6 k a b c a' b' c') =>
+             Coprod k a (Coprod k b c) `k` (Coprod k a' (Coprod k b' c'))
+          -> Coprod k (Coprod k a b) c `k` Coprod k (Coprod k a' b') c'
+inRassocS = lassocS <~ rassocS
+              <+ inOpL @(Coprod k) @(Ok k) @a  @b  @c
+              <+ inOpL @(Coprod k) @(Ok k) @a' @b' @c'
+              <+ inOpR @(Coprod k) @(Ok k) @a  @b  @c
+              <+ inOpR @(Coprod k) @(Ok k) @a' @b' @c'
+
+transposeS :: forall k a b c d. (CoproductCat k, Ok4 k a b c d)
+           => Coprod k (Coprod k a b) (Coprod k c d) `k` Coprod k (Coprod k a c) (Coprod k b d)
+transposeS = (inl.inl ||| inr.inl) ||| (inl.inr ||| inr.inr)
+  <+ inOp @(Coprod k) @(Ok k) @(Coprod k a c) @(Coprod k b d)
+  <+ inOp @(Coprod k) @(Ok k) @c @d
+  <+ inOp @(Coprod k) @(Ok k) @a @b
+  <+ inOp @(Coprod k) @(Ok k) @b @d
+  <+ inOp @(Coprod k) @(Ok k) @a @c
+
 {--------------------------------------------------------------------
     Exponentials
 --------------------------------------------------------------------}
@@ -330,19 +362,16 @@ instance ClosedCat (->) where
   curry       = P.curry
   uncurry     = P.uncurry
 
-applyK   ::            Kleisli m (Kleisli m a b :* a) b
-curryK   :: Monad m => Kleisli m (a :* b) c -> Kleisli m a (Kleisli m b c)
-uncurryK :: Monad m => Kleisli m a (Kleisli m b c) -> Kleisli m (a :* b) c
-
-applyK   = pack (apply . first unpack)
-curryK   = inNew $ \ h -> return . pack . curry h
-uncurryK = inNew $ \ f -> \ (a,b) -> f a >>= ($ b) . unpack
-
 instance Monad m => ClosedCat (Kleisli m) where
   type Exp (Kleisli m) = Kleisli m
-  apply   = applyK
-  curry   = curryK
-  uncurry = uncurryK
+  apply   = pack (apply . first unpack)
+  curry   = inNew $ \ h -> return . pack . curry h
+  uncurry = inNew $ \ f -> \ (a,b) -> f a >>= ($ b) . unpack
+
+--   apply   ::            Ok2 Kleisli m (Kleisli m a b :* a) b
+--   curry   :: Monad m => Kleisli m (a :* b) c -> Kleisli m a (Kleisli m b c)
+--   uncurry :: Monad m => Kleisli m a (Kleisli m b c) -> Kleisli m (a :* b) c
+
 
 {--------------------------------------------------------------------
     Other
@@ -358,3 +387,25 @@ class ConstCat k where
   konst :: forall a b. Ok2 k a b => b -> (a `k` b)
 
 instance ConstCat (->) where konst = const
+
+-- class ApplyToCat k where
+--   applyTo :: Ok2 k a b => a -> ((a -> b) `k` b)
+
+-- Do I want `Exp k a b` in place of `a -> b`?
+-- LMap seems to want ->.
+
+-- class ClosedCat k => ApplyToCat k where
+--   applyTo :: Ok2 k a b => a -> (Exp k a b `k` b)
+
+#if 0
+
+class Category k => UnsafeArr k where
+  unsafeArr :: Ok2 k a b => (a -> b) -> a `k` b
+
+instance UnsafeArr (->) where
+  unsafeArr = A.arr
+
+instance Monad m => UnsafeArr (Kleisli m) where
+  unsafeArr = A.arr
+  
+#endif
