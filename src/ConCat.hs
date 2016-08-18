@@ -259,8 +259,10 @@ transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
   <+ inOp @(Prod k) @(Ok k) @b @d
   <+ inOp @(Prod k) @(Ok k) @a @c
 
--- class Ok k () => TerminalCat k where
---   it :: Ok k a => a `k` Unit
+-- | Inverse to '(&&&)'
+unfork :: forall k a c d. (ProductCat k, Ok3 k a c d) =>
+          (a `k` Prod k c d) -> (a `k` c, a `k` d)
+unfork f = (exl . f, exr . f)  <+ inOp @(Prod k) @(Ok k) @c @d
 
 instance Monad m => ProductCat (Kleisli m) where
   type Prod (Kleisli m) = (:*)
@@ -343,6 +345,11 @@ transposeS = (inl.inl ||| inr.inl) ||| (inl.inr ||| inr.inr)
   <+ inOp @(Coprod k) @(Ok k) @a @b
   <+ inOp @(Coprod k) @(Ok k) @b @d
   <+ inOp @(Coprod k) @(Ok k) @a @c
+
+-- | Inverse to '(|||)'
+unjoin :: forall k a c d. (CoproductCat k, Ok3 k a c d) =>
+          (Coprod k c d `k` a) -> (c `k` a, d `k` a)
+unjoin f = (f . inl, f . inr)  <+ inOp @(Coprod k) @(Ok k) @c @d
 
 {--------------------------------------------------------------------
     Exponentials
