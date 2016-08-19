@@ -12,8 +12,10 @@
 
 module Semimodule where
 
-import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
+import Control.Applicative (liftA2)
 import Data.Ratio
+import Foreign.C.Types
+  (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
 -- import Data.Complex hiding (magnitude)
 
 import Additive
@@ -135,3 +137,10 @@ instance (Inner s u, Inner s v, Inner s w, Inner s x)
       => InnerSpace (u,v,w,x) where
   (u,v,w,x) ^*^ (u',v',w',x') = u^*^u' ^+^ v^*^v' ^+^ w^*^w' ^+^ x^*^x'
 
+
+instance Semimodule v => Semimodule (a -> v) where
+  type Scalar (a -> v) = Scalar v
+  (*^) s = fmap (s *^)
+
+-- For an InnerSpace instance, I guess we'd need to sum or integrate over the
+-- domain.
