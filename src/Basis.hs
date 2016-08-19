@@ -94,15 +94,14 @@ unnest3 (a,(b,c)) = (a,b,c)
 nest3 :: (a,b,c) -> (a,(b,c))
 nest3 (a,b,c) = (a,(b,c))
 
--- instance (Eq a, HasBasis u) => HasBasis (a -> u) where
---   type Basis (a -> u) = (a, Basis u)
---   basisValue (a,b) = f
---     where f a' | a == a'   = bv
---                | otherwise = zeroV
---           bv = basisValue b
---   decompose = error "decompose: not defined on functions"
---   decompose' g (a,b) = decompose' (g a) b
-
+instance (Eq a, HasBasis u) => HasBasis (a -> u) where
+  type Basis (a -> u) = (a, Basis u)
+  basisValue (a,b) = f
+    where f a' | a == a'   = bv
+               | otherwise = zero
+          bv = basisValue b
+  decompose = error "decompose: not defined on functions"
+  decompose' g (a,b) = decompose' (g a) b
 
 -- Simpler but less efficient:
 -- 
