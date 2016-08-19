@@ -28,16 +28,17 @@ import ConCat
 class    Mod s u => OkL s u
 instance Mod s u => OkL s u
 
-type OkL2 s u v = (OkL s u, OkL s v)
+type OkL2 s a b = (OkL s a, OkL s b)
+type OkL3 s a b c = (OkL2 s a b, OkL s c)
 
-data LMap s u v = OkL2 s u v => LMap { unLMap :: u -> v }
+data LMap s u v = LMap { unLMap :: u -> v }
 
 instance OkL2 s u v => Newtype (LMap s u v) where
   type O (LMap s u v) = u -> v
   pack = LMap
   unpack = unLMap
 
--- | Function (assumed linear) as linear map. Only sampled on basis.
+-- | Function (assumed linear) as linear map.
 linear :: OkL2 s u v => (u -> v) -> LMap s u v
 linear = pack
 
