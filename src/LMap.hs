@@ -21,11 +21,11 @@ module LMap where
 import Prelude hiding (id,(.))
 import Control.Applicative (liftA2)
 
+import Control.Newtype (Newtype(..))
 import Data.Constraint (Dict(..),(:-)(..))
-
 import Data.MemoTrie      (HasTrie(..),(:->:))
 
-import Misc ((:*))
+import Misc ((:*),inNew,inNew2)
 import ConCat
 import Additive
 import Semimodule
@@ -42,14 +42,10 @@ type LMap' u v = Basis u :->: v
 -- values
 data LMap s u v = OkL2 s u v => LMap { unLMap :: LMap' u v }
 
-inLMap :: OkL2 s c d =>
-          (LMap' a b -> LMap' c d) -> (LMap s a b -> LMap s c d)
-inLMap h (LMap ab) = LMap (h ab)
-
-inLMap2 :: OkL2 s e f =>
-           (LMap' a b -> LMap' c d -> LMap' e f)
-        -> (LMap s a b -> LMap s c d -> LMap s e f)
-inLMap2 h (LMap ab) (LMap cd) = LMap (h ab cd)
+instance OkL2 s u v => Newtype (LMap s u v) where
+  type O (LMap s u v) = LMap' u v
+  pack = LMap
+  unpack = unLMap
 
 -- | Function (assumed linear) as linear map. Only sampled on basis.
 linear :: OkL2 s u v => (u -> v) -> LMap s u v
@@ -59,9 +55,12 @@ linear f = LMap (trie (f . basisValue))
 lapply :: OkL2 s u v => LMap s u v -> (u -> v)
 lapply (LMap tr) = linearCombo . map (first (untrie tr)) . decompose
 
+($@) :: OkL2 s a b => LMap s a b -> a -> b
+($@) = lapply
+
 instance OkL2 s u v => Additive (LMap s u v) where
   zero  = linear zero
-  (^+^) = inLMap2 (^+^)
+  (^+^) = inNew2 (^+^)
 
 instance OkL2 s u v => Semimodule (LMap s u v) where
   type Scalar (LMap s u v) = Scalar v
@@ -77,7 +76,7 @@ scaleL = linear . (*^)
 instance Category (LMap s) where
   type Ok (LMap s) = OkL s
   id  = linear id   
-  (.) = inLMap . fmap . lapply
+  (.) = inNew . fmap . lapply
 
 instance OpCon (:*) (OkL s) where
   inOp = Sub Dict
@@ -87,7 +86,7 @@ instance ProductCat (LMap s) where
   type Prod (LMap s) = (:*)
   exl   = linear exl
   exr   = linear exr
-  (&&&) = inLMap2 (liftA2 (,))
+  (&&&) = inNew2 (liftA2 (,))
 
 --   f &&& g = linear (lapply f &&& lapply g)
 
@@ -116,3 +115,4 @@ joinF :: Additive c => (a -> c) -> (b -> c) -> (a :* b -> c)
 
 -- TODO: consider more efficient implementations of the defaulted methods for
 -- ProductCat and CoproductCat.
+
