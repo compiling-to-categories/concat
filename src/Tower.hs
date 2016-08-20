@@ -30,15 +30,19 @@ import Additive
 import Semimodule
 import FLMap
 
--- Tower of derivative values.
-newtype Tower s a b = T { unT :: b :* Tower s a (LMap s a b) }
+{--------------------------------------------------------------------
+    Tower of derivative values
+--------------------------------------------------------------------}
 
--- newtype Tower s a b = T (b :* (LMap s a (Tower s a b)))
+-- TODO: generalize beyond LMap.
+data Tower s a b = T b (Tower s a (LMap s a b))
+
+-- newtype Tower s a b = T b (LMap s a (Tower s a b))
 
 instance Newtype (Tower s a b) where
   type O (Tower s a b) = b :* Tower s a (LMap s a b)
-  pack = T
-  unpack = unT
+  pack (b,t) = T b t
+  unpack (T b t) = (b,t)
 
 instance OkL2 s a b => Additive (Tower s a b) where
   zero = pack zero
@@ -48,12 +52,16 @@ instance OkL2 s a b => Semimodule (Tower s a b) where
   type Scalar (Tower s a b) = s
   (*^) s = inNew ((*^) s)
 
-newtype D s a b = D { unD :: a -> Tower s a b }
+{--------------------------------------------------------------------
+    Differentiable functions
+--------------------------------------------------------------------}
+
+newtype D s a b = D (a -> Tower s a b)
 
 instance Newtype (D s a b) where
   type O (D s a b) = a -> Tower s a b
-  pack   = D
-  unpack = unD
+  pack f = D f
+  unpack (D f) = f
 
 instance OkL2 s a b => Additive (D s a b) where
   zero  = pack zero
@@ -63,9 +71,8 @@ instance OkL2 s a b => Semimodule (D s a b) where
   type Scalar (D s a b) = s
   (*^) s = inNew ((*^) s)
 
-
 linearD :: OkL2 s a b => (a -> b) -> LMap s a b -> D s a b
-linearD f f' = D (\ a -> T (f a, T (f', zero)))
+linearD f f' = D (\ a -> T (f a) (T f' zero))
 
 instance Category (D s) where
   type Ok (D s) = OkL s
