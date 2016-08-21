@@ -71,8 +71,13 @@ instance OkL2 s a b => Semimodule (D s a b) where
   type Scalar (D s a b) = s
   (*^) s = inNew ((*^) s)
 
+constT :: OkL2 s a b => b -> Tower s a b
+constT b = T b zero
+
 linearD :: OkL2 s a b => (a -> b) -> LMap s a b -> D s a b
-linearD f f' = D (\ a -> T (f a) (T f' zero))
+linearD f f' = D (\ a -> T (f a) (constT f'))
+
+-- linearD f f' = D (pack . (f &&& const (constD f')))
 
 instance Category (D s) where
   type Ok (D s) = OkL s
