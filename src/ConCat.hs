@@ -416,3 +416,36 @@ instance Monad m => UnsafeArr (Kleisli m) where
   unsafeArr = A.arr
   
 #endif
+
+{--------------------------------------------------------------------
+    Some categories
+--------------------------------------------------------------------}
+
+-- Exactly one arrow for each pair of objects.
+data U2 a b = U2
+
+-- Is there a standard name and/or generalization? Total ordering?
+
+instance Category U2 where
+  id = U2
+  U2 . U2 = U2
+
+instance ProductCat U2 where
+  exl = U2
+  exr = U2
+  U2 &&& U2 = U2
+
+instance CoproductCat U2 where
+  inl = U2
+  inr = U2
+  U2 ||| U2 = U2
+
+instance ClosedCat U2 where
+  type Exp U2 = (->)
+  apply = U2
+  curry U2 = U2
+  uncurry U2 = U2
+
+instance TerminalCat U2 where it = U2
+
+instance ConstCat U2 where konst = const U2
