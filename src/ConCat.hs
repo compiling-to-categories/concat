@@ -424,7 +424,7 @@ instance Monad m => UnsafeArr (Kleisli m) where
 -- Exactly one arrow for each pair of objects.
 data U2 a b = U2
 
--- Is there a standard name and/or generalization? Total ordering?
+-- Is there a standard name and/or generalization?
 
 instance Category U2 where
   id = U2
