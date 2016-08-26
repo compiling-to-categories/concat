@@ -34,15 +34,33 @@ import FLMap
     Tower of derivative values
 --------------------------------------------------------------------}
 
+-- #define TowerOfMap
+
+#ifdef TowerOfMap
+
 -- TODO: generalize beyond LMap.
 data Tower s a b = T b (Tower s a (LMap s a b))
-
--- newtype Tower s a b = T b (LMap s a (Tower s a b))
 
 instance Newtype (Tower s a b) where
   type O (Tower s a b) = b :* Tower s a (LMap s a b)
   pack (b,t) = T b t
   unpack (T b t) = (b,t)
+
+#else
+
+data Tower s a b = T b (MT s a b)
+
+type MT s a b = LMap s a (Tower s a b)
+
+instance Newtype (Tower s a b) where
+  type O (Tower s a b) = b :* LMap s a (Tower s a b)
+  pack (b,t) = T b t
+  unpack (T b t) = (b,t)
+
+-- TODO: MT as a newtype with a Category instance, and
+-- Tower s a b = b :* MT s a b.
+
+#endif
 
 instance OkL2 s a b => Additive (Tower s a b) where
   zero = pack zero
@@ -51,6 +69,37 @@ instance OkL2 s a b => Additive (Tower s a b) where
 instance OkL2 s a b => Semimodule (Tower s a b) where
   type Scalar (Tower s a b) = s
   (*^) s = inNew ((*^) s)
+
+(@.) :: OkL3 s a b c => MT s b c -> MT s a b -> MT s a c
+bc @. ab =
+  packL . second compL . rassocP . first (unpackL . bc) . unpackL . ab
+
+compL :: OkL3 s a b c => LMap s (MT s b c :* MT s a b) (MT s a c)
+compL = linear (uncurry (@.))
+
+-- comp :: OkL3 s a b c => MT s b c -> MT s a b -> MT s a c
+-- bc `comp` ab =
+--   packL . second compL . rassocP . first (unpackL . bc) . unpackL . ab
+
+-- compL :: OkL3 s a b c => LMap s (MT s b c :* MT s a b) (MT s a c)
+-- compL = linear (uncurry comp)
+
+
+#if 0
+
+type a +> b = a :-* T a b
+data T a b = T b (a +> b)
+
+ab            :: a +> b
+unpackL       :: T a b                       :-* b :* (a +> b)
+first bc      :: b :* (a +> b)               :-* T b c :* (a +> b)
+first unpackL :: T b c :* (a +> b)           :-* (c :* (b +> c)) :* (a +> b)
+rassocP       :: (c :* (b +> c)) :* (a +> b) :-* c :* ((b +> c) :* (a +> b))
+second compL  :: c :* ((b +> c) :* (a +> b)) :-* c :* (a +> c)
+packL         :: c :* (a +> c)               :-* T a c
+
+#endif
+
 
 {--------------------------------------------------------------------
     Differentiable functions
@@ -74,46 +123,63 @@ instance OkL2 s a b => Semimodule (D s a b) where
 constT :: OkL2 s a b => b -> Tower s a b
 constT b = T b zero
 
-linearD :: OkL2 s a b => (a -> b) -> LMap s a b -> D s a b
-linearD f f' = D (\ a -> T (f a) (constT f'))
+linearD :: OkL2 s a b => LMap s a b -> D s a b
+#ifdef TowerOfMap
+linearD f = D (\ a -> T (lapply f a) (constT f))
+#else
 
--- linearD f f' = D (pack . (f &&& const (constD f')))
+-- data Tower s a b = T b (LMap s a (Tower s a b))
+
+--   type O (Tower s a b) = b :* LMap s a (Tower s a b)
+
+linearD f = D (\ a -> T (lapply f a) (packL . (f &&& zero)))
+
+-- f :: LMap s a b
+-- f &&& zero = LMap s a (b :* u)
+
+#endif
+
+
+-- linearD f = D (pack . (lapply f &&& const (constT f)))
 
 instance Category (D s) where
   type Ok (D s) = OkL s
-  id  = linearD id id
-
-#if 0
+  id = linearD id
 
 --   D q . D p = D $ \ a ->
---     let (b,p') = p a
---         (c,q') = q b
+--     let (b,p') = unpack (p a)
+--         (c,q') = unpack (q b)
 --     in
---       (c, q' . p')
+--       pack (c, q' @. p')
 
---   (.) = inD2 $ \ q p -> \ a ->
---     let (b,p') = p a
---         (c,q') = q b
+--   D q . D p = D $ \ a ->
+--     let (b,p') = unpack $ p a
+--         (c,q') = unpack $ q b
 --     in
---       (c, q' . p')
+--       pack (c, q' @. p')
 
---   (.) = inD2 $ \ q p -> \ a ->
---     let ((c,q'),p') = first q (p a)
+--   (.) = inNew2 $ \ q p -> \ a ->
+--     let (b,p') = unpack $ p a
+--         (c,q') = unpack $ q b
 --     in
---       (c, q' . p')
+--       pack (c, q' @. p')
 
---   (.) = inD2 $ \ q p -> \ a ->
---     second (uncurry (.)) (rassocP (first q (p a)))
+--   (.) = inNew2 $ \ q p -> \ a ->
+--     let ((c,q'),p') = first (unpack . q) ((unpack . p) a)
+--     in
+--       pack (c, q' @. p')
 
---   (.) = inD2 $ \ q p -> \ a ->
---     second (uncurry (.)) (rassocP . (first q . p) $ a)
+--   (.) = inNew2 $ \ q p -> \ a ->
+--     pack $ second (uncurry (@.)) (rassocP (first (unpack . q) ((unpack . p) a)))
 
-  (.) = inNew2 $ \ q p -> second (uncurry (.)) . rassocP . (first q . p)
+--   (.) = inNew2 $ \ q p -> \ a ->
+--     pack $ second (uncurry (@.)) (rassocP . (first (unpack . q) . (unpack . p)) $ a)
 
---   (.) = inNew2 $ \ q p ->
---     uncurry (.) . rassocP (first q (p a))
+  (.) = inNew2 $ \ q p -> pack . second (uncurry (@.)) . rassocP . (first (unpack . q) . (unpack . p))
 
 -- TODO: rewrite (.) more generally, to see if we can generalize from (->).
+
+#if 0
 
 instance (ProductCat k, Prod k ~ (:*)) => ProductCat (D k) where
   type Prod (D k) = Prod k
