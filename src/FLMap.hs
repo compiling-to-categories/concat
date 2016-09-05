@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE CPP #-}
@@ -82,3 +83,9 @@ joinF :: Additive c => (a -> c) -> (b -> c) -> (a :* b -> c)
 
 applyTo :: OkL2 s a b => a -> LMap s (a -> b) b
 applyTo a = linear ($ a)
+
+packL :: (Newtype t, OkL2 s (O t) t) => LMap s (O t) t
+packL = linear pack
+
+unpackL :: (Newtype t, OkL2 s t (O t)) => LMap s t (O t)
+unpackL = linear unpack
