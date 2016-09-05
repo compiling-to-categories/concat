@@ -1,5 +1,5 @@
+{-# LANGUAGE UndecidableSuperClasses #-}
 {-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
@@ -11,10 +11,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE CPP #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
 {-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
+
+-- #define DefaultCat
 
 -- | Constrained categories
 
@@ -22,13 +25,17 @@ module ConCat where
 
 import Prelude hiding (id,(.),curry,uncurry)
 import qualified Prelude as P
+#ifdef DefaultCat
+import qualified Control.Category as C
+#endif
 import Control.Arrow (Kleisli(..),arr)
 import qualified Control.Arrow as A
 import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
 import Data.Proxy (Proxy)
+import GHC.Generics
 
-import Control.Newtype (pack,unpack)
+import Control.Newtype (Newtype(..))
 import GHC.Types (Constraint)
 
 import Data.Constraint hiding ((&&&),(***),(:=>))
@@ -40,6 +47,7 @@ import Misc hiding ((<~),(~>))
     Constraint utilities
 --------------------------------------------------------------------}
 
+#if 1
 -- first for entailment
 firstC :: (a :- b) -> ((a,c) :- (b,c))
 firstC f = Sub (Dict \\ f)
@@ -58,6 +66,7 @@ lassocC = secondC weaken1 C.&&& (weaken2 `trans` weaken2)
 
 rassocC :: ((a,b),c) :- (a,(b,c))
 rassocC = (weaken1 `trans` weaken1) C.&&& firstC weaken2
+#endif
 
 {--------------------------------------------------------------------
     Constraints with product consequences
@@ -65,11 +74,13 @@ rassocC = (weaken1 `trans` weaken1) C.&&& firstC weaken2
 
 type UnitCon con = con ()
 
-class OpCon op (con :: * -> Constraint) where
+class OpCon op (con :: u -> Constraint) where
   inOp :: (con a, con b) :- con (a `op` b)
   -- exOp :: con (a `op` b) :- (con a, con b)
 
--- Hm. I have no more uses of `exProd`. Consider removing it.
+-- Hm. I have no more uses of `exProd`.
+
+--     <+ inOp @(Prod k) @(Ok k) @a @a
 
 inOpL :: OpCon op con => ((con a,con b),con c) :- con ((a `op` b) `op` c)
 inOpL = inOp `trans` firstC  inOp
@@ -86,6 +97,19 @@ inOpL' = secondC inOp `trans` rassocC `trans` firstC (contract `trans` inOp)
 -- ((con (a `op` b),con (a `op` b)),con c)
 -- (con (a `op` b),(con (a `op` b),con c))
 -- (con (a `op` b),con ((a `op` b) `op` c))
+
+infixr 1 |-
+type (|-) = (:-)
+
+inOpC :: OpCon op con => con a && con b |- con (a `op` b)
+inOpC = inOp . unconj
+
+inOpLC :: OpCon op con => (con a && con b) && con c |- con ((a `op` b) `op` c)
+inOpLC = inOpC . first  inOpC
+
+inOpLC' :: OpCon op con =>
+            (con a && con b) && con c |- con (a `op` b) && con ((a `op` b) `op` c)
+inOpLC' = second inOpC . rassocP . first (dup . inOpC)
 
 inOpR' :: OpCon op con => (con a,(con b,con c)) :- (con (a `op` (b `op` c)), con (b `op` c))
 inOpR' = firstC inOp `trans` lassocC `trans` secondC (contract `trans` inOp)
@@ -110,9 +134,11 @@ instance OpCon op Yes where
   inOp = Sub Dict
   -- exProd = Sub Dict
 
-type C1 (con :: u -> Constraint) a = con a
+-- type C1 (con :: u -> Constraint) a = con a
+-- type C2 con a b         = (C1 con a, con b)
 
-type C2 con a b         = (C1 con a, con b)
+type C2 (con :: u -> Constraint) a b = (con a, con b)
+
 type C3 con a b c       = (C2 con a b, con c)
 type C4 con a b c d     = (C3 con a b c, con d)
 type C5 con a b c d e   = (C4 con a b c d, con e)
@@ -124,6 +150,11 @@ type Ok4 k a b c d     = C4 (Ok k) a b c d
 type Ok5 k a b c d e   = C5 (Ok k) a b c d e
 type Ok6 k a b c d e f = C6 (Ok k) a b c d e f
 
+-- TODO. Try out this more convenient alternative to inOp
+inOp' :: forall op k a b. OpCon (op k) (Ok k)
+      => (Ok k a, Ok k b) :- Ok k (op k a b)
+inOp' = inOp
+
 {--------------------------------------------------------------------
     Categories
 --------------------------------------------------------------------}
@@ -133,15 +164,22 @@ class Category (k :: u -> u -> *) where
   type Ok k = Yes
   id  :: Ok k a => a `k` a
   infixr 9 .
-  (.) :: C3 (Ok k) a b c =>
+  (.) :: Ok3 k a b c =>
          b `k` c -> a `k` b -> a `k` c
+#ifdef DefaultCat
+  -- Defaults experiment
+  default id :: C.Category k => a `k` a
+  id = C.id
+  default (.) :: C.Category k => b `k` c -> a `k` b -> a `k` c
+  (.) = (C..)
+#endif
 
 type CatOk k ok = (Category k, ok ~ Ok k)
 
 infixl 1 <~
 infixr 1 ~>
 -- | Add post- and pre-processing
-(<~) :: (Category k, C4 (Ok k) a b a' b') =>
+(<~) :: (Category k, Ok4 k a b a' b') =>
         (b `k` b') -> (a' `k` a) -> ((a `k` b) -> (a' `k` b'))
 (h <~ f) g = h . g . f
 
@@ -150,13 +188,29 @@ infixr 1 ~>
         (a' `k` a) -> (b `k` b') -> ((a `k` b) -> (a' `k` b'))
 f ~> h = h <~ f
 
+#if DefaultCat
+instance Category (->)
+instance Monad m => Category (Kleisli m)
+#else
 instance Category (->) where
   id  = P.id
   (.) = (P..)
 
 instance Monad m => Category (Kleisli m) where
-  id  = Kleisli return
+  id  = pack return
   (.) = inNew2 (<=<)
+
+-- Copied from Data.Constraint:
+
+-- instance Category (:-) where
+--   id  = refl
+--   (.) = trans
+
+instance Category (:-) where
+  id = Sub Dict
+  g . f = Sub $ Dict <+ g <+ f
+
+#endif
 
 {--------------------------------------------------------------------
     Products
@@ -169,8 +223,8 @@ infixr 3 ***, &&&
 
 -- | Category with product.
 class (OpCon (Prod k) (Ok k), Category k) => ProductCat k where
-  type Prod k :: * -> * -> *
-  type Prod k = (:*)
+  type Prod k :: u -> u -> u
+  -- type Prod k = (:*)
   exl :: Ok2 k a b => Prod k a b `k` a
   exr :: Ok2 k a b => Prod k a b `k` b
   dup :: Ok k a => a `k` Prod k a a
@@ -203,6 +257,15 @@ class (OpCon (Prod k) (Ok k), Category k) => ProductCat k where
     <+ inOp   @(Prod k) @(Ok k) @b @c
     <+ inOpL' @(Prod k) @(Ok k) @a @b @c
   {-# MINIMAL exl, exr, ((&&&) | ((***), dup)) #-}
+#ifdef DefaultCat
+  default exl :: A.Arrow k => (a :* b) `k` a
+  exl = arr exl
+  default exr :: A.Arrow k => (a :* b) `k` b
+  exr = arr exr
+  default (&&&) :: A.Arrow k => a `k` c -> a `k` d -> a `k` (c :* d)
+  (&&&) = (A.&&&)
+  -- OOPS. We can't give two default definitions for (&&&).
+#endif
 
 -- TODO: reconcile differences between lassocP/rassocP and lassocS/rassocS
 
@@ -211,22 +274,51 @@ class (OpCon (Prod k) (Ok k), Category k) => ProductCat k where
 type ProdOk k ok = (ProductCat k, ok ~ Ok k)
 
 instance ProductCat (->) where
-  exl        = fst
-  exr        = snd
-  (&&&)      = (A.&&&)
-  (***)      = (A.***)
-  first      = A.first
-  second     = A.second
-  lassocP    = \ (a,(b,c)) -> ((a,b),c)
-  rassocP    = \ ((a,b),c) -> (a,(b,c))
-  
+  type Prod (->) = (:*)
+  exl     = fst
+  exr     = snd
+  (&&&)   = (A.&&&)
+  (***)   = (A.***)
+  first   = A.first
+  second  = A.second
+  lassocP = \ (a,(b,c)) -> ((a,b),c)
+  rassocP = \ ((a,b),c) -> (a,(b,c))
+
+--     • Potential superclass cycle for ‘&&’
+--         one of whose superclass constraints is headed by a type variable: ‘a’
+--       Use UndecidableSuperClasses to accept this
+
+infixr 3 &&
+class    (a,b) => a && b
+instance (a,b) => a && b
+
+-- -- Definitions from weaken1, weaken2, and (&&&) in Data.Constraint.
+-- -- The types didn't support using them directly.
+-- instance ProductCat (:-) where
+--   type Prod (:-) = (&&)
+--   exl = Sub Dict
+--   exr = Sub Dict
+--   dup = Sub Dict
+--   f &&& g = Sub (Dict <+ f <+ g)
+
+conj :: (a,b) :- (a && b)
+conj = Sub Dict
+
+unconj :: (a && b) :- (a,b)
+unconj = Sub Dict
+
+instance ProductCat (|-) where
+  type Prod (|-) = (&&)
+  exl = weaken1 . unconj
+  exr = weaken2 . unconj
+  dup = conj . contract
+  f &&& g = conj . (f C.&&& g)
+  f *** g = conj . (f C.*** g) . unconj
+
 -- | Apply to both parts of a product
 twiceP :: (ProductCat k, Ok k a, Ok k c) =>
           (a `k` c) -> Prod k a a `k` (Prod k c c)
 twiceP f = f *** f
-
--- Why doesn't the PRO macro get expanded in the next two definitions?
--- "Not in scope: type constructor or class ‘PRO’"
 
 -- | Operate on left-associated form
 inLassocP :: forall k a b c a' b' c'.
@@ -269,7 +361,11 @@ instance Monad m => ProductCat (Kleisli m) where
   exl   = arr exl
   exr   = arr exr
   dup   = arr dup
+  (&&&) = inNew2 forkA
   (***) = inNew2 crossA
+
+forkA :: Applicative m => (a -> m c) -> (a -> m d) -> (a -> m (c :* d))
+(f `forkA` g) a = liftA2 (,) (f a) (g a)
 
 crossA :: Applicative m => (a -> m c) -> (b -> m d) -> (a :* b -> m (c :* d))
 (f `crossA` g) (a,b) = liftA2 (,) (f a) (g b)
@@ -282,8 +378,8 @@ infixr 2 +++, |||
 
 -- | Category with coproduct.
 class (OpCon (Coprod k) (Ok k), Category k) => CoproductCat k where
-  type Coprod k :: * -> * -> *
-  type Coprod k = (:+)
+  type Coprod k :: u -> u -> u
+  -- type Coprod k = (:+)
   inl :: Ok2 k a b => a `k` Coprod k a b
   inr :: Ok2 k a b => b `k` Coprod k a b
   jam :: Ok k a => Coprod k a a `k` a
@@ -314,6 +410,17 @@ class (OpCon (Coprod k) (Ok k), Category k) => CoproductCat k where
   rassocS = (inl ||| inr.inl) ||| inr.inr
     <+ inOpR' @(Coprod k) @(Ok k) @a @b @c
     <+ inOpL' @(Coprod k) @(Ok k) @a @b @c
+
+type CoprodOk k ok = (CoproductCat k, ok ~ Ok k)
+
+instance CoproductCat (->) where
+  type Coprod (->) = (:+)
+  inl   = Left
+  inr   = Right
+  (|||) = (A.|||)
+  (+++) = (A.+++)
+  left  = A.left
+  right = A.right
 
 -- | Operate on left-associated form
 inLassocS :: forall k a b c a' b' c'.
@@ -355,8 +462,8 @@ unjoin f = (f . inl, f . inr)  <+ inOp @(Coprod k) @(Ok k) @c @d
     Exponentials
 --------------------------------------------------------------------}
 
-class ProductCat k => ClosedCat k where
-  type Exp k :: * -> * -> *
+class (OpCon (Coprod k) (Ok k), ProductCat k) => ClosedCat k where
+  type Exp k :: u -> u -> u
   apply   :: Ok2 k a b   => Prod k (Exp k a b) a `k` b
   curry   :: Ok3 k a b c => (Prod k a b `k` c) -> (a `k` Exp k b c)
   uncurry :: Ok3 k a b c => (a `k` Exp k b c)  -> (Prod k a b `k` c)
@@ -422,20 +529,23 @@ instance Monad m => UnsafeArr (Kleisli m) where
 --------------------------------------------------------------------}
 
 -- Exactly one arrow for each pair of objects.
-data U2 a b = U2
+data U2 (a :: *) (b :: *) = U2
 
 -- Is there a standard name and/or generalization?
+-- Seems to be called "indiscrete" or "chaotic"
 
 instance Category U2 where
   id = U2
   U2 . U2 = U2
 
 instance ProductCat U2 where
+  type Prod U2 = (:*)
   exl = U2
   exr = U2
   U2 &&& U2 = U2
 
 instance CoproductCat U2 where
+  type Coprod U2 = (:+)
   inl = U2
   inr = U2
   U2 ||| U2 = U2
@@ -449,3 +559,41 @@ instance ClosedCat U2 where
 instance TerminalCat U2 where it = U2
 
 instance ConstCat U2 where konst = const U2
+
+{--------------------------------------------------------------------
+    Natural transformations
+--------------------------------------------------------------------}
+
+-- ↠, \twoheadrightarrow
+
+data a --> b = NT (forall (t :: *). a t -> b t)
+
+-- instance Newtype (a --> b) where
+--   -- Illegal polymorphic type: forall t. a t -> b t
+--   type O (a --> b) = forall t. a t -> b t
+--   pack h = NT h
+--   unpack (NT h) = h
+
+instance Category (-->) where
+  id = NT id
+  NT g . NT f = NT (g . f)
+
+instance ProductCat (-->) where
+  type Prod (-->) = (:*:)
+  exl = NT (\ (a :*: _) -> a)
+  exr = NT (\ (_ :*: b) -> b)
+  NT f &&& NT g = NT (prodF . (f &&& g))
+  -- NT f &&& NT g = NT (\ t -> f t :*: g t)
+  -- NT f &&& NT g = NT (uncurry (:*:) . (f &&& g))
+
+instance CoproductCat (-->) where
+  type Coprod (-->) = (:+:)
+  inl = NT L1
+  inr = NT R1
+  NT a ||| NT b = NT ((a ||| b) . unSumF)
+
+instance ClosedCat (-->) where
+  type Exp (-->) = (+->)
+  apply = NT (\ (Fun1 uv :*: a) -> uv a)
+  curry   (NT f) = NT (\ a -> Fun1 (\ b -> f (a :*: b)))
+  uncurry (NT g) = NT (\ (a :*: b) -> g a $* b)
