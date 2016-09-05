@@ -10,7 +10,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+-- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Tries as category
@@ -38,11 +38,13 @@ instance OpCon (:*) HasTrie where inOp = Sub Dict
 instance OpCon (:+) HasTrie where inOp = Sub Dict
 
 instance ProductCat (:->:) where
+  type Prod (:->:) = (:*)
   exl   = trie exl
   exr   = trie exr
   (&&&) = inTrie2 (&&&)
 
 instance CoproductCat (:->:) where
+  type Coprod (:->:) = (:+)
   inl   = trie inl
   inr   = trie inr
   (|||) = inTrie2 (|||)
