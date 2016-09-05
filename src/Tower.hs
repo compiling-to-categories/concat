@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -34,72 +35,106 @@ import FLMap
     Tower of derivative values
 --------------------------------------------------------------------}
 
--- #define TowerOfMap
+type Tower s a b = b :* MT s a b
 
-#ifdef TowerOfMap
+newtype MT s a b = MT (LMap s a (Tower s a b))
 
--- TODO: generalize beyond LMap.
-data Tower s a b = T b (Tower s a (LMap s a b))
-
-instance Newtype (Tower s a b) where
-  type O (Tower s a b) = b :* Tower s a (LMap s a b)
-  pack (b,t) = T b t
-  unpack (T b t) = (b,t)
-
-#else
-
-data Tower s a b = T b (MT s a b)
-
-type MT s a b = LMap s a (Tower s a b)
-
-instance Newtype (Tower s a b) where
-  type O (Tower s a b) = b :* LMap s a (Tower s a b)
-  pack (b,t) = T b t
-  unpack (T b t) = (b,t)
+instance Newtype (MT s a b) where
+  type O (MT s a b) = LMap s a (Tower s a b)
+  pack m = MT m
+  unpack (MT m) = m
 
 -- TODO: MT as a newtype with a Category instance, and
 -- Tower s a b = b :* MT s a b.
 
-#endif
-
-instance OkL2 s a b => Additive (Tower s a b) where
+instance OkL2 s a b => Additive (MT s a b) where
   zero = pack zero
   (^+^) = inNew2 (^+^)
 
-instance OkL2 s a b => Semimodule (Tower s a b) where
-  type Scalar (Tower s a b) = s
+instance OkL2 s a b => Semimodule (MT s a b) where
+  type Scalar (MT s a b) = s
   (*^) s = inNew ((*^) s)
 
+linearT :: OkL2 s a b => LMap s a b -> MT s a b
+linearT f = pack (f &&& zero)
+
 (@.) :: OkL3 s a b c => MT s b c -> MT s a b -> MT s a c
-bc @. ab =
-  packL . second compL . rassocP . first (unpackL . bc) . unpackL . ab
+(@.) = inNew2 $ \ bc ab -> second comp . rassocP . first bc . ab
 
-compL :: OkL3 s a b c => LMap s (MT s b c :* MT s a b) (MT s a c)
-compL = linear (uncurry (@.))
+-- MT bc @. MT ab = MT (second comp . rassocP . first bc . ab)
 
--- comp :: OkL3 s a b c => MT s b c -> MT s a b -> MT s a c
--- bc `comp` ab =
---   packL . second compL . rassocP . first (unpackL . bc) . unpackL . ab
+comp :: OkL3 s a b c => LMap s (MT s b c :* MT s a b) (MT s a c)
+comp = linear (uncurry (@.))
 
--- compL :: OkL3 s a b c => LMap s (MT s b c :* MT s a b) (MT s a c)
--- compL = linear (uncurry comp)
-
+-- TODO: prove that uncurry (@.) is linear. Hm. Seems more likely bilinear.
 
 #if 0
 
-type a +> b = a :-* T a b
-data T a b = T b (a +> b)
+type T a b = b :* (a +> b)
 
-ab            :: a +> b
-unpackL       :: T a b                       :-* b :* (a +> b)
-first bc      :: b :* (a +> b)               :-* T b c :* (a +> b)
-first unpackL :: T b c :* (a +> b)           :-* (c :* (b +> c)) :* (a +> b)
-rassocP       :: (c :* (b +> c)) :* (a +> b) :-* c :* ((b +> c) :* (a +> b))
-second compL  :: c :* ((b +> c) :* (a +> b)) :-* c :* (a +> c)
-packL         :: c :* (a +> c)               :-* T a c
+type a +> b = a :-* T a b
+
+newtype MT a b = MT (a +> b)
+
+ab          :: a +> b
+first bc    :: b :* (a +> b)               :-* T b c :* (a +> b)
+rassocP     :: T b c :* (a +> b)           :-* c :* ((b +> c) :* (a +> b))
+second comp :: c :* ((b +> c) :* (a +> b)) :-* c :* (a +> c)
 
 #endif
 
+instance Category (MT s) where
+  type Ok (MT s) = OkL s
+  id  = linearT id
+  (.) = (@.)
+
+instance ProductCat (MT s) where
+  type Prod (MT s) = (:*)
+  exl   = linearT exl
+  exr   = linearT exr
+  (&&&) = inNew2 $ \ ac ad -> second fork . transposeP . (ac &&& ad)
+
+fork :: OkL3 s a c d => LMap s (MT s a c :* MT s a d) (MT s a (c :* d))
+fork = linear (uncurry (&&&))
+
+#if 0
+ac :: a +> c
+ad :: a +> d
+
+ac &&& ad   :: a   :-* T a c :* T a d
+            == a   :-* (c :* (a +> c)) :* (d :* (a +> d))
+transposeP  :: ... :-* (c :* d) :* ((a +> c) :* (a +> d))
+second fork :: ... :-* (c * d) :* (a +> (c :* d))
+#endif
+
+instance CoproductCat (MT s) where
+  type Coprod (MT s) = (:*)
+  inl   = linearT inl
+  inr   = linearT inr
+
+--   (|||) = inNew2 $ \ ac bc -> ...
+
+#if 0
+ac :: a +> c
+   == a :-* T a c
+   == a :-* c :* (a +> c)
+bc :: b +> c
+   == b :-* T b c
+   == b :-* c :* (b +> c)
+
+
+
+inl :: a :-* a :* b
+
+
+
+second (inl) . ac :: a :-* c :* 
+
+ac ||| bc   :: a :* b :-* T (a :* b) c
+            == a   :-* (c :* (a +> c)) :* (d :* (a +> d))
+transposeP  :: ... :-* (c :* d) :* ((a +> c) :* (a +> d))
+second fork :: ... :-* (c * d) :* (a +> (c :* d))
+#endif
 
 {--------------------------------------------------------------------
     Differentiable functions
@@ -121,95 +156,77 @@ instance OkL2 s a b => Semimodule (D s a b) where
   (*^) s = inNew ((*^) s)
 
 constT :: OkL2 s a b => b -> Tower s a b
-constT b = T b zero
+constT = (,zero)
 
 linearD :: OkL2 s a b => LMap s a b -> D s a b
-#ifdef TowerOfMap
-linearD f = D (\ a -> T (lapply f a) (constT f))
-#else
-
--- data Tower s a b = T b (LMap s a (Tower s a b))
-
---   type O (Tower s a b) = b :* LMap s a (Tower s a b)
-
-linearD f = D (\ a -> T (lapply f a) (packL . (f &&& zero)))
-
--- f :: LMap s a b
--- f &&& zero = LMap s a (b :* u)
-
-#endif
-
+linearD f = D (\ a -> (f $@ a, linearT f))
 
 -- linearD f = D (pack . (lapply f &&& const (constT f)))
 
 instance Category (D s) where
   type Ok (D s) = OkL s
   id = linearD id
+  (.) = inNew2 $ \ q p -> second (uncurry (.)) . rassocP . first q . p
 
 --   D q . D p = D $ \ a ->
---     let (b,p') = unpack (p a)
---         (c,q') = unpack (q b)
+--     let (b,p') = p a
+--         (c,q') = q b
 --     in
---       pack (c, q' @. p')
-
---   D q . D p = D $ \ a ->
---     let (b,p') = unpack $ p a
---         (c,q') = unpack $ q b
---     in
---       pack (c, q' @. p')
+--       (c, q' . p')
 
 --   (.) = inNew2 $ \ q p -> \ a ->
---     let (b,p') = unpack $ p a
---         (c,q') = unpack $ q b
+--     let (b,p') = p a
+--         (c,q') = q b
 --     in
---       pack (c, q' @. p')
+--       (c, q' . p')
 
 --   (.) = inNew2 $ \ q p -> \ a ->
---     let ((c,q'),p') = first (unpack . q) ((unpack . p) a)
+--     let ((c,q'),p') = first q (p a)
 --     in
---       pack (c, q' @. p')
+--       (c, q' . p')
 
 --   (.) = inNew2 $ \ q p -> \ a ->
---     pack $ second (uncurry (@.)) (rassocP (first (unpack . q) ((unpack . p) a)))
+--     second (uncurry (.)) (rassocP (first q (p a)))
 
 --   (.) = inNew2 $ \ q p -> \ a ->
---     pack $ second (uncurry (@.)) (rassocP . (first (unpack . q) . (unpack . p)) $ a)
-
-  (.) = inNew2 $ \ q p -> pack . second (uncurry (@.)) . rassocP . (first (unpack . q) . (unpack . p))
+--     second (uncurry (.)) (rassocP . (first q . p) $ a)
 
 -- TODO: rewrite (.) more generally, to see if we can generalize from (->).
 
-#if 0
-
-instance (ProductCat k, Prod k ~ (:*)) => ProductCat (D k) where
-  type Prod (D k) = Prod k
-  exl = linearD exl exl
-  exr = linearD exr exr
+-- instance (ProductCat k, Prod k ~ (:*)) => ProductCat (D k) where
+--   type Prod (D k) = Prod k
+--   exl = linearD exl exl
+--   exr = linearD exr exr
 
 -- TODO: Revisit the Prod k ~ (:*) constraint. Maybe just Prod (D k) = Prod k?
 
---   (&&&) = inNew2 $ \ p q -> \ a ->
---     let (b,p') = p a
---         (c,q') = q a
+instance ProductCat (D s) where
+  type Prod (D s) = (:*)
+  exl = linearD exl
+  exr = linearD exr
+  (&&&) = inNew2 $ \ ab bc -> second (uncurry (&&&)) . transposeP . (ab &&& bc)
+
+--   (&&&) = inNew2 $ \ ab bc -> \ a ->
+--     let (b,ab') = ab a
+--         (c,bc') = bc a
 --     in
---       ((b,c), p' &&& q')
+--       ((b,c), ab' &&& bc')
 
---   D p &&& D q = D $ \ a ->
---     let (b,p') = p a
---         (c,q') = q a
+--   D ab &&& D bc = D $ \ a ->
+--     let (b,ab') = ab a
+--         (c,bc') = bc a
 --     in
---       ((b,c), p' &&& q')
+--       ((b,c), ab' &&& bc')
 
+--   (&&&) = inNew2 $ \ ab bc -> \ a ->
+--     let ((b,ab'),(c,bc')) = (ab &&& bc) a in
+--       ((b,c), ab' &&& bc')
 
---   (&&&) = inNew2 $ \ p q -> \ a ->
---     let ((b,p'),(c,q')) = (p &&& q) a in
---       ((b,c), p' &&& q')
+--   (&&&) = inNew2 $ \ ab bc -> \ a ->
+--     let (bc,(ab',bc')) = (transposeP . (ab &&& bc)) a in
+--       (bc, ab' &&& bc')
 
---   (&&&) = inNew2 $ \ p q -> \ a ->
---     let (bc,(p',q')) = (transposeP . (p &&& q)) a in
---       (bc, p' &&& q')
-
-  (&&&) = inNew2 $ \ p q -> second (uncurry (&&&)) . transposeP . (p &&& q)
+#if 0
 
 dFun :: D k a b -> (a -> b)
 dFun = (fmap.fmap) fst unpack
@@ -281,5 +298,45 @@ foo1 g a b = (c,abc . inr)
 -- uncurry :: Ok3 k a b c => (a `k` Exp k b c)  -> (Prod k a b `k` c)
 
 -- uncurry :: (a ~> (b :=> c)) -> (a :* b ~> c)
+
+#endif
+
+#if 0
+
+{--------------------------------------------------------------------
+    Generalization
+--------------------------------------------------------------------}
+
+type T k a b = Prod k b (M k a b)
+
+newtype M k a b = M (a `k` T k a b)
+
+instance Newtype (M k a b) where
+  type O (M k a b) = a `k` T k a b
+  pack m = M m
+  unpack (M m) = m
+
+instance Ok2 k a b => Additive (M k a b) where
+  zero = pack zero
+  (^+^) = inNew2 (^+^)
+
+instance Ok2 k a b => Semimodule (M k a b) where
+  type Scalar (M k a b) = Scalar a
+  (*^) s = inNew ((*^) s)
+
+(.@.) :: (Category k, Ok3 k a b c) => M k b c -> M k a b -> M k a c
+(.@.) = inNew2 $ \ bc ab -> second comp' . rassocP . first bc . ab
+          -- <+ inOp @(Prod k) @(Ok k) @a @b
+
+comp' :: Ok3 k a b c => (Prod k (M k b c) (M k a b)) `k` M k a c
+comp' = undefined -- linear (uncurry (.@.))
+
+-- linearT :: Ok2 k a b => LMap s a b -> M k a b
+-- linearT f = pack (f &&& zero)
+
+instance Category k => Category (M k) where
+  type Ok (M k) = Ok k
+  id  = undefined -- linearT id
+  (.) = (.@.)
 
 #endif
