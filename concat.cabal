@@ -22,6 +22,8 @@ library
                        Semimodule
                        Basis
                        LMap
+                       FLMap
+                       TrieCat
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.9 && <4.10
