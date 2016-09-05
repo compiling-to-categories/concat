@@ -160,10 +160,17 @@ type DL' s a b = D' (LMap s) a b
 --      :: a -> D' k b c :* (a :-* D' k b c)
 --      :: a -> (b -> c :* (b :-* c)) :* (a :-* (b -> c :* (b :-* c)))
 
-foo1 :: OkL3 s a b c => DL' s (a :* b) c -> a -> (b -> c :* LMap s b c)
-foo1 g a b = (c,abc . inr)
- where
-   (c,abc) = g (a,b)
+-- foo1 :: OkL3 s a b c => DL' s (a :* b) c -> a -> (b -> c :* LMap s b c)
+
+foo1 g = curry (second (. inr) . g)
+
+-- foo1 g a b = curry (second (. inr) . g) a b
+
+-- foo1 g a b = second (. inr) (g (a,b))
+
+-- foo1 g a b = (c,abc . inr)
+--  where
+--    (c,abc) = g (a,b)
 
 -- Because we're fixing a, use inr so that da = 0
 
