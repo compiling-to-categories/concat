@@ -115,4 +115,3 @@ joinF :: Additive c => (a -> c) -> (b -> c) -> (a :* b -> c)
 
 -- TODO: consider more efficient implementations of the defaulted methods for
 -- ProductCat and CoproductCat.
-
