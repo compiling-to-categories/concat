@@ -62,10 +62,10 @@ infixl 1 <+
 (<+) = (\\)
 
 lassocC :: (a,(b,c)) :- ((a,b),c)
-lassocC = secondC weaken1 C.&&& (weaken2 `trans` weaken2)
+lassocC = secondC weaken1 C.&&& (weaken2 . weaken2)
 
 rassocC :: ((a,b),c) :- (a,(b,c))
-rassocC = (weaken1 `trans` weaken1) C.&&& firstC weaken2
+rassocC = (weaken1 . weaken1) C.&&& firstC weaken2
 #endif
 
 {--------------------------------------------------------------------
@@ -83,14 +83,14 @@ class OpCon op (con :: u -> Constraint) where
 --     <+ inOp @(Prod k) @(Ok k) @a @a
 
 inOpL :: OpCon op con => ((con a,con b),con c) :- con ((a `op` b) `op` c)
-inOpL = inOp `trans` firstC  inOp
+inOpL = inOp . firstC  inOp
 
 inOpR :: OpCon op con => (con a,(con b,con c)) :- con (a `op` (b `op` c))
-inOpR = inOp `trans` secondC inOp
+inOpR = inOp . secondC inOp
 
 inOpL' :: OpCon op con =>
            ((con a,con b),con c) :- (con (a `op` b), con ((a `op` b) `op` c))
-inOpL' = secondC inOp `trans` rassocC `trans` firstC (contract `trans` inOp)
+inOpL' = secondC inOp . rassocC . firstC (contract . inOp)
 
 -- ((con a,con b),con c)
 -- (con (a `op` b),con c)
@@ -112,7 +112,7 @@ inOpLC' :: OpCon op con =>
 inOpLC' = second inOpC . rassocP . first (dup . inOpC)
 
 inOpR' :: OpCon op con => (con a,(con b,con c)) :- (con (a `op` (b `op` c)), con (b `op` c))
-inOpR' = firstC inOp `trans` lassocC `trans` secondC (contract `trans` inOp)
+inOpR' = firstC inOp . lassocC . secondC (contract . inOp)
 
 -- (con a,(con b,con c))
 -- (con a,con (b `op` c))
@@ -121,10 +121,10 @@ inOpR' = firstC inOp `trans` lassocC `trans` secondC (contract `trans` inOp)
 -- (con (a `op` (b `op` c)),con (b `op` c))
 
 -- exProdL :: OpCon op con => con ((a `op` b) `op` c) :- ((con a,con b),con c)
--- exProdL = firstC  exProd `trans` exProd
+-- exProdL = firstC  exProd . exProd
 
 -- exProdR :: OpCon op con => con (a `op` (b `op` c)) :- (con a,(con b,con c))
--- exProdR = secondC exProd `trans` exProd
+-- exProdR = secondC exProd . exProd
 
 -- Sub  :: (a => Dict b) -> a :- b
 -- Dict :: a => Dict a
@@ -230,8 +230,7 @@ class (OpCon (Prod k) (Ok k), Category k) => ProductCat k where
   dup :: Ok k a => a `k` Prod k a a
   dup = id &&& id
   swapP :: forall a b. Ok2 k a b => Prod k a b `k` Prod k b a
-  swapP =  exr &&& exl  <+ InProd @a @b
-                           -- inOp @(Prod k) @(Ok k) @a @b
+  swapP =  exr &&& exl  <+ inOp @(Prod k) @(Ok k) @a @b
   (***) :: forall a b c d. Ok4 k a b c d =>
            (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d)
   f *** g = f . exl &&& g . exr  <+ inOp @(Prod k) @(Ok k) @a @b
@@ -410,6 +409,7 @@ class (OpCon (Coprod k) (Ok k), Category k) => CoproductCat k where
   rassocS = (inl ||| inr.inl) ||| inr.inr
     <+ inOpR' @(Coprod k) @(Ok k) @a @b @c
     <+ inOpL' @(Coprod k) @(Ok k) @a @b @c
+  {-# MINIMAL inl, inr, ((|||) | ((+++), jam)) #-}
 
 type CoprodOk k ok = (CoproductCat k, ok ~ Ok k)
 
@@ -462,7 +462,7 @@ unjoin f = (f . inl, f . inr)  <+ inOp @(Coprod k) @(Ok k) @c @d
     Exponentials
 --------------------------------------------------------------------}
 
-class (OpCon (Coprod k) (Ok k), ProductCat k) => ClosedCat k where
+class ProductCat k => ClosedCat k where
   type Exp k :: u -> u -> u
   apply   :: Ok2 k a b   => Prod k (Exp k a b) a `k` b
   curry   :: Ok3 k a b c => (Prod k a b `k` c) -> (a `k` Exp k b c)
@@ -564,6 +564,8 @@ instance ConstCat U2 where konst = const U2
     Natural transformations
 --------------------------------------------------------------------}
 
+#if 0
+
 -- ↠, \twoheadrightarrow
 
 data a --> b = NT (forall (t :: *). a t -> b t)
@@ -583,8 +585,6 @@ instance ProductCat (-->) where
   exl = NT (\ (a :*: _) -> a)
   exr = NT (\ (_ :*: b) -> b)
   NT f &&& NT g = NT (prodF . (f &&& g))
-  -- NT f &&& NT g = NT (\ t -> f t :*: g t)
-  -- NT f &&& NT g = NT (uncurry (:*:) . (f &&& g))
 
 instance CoproductCat (-->) where
   type Coprod (-->) = (:+:)
@@ -597,3 +597,59 @@ instance ClosedCat (-->) where
   apply = NT (\ (Fun1 uv :*: a) -> uv a)
   curry   (NT f) = NT (\ a -> Fun1 (\ b -> f (a :*: b)))
   uncurry (NT g) = NT (\ (a :*: b) -> g a $* b)
+
+#elif 0
+
+-- With constraint element types
+
+data NT con a b = NT (forall (t :: *). con t => a t -> b t)
+
+instance Category (NT con) where
+  id = NT id
+  NT g . NT f = NT (g . f)
+
+instance ProductCat (NT con) where
+  type Prod (NT con) = (:*:)
+  exl = NT (\ (a :*: _) -> a)
+  exr = NT (\ (_ :*: b) -> b)
+  NT f &&& NT g = NT (prodF . (f &&& g))
+
+instance CoproductCat (NT con) where
+  type Coprod (NT con) = (:+:)
+  inl = NT L1
+  inr = NT R1
+  NT a ||| NT b = NT ((a ||| b) . unSumF)
+
+instance ClosedCat (NT con) where
+  type Exp (NT con) = (+->)
+  apply = NT (\ (Fun1 uv :*: a) -> uv a)
+  curry   (NT f) = NT (\ a -> Fun1 (\ b -> f (a :*: b)))
+  uncurry (NT g) = NT (\ (a :*: b) -> g a $* b)
+
+#else
+
+data UT (t :: *) a b = UT (a t -> b t)
+
+instance Category (UT t) where
+  id = UT id
+  UT g . UT f = UT (g . f)
+
+instance ProductCat (UT t) where
+  type Prod (UT t) = (:*:)
+  exl = UT (\ (a :*: _) -> a)
+  exr = UT (\ (_ :*: b) -> b)
+  UT f &&& UT g = UT (prodF . (f &&& g))
+
+instance CoproductCat (UT t) where
+  type Coprod (UT t) = (:+:)
+  inl = UT L1
+  inr = UT R1
+  UT a ||| UT b = UT ((a ||| b) . unSumF)
+
+instance ClosedCat (UT t) where
+  type Exp (UT t) = (+->)
+  apply = UT (\ (Fun1 uv :*: a) -> uv a)
+  curry   (UT f) = UT (\ a -> Fun1 (\ b -> f (a :*: b)))
+  uncurry (UT g) = UT (\ (a :*: b) -> g a $* b)
+
+#endif
