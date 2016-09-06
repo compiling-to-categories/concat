@@ -12,6 +12,8 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE ExistentialQuantification #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
@@ -21,17 +23,21 @@
 
 module TrieCat where
 
-import Prelude hiding (id,(.))
+import Prelude hiding (id,(.),curry,uncurry)
 import qualified Prelude as P
 import Control.Arrow (Kleisli(..),arr)
 import qualified Control.Arrow as A
 import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
--- import Control.Category
+import qualified Control.Category as Cat
 -- import Data.Constraint (Dict(..),(:-)(..))
 import Control.Newtype
 import GHC.Types (Constraint)
 import Data.MemoTrie
+
+import Data.VectorSpace
+import Data.LinearMap
+import Data.Basis
 
 import Data.Constraint hiding ((&&&),(***),(:=>))
 import qualified Data.Constraint as C
@@ -95,6 +101,13 @@ class Category (k :: u -> u -> *) where
   id  :: Ok k a => a `k` a
   infixr 9 .
   (.) :: Ok3 k a b c => b `k` c -> a `k` b -> a `k` c
+#if 1
+  -- Defaults experiment
+  default id :: Cat.Category k => a `k` a
+  id = Cat.id
+  default (.) :: Cat.Category k => b `k` c -> a `k` b -> a `k` c
+  (.) = (Cat..)
+#endif
 
 instance Category (->) where
   id  = P.id
@@ -103,10 +116,6 @@ instance Category (->) where
 instance Monad m => Category (Kleisli m) where
   id  = pack return
   (.) = inNew2 (<=<)
-
-instance Category (:-) where
-  id = Sub Dict
-  g . f = Sub $ Dict <+ g <+ f
 
 infixl 1 <~
 infixr 1 ~>
@@ -165,10 +174,15 @@ infixr 3 ***, &&&
 -- class OkProd k where
 --   inProd :: (Ok k a, Ok k b) :- Ok k (a :* b)
 
-class ProdCon con where
-  inProd :: (con a, con b) :- con (a :* b)
+type ProdCon = OpCon (:*)
 
-instance ProdCon Yes where inProd = Sub Dict
+inProd :: ProdCon con => (con a, con b) :- con (a :* b)
+inProd = inOp
+
+-- class ProdCon con where
+--   inProd :: (con a, con b) :- con (a :* b)
+
+-- instance ProdCon Yes where inProd = Sub Dict
 
 inProdL :: ProdCon con => ((con a,con b),con c) :- con ((a :* b) :* c)
 inProdL = inProd `trans` firstC  inProd
@@ -246,7 +260,7 @@ inPLR r = inPL @con @a @b @c $ inPR @con @a @b @c $ r
 
 -- | Category with product.
 -- TODO: Generalize '(:*)' to an associated type.
-class (Category k, ProdCon (Ok k)) => ProductCat k where
+class (Category k, ProdCon (Ok k)) => ProductCat (k {-:: u -> u -> *-}) where
   exl :: Ok2 k a b => (a :* b) `k` a
   exr :: Ok2 k a b => (a :* b) `k` b
   dup :: Ok k a => a `k` (a :* a)
@@ -328,9 +342,8 @@ class Category k => ProductCat k where
 #endif
 
 -- | Operate on left-associated form
-inLassocP :: forall k a b c a' b' c'.
-             (ProductCat k, Ok6 k a b c a' b' c') =>
-             ((a :* b) :* c) `k` ((a' :* b') :* c')
+inLassocP :: forall k a b c a' b' c'. (ProductCat k, Ok6 k a b c a' b' c')
+          => ((a :* b) :* c) `k` ((a' :* b') :* c')
           -> (a :* (b :* c)) `k` (a' :* (b' :* c'))
 
 inLassocP = inPLR @(Ok k) @a  @b  @c  $
@@ -353,10 +366,9 @@ inLassocP = inPLR @(Ok k) @a  @b  @c  $
 --               <+ inProd @(Ok k) @a  @(b  :* c ) <+ inProd @(Ok k) @b  @c
 
 
--- | Operate on left-associated form
-inRassocP :: forall k a b c a' b' c'.
-             (ProductCat k, Ok6 k a b c a' b' c') =>
-             (a :* (b :* c)) `k` (a' :* (b' :* c'))
+-- | Operate on right-associated form
+inRassocP :: forall k a b c a' b' c'. (ProductCat k, Ok6 k a b c a' b' c')
+          => (a :* (b :* c)) `k` (a' :* (b' :* c'))
           -> ((a :* b) :* c) `k` ((a' :* b') :* c')
 
 inRassocP = inPLR @(Ok k) @a  @b  @c  $
@@ -401,8 +413,6 @@ inProdLR :: ProdCon con =>
   :- (con ((a :* b) :* c), con (a :* (b :* c)))
 inProdLR = inProdL C.*** inProdR
 
-
-
 -- inProdL :: ProdCon con => ((con a,con b),con c) :- con ((a :* b) :* c)
 -- inProdR :: ProdCon con => (con a,(con b,con c)) :- con (a :* (b :* c))
 
@@ -425,20 +435,76 @@ instance ProductCat (->) where
 --   rassocP    = \ ((a,b),c) -> (a,(b,c))
 
 instance Monad m => ProductCat (Kleisli m) where
---   type Prod (Kleisli m) = (:*)
   exl   = arr fst
   exr   = arr snd
---   dup   = arr dup
   (&&&) = (A.&&&)
---   (***) = (A.***)
 
+infixr 2 +++, |||
 
+#if 0
 -- | Category with coproduct.
 class Category k => CoproductCat k where
   inl :: Ok2 k a b => a `k` (a :+ b)
   inr :: Ok2 k a b => b `k` (a :+ b)
   (|||) :: forall a c d. Ok3 k a c d =>
            c `k` a -> d `k` a -> (c :+ d) `k` a
+#else
+
+-- | Category with coproduct.
+class (OpCon (:+) (Ok k), Category k) => CoproductCat k where
+  inl :: Ok2 k a b => a `k` (a :+ b)
+  inr :: Ok2 k a b => b `k` (a :+ b)
+  jam :: Ok k a => (a :+ a) `k` a
+  jam = id ||| id
+  swapS :: forall a b. Ok2 k a b => (a :+ b) `k` (b :+ a)
+  swapS =  inr ||| inl  <+ inOp @(:+) @(Ok k) @b @a
+  (+++) :: forall a b c d. Ok4 k a b c d
+        => (c `k` a) -> (d `k` b) -> ((c :+ d) `k` (a :+ b))
+  f +++ g = inl . f ||| inr . g  <+ inOp @(:+) @(Ok k) @a @b
+  (|||) :: forall a c d. Ok3 k a c d
+        => (c `k` a) -> (d `k` a) -> ((c :+ d) `k` a)
+  f ||| g = jam . (f +++ g)
+    <+ inOp @(:+) @(Ok k) @a @a
+    <+ inOp @(:+) @(Ok k) @c @d
+  left :: forall a a' b. Ok3 k a b a'
+       => (a `k` a') -> ((a :+ b) `k` (a' :+ b))
+  left = (+++ id)
+  right :: forall a b b'. Ok3 k a b b'
+        => (b `k` b') -> ((a :+ b) `k` (a :+ b'))
+  right = (id +++)
+  lassocS :: forall a b c. Ok3 k a b c
+          => (a :+ (b :+ c)) `k` ((a :+ b) :+ c)
+  lassocS = inl.inl ||| (inl.inr ||| inr)
+    <+ inOp @(:+) @(Ok k) @(a :+ b) @c
+    <+ inOp @(:+) @(Ok k) @b @c
+    <+ inOp @(:+) @(Ok k) @a @b
+  rassocS :: forall a b c. Ok3 k a b c
+          => ((a :+ b) :+ c) `k` (a :+ (b :+ c))
+  rassocS = (inl ||| inr.inl) ||| inr.inr
+    <+ inOp @(:+) @(Ok k) @a @(b :+ c)
+    <+ inOp @(:+) @(Ok k) @b @c
+    <+ inOp @(:+) @(Ok k) @a @b
+  {-# MINIMAL inl, inr, ((|||) | ((|||), jam)) #-}
+
+-- | Operate on left-associated form
+inLassocS :: forall k a b c a' b' c'.
+             (CoproductCat k, Ok6 k a b c a' b' c') =>
+             ((a :+ b) :+ c) `k` ((a' :+ b') :+ c')
+          -> (a :+ (b :+ c)) `k` (a' :+ (b' :+ c'))
+inLassocS = rassocS <~ lassocS
+              <+ ( inOpLR @(:+) @(Ok k) @a  @b  @c C.***
+                   inOpLR @(:+) @(Ok k) @a' @b' @c' )
+
+-- | Operate on right-associated form
+inRassocS :: forall k a b c a' b' c'.
+             (CoproductCat k, Ok6 k a b c a' b' c') =>
+             (a :+ (b :+ c)) `k` (a' :+ (b' :+ c'))
+          -> ((a :+ b) :+ c) `k` ((a' :+ b') :+ c')
+inRassocS = lassocS <~ rassocS
+              <+ ( inOpLR @(:+) @(Ok k) @a  @b  @c C.***
+                   inOpLR @(:+) @(Ok k) @a' @b' @c' )
+
+#endif
 
 instance CoproductCat (->) where
   inl        = Left
@@ -451,15 +517,10 @@ instance CoproductCat (->) where
 --   lassocP    = \ (a,(b,c)) -> ((a,b),c)
 --   rassocP    = \ ((a,b),c) -> (a,(b,c))
 
-
 instance Monad m => CoproductCat (Kleisli m) where
---   type Coprod (Kleisli m) = (:+)
   inl   = arr Left
   inr   = arr Right
---   dup   = arr dup
---   (|||) = inNew2 forkA
   (|||) = (A.|||)
---   (+++) = inNew2 crossA
 
 {--------------------------------------------------------------------
     Memo trie functors
@@ -470,23 +531,22 @@ instance Category (:->:) where
   id = idTrie
   (.) = (@.@)
 
--- instance ProductCat (:->:) where
---   exl   = trie exl
---   exr   = trie exr
---   (&&&) = inTrie2 (&&&)
+instance ProductCat (:->:) where
+  exl   = trie exl
+  exr   = trie exr
+  (&&&) = inTrie2 (&&&)
 
--- instance CoproductCat (:->:) where
---   inl   = trie inl
---   inr   = trie inr
---   (|||) = inTrie2 (|||)
-
-#if 0
+instance CoproductCat (:->:) where
+  inl   = trie inl
+  inr   = trie inr
+  (|||) = inTrie2 (|||)
 
 instance OpCon (:*) HasTrie where inOp = Sub Dict
 instance OpCon (:+) HasTrie where inOp = Sub Dict
 
-#if 1
+-- instance ProdCon HasTrie where inProd = inOp
 
+#if 0
 instance OpCon (:->:) HasTrie where -- inOp = Sub Dict
 
 instance ClosedCat (:->:) where
@@ -498,7 +558,143 @@ instance ClosedCat (:->:) where
   uncurry = pack
 
   -- apply = (pack.trie) (\ (Memod t, a) -> untrie t a)
+#endif
+
+{--------------------------------------------------------------------
+    Linear maps
+--------------------------------------------------------------------}
+
+#if 0
+
+-- (*.*) :: ( HasBasis u, HasTrie (Basis u)
+--         , HasBasis v, HasTrie (Basis v)
+--         , VectorSpace w, Scalar v ~ Scalar w )
+
+class    (VectorSpace a, HasBasis a, HasTrie (Basis a)) => OkL a
+instance (VectorSpace a, HasBasis a, HasTrie (Basis a)) => OkL a
+
+instance Category (:-*) where
+  type Ok (:-*) = OkL
+  id  = idL
+  (.) = (*.*)
+
+#else
+
+class    (VectorSpace a, Scalar a ~ s, HasBasis a, HasTrie (Basis a)) => OkL s a
+instance (VectorSpace a, Scalar a ~ s, HasBasis a, HasTrie (Basis a)) => OkL s a
+
+type OkL2 s a b = C2 (OkL s) a b
+
+-- | Linear map over a given scalar field
+data LMap s a b = OkL2 s a b => LMap (a :-* b)
+
+-- Needs ExistentialQuantification
+
+instance OkL2 s a b => Newtype (LMap s a b) where
+  type O (LMap s a b) = a :-* b
+  pack t = LMap t
+  unpack (LMap t) = t
+
+instance Category (LMap s) where
+  type Ok (LMap s) = OkL s
+  id  = pack idL
+  (.) = inNew2 (*.*)
+
+-- instance ProdCon (OkL s) where inProd = Sub Dict
+instance OpCon (:*) (OkL s) where inOp = Sub Dict
+
+-- fstL  :: Ok2 (LMap s) a b => a :* b :-* a
+-- sndL  :: Ok2 (LMap s) a b => a :* b :-* b
+-- forkL :: Ok3 (LMap s) a c d => (a :-* c) -> (a :-* d) -> (a :-* c :* d)
+
+instance ProductCat (LMap s) where
+  exl   = pack exlL
+  exr   = pack exrL
+  (&&&) = inNew2 forkL
 
 #endif
 
+{--------------------------------------------------------------------
+    Entailment
+--------------------------------------------------------------------}
+
+-- instance Category (:-) where
+--   id = Sub Dict
+--   g . f = Sub $ Dict <+ g <+ f
+
+instance Category (:-) where
+  id  = refl
+  (.) = trans
+
+-- instance ProductCat (:-) where
+--   exl = weaken1
+--   exr = weaken2
+--   dup = contract
+--   (&&&) = (C.&&&)
+--   (***) = (C.***)
+
+{--------------------------------------------------------------------
+    OpCon
+--------------------------------------------------------------------}
+
+class OpCon op (con :: u -> Constraint) where
+  inOp :: (con a, con b) :- con (a `op` b)
+
+instance OpCon op Yes where inOp = Sub Dict
+
+inOpL :: OpCon op con => ((con a,con b),con c) :- con ((a `op` b) `op` c)
+inOpL = inOp . firstC  inOp
+
+inOpR :: OpCon op con => (con a,(con b,con c)) :- con (a `op` (b `op` c))
+inOpR = inOp . secondC inOp
+
+inOpL' :: OpCon op con
+       => ((con a,con b),con c) :- (con (a `op` b), con ((a `op` b) `op` c))
+inOpL' = secondC inOp `trans` rassocC `trans` firstC (contract `trans` inOp)
+
+inOpR' :: OpCon op con
+       => (con a,(con b,con c)) :- (con (a `op` (b `op` c)), con (b `op` c))
+inOpR' = firstC inOp `trans` lassocC `trans` secondC (contract `trans` inOp)
+
+inOpLR :: forall op con a b c. OpCon op con =>
+  (((con a,con b),con c),(con a,(con b,con c)))
+  :- (con ((a `op` b) `op` c), con (a `op` (b `op` c)))
+inOpLR = inOpL C.*** inOpR
+
+#if 0
+type ProdCon' = OpCon (:*)
+
+inProd' :: ProdCon' con => (con a, con b) :- con (a :* b)
+inProd' = inOp
+
+inProdL'' :: ProdCon' con => ((con a,con b),con c) :- con ((a :* b) :* c)
+inProdL'' = inOpL
+
+inProdR'' :: ProdCon' con => (con a,(con b,con c)) :- con (a :* (b :* c))
+inProdR'' = inOpR
 #endif
+
+
+class ProductCat k => ClosedCat k where
+  apply   :: Ok2 k a b   => ((a -> b) :* a) `k` b
+  curry   :: Ok3 k a b c => ((a :* b) `k` c) -> (a `k` (b -> c))
+  uncurry :: Ok3 k a b c => (a `k` (b -> c)) -> ((a :* b) `k` c)
+
+instance ClosedCat (->) where
+  apply = \ (f,a) -> f a
+  curry = P.curry
+  uncurry = P.uncurry
+
+-- instance Monad m => ClosedCat (Kleisli m) where
+--   apply = arr apply
+--   -- curry f = ???
+--   uncurry g = pack (\ (a,b) -> ($ b) <$> unpack g a)
+
+applyK   ::            Kleisli m (Kleisli m a b :* a) b
+curryK   :: Monad m => Kleisli m (a :* b) c -> Kleisli m a (Kleisli m b c)
+uncurryK :: Monad m => Kleisli m a (Kleisli m b c) -> Kleisli m (a :* b) c
+
+applyK   = pack (apply . first unpack)
+curryK   = inNew $ \ h -> return . pack . curry h
+uncurryK = inNew $ \ f -> \ (a,b) -> f a >>= ($ b) . unpack
+
