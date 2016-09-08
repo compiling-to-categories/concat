@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE PolyKinds #-}
@@ -8,7 +10,6 @@
 
 module Misc where
 
-import GHC.Generics ((:+:)(..),(:*:)(..))
 import Control.Newtype
 
 {--------------------------------------------------------------------
@@ -29,28 +30,17 @@ type (:=>) = (->)
     Helpers for GHC.Generics
 --------------------------------------------------------------------}
 
-prodF :: a t :* b t -> (a :*: b) t
-prodF = uncurry (:*:)
-
-unProdF :: (a :*: b) t -> a t :* b t
-unProdF (a :*: b) = (a,b)
-
-eitherF :: (a t -> c) -> (b t -> c) -> ((a :+: b) t -> c)
-eitherF f _ (L1 a) = f a
-eitherF _ g (R1 b) = g b
-
-sumF :: a t :+ b t -> (a :+: b) t
-sumF = either L1 R1
-
-unSumF :: (a :+: b) t -> a t :+ b t
-unSumF = eitherF Left Right
-
 infixr 1 +->
-infixr 0 $*
-data (a +-> b) p = Fun1 { ($*) :: a p -> b p }
+data (a +-> b) p = Fun1 { unFun1 :: a p -> b p }
 
 -- TODO: resolve name conflict with tries. Using ":->:" for functors fits with
 -- other type constructors in GHC.Generics.
+
+instance Newtype ((a +-> b) t) where
+  type O ((a +-> b) t) = a t -> b t
+  pack = Fun1
+  unpack = unFun1
+
 
 {--------------------------------------------------------------------
     Other

@@ -45,6 +45,7 @@ import Control.Newtype (Newtype(..))
 import Data.MemoTrie
 
 import Misc hiding ((<~),(~>))
+import Orphans ()
 
 {--------------------------------------------------------------------
     Constraint utilities
@@ -129,6 +130,15 @@ type Ok6 k a b c d e f = C6 (Ok k) a b c d e f
 -- inOp' :: forall op k a b. OpCon (op k) (Ok k)
 --       => Ok k a && Ok k b |- Ok k (op k a b)
 -- inOp' = inOp
+
+class OpCon' k op con where
+  inOp' :: (Ok k (con a), Ok k (con b)) => Prod k (con a) (con b) `k` con (a `op` b)
+
+-- inOpLs :: (ProductCat k, OpCon' k op con)
+--        => (Ok k (con a), Ok k (con b))
+--        => Prod k (Prod k (con a) (con b)) (con c)
+--        `k` con ((a `op` b) `op` c)
+-- inOpLs = inOp' . first  inOp'
 
 {--------------------------------------------------------------------
     Categories
@@ -534,19 +544,19 @@ instance ProductCat (-->) where
   type Prod (-->) = (:*:)
   exl = NT (\ (a :*: _) -> a)
   exr = NT (\ (_ :*: b) -> b)
-  NT f &&& NT g = NT (prodF . (f &&& g))
+  NT f &&& NT g = NT (pack . (f &&& g))
 
 instance CoproductCat (-->) where
   type Coprod (-->) = (:+:)
   inl = NT L1
   inr = NT R1
-  NT a ||| NT b = NT ((a ||| b) . unSumF)
+  NT a ||| NT b = NT ((a ||| b) . unpack)
 
 instance ClosedCat (-->) where
   type Exp (-->) = (+->)
-  apply = NT (\ (ab :*: a) -> ab $* a)
-  curry   (NT f) = NT (\ a -> Fun1 (\ b -> f (a :*: b)))
-  uncurry (NT g) = NT (\ (a :*: b) -> g a $* b)
+  apply = NT (\ (ab :*: a) -> unpack ab a)
+  curry   (NT f) = NT (\ a -> pack (\ b -> f (a :*: b)))
+  uncurry (NT g) = NT (\ (a :*: b) -> unpack (g a) b)
 
 -- With constraint element types
 
@@ -560,19 +570,19 @@ instance ProductCat (NTC con) where
   type Prod (NTC con) = (:*:)
   exl = NTC (\ (a :*: _) -> a)
   exr = NTC (\ (_ :*: b) -> b)
-  NTC f &&& NTC g = NTC (prodF . (f &&& g))
+  NTC f &&& NTC g = NTC (pack . (f &&& g))
 
 instance CoproductCat (NTC con) where
   type Coprod (NTC con) = (:+:)
   inl = NTC L1
   inr = NTC R1
-  NTC a ||| NTC b = NTC ((a ||| b) . unSumF)
+  NTC a ||| NTC b = NTC ((a ||| b) . unpack)
 
 instance ClosedCat (NTC con) where
   type Exp (NTC con) = (+->)
-  apply = NTC (\ (ab :*: a) -> ab $* a)
-  curry   (NTC f) = NTC (\ a -> Fun1 (\ b -> f (a :*: b)))
-  uncurry (NTC g) = NTC (\ (a :*: b) -> g a $* b)
+  apply = NTC (\ (ab :*: a) -> unpack ab a)
+  curry   (NTC f) = NTC (\ a -> pack (\ b -> f (a :*: b)))
+  uncurry (NTC g) = NTC (\ (a :*: b) -> unpack (g a) b)
 
 -- An unquantified version
 
@@ -586,19 +596,19 @@ instance ProductCat (UT t) where
   type Prod (UT t) = (:*:)
   exl = UT (\ (a :*: _) -> a)
   exr = UT (\ (_ :*: b) -> b)
-  UT f &&& UT g = UT (prodF . (f &&& g))
+  UT f &&& UT g = UT (pack . (f &&& g))
 
 instance CoproductCat (UT t) where
   type Coprod (UT t) = (:+:)
   inl = UT L1
   inr = UT R1
-  UT a ||| UT b = UT ((a ||| b) . unSumF)
+  UT a ||| UT b = UT ((a ||| b) . unpack)
 
 instance ClosedCat (UT t) where
   type Exp (UT t) = (+->)
-  apply = UT (\ (ab :*: a) -> ab $* a)
-  curry   (UT f) = UT (\ a -> Fun1 (\ b -> f (a :*: b)))
-  uncurry (UT g) = UT (\ (a :*: b) -> g a $* b)
+  apply = UT (\ (ab :*: a) -> unpack ab a)
+  curry   (UT f) = UT (\ a -> pack (\ b -> f (a :*: b)))
+  uncurry (UT g) = UT (\ (a :*: b) -> unpack (g a) b)
 
 -- With constraints
 
@@ -612,19 +622,19 @@ instance ProductCat (UTC con t) where
   type Prod (UTC con t) = (:*:)
   exl = UTC (\ (a :*: _) -> a)
   exr = UTC (\ (_ :*: b) -> b)
-  UTC f &&& UTC g = UTC (prodF . (f &&& g))
+  UTC f &&& UTC g = UTC (pack . (f &&& g))
 
 instance CoproductCat (UTC con t) where
   type Coprod (UTC con t) = (:+:)
   inl = UTC L1
   inr = UTC R1
-  UTC a ||| UTC b = UTC ((a ||| b) . unSumF)
+  UTC a ||| UTC b = UTC ((a ||| b) . unpack)
 
 instance ClosedCat (UTC con t) where
   type Exp (UTC con t) = (+->)
-  apply = UTC (\ (ab :*: a) -> ab $* a)
-  curry   (UTC f) = UTC (\ a -> Fun1 (\ b -> f (a :*: b)))
-  uncurry (UTC g) = UTC (\ (a :*: b) -> g a $* b)
+  apply = UTC (\ (ab :*: a) -> unpack ab a)
+  curry   (UTC f) = UTC (\ a -> pack (\ b -> f (a :*: b)))
+  uncurry (UTC g) = UTC (\ (a :*: b) -> unpack (g a) b)
 
 {--------------------------------------------------------------------
     Entailment
@@ -780,14 +790,12 @@ instance ClosedCat (:->?) where
 #endif
 
 {--------------------------------------------------------------------
-    Generalized OpCon
+    Free vector spaces
 --------------------------------------------------------------------}
 
-class OpCon' k op con where
-  inOp' :: (Ok k (con a), Ok k (con b)) => Prod k (con a) (con b) `k` con (a `op` b)
+newtype LMapF a b s = LMapF (a (b s))
 
--- inOpLs :: (ProductCat k, OpCon' k op con)
---        => (Ok k (con a), Ok k (con b))
---        => Prod k (Prod k (con a) (con b)) (con c)
---        `k` con ((a `op` b) `op` c)
--- inOpLs = inOp' . first  inOp'
+-- Could I simply use a :.: b instead?
+
+-- instance Category LMapF where
+--   id = 
