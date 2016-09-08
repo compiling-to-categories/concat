@@ -72,34 +72,34 @@ type (|-) = (:-)
 
 infixl 1 <+
 -- | Synonym for '(\\)'
-(<+) :: (b => r) -> (a :- b) -> (a => r)
+(<+) :: (b => r) -> (a |- b) -> (a => r)
 (<+) = (\\)
 
--- (<+) :: a => (b => r) -> (a :- b) -> r
+-- (<+) :: a => (b => r) -> (a |- b) -> r
 
 -- Experiment with a flipped (<+). entail p . entail q
-entail :: (a :- b) -> (b => r) -> (a => r)
+entail :: (a |- b) -> (b => r) -> (a => r)
 entail = flip (<+)
 
 -- first for entailment
-firstC :: (a :- b) -> ((a,c) :- (b,c))
+firstC :: (a |- b) -> ((a,c) |- (b,c))
 firstC f = Sub (Dict <+ f)
 
 -- second for entailment
-secondC :: (c :- d) -> ((a,c) :- (a,d))
+secondC :: (c |- d) -> ((a,c) |- (a,d))
 secondC g = Sub (Dict <+ g)
 
-lassocC :: (a,(b,c)) :- ((a,b),c)
-lassocC = secondC weaken1 C.&&& (weaken2 `trans` weaken2)
+lassocC :: (a,(b,c)) |- ((a,b),c)
+lassocC = secondC weaken1 C.&&& (weaken2 . weaken2)
 
-rassocC :: ((a,b),c) :- (a,(b,c))
-rassocC = (weaken1 `trans` weaken1) C.&&& firstC weaken2
+rassocC :: ((a,b),c) |- (a,(b,c))
+rassocC = (weaken1 . weaken1) C.&&& firstC weaken2
 
 {--------------------------------------------------------------------
     Category
 --------------------------------------------------------------------}
 
-class Category (k :: u -> u -> *) where
+class Category k where
   type Ok k :: u -> Constraint
   type Ok k = Yes
   id  :: Ok k a => a `k` a
@@ -172,12 +172,12 @@ class Category k => ProductCat k where
 #elif 1
 
 inO :: forall op con a b r. OpCon op con => (con (a `op` b) => r) -> (C2 con a b => r)
-inO = (\\ inOp @op @con @a @b)
+inO = (<+ inOp @op @con @a @b)
 
 inOL :: forall op con a b c r. OpCon op con
      => (con ((a `op` b) `op` c) => r) -> (C3 con a b c => r)
 inOL r = inO @op @con @a @b $ inO @op @con @(a `op` b) @c $ r
--- inOL = inP @con @a @b . inP @con @(a :* b) @c -- nope
+-- inOL = inO @op @con @a @b . inO @op @con @(a `op` b) @c -- nope
 
 -- inOR :: forall con a b c r. (ProdCon con,C3 con a b c) => (con (a :* (b :* c)) => r) -> r
 -- inOR = (\\ inProdR @con @a @b @c)
@@ -189,8 +189,8 @@ inOR r = inO @op @con @b @c $ inO @op @con @a @(b `op` c) $ r
 
 
 inOLR :: forall op con a b c r. OpCon op con
-     => (con (a `op` (b `op` c)) => con ((a `op` b) `op` c) => r)
-     -> (C3 con a b c => r)
+      => (con (a `op` (b `op` c)) => con ((a `op` b) `op` c) => r)
+      -> (C3 con a b c => r)
 inOLR r = inOL @op @con @a @b @c $ inOR @op @con @a @b @c $ r
 
 -- | Category with product.
@@ -221,19 +221,17 @@ class (Category k, OpCon (:*) (Ok k)) => ProductCat (k {-:: u -> u -> *-}) where
   lassocP :: forall a b c. Ok3 k a b c
           => (a :* (b :* c)) `k` ((a :* b) :* c)
   lassocP = second exl &&& (exr . exr)
---     <+ inOp @(:*) @(Ok k) @a @(b :* c)
---     <+ inOp @(:*) @(Ok k) @b @c
---     <+ inOp @(:*) @(Ok k) @a @b
-    <+ inOp   @(:*)   @(Ok k) @a @b
-    <+ inOpR' @(:*) @(Ok k) @a @b @c
+            <+ inOp   @(:*) @(Ok k) @a @b
+            <+ inOpR' @(:*) @(Ok k) @a @b @c
+         -- <+ inOp @(:*) @(Ok k) @a @(b :* c) <+ inOp @(:*) @(Ok k) @b @c
+         -- <+ inOp @(:*) @(Ok k) @a @b
   rassocP :: forall a b c. Ok3 k a b c
           => ((a :* b) :* c) `k` (a :* (b :* c))
-  rassocP =  (exl . exl) &&& first  exr
---     <+ inProd   @(Ok k) @b @c
---     <+ inOpL' @(Ok k) @a @b @c
-    <+ inOp @(:*) @(Ok k) @(a :* b) @c
-    <+ inOp @(:*) @(Ok k) @b @c
-    <+ inOp @(:*) @(Ok k) @a @b
+  rassocP = (exl . exl) &&& first  exr
+            <+ inOp   @(:*) @(Ok k) @b @c
+            <+ inOpL' @(:*) @(Ok k) @a @b @c
+         -- <+ inOp @(:*) @(Ok k) @(a :* b) @c <+ inOp @(:*) @(Ok k) @b @c
+         -- <+ inOp @(:*) @(Ok k) @a @b
   {-# MINIMAL exl, exr, ((&&&) | ((***), dup)) #-}
 #else
 infixr 3 ***, &&&
@@ -307,17 +305,17 @@ inRassocP :: forall k a b c a' b' c'. (ProductCat k, Ok6 k a b c a' b' c')
           => (a :* (b :* c)) `k` (a' :* (b' :* c'))
           -> ((a :* b) :* c) `k` ((a' :* b') :* c')
 
-inRassocP = inOLR @(:*) @(Ok k) @a  @b  @c  $
-            inOLR @(:*) @(Ok k) @a' @b' @c' $
-            lassocP <~ rassocP
+-- inRassocP = inOLR @(:*) @(Ok k) @a  @b  @c  $
+--             inOLR @(:*) @(Ok k) @a' @b' @c' $
+--             lassocP <~ rassocP
 
 -- inRassocP = lassocP <~ rassocP
 --               <+ inOpLR @(:*) @(Ok k) @a  @b  @c
 --               <+ inOpLR @(:*) @(Ok k) @a' @b' @c'
 
--- inRassocP = lassocP <~ rassocP
---               <+ (inOpLR @(:*) @(Ok k) @a  @b  @c C.***
---                   inOpLR @(:*) @(Ok k) @a' @b' @c')
+inRassocP = lassocP <~ rassocP
+              <+ (inOpLR @(:*) @(Ok k) @a  @b  @c C.***
+                  inOpLR @(:*) @(Ok k) @a' @b' @c')
 
 -- inRassocP = inAssocs @(:*) @(Ok k) @a  @b  @c  $
 --             inAssocs @(:*) @(Ok k) @a' @b' @c' $
@@ -518,11 +516,10 @@ instance Category (LMap s) where
   id  = pack idL
   (.) = inNew2 (*.*)
 
--- instance ProdCon (OkL s) where inOp @(:*) = Sub Dict
 instance OpCon (:*) (OkL s) where inOp = Sub Dict
 
--- fstL  :: Ok2 (LMap s) a b => a :* b :-* a
--- sndL  :: Ok2 (LMap s) a b => a :* b :-* b
+-- exlL  :: Ok2 (LMap s) a b => a :* b :-* a
+-- exrL  :: Ok2 (LMap s) a b => a :* b :-* b
 -- forkL :: Ok3 (LMap s) a c d => (a :-* c) -> (a :-* d) -> (a :-* c :* d)
 
 instance ProductCat (LMap s) where
@@ -536,39 +533,43 @@ instance ProductCat (LMap s) where
     Entailment
 --------------------------------------------------------------------}
 
--- instance Category (:-) where
+-- instance Category (|-) where
 --   id = Sub Dict
 --   g . f = Sub $ Dict <+ g <+ f
 
-instance Category (:-) where
+instance Category (|-) where
   id  = refl
   (.) = trans
 
--- instance ProductCat (:-) where
---   exl = weaken1
---   exr = weaken2
---   dup = contract
---   (&&&) = (C.&&&)
---   (***) = (C.***)
+-- instance ProductCat (|-) where
+--   exl     = weaken1
+--   exr     = weaken2
+--   dup     = contract
+--   (&&&)   = (C.&&&)
+--   (***)   = (C.***)
+--   first   = firstC
+--   second  = secondC
+--   lassocP = lassocC
+--   rassocP = rassocC
 
 {--------------------------------------------------------------------
     OpCon
 --------------------------------------------------------------------}
 
 class OpCon op con where
-  inOp :: (con a, con b) :- con (a `op` b)
+  inOp :: (con a, con b) |- con (a `op` b)
 
 instance OpCon op Yes where inOp = Sub Dict
 
-inOpL :: OpCon op con => ((con a,con b),con c) :- con ((a `op` b) `op` c)
+inOpL :: OpCon op con => ((con a,con b),con c) |- con ((a `op` b) `op` c)
 inOpL = inOp . firstC  inOp
 
-inOpR :: OpCon op con => (con a,(con b,con c)) :- con (a `op` (b `op` c))
+inOpR :: OpCon op con => (con a,(con b,con c)) |- con (a `op` (b `op` c))
 inOpR = inOp . secondC inOp
 
 inOpL' :: OpCon op con
-       => ((con a,con b),con c) :- (con (a `op` b), con ((a `op` b) `op` c))
-inOpL' = secondC inOp `trans` rassocC `trans` firstC (contract `trans` inOp)
+       => ((con a,con b),con c) |- (con (a `op` b), con ((a `op` b) `op` c))
+inOpL' = secondC inOp . rassocC . firstC (contract . inOp)
 
 -- ((con a,con b),con c)
 -- (con (a `op` b),con c)
@@ -577,24 +578,24 @@ inOpL' = secondC inOp `trans` rassocC `trans` firstC (contract `trans` inOp)
 -- (con (a `op` b),con ((a `op` b) `op` c))
 
 inOpR' :: OpCon op con
-       => (con a,(con b,con c)) :- (con (a `op` (b `op` c)), con (b `op` c))
-inOpR' = firstC inOp `trans` lassocC `trans` secondC (contract `trans` inOp)
+       => (con a,(con b,con c)) |- (con (a `op` (b `op` c)), con (b `op` c))
+inOpR' = firstC inOp . lassocC . secondC (contract . inOp)
 
 inOpLR :: forall op con a b c. OpCon op con =>
   (((con a,con b),con c),(con a,(con b,con c)))
-  :- (con ((a `op` b) `op` c), con (a `op` (b `op` c)))
+  |- (con ((a `op` b) `op` c), con (a `op` (b `op` c)))
 inOpLR = inOpL C.*** inOpR
 
 #if 0
 type ProdCon' = OpCon (:*)
 
-inProd' :: ProdCon' con => (con a, con b) :- con (a :* b)
+inProd' :: ProdCon' con => (con a, con b) |- con (a :* b)
 inProd' = inOp
 
-inOpL'' :: ProdCon' con => ((con a,con b),con c) :- con ((a :* b) :* c)
+inOpL'' :: ProdCon' con => ((con a,con b),con c) |- con ((a :* b) :* c)
 inOpL'' = inOpL
 
-inOpR'' :: ProdCon' con => (con a,(con b,con c)) :- con (a :* (b :* c))
+inOpR'' :: ProdCon' con => (con a,(con b,con c)) |- con (a :* (b :* c))
 inOpR'' = inOpR
 #endif
 
