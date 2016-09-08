@@ -38,8 +38,7 @@ type OkL2 s u v = (OkL s u, OkL s v)
 
 type LMap' u v = Basis u :->: v
 
--- | Linear map, represented as an optional memo-trie from basis to
--- values
+-- | Linear map, represented as a memo-trie from basis to values
 data LMap s u v = OkL2 s u v => LMap { unLMap :: LMap' u v }
 
 instance OkL2 s u v => Newtype (LMap s u v) where
