@@ -1,7 +1,9 @@
 {-# LANGUAGE UndecidableSuperClasses #-}
+{-# LANGUAGE AllowAmbiguousTypes #-} -- experiment
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -34,12 +36,13 @@ import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
 import Data.Proxy (Proxy)
 import GHC.Generics
-
-import Control.Newtype (Newtype(..))
 import GHC.Types (Constraint)
-
 import Data.Constraint hiding ((&&&),(***),(:=>))
 import qualified Data.Constraint as C
+
+import Control.Newtype (Newtype(..))
+
+import Data.MemoTrie
 
 import Misc hiding ((<~),(~>))
 
@@ -47,98 +50,64 @@ import Misc hiding ((<~),(~>))
     Constraint utilities
 --------------------------------------------------------------------}
 
-#if 1
--- first for entailment
-firstC :: (a :- b) -> ((a,c) :- (b,c))
-firstC f = Sub (Dict \\ f)
-
--- second for entailment
-secondC :: (c :- d) -> ((a,c) :- (a,d))
-secondC g = Sub (Dict \\ g)
+-- Lower fixity
+infixr 1 |-
+type (|-) = (:-)
 
 infixl 1 <+
 -- | Synonym for '(\\)'
-(<+) :: a => (b => r) -> (a :- b) -> r
+(<+) :: a => (b => r) -> (a |- b) -> r
 (<+) = (\\)
 
-lassocC :: (a,(b,c)) :- ((a,b),c)
-lassocC = secondC weaken1 C.&&& (weaken2 . weaken2)
+class    (a,b) => a && b
+instance (a,b) => a && b
 
-rassocC :: ((a,b),c) :- (a,(b,c))
-rassocC = (weaken1 . weaken1) C.&&& firstC weaken2
-#endif
+-- • Potential superclass cycle for ‘&&’
+--     one of whose superclass constraints is headed by a type variable: ‘a’
+--   Use UndecidableSuperClasses to accept this
+
+conj :: (a,b) |- a && b
+conj = Sub Dict
+
+unconj :: a && b |- (a,b)
+unconj = Sub Dict
 
 {--------------------------------------------------------------------
     Constraints with product consequences
 --------------------------------------------------------------------}
 
-infixr 1 |-
-type (|-) = (:-)
-
 type UnitCon con = con ()
 
-class OpCon op (con :: u -> Constraint) where
-  inOp :: (con a, con b) :- con (a `op` b)
-  -- exOp :: con (a `op` b) :- (con a, con b)
+class OpCon op con where
+  inOp :: con a && con b |- con (a `op` b)
 
--- Hm. I have no more uses of `exProd`.
+inOpL :: OpCon op con => (con a && con b) && con c |- con ((a `op` b) `op` c)
+inOpL = inOp . first  inOp
 
---     <+ inOp @(Prod k) @(Ok k) @a @a
-
-inOpL :: OpCon op con => ((con a,con b),con c) :- con ((a `op` b) `op` c)
-inOpL = inOp . firstC  inOp
-
-inOpR :: OpCon op con => (con a,(con b,con c)) :- con (a `op` (b `op` c))
-inOpR = inOp . secondC inOp
+inOpR :: OpCon op con => con a && (con b && con c) |- con (a `op` (b `op` c))
+inOpR = inOp . second inOp
 
 inOpL' :: OpCon op con 
-       => ((con a,con b),con c) :- (con (a `op` b), con ((a `op` b) `op` c))
-inOpL' = secondC inOp . rassocC . firstC (contract . inOp)
+       => (con a && con b) && con c |- con (a `op` b) && con ((a `op` b) `op` c)
+inOpL' = second inOp . rassocP . first (dup . inOp)
 
--- ((con a,con b),con c)
--- (con (a `op` b),con c)
--- ((con (a `op` b),con (a `op` b)),con c)
--- (con (a `op` b),(con (a `op` b),con c))
--- (con (a `op` b),con ((a `op` b) `op` c))
+-- (con a && con b) && con c
+-- con (a `op` b) && con c
+-- (con (a `op` b) && con (a `op` b)) && con c
+-- con (a `op` b) && (con (a `op` b) && con c)
+-- con (a `op` b) && con ((a `op` b) `op` c)
 
-inOpR' :: OpCon op con => (con a,(con b,con c)) :- (con (a `op` (b `op` c)), con (b `op` c))
-inOpR' = firstC inOp . lassocC . secondC (contract . inOp)
+inOpR' :: OpCon op con => con a && (con b && con c) |- con (a `op` (b `op` c)) &&  con (b `op` c)
+inOpR' = first inOp . lassocP . second (dup . inOp)
 
 inOpLR :: forall op con a b c. OpCon op con =>
-  (((con a,con b),con c),(con a,(con b,con c)))
-  |- (con ((a `op` b) `op` c), con (a `op` (b `op` c)))
-inOpLR = inOpL C.*** inOpR
+  ((con a && con b) && con c) && (con a && (con b && con c))
+  |- con ((a `op` b) `op` c) && con (a `op` (b `op` c))
+inOpLR = inOpL *** inOpR
 
-
-inOpC :: OpCon op con => con a && con b |- con (a `op` b)
-inOpC = inOp . unconj
-
-inOpLC :: OpCon op con => (con a && con b) && con c |- con ((a `op` b) `op` c)
-inOpLC = inOpC . first  inOpC
-
-inOpLC' :: OpCon op con 
-        => (con a && con b) && con c |- con (a `op` b) && con ((a `op` b) `op` c)
-inOpLC' = second inOpC . rassocP . first (dup . inOpC)
-
--- (con a,(con b,con c))
--- (con a,con (b `op` c))
--- (con a,(con (b `op` c),con (b `op` c)))
--- ((con a,con (b `op` c)),con (b `op` c))
--- (con (a `op` (b `op` c)),con (b `op` c))
-
--- exProdL :: OpCon op con => con ((a `op` b) `op` c) :- ((con a,con b),con c)
--- exProdL = firstC  exProd . exProd
-
--- exProdR :: OpCon op con => con (a `op` (b `op` c)) :- (con a,(con b,con c))
--- exProdR = secondC exProd . exProd
-
--- Sub  :: (a => Dict b) -> a :- b
--- Dict :: a => Dict a
 
 instance OpCon op Yes where
-  -- unit   = Sub Dict
   inOp = Sub Dict
-  -- exProd = Sub Dict
 
 -- type C1 (con :: u -> Constraint) a = con a
 -- type C2 con a b         = (C1 con a, con b)
@@ -156,10 +125,10 @@ type Ok4 k a b c d     = C4 (Ok k) a b c d
 type Ok5 k a b c d e   = C5 (Ok k) a b c d e
 type Ok6 k a b c d e f = C6 (Ok k) a b c d e f
 
--- TODO. Try out this more convenient alternative to inOp
-inOp' :: forall op k a b. OpCon (op k) (Ok k)
-      => (Ok k a, Ok k b) :- Ok k (op k a b)
-inOp' = inOp
+-- -- TODO. Try out this more convenient alternative to inOp
+-- inOp' :: forall op k a b. OpCon (op k) (Ok k)
+--       => Ok k a && Ok k b |- Ok k (op k a b)
+-- inOp' = inOp
 
 {--------------------------------------------------------------------
     Categories
@@ -204,17 +173,6 @@ instance Category (->) where
 instance Monad m => Category (Kleisli m) where
   id  = pack return
   (.) = inNew2 (<=<)
-
--- Copied from Data.Constraint:
-
--- instance Category (:-) where
---   id  = refl
---   (.) = trans
-
-instance Category (:-) where
-  id = Sub Dict
-  g . f = Sub $ Dict <+ g <+ f
-
 #endif
 
 {--------------------------------------------------------------------
@@ -232,10 +190,12 @@ class (OpCon (Prod k) (Ok k), Category k) => ProductCat k where
   dup :: Ok k a => a `k` Prod k a a
   dup = id &&& id
   swapP :: forall a b. Ok2 k a b => Prod k a b `k` Prod k b a
-  swapP = exr &&& exl  <+ inOp @(Prod k) @(Ok k) @a @b
+  swapP = exr &&& exl
+          <+ inOp @(Prod k) @(Ok k) @a @b
   (***) :: forall a b c d. Ok4 k a b c d 
         => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d)
-  f *** g = f . exl &&& g . exr  <+ inOp @(Prod k) @(Ok k) @a @b
+  f *** g = f . exl &&& g . exr
+            <+ inOp @(Prod k) @(Ok k) @a @b
   (&&&) :: forall a c d. Ok3 k a c d 
         => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d)
   f &&& g = (f *** g) . dup
@@ -283,45 +243,13 @@ instance ProductCat (->) where
   lassocP = \ (a,(b,c)) -> ((a,b),c)
   rassocP = \ ((a,b),c) -> (a,(b,c))
 
---     • Potential superclass cycle for ‘&&’
---         one of whose superclass constraints is headed by a type variable: ‘a’
---       Use UndecidableSuperClasses to accept this
-
-infixr 3 &&
-class    (a,b) => a && b
-instance (a,b) => a && b
-
--- -- Definitions from weaken1, weaken2, and (&&&) in Data.Constraint.
--- -- The types didn't support using them directly.
--- instance ProductCat (:-) where
---   type Prod (:-) = (&&)
---   exl = Sub Dict
---   exr = Sub Dict
---   dup = Sub Dict
---   f &&& g = Sub (Dict <+ f <+ g)
-
-conj :: (a,b) :- (a && b)
-conj = Sub Dict
-
-unconj :: (a && b) :- (a,b)
-unconj = Sub Dict
-
-instance ProductCat (|-) where
-  type Prod (|-) = (&&)
-  exl = weaken1 . unconj
-  exr = weaken2 . unconj
-  dup = conj . contract
-  f &&& g = conj . (f C.&&& g)
-  f *** g = conj . (f C.*** g) . unconj
-
 -- | Apply to both parts of a product
 twiceP :: (ProductCat k, Ok k a, Ok k c) 
        => (a `k` c) -> Prod k a a `k` (Prod k c c)
 twiceP f = f *** f
 
 -- | Operate on left-associated form
-inLassocP :: forall k a b c a' b' c'.
-             (ProductCat k, Ok6 k a b c a' b' c') 
+inLassocP :: forall k a b c a' b' c'. (ProductCat k, Ok6 k a b c a' b' c') 
           => Prod k (Prod k a b) c `k` Prod k (Prod k a' b') c'
           -> Prod k a (Prod k b c) `k` (Prod k a' (Prod k b' c'))
 inLassocP = rassocP <~ lassocP
@@ -384,7 +312,8 @@ class (OpCon (Coprod k) (Ok k), Category k) => CoproductCat k where
           <+ inOp @(Coprod k) @(Ok k) @b @a
   (+++) :: forall a b c d. Ok4 k a b c d 
         => (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b)
-  f +++ g = inl . f ||| inr . g  <+ inOp @(Coprod k) @(Ok k) @a @b
+  f +++ g = inl . f ||| inr . g
+            <+ inOp @(Coprod k) @(Ok k) @a @b
   (|||) :: forall a c d. Ok3 k a c d 
         => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a)
   f ||| g = jam . (f +++ g)
@@ -440,8 +369,7 @@ instance CoproductCat (->) where
 
 
 -- | Operate on left-associated form
-inLassocS :: forall k a b c a' b' c'.
-             (CoproductCat k, Ok6 k a b c a' b' c') 
+inLassocS :: forall k a b c a' b' c'. (CoproductCat k, Ok6 k a b c a' b' c') 
           => Coprod k (Coprod k a b) c `k` Coprod k (Coprod k a' b') c'
           -> Coprod k a (Coprod k b c) `k` (Coprod k a' (Coprod k b' c'))
 inLassocS = rassocS <~ lassocS
@@ -489,16 +417,27 @@ instance ClosedCat (->) where
   curry       = P.curry
   uncurry     = P.uncurry
 
+#if 0
+applyK   ::            Kleisli m (Kleisli m a b :* a) b
+curryK   :: Monad m => Kleisli m (a :* b) c -> Kleisli m a (Kleisli m b c)
+uncurryK :: Monad m => Kleisli m a (Kleisli m b c) -> Kleisli m (a :* b) c
+
+applyK   = pack (apply . first unpack)
+curryK   = inNew $ \ h -> return . pack . curry h
+uncurryK = inNew $ \ f -> \ (a,b) -> f a >>= ($ b) . unpack
+
+instance Monad m => ClosedCat (Kleisli m) where
+  type Exp (Kleisli m) = Kleisli m
+  apply   = applyK
+  curry   = curryK
+  uncurry = uncurryK
+#else
 instance Monad m => ClosedCat (Kleisli m) where
   type Exp (Kleisli m) = Kleisli m
   apply   = pack (apply . first unpack)
   curry   = inNew $ \ h -> return . pack . curry h
   uncurry = inNew $ \ f -> \ (a,b) -> f a >>= ($ b) . unpack
-
---   apply   ::            Ok2 Kleisli m (Kleisli m a b :* a) b
---   curry   :: Monad m => Kleisli m (a :* b) c -> Kleisli m a (Kleisli m b c)
---   uncurry :: Monad m => Kleisli m a (Kleisli m b c) -> Kleisli m (a :* b) c
-
+#endif
 
 {--------------------------------------------------------------------
     Other
@@ -577,8 +516,6 @@ instance ConstCat U2 where konst = const U2
     Natural transformations
 --------------------------------------------------------------------}
 
-#if 1
-
 -- ↠, \twoheadrightarrow
 
 data a --> b = NT (forall (t :: *). a t -> b t)
@@ -607,39 +544,37 @@ instance CoproductCat (-->) where
 
 instance ClosedCat (-->) where
   type Exp (-->) = (+->)
-  apply = NT (\ (Fun1 uv :*: a) -> uv a)
+  apply = NT (\ (ab :*: a) -> ab $* a)
   curry   (NT f) = NT (\ a -> Fun1 (\ b -> f (a :*: b)))
   uncurry (NT g) = NT (\ (a :*: b) -> g a $* b)
-
-#elif 0
 
 -- With constraint element types
 
-data NT con a b = NT (forall (t :: *). con t => a t -> b t)
+data NTC con a b = NTC (forall (t :: *). con t => a t -> b t)
 
-instance Category (NT con) where
-  id = NT id
-  NT g . NT f = NT (g . f)
+instance Category (NTC con) where
+  id = NTC id
+  NTC g . NTC f = NTC (g . f)
 
-instance ProductCat (NT con) where
-  type Prod (NT con) = (:*:)
-  exl = NT (\ (a :*: _) -> a)
-  exr = NT (\ (_ :*: b) -> b)
-  NT f &&& NT g = NT (prodF . (f &&& g))
+instance ProductCat (NTC con) where
+  type Prod (NTC con) = (:*:)
+  exl = NTC (\ (a :*: _) -> a)
+  exr = NTC (\ (_ :*: b) -> b)
+  NTC f &&& NTC g = NTC (prodF . (f &&& g))
 
-instance CoproductCat (NT con) where
-  type Coprod (NT con) = (:+:)
-  inl = NT L1
-  inr = NT R1
-  NT a ||| NT b = NT ((a ||| b) . unSumF)
+instance CoproductCat (NTC con) where
+  type Coprod (NTC con) = (:+:)
+  inl = NTC L1
+  inr = NTC R1
+  NTC a ||| NTC b = NTC ((a ||| b) . unSumF)
 
-instance ClosedCat (NT con) where
-  type Exp (NT con) = (+->)
-  apply = NT (\ (Fun1 uv :*: a) -> uv a)
-  curry   (NT f) = NT (\ a -> Fun1 (\ b -> f (a :*: b)))
-  uncurry (NT g) = NT (\ (a :*: b) -> g a $* b)
+instance ClosedCat (NTC con) where
+  type Exp (NTC con) = (+->)
+  apply = NTC (\ (ab :*: a) -> ab $* a)
+  curry   (NTC f) = NTC (\ a -> Fun1 (\ b -> f (a :*: b)))
+  uncurry (NTC g) = NTC (\ (a :*: b) -> g a $* b)
 
-#else
+-- An unquantified version
 
 data UT (t :: *) a b = UT (a t -> b t)
 
@@ -661,8 +596,198 @@ instance CoproductCat (UT t) where
 
 instance ClosedCat (UT t) where
   type Exp (UT t) = (+->)
-  apply = UT (\ (Fun1 uv :*: a) -> uv a)
+  apply = UT (\ (ab :*: a) -> ab $* a)
   curry   (UT f) = UT (\ a -> Fun1 (\ b -> f (a :*: b)))
   uncurry (UT g) = UT (\ (a :*: b) -> g a $* b)
 
+-- With constraints
+
+data UTC con (t :: *) a b = UTC (con t => a t -> b t)
+
+instance Category (UTC con t) where
+  id = UTC id
+  UTC g . UTC f = UTC (g . f)
+
+instance ProductCat (UTC con t) where
+  type Prod (UTC con t) = (:*:)
+  exl = UTC (\ (a :*: _) -> a)
+  exr = UTC (\ (_ :*: b) -> b)
+  UTC f &&& UTC g = UTC (prodF . (f &&& g))
+
+instance CoproductCat (UTC con t) where
+  type Coprod (UTC con t) = (:+:)
+  inl = UTC L1
+  inr = UTC R1
+  UTC a ||| UTC b = UTC ((a ||| b) . unSumF)
+
+instance ClosedCat (UTC con t) where
+  type Exp (UTC con t) = (+->)
+  apply = UTC (\ (ab :*: a) -> ab $* a)
+  curry   (UTC f) = UTC (\ a -> Fun1 (\ b -> f (a :*: b)))
+  uncurry (UTC g) = UTC (\ (a :*: b) -> g a $* b)
+
+{--------------------------------------------------------------------
+    Entailment
+--------------------------------------------------------------------}
+
+-- Copied from Data.Constraint:
+
+-- instance Category (|-) where
+--   id  = refl
+--   (.) = trans
+
+instance Category (|-) where
+  id = Sub Dict
+  g . f = Sub $ Dict <+ g <+ f
+
+#if 0
+instance ProductCat (|-) where
+  type Prod (|-) = (&&)
+  exl = weaken1 . unconj
+  exr = weaken2 . unconj
+  dup = conj . contract
+  f &&& g = conj . (f C.&&& g)
+  f *** g = conj . (f C.*** g) . unconj
+#else
+instance ProductCat (|-) where
+  type Prod (|-) = (&&)
+  exl = Sub Dict
+  exr = Sub Dict
+  dup = Sub Dict
+  f &&& g = Sub $ Dict <+ f <+ g
+  f *** g = Sub $ Dict <+ f <+ g
 #endif
+
+#if 0
+class Entails a b where entails :: a |- b
+
+instance ClosedCat (|-) where
+  type Exp (|-) = Entails
+--   apply :: forall a b. Entails a b && a |- b
+--   apply = Sub Dict <+ (entails :: a |- b)
+
+  curry   :: (a && b |- c) -> (a |- Entails b c)
+  curry abc = Sub Dict 
+
+--   curry   :: (a && b |- c) -> (a |- Exp (|-) b c)
+#endif
+
+{--------------------------------------------------------------------
+    Memo tries
+--------------------------------------------------------------------}
+
+instance Category (:->:) where
+  type Ok (:->:) = HasTrie
+  id = idTrie
+  (.) = (@.@)
+
+instance ProductCat (:->:) where
+  type Prod (:->:) = (:*)
+  exl   = trie exl
+  exr   = trie exr
+  (&&&) = inTrie2 (&&&)
+
+instance CoproductCat (:->:) where
+  type Coprod (:->:) = (:+)
+  inl   = trie inl
+  inr   = trie inr
+  (|||) = inTrie2 (|||)
+
+instance OpCon (:*) HasTrie where inOp = Sub Dict
+instance OpCon (:+) HasTrie where inOp = Sub Dict
+
+#if 0
+instance OpCon (:->:) HasTrie where inOp = Sub Dict
+
+instance ClosedCat (:->:) where
+  type Exp (:->:) = (:->:)
+  apply :: forall a b. Ok2 (:->:) a b => Exp (:->:) a b :* a :->: b
+  apply = trie (apply . first untrie)
+    <+ inOp @(Exp (:->:)) @(Ok (:->:)) @a @b
+  curry = unpack
+  uncurry = pack
+  -- apply = (pack.trie) (\ (Memod t, a) -> untrie t a)
+#else
+
+-- instance ClosedCat (:->:) where
+--   type Exp (:->:) = (->)
+--   apply :: forall a b. C2 HasTrie a b => (a -> b) :* a :->: b
+
+#endif
+
+-- -- Idea: Use (->) for Exp (:->:)
+
+-- curry :: ((a :* b) :->: c) -> (a :-> (b -> c))
+-- uncurry :: (a :-> (b -> c)) -> ((a :* b) :->: c)
+
+#if 1
+
+{--------------------------------------------------------------------
+    Optional memoization
+--------------------------------------------------------------------}
+
+-- Some operations we can't or don't want to memoize, e.g., apply, exl, exr,
+-- inl, inr.
+
+infixr 1 :->?
+data a :->? b = Fun (a -> b) | Trie (a :->: b)
+
+untrie' :: HasTrie a => (a :->? b) -> (a -> b)
+untrie' (Fun  f) = f
+untrie' (Trie t) = untrie t
+
+trie' :: HasTrie a => (a -> b) -> (a :->? b)
+trie' = Trie . trie
+
+-- | Apply a unary function inside of a trie
+inTrie' :: (HasTrie a, HasTrie c)
+        => ((a  ->  b) -> (c  ->  d))
+        -> ((a :->? b) -> (c :->? d))
+inTrie' = trie' <~ untrie'
+
+-- | Apply a binary function inside of a trie
+inTrie2' :: (HasTrie a, HasTrie c, HasTrie e) 
+         => ((a  ->  b) -> (c  ->  d) -> (e  ->  f))
+         -> ((a :->? b) -> (c :->? d) -> (e :->? f))
+inTrie2' = inTrie' <~ untrie'
+
+instance Category (:->?) where
+  type Ok (:->?) = HasTrie
+  id = Fun id
+  (.) = inTrie2' (.)
+
+--   Fun g . Fun f = Fun (g . f)
+--   g . f = trie' (untrie' g . untrie' f)
+
+instance ProductCat (:->?) where
+  type Prod (:->?) = (:*)
+  exl = Fun exl
+  exr = Fun exr
+  (&&&) = inTrie2' (&&&)
+
+--   f &&& g = trie' (untrie' f &&& untrie' g)
+
+instance ClosedCat (:->?) where
+  type Exp (:->?) = (->)
+  apply = Fun apply
+  curry f = Fun (curry (untrie' f))
+  uncurry g = Fun (uncurry (untrie' g))
+
+--   apply :: C2 HasTrie a b => (a -> b) :* a :->? b
+--   curry :: C3 HasTrie a b c => (a :* b :->? c) -> (a :->? (b -> c))
+--   uncurry :: C3 HasTrie a b c => (a :->? (b -> c)) -> (a :* b :->? c)
+
+#endif
+
+{--------------------------------------------------------------------
+    Generalized OpCon
+--------------------------------------------------------------------}
+
+class OpCon' k op con where
+  inOp' :: (Ok k (con a), Ok k (con b)) => Prod k (con a) (con b) `k` con (a `op` b)
+
+-- inOpLs :: (ProductCat k, OpCon' k op con)
+--        => (Ok k (con a), Ok k (con b))
+--        => Prod k (Prod k (con a) (con b)) (con c)
+--        `k` con ((a `op` b) `op` c)
+-- inOpLs = inOp' . first  inOp'
