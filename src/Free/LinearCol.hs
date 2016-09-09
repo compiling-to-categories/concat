@@ -100,7 +100,7 @@ idL = mapWithKey (flip replace 1) zeroL
      => (b :-* c) s -> (a :-* b) s -> (a :-* c) s
 bc @. ab = (bc $*) <$> ab
 
--- (@.) = fmap . linear
+-- (@.) = fmap . ($*)
 
 ---- Product
 
@@ -129,11 +129,6 @@ joinL :: (a :-* c) s -> (b :-* c) s -> (a :*: b :-* c) s
 joinL = (:*:)
 
 newtype (f :=> g) s = Fun ((f :-* g) s)
-
--- applyL :: _ => ((f :=> g) :*: f :-* g) s
--- applyL =
-
--- (f (g s) -> g (g s)) :* f (g s)
 
 {--------------------------------------------------------------------
     Experiment
