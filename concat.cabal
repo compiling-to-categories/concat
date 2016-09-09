@@ -25,7 +25,8 @@ library
                        LMap
                        FLMap
                        Free.VectorSpace
-                       Free.Linear
+                       Free.LinearCol
+                       Free.LinearRow
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.9 && <4.10
