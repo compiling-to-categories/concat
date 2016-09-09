@@ -106,19 +106,29 @@ inOpLR :: forall op con a b c. OpCon op con =>
   |- con ((a `op` b) `op` c) && con (a `op` (b `op` c))
 inOpLR = inOpL *** inOpR
 
+#if 0
+-- Experiment
+inO :: forall op con a b r. OpCon op con => (con (a `op` b) => r) -> (con a && con b => r)
+inO = (<+ inOp @op @con @a @b)
+
+inOL :: forall op con a b c r. OpCon op con
+     => (con ((a `op` b) `op` c) => r) -> ((con a && con b) && con c => r)
+-- inOL r = inO @op @con @a @b $ inO @op @con @(a `op` b) @c $ r
+inOL = inO @op @con @a @b . inO @op @con @(a `op` b) @c -- nope
+#endif
 
 instance OpCon op Yes where
   inOp = Sub Dict
 
 -- type C1 (con :: u -> Constraint) a = con a
--- type C2 con a b         = (C1 con a, con b)
+-- type C2 con a b         = C1 con a && con b
 
-type C2 (con :: u -> Constraint) a b = (con a, con b)
+type C2 (con :: u -> Constraint) a b = con a && con b
 
-type C3 con a b c       = (C2 con a b, con c)
-type C4 con a b c d     = (C3 con a b c, con d)
-type C5 con a b c d e   = (C4 con a b c d, con e)
-type C6 con a b c d e f = (C5 con a b c d e, con f)
+type C3 con a b c       = C2 con a b && con c
+type C4 con a b c d     = C3 con a b c && con d
+type C5 con a b c d e   = C4 con a b c d && con e
+type C6 con a b c d e f = C5 con a b c d e && con f
 
 type Ok2 k a b         = C2 (Ok k) a b
 type Ok3 k a b c       = C3 (Ok k) a b c
@@ -423,9 +433,9 @@ class ProductCat k => ClosedCat k where
 
 instance ClosedCat (->) where
   type Exp (->) = (->)
-  apply (f,a) = f a
-  curry       = P.curry
-  uncurry     = P.uncurry
+  apply   = P.uncurry ($)
+  curry   = P.curry
+  uncurry = P.uncurry
 
 #if 0
 applyK   ::            Kleisli m (Kleisli m a b :* a) b
@@ -788,14 +798,3 @@ instance ClosedCat (:->?) where
 --   uncurry :: C3 HasTrie a b c => (a :->? (b -> c)) -> (a :* b :->? c)
 
 #endif
-
-{--------------------------------------------------------------------
-    Free vector spaces
---------------------------------------------------------------------}
-
-newtype LMapF a b s = LMapF (a (b s))
-
--- Could I simply use a :.: b instead?
-
--- instance Category LMapF where
---   id = 
