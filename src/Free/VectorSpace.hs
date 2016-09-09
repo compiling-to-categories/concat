@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 
@@ -8,10 +9,16 @@
 module Free.VectorSpace where
 
 import Prelude hiding (zipWith)
+
+import GHC.Generics (Par1(..),(:*:)(..))
+
 import Data.Foldable (fold)
 import Data.Pointed
 import Data.Key (Zip(..))
-import GHC.Generics (Par1(..),(:*:)(..))
+
+import Control.Newtype
+
+import Misc (inNew2)
 
 {--------------------------------------------------------------------
     Vector space basics
@@ -34,22 +41,27 @@ s *^ v = (s *) <$> v
 (^+^) :: (Zip f, Num a) => f a -> f a -> f a
 (^+^) = zipWith (+)
 
-newtype SumV f a = SumV { getSumV :: f a }
+newtype SumV f a = SumV (f a)
+
+instance Newtype (SumV f a) where
+  type O (SumV f a) = f a
+  pack as = SumV as
+  unpack (SumV as) = as
 
 instance (Pointed f, Zip f, Num a) => Monoid (SumV f a) where
-  mempty = SumV zeroV
-  SumV u `mappend ` SumV v = SumV (u ^+^ v)
+  mempty = pack zeroV
+  mappend = inNew2 (^+^)
 
 sumV :: (Functor m, Foldable m, Pointed n, Zip n, Num a) => m (n a) -> n a
-sumV = getSumV . fold . fmap SumV
+sumV = unpack . fold . fmap SumV
 
 {--------------------------------------------------------------------
     Linear maps
 --------------------------------------------------------------------}
 
--- Linear map from m r to n r
+-- Linear map from a s to b s
 infixr 1 :-*
-type (m :-* n) r = m (n r)
+type (a :-* b) s = a (b s)
 
 -- TODO: consider instead
 -- 
@@ -58,11 +70,11 @@ type (m :-* n) r = m (n r)
 -- so that Linear itself forms a vector space.
 
 -- Apply a linear map
-linear :: (Zip m, Foldable m, Zip n, Pointed n, Num r)
-       => (m :-* n) r -> m r -> n r
-linear ns m = sumV (zipWith (*^) m ns)
+applyL :: (Zip a, Foldable a, Zip b, Pointed b, Num s)
+       => (a :-* b) s -> a s -> b s
+applyL bs a = sumV (zipWith (*^) a bs)
 
-zeroL :: (Pointed m, Pointed n, Num r) => (m :-* n) r
+zeroL :: (Pointed a, Pointed b, Num s) => (a :-* b) s
 zeroL = point zeroV
 
 
@@ -70,15 +82,15 @@ zeroL = point zeroV
     Affine maps
 --------------------------------------------------------------------}
 
--- Affine map from m r to n r
-type Affine m n r = (m :*: Par1 :-* n) r
+-- Affine map from a s to b s
+type Affine a b s = (a :*: Par1 :-* b) s
 
 -- Apply an affine map
-affine :: (Zip m, Foldable m, Zip n, Pointed n, Num r)
-       => Affine m n r -> m r -> n r
-affine ns' m = linear ns' (m :*: Par1 1)
+affine :: (Zip a, Foldable a, Zip b, Pointed b, Num s)
+       => Affine a b s -> a s -> b s
+affine bs' a = applyL bs' (a :*: Par1 1)
 
 -- Compose affine transformations
-(@..) :: (Zip n, Zip o, Pointed o, Foldable n, Num r, Functor m)
-      => Affine n o r -> Affine m n r -> Affine m o r
-no @.. mn = affine no <$> mn
+(@..) :: (Zip b, Zip c, Pointed c, Foldable b, Num s, Functor a)
+      => Affine b c s -> Affine a b s -> Affine a c s
+bc @.. ab = affine bc <$> ab
