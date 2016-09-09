@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE PartialTypeSignatures #-}
@@ -10,7 +11,7 @@ module Free.VectorSpace where
 
 import Prelude hiding (zipWith)
 
-import GHC.Generics (Par1(..),(:*:)(..))
+-- import GHC.Generics (Par1(..),(:*:)(..))
 
 import Data.Foldable (fold)
 import Data.Pointed
@@ -21,10 +22,10 @@ import Control.Newtype
 import Misc (inNew2)
 
 {--------------------------------------------------------------------
-    Vector space basics
+    Vector spaces
 --------------------------------------------------------------------}
 
-infixl 7 *^
+infixl 7 *^, <.>, >.<
 infixl 6 ^+^
 
 -- Zero vector
@@ -34,13 +35,25 @@ zeroV = point 0
 -- TODO: Replace Num constraints with Ring or SemiRing
 
 -- Scale a vector
-(*^) :: (Functor f, Num a) => a -> f a -> f a
+(*^) :: (Functor f, Num s) => s -> f s -> f s
 s *^ v = (s *) <$> v
 
 -- Add vectors
-(^+^) :: (Zip f, Num a) => f a -> f a -> f a
+(^+^) :: (Zip f, Num s) => f s -> f s -> f s
 (^+^) = zipWith (+)
 
+-- Inner product
+(<.>) :: (Zip f, Foldable f, Num s) => f s -> f s -> s
+x <.> y = sum (zipWith (*) x y)
+
+-- Outer product
+(>.<) :: (Num s, Functor f, Functor g) => g s -> f s -> g (f s)
+x >.< y = (*^ y) <$> x
+
+-- Would I rather prefer swapping the arguments (equivalently, transposing the
+-- result)?
+
+-- After transposing (:-), do I still need sumV?
 newtype SumV f a = SumV (f a)
 
 instance Newtype (SumV f a) where
@@ -54,43 +67,3 @@ instance (Pointed f, Zip f, Num a) => Monoid (SumV f a) where
 
 sumV :: (Functor m, Foldable m, Pointed n, Zip n, Num a) => m (n a) -> n a
 sumV = unpack . fold . fmap SumV
-
-{--------------------------------------------------------------------
-    Linear maps
---------------------------------------------------------------------}
-
--- Linear map from a s to b s
-infixr 1 :-*
-type (a :-* b) s = a (b s)
-
--- TODO: consider instead
--- 
---   type Linear = (:.:)
--- 
--- so that Linear itself forms a vector space.
-
--- Apply a linear map
-applyL :: (Zip a, Foldable a, Zip b, Pointed b, Num s)
-       => (a :-* b) s -> a s -> b s
-applyL bs a = sumV (zipWith (*^) a bs)
-
-zeroL :: (Pointed a, Pointed b, Num s) => (a :-* b) s
-zeroL = point zeroV
-
-
-{--------------------------------------------------------------------
-    Affine maps
---------------------------------------------------------------------}
-
--- Affine map from a s to b s
-type Affine a b s = (a :*: Par1 :-* b) s
-
--- Apply an affine map
-affine :: (Zip a, Foldable a, Zip b, Pointed b, Num s)
-       => Affine a b s -> a s -> b s
-affine bs' a = applyL bs' (a :*: Par1 1)
-
--- Compose affine transformations
-(@..) :: (Zip b, Zip c, Pointed c, Foldable b, Num s, Functor a)
-      => Affine b c s -> Affine a b s -> Affine a c s
-bc @.. ab = affine bc <$> ab

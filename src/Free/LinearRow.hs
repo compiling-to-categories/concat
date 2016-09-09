@@ -10,9 +10,9 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
--- | Some experiments in formulating constrained linear optimization problems.
+-- | Linear maps as "row-major" functor compositions
 
-module Free.Linear where
+module Free.LinearRow where
 
 import Prelude hiding (id,(.),zipWith)
 
@@ -30,6 +30,52 @@ import Free.VectorSpace
 
 import ConCat
 
+{--------------------------------------------------------------------
+    Linear maps
+--------------------------------------------------------------------}
+
+-- Linear map from a s to b s
+infixr 1 :-*
+type (a :-* b) s = b (a s)
+
+-- TODO: consider instead
+-- 
+--   type Linear = (:.:)
+-- 
+-- so that Linear itself forms a vector space.
+
+infixr 9 $*
+-- Apply a linear map
+($*) :: (Zip a, Foldable a, Zip b, Num s)
+     => (a :-* b) s -> a s -> b s
+as $* a = (<.> a) <$> as
+
+zeroL :: (Pointed a, Pointed b, Num s) => (a :-* b) s
+zeroL = point zeroV
+
+#if 0
+{--------------------------------------------------------------------
+    Affine maps
+--------------------------------------------------------------------}
+
+-- Affine map from a s to b s
+type Affine a b s = (a :*: Par1 :-* b) s
+
+-- Apply an affine map
+affine :: (Zip a, Foldable a, Zip b, Pointed b, Num s)
+       => Affine a b s -> a s -> b s
+affine bs' a = bs' $* (a :*: Par1 1)
+
+-- Compose affine transformations
+(@..) :: (Zip b, Zip c, Pointed c, Foldable b, Num s, Functor a)
+      => Affine b c s -> Affine a b s -> Affine a c s
+bc @.. ab = affine bc <$> ab
+#endif
+
+{--------------------------------------------------------------------
+    Other operations
+--------------------------------------------------------------------}
+
 ---- Category
 
 -- Identity linear map
@@ -41,37 +87,49 @@ idL = mapWithKey (flip replace 1) zeroL
 -- replace :: Adjustable f => Key f -> a -> f a -> f a
 
 -- Compose linear transformations
-(@.) :: (Zip c, Zip b, Pointed c, Foldable b, Functor a, Num s)
+(@.) :: (Zip a, Zip b, Pointed a, Foldable b, Functor c, Num s)
      => (b :-* c) s -> (a :-* b) s -> (a :-* c) s
-bc @. ab = applyL bc <$> ab
+-- bc @. ab = (bc $*) <$> ab
+
+bc @. ab = (\ b -> sumV (zipWith (*^) b ab)) <$> bc
+
+-- bc :: c (b s)
+-- ab :: b (a s)
+
+-- ac :: c (a s)
+
+-- (bc $*) :: b s -> c s
+
+
 
 -- (@.) = fmap . linear
 
+#if 1
 ---- Product
 
 exlL :: (Pointed a, Keyed a, Adjustable a, Pointed b, Num s)
      => (a :*: b :-* a) s
-exlL = idL :*: zeroL
+exlL = (:*: zeroV) <$> idL
 
 exrL :: (Pointed b, Keyed b, Adjustable b, Pointed a, Num s)
      => (a :*: b :-* b) s
-exrL = zeroL :*: idL
+exrL = (zeroV :*:) <$> idL
 
-forkL :: Zip a => (a :-* b) s -> (a :-* c) s -> (a :-* b :*: c) s
-forkL = zipWith (:*:)
+forkL :: (a :-* b) s -> (a :-* c) s -> (a :-* b :*: c) s
+forkL = (:*:)
 
 ---- Coproduct as direct sum (represented as Cartesian product)
 
 inlL :: (Pointed a, Keyed a, Adjustable a, Pointed b, Num s)
      => (a :-* a :*: b) s
-inlL = (:*: zeroV) <$> idL
+inlL = idL :*: zeroL
 
 inrL :: (Pointed a, Pointed b, Keyed b, Adjustable b, Num s)
      => (b :-* a :*: b) s
-inrL = (zeroV :*:) <$> idL
+inrL = zeroL :*: idL
 
-joinL :: (a :-* c) s -> (b :-* c) s -> (a :*: b :-* c) s
-joinL = (:*:)
+joinL :: Zip c => (a :-* c) s -> (b :-* c) s -> (a :*: b :-* c) s
+joinL = zipWith (:*:)
 
 newtype (f :=> g) s = Fun ((f :-* g) s)
 
@@ -160,6 +218,7 @@ inl'' = (inNew . fmap) (:*: zeroV) idL''
 join'' :: Linear'' a c -> Linear'' b c -> Linear'' (a :*: b) c
 join'' = inNew2 (:*:)
 
+#if 0
 {--------------------------------------------------------------------
     Constrained linear optimization
 --------------------------------------------------------------------}
@@ -172,6 +231,8 @@ data LinOpt a b s = forall c. Foldable c => LO (Affine a b s, Affine a c s)
 -- TODO: add existentials by wrapping with ExistArg. I'll have to
 -- bridge the gap between the Category classes and the
 -- almost-instances above.
+
+#endif
 
 {--------------------------------------------------------------------
     Categorical instances
@@ -211,7 +272,7 @@ instance CoproductCat (LMapF s) where
 
 -- type instance Exp (LMapF s) = (:.:)
 
-toExp :: LMapF s a b -> (a :.: b) s
+toExp :: LMapF s a b -> (b :.: a) s
 toExp = pack . unpack
 -- toExp (LMapF ab) = pack ab
 
@@ -227,4 +288,6 @@ instance Newtype (LMapF' s a b) where
   type O (LMapF' s a b) = (a :.: b) s
   pack ab = LMapF' ab
   unpack (LMapF' ab) = ab
+#endif
+
 #endif
