@@ -13,7 +13,6 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE ExistentialQuantification #-}
 
 -- TODO: trim extensions
 
@@ -49,14 +48,13 @@ import ConCat
 class    (VectorSpace a, Scalar a ~ s, HasBasis a, HasTrie (Basis a)) => OkL s a
 instance (VectorSpace a, Scalar a ~ s, HasBasis a, HasTrie (Basis a)) => OkL s a
 
-type OkL2 s a b = C2 (OkL s) a b
-
 -- | Linear map over a given scalar field
-data LMap s a b = OkL2 s a b => LMap (a :-* b)
+-- data LMap s a b = C2 (OkL s) a b => LMap (a :-* b)
+data LMap (s :: *) a b = LMap (a :-* b)
 
 -- Needs ExistentialQuantification
 
-instance OkL2 s a b => Newtype (LMap s a b) where
+instance C2 (OkL s) a b => Newtype (LMap s a b) where
   type O (LMap s a b) = a :-* b
   pack t = LMap t
   unpack (LMap t) = t
