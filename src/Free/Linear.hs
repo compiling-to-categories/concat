@@ -1,3 +1,8 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE PartialTypeSignatures #-}
@@ -11,14 +16,19 @@ module Free.Linear where
 
 import Prelude hiding (id,(.),zipWith)
 
-import Control.Category
+import GHC.Generics ((:*:)(..),(:.:)(..))
+import Data.Constraint
+
 import Data.Pointed (Pointed(..))
 import Data.Key (Keyed(..),Zip(..),Adjustable(..))
-import GHC.Generics ((:*:)(..),(:.:)(..))
+
+import Control.Newtype
 
 import Misc (inNew,inNew2)
 import Orphans ()
 import Free.VectorSpace
+
+import ConCat
 
 ---- Category
 
@@ -31,44 +41,44 @@ idL = mapWithKey (flip replace 1) zeroL
 -- replace :: Adjustable f => Key f -> a -> f a -> f a
 
 -- Compose linear transformations
-(@.) :: (Zip o, Zip n, Pointed o, Foldable n, Functor m, Num r)
-     => (n :-* o) r -> (m :-* n) r -> (m :-* o) r
-no @. mn = linear no <$> mn
+(@.) :: (Zip c, Zip b, Pointed c, Foldable b, Functor a, Num s)
+     => (b :-* c) s -> (a :-* b) s -> (a :-* c) s
+bc @. ab = applyL bc <$> ab
 
 -- (@.) = fmap . linear
 
 ---- Product
 
-exlL :: (Pointed m, Keyed m, Adjustable m, Pointed n, Num r)
-     => (m :*: n :-* m) r
+exlL :: (Pointed a, Keyed a, Adjustable a, Pointed b, Num s)
+     => (a :*: b :-* a) s
 exlL = idL :*: zeroL
 
-exrL :: (Pointed n, Keyed n, Adjustable n, Pointed m, Num r)
-     => (m :*: n :-* n) r
+exrL :: (Pointed b, Keyed b, Adjustable b, Pointed a, Num s)
+     => (a :*: b :-* b) s
 exrL = zeroL :*: idL
 
-forkL :: Zip m => (m :-* n) r -> (m :-* o) r -> (m :-* n :*: o) r
+forkL :: Zip a => (a :-* b) s -> (a :-* c) s -> (a :-* b :*: c) s
 forkL = zipWith (:*:)
 
 ---- Coproduct as direct sum (represented as Cartesian product)
 
-inlL :: (Pointed m, Keyed m, Adjustable m, Pointed n, Num r)
-     => (m :-* m :*: n) r
+inlL :: (Pointed a, Keyed a, Adjustable a, Pointed b, Num s)
+     => (a :-* a :*: b) s
 inlL = (:*: zeroV) <$> idL
 
-inrL :: (Pointed m, Pointed n, Keyed n, Adjustable n, Num r)
-     => (n :-* m :*: n) r
+inrL :: (Pointed a, Pointed b, Keyed b, Adjustable b, Num s)
+     => (b :-* a :*: b) s
 inrL = (zeroV :*:) <$> idL
 
-joinL :: (m :-* o) r -> (n :-* o) r -> (m :*: n :-* o) r
+joinL :: (a :-* c) s -> (b :-* c) s -> (a :*: b :-* c) s
 joinL = (:*:)
 
-newtype (f :=> g) r = Fun ((f :-* g) r)
+newtype (f :=> g) s = Fun ((f :-* g) s)
 
--- applyL :: _ => ((f :=> g) :*: f :-* g) r
+-- applyL :: _ => ((f :=> g) :*: f :-* g) s
 -- applyL =
 
--- (f (g r) -> g (g r)) :* f (g r)
+-- (f (g s) -> g (g s)) :* f (g s)
 
 {--------------------------------------------------------------------
     Experiment
@@ -76,84 +86,145 @@ newtype (f :=> g) r = Fun ((f :-* g) r)
 
 type Linear' = (:.:)
 
-linear' :: (Zip n, Zip m, Pointed n, Foldable m, Num r)
-        => Linear' m n r -> m r -> n r
-linear' (Comp1 ns) m = sumV (zipWith (*^) m ns)
+linear' :: (Zip b, Zip a, Pointed b, Foldable a, Num s)
+        => Linear' a b s -> a s -> b s
+linear' (Comp1 ns) a = sumV (zipWith (*^) a ns)
 
-zeroL' :: (Pointed n, Pointed m, Num r) => Linear' m n r
+zeroL' :: (Pointed b, Pointed a, Num s) => Linear' a b s
 zeroL' = Comp1 (point zeroV)
 
-idL' :: (Adjustable m, Keyed m, Pointed m, Num r)
-     => Linear' m m r
+idL' :: (Adjustable a, Keyed a, Pointed a, Num s)
+     => Linear' a a s
 idL' = (inNew . mapWithKey) (flip replace 1) zeroL'
 
-(@@.) :: (Zip o, Zip n, Pointed o, Foldable n, Functor m, Num r)
-      => Linear' n o r -> Linear' m n r -> Linear' m o r
+(@@.) :: (Zip c, Zip b, Pointed c, Foldable b, Functor a, Num s)
+      => Linear' b c s -> Linear' a b s -> Linear' a c s
 (@@.) = inNew . fmap . linear'
 
 -- (@@.) no = inNew (fmap (linear' no))
 -- (@@.) no = inNew (linear' no <$>)
 -- no @@. Comp1 mn = Comp1 (linear' no <$> mn)
 
-exl' :: (Pointed m, Keyed m, Adjustable m, Pointed n, Num r)
-     => Linear' (m :*: n) m r
-exl' = inNew (idL :*:) zeroL'
+exl' :: (Pointed a, Keyed a, Adjustable a, Pointed b, Num s)
+     => Linear' (a :*: b) a s
+-- exl' = inNew (idL :*:) zeroL'
+exl' = inNew2 (:*:) idL' zeroL'
 
-fork' :: Zip m => Linear' m n r -> Linear' m o r -> Linear' m (n :*: o) r
+-- exlL = idL :*: zeroL
+
+fork' :: Zip a => Linear' a b s -> Linear' a c s -> Linear' a (b :*: c) s
 fork' = (inNew2 . zipWith) (:*:)
 
-inl' :: (Pointed m, Keyed m, Adjustable m, Pointed n, Num r)
-     => Linear' m (m :*: n) r
+inl' :: (Pointed a, Keyed a, Adjustable a, Pointed b, Num s)
+     => Linear' a (a :*: b) s
 inl' = (inNew . fmap) (:*: zeroV) idL'
 
-join' :: Linear' m o r -> Linear' n o r -> Linear' (m :*: n) o r
+join' :: Linear' a c s -> Linear' b c s -> Linear' (a :*: b) c s
 join' = inNew2 (:*:)
 
 {--------------------------------------------------------------------
     Quantify over Num
 --------------------------------------------------------------------}
 
-type U m = forall r. Num r => m r
+type U a = forall s. Num s => a s
 
-type Linear'' m n = U (m :.: n)
+type Linear'' a b = U (a :.: b)
 
-type NT m n = forall r. Num r => m r -> n r
+-- data Linear'' a b = forall s. L (Num s => (a :.: b) s)
 
-linear'' :: (Zip n, Zip m, Pointed n, Foldable m)
-         => Linear'' m n -> NT m n
-linear'' (Comp1 ns) m = sumV (zipWith (*^) m ns)
+type NT a b = forall s. Num s => a s -> b s
 
-zeroL'' :: (Pointed n, Pointed m) => Linear'' m n
+linear'' :: (Zip b, Zip a, Pointed b, Foldable a)
+         => Linear'' a b -> NT a b
+linear'' (Comp1 ns) a = sumV (zipWith (*^) a ns)
+
+zeroL'' :: (Pointed b, Pointed a) => Linear'' a b
 zeroL'' = Comp1 (point zeroV)
 
-idL'' :: (Adjustable m, Keyed m, Pointed m)
-      => Linear'' m m
+idL'' :: (Adjustable a, Keyed a, Pointed a)
+      => Linear'' a a
 idL'' = (inNew . mapWithKey) (flip replace 1) zeroL''
 
-exl'' :: (Pointed m, Keyed m, Adjustable m, Pointed n)
-      => Linear'' (m :*: n) m
+exl'' :: (Pointed a, Keyed a, Adjustable a, Pointed b)
+      => Linear'' (a :*: b) a
 exl'' = inNew (idL :*:) zeroL'
 
-fork'' :: Zip m => Linear'' m n -> Linear'' m o -> Linear'' m (n :*: o)
+fork'' :: Zip a => Linear'' a b -> Linear'' a c -> Linear'' a (b :*: c)
 fork'' = inNew2 (zipWith (:*:))
 -- fork'' = (inNew2'' . zipWith) (:*:)
 
-inl'' :: (Pointed m, Keyed m, Adjustable m, Pointed n)
-      => Linear'' m (m :*: n)
+inl'' :: (Pointed a, Keyed a, Adjustable a, Pointed b)
+      => Linear'' a (a :*: b)
 inl'' = (inNew . fmap) (:*: zeroV) idL''
 
-join'' :: Linear'' m o -> Linear'' n o -> Linear'' (m :*: n) o
+join'' :: Linear'' a c -> Linear'' b c -> Linear'' (a :*: b) c
 join'' = inNew2 (:*:)
 
 {--------------------------------------------------------------------
     Constrained linear optimization
 --------------------------------------------------------------------}
 
--- Affine function and affine constraints. When n == Id and r is
+-- Affine function and affine constraints. When b == Id and s is
 -- ordered, we can solve as a constrained linear optimization problem.
--- The generality over n improves composability.
-data LinOpt m n r = forall o. Foldable o => LO (Affine m n r, Affine m o r)
+-- The generality over b improves composability.
+data LinOpt a b s = forall c. Foldable c => LO (Affine a b s, Affine a c s)
 
 -- TODO: add existentials by wrapping with ExistArg. I'll have to
 -- bridge the gap between the Category classes and the
 -- almost-instances above.
+
+{--------------------------------------------------------------------
+    Categorical instances
+--------------------------------------------------------------------}
+
+newtype LMapF s a b = LMapF ((a :-* b) s)
+
+instance Newtype (LMapF s a b) where
+  type O (LMapF s a b) = (a :-* b) s
+  pack ab = LMapF ab
+  unpack (LMapF ab) = ab
+
+class    (Foldable a, Pointed a, Zip a, Keyed a, Adjustable a, Num s) => OkLMapF s a
+instance (Foldable a, Pointed a, Zip a, Keyed a, Adjustable a, Num s) => OkLMapF s a
+
+instance Category (LMapF s) where
+  type Ok (LMapF s) = OkLMapF s
+  id = pack idL
+  (.) = inNew2 (@.)
+
+instance OpCon (:*:) (OkLMapF s) where inOp = Sub Dict
+
+instance ProductCat (LMapF s) where
+  type Prod (LMapF s) = (:*:)
+  exl = pack exlL
+  exr = pack exrL
+  (&&&) = inNew2 forkL
+
+instance CoproductCat (LMapF s) where
+  type Coprod (LMapF s) = (:*:)
+  inl = pack inlL
+  inr = pack inrL
+  (|||) = inNew2 joinL
+
+-- We can't make a ClosedCat instance compatible with the ProductCat instance.
+-- We'd have to change the latter to use the tensor product.
+
+-- type instance Exp (LMapF s) = (:.:)
+
+toExp :: LMapF s a b -> (a :.: b) s
+toExp = pack . unpack
+-- toExp (LMapF ab) = pack ab
+
+
+#if 0
+newtype LMapF' s a b = LMapF' ((a :.: b) s)
+ deriving (Foldable, Pointed, Zip, Keyed, Adjustable)
+
+-- • Cannot derive well-kinded instance of form ‘Foldable (LMapF' ...)’
+--     Class ‘Foldable’ expects an argument of kind ‘* -> *’
+
+instance Newtype (LMapF' s a b) where
+  type O (LMapF' s a b) = (a :.: b) s
+  pack ab = LMapF' ab
+  unpack (LMapF' ab) = ab
+#endif
