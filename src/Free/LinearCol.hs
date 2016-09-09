@@ -46,7 +46,7 @@ type (a :-* b) s = a (b s)
 
 infixr 9 $*
 -- Apply a linear map
-($*) :: (Zip a, Foldable a, Zip b, Pointed b, Num s) =>
+($*) :: (Zip a, Foldable a, Zip b, Pointed b, Num s)
      => (a :-* b) s -> a s -> b s
 bs $* a = sumV (zipWith (*^) a bs)
 
