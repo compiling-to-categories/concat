@@ -46,6 +46,9 @@ instance Newtype ((a +-> b) t) where
     Other
 --------------------------------------------------------------------}
 
+infixl 1 <~
+infixr 1 ~>
+
 -- | Add pre- and post-processing
 (~>) :: (a' -> a) -> (b -> b') -> ((a -> b) -> (a' -> b'))
 (~>) = flip (<~)
