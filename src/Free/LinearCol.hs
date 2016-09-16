@@ -12,7 +12,7 @@
 
 -- | Some experiments in formulating constrained linear optimization problems.
 
-module Free.Linear where
+module Free.LinearCol where
 
 import Prelude hiding (id,(.),zipWith)
 
@@ -44,8 +44,8 @@ type (a :-* b) s = a (b s)
 -- 
 -- so that Linear itself forms a vector space.
 
-infixr 9 $*
 -- Apply a linear map
+infixr 9 $*
 ($*) :: (Zip a, Foldable a, Zip b, Pointed b, Num s)
      => (a :-* b) s -> a s -> b s
 bs $* a = sumV (zipWith (*^) a bs)
@@ -96,7 +96,7 @@ idL = mapWithKey (flip replace 1) zeroL
 -- replace :: Adjustable f => Key f -> a -> f a -> f a
 
 -- Compose linear transformations
-(@.) :: (Zip c, Zip b, Pointed c, Foldable b, Functor a, Num s)
+(@.) :: (Functor a, Foldable b, Zip b, Pointed c, Zip c, Num s)
      => (b :-* c) s -> (a :-* b) s -> (a :-* c) s
 bc @. ab = (bc $*) <$> ab
 
