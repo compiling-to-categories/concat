@@ -423,11 +423,19 @@ unjoin f = (f . inl, f . inr)  <+ inOp @(Coprod k) @(Ok k) @c @d
     Exponentials
 --------------------------------------------------------------------}
 
-class ProductCat k => ClosedCat k where
+class (OpCon (Exp k) (Ok k), ProductCat k) => ClosedCat k where
   type Exp k :: u -> u -> u
-  apply   :: Ok2 k a b   => Prod k (Exp k a b) a `k` b
+  apply   :: forall a b. Ok2 k a b => Prod k (Exp k a b) a `k` b
+  apply = uncurry id
+          <+ inOp @(Exp k) @(Ok k) @a @b
   curry   :: Ok3 k a b c => (Prod k a b `k` c) -> (a `k` Exp k b c)
-  uncurry :: Ok3 k a b c => (a `k` Exp k b c)  -> (Prod k a b `k` c)
+  uncurry :: forall a b c. Ok3 k a b c
+          => (a `k` Exp k b c)  -> (Prod k a b `k` c)
+  uncurry g = apply . first g
+              <+ inOp @(Prod k) @(Ok k) @(Exp k b c) @b
+              <+ inOp @(Prod k) @(Ok k) @a @b
+              <+ inOp @(Exp  k) @(Ok k) @b @c
+  {-# MINIMAL curry, (apply | uncurry) #-}
 
 --   apply   :: (Ok2 k a b, p ~ Prod k, e ~ Exp k) => ((a `e` b) `p` a) `k` b
 
@@ -678,18 +686,51 @@ instance ProductCat (|-) where
   f *** g = Sub $ Dict <+ f <+ g
 #endif
 
-#if 0
-class Entails a b where entails :: a |- b
+#if 1
+infixr 2 :==>
+class a :==> b where entails :: a |- b
 
-instance ClosedCat (|-) where
-  type Exp (|-) = Entails
---   apply :: forall a b. Entails a b && a |- b
+foo :: forall a b. (a :==> b) && a => Dict b
+foo | Sub Dict <- (entails :: a |- b) = Dict     -- works
+-- foo = case entails :: a |- b of Sub Dict -> Dict -- works
+
+foo' :: forall a b. (a :==> b) && a |- b
+-- foo' = Sub (foo @a @b) -- works
+-- foo' | Sub Dict <- (entails :: a |- b) = Sub Dict -- nope
+foo' = Sub (case entails :: a |- b of Sub Dict -> Dict) -- works
+-- foo' = case entails :: a |- b of Sub Dict -> Sub Dict -- nope
+
+modusPonens :: forall a b. (a :==> b) && a |- b
+modusPonens = Sub (case entails :: a |- b of Sub Dict -> Dict) -- works
+
+-- instance ClosedCat (|-) where
+--   type Exp (|-) = (:==>)
+--   apply :: forall a b. (a :==> b) && a |- b
+--   apply = Sub (case entails :: a |- b of Sub Dict -> Dict)
+--   curry :: (a && b |- c) -> (a |- b :==> c)
+--   curry (Sub Dict) = Sub Dict
+
+-- f :: a && b |- c
+-- Sub Dict :: a && b |- c
+-- Dict :: (a,b) => c
+  
+--   apply = modusPonens
+
+--   apply = Sub Dict --  <+ (entails :: a |- b)
+
 --   apply = Sub Dict <+ (entails :: a |- b)
 
-  curry   :: (a && b |- c) -> (a |- Entails b c)
-  curry abc = Sub Dict 
+--   curry   :: (a && b |- c) -> (a |- b :==> c)
+--   curry abc = Sub Dict 
 
 --   curry   :: (a && b |- c) -> (a |- Exp (|-) b c)
+
+
+--   apply   :: Ok2 k a b   => Prod k (Exp k a b) a `k` b
+--   curry   :: Ok3 k a b c => (Prod k a b `k` c) -> (a `k` Exp k b c)
+--   uncurry :: forall a b c. Ok3 k a b c
+--           => (a `k` Exp k b c)  -> (Prod k a b `k` c)
+
 #endif
 
 {--------------------------------------------------------------------
@@ -787,11 +828,17 @@ instance ProductCat (:->?) where
 
 --   f &&& g = trie' (untrie' f &&& untrie' g)
 
-instance ClosedCat (:->?) where
-  type Exp (:->?) = (->)
-  apply = Fun apply
-  curry f = Fun (curry (untrie' f))
-  uncurry g = Fun (uncurry (untrie' g))
+-- instance ClosedCat (:->?) where
+--   type Exp (:->?) = (->)
+--   apply = Fun apply
+--   curry f = Fun (curry (untrie' f))
+--   uncurry g = Fun (uncurry (untrie' g))
+
+-- * No instance for `(OpCon (->) HasTrie)`
+--     arising from the superclasses of an instance declaration
+
+-- TODO: revisit
+
 
 --   apply :: C2 HasTrie a b => (a -> b) :* a :->? b
 --   curry :: C3 HasTrie a b c => (a :* b :->? c) -> (a :->? (b -> c))
