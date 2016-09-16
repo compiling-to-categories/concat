@@ -30,13 +30,13 @@ library
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.9 && <4.10
-                     , constraints >= 0.8
                      , ghc-prim >= 0.5.0.0
-                     , keys >= 3.11
+                     , constraints >= 0.8
                      , newtype-generics
+                     , Stream
+                     , keys >= 3.11
                      , pointed >= 5
                      , MemoTrie >= 0.6.5
-                     , Stream
                      , vector-space >= 0.10.4
 
   hs-source-dirs:      src
