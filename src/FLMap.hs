@@ -21,7 +21,7 @@ import Prelude hiding (id,(.),curry,uncurry)
 import Control.Newtype (Newtype(..))
 import Data.Constraint (Dict(..),(:-)(..))
 
-import Misc
+import Misc hiding ((<~))
 import Additive
 import Semimodule
 import ConCat
@@ -89,3 +89,15 @@ packL = linear pack
 
 unpackL :: (Newtype t, OkL2 s t (O t)) => LMap s t (O t)
 unpackL = linear unpack
+
+flipFL :: OkL3 s u v w => LMap s u (v -> w) -> (v -> LMap s u w)
+flipFL h = pack . flip (unpack h)
+
+#if 0
+
+h :: u :-* v -> w
+unpack h :: u -> v -> w
+flip (unpack h) :: v -> u -> w
+pack . flip (unpack h) :: v -> u :-* w
+
+#endif
