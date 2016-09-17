@@ -1,8 +1,13 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -58,8 +63,14 @@ infixr 1 ~>
 (h <~ f) g = h . g . f
 
 
-class    Yes a
-instance Yes a
+class    Yes0
+instance Yes0
+
+class    Yes1 a
+instance Yes1 a
+
+class    Yes2 a b
+instance Yes2 a b
 
 inNew :: (Newtype p, Newtype q) =>
          (O p -> O q) -> (p -> q)
@@ -71,3 +82,59 @@ inNew2 = inNew <~ unpack
 
 -- TODO: use inNew and inNew2 in place of ad hoc versions throughout.
 
+{--------------------------------------------------------------------
+    Type level computations
+--------------------------------------------------------------------}
+
+class    (a,b) => a && b
+instance (a,b) => a && b
+
+class    f b a => Flip f a b
+instance f b a => Flip f a b
+
+-- • Potential superclass cycle for ‘&&’
+--     one of whose superclass constraints is headed by a type variable: ‘a’
+--   Use UndecidableSuperClasses to accept this
+
+-- Same for Flip
+
+type family FoldrC (op :: a -> b -> b) (b0 :: b) (as :: [a]) :: b where
+  FoldrC op z '[]      = z
+  FoldrC op z (a : as) = a `op` FoldrC op z as
+
+type family MapC (f :: u -> v) (us :: [u]) :: [v] where
+  MapC f '[]      = '[]
+  MapC f (u : us) = f u : MapC f us
+
+-- type Comp g f u = g (f u)
+-- -- Operator applied to too few arguments: :
+-- type MapC' f us = FoldrC (Comp (':) f) '[] us
+
+type AndC   cs = FoldrC (&&) Yes0 cs
+type AllC f us = AndC (MapC f us)
+
+-- type family AndC' cs where
+--   AndC' '[]      = Yes0
+--   AndC' (c : cs) = c && AndC' cs
+
+-- type family AllC f as where
+--   AllC f '[]      = Yes0
+--   AllC f (a : as) = f a && AllC f as
+
+-- -- Operator applied to too few arguments: :
+-- type as ++ bs = FoldrC (':) bs as
+
+infixr 5 ++
+type family as ++ bs where
+  '[]      ++ bs = bs
+  (a : as) ++ bs = a : as ++ bs
+
+type family CrossWith f as bs where
+  CrossWith f '[]      bs = '[]
+  CrossWith f (a : as) bs = MapC (f a) bs ++ CrossWith f as bs
+
+-- Illegal nested type family application ‘MapC (f a1) bs
+--                                               ++ CrossWith f as bs’
+--       (Use UndecidableInstances to permit this)
+
+type AllC2 f as bs = AndC (CrossWith f as bs)
