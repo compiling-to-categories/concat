@@ -101,7 +101,7 @@ rassocC = (weaken1 . weaken1) C.&&& firstC weaken2
 
 class Category k where
   type Ok k :: u -> Constraint
-  type Ok k = Yes
+  type Ok k = Yes1
   id  :: Ok k a => a `k` a
   infixr 9 .
   (.) :: Ok3 k a b c => b `k` c -> a `k` b -> a `k` c
@@ -559,7 +559,7 @@ instance Category (|-) where
 class OpCon op con where
   inOp :: (con a, con b) |- con (a `op` b)
 
-instance OpCon op Yes where inOp = Sub Dict
+instance OpCon op Yes1 where inOp = Sub Dict
 
 inOpL :: OpCon op con => ((con a,con b),con c) |- con ((a `op` b) `op` c)
 inOpL = inOp . firstC  inOp
