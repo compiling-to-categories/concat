@@ -1,3 +1,5 @@
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE AllowAmbiguousTypes #-} -- experiment
 {-# LANGUAGE InstanceSigs #-}
@@ -683,8 +685,54 @@ instance ProductCat (|-) where
   f *** g = Sub $ Dict <+ f <+ g
 #endif
 
-#if 1
-infixr 2 :==>
+#if 0
+
+-- infixr 1 :==>
+-- type family (:==>) (a :: Constraint) :: Constraint where
+--   a && b :==> c = a |- b :==> c
+
+-- infixr 1 :==>
+-- type family a :==> b where
+--   (a && b) :==> c = a :==> b :==> c -- UndecidableInstances
+--   a :==> b = Entails' a b
+
+-- class Entails' a b where entails' :: a |- b
+
+infixr 1 |--
+
+-- data (|--) :: Constraint -> Constraint -> * where
+--   Entails :: Entails' a b => a |-- b
+--   AndEnt  :: Entails' (a && b) c => a |-- b :==> c
+
+data (|--) :: Constraint -> Constraint -> * where
+  Entails :: (a |- b) -> (a |-- b)
+  AndEnt  :: (a |-- b |--* c) -> (a && b |-- c)
+
+class a |--* b where entails' :: a |-- b
+
+instance Category (|--) where
+  id = Entails id
+  Entails bc . Entails ab = Entails (bc . ab)
+
+modusPonens :: forall a b. (a |--* b) && a |-- b
+modusPonens =
+  Entails (Sub (case entails' :: a |-- b of
+                  Entails (Sub Dict :: a |- b) -> Dict
+                  AndEnt abc -> undefined))  -- working here
+
+-- modusPonens :: forall a b. (a :==> b) && a |- b
+-- modusPonens = Sub (case entails' :: a |- b of Sub Dict -> Dict) -- works
+
+-- instance ClosedCat (|--) where
+--   type Exp (|-) = (|--*)
+--   apply :: forall a b. (a |--* b) && a |-- b
+--   apply = modusPonens
+-- --   apply = Sub (case entails :: a |- b of Sub Dict -> Dict)
+-- --   curry :: (a && b |- c) -> (a |- b :==> c)
+-- --   curry (Sub Dict) = Sub Dict
+
+#elif 0
+infixr 1 :==>
 class a :==> b where entails :: a |- b
 
 foo :: forall a b. (a :==> b) && a => Dict b
@@ -728,7 +776,66 @@ modusPonens = Sub (case entails :: a |- b of Sub Dict -> Dict) -- works
 --   uncurry :: forall a b c. Oks k [a,b,c]
 --           => (a `k` Exp k b c)  -> (Prod k a b `k` c)
 
+#elif 0
+
+data (|--) :: Constraint -> Constraint -> * where
+  Entails  ::      (a      |-  b) -> (a |-- b)
+  CurryEnt :: a => (a && b |-- c) -> (b |-- c)
+
+-- -- Equivalently,
+-- data b |-- c =
+--     Entails (b |- c)
+--   | forall a. a => CurryEnt (a && b |- c) 
+
+entails :: (b |-- c) -> (b |- c)
+entails (Entails  bc ) = bc
+entails (CurryEnt abc) = Sub (Dict <+ entails abc)
+
+-- entails (CurryEnt abc) = Sub Dict <+ entails abc  -- could not deduce b
+
+-- entails (CurryEnt (Sub Dict)) = undefined  -- could not deduce b
+
+instance Category (|--) where
+  id = Entails id
+  g . f = Entails (entails g . entails f)
+
+instance ProductCat (|--) where
+  type Prod (|--) = (&&)
+  exl = Entails exl
+  exr = Entails exr
+  f &&& g = Entails (entails f &&& entails g)
+
+class HasEntails b c where entailIt :: b |-- c
+
+instance ClosedCat (|--) where
+  type Exp (|--) = HasEntails
+  apply :: HasEntails a b && a |-- b
+  apply = CurryEnt (\ abc -> ...)
+
+a holds
+abc :: a && b |-- c
+entails abc :: a && b |- c
+
+need :: x
+
+
+#elif 0
+
+closeCon :: a => (a && b |- c) -> (b |- c)
+closeCon abc = Sub (Dict <+ abc)
+
+class Entails a b where entails :: a |- b
+
+instance ClosedCat (|-) where
+  type Exp (|-) = Entails
+  apply :: forall a b. Entails a b && a |- b
+  apply = Sub (Dict <+ (entails :: a |- b))
+  curry :: forall a b c. (a && b |- c) -> (a |- Entails b c)
+  curry = undefined
+                 
+
 #endif
+
 
 {--------------------------------------------------------------------
     Memo tries
