@@ -98,11 +98,11 @@ instance f b a => Flip f a b
 
 -- Same for Flip
 
-type family FoldrC (op :: a -> b -> b) (b0 :: b) (as :: [a]) :: b where
+type family FoldrC op b0 as where
   FoldrC op z '[]      = z
   FoldrC op z (a : as) = a `op` FoldrC op z as
 
-type family MapC (f :: u -> v) (us :: [u]) :: [v] where
+type family MapC f us where
   MapC f '[]      = '[]
   MapC f (u : us) = f u : MapC f us
 
