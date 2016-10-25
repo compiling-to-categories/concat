@@ -54,12 +54,12 @@ instance ProductCat (D s) where
 
 instance OpCon (D s) (OkL s) where inOp = Sub Dict
 
-instance ClosedCat (D s) where
-  type Exp (D s) = D s
-  apply :: forall s a b. OkL2 s a b => D s (D s a b :* a) b
-  apply = D (\ (D h _, a) -> h a)
-            (\ (D _ h',a) -> (applyTo a ||| h' a) . first (exl . unpackL))
-  curry (D f f') = D (curry f) undefined -- (\ a -> flipFL (\ b -> f' (a,b) . inl))
+-- instance ClosedCat (D s) where
+--   type Exp (D s) = D s
+--   apply :: forall s a b. OkL2 s a b => D s (D s a b :* a) b
+--   apply = D (\ (D h _, a) -> h a)
+--             (\ (D _ h',a) -> (applyTo a ||| h' a) . first (exl . unpackL))
+--   curry (D f f') = D (curry f) undefined -- (\ a -> flipFL (\ b -> f' (a,b) . inl))
 
 #if 0
 
