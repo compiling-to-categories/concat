@@ -1,7 +1,16 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -11,7 +20,7 @@ module Free.VectorSpace where
 
 import Prelude hiding (zipWith)
 
--- import GHC.Generics (Par1(..),(:*:)(..))
+import GHC.Generics (Par1(..),(:*:)(..))
 
 import Data.Foldable (fold)
 import Data.Pointed
@@ -19,7 +28,7 @@ import Data.Key (Zip(..))
 
 import Control.Newtype
 
-import Misc (inNew2)
+import Misc (inNew2,(:*))
 
 {--------------------------------------------------------------------
     Vector spaces
@@ -67,3 +76,64 @@ instance (Pointed f, Zip f, Num a) => Monoid (SumV f a) where
 
 sumV :: (Functor m, Foldable m, Pointed n, Zip n, Num a) => m (n a) -> n a
 sumV = unpack . fold . fmap SumV
+
+{--------------------------------------------------------------------
+    Conversion
+--------------------------------------------------------------------}
+
+type NewHasV s t = (Newtype t, HasV s (O t), V s t ~ V s (O t))
+
+class (Num s, Functor (V s t)) => HasV s t where
+  type V s t :: * -> *
+  type V s t = V s (O t)
+  toV :: t -> V s t s
+  unV :: V s t s -> t
+  -- Default via Newtype.
+  default toV :: NewHasV s t => t -> V s t s
+  default unV :: NewHasV s t => V s t s -> t
+  toV = toV . unpack
+  unV = pack . unV
+
+-- Can I replace my HasRep class with Newtype?
+
+-- -- Replace by special cases as needed
+-- instance HasV s s where
+--   type V s s = Par1
+--   toV = Par1
+--   unV = unPar1
+
+instance HasV Double Double where
+  type V Double Double = Par1
+  toV = Par1
+  unV = unPar1
+
+-- etc
+
+instance (HasV s a, HasV s b) => HasV s (a :* b) where
+  type V s (a :* b) = V s a :*: V s b
+  toV (a,b) = toV a :*: toV b
+  unV (f :*: g) = (unV f,unV g)
+
+-- instance HasV s a => HasV s (Pair a) where
+--   type V s (Pair a) = Pair :.: V s a
+--   toV = Comp1 . fmap toV
+--   unV = fmap unV . unComp1
+
+-- Similarly for other functors
+
+#if 0
+-- Example default instance
+
+data Pickle a = Pickle a a a
+
+instance Newtype (Pickle a) where
+  type O (Pickle a) = (a :* a) :* a
+  unpack (Pickle a b c) = ((a,b),c)
+  pack ((a,b),c) = Pickle a b c
+
+instance HasV s a => HasV s (Pickle a)
+#endif
+
+-- | The 'unV' form of 'zeroV'
+zeroX :: forall s a. (HasV s a, Pointed (V s a)) => a
+zeroX = unV (zeroV :: V s a s)

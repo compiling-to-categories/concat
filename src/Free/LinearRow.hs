@@ -1,3 +1,6 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -7,6 +10,9 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeApplications #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -16,7 +22,7 @@ module Free.LinearRow where
 
 import Prelude hiding (id,(.),zipWith)
 
-import GHC.Generics ((:*:)(..),(:.:)(..))
+import GHC.Generics (Par1(..),(:*:)(..),(:.:)(..))
 import Data.Constraint
 
 import Data.Pointed (Pointed(..))
@@ -24,7 +30,7 @@ import Data.Key (Keyed(..),Zip(..),Adjustable(..))
 
 import Control.Newtype
 
-import Misc (inNew,inNew2)
+import Misc (inNew,inNew2,(:*))
 import Orphans ()
 import Free.VectorSpace
 
@@ -46,9 +52,11 @@ type (a :-* b) s = b (a s)
 
 infixr 9 $*
 -- Apply a linear map
-($*) :: (Zip a, Foldable a, Zip b, Num s)
-     => (a :-* b) s -> a s -> b s
+($*), lapplyL :: (Zip a, Foldable a, Zip b, Num s)
+              => (a :-* b) s -> a s -> b s
 as $* a = (<.> a) <$> as
+
+lapplyL = ($*)
 
 zeroL :: (Pointed a, Pointed b, Num s) => (a :-* b) s
 zeroL = point zeroV
@@ -138,6 +146,8 @@ newtype (f :=> g) s = Fun ((f :-* g) s)
 
 -- (f (g s) -> g (g s)) :* f (g s)
 
+#if 1
+
 {--------------------------------------------------------------------
     Experiment
 --------------------------------------------------------------------}
@@ -218,6 +228,8 @@ inl'' = (inNew . fmap) (:*: zeroV) idL''
 join'' :: Linear'' a c -> Linear'' b c -> Linear'' (a :*: b) c
 join'' = inNew2 (:*:)
 
+#endif
+
 #if 0
 {--------------------------------------------------------------------
     Constrained linear optimization
@@ -290,4 +302,60 @@ instance Newtype (LMapF' s a b) where
   unpack (LMapF' ab) = ab
 #endif
 
+#endif
+
+{--------------------------------------------------------------------
+    Conversion to linear map
+--------------------------------------------------------------------}
+
+lapply :: (OkLMapF s a, OkLMapF s b) => LMapF s a b -> (a s -> b s)
+lapply = lapplyL . unpack
+
+type LM s a b = LMapF s (V s a) (V s b)
+
+-- I suppose I could use LM in place of LMapF, say
+-- 
+--   newtype LM' s a b = LM' ((V s a :-* V s b) s)
+--
+-- i.e.,
+-- 
+--   newtype LM s a b = LM (V s b (V s a s))
+
+class (HasV s a, HasV s b) => HasL s a b where
+  linear :: (a -> b) -> LM s a b
+
+type OkV s a = OkLMapF s (V s a)
+
+type Ok' s a b = (OkV s a, OkV s b, HasL s a b)
+
+linear1 :: (HasV s b, V s s ~ Par1) => (s -> b) -> LM s s b
+linear1 f = LMapF (Par1 <$> toV (f 1))
+
+--                      f     :: s -> b
+--                      f 1   :: b
+--                 toV (f 1)  :: V s b s
+--        Par1 <$> toV (f 1)  :: V s b (Par1 s)
+--                            :: (Par1 :-* V s b) s
+--                            :: (V s s :-* V s b) s
+-- LMapF (Par1 <$> toV (f 1)) :: LMapF s (V s s) (V s b)
+--                            :: LM s s b
+
+instance HasV Double a => HasL Double Double a where linear = linear1
+
+instance (Ok' s a c, Ok' s b c) => HasL s (a :* b) c where
+#if 1
+  linear f = linear (f . (, zeroX @s @b)) ||| linear (f . (zeroX @s @a ,))
+#else
+  linear f = linear (f . inlQ @s @a @b) ||| linear (f . inrQ @s @a @b)
+
+inlQ :: forall s a b. (OkV s a, HasV s a, OkV s b, HasV s b) => a -> a :* b
+inlQ = unV . lapply (inl @(LMapF s) @(V s a) @(V s b)) . toV
+
+inrQ :: forall s a b. (OkV s a, HasV s a, OkV s b, HasV s b) => b -> a :* b
+inrQ = unV . lapply (inr @(LMapF s) @(V s a) @(V s b)) . toV
+
+-- toV        :: a -> V s a s
+--        inl :: LMapF s (V s a) (V s (a :* b))
+-- lapply inl :: V s a s -> V s (a :* b) s
+-- unV        :: V s (a :* b) s  -> a :* b
 #endif
