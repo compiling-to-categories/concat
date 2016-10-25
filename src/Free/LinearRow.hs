@@ -257,8 +257,10 @@ instance Newtype (LMapF s a b) where
   pack ab = LMapF ab
   unpack (LMapF ab) = ab
 
-class    (Foldable a, Pointed a, Zip a, Keyed a, Adjustable a, Num s) => OkLMapF s a
-instance (Foldable a, Pointed a, Zip a, Keyed a, Adjustable a, Num s) => OkLMapF s a
+type OkF a = (Foldable a, Pointed a, Zip a, Keyed a, Adjustable a)
+
+class    (OkF a, Num s) => OkLMapF s a
+instance (OkF a, Num s) => OkLMapF s a
 
 instance Category (LMapF s) where
   type Ok (LMapF s) = OkLMapF s
@@ -311,51 +313,21 @@ instance Newtype (LMapF' s a b) where
 lapply :: (OkLMapF s a, OkLMapF s b) => LMapF s a b -> (a s -> b s)
 lapply = lapplyL . unpack
 
-type LM s a b = LMapF s (V s a) (V s b)
+class (OkLMapF s a, OkLMapF s b) => HasL s a b where
+  -- | Law: @'linear' . 'lapply' == 'id'@ (but not the other way around)
+  linear :: (a s -> b s) -> LMapF s a b
 
--- I suppose I could use LM in place of LMapF, say
--- 
---   newtype LM' s a b = LM' ((V s a :-* V s b) s)
---
--- i.e.,
--- 
---   newtype LM s a b = LM (V s b (V s a s))
+-- TODO: Remove s parameter and use forall s. Num s => ... in linear.
 
-class (HasV s a, HasV s b) => HasL s a b where
-  linear :: (a -> b) -> LM s a b
+instance OkLMapF s a => HasL s Par1 a where
+  linear f = LMapF (Par1 <$> f (Par1 1))
 
-type OkV s a = OkLMapF s (V s a)
+--                 f          :: Par1 s -> b s
+--                 f (Par1 1) :: b s
+--        Par1 <$> f (Par1 1) :: b (Par1 s)
+-- LMapF (Par1 <$> f (Par1 1) :: LMapF s Par1 b
 
-type Ok' s a b = (OkV s a, OkV s b, HasL s a b)
+instance (HasL s a c, HasL s b c) => HasL s (a :*: b) c where
+  linear f = linear (f . lapply inl) ||| linear (f . lapply inr)
 
-linear1 :: (HasV s b, V s s ~ Par1) => (s -> b) -> LM s s b
-linear1 f = LMapF (Par1 <$> toV (f 1))
-
---                      f     :: s -> b
---                      f 1   :: b
---                 toV (f 1)  :: V s b s
---        Par1 <$> toV (f 1)  :: V s b (Par1 s)
---                            :: (Par1 :-* V s b) s
---                            :: (V s s :-* V s b) s
--- LMapF (Par1 <$> toV (f 1)) :: LMapF s (V s s) (V s b)
---                            :: LM s s b
-
-instance HasV Double a => HasL Double Double a where linear = linear1
-
-instance (Ok' s a c, Ok' s b c) => HasL s (a :* b) c where
-#if 1
-  linear f = linear (f . (, zeroX @s @b)) ||| linear (f . (zeroX @s @a ,))
-#else
-  linear f = linear (f . inlQ @s @a @b) ||| linear (f . inrQ @s @a @b)
-
-inlQ :: forall s a b. (OkV s a, HasV s a, OkV s b, HasV s b) => a -> a :* b
-inlQ = unV . lapply (inl @(LMapF s) @(V s a) @(V s b)) . toV
-
-inrQ :: forall s a b. (OkV s a, HasV s a, OkV s b, HasV s b) => b -> a :* b
-inrQ = unV . lapply (inr @(LMapF s) @(V s a) @(V s b)) . toV
-
--- toV        :: a -> V s a s
---        inl :: LMapF s (V s a) (V s (a :* b))
--- lapply inl :: V s a s -> V s (a :* b) s
--- unV        :: V s (a :* b) s  -> a :* b
-#endif
+--   linear f = linear (f . (:*: zeroV)) ||| linear (f . (zeroV :*:))
