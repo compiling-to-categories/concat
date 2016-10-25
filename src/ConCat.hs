@@ -1,3 +1,4 @@
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DataKinds #-}
@@ -319,14 +320,16 @@ instance Monad m => ProductCat (Kleisli m) where
   exl   = arr exl
   exr   = arr exr
   dup   = arr dup
-  (&&&) = inNew2 forkA
-  (***) = inNew2 crossA
+  (&&&) = inNew2 forkK
+  (***) = inNew2 crossK
 
-forkA :: Applicative m => (a -> m c) -> (a -> m d) -> (a -> m (c :* d))
-(f `forkA` g) a = liftA2 (,) (f a) (g a)
+-- Underlies '(&&&)' on Kleisli arrows
+forkK :: Applicative m => (a -> m c) -> (a -> m d) -> (a -> m (c :* d))
+(f `forkK` g) a = liftA2 (,) (f a) (g a)
 
-crossA :: Applicative m => (a -> m c) -> (b -> m d) -> (a :* b -> m (c :* d))
-(f `crossA` g) (a,b) = liftA2 (,) (f a) (g b)
+-- Underlies '(***)' on Kleisli arrows
+crossK :: Applicative m => (a -> m c) -> (b -> m d) -> (a :* b -> m (c :* d))
+(f `crossK` g) (a,b) = liftA2 (,) (f a) (g b)
 
 {--------------------------------------------------------------------
     Coproducts
@@ -949,3 +952,92 @@ instance ProductCat (:->?) where
 --   uncurry :: C3 HasTrie a b c => (a :->? (b -> c)) -> (a :* b :->? c)
 
 #endif
+
+{--------------------------------------------------------------------
+    Functors
+--------------------------------------------------------------------}
+
+-- A functor maps arrows in one category to arrows in another, systematically
+-- transforming the domain and codomain.
+
+infixr 9 %
+infixr 9 :%
+
+#if 0
+
+-- From <https://hackage.haskell.org/package/data-category>. Changes:
+-- 
+-- *  Rename ftag from to f
+-- *  Remove `f` argument from `(%)`
+-- *  Generalized object kinds from * to u and v
+
+-- | Functors map objects and arrows.
+class (Category (Dom f), Category (Cod f)) => FunctorC f u v | f -> u v where
+  -- | source category
+  type Dom f :: u -> u -> *
+  -- | target category
+  type Cod f :: v -> v -> *
+  -- | @:%@ maps objects.
+  type f :% (a :: u) :: v
+  -- | @%@ maps arrows.
+  (%) :: Dom f a b -> Cod f (f :% a) (f :% b)
+
+-- Without the u & v parameters, I get the following typing errors:
+--
+--     • Kind variable ‘u’ is implicitly bound in datatype
+--       ‘Dom’, but does not appear as the kind of any
+--       of its type variables. Perhaps you meant
+--       to bind it (with TypeInType) explicitly somewhere?
+--       Type variables with inferred kinds: (f :: k)
+--     • In the class declaration for ‘FunctorC’
+-- 
+--     • Kind variable ‘v’ is implicitly bound in datatype
+--       ‘:%’, but does not appear as the kind of any
+--       of its type variables. Perhaps you meant
+--       to bind it (with TypeInType) explicitly somewhere?
+--       Type variables with inferred kinds: (f :: k) (a :: u)
+--     • In the class declaration for ‘FunctorC’
+
+
+-- Why doesn't `ftag` here have parameters `a` and `b`?
+
+
+-- TODO: Example functors
+
+#else
+
+-- Another go:
+
+-- | Functors map objects and arrows.
+class (Category cat, Category cat') => FunctorC f cat cat' where
+  -- | @:%@ maps objects.
+  type f :% (a :: u) :: v
+  -- | @%@ maps arrows.
+  (%) :: cat a b -> cat' (f :% a) (f :% b)
+  -- Laws:
+  -- f % id == id
+  -- f % (q . p) == f % q . f % p
+
+class (ProductCat cat, ProductCat cat', FunctorC f cat cat')
+   => CartesianFunctorC f cat cat' where
+  -- Laws:
+  -- f :% Prod cat a b ~ Prod cat' (f :% a) (f :% b) 
+  -- f % exl == exl
+  -- f % exr == exr
+  -- f % (q &&& p) = f % q &&& f % p
+
+-- I'd like to express the object structure as a superclass constraint, but it's
+-- universally quantified over types. Noodling.
+
+#endif
+
+-- Haskell-style functor
+
+instance Functor f => FunctorC f (->) (->) where
+  type f :% a = f a
+  (%) = fmap
+
+-- TODO: Does this instance overlap with others I'll want, or do the two (->)s
+-- suffice to distinguish?
+
+
