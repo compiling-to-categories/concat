@@ -30,7 +30,7 @@ import Data.Key (Keyed(..),Zip(..),Adjustable(..))
 
 import Control.Newtype
 
-import Misc (inNew,inNew2,(:*))
+import Misc (inNew,inNew2)
 import Orphans ()
 import Free.VectorSpace
 
@@ -313,6 +313,7 @@ instance Newtype (LMapF' s a b) where
 lapply :: (OkLMapF s a, OkLMapF s b) => LMapF s a b -> (a s -> b s)
 lapply = lapplyL . unpack
 
+#if 0
 class (OkLMapF s a, OkLMapF s b) => HasL s a b where
   -- | Law: @'linear' . 'lapply' == 'id'@ (but not the other way around)
   linear :: (a s -> b s) -> LMapF s a b
@@ -331,3 +332,24 @@ instance (HasL s a c, HasL s b c) => HasL s (a :*: b) c where
   linear f = linear (f . lapply inl) ||| linear (f . lapply inr)
 
 --   linear f = linear (f . (:*: zeroV)) ||| linear (f . (zeroV :*:))
+#else
+
+class (OkF a, OkF b) => HasL a b where
+  -- | Law: @'linear' . 'lapply' == 'id'@ (but not the other way around)
+  linear :: forall s. Num s => (a s -> b s) -> LMapF s a b
+
+instance OkF a => HasL Par1 a where
+  linear f = LMapF (Par1 <$> f (Par1 1))
+
+--                 f          :: Par1 s -> b s
+--                 f (Par1 1) :: b s
+--        Par1 <$> f (Par1 1) :: b (Par1 s)
+-- LMapF (Par1 <$> f (Par1 1) :: LMapF s Par1 b
+
+instance (HasL a c, HasL b c) => HasL (a :*: b) c where
+--   linear f = linear (f . lapply inl) ||| linear (f . lapply inr)
+
+  linear f = linear (f . (:*: zeroV)) ||| linear (f . (zeroV :*:))
+
+#endif
+
