@@ -608,8 +608,7 @@ instance ClosedCat (NTC con) where
 
 data UT (t :: *) a b = UT { unUT :: a t -> b t }
 
-instance Newty
-pe (UT t a b) where
+instance Newtype (UT t a b) where
   type O (UT t a b) = a t -> b t
   pack = UT
   unpack = unUT
