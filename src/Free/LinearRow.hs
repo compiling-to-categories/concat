@@ -257,10 +257,10 @@ instance Newtype (LMapF s a b) where
   pack ab = LMapF ab
   unpack (LMapF ab) = ab
 
-type OkF a = (Foldable a, Pointed a, Zip a, Keyed a, Adjustable a)
+type OkLF a = (Foldable a, Pointed a, Zip a, Keyed a, Adjustable a)
 
-class    (OkF a, Num s) => OkLMapF s a
-instance (OkF a, Num s) => OkLMapF s a
+class    (OkLF a, Num s) => OkLMapF s a
+instance (OkLF a, Num s) => OkLMapF s a
 
 instance Category (LMapF s) where
   type Ok (LMapF s) = OkLMapF s
@@ -334,11 +334,11 @@ instance (HasL s a c, HasL s b c) => HasL s (a :*: b) c where
 --   linear f = linear (f . (:*: zeroV)) ||| linear (f . (zeroV :*:))
 #else
 
-class (OkF a, OkF b) => HasL a b where
+class (OkLF a, OkLF b) => HasL a b where
   -- | Law: @'linear' . 'lapply' == 'id'@ (but not the other way around)
   linear :: forall s. Num s => (a s -> b s) -> LMapF s a b
 
-instance OkF a => HasL Par1 a where
+instance OkLF a => HasL Par1 a where
   linear f = LMapF (Par1 <$> f (Par1 1))
 
 --                 f          :: Par1 s -> b s
