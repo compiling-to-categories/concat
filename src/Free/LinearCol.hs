@@ -16,7 +16,7 @@ module Free.LinearCol where
 
 import Prelude hiding (id,(.),zipWith)
 
-import GHC.Generics ((:*:)(..),(:.:)(..))
+import GHC.Generics (Par1(..),(:*:)(..),(:.:)(..))
 import Data.Constraint
 
 import Data.Pointed (Pointed(..))
@@ -46,9 +46,11 @@ type (a :-* b) s = a (b s)
 
 -- Apply a linear map
 infixr 9 $*
-($*) :: (Zip a, Foldable a, Zip b, Pointed b, Num s)
-     => (a :-* b) s -> a s -> b s
+($*), lapplyL :: (Zip a, Foldable a, Zip b, Pointed b, Num s)
+              => (a :-* b) s -> a s -> b s
 bs $* a = sumV (zipWith (*^) a bs)
+
+lapplyL = ($*)
 
 zeroL :: (Pointed a, Pointed b, Num s) => (a :-* b) s
 zeroL = point zeroV
@@ -265,3 +267,25 @@ instance Newtype (LMapF' s a b) where
   pack ab = LMapF' ab
   unpack (LMapF' ab) = ab
 #endif
+
+{--------------------------------------------------------------------
+    Conversion to linear map
+--------------------------------------------------------------------}
+
+lapply :: (OkLMapF s a, OkLMapF s b) => LMapF s a b -> UT s a b
+lapply = inNew lapplyL
+
+class (OkLMapF s a, OkLMapF s b) => HasL s a b where
+  -- | Law: @'linear' . 'lapply' == 'id'@ (but not the other way around)
+  linear :: UT s a b -> LMapF s a b
+
+instance OkLMapF s a => HasL s Par1 a where
+  linear (UT f) = LMapF (Par1 (f (Par1 1)))
+
+--              f           :: Par1 s -> b s
+--              f (Par1 1)  :: b s
+--        Par1 (f (Par1 1)) :: Par1 (b s)
+-- LMapF (Par1 (f (Par1 1)) :: LMapF s Par1 b
+
+instance (HasL s a c, HasL s b c) => HasL s (a :*: b) c where
+  linear f = linear (f . lapply inl) ||| linear (f . lapply inr)
