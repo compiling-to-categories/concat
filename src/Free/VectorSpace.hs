@@ -28,7 +28,8 @@ import Data.Key (Zip(..))
 
 import Control.Newtype
 
-import Misc (inNew2,(:*))
+import Misc (inNew2,(:*),(<~))
+import ConCat (UT(..),FunctorC(..))
 
 {--------------------------------------------------------------------
     Vector spaces
@@ -94,6 +95,9 @@ class (Num s, Functor (V s t)) => HasV s t where
   toV = toV . unpack
   unV = pack . unV
 
+inV :: (HasV s a, HasV s b) => (a -> b) -> (V s a s -> V s b s)
+inV = toV <~ unV
+
 -- Can I replace my HasRep class with Newtype?
 
 -- -- Replace by special cases as needed
@@ -134,6 +138,19 @@ instance Newtype (Pickle a) where
 instance HasV s a => HasV s (Pickle a)
 #endif
 
--- | The 'unV' form of 'zeroV'
-zeroX :: forall s a. (HasV s a, Pointed (V s a)) => a
-zeroX = unV (zeroV :: V s a s)
+-- -- | The 'unV' form of 'zeroV'
+-- zeroX :: forall s a. (HasV s a, Pointed (V s a)) => a
+-- zeroX = unV (zeroV :: V s a s)
+
+vfun :: (HasV s a, HasV s b) => (a -> b) -> UT s (V s a) (V s b)
+vfun = UT . inV
+
+-- vfun f = UT (toV . f . unV)
+
+-- | Free vector over scalar s
+data VFun s
+
+instance FunctorC (VFun s) (->) (UT s) where
+  type OkF (VFun s) = HasV s
+  type VFun s :% a = V s a
+  (%) = vfun
