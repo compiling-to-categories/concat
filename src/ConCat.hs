@@ -606,7 +606,13 @@ instance ClosedCat (NTC con) where
 
 -- An unquantified version
 
-data UT (t :: *) a b = UT (a t -> b t)
+data UT (t :: *) a b = UT { unUT :: a t -> b t }
+
+instance Newty
+pe (UT t a b) where
+  type O (UT t a b) = a t -> b t
+  pack = UT
+  unpack = unUT
 
 instance Category (UT t) where
   id = UT id
@@ -963,8 +969,6 @@ instance ProductCat (:->?) where
 infixr 9 %
 infixr 9 :%
 
-#if 0
-
 -- From <https://hackage.haskell.org/package/data-category>. Changes:
 -- 
 -- *  Rename ftag from to f
@@ -972,48 +976,13 @@ infixr 9 :%
 -- *  Generalized object kinds from * to u and v
 
 -- | Functors map objects and arrows.
-class (Category (Dom f), Category (Cod f)) => FunctorC f u v | f -> u v where
-  -- | source category
-  type Dom f :: u -> u -> *
-  -- | target category
-  type Cod f :: v -> v -> *
+class (Category cat, Category cat')
+   => FunctorC f (cat :: u -> u -> *) (cat' :: v -> v -> *) | f -> u v where
+  type OkF f :: u -> Constraint
   -- | @:%@ maps objects.
   type f :% (a :: u) :: v
   -- | @%@ maps arrows.
-  (%) :: Dom f a b -> Cod f (f :% a) (f :% b)
-
--- Without the u & v parameters, I get the following typing errors:
---
---     • Kind variable ‘u’ is implicitly bound in datatype
---       ‘Dom’, but does not appear as the kind of any
---       of its type variables. Perhaps you meant
---       to bind it (with TypeInType) explicitly somewhere?
---       Type variables with inferred kinds: (f :: k)
---     • In the class declaration for ‘FunctorC’
--- 
---     • Kind variable ‘v’ is implicitly bound in datatype
---       ‘:%’, but does not appear as the kind of any
---       of its type variables. Perhaps you meant
---       to bind it (with TypeInType) explicitly somewhere?
---       Type variables with inferred kinds: (f :: k) (a :: u)
---     • In the class declaration for ‘FunctorC’
-
-
--- Why doesn't `ftag` here have parameters `a` and `b`?
-
-
--- TODO: Example functors
-
-#else
-
--- Another go:
-
--- | Functors map objects and arrows.
-class (Category cat, Category cat') => FunctorC f cat cat' where
-  -- | @:%@ maps objects.
-  type f :% (a :: u) :: v
-  -- | @%@ maps arrows.
-  (%) :: cat a b -> cat' (f :% a) (f :% b)
+  (%) :: (OkF f a, OkF f b) => cat a b -> cat' (f :% a) (f :% b)
   -- Laws:
   -- f % id == id
   -- f % (q . p) == f % q . f % p
@@ -1029,8 +998,6 @@ class (ProductCat cat, ProductCat cat', FunctorC f cat cat')
 -- I'd like to express the object structure as a superclass constraint, but it's
 -- universally quantified over types. Noodling.
 
-#endif
-
 -- Haskell-style functor
 
 instance Functor f => FunctorC f (->) (->) where
@@ -1039,5 +1006,3 @@ instance Functor f => FunctorC f (->) (->) where
 
 -- TODO: Does this instance overlap with others I'll want, or do the two (->)s
 -- suffice to distinguish?
-
-
