@@ -474,10 +474,17 @@ instance Monad m => ClosedCat (Kleisli m) where
     Other
 --------------------------------------------------------------------}
 
-class TerminalCat k where
-  it :: Oks k [a,()] => a `k` Unit
+class (Category k, Ok k (Unit k)) => TerminalCat (k :: u -> u -> *) where
+  type Unit k :: u
+  it :: Ok k a => a `k` Unit k
 
-instance TerminalCat (->) where it = const ()
+instance TerminalCat (->) where
+  type Unit (->) = ()
+  it = const ()
+
+instance Monad m => TerminalCat (Kleisli m) where
+  type Unit (Kleisli m) = ()
+  it = arr it
 
 -- | Categories with constant arrows (generalized elements)
 class ConstCat k where
@@ -539,7 +546,9 @@ instance ClosedCat U2 where
   curry U2 = U2
   uncurry U2 = U2
 
-instance TerminalCat U2 where it = U2
+instance TerminalCat U2 where
+  type Unit U2 = () -- ??
+  it = U2
 
 instance ConstCat U2 where konst = const U2
 
@@ -1139,7 +1148,7 @@ instance (Monad m, Ord a) => OrdCat (Kleisli m) Bool a where
   greaterThanOrEqual = arr greaterThanOrEqual
 
 class Ok k a => BottomCat k a where
-  bottomC :: Unit `k` a
+  bottomC :: Unit k `k` a
 
 instance BottomCat (->) a where bottomC = error "bottomC for (->) evaluated"
 
@@ -1149,13 +1158,26 @@ instance BottomCat (->) a where bottomC = error "bottomC for (->) evaluated"
 
 type IfT k a = Prod k Bool (Prod k a a) `k` a
 
-class Ok k a => IfCat k a where ifC :: IfT k a
+class (ProductCat k, Ok k Bool, Ok k a) => IfCat k a where
+  ifC :: IfT k a
 
 instance IfCat (->) a where
   ifC (i,(t,e)) = if i then t else e
 
-unitIf :: TerminalCat k => IfT k ()
-unitIf = it
+instance Monad m => IfCat (Kleisli m) a where
+  ifC = arr ifC
+
+unitIf :: forall k. (ProductCat k, TerminalCat k, Ok k Bool) => IfT k (Unit k)
+unitIf = it <+ (inOpR @(Prod k) @(Ok k) @Bool @(Unit k) @(Unit k))
+
+-- Oops! Don't use Bool directly
+
+
+-- inTT :: forall k a. OpCon (Prod k) (Ok k) => Ok k a |- Ok k (Prod k a a)
+-- inTT = inOp @(Prod k) @(Ok k) @a @a . dup
+
+
+#if 0
 
 prodIf :: forall k a b. (ProductCat k, IfCat k a, IfCat k b) => IfT k (a :* b)
 prodIf = half exl &&& half exr
@@ -1203,6 +1225,8 @@ repIf = abstC . ifC . second (twiceP reprC)
 == \ (c,(a,a')) -> abstC (ifC (c,(twiceP reprC (a,a'))))
 == \ (c,(a,a')) -> abstC (ifC (second (twiceP reprC) (c,((a,a')))))
 == abstC . ifC . second (twiceP reprC)
+#endif
+
 #endif
 
 class UnknownCat k a b where
