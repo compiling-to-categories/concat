@@ -1,6 +1,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE AllowAmbiguousTypes #-} -- experiment
 {-# LANGUAGE InstanceSigs #-}
@@ -977,11 +978,21 @@ infixr 9 :%
 -- | Functors map objects and arrows.
 class (Category cat, Category cat')
    => FunctorC f (cat :: u -> u -> *) (cat' :: v -> v -> *) | f -> u v where
+#if 0
   type OkF f :: u -> Constraint
+  type OkF f = Yes1
+#elif 0
+  type OkF f (a :: u) :: Constraint
+  type OkF f a = () 
+#else
+  type OkF f (a :: u) (b :: u) :: Constraint
+  type OkF f a b = () 
+#endif
   -- | @:%@ maps objects.
   type f :% (a :: u) :: v
   -- | @%@ maps arrows.
-  (%) :: (OkF f a, OkF f b) => cat a b -> cat' (f :% a) (f :% b)
+  -- (%) :: (OkF f a, OkF f b) => cat a b -> cat' (f :% a) (f :% b)
+  (%) :: OkF f a b => cat a b -> cat' (f :% a) (f :% b)
   -- Laws:
   -- f % id == id
   -- f % (q . p) == f % q . f % p
@@ -1005,3 +1016,198 @@ instance Functor f => FunctorC f (->) (->) where
 
 -- TODO: Does this instance overlap with others I'll want, or do the two (->)s
 -- suffice to distinguish?
+
+{--------------------------------------------------------------------
+    Other category subclasses, perhaps to move elsewhere
+--------------------------------------------------------------------}
+
+-- Adapted from Circat.Classes
+
+class (ProductCat k, Ok k bool) => BoolCat k bool where
+  notC :: bool `k` bool
+  andC, orC, xorC :: Prod k bool bool `k` bool
+
+--     • Potential superclass cycle for ‘BoolCat’
+--         one of whose superclass constraints is headed by a type family:
+--           ‘Ok k bool’
+--       Use UndecidableSuperClasses to accept this
+--     • In the class declaration for ‘BoolCat’
+
+instance BoolCat (->) Bool where
+  notC = not
+  andC = P.uncurry (&&)
+  orC  = P.uncurry (||)
+  xorC = P.uncurry (/=)
+
+instance Monad m => BoolCat (Kleisli m) Bool where
+  notC = arr notC
+  andC = arr andC
+  orC  = arr orC
+  xorC = arr xorC
+
+class Num a => NumCat k a where
+  negateC :: a `k` a
+  addC, subC, mulC :: Prod k a a `k` a
+  powIC :: Prod k a Int `k` a
+
+instance Num a => NumCat (->) a where
+  negateC = negate
+  addC    = uncurry (+)
+  subC    = uncurry (-)
+  mulC    = uncurry (*)
+  powIC   = uncurry (^)
+
+instance (Monad m, Num a) => NumCat (Kleisli m) a where
+  negateC = arr negateC
+  addC    = arr addC
+  subC    = arr subC
+  mulC    = arr mulC
+  powIC   = arr powIC
+
+class Fractional a => FractionalCat k a where
+  recipC :: a `k` a
+  divideC :: Prod k a a `k` a
+
+instance Fractional a => FractionalCat (->) a where
+  recipC = recip
+  divideC = uncurry (/)
+
+instance (Monad m, Fractional a) => FractionalCat (Kleisli m) a where
+  recipC  = arr recipC
+  divideC = arr divideC
+
+-- HACK: generalize/replace/...
+class Floating a => FloatingCat k a where
+  expC, cosC, sinC :: a `k` a
+
+instance Floating a => FloatingCat (->) a where
+  expC = exp
+  cosC = cos
+  sinC = sin
+
+instance (Monad m, Floating a) => FloatingCat (Kleisli m) a where
+  expC = arr expC
+  cosC = arr cosC
+  sinC = arr sinC
+
+-- Stand-in for fromIntegral, avoiding the intermediate Integer in the Prelude
+-- definition.
+class (Integral a, Num b) => FromIntegralCat k a b where
+  fromIntegralC :: a `k` b
+
+instance (Integral a, Num b) => FromIntegralCat (->) a b where
+  fromIntegralC = fromIntegral
+
+instance (Monad m, Integral a, Num b) => FromIntegralCat (Kleisli m) a b where
+  fromIntegralC = arr fromIntegral
+
+inTT :: forall k a. OpCon (Prod k) (Ok k) => Ok k a |- Ok k (Prod k a a)
+inTT = inOp @(Prod k) @(Ok k) @a @a . dup
+
+class (BoolCat k bool, Ok k a, Eq a) => EqCat k bool a where
+  equal, notEqual :: Prod k a a `k` bool
+  notEqual = notC . equal      <+ inTT @k @a
+  equal    = notC . notEqual   <+ inTT @k @a
+  {-# MINIMAL equal | notEqual #-}
+
+instance Eq a => EqCat (->) Bool a where
+  equal    = uncurry (==)
+  notEqual = uncurry (/=)
+
+instance (Monad m, Eq a) => EqCat (Kleisli m) Bool a where
+  equal    = arr equal
+  notEqual = arr notEqual
+
+class (EqCat k bool a, Ord a) => OrdCat k bool a where
+  lessThan, greaterThan, lessThanOrEqual, greaterThanOrEqual :: Prod k a a `k` bool
+  greaterThan        = lessThan . swapP    <+ inTT @k @a
+  lessThan           = greaterThan . swapP <+ inTT @k @a
+  lessThanOrEqual    = notC . greaterThan  <+ inTT @k @a
+  greaterThanOrEqual = notC . lessThan     <+ inTT @k @a
+  {-# MINIMAL lessThan | greaterThan #-}
+
+instance Ord a => OrdCat (->) Bool a where
+  lessThan           = uncurry (<)
+  greaterThan        = uncurry (>)
+  lessThanOrEqual    = uncurry (<=)
+  greaterThanOrEqual = uncurry (>=)
+
+instance (Monad m, Ord a) => OrdCat (Kleisli m) Bool a where
+  lessThan           = arr lessThan
+  greaterThan        = arr greaterThan
+  lessThanOrEqual    = arr lessThanOrEqual
+  greaterThanOrEqual = arr greaterThanOrEqual
+
+class Ok k a => BottomCat k a where
+  bottomC :: Unit `k` a
+
+instance BottomCat (->) a where bottomC = error "bottomC for (->) evaluated"
+
+{--------------------------------------------------------------------
+    Misc
+--------------------------------------------------------------------}
+
+type IfT k a = Prod k Bool (Prod k a a) `k` a
+
+class Ok k a => IfCat k a where ifC :: IfT k a
+
+instance IfCat (->) a where
+  ifC (i,(t,e)) = if i then t else e
+
+unitIf :: TerminalCat k => IfT k ()
+unitIf = it
+
+prodIf :: forall k a b. (ProductCat k, IfCat k a, IfCat k b) => IfT k (a :* b)
+prodIf = half exl &&& half exr
+  where
+    half :: IfCat k c => (u `k` c) -> ((Bool :* (u :* u)) `k` c)
+    half f = ifC . second (twiceP f)
+
+#if 0
+
+   prodIf
+== \ (c,((a,b),(a',b'))) -> (ifC (c,(a,a')), ifC (c,(b,b')))
+== (\ (c,((a,b),(a',b'))) -> ifC (c,(a,a'))) &&& ...
+== (ifC . (\ (c,((a,b),(a',b'))) -> (c,(a,a')))) &&& ...
+== (ifC . first (\ ((a,b),(a',b')) -> (a,a'))) &&& ...
+== (ifC . first (twiceP exl)) &&& (ifC . first (twiceP exr))
+
+#endif
+
+funIf :: forall k a b. (ClosedCat k, IfCat k b) => IfT k (a -> b)
+funIf = curry (ifC . (exl . exl &&& (half exl &&& half exr)))
+ where
+   half :: (u `k` (a -> b)) -> (((_Bool :* u) :* a) `k` b)
+   half h = apply . first (h . exr)
+
+-- funIf = curry (ifC . (exl . exl &&& (apply . first (exl . exr) &&& apply . first (exr . exr))))
+
+#if 0
+
+   funIf
+== \ (c,(f,f')) -> \ a -> ifC (c,(f a,f' a))
+== curry (\ ((c,(f,f')),a) -> ifC (c,(f a,f' a)))
+== curry (ifC . \ ((c,(f,f')),a) -> (c,(f a,f' a)))
+== curry (ifC . ((exl.exl) &&& \ ((c,(f,f')),a) -> (f a,f' a)))
+== curry (ifC . ((exl.exl) &&& ((\ ((c,(f,f')),a) -> f a) &&& (\ ((c,(f,f')),a) -> f' a))))
+== curry (ifC . ((exl.exl) &&& (apply (first (exl.exr)) &&& (apply (first (exl.exr))))))
+
+#endif
+
+repIf :: (RepCat k, ProductCat k, HasRep a, IfCat k (Rep a)) => IfT k a
+repIf = abstC . ifC . second (twiceP reprC)
+
+#if 0
+   repIf
+== \ (c,(a,a')) -> abstC (ifC (c,(reprC a,reprC a')))
+== \ (c,(a,a')) -> abstC (ifC (c,(twiceP reprC (a,a'))))
+== \ (c,(a,a')) -> abstC (ifC (second (twiceP reprC) (c,((a,a')))))
+== abstC . ifC . second (twiceP reprC)
+#endif
+
+class UnknownCat k a b where
+  unknownC :: a `k` b
+
+instance UnknownCat (->) a b where
+  unknownC = error "unknown"
+
