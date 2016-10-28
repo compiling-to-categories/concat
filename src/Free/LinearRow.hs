@@ -310,18 +310,17 @@ instance Newtype (LMapF' s a b) where
     Conversion to linear map
 --------------------------------------------------------------------}
 
-lapply :: (OkLMapF s a, OkLMapF s b) => LMapF s a b -> (a s -> b s)
-lapply = lapplyL . unpack
+lapply :: (Num s, OkLF a, OkLF b) => LMapF s a b -> UT s a b
+lapply = inNew lapplyL
 
 #if 0
+
 class (OkLMapF s a, OkLMapF s b) => HasL s a b where
   -- | Law: @'linear' . 'lapply' == 'id'@ (but not the other way around)
-  linear :: (a s -> b s) -> LMapF s a b
-
--- TODO: Remove s parameter and use forall s. Num s => ... in linear.
+  linear :: UT s a b -> LMapF s a b
 
 instance OkLMapF s a => HasL s Par1 a where
-  linear f = LMapF (Par1 <$> f (Par1 1))
+  linear (UT f) = LMapF (Par1 <$> f (Par1 1))
 
 --                 f          :: Par1 s -> b s
 --                 f (Par1 1) :: b s
@@ -331,25 +330,105 @@ instance OkLMapF s a => HasL s Par1 a where
 instance (HasL s a c, HasL s b c) => HasL s (a :*: b) c where
   linear f = linear (f . lapply inl) ||| linear (f . lapply inr)
 
---   linear f = linear (f . (:*: zeroV)) ||| linear (f . (zeroV :*:))
-#else
+-- lapply as functor
 
-class (OkLF a, OkLF b) => HasL a b where
+data Lapply s
+
+instance FunctorC (Lapply s) (LMapF s) (UT s) where
+  -- type OkF (Lapply s) = OkLMapF s
+  type OkF (Lapply s) a b = (OkLMapF s a, OkLMapF s b)
+  type Lapply s :% a = a
+  (%) = lapply
+
+-- linear as functor
+
+data Linear s
+
+instance FunctorC (Linear s) (UT s) (LMapF s) where
+  type OkF (Linear s) a b = HasL s a b
+  type Linear s :% a = a
+  (%) = linear
+
+#elif 0
+
+class OkLMapF s a => HasL s a where
   -- | Law: @'linear' . 'lapply' == 'id'@ (but not the other way around)
-  linear :: forall s. Num s => (a s -> b s) -> LMapF s a b
+  linear :: forall b. OkLMapF s b => UT s a b -> LMapF s a b
 
-instance OkLF a => HasL Par1 a where
-  linear f = LMapF (Par1 <$> f (Par1 1))
+instance Num s => HasL s Par1 where
+  linear (UT f) = LMapF (Par1 <$> f (Par1 1))
 
 --                 f          :: Par1 s -> b s
 --                 f (Par1 1) :: b s
 --        Par1 <$> f (Par1 1) :: b (Par1 s)
 -- LMapF (Par1 <$> f (Par1 1) :: LMapF s Par1 b
 
-instance (HasL a c, HasL b c) => HasL (a :*: b) c where
---   linear f = linear (f . lapply inl) ||| linear (f . lapply inr)
+instance (HasL s a, HasL s b) => HasL s (a :*: b) where
+  linear f = linear (f . lapply inl) ||| linear (f . lapply inr)
 
-  linear f = linear (f . (:*: zeroV)) ||| linear (f . (zeroV :*:))
+-- lapply as functor
+
+data Lapply s
+
+instance FunctorC (Lapply s) (LMapF s) (UT s) where
+  -- type OkF (Lapply s) = OkLMapF s
+  type OkF (Lapply s) a b = (OkLMapF s a, OkLMapF s b)
+  type Lapply s :% a = a
+  (%) = lapply
+
+-- linear as functor
+
+data Linear s
+
+instance FunctorC (Linear s) (UT s) (LMapF s) where
+  -- type OkF (Linear s) = HasL s
+  type OkF (Linear s) a b = (HasL s a, OkLF b)
+  type Linear s :% a = a
+  (%) = linear
+
+#else
+
+class OkLF a => HasL a where
+  -- | Law: @'linear' . 'lapply' == 'id'@ (but not the other way around)
+  linear :: forall s b. (Num s, OkLF b) => UT s a b -> LMapF s a b
+
+instance HasL Par1 where
+  linear (UT f) = LMapF (Par1 <$> f (Par1 1))
+
+--                 f          :: Par1 s -> b s
+--                 f (Par1 1) :: b s
+--        Par1 <$> f (Par1 1) :: b (Par1 s)
+-- LMapF (Par1 <$> f (Par1 1) :: LMapF s Par1 b
+
+instance (HasL a, HasL b) => HasL (a :*: b) where
+  linear f = linear (f . lapply inl) ||| linear (f . lapply inr)
+
+{--------------------------------------------------------------------
+    Functors
+--------------------------------------------------------------------}
+
+-- lapply as functor
+data Lapply s
+
+instance FunctorC (Lapply s) (LMapF s) (UT s) where
+  -- type OkF (Lapply s) = OkLMapF s
+  -- type OkF (Lapply s) a = OkLMapF s a
+  type OkF (Lapply s) a b = (Num s, OkLF a, OkLF b)
+  type Lapply s :% a = a
+  (%) = lapply
+
+-- linear as functor
+data Linear s
+
+-- class    (Num s, HasL a) => OkLin s a
+-- instance (Num s, HasL a) => OkLin s a
+
+instance FunctorC (Linear s) (UT s) (LMapF s) where
+  -- type OkF (Linear s) = OkLin s
+  -- type OkF (Linear s) a = OkLin s a
+  -- type OkF (Linear s) a = (Num s, HasL a)
+  type OkF (Linear s) a b = (Num s, HasL a, OkLF b)
+  type Linear s :% a = a
+  (%) = linear
 
 #endif
-

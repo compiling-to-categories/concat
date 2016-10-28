@@ -223,8 +223,10 @@ instance Newtype (LMapF s a b) where
   pack ab = LMapF ab
   unpack (LMapF ab) = ab
 
-class    (Foldable a, Pointed a, Zip a, Keyed a, Adjustable a, Num s) => OkLMapF s a
-instance (Foldable a, Pointed a, Zip a, Keyed a, Adjustable a, Num s) => OkLMapF s a
+type OkLF a = (Foldable a, Pointed a, Zip a, Keyed a, Adjustable a)
+
+class    (OkLF a, Num s) => OkLMapF s a
+instance (OkLF a, Num s) => OkLMapF s a
 
 instance Category (LMapF s) where
   type Ok (LMapF s) = OkLMapF s
@@ -272,7 +274,9 @@ instance Newtype (LMapF' s a b) where
     Conversion to linear map
 --------------------------------------------------------------------}
 
-lapply :: (OkLMapF s a, OkLMapF s b) => LMapF s a b -> UT s a b
+#if 0
+
+lapply :: (OkLF s a, OkLF s b) => LMapF s a b -> UT s a b
 lapply = inNew lapplyL
 
 class (OkLMapF s a, OkLMapF s b) => HasL s a b where
@@ -289,3 +293,45 @@ instance OkLMapF s a => HasL s Par1 a where
 
 instance (HasL s a c, HasL s b c) => HasL s (a :*: b) c where
   linear f = linear (f . lapply inl) ||| linear (f . lapply inr)
+
+#else
+
+lapply :: (Num s, OkLF a, OkLF b) => LMapF s a b -> UT s a b
+lapply = inNew lapplyL
+
+class OkLF a => HasL a where
+  -- | Law: @'linear' . 'lapply' == 'id'@ (but not the other way around)
+  linear :: forall s b. (Num s, OkLF b) => UT s a b -> LMapF s a b
+
+instance HasL Par1 where
+  linear (UT f) = LMapF (Par1 (f (Par1 1)))
+
+--              f           :: Par1 s -> b s
+--              f (Par1 1)  :: b s
+--        Par1 (f (Par1 1)) :: Par1 (b s)
+-- LMapF (Par1 (f (Par1 1)) :: LMapF s Par1 b
+
+instance (HasL a, HasL b) => HasL (a :*: b) where
+  linear f = linear (f . lapply inl) ||| linear (f . lapply inr)
+
+#endif
+
+{--------------------------------------------------------------------
+    Functors
+--------------------------------------------------------------------}
+
+-- lapply as functor
+data Lapply s
+
+instance FunctorC (Lapply s) (LMapF s) (UT s) where
+  type OkF (Lapply s) a b = (Num s, OkLF a, OkLF b)
+  type Lapply s :% a = a
+  (%) = lapply
+
+-- linear as functor
+data Linear s
+
+instance FunctorC (Linear s) (UT s) (LMapF s) where
+  type OkF (Linear s) a b = (Num s, HasL a, OkLF b)
+  type Linear s :% a = a
+  (%) = linear
