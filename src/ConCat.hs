@@ -1106,8 +1106,8 @@ inTT = inOp @(Prod k) @(Ok k) @a @a . dup
 
 class (BoolCat k bool, Ok k a, Eq a) => EqCat k bool a where
   equal, notEqual :: Prod k a a `k` bool
-  notEqual = notC . equal      <+ inTT @k @a
-  equal    = notC . notEqual   <+ inTT @k @a
+  notEqual = notC . equal    <+ inTT @k @a
+  equal    = notC . notEqual <+ inTT @k @a
   {-# MINIMAL equal | notEqual #-}
 
 instance Eq a => EqCat (->) Bool a where
