@@ -25,8 +25,6 @@ infixl 7 :*
 infixl 6 :+
 infixr 1 :=>
 
-type Unit  = ()
-
 type (:*)  = (,)
 type (:+)  = Either
 type (:=>) = (->)
