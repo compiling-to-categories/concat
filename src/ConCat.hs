@@ -470,12 +470,8 @@ instance Monad m => ClosedCat (Kleisli m) where
   uncurry = inNew $ \ f -> \ (a,b) -> f a >>= ($ b) . unpack
 #endif
 
-{--------------------------------------------------------------------
-    Other
---------------------------------------------------------------------}
-
-class (Category k, Ok k (Unit k)) => TerminalCat (k :: u -> u -> *) where
-  type Unit k :: u
+class (Category k, Ok k (Unit k)) => TerminalCat k where
+  type Unit k
   it :: Ok k a => a `k` Unit k
 
 instance TerminalCat (->) where
@@ -491,6 +487,8 @@ class ConstCat k where
   konst :: forall a b. Oks k [a,b] => b -> (a `k` b)
 
 instance ConstCat (->) where konst = const
+
+instance Monad m => ConstCat (Kleisli m) where konst b = arr (const b)
 
 -- class ApplyToCat k where
 --   applyTo :: Oks k [a,b] => a -> ((a -> b) `k` b)
@@ -854,7 +852,6 @@ instance ClosedCat (|-) where
 
 #endif
 
-
 {--------------------------------------------------------------------
     Memo tries
 --------------------------------------------------------------------}
@@ -1030,11 +1027,17 @@ instance Functor f => FunctorC f (->) (->) where
     Other category subclasses, perhaps to move elsewhere
 --------------------------------------------------------------------}
 
+-- I don't think I want the general Kleisli instances for the rest.
+-- For instance, for circuits, type BoolOf (:>) = Source Bool.
+
+-- #define KleisliInstances
+
 -- Adapted from Circat.Classes
 
-class (ProductCat k, Ok k bool) => BoolCat k bool where
-  notC :: bool `k` bool
-  andC, orC, xorC :: Prod k bool bool `k` bool
+class (ProductCat k, Ok k (BoolOf k)) => BoolCat k where
+  type BoolOf k
+  notC :: BoolOf k `k` BoolOf k
+  andC, orC, xorC :: Prod k (BoolOf k) (BoolOf k) `k` BoolOf k
 
 --     • Potential superclass cycle for ‘BoolCat’
 --         one of whose superclass constraints is headed by a type family:
@@ -1042,17 +1045,21 @@ class (ProductCat k, Ok k bool) => BoolCat k bool where
 --       Use UndecidableSuperClasses to accept this
 --     • In the class declaration for ‘BoolCat’
 
-instance BoolCat (->) Bool where
+instance BoolCat (->) where
+  type BoolOf (->) = Bool
   notC = not
   andC = P.uncurry (&&)
   orC  = P.uncurry (||)
   xorC = P.uncurry (/=)
 
-instance Monad m => BoolCat (Kleisli m) Bool where
+#ifdef KleisliInstances
+instance Monad m => BoolCat (Kleisli m) where
+  type BoolOf (Kleisli m) = Bool
   notC = arr notC
   andC = arr andC
   orC  = arr orC
   xorC = arr xorC
+#endif
 
 class Num a => NumCat k a where
   negateC :: a `k` a
@@ -1066,12 +1073,14 @@ instance Num a => NumCat (->) a where
   mulC    = uncurry (*)
   powIC   = uncurry (^)
 
+#ifdef Kleisli
 instance (Monad m, Num a) => NumCat (Kleisli m) a where
   negateC = arr negateC
   addC    = arr addC
   subC    = arr subC
   mulC    = arr mulC
   powIC   = arr powIC
+#endif
 
 class Fractional a => FractionalCat k a where
   recipC :: a `k` a
@@ -1081,9 +1090,11 @@ instance Fractional a => FractionalCat (->) a where
   recipC = recip
   divideC = uncurry (/)
 
+#ifdef Kleisli
 instance (Monad m, Fractional a) => FractionalCat (Kleisli m) a where
   recipC  = arr recipC
   divideC = arr divideC
+#endif
 
 -- HACK: generalize/replace/...
 class Floating a => FloatingCat k a where
@@ -1094,10 +1105,12 @@ instance Floating a => FloatingCat (->) a where
   cosC = cos
   sinC = sin
 
+#ifdef Kleisli
 instance (Monad m, Floating a) => FloatingCat (Kleisli m) a where
   expC = arr expC
   cosC = arr cosC
   sinC = arr sinC
+#endif
 
 -- Stand-in for fromIntegral, avoiding the intermediate Integer in the Prelude
 -- definition.
@@ -1107,83 +1120,82 @@ class (Integral a, Num b) => FromIntegralCat k a b where
 instance (Integral a, Num b) => FromIntegralCat (->) a b where
   fromIntegralC = fromIntegral
 
+#ifdef Kleisli
 instance (Monad m, Integral a, Num b) => FromIntegralCat (Kleisli m) a b where
   fromIntegralC = arr fromIntegral
+#endif
 
-inTT :: forall k a. OpCon (Prod k) (Ok k) => Ok k a |- Ok k (Prod k a a)
-inTT = inOp @(Prod k) @(Ok k) @a @a . dup
+okTT :: forall k a. OpCon (Prod k) (Ok k) => Ok k a |- Ok k (Prod k a a)
+okTT = inOp @(Prod k) @(Ok k) @a @a . dup
 
-class (BoolCat k bool, Ok k a, Eq a) => EqCat k bool a where
-  equal, notEqual :: Prod k a a `k` bool
-  notEqual = notC . equal    <+ inTT @k @a
-  equal    = notC . notEqual <+ inTT @k @a
+class (BoolCat k, Ok k a, Eq a) => EqCat k a where
+  equal, notEqual :: Prod k a a `k` BoolOf k
+  notEqual = notC . equal    <+ okTT @k @a
+  equal    = notC . notEqual <+ okTT @k @a
   {-# MINIMAL equal | notEqual #-}
 
-instance Eq a => EqCat (->) Bool a where
+instance Eq a => EqCat (->) a where
   equal    = uncurry (==)
   notEqual = uncurry (/=)
 
-instance (Monad m, Eq a) => EqCat (Kleisli m) Bool a where
+#ifdef Kleisli
+instance (Monad m, Eq a) => EqCat (Kleisli m) a where
   equal    = arr equal
   notEqual = arr notEqual
+#endif
 
-class (EqCat k bool a, Ord a) => OrdCat k bool a where
-  lessThan, greaterThan, lessThanOrEqual, greaterThanOrEqual :: Prod k a a `k` bool
-  greaterThan        = lessThan . swapP    <+ inTT @k @a
-  lessThan           = greaterThan . swapP <+ inTT @k @a
-  lessThanOrEqual    = notC . greaterThan  <+ inTT @k @a
-  greaterThanOrEqual = notC . lessThan     <+ inTT @k @a
+class (EqCat k a, Ord a) => OrdCat k a where
+  lessThan, greaterThan, lessThanOrEqual, greaterThanOrEqual :: Prod k a a `k` BoolOf k
+  greaterThan        = lessThan . swapP    <+ okTT @k @a
+  lessThan           = greaterThan . swapP <+ okTT @k @a
+  lessThanOrEqual    = notC . greaterThan  <+ okTT @k @a
+  greaterThanOrEqual = notC . lessThan     <+ okTT @k @a
   {-# MINIMAL lessThan | greaterThan #-}
 
-instance Ord a => OrdCat (->) Bool a where
+instance Ord a => OrdCat (->) a where
   lessThan           = uncurry (<)
   greaterThan        = uncurry (>)
   lessThanOrEqual    = uncurry (<=)
   greaterThanOrEqual = uncurry (>=)
 
-instance (Monad m, Ord a) => OrdCat (Kleisli m) Bool a where
+#ifdef Kleisli
+instance (Monad m, Ord a) => OrdCat (Kleisli m) a where
   lessThan           = arr lessThan
   greaterThan        = arr greaterThan
   lessThanOrEqual    = arr lessThanOrEqual
   greaterThanOrEqual = arr greaterThanOrEqual
+#endif
 
 class Ok k a => BottomCat k a where
   bottomC :: Unit k `k` a
 
 instance BottomCat (->) a where bottomC = error "bottomC for (->) evaluated"
 
-{--------------------------------------------------------------------
-    Misc
---------------------------------------------------------------------}
+type IfT k a = Prod k (BoolOf k) (Prod k a a) `k` a
 
-type IfT k a = Prod k Bool (Prod k a a) `k` a
-
-class (ProductCat k, Ok k Bool, Ok k a) => IfCat k a where
+class (BoolCat k, Ok k a) => IfCat k a where
   ifC :: IfT k a
 
 instance IfCat (->) a where
   ifC (i,(t,e)) = if i then t else e
 
+#ifdef Kleisli
 instance Monad m => IfCat (Kleisli m) a where
   ifC = arr ifC
+#endif
 
-unitIf :: forall k. (ProductCat k, TerminalCat k, Ok k Bool) => IfT k (Unit k)
-unitIf = it <+ (inOpR @(Prod k) @(Ok k) @Bool @(Unit k) @(Unit k))
+unitIf :: forall k. (TerminalCat k, BoolCat k) => IfT k (Unit k)
+unitIf = it <+ (inOpR @(Prod k) @(Ok k) @(BoolOf k) @(Unit k) @(Unit k))
 
--- Oops! Don't use Bool directly
+okIf :: forall k a. BoolCat k => Ok k a |- Ok k (Prod k (BoolOf k) (Prod k a a)) && Ok k (Prod k a a)
+okIf = inOpR' @(Prod k) @(Ok k) @(BoolOf k) @a @a . Sub Dict
 
-
--- inTT :: forall k a. OpCon (Prod k) (Ok k) => Ok k a |- Ok k (Prod k a a)
--- inTT = inOp @(Prod k) @(Ok k) @a @a . dup
-
-
-#if 0
-
-prodIf :: forall k a b. (ProductCat k, IfCat k a, IfCat k b) => IfT k (a :* b)
-prodIf = half exl &&& half exr
-  where
-    half :: IfCat k c => (u `k` c) -> ((Bool :* (u :* u)) `k` c)
-    half f = ifC . second (twiceP f)
+prodIf :: forall k a b. (IfCat k a, IfCat k b) => IfT k (Prod k a b)
+prodIf = (ifC . second (twiceP exl)) &&& (ifC . second (twiceP exr))
+           <+ okIf @k @(Prod k a b)
+           <+ inOp @(Prod k) @(Ok k) @a @b
+           <+ okIf @k @a
+           <+ okIf @k @b
 
 #if 0
 
@@ -1191,18 +1203,24 @@ prodIf = half exl &&& half exr
 == \ (c,((a,b),(a',b'))) -> (ifC (c,(a,a')), ifC (c,(b,b')))
 == (\ (c,((a,b),(a',b'))) -> ifC (c,(a,a'))) &&& ...
 == (ifC . (\ (c,((a,b),(a',b'))) -> (c,(a,a')))) &&& ...
-== (ifC . first (\ ((a,b),(a',b')) -> (a,a'))) &&& ...
-== (ifC . first (twiceP exl)) &&& (ifC . first (twiceP exr))
+== (ifC . second (\ ((a,b),(a',b')) -> (a,a'))) &&& ...
+== (ifC . second (twiceP exl)) &&& (ifC . second (twiceP exr))
 
 #endif
 
-funIf :: forall k a b. (ClosedCat k, IfCat k b) => IfT k (a -> b)
-funIf = curry (ifC . (exl . exl &&& (half exl &&& half exr)))
- where
-   half :: (u `k` (a -> b)) -> (((_Bool :* u) :* a) `k` b)
-   half h = apply . first (h . exr)
+-- funIf :: forall k a b. (ClosedCat k, IfCat k b) => IfT k (Exp k a b)
+-- funIf = curry (ifC . (exl . exl &&& (half exl &&& half exr)))
+--  where
+--    half :: (u `k` Exp k a b) -> (Prod k (Prod k _bool u) a `k` b)
+--    half h = apply . first (h . exr)
 
--- funIf = curry (ifC . (exl . exl &&& (apply . first (exl . exr) &&& apply . first (exr . exr))))
+funIf :: forall k a b. (ClosedCat k, Ok k a, IfCat k b) => IfT k (Exp k a b)
+funIf = curry (ifC . (exl . exl &&& (apply . first (exl . exr) &&& apply . first (exr . exr))))
+           <+ inOp @(Prod k) @(Ok k) @(Prod k (BoolOf k) (Prod k (Exp k a b) (Exp k a b))) @a
+           <+ okIf @k @(Exp k a b)
+           <+ inOp @(Prod k) @(Ok k) @(Exp k a b) @a
+           <+ inOp @(Exp k) @(Ok k) @a @b
+           <+ okIf @k @b
 
 #if 0
 
@@ -1210,11 +1228,13 @@ funIf = curry (ifC . (exl . exl &&& (half exl &&& half exr)))
 == \ (c,(f,f')) -> \ a -> ifC (c,(f a,f' a))
 == curry (\ ((c,(f,f')),a) -> ifC (c,(f a,f' a)))
 == curry (ifC . \ ((c,(f,f')),a) -> (c,(f a,f' a)))
-== curry (ifC . ((exl.exl) &&& \ ((c,(f,f')),a) -> (f a,f' a)))
-== curry (ifC . ((exl.exl) &&& ((\ ((c,(f,f')),a) -> f a) &&& (\ ((c,(f,f')),a) -> f' a))))
-== curry (ifC . ((exl.exl) &&& (apply (first (exl.exr)) &&& (apply (first (exl.exr))))))
+== curry (ifC . (exl.exl &&& \ ((c,(f,f')),a) -> (f a,f' a)))
+== curry (ifC . (exl.exl &&& ((\ ((c,(f,f')),a) -> f a) &&& (\ ((c,(f,f')),a) -> f' a))))
+== curry (ifC . (exl.exl &&& (apply (first (exl.exr)) &&& (apply (first (exl.exr))))))
 
 #endif
+
+#if 0
 
 repIf :: (RepCat k, ProductCat k, HasRep a, IfCat k (Rep a)) => IfT k a
 repIf = abstC . ifC . second (twiceP reprC)
