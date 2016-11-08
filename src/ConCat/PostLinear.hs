@@ -43,7 +43,7 @@ import Data.Constraint hiding ((&&&),(***),(:=>))
 import qualified Data.Constraint as C
 
 import ConCat.Misc hiding ((<~))
-import ConCat.ConCat
+import ConCat.Category
 
 class    (VectorSpace a, Scalar a ~ s, HasBasis a, HasTrie (Basis a)) => OkL s a
 instance (VectorSpace a, Scalar a ~ s, HasBasis a, HasTrie (Basis a)) => OkL s a

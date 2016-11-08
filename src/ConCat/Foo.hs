@@ -43,7 +43,7 @@ import Data.Constraint hiding ((&&&),(***),(:=>))
 import qualified Data.Constraint as C
 
 import ConCat.Misc hiding ((<~))
--- import ConCat.ConCat
+-- import ConCat.Category
 
 {--------------------------------------------------------------------
     Misc

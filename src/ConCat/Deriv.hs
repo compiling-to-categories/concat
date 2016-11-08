@@ -21,7 +21,7 @@ import Control.Newtype
 import Data.MemoTrie
 
 import ConCat.Misc
-import ConCat.ConCat
+import ConCat.Category
 import ConCat.Additive
 import ConCat.Semimodule
 import ConCat.FLMap

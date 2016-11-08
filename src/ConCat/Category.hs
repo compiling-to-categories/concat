@@ -28,7 +28,7 @@
 
 -- | Constrained categories
 
-module ConCat.ConCat where
+module ConCat.Category where
 
 import Prelude hiding (id,(.),curry,uncurry)
 import qualified Prelude as P

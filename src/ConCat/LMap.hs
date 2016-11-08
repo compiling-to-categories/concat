@@ -26,7 +26,7 @@ import Data.Constraint (Dict(..),(:-)(..))
 import Data.MemoTrie      (HasTrie(..),(:->:))
 
 import ConCat.Misc ((:*),inNew,inNew2)
-import ConCat.ConCat
+import ConCat.Category
 import ConCat.Additive
 import ConCat.Semimodule
 import ConCat.Basis

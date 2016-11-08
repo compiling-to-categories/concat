@@ -26,7 +26,7 @@ import Control.Newtype (Newtype(..))
 import Data.MemoTrie (HasTrie)
 
 import ConCat.Misc
-import ConCat.ConCat hiding ((<~),(~>))
+import ConCat.Category hiding ((<~),(~>))
 import ConCat.Additive
 import ConCat.Semimodule
 import ConCat.FLMap

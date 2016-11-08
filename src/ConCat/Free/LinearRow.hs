@@ -33,7 +33,7 @@ import Control.Newtype
 import ConCat.Misc (inNew,inNew2)
 import ConCat.Orphans ()
 import ConCat.Free.VectorSpace
-import ConCat.ConCat
+import ConCat.Category
 
 {--------------------------------------------------------------------
     Linear maps

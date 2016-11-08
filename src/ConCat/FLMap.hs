@@ -24,7 +24,7 @@ import Data.Constraint (Dict(..),(:-)(..))
 import ConCat.Misc hiding ((<~))
 import ConCat.Additive
 import ConCat.Semimodule
-import ConCat.ConCat
+import ConCat.Category
 
 class    Mod s u => OkL s u
 instance Mod s u => OkL s u

@@ -29,7 +29,7 @@ import Data.Key (Zip(..))
 import Control.Newtype
 
 import ConCat.Misc (inNew2,(:*),(<~))
-import ConCat.ConCat (UT(..),FunctorC(..))
+import ConCat.Category (UT(..),FunctorC(..))
 
 {--------------------------------------------------------------------
     Vector spaces
