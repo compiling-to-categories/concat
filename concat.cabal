@@ -27,16 +27,21 @@ library
                        Free.VectorSpace
                        Free.LinearCol
                        Free.LinearRow
+--                        Circat.Circuit
+--                        Circat.Rep
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       base >=4.9 && <4.10
-                     , ghc-prim >= 0.5.0.0
-                     , constraints >= 0.8
-                     , newtype-generics
+  build-depends:       MemoTrie >= 0.6.5
                      , Stream
+                     , base >=4.9 && <4.10
+                     , constraints >= 0.8
+                     , containers >= 0.5.7.1
+                     , dependent-map
+                     , directory >= 1.2.6.2
+                     , ghc-prim >= 0.5.0.0
                      , keys >= 3.11
+                     , newtype-generics
                      , pointed >= 5
-                     , MemoTrie >= 0.6.5
                      , vector-space >= 0.10.4
 
   hs-source-dirs:      src
