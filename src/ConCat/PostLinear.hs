@@ -21,7 +21,7 @@
 
 -- | Linear maps for the blog post(s)
 
-module PostLinear where
+module ConCat.PostLinear where
 
 import Prelude hiding (id,(.),curry,uncurry)
 import qualified Prelude as P
@@ -42,8 +42,8 @@ import Data.Basis
 import Data.Constraint hiding ((&&&),(***),(:=>))
 import qualified Data.Constraint as C
 
-import Misc hiding ((<~))
-import ConCat
+import ConCat.Misc hiding ((<~))
+import ConCat.ConCat
 
 class    (VectorSpace a, Scalar a ~ s, HasBasis a, HasTrie (Basis a)) => OkL s a
 instance (VectorSpace a, Scalar a ~ s, HasBasis a, HasTrie (Basis a)) => OkL s a

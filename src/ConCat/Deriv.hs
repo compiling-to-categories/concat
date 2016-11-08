@@ -11,7 +11,7 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
-module Deriv where
+module ConCat.Deriv where
 
 import Prelude hiding (id,(.),curry,uncurry)
 import GHC.Generics ((:*:)(..))
@@ -20,11 +20,11 @@ import Data.Constraint hiding ((&&&))
 import Control.Newtype
 import Data.MemoTrie
 
-import Misc
-import ConCat
-import Additive
-import Semimodule
-import FLMap
+import ConCat.Misc
+import ConCat.ConCat
+import ConCat.Additive
+import ConCat.Semimodule
+import ConCat.FLMap
 
 data D s a b = D (a -> b) (a -> LMap s a b)
 

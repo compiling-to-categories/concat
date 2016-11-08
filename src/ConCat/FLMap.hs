@@ -14,17 +14,17 @@
 
 -- | Linear maps as wrapped functions
 
-module FLMap where
+module ConCat.FLMap where
 
 import Prelude hiding (id,(.),curry,uncurry)
 
 import Control.Newtype (Newtype(..))
 import Data.Constraint (Dict(..),(:-)(..))
 
-import Misc hiding ((<~))
-import Additive
-import Semimodule
-import ConCat
+import ConCat.Misc hiding ((<~))
+import ConCat.Additive
+import ConCat.Semimodule
+import ConCat.ConCat
 
 class    Mod s u => OkL s u
 instance Mod s u => OkL s u

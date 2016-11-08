@@ -10,7 +10,7 @@
 
 -- | Linear maps as constrained category
 
-module Semimodule where
+module ConCat.Semimodule where
 
 import Control.Applicative (liftA2)
 import Data.Ratio
@@ -18,7 +18,7 @@ import Foreign.C.Types
   (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
 -- import Data.Complex hiding (magnitude)
 
-import Additive
+import ConCat.Additive
 
 infixr 7 *^
 

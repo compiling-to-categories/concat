@@ -18,7 +18,7 @@
 
 -- | Linear maps as "row-major" functor compositions
 
-module Free.LinearRow where
+module ConCat.Free.LinearRow where
 
 import Prelude hiding (id,(.),zipWith)
 
@@ -30,11 +30,10 @@ import Data.Key (Keyed(..),Zip(..),Adjustable(..))
 
 import Control.Newtype
 
-import Misc (inNew,inNew2)
-import Orphans ()
-import Free.VectorSpace
-
-import ConCat
+import ConCat.Misc (inNew,inNew2)
+import ConCat.Orphans ()
+import ConCat.Free.VectorSpace
+import ConCat.ConCat
 
 {--------------------------------------------------------------------
     Linear maps

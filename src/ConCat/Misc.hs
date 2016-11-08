@@ -13,7 +13,7 @@
 
 -- | Miscellany
 
-module Misc where
+module ConCat.Misc where
 
 import Control.Newtype
 

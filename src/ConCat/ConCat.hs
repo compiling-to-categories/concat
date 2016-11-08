@@ -28,7 +28,7 @@
 
 -- | Constrained categories
 
-module ConCat where
+module ConCat.ConCat where
 
 import Prelude hiding (id,(.),curry,uncurry)
 import qualified Prelude as P
@@ -49,8 +49,8 @@ import Control.Newtype (Newtype(..))
 
 import Data.MemoTrie
 
-import Misc hiding ((<~),(~>))
-import Orphans ()
+import ConCat.Misc hiding ((<~),(~>))
+import ConCat.Orphans ()
 
 {--------------------------------------------------------------------
     Constraint utilities

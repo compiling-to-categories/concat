@@ -13,7 +13,7 @@
 -- Basis of a vector space, as an associated type
 ----------------------------------------------------------------------
 
-module Basis (HasBasis(..), linearCombo, recompose) where
+module ConCat.Basis (HasBasis(..), linearCombo, recompose) where
 
 -- import Control.Applicative ((<$>))
 import Control.Arrow (first)
@@ -21,8 +21,8 @@ import Data.Ratio
 import Foreign.C.Types (CFloat, CDouble)
 -- import Data.Either
 
-import Additive
-import Semimodule
+import ConCat.Additive
+import ConCat.Semimodule
 
 class Semimodule v => HasBasis v where
   -- | Representation of the canonical basis for @v@

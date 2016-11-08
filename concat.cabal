@@ -16,19 +16,19 @@ extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     ConCat
-                       Misc
-                       Orphans
-                       Additive
-                       Semimodule
-                       Basis
-                       LMap
-                       FLMap
-                       Free.VectorSpace
-                       Free.LinearCol
-                       Free.LinearRow
---                        Circat.Circuit
---                        Circat.Rep
+  exposed-modules:     ConCat.ConCat
+                       ConCat.Misc
+                       ConCat.Orphans
+                       ConCat.Additive
+                       ConCat.Semimodule
+                       ConCat.Basis
+                       ConCat.LMap
+                       ConCat.FLMap
+                       ConCat.Free.VectorSpace
+                       ConCat.Free.LinearCol
+                       ConCat.Free.LinearRow
+--                        ConCat.Circat.Circuit
+--                        ConCat.Circat.Rep
   -- other-modules:       
   -- other-extensions:    
   build-depends:       MemoTrie >= 0.6.5

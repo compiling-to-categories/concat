@@ -6,7 +6,7 @@
 
 -- | Commutative monoid intended to be used with a multiplicative monoid
 
-module Additive where
+module ConCat.Additive where
 
 import Control.Applicative (liftA2)
 import Data.Foldable (fold)
@@ -17,7 +17,7 @@ import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CD
 import Control.Newtype (Newtype(..))
 import Data.MemoTrie
 
-import Misc
+import ConCat.Misc
 
 -- | Commutative monoid intended to be used with a multiplicative monoid
 class Additive a where

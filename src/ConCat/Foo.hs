@@ -21,7 +21,7 @@
 
 -- | Tries as category
 
-module TrieCat where
+module ConCat.TrieCat where
 
 import Prelude hiding (id,(.),curry,uncurry)
 import qualified Prelude as P
@@ -42,8 +42,8 @@ import Data.Basis
 import Data.Constraint hiding ((&&&),(***),(:=>))
 import qualified Data.Constraint as C
 
-import Misc hiding ((<~))
--- import ConCat
+import ConCat.Misc hiding ((<~))
+-- import ConCat.ConCat
 
 {--------------------------------------------------------------------
     Misc

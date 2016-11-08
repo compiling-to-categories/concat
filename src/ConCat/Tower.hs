@@ -18,18 +18,18 @@
 
 -- | Generalized automatic differentiation
 
-module Tower where
+module ConCat.Tower where
 
 import Prelude hiding (id,(.),curry,uncurry)
 
 import Control.Newtype (Newtype(..))
 import Data.MemoTrie (HasTrie)
 
-import Misc
-import ConCat hiding ((<~),(~>))
-import Additive
-import Semimodule
-import FLMap
+import ConCat.Misc
+import ConCat.ConCat hiding ((<~),(~>))
+import ConCat.Additive
+import ConCat.Semimodule
+import ConCat.FLMap
 
 {--------------------------------------------------------------------
     Tower of derivative values

@@ -16,7 +16,7 @@
 
 -- | Vector spaces as zippable functors
 
-module Free.VectorSpace where
+module ConCat.Free.VectorSpace where
 
 import Prelude hiding (zipWith)
 
@@ -28,8 +28,8 @@ import Data.Key (Zip(..))
 
 import Control.Newtype
 
-import Misc (inNew2,(:*),(<~))
-import ConCat (UT(..),FunctorC(..))
+import ConCat.Misc (inNew2,(:*),(<~))
+import ConCat.ConCat (UT(..),FunctorC(..))
 
 {--------------------------------------------------------------------
     Vector spaces

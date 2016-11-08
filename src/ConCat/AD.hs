@@ -15,7 +15,7 @@
 
 -- | Generalized automatic differentiation
 
-module AD where
+module ConCat.AD where
 
 import Prelude hiding (id,(.),curry,uncurry)
 

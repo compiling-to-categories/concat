@@ -12,7 +12,7 @@
 
 -- | Some experiments in formulating constrained linear optimization problems.
 
-module Free.LinearCol where
+module ConCat.Free.LinearCol where
 
 import Prelude hiding (id,(.),zipWith)
 
@@ -24,11 +24,10 @@ import Data.Key (Keyed(..),Zip(..),Adjustable(..))
 
 import Control.Newtype
 
-import Misc (inNew,inNew2)
-import Orphans ()
-import Free.VectorSpace
-
-import ConCat
+import ConCat.Misc (inNew,inNew2)
+import ConCat.Orphans ()
+import ConCat.Free.VectorSpace
+import ConCat.ConCat
 
 {--------------------------------------------------------------------
     Linear maps

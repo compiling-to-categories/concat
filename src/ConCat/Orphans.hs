@@ -10,7 +10,7 @@
 --
 -- <https://github.com/ekmett/pointed/issues/18>
 
-module Orphans where
+module ConCat.Orphans where
 
 import Prelude hiding (zipWith)
 import Control.Applicative (liftA2)
@@ -23,7 +23,7 @@ import Data.Copointed
 import Data.Stream (Stream(..))
 import Control.Newtype
 
-import Misc ((:*),(:+),inNew,inNew2)
+import ConCat.Misc ((:*),(:+),inNew,inNew2)
 
 {--------------------------------------------------------------------
     GHC.Generics and keys

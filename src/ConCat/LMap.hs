@@ -16,7 +16,7 @@
 
 -- | Linear maps as constrained category
 
-module LMap where
+module ConCat.LMap where
 
 import Prelude hiding (id,(.))
 import Control.Applicative (liftA2)
@@ -25,11 +25,11 @@ import Control.Newtype (Newtype(..))
 import Data.Constraint (Dict(..),(:-)(..))
 import Data.MemoTrie      (HasTrie(..),(:->:))
 
-import Misc ((:*),inNew,inNew2)
-import ConCat
-import Additive
-import Semimodule
-import Basis
+import ConCat.Misc ((:*),inNew,inNew2)
+import ConCat.ConCat
+import ConCat.Additive
+import ConCat.Semimodule
+import ConCat.Basis
 
 class    (Mod s u, HasBasis u, HasTrie (Basis u)) => OkL s u
 instance (Mod s u, HasBasis u, HasTrie (Basis u)) => OkL s u
