@@ -49,36 +49,6 @@ instance Newtype ((a +-> b) t) where
   unpack = unFun1
 
 {--------------------------------------------------------------------
-    Equality
---------------------------------------------------------------------}
-
--- infix 4 ===
--- -- | Equality when we don't know that the types match. Important requirement:
--- -- when the result is True, then it must be that a and b are the same type.
--- -- See '(==?)'.
--- class Eq' a b where
---   (===) :: a -> b -> Bool
-
--- TODO: Maybe make (==?) the method and drop (===), moving the type proofs into
--- the instances and using unsafeCoerce only where necessary. Experiment in a
--- new branch. Alternatively, make (===) and (==?) *both* be methods, with
--- defaults defined in terms of each other.
-
--- infix 4 ==?
--- -- | Test for equality. If equal, generate a type equality proof. The proof
--- -- generation is done with @unsafeCoerce@, so it's very important that equal
--- -- terms really do have the same type.
--- (==?) :: Eq' a b => a -> b -> Maybe (a :~: b)
--- a ==? b | a === b   = unsafeCoerce (Just Refl)
---         | otherwise = Nothing
-
--- infix 4 ====
--- -- | Equality when we don't know that the type parameters match.
--- (====) :: TestEquality f => f a -> f b -> Bool
--- fa ==== fb | Just Refl <- fa `testEquality` fb = True
---            | otherwise                         = False
-
-{--------------------------------------------------------------------
     Evaluation
 --------------------------------------------------------------------}
 
