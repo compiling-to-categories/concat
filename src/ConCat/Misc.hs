@@ -15,6 +15,10 @@
 
 module ConCat.Misc where
 
+import Unsafe.Coerce (unsafeCoerce)
+
+import Data.Type.Equality
+
 import Control.Newtype
 
 {--------------------------------------------------------------------
@@ -44,10 +48,55 @@ instance Newtype ((a +-> b) t) where
   pack = Fun1
   unpack = unFun1
 
+{--------------------------------------------------------------------
+    Equality
+--------------------------------------------------------------------}
+
+infix 4 ===, ==?,====
+
+-- | Equality when we don't know that the types match. Important requirement:
+-- when the result is True, then it must be that a and b are the same type.
+-- See '(==?)'.
+class Eq' a b where
+  (===) :: a -> b -> Bool
+
+-- TODO: Maybe make (==?) the method and drop (===), moving the type proofs into
+-- the instances and using unsafeCoerce only where necessary. Experiment in a
+-- new branch. Alternatively, make (===) and (==?) *both* be methods, with
+-- defaults defined in terms of each other.
+
+-- | Test for equality. If equal, generate a type equality proof. The proof
+-- generation is done with @unsafeCoerce@, so it's very important that equal
+-- terms really do have the same type.
+(==?) :: Eq' a b => a -> b -> Maybe (a :~: b)
+a ==? b | a === b   = unsafeCoerce (Just Refl)
+        | otherwise = Nothing
+
+-- | Equality when we don't know that the type parameters match.
+(====) :: TestEquality f => f a -> f b -> Bool
+fa ==== fb | Just Refl <- fa `testEquality` fb = True
+           | otherwise                         = False
+
+{--------------------------------------------------------------------
+    Evaluation
+--------------------------------------------------------------------}
+
+-- class Evalable e where
+--   type ValT e
+--   eval :: e -> ValT e
+
+class PrimBasics p where
+  unitP :: p ()
+  pairP :: p (a :=> b :=> a :* b)
+
+class Evalable p where eval :: p a -> a
 
 {--------------------------------------------------------------------
     Other
 --------------------------------------------------------------------}
+
+type Unop  a = a -> a
+type Binop a = a -> Unop a
 
 infixl 1 <~
 infixr 1 ~>
@@ -79,6 +128,10 @@ inNew2 :: (Newtype p, Newtype q, Newtype r) =>
 inNew2 = inNew <~ unpack
 
 -- TODO: use inNew and inNew2 in place of ad hoc versions throughout.
+
+-- | Compose list of unary transformations
+compose :: [Unop a] -> Unop a
+compose = foldr (.) id
 
 {--------------------------------------------------------------------
     Type level computations
