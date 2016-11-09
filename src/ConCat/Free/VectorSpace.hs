@@ -155,4 +155,4 @@ instance FunctorC (VFun s) (->) (UT s) where
   -- type OkF (VFun s) a = HasV s a
   type OkF (VFun s) b a = (HasV s a, HasV s b)
   type VFun s :% a = V s a
-  (%) = vfun
+  fmapC = vfun
