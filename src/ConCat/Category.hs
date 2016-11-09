@@ -214,26 +214,30 @@ instance Monad m => Category (Kleisli m) where
 
 infixr 3 ***, &&&
 
+okProd :: forall k a b. OpCon (Prod k) (Ok k)
+       => Ok k a && Ok k b |- Ok k (Prod k a b)
+okProd = inOp
+
 -- | Category with product.
 class (OpCon (Prod k) (Ok k), Category k) => ProductCat k where
   type Prod k :: u -> u -> u
   -- type Prod k = (:*)
   exl :: Oks k [a,b] => Prod k a b `k` a
   exr :: Oks k [a,b] => Prod k a b `k` b
-  dup :: Oks k '[a] => a `k` Prod k a a
+  dup :: Ok  k a => a `k` Prod k a a
   dup = id &&& id
   swapP :: forall a b. Oks k [a,b] => Prod k a b `k` Prod k b a
   swapP = exr &&& exl
-          <+ inOp @(Prod k) @(Ok k) @a @b
+          <+ okProd @k @a @b
   (***) :: forall a b c d. Oks k [a,b,c,d] 
         => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d)
   f *** g = f . exl &&& g . exr
-            <+ inOp @(Prod k) @(Ok k) @a @b
+            <+ okProd @k @a @b
   (&&&) :: forall a c d. Oks k [a,c,d] 
         => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d)
   f &&& g = (f *** g) . dup
-    <+ inOp @(Prod k) @(Ok k) @a @a
-    <+ inOp @(Prod k) @(Ok k) @c @d
+    <+ okProd @k @a @a
+    <+ okProd @k @c @d
   first :: forall a a' b. Oks k [a,b,a'] 
         => (a `k` a') -> (Prod k a b `k` Prod k a' b)
   first = (*** id)
@@ -243,12 +247,12 @@ class (OpCon (Prod k) (Ok k), Category k) => ProductCat k where
   lassocP :: forall a b c. Oks k [a,b,c]
           => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
   lassocP = second exl &&& (exr . exr)
-            <+ inOp   @(Prod k) @(Ok k) @a @b
+            <+ okProd @k @a @b
             <+ inOpR' @(Prod k) @(Ok k) @a @b @c
   rassocP :: forall a b c. Oks k [a,b,c]
           => Prod k (Prod k a b) c `k` Prod k a (Prod k b c)
   rassocP = (exl . exl) &&& first  exr
-            <+ inOp   @(Prod k) @(Ok k)    @b @c
+            <+ okProd @k    @b @c
             <+ inOpL' @(Prod k) @(Ok k) @a @b @c
   {-# MINIMAL exl, exr, ((&&&) | ((***), dup)) #-}
 #ifdef DefaultCat
@@ -305,16 +309,16 @@ inRassocP = lassocP <~ rassocP
 transposeP :: forall k a b c d. (ProductCat k, Oks k [a,b,c,d])
            => Prod k (Prod k a b) (Prod k c d) `k` Prod k (Prod k a c) (Prod k b d)
 transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
-  <+ inOp @(Prod k) @(Ok k) @(Prod k a b) @(Prod k c d)
-  <+ inOp @(Prod k) @(Ok k) @c @d
-  <+ inOp @(Prod k) @(Ok k) @a @b
-  <+ inOp @(Prod k) @(Ok k) @b @d
-  <+ inOp @(Prod k) @(Ok k) @a @c
+  <+ okProd @k @(Prod k a b) @(Prod k c d)
+  <+ okProd @k @c @d
+  <+ okProd @k @a @b
+  <+ okProd @k @b @d
+  <+ okProd @k @a @c
 
 -- | Inverse to '(&&&)'
 unfork :: forall k a c d. (ProductCat k, Oks k [a,c,d]) 
        => (a `k` Prod k c d) -> (a `k` c, a `k` d)
-unfork f = (exl . f, exr . f)  <+ inOp @(Prod k) @(Ok k) @c @d
+unfork f = (exl . f, exr . f)  <+ okProd @k @c @d
 
 instance Monad m => ProductCat (Kleisli m) where
   type Prod (Kleisli m) = (:*)
@@ -336,6 +340,10 @@ crossK :: Applicative m => (a -> m c) -> (b -> m d) -> (a :* b -> m (c :* d))
     Coproducts
 --------------------------------------------------------------------}
 
+okCoprod :: forall k a b. OpCon (Coprod k) (Ok k)
+         => Ok k a && Ok k b |- Ok k (Coprod k a b)
+okCoprod = inOp
+
 infixr 2 +++, |||
 
 -- | Category with coproduct.
@@ -348,16 +356,16 @@ class (OpCon (Coprod k) (Ok k), Category k) => CoproductCat k where
   jam = id ||| id
   swapS :: forall a b. Oks k [a,b] => Coprod k a b `k` Coprod k b a
   swapS = inr ||| inl
-          <+ inOp @(Coprod k) @(Ok k) @b @a
+          <+ okCoprod @k @b @a
   (+++) :: forall a b c d. Oks k [a,b,c,d] 
         => (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b)
   f +++ g = inl . f ||| inr . g
-            <+ inOp @(Coprod k) @(Ok k) @a @b
+            <+ okCoprod @k @a @b
   (|||) :: forall a c d. Oks k [a,c,d] 
         => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a)
   f ||| g = jam . (f +++ g)
-          <+ inOp @(Coprod k) @(Ok k) @a @a
-          <+ inOp @(Coprod k) @(Ok k) @c @d
+          <+ okCoprod @k @a @a
+          <+ okCoprod @k @c @d
   left  :: forall a a' b. Oks k [a,b,a'] 
         => (a `k` a') -> (Coprod k a b `k` Coprod k a' b)
   left  = (+++ id)
@@ -368,12 +376,12 @@ class (OpCon (Coprod k) (Ok k), Category k) => CoproductCat k where
           => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c
   lassocS = inl.inl ||| (inl.inr ||| inr)
             <+ inOpL' @(Coprod k) @(Ok k) @a @b @c
-            <+ inOp   @(Coprod k) @(Ok k)    @b @c
+            <+ okCoprod @k    @b @c
   rassocS :: forall a b c. Oks k [a,b,c]
           => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c)
   rassocS = (inl ||| inr.inl) ||| inr.inr
             <+ inOpR' @(Coprod k) @(Ok k) @a @b @c
-            <+ inOp   @(Coprod k) @(Ok k) @a @b
+            <+ okCoprod @k @a @b
   {-# MINIMAL inl, inr, ((|||) | ((+++), jam)) #-}
 
 -- type CoprodOk k ok = (CoproductCat k, ok ~ Ok k)
@@ -411,16 +419,16 @@ inRassocS = lassocS <~ rassocS
 transposeS :: forall k a b c d. (CoproductCat k, Oks k [a,b,c,d])
            => Coprod k (Coprod k a b) (Coprod k c d) `k` Coprod k (Coprod k a c) (Coprod k b d)
 transposeS = (inl.inl ||| inr.inl) ||| (inl.inr ||| inr.inr)
-  <+ inOp @(Coprod k) @(Ok k) @(Coprod k a c) @(Coprod k b d)
-  <+ inOp @(Coprod k) @(Ok k) @c @d
-  <+ inOp @(Coprod k) @(Ok k) @a @b
-  <+ inOp @(Coprod k) @(Ok k) @b @d
-  <+ inOp @(Coprod k) @(Ok k) @a @c
+  <+ okCoprod @k @(Coprod k a c) @(Coprod k b d)
+  <+ okCoprod @k @c @d
+  <+ okCoprod @k @a @b
+  <+ okCoprod @k @b @d
+  <+ okCoprod @k @a @c
 
 -- | Inverse to '(|||)'
 unjoin :: forall k a c d. (CoproductCat k, Oks k [a,c,d]) 
        => (Coprod k c d `k` a) -> (c `k` a, d `k` a)
-unjoin f = (f . inl, f . inr)  <+ inOp @(Coprod k) @(Ok k) @c @d
+unjoin f = (f . inl, f . inr)  <+ okCoprod @k @c @d
 
 {--------------------------------------------------------------------
     Distributive
@@ -432,61 +440,65 @@ class (ProductCat k, CoproductCat k) => DistribCat k where
   distr :: forall u v b. Oks k [u,v,b]
         => Prod k (Coprod k u v) b `k` Coprod k (Prod k u b) (Prod k v b)
   distl = (swapP +++ swapP) . distr . swapP
-    <+ inOp @(Prod k) @(Ok k) @(Coprod k u v) @a
-    <+ inOp @(Coprod k) @(Ok k) @(Prod k u a) @(Prod k v a)
-    <+ inOp @(Prod k) @(Ok k) @u @a
-    <+ inOp @(Prod k) @(Ok k) @v @a
-    <+ inOp @(Coprod k) @(Ok k) @(Prod k a u) @(Prod k a v)
-    <+ inOp @(Prod k) @(Ok k) @a @u
-    <+ inOp @(Prod k) @(Ok k) @a @v
-    <+ inOp @(Prod k) @(Ok k) @a @(Coprod k u v)
-    <+ inOp @(Coprod k) @(Ok k) @u @v
+    <+ okProd   @k @(Coprod k u v) @a
+    <+ okCoprod @k @(Prod k u a) @(Prod k v a)
+    <+ okProd   @k @u @a
+    <+ okProd   @k @v @a
+    <+ okCoprod @k @(Prod k a u) @(Prod k a v)
+    <+ okProd   @k @a @u
+    <+ okProd   @k @a @v
+    <+ okProd   @k @a @(Coprod k u v)
+    <+ okCoprod @k @u @v
   distr = (swapP +++ swapP) . distl . swapP
-    <+ inOp @(Prod k) @(Ok k) @b @(Coprod k u v)
-    <+ inOp @(Coprod k) @(Ok k) @(Prod k b u) @(Prod k b v)
-    <+ inOp @(Prod k) @(Ok k) @b @u
-    <+ inOp @(Prod k) @(Ok k) @b @v
-    <+ inOp @(Coprod k) @(Ok k) @(Prod k u b) @(Prod k v b)
-    <+ inOp @(Prod k) @(Ok k) @u @b
-    <+ inOp @(Prod k) @(Ok k) @v @b
-    <+ inOp @(Prod k) @(Ok k) @(Coprod k u v) @b
-    <+ inOp @(Coprod k) @(Ok k) @u @v
+    <+ okProd   @k @b @(Coprod k u v)
+    <+ okCoprod @k @(Prod k b u) @(Prod k b v)
+    <+ okProd   @k @b @u
+    <+ okProd   @k @b @v
+    <+ okCoprod @k @(Prod k u b) @(Prod k v b)
+    <+ okProd   @k @u @b
+    <+ okProd   @k @v @b
+    <+ okProd   @k @(Coprod k u v) @b
+    <+ okCoprod @k @u @v
   {-# MINIMAL distl | distr #-}
 
--- | Inverse to 'distl'
+-- | Inverse to 'distl': @(a * u) + (a * v) --> a * (u + v)@
 undistl :: forall k a u v. (ProductCat k, CoproductCat k, Oks k [a,u,v])
         => Coprod k (Prod k a u) (Prod k a v) `k` Prod k a (Coprod k u v)
 undistl = (exl ||| exl) &&& (exr +++ exr)
-  <+ inOp @(Coprod k) @(Ok k) @(Prod k a u) @(Prod k a v)
-  <+ inOp @(Prod   k) @(Ok k) @a @u
-  <+ inOp @(Prod   k) @(Ok k) @a @v
-  <+ inOp @(Coprod k) @(Ok k) @u @v
+  <+ okCoprod @k @(Prod k a u) @(Prod k a v)
+  <+ okProd   @k @a @u
+  <+ okProd   @k @a @v
+  <+ okCoprod @k @u @v
 
--- | Inverse to 'distr'
+-- | Inverse to 'distr': @(u * b) + (v * b) --> (u + v) * b@
 undistr :: forall k u v b. (ProductCat k, CoproductCat k, Oks k [u,v,b])
         => Coprod k (Prod k u b) (Prod k v b) `k` Prod k (Coprod k u v) b
-undistr = undefined &&& (exr ||| exr)
-  <+ inOp @(Coprod k) @(Ok k) @(Prod k u b) @(Prod k v b)
-  <+ inOp @(Coprod k) @(Ok k) @u @v
-  <+ inOp @(Prod   k) @(Ok k) @u @b
-  <+ inOp @(Prod   k) @(Ok k) @v @b
+undistr = (exl +++ exl) &&& (exr ||| exr)
+  <+ okCoprod @k @(Prod k u b) @(Prod k v b)
+  <+ okCoprod @k @u @v
+  <+ okProd   @k @u @b
+  <+ okProd   @k @v @b
 
 {--------------------------------------------------------------------
     Exponentials
 --------------------------------------------------------------------}
 
+okExp :: forall k a b. OpCon (Exp k) (Ok k)
+      => Ok k a && Ok k b |- Ok k (Exp k a b)
+okExp = inOp
+
 class (OpCon (Exp k) (Ok k), ProductCat k) => ClosedCat k where
   type Exp k :: u -> u -> u
   apply   :: forall a b. Oks k [a,b] => Prod k (Exp k a b) a `k` b
   apply = uncurry id
-          <+ inOp @(Exp k) @(Ok k) @a @b
+          <+ okExp @k @a @b
   curry   :: Oks k [a,b,c] => (Prod k a b `k` c) -> (a `k` Exp k b c)
   uncurry :: forall a b c. Oks k [a,b,c]
           => (a `k` Exp k b c)  -> (Prod k a b `k` c)
   uncurry g = apply . first g
-              <+ inOp @(Prod k) @(Ok k) @(Exp k b c) @b
-              <+ inOp @(Prod k) @(Ok k) @a @b
-              <+ inOp @(Exp  k) @(Ok k) @b @c
+              <+ okProd @k @(Exp k b c) @b
+              <+ okProd @k @a @b
+              <+ okExp @k @b @c
   {-# MINIMAL curry, (apply | uncurry) #-}
 
 --   apply   :: (Oks k [a,b], p ~ Prod k, e ~ Exp k) => ((a `e` b) `p` a) `k` b
@@ -520,7 +532,7 @@ instance Monad m => ClosedCat (Kleisli m) where
 #endif
 
 class (Category k, Ok k (Unit k)) => TerminalCat k where
-  type Unit k
+  type Unit k :: u
   it :: Ok k a => a `k` Unit k
 
 instance TerminalCat (->) where
@@ -531,13 +543,13 @@ instance Monad m => TerminalCat (Kleisli m) where
   type Unit (Kleisli m) = ()
   it = arr it
 
--- | Categories with constant arrows (generalized elements)
-class ConstCat k where
-  konst :: forall a b. Oks k [a,b] => b -> (a `k` b)
+-- -- | Categories with constant arrows (generalized elements)
+-- class ConstCat k where
+--   konst :: forall a b. Oks k [a,b] => b -> (a `k` b)
 
-instance ConstCat (->) where konst = const
+-- instance ConstCat (->) where konst = const
 
-instance Monad m => ConstCat (Kleisli m) where konst b = arr (const b)
+-- instance Monad m => ConstCat (Kleisli m) where konst b = arr (const b)
 
 -- class ApplyToCat k where
 --   applyTo :: Oks k [a,b] => a -> ((a -> b) `k` b)
@@ -560,6 +572,29 @@ instance Monad m => UnsafeArr (Kleisli m) where
   unsafeArr = A.arr
   
 #endif
+
+{--------------------------------------------------------------------
+    Constant arrows
+--------------------------------------------------------------------}
+
+class TerminalCat k => ConstCat (k :: u -> u -> *) (prim :: u -> *) where
+  unitArrow  :: Ok k b => prim b -> Unit k `k` b
+  constArrow :: Oks k [a,b] => prim b -> a `k` b
+  constArrow p = unitArrow p . it
+  unitArrow = constArrow
+  {-# MINIMAL unitArrow | constArrow #-}
+
+{--------------------------------------------------------------------
+    Class aggregates
+--------------------------------------------------------------------}
+
+-- | Bi-cartesion (cartesian & co-cartesian) closed categories. Also lumps in
+-- terminal and distributive, though should probably be moved out.
+type BiCCC k = (ClosedCat k, CoproductCat k, TerminalCat k, DistribCat k)
+
+-- | 'BiCCC' with constant arrows.
+type BiCCCC k p = (BiCCC k, ConstCat k p {-, RepCat k, LoopCat k, DelayCat k-})
+
 
 {--------------------------------------------------------------------
     Some categories
@@ -597,7 +632,7 @@ instance TerminalCat U2 where
   type Unit U2 = () -- ??
   it = U2
 
-instance ConstCat U2 where konst = const U2
+-- instance ConstCat U2 where konst = const U2
 
 {--------------------------------------------------------------------
     Natural transformations
@@ -897,7 +932,6 @@ instance ClosedCat (|-) where
   apply = Sub (Dict <+ (entails :: a |- b))
   curry :: forall a b c. (a && b |- c) -> (a |- Entails b c)
   curry = undefined
-                 
 
 #endif
 
@@ -1175,7 +1209,7 @@ instance (Monad m, Integral a, Num b) => FromIntegralCat (Kleisli m) a b where
 #endif
 
 okTT :: forall k a. OpCon (Prod k) (Ok k) => Ok k a |- Ok k (Prod k a a)
-okTT = inOp @(Prod k) @(Ok k) @a @a . dup
+okTT = okProd @k @a @a . dup
 
 class (BoolCat k, Ok k a, Eq a) => EqCat k a where
   equal, notEqual :: Prod k a a `k` BoolOf k
@@ -1242,7 +1276,7 @@ okIf = inOpR' @(Prod k) @(Ok k) @(BoolOf k) @a @a . Sub Dict
 prodIf :: forall k a b. (IfCat k a, IfCat k b) => IfT k (Prod k a b)
 prodIf = (ifC . second (twiceP exl)) &&& (ifC . second (twiceP exr))
            <+ okIf @k @(Prod k a b)
-           <+ inOp @(Prod k) @(Ok k) @a @b
+           <+ okProd @k @a @b
            <+ okIf @k @a
            <+ okIf @k @b
 
@@ -1265,10 +1299,10 @@ prodIf = (ifC . second (twiceP exl)) &&& (ifC . second (twiceP exr))
 
 funIf :: forall k a b. (ClosedCat k, Ok k a, IfCat k b) => IfT k (Exp k a b)
 funIf = curry (ifC . (exl . exl &&& (apply . first (exl . exr) &&& apply . first (exr . exr))))
-           <+ inOp @(Prod k) @(Ok k) @(Prod k (BoolOf k) (Prod k (Exp k a b) (Exp k a b))) @a
+           <+ okProd @k @(Prod k (BoolOf k) (Prod k (Exp k a b) (Exp k a b))) @a
            <+ okIf @k @(Exp k a b)
-           <+ inOp @(Prod k) @(Ok k) @(Exp k a b) @a
-           <+ inOp @(Exp k) @(Ok k) @a @b
+           <+ okProd @k @(Exp k a b) @a
+           <+ okExp @k @a @b
            <+ okIf @k @b
 
 #if 0
