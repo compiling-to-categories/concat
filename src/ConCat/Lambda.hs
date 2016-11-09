@@ -11,9 +11,9 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+-- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
--- | 
+-- | Lambda calculus interface to CCC construction
 
 module ConCat.Lambda where
 
@@ -21,26 +21,26 @@ import Prelude hiding (id,(.),curry,uncurry)
 import Control.Monad (mplus)
 import Data.Maybe (fromMaybe)
 import Data.Type.Equality ((:~:)(..),TestEquality(..))
+import Data.Typeable (Typeable,typeRep,eqT)
+import Data.Proxy (Proxy(..))
 
-import ConCat.Misc
 import ConCat.Category
 
 -- | Variable names
 type Name = String
 
--- | Typed variable. Phantom
-data V a = V Name deriving Show
+-- | Typed variable.
+data V a = Typeable a => V Name
 
-varName :: V a -> Name
-varName (V name) = name
+instance Show (V a) where
+  -- show (V str) = str
+  showsPrec p (V str) =
+    showString str . showString " :: " . showsPrec p (typeRep (Proxy :: Proxy a))
 
-instance Eq' (V a) (V b) where V m === V n = n == m
-
--- instance TestEquality V where
---   V n `testEquality` V m | n == m    = Just Refl
---                          | otherwise = Nothing
-
--- TODO: Add a Typeable constraint to V and use in testEquality.
+instance TestEquality V where
+  (V n :: V a) `testEquality` (V m :: V b)
+    | Just Refl <- eqT @a @b, n == m = Just Refl
+    | otherwise                      = Nothing
 
 infixr 1 :$
 infixr 8 :@
@@ -92,8 +92,8 @@ var :: forall k b. (ProductCat k, Ok k b) => V b -> L k b
 var u = L (fromMaybe (error $ "convert: unbound variable: " ++ show u) . conv)
  where
    conv :: forall c. Ok k c => Pat k c -> Maybe (c `k` b)
-   conv (VarPat v) | Just Refl <- v ==? u = Just id
-                   | otherwise            = Nothing
+   conv (VarPat v) | Just Refl <- v `testEquality` u = Just id
+                   | otherwise                       = Nothing
    conv UnitPat  = Nothing
    conv (p :$ q) = ((. exr) <$> conv q) `mplus` ((. exl) <$> conv p)
    conv (p :@ q) = conv q `mplus` conv p
