@@ -27,6 +27,9 @@ library
                        ConCat.Free.VectorSpace
                        ConCat.Free.LinearCol
                        ConCat.Free.LinearRow
+                       ConCat.ShowUtils
+                       ConCat.Exp
+                       ConCat.CCC
 --                        ConCat.Circat.Circuit
 --                        ConCat.Circat.Rep
   -- other-modules:       
@@ -42,6 +45,7 @@ library
                      , keys >= 3.11
                      , newtype-generics
                      , pointed >= 5
+                     , transformers >= 0.5.2.0
                      , vector-space >= 0.10.4
 
   hs-source-dirs:      src
