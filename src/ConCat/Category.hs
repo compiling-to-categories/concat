@@ -453,6 +453,24 @@ class (ProductCat k, CoproductCat k) => DistribCat k where
     <+ inOp @(Coprod k) @(Ok k) @u @v
   {-# MINIMAL distl | distr #-}
 
+-- | Inverse to 'distl'
+undistl :: forall k a u v. (ProductCat k, CoproductCat k, Oks k [a,u,v])
+        => Coprod k (Prod k a u) (Prod k a v) `k` Prod k a (Coprod k u v)
+undistl = (exl ||| exl) &&& (exr +++ exr)
+  <+ inOp @(Coprod k) @(Ok k) @(Prod k a u) @(Prod k a v)
+  <+ inOp @(Prod   k) @(Ok k) @a @u
+  <+ inOp @(Prod   k) @(Ok k) @a @v
+  <+ inOp @(Coprod k) @(Ok k) @u @v
+
+-- | Inverse to 'distr'
+undistr :: forall k u v b. (ProductCat k, CoproductCat k, Oks k [u,v,b])
+        => Coprod k (Prod k u b) (Prod k v b) `k` Prod k (Coprod k u v) b
+undistr = undefined &&& (exr ||| exr)
+  <+ inOp @(Coprod k) @(Ok k) @(Prod k u b) @(Prod k v b)
+  <+ inOp @(Coprod k) @(Ok k) @u @v
+  <+ inOp @(Prod   k) @(Ok k) @u @b
+  <+ inOp @(Prod   k) @(Ok k) @v @b
+
 {--------------------------------------------------------------------
     Exponentials
 --------------------------------------------------------------------}
