@@ -423,6 +423,37 @@ unjoin :: forall k a c d. (CoproductCat k, Oks k [a,c,d])
 unjoin f = (f . inl, f . inr)  <+ inOp @(Coprod k) @(Ok k) @c @d
 
 {--------------------------------------------------------------------
+    Distributive
+--------------------------------------------------------------------}
+
+class (ProductCat k, CoproductCat k) => DistribCat k where
+  distl :: forall a u v. Oks k [a,u,v]
+        => Prod k a (Coprod k u v) `k` Coprod k (Prod k a u) (Prod k a v)
+  distr :: forall u v b. Oks k [u,v,b]
+        => Prod k (Coprod k u v) b `k` Coprod k (Prod k u b) (Prod k v b)
+  distl = (swapP +++ swapP) . distr . swapP
+    <+ inOp @(Prod k) @(Ok k) @(Coprod k u v) @a
+    <+ inOp @(Coprod k) @(Ok k) @(Prod k u a) @(Prod k v a)
+    <+ inOp @(Prod k) @(Ok k) @u @a
+    <+ inOp @(Prod k) @(Ok k) @v @a
+    <+ inOp @(Coprod k) @(Ok k) @(Prod k a u) @(Prod k a v)
+    <+ inOp @(Prod k) @(Ok k) @a @u
+    <+ inOp @(Prod k) @(Ok k) @a @v
+    <+ inOp @(Prod k) @(Ok k) @a @(Coprod k u v)
+    <+ inOp @(Coprod k) @(Ok k) @u @v
+  distr = (swapP +++ swapP) . distl . swapP
+    <+ inOp @(Prod k) @(Ok k) @b @(Coprod k u v)
+    <+ inOp @(Coprod k) @(Ok k) @(Prod k b u) @(Prod k b v)
+    <+ inOp @(Prod k) @(Ok k) @b @u
+    <+ inOp @(Prod k) @(Ok k) @b @v
+    <+ inOp @(Coprod k) @(Ok k) @(Prod k u b) @(Prod k v b)
+    <+ inOp @(Prod k) @(Ok k) @u @b
+    <+ inOp @(Prod k) @(Ok k) @v @b
+    <+ inOp @(Prod k) @(Ok k) @(Coprod k u v) @b
+    <+ inOp @(Coprod k) @(Ok k) @u @v
+  {-# MINIMAL distl | distr #-}
+
+{--------------------------------------------------------------------
     Exponentials
 --------------------------------------------------------------------}
 
@@ -972,8 +1003,7 @@ instance ProductCat (:->?) where
 -- A functor maps arrows in one category to arrows in another, systematically
 -- transforming the domain and codomain.
 
-infixr 9 %
-infixr 9 :%
+infixr 8 :%
 
 -- From <https://hackage.haskell.org/package/data-category>. Changes:
 -- 
@@ -998,18 +1028,19 @@ class (Category cat, Category cat')
   type f :% (a :: u) :: v
   -- | @%@ maps arrows.
   -- (%) :: (OkF f a, OkF f b) => cat a b -> cat' (f :% a) (f :% b)
-  (%) :: OkF f a b => cat a b -> cat' (f :% a) (f :% b)
+  fmapC :: OkF f a b => cat a b -> cat' (f :% a) (f :% b)
   -- Laws:
-  -- f % id == id
-  -- f % (q . p) == f % q . f % p
+  -- fmapC id == id
+  -- fmapC (q . p) == fmapC q . fmapC p
 
 class (ProductCat cat, ProductCat cat', FunctorC f cat cat')
    => CartesianFunctorC f cat cat' where
+  distribProd :: forall a b. () |- f :% Prod cat a b ~ Prod cat' (f :% a) (f :% b)
   -- Laws:
   -- f :% Prod cat a b ~ Prod cat' (f :% a) (f :% b) 
-  -- f % exl == exl
-  -- f % exr == exr
-  -- f % (q &&& p) = f % q &&& f % p
+  -- fmapC exl == exl
+  -- fmapC exr == exr
+  -- fmapC (q &&& p) = fmapC q &&& fmapC p
 
 -- I'd like to express the object structure as a superclass constraint, but it's
 -- universally quantified over types. Noodling.
@@ -1018,7 +1049,7 @@ class (ProductCat cat, ProductCat cat', FunctorC f cat cat')
 
 instance Functor f => FunctorC f (->) (->) where
   type f :% a = f a
-  (%) = fmap
+  fmapC = fmap
 
 -- TODO: Does this instance overlap with others I'll want, or do the two (->)s
 -- suffice to distinguish?
