@@ -573,30 +573,30 @@ instance Monad m => UnsafeArr (Kleisli m) where
   
 #endif
 
-constFun :: forall k a b c. (ClosedCat k, Oks k [a,b,c])
-         => (b `k` c) -> (a `k` Exp k b c)
+constFun :: forall k p a b. (ClosedCat k, Oks k [p,a,b])
+         => (a `k` b) -> (p `k` Exp k a b)
 constFun f = curry (f . exr)
-             <+ okProd @k @a @b
+             <+ okProd @k @p @a
 
---        f        :: b `k` c
---        f . exl  :: Prod k a b `k` c
--- curry (f . exl) :: a `k` (Exp k b c)
+--        f        :: a `k` b
+--        f . exl  :: Prod k p a `k` b
+-- curry (f . exl) :: p `k` (Exp k a b)
 
 -- Combine with currying:
 
-constFun2 :: forall k a b c d. (ClosedCat k, Oks k [a,b,c,d])
-          => (Prod k b c `k` d) -> (a `k` (Exp k b (Exp k c d)))
+constFun2 :: forall k p a b c. (ClosedCat k, Oks k [p,a,b,c])
+          => (Prod k a b `k` c) -> (p `k` (Exp k a (Exp k b c)))
 constFun2 = constFun . curry
-            <+ okExp @k @c @d
+            <+ okExp @k @b @c
 
-unitFun :: forall k b c. (ClosedCat k, TerminalCat k, Oks k [b,c])
-        => (b `k` c) -> (Unit k `k` (Exp k b c))
+unitFun :: forall k a b. (ClosedCat k, TerminalCat k, Oks k [a,b])
+        => (a `k` b) -> (Unit k `k` (Exp k a b))
 unitFun = constFun
 
-unUnitFun :: forall k a b. (ClosedCat k, TerminalCat k, Oks k [a,b]) =>
-             (Unit k `k` Exp k a b) -> (a `k` b)
+unUnitFun :: forall k p a. (ClosedCat k, TerminalCat k, Oks k [p,a]) =>
+             (Unit k `k` Exp k p a) -> (p `k` a)
 unUnitFun g = uncurry g . (it &&& id)
-              <+ okProd @k @(Unit k) @a
+              <+ okProd @k @(Unit k) @p
 
 {--------------------------------------------------------------------
     Constant arrows
