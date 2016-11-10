@@ -602,14 +602,42 @@ unUnitFun g = uncurry g . (it &&& id)
     Constant arrows
 --------------------------------------------------------------------}
 
--- class TerminalCat k => ConstCat k prim where
---   unitArrow  :: Ok k b => prim b -> Unit k `k` b
---   constArrow :: Oks k [a,b] => prim b -> a `k` b
---   constArrow p = unitArrow p . it
---   unitArrow = constArrow
---   {-# MINIMAL unitArrow | constArrow #-}
+#if 0
+  
+class TerminalCat k => ConstCat k where
+  unitArrow  :: Ok k b => b -> Unit k `k` b
+  constArrow :: Oks k [a,b] => b -> (a `k` b)
+  constArrow b = unitArrow b . it
+  unitArrow = constArrow
+  {-# MINIMAL unitArrow | constArrow #-}
 
--- Use constFun instead.
+instance ConstCat (->) where constArrow = const
+
+instance Monad m => ConstCat (Kleisli m) where constArrow b = arr (const b)
+
+#else
+
+-- Alternatively, make `b` a parameter to `ConstCat`:
+
+class (TerminalCat k, Ok k b) => ConstCat k b where
+  unitArrow  :: b -> Unit k `k` b
+  constArrow :: Ok k a => b -> (a `k` b)
+  constArrow b = unitArrow b . it
+  unitArrow = constArrow
+  {-# MINIMAL unitArrow | constArrow #-}
+
+instance ConstCat (->) b where constArrow = const
+
+instance Monad m => ConstCat (Kleisli m) b where constArrow b = arr (const b)
+
+-- Note that `ConstCat` is *not* poly-kinded. Since the codomain `b` is an
+-- argument to `unitArrow` and `constArrow`, `k :: * -> * -> *`. I'm uneasy
+-- about this kind restriction, which would preclude some useful categories,
+-- including linear maps and entailment. Revisit this issue later.
+
+#endif
+
+-- For prims, use constFun instead.
 
 {--------------------------------------------------------------------
     Class aggregates
