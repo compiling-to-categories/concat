@@ -573,16 +573,43 @@ instance Monad m => UnsafeArr (Kleisli m) where
   
 #endif
 
+constFun :: forall k a b c. (ClosedCat k, Oks k [a,b,c])
+         => (b `k` c) -> (a `k` Exp k b c)
+constFun f = curry (f . exr)
+             <+ okProd @k @a @b
+
+--        f        :: b `k` c
+--        f . exl  :: Prod k a b `k` c
+-- curry (f . exl) :: a `k` (Exp k b c)
+
+-- Combine with currying:
+
+constFun2 :: forall k a b c d. (ClosedCat k, Oks k [a,b,c,d])
+          => (Prod k b c `k` d) -> (a `k` (Exp k b (Exp k c d)))
+constFun2 = constFun . curry
+            <+ okExp @k @c @d
+
+unitFun :: forall k b c. (ClosedCat k, TerminalCat k, Oks k [b,c])
+        => (b `k` c) -> (Unit k `k` (Exp k b c))
+unitFun = constFun
+
+unUnitFun :: forall k a b. (ClosedCat k, TerminalCat k, Oks k [a,b]) =>
+             (Unit k `k` Exp k a b) -> (a `k` b)
+unUnitFun g = uncurry g . (it &&& id)
+              <+ okProd @k @(Unit k) @a
+
 {--------------------------------------------------------------------
     Constant arrows
 --------------------------------------------------------------------}
 
-class TerminalCat k => ConstCat (k :: u -> u -> *) (prim :: u -> *) where
-  unitArrow  :: Ok k b => prim b -> Unit k `k` b
-  constArrow :: Oks k [a,b] => prim b -> a `k` b
-  constArrow p = unitArrow p . it
-  unitArrow = constArrow
-  {-# MINIMAL unitArrow | constArrow #-}
+-- class TerminalCat k => ConstCat k prim where
+--   unitArrow  :: Ok k b => prim b -> Unit k `k` b
+--   constArrow :: Oks k [a,b] => prim b -> a `k` b
+--   constArrow p = unitArrow p . it
+--   unitArrow = constArrow
+--   {-# MINIMAL unitArrow | constArrow #-}
+
+-- Use constFun instead.
 
 {--------------------------------------------------------------------
     Class aggregates
@@ -592,8 +619,8 @@ class TerminalCat k => ConstCat (k :: u -> u -> *) (prim :: u -> *) where
 -- terminal and distributive, though should probably be moved out.
 type BiCCC k = (ClosedCat k, CoproductCat k, TerminalCat k, DistribCat k)
 
--- | 'BiCCC' with constant arrows.
-type BiCCCC k p = (BiCCC k, ConstCat k p {-, RepCat k, LoopCat k, DelayCat k-})
+-- -- | 'BiCCC' with constant arrows.
+-- type BiCCCC k p = (BiCCC k, ConstCat k p {-, RepCat k, LoopCat k, DelayCat k-})
 
 
 {--------------------------------------------------------------------
