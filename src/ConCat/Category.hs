@@ -1162,6 +1162,33 @@ instance Functor f => FunctorC f (->) (->) where
 -- suffice to distinguish?
 
 {--------------------------------------------------------------------
+    Uncurrying --- move elsewhere
+--------------------------------------------------------------------}
+
+-- | Repeatedly uncurried version of a -> b
+class Uncurriable a b where
+  type UncDom a b
+  type UncRan a b
+  type UncDom a b = a
+  type UncRan a b = b
+  uncurries :: (a -> b) -> (UncDom a b -> UncRan a b)
+  default uncurries :: (a -> b) -> (a -> b)
+  uncurries = id
+
+instance Uncurriable (a :* b) c => Uncurriable a (b -> c) where
+  type UncDom a (b -> c) = UncDom (a :* b) c
+  type UncRan a (b -> c) = UncRan (a :* b) c
+  uncurries = uncurries . uncurry
+
+instance Uncurriable a ()
+instance Uncurriable a Bool
+instance Uncurriable a Int
+instance Uncurriable a Float
+instance Uncurriable a Double
+instance Uncurriable a (c :* d)
+instance Uncurriable a (c :+ d)
+
+{--------------------------------------------------------------------
     Other category subclasses, perhaps to move elsewhere
 --------------------------------------------------------------------}
 
