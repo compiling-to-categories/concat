@@ -35,7 +35,8 @@ data V a = Typeable a => V Name
 instance Show (V a) where
   -- show (V str) = str
   showsPrec p (V str) =
-    showString str . showString " :: " . showsPrec p (typeRep (Proxy :: Proxy a))
+    showParen (p > 0) $
+    showString str . showString " :: " . showsPrec 0 (typeRep (Proxy :: Proxy a))
 
 instance TestEquality V where
   (V n :: V a) `testEquality` (V m :: V b)
@@ -56,15 +57,22 @@ data Pat :: (u -> u -> *) -> u -> * where
 
 type L k p b = Pat k p -> (p `k` b)
 
-constL :: (HasConstArrow k prim, Oks k [p,b]) => prim b -> L k p b
-constL b = const (constArrow b)
+lit :: (ConstCat k b, Ok k p) => b -> L k p b
+lit b = const (constArrow b)
+
+prim1 :: (ClosedCat k, Oks k [p,a,b]) => (a `k` b) -> L k p (Exp k a b)
+prim1 f = const (constFun f)
+
+prim2 :: (ClosedCat k, Oks k [p,a,b,c])
+      => (Prod k a b `k` c) -> L k p (Exp k a (Exp k b c))
+prim2 f = const (constFun2 f)
 
 var :: forall k p b. (ProductCat k, Oks k [p,b]) => V b -> L k p b
-var u = fromMaybe (error $ "convert: unbound variable: " ++ show u) . conv
+var u = fromMaybe (error $ "unbound variable: " ++ show u) . conv
  where
    conv :: forall c. Ok k c => Pat k c -> Maybe (c `k` b)
-   conv (VarPat v) | Just Refl <- v ==? u = Just id
-                   | otherwise            = Nothing
+   conv (VarPat v) | Just Refl <- v `testEquality` u = Just id
+                   | otherwise                       = Nothing
    conv UnitPat  = Nothing
    conv (p :$ q) = ((. exr) <$> conv q) `mplus` ((. exl) <$> conv p)
    conv (p :@ q) = conv q `mplus` conv p
@@ -85,8 +93,15 @@ lam a b p = curry (b (p :$ a))
 
 data L k b = L (forall p. Ok k p => Pat k p -> (p `k` b))
 
-constL :: (ConstCat k prim, Ok k b) => prim b -> L k b
-constL b = L (const (constArrow b))
+lit :: ConstCat k b => b -> L k b
+lit b = L (const (constArrow b))
+
+prim1 :: (ClosedCat k, Oks k [a,b]) => (a `k` b) -> L k (Exp k a b)
+prim1 f = L (const (constFun f))
+
+prim2 :: (ClosedCat k, Oks k [a,b,c])
+      => (Prod k a b `k` c) -> L k (Exp k a (Exp k b c))
+prim2 f = L (const (constFun2 f))
 
 var :: forall k b. (ProductCat k, Ok k b) => V b -> L k b
 var u = L (fromMaybe (error $ "convert: unbound variable: " ++ show u) . conv)
