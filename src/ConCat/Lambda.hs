@@ -127,4 +127,3 @@ lam :: forall k a b. (ClosedCat k, Oks k [a,b])
 lam a (L b) = L (\ (p :: Pat k p) -> curry (b (p :$ a)) <+ okProd @k @p @a)
 
 #endif
-
