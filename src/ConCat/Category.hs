@@ -1,3 +1,4 @@
+-- {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -43,6 +44,7 @@ import Data.Proxy (Proxy)
 import GHC.Generics
 import GHC.Types (Constraint)
 import Data.Constraint hiding ((&&&),(***),(:=>))
+-- import GHC.Types (type (*))  -- experiment with TypeInType
 -- import qualified Data.Constraint as K
 
 import Control.Newtype (Newtype(..))
@@ -611,11 +613,7 @@ class TerminalCat k => ConstCat k where
   unitArrow = constArrow
   {-# MINIMAL unitArrow | constArrow #-}
 
-instance ConstCat (->) where constArrow = const
-
-instance Monad m => ConstCat (Kleisli m) where constArrow b = arr (const b)
-
-#else
+#elif 0
 
 -- Alternatively, make `b` a parameter to `ConstCat`:
 
@@ -626,18 +624,31 @@ class (TerminalCat k, Ok k b) => ConstCat k b where
   unitArrow = constArrow
   {-# MINIMAL unitArrow | constArrow #-}
 
+#else
+
+-- Associated type for the codomain
+
+class (TerminalCat k, Ok k (ConstObj k b)) => ConstCat k b where
+  type ConstObj k b
+  type ConstObj k b = b
+  unitArrow  :: b -> (Unit k `k` ConstObj k b)
+  constArrow :: Ok k a => b -> (a `k` ConstObj k b)
+  constArrow b = unitArrow b . it
+  unitArrow = constArrow
+  {-# MINIMAL unitArrow | constArrow #-}
+
+#endif
+
 instance ConstCat (->) b where constArrow = const
 
 instance Monad m => ConstCat (Kleisli m) b where constArrow b = arr (const b)
+
+-- For prims, use constFun instead.
 
 -- Note that `ConstCat` is *not* poly-kinded. Since the codomain `b` is an
 -- argument to `unitArrow` and `constArrow`, `k :: * -> * -> *`. I'm uneasy
 -- about this kind restriction, which would preclude some useful categories,
 -- including linear maps and entailment. Revisit this issue later.
-
-#endif
-
--- For prims, use constFun instead.
 
 {--------------------------------------------------------------------
     Class aggregates
@@ -1096,7 +1107,6 @@ instance ProductCat (:->?) where
 
 -- TODO: revisit
 
-
 --   apply :: C2 HasTrie a b => (a -> b) :* a :->? b
 --   curry :: C3 HasTrie a b c => (a :* b :->? c) -> (a :->? (b -> c))
 --   uncurry :: C3 HasTrie a b c => (a :->? (b -> c)) -> (a :* b :->? c)
@@ -1110,7 +1120,7 @@ instance ProductCat (:->?) where
 -- A functor maps arrows in one category to arrows in another, systematically
 -- transforming the domain and codomain.
 
-infixr 8 :%
+infixr 8 %
 
 -- From <https://hackage.haskell.org/package/data-category>. Changes:
 -- 
@@ -1118,33 +1128,29 @@ infixr 8 :%
 -- *  Remove `f` argument from `(%)`
 -- *  Generalized object kinds from * to u and v
 
--- | Functors map objects and arrows.
-class (Category cat, Category cat')
-   => FunctorC f (cat :: u -> u -> *) (cat' :: v -> v -> *) | f -> u v where
 #if 0
-  type OkF f :: u -> Constraint
-  type OkF f = Yes1
-#elif 0
-  type OkF f (a :: u) :: Constraint
-  type OkF f a = () 
-#else
-  type OkF f (a :: u) (b :: u) :: Constraint
+
+-- | Functors map objects and arrows.
+class (Category (FDom f), Category (FCod f)) => FunctorC f where
+  type DomObj f
+  type CodObj f
+  type FDom f :: DomObj f -> DomObj f -> *
+  type FCod f :: CodObj f -> CodObj f -> *
+  type OkF f (a :: DomObj f) (b :: DomObj f) :: Constraint
   type OkF f a b = () 
-#endif
-  -- | @:%@ maps objects.
-  type f :% (a :: u) :: v
-  -- | @%@ maps arrows.
-  -- (%) :: (OkF f a, OkF f b) => cat a b -> cat' (f :% a) (f :% b)
-  fmapC :: OkF f a b => cat a b -> cat' (f :% a) (f :% b)
+  -- | @%@ maps objects.
+  type f % (a :: DomObj f) :: CodObj f
+  -- | @fmapC@ maps arrows.
+  fmapC :: OkF f a b => FDom f a b -> FCod f (f % a) (f % b)
   -- Laws:
   -- fmapC id == id
   -- fmapC (q . p) == fmapC q . fmapC p
 
-class (ProductCat cat, ProductCat cat', FunctorC f cat cat')
-   => CartesianFunctorC f cat cat' where
-  distribProd :: forall a b. () |- f :% Prod cat a b ~ Prod cat' (f :% a) (f :% b)
+class (ProductCat (FDom f), ProductCat (FCod f), FunctorC f)
+   => CartesianFunctorC f where
+  distribProd :: forall a b. () |- f % Prod (FDom f) a b ~ Prod (FCod f) (f % a) (f % b)
   -- Laws:
-  -- f :% Prod cat a b ~ Prod cat' (f :% a) (f :% b) 
+  -- f % Prod (FDom f) a b ~ Prod (FCod f) (f % a) (f % b) 
   -- fmapC exl == exl
   -- fmapC exr == exr
   -- fmapC (q &&& p) = fmapC q &&& fmapC p
@@ -1155,11 +1161,54 @@ class (ProductCat cat, ProductCat cat', FunctorC f cat cat')
 -- Haskell-style functor
 
 instance Functor f => FunctorC f (->) (->) where
-  type f :% a = f a
+  type f % a = f a
+  fmapC = fmap
+
+#else
+
+-- | Functors map objects and arrows.
+class (Category cat, Category cat')
+   => FunctorC f (cat :: u -> u -> *) (cat' :: v -> v -> *) {-| f -> cat cat'-} where
+#if 0
+  type OkF f :: u -> Constraint
+  type OkF f = Yes1
+#elif 0
+  type OkF f (a :: u) :: Constraint
+  type OkF f a = () 
+#else
+  type OkF f (a :: u) (b :: u) :: Constraint
+  type OkF f a b = () 
+#endif
+  -- | @%@ maps objects.
+  type f % (a :: u) :: v
+  -- | @fmapC@ maps arrows.
+  fmapC :: OkF f a b => cat a b -> cat' (f % a) (f % b)
+  -- Laws:
+  -- fmapC id == id
+  -- fmapC (q . p) == fmapC q . fmapC p
+
+class (ProductCat cat, ProductCat cat', FunctorC f cat cat')
+   => CartesianFunctorC f cat cat' where
+  distribProd :: forall a b. () |- f % Prod cat a b ~ Prod cat' (f % a) (f % b)
+  -- Laws:
+  -- f % Prod cat a b ~ Prod cat' (f % a) (f % b) 
+  -- fmapC exl == exl
+  -- fmapC exr == exr
+  -- fmapC (q &&& p) = fmapC q &&& fmapC p
+
+-- I'd like to express the object structure as a superclass constraint, but it's
+-- universally quantified over types. Noodling.
+
+-- Haskell-style functor
+
+instance Functor f => FunctorC f (->) (->) where
+  type f % a = f a
   fmapC = fmap
 
 -- TODO: Does this instance overlap with others I'll want, or do the two (->)s
 -- suffice to distinguish?
+
+#endif
 
 {--------------------------------------------------------------------
     Uncurrying --- move elsewhere
