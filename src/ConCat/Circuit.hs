@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 
--- #define NoOptimizeCircuit
+#define NoOptimizeCircuit
 -- #define NoHashCons
 
 -- #define NoIfBotOpt
@@ -849,35 +849,6 @@ instance BottomCat (:>) where
   bottomC = mkCK (const mkBot)
 #endif
 
-pattern Read :: Read a => a -> String
-pattern Read x <- (reads -> [(x,"")])
-
-pattern ConstS :: PrimName -> Source
-pattern ConstS name <- Source _ name [] 0
-
-pattern Val :: Read a => a -> Source
-pattern Val x <- ConstS (Read x)
-
--- pattern Val x       <- ConstS (reads -> [(x,"")])
-
-pattern TrueS :: Source
-pattern TrueS  <- ConstS "True"
-
-pattern FalseS :: Source
-pattern FalseS <- ConstS "False"
-
-pattern NotS :: Source -> Source
-pattern NotS a <- Source _ "¬" [a] 0
-
-pattern XorS :: Source -> Source -> Source
-pattern XorS a b <- Source _ "⊕" [a,b] 0
-
-pattern EqS :: Source -> Source -> Source
-pattern EqS a b <- Source _ "≡" [a,b] 0
-
--- pattern NeS :: Source -> Source -> Source
--- pattern NeS a b <- Source _ "≠" [a,b] 0
-
 -- TODO: state names like "⊕" and "≡" just once.
 
 class SourceToBuses a where toBuses :: Source -> Buses a
@@ -898,6 +869,56 @@ instance GenBuses b => UnknownCat (:>) a b where
 
 #define Sat(pred) ((pred) -> True)
 #define Eql(x) Sat(==(x))
+
+-- -- https://ghc.haskell.org/trac/ghc/ticket/12007
+-- #define BrokenPat
+
+#if !defined BrokenPat
+pattern Read :: Read a => a -> String
+pattern Read x <- (reads -> [(x,"")])
+
+pattern ConstS :: PrimName -> Source
+pattern ConstS name <- Source _ name [] 0
+
+pattern Val :: Read a => a -> Source
+pattern Val x <- ConstS (Read x)
+
+-- pattern Val x       <- ConstS (reads -> [(x,"")])
+
+pattern TrueS :: Source
+pattern TrueS  <- ConstS("True")
+
+pattern FalseS :: Source
+pattern FalseS <- ConstS("False")
+
+pattern NotS :: Source -> Source
+pattern NotS a <- Source _ "¬" [a] 0
+
+pattern XorS :: Source -> Source -> Source
+pattern XorS a b <- Source _ "⊕" [a,b] 0
+
+pattern EqS :: Source -> Source -> Source
+pattern EqS a b <- Source _ "≡" [a,b] 0
+
+-- pattern NeS :: Source -> Source -> Source
+-- pattern NeS a b <- Source _ "≠" [a,b] 0
+
+#else
+
+#define Read(x) (reads -> [((x),"")])
+#define ConstS(name) (Source _ name [] 0)
+#define Val(x) ConstS(Read(x))
+
+#define TrueS ConstS("True")
+#define FalseS ConstS("False")
+#define NotS(a) (Source _ "¬" [a] 0)
+#define XorS(a,b) (Source _ "⊕" [a,b] 0)
+#define EqS(a,b) <- (Source _ "≡" [a,b] 0)
+
+-- pattern NeS :: Source -> Source -> Source
+-- pattern NeS a b <- Source _ "≠" [a,b] 0
+
+#endif
 
 primDelay :: (SourceToBuses a, GS a) => a -> (a :> a)
 primDelay a0 = primOpt (delayName a0s) $ \ case
