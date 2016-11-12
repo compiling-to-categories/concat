@@ -41,7 +41,7 @@ import qualified Control.Arrow as A
 import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
 import Data.Proxy (Proxy)
-import GHC.Generics
+import GHC.Generics hiding (Rep)
 import GHC.Types (Constraint)
 import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import GHC.Types (type (*))  -- experiment with TypeInType
@@ -52,6 +52,7 @@ import Control.Newtype (Newtype(..))
 import Data.MemoTrie
 
 import ConCat.Misc hiding ((<~),(~>))
+import ConCat.Rep
 import ConCat.Orphans ()
 
 {--------------------------------------------------------------------
@@ -511,7 +512,7 @@ instance ClosedCat (->) where
   curry   = P.curry
   uncurry = P.uncurry
 
-#if 0
+#if 1
 applyK   ::            Kleisli m (Kleisli m a b :* a) b
 curryK   :: Monad m => Kleisli m (a :* b) c -> Kleisli m a (Kleisli m b c)
 uncurryK :: Monad m => Kleisli m a (Kleisli m b c) -> Kleisli m (a :* b) c
@@ -1448,10 +1449,13 @@ funIf = curry (ifC . (exl . exl &&& (apply . first (exl . exr) &&& apply . first
 
 #endif
 
-#if 0
-
-repIf :: (RepCat k, ProductCat k, HasRep a, IfCat k (Rep a)) => IfT k a
+repIf :: forall k a. (RepCat k, ProductCat k, Ok k a, HasRep a, IfCat k (Rep a))
+      => IfT k a
 repIf = abstC . ifC . second (twiceP reprC)
+        <+ okProd @k @(BoolOf k) @(Prod k (Rep a) (Rep a))
+        <+ okProd @k @(Rep a) @(Rep a)
+        <+ okProd @k @(BoolOf k) @(Prod k a a)
+        <+ okProd @k @a @a
 
 #if 0
    repIf
@@ -1461,11 +1465,17 @@ repIf = abstC . ifC . second (twiceP reprC)
 == abstC . ifC . second (twiceP reprC)
 #endif
 
-#endif
-
 class UnknownCat k a b where
   unknownC :: a `k` b
 
 instance UnknownCat (->) a b where
   unknownC = error "unknown"
 
+
+class RepCat k where
+  reprC :: HasRep a => a `k` Rep a
+  abstC :: HasRep a => Rep a `k` a
+
+instance RepCat (->) where
+  reprC = repr
+  abstC = abst

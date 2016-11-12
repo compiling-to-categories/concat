@@ -93,7 +93,7 @@ lam a b p = curry (b (p :$ a))
 
 data L k b = L (forall p. Ok k p => Pat k p -> (p `k` b))
 
-lit :: ConstCat k b => b -> L k b
+lit :: ConstCat k b => b -> L k (ConstObj k b)
 lit b = L (const (constArrow b))
 
 prim1 :: (ClosedCat k, Oks k [a,b]) => (a `k` b) -> L k (Exp k a b)

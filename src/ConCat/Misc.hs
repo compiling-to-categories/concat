@@ -104,6 +104,27 @@ inNew2 = inNew <~ unpack
 compose :: [Unop a] -> Unop a
 compose = foldr (.) id
 
+infixr 3 `xor`
+
+xor :: Binop Bool
+xor = (/=)
+{-# NOINLINE xor #-}
+
+newtype Parity = Parity { getParity :: Bool }
+
+instance Newtype Parity where
+  type O Parity = Bool
+  pack = Parity
+  unpack (Parity x) = x
+
+instance Monoid Parity where
+  mempty = Parity False
+  Parity a `mappend` Parity b = Parity (a `xor` b)
+
+boolToInt :: Bool -> Int
+boolToInt c = if c then 1 else 0
+{-# INLINE boolToInt #-}
+
 {--------------------------------------------------------------------
     Type level computations
 --------------------------------------------------------------------}

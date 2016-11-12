@@ -13,7 +13,7 @@
 
 -- | A value-based entailment category
 
-module Entail where
+module ConCat.Entail where
 
 import Prelude hiding (id,(.),curry,uncurry)
 
@@ -52,7 +52,7 @@ instance Newtype (a |- b) where
   unpack (Entail e) = e
 
 instance Category (|-) where
-  type Ok (|-) = HasCon
+  -- type Ok (|-) = HasCon
   id = pack refl
   (.) = inNew2 (\ g  f -> Sub $ Dict \\ g \\ f)
 
