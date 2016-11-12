@@ -305,6 +305,53 @@ instance Newtype (LMapF' s a b) where
 
 #endif
 
+#if 1
+
+{--------------------------------------------------------------------
+    Experiment: use value types instead of functors for domain & range
+--------------------------------------------------------------------}
+
+newtype LM s a b = LM (V s b (V s a s))
+-- newtype LM s a b = LM ((V s a :-* V s b) s)
+
+instance Newtype (LM s a b) where
+  type O (LM s a b) = V s b (V s a s)
+  -- type O (LM s a b) = (V s a :-* V s b) s
+  pack ab = LM ab
+  unpack (LM ab) = ab
+
+type OkLM' s a = ( Foldable (V s a), Pointed (V s a), Zip (V s a)
+                 , Keyed (V s a), Adjustable (V s a), Num s)
+
+class    OkLM' s a => OkLM s a
+instance OkLM' s a => OkLM s a
+
+instance Category (LM s) where
+  type Ok (LM s) = OkLM s
+  id = pack idL
+  (.) = inNew2 (@.)
+
+instance OpCon (,) (OkLM s) where inOp = Sub Dict
+
+instance ProductCat (LM s) where
+  type Prod (LM s) = (,)
+  exl = pack exlL
+  exr = pack exrL
+  (&&&) = inNew2 forkL
+
+instance CoproductCat (LM s) where
+  type Coprod (LM s) = (,)
+  inl = pack inlL
+  inr = pack inrL
+  (|||) = inNew2 joinL
+
+-- We can't make a ClosedCat instance compatible with the ProductCat instance.
+-- We'd have to change the latter to use the tensor product.
+
+-- type instance Exp (LM s) = (:.:)
+
+#endif
+
 {--------------------------------------------------------------------
     Conversion to linear map
 --------------------------------------------------------------------}
