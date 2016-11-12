@@ -181,3 +181,14 @@ type family CrossWith f as bs where
 --       (Use UndecidableInstances to permit this)
 
 type AllC2 f as bs = AndC (CrossWith f as bs)
+
+{--------------------------------------------------------------------
+    For rewriting. Move elsewhere.
+--------------------------------------------------------------------}
+
+ccc :: a -> a
+ccc _ = error "ccc: not implemented"
+{-# NOINLINE ccc #-}
+
+-- Note: ccc mustn't be a CAF.
+
