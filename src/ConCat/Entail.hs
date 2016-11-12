@@ -54,7 +54,7 @@ instance Newtype (a |- b) where
 instance Category (|-) where
   -- type Ok (|-) = HasCon
   id = pack refl
-  (.) = inNew2 (\ g  f -> Sub $ Dict \\ g \\ f)
+  (.) = inNew2 (\ g f -> Sub $ Dict \\ g \\ f)
 
 instance OpCon (:*) HasCon where
   inOp = Sub Dict
