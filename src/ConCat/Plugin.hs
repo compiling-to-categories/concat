@@ -8,6 +8,7 @@
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -fno-warn-unused-binds -fno-warn-unused-matches #-} -- TEMP
 
 -- | GHC plugin converting to CCC form.
 
@@ -45,9 +46,16 @@ import ConCat.Misc (Unop,Binop)
 
 -- Information needed for reification. We construct this info in
 -- CoreM and use it in the reify rule, which must be pure.
-data CccEnv = CccEnv { dtrace :: forall a. String -> SDoc -> a -> a
-                     , cccV   :: Id
-                     , idV    :: Id
+data CccEnv = CccEnv { dtrace   :: forall a. String -> SDoc -> a -> a
+                     , cccV     :: Id
+                     , idV      :: Id
+                     , constV   :: Id
+                     , forkV    :: Id
+                     , applyV   :: Id
+                     , composeV :: Id
+                     , curryV   :: Id
+                     , fstV     :: Id
+                     , sndV     :: Id
                      }
 
 -- Whether to run Core Lint after every step
@@ -61,19 +69,51 @@ type ReExpr = Rewrite CoreExpr
 
 -- #define Trying(str)
 
-ccc :: CccEnv -> ModGuts -> DynFlags -> InScopeEnv -> Var -> ReExpr
-ccc (CccEnv {..}) guts dflags inScope x =
+ccc :: CccEnv -> ModGuts -> DynFlags -> InScopeEnv -> ReExpr
+ccc (CccEnv {..}) guts dflags inScope =
   traceRewrite "ccc" $
   (if lintSteps then lintReExpr else id) $
   go
  where
    go :: ReExpr
-   go = \ case 
-     e | dtrace "ccc go:" (ppr e) False -> undefined
-     Trying("lambda")
+   go e | dtrace "ccc go:" (ppr e) False = undefined
+   go (Var {}) = Nothing   -- wait for inlining
+   go (Lam x body) = goLam x body
+   go e = return $ mkCcc (etaExpand 1 e)
+          -- go (etaExpand 1 e)
+   goLam x body = case body of
+     Trying("Var")
+     -- (\ x -> x) --> id
      Var y | x == y ->
        return $ varApps idV [varType x] []
-     Trying("bailing")
+     Trying("constant")
+     -- (\ x -> e) --> const e, where x is not free in e.
+     e | not (isFreeIn x e) ->
+       return $ varApps constV [exprType e, varType x] [e]
+     Trying("app")
+     -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
+     u `App` v ->
+       return $ mkCompose
+                  (varApps applyV [vty,bty] [])
+                  (varApps forkV [xty,uty,vty]
+                    [mkCcc (Lam x u), mkCcc (Lam x v)])
+      where
+        xty = varType x
+        uty = exprType u
+        vty = exprType v
+        bty = exprType body
+     Trying("Lambda")
+     -- (\ x -> \ y -> e) --> \ z -> curry (\ z -> [fst z/x, snd z/y]e)
+     Lam y e ->
+       return $ varApps curryV [xty,yty,ety] [mkCcc $ Lam z (subst sub e)]
+      where
+        xty = varType x
+        yty = varType y
+        ety = exprType e
+        z = freshId (exprFreeVars e) "z" (pairTy xty yty)
+        sub = [ (x, varApps fstV [xty,yty] [Var z])
+              , (y, varApps sndV [xty,yty] [Var z]) ]
+     -- bailing
      _e -> dtrace "ccc" ("Unhandled:" <+> ppr _e) $
            Nothing
    traceRewrite :: (Outputable a, Outputable (f b)) =>
@@ -82,7 +122,15 @@ ccc (CccEnv {..}) guts dflags inScope x =
    pprTrans :: (Outputable a, Outputable b) => String -> a -> b -> b
    pprTrans str a b = dtrace str (ppr a $$ "-->" $$ ppr b) b
    mkCcc :: Unop CoreExpr
-   mkCcc e = varApps cccV [exprType e] [e]
+   mkCcc e = varApps cccV [a,b] [e]
+    where
+      (a,b) = splitFunTy (exprType e)
+   mkCompose :: Binop CoreExpr
+   g `mkCompose` f = varApps composeV [b,c,a] [g,f]
+    where
+      -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
+      Just (b,c) = splitFunTy_maybe (exprType g)
+      Just (a,_) = splitFunTy_maybe (exprType f)
    lintReExpr :: Unop ReExpr
    lintReExpr rew before =
      do after <- rew before
@@ -103,11 +151,9 @@ cccRule :: CccEnv -> ModGuts -> CoreRule
 cccRule env guts =
   BuiltinRule { ru_name  = fsLit "ccc"
               , ru_fn    = varName (cccV env)
-              , ru_nargs = 2  -- including type arg
-              , ru_try   = \ dflags inScope _fn [_ty,arg] ->
-                              case arg of 
-                                Lam x body -> ccc env guts dflags inScope x body
-                                _          -> Nothing
+              , ru_nargs = 3  -- including type args
+              , ru_try   = \ dflags inScope _fn [Type _a,Type _b,arg] ->
+                               ccc env guts dflags inScope arg
               }
 
 plugin :: Plugin
@@ -158,17 +204,24 @@ mkCccEnv opts = do
          err = "reify installation: couldn't find "
                ++ str ++ " in " ++ moduleNameString modu
       lookupTh mkOcc mk modu = lookupRdr (mkModuleName modu) mkOcc mk
-      findId = lookupTh mkVarOcc  lookupId
-      findTc = lookupTh mkTcOcc   lookupTyCon
+      findId      = lookupTh mkVarOcc  lookupId
+      findTc      = lookupTh mkTcOcc   lookupTyCon
       findRepTc   = findTc "ConCat.Rep"
       findBaseId  = findId "GHC.Base"
+      findTupleId = findId "Data.Tuple"
       findMiscId  = findId "ConCat.Misc"
   ruleBase <- getRuleBase
-  dtrace "mkReifyEnv: getRuleBase ==" (ppr ruleBase) (return ())
-  idV        <- findBaseId "id"
-  ccV        <- findMiscId "ccc"
+  -- dtrace "mkReifyEnv: getRuleBase ==" (ppr ruleBase) (return ())
+  idV      <- findBaseId  "id"
+  constV   <- findBaseId  "const"
+  composeV <- findBaseId  "."
+  curryV   <- findTupleId "curry"
+  fstV     <- findTupleId "fst"
+  sndV     <- findTupleId "snd"
+  cccV     <- findMiscId  "ccc"
+  forkV    <- findMiscId  "fork"
+  applyV   <- findMiscId  "appl"
   return (CccEnv { .. })
-
 
 {--------------------------------------------------------------------
     Misc
@@ -337,3 +390,12 @@ unVarApps (collectArgs -> (Var v,allArgs)) = Just (v,tys,others)
    unType (Type t) = t
    unType e        = pprPanic "unVarApps - unType" (ppr e)
 unVarApps _ = Nothing
+
+isFreeIn :: Var -> CoreExpr -> Bool
+v `isFreeIn` e = v `elemVarSet` (exprFreeVars e)
+
+-- exprFreeVars :: CoreExpr -> VarSet
+-- elemVarSet      :: Var -> VarSet -> Bool
+
+pairTy :: Binop Type
+pairTy a b = mkBoxedTupleTy [a,b]

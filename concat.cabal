@@ -33,22 +33,26 @@ library
                        ConCat.Complex
                        ConCat.Rep
                        ConCat.Circuit
+                       ConCat.Plugin
 
   include-dirs: src/ConCat
   install-includes:    AbsTy.inc
 
-  build-depends:       base >=4.9 && <4.10
-                     , ghc-prim >= 0.5.0.0
+  build-depends:       MemoTrie >= 0.6.5
                      , QuickCheck >= 2.8.2
+                     , Stream
+                     , base >=4.9 && <4.10
                      , constraints >= 0.8
                      , containers >= 0.5.7.1
-                     , Stream
-                     , MemoTrie >= 0.6.5
+                     , ghc-prim >= 0.5.0.0
                      , keys >= 3.11
-                     , pointed >= 5
                      , newtype-generics
+                     , pointed >= 5
                      , transformers >= 0.5.2.0
                      , vector-space >= 0.10.4
+                     -- For Plugin
+                     , ghc >= 8.0.1
+                     , syb >= 0.6
                      -- For Circuit, to be moved to another project
                      , directory >= 1.2.6.2
                      , process >= 1.4.2.0
@@ -62,3 +66,16 @@ library
 
   -- other-modules:       
   -- other-extensions:    
+
+Test-Suite basic
+  type:             detailed-0.9
+  default-language: Haskell98
+  hs-Source-Dirs:   test
+  test-module:      Basic
+  Build-Depends:    Cabal >= 1.24.0.0
+                  , base<5
+                  , concat
+  ghc-options:      -O2 -fforce-recomp
+
+-- "stack test" builds and runs both/all test suites.
+-- "stack build :shaped" or "stack build :basic" builds and runs just one suite.

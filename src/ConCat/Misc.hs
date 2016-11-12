@@ -186,9 +186,16 @@ type AllC2 f as bs = AndC (CrossWith f as bs)
     For rewriting. Move elsewhere.
 --------------------------------------------------------------------}
 
-ccc :: a -> a
+ccc :: forall a b. Unop (a -> b)
 ccc _ = error "ccc: not implemented"
 {-# NOINLINE ccc #-}
 
 -- Note: ccc mustn't be a CAF.
 
+fork :: forall a c d. (a -> c) -> (a -> d) -> (a -> c :* d)
+fork f g a = (f a, g a)
+{-# NOINLINE fork #-}
+
+appl :: forall a b. (a -> b) :* a -> b
+appl = uncurry ($)
+{-# NOINLINE appl #-}
