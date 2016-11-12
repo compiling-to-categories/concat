@@ -311,17 +311,16 @@ instance Newtype (LMapF' s a b) where
     Experiment: use value types instead of functors for domain & range
 --------------------------------------------------------------------}
 
-newtype LM s a b = LM (V s b (V s a s))
--- newtype LM s a b = LM ((V s a :-* V s b) s)
+newtype LM s a b = LM ((V s a :-* V s b) s)
 
 instance Newtype (LM s a b) where
-  type O (LM s a b) = V s b (V s a s)
-  -- type O (LM s a b) = (V s a :-* V s b) s
+  type O (LM s a b) = (V s a :-* V s b) s
   pack ab = LM ab
   unpack (LM ab) = ab
 
-type OkLM' s a = ( Foldable (V s a), Pointed (V s a), Zip (V s a)
-                 , Keyed (V s a), Adjustable (V s a), Num s)
+type OkLF' f = (Foldable f, Pointed f, Zip f, Keyed f, Adjustable f)
+
+type OkLM' s a = (OkLF' (V s a), Num s)
 
 class    OkLM' s a => OkLM s a
 instance OkLM' s a => OkLM s a
@@ -349,6 +348,31 @@ instance CoproductCat (LM s) where
 -- We'd have to change the latter to use the tensor product.
 
 -- type instance Exp (LM s) = (:.:)
+
+#endif
+
+#if 0
+
+-- Another experiment
+
+-- data Vec s a = V (forall f. (V s a ~ f, OkLF' f, Num s) => f s)
+data Vec s a = V (forall f. (V s a ~ f, OkLF' f, Num s) => f s)
+
+data LMV s a b =
+  LMV (forall g f. (V s a ~ f, V s b ~ g, OkLF' f, OkLF' g, Num s) => g (f s))
+
+-- data LMV s a b =
+--   LMV ((OkLM' s a, OkLM' s b, Num s, Foldable (V s b)) => V s b (V s a s))
+
+-- data LMV s a b =
+--   LMV (Dict (OkLM' s a, OkLM' s b, Num s, Foldable (V s b))) (V s b (V s a s))
+
+instance Category (LMV s) where
+  id = LMV idL
+--  LMV gs . LMV fs = LMV (gs @. fs)
+
+-- compV :: LMV s b c -> LMV s a b -> LMV s a c
+-- LMV gs `compV` LMV fs = LMV (gs @. fs)
 
 #endif
 
