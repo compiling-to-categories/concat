@@ -65,9 +65,9 @@ lintSteps = True -- False
 type Rewrite a = a -> Maybe a
 type ReExpr = Rewrite CoreExpr
 
-#define Trying(str) e | dtrace ("Trying " ++ (str)) (e `seq` empty) False -> undefined
+-- #define Trying(str) e | dtrace ("Trying " ++ (str)) (e `seq` empty) False -> undefined
 
--- #define Trying(str)
+#define Trying(str)
 
 ccc :: CccEnv -> ModGuts -> DynFlags -> InScopeEnv -> ReExpr
 ccc (CccEnv {..}) guts dflags inScope =
@@ -78,9 +78,11 @@ ccc (CccEnv {..}) guts dflags inScope =
    go :: ReExpr
    go e | dtrace "ccc go:" (ppr e) False = undefined
    go (Var {}) = Nothing   -- wait for inlining
-   go (Lam x body) = goLam x body
-   go e = return $ mkCcc (etaExpand 1 e)
+   go (Lam x body) = goLam x (etaReduceN body)
+   go e = return e
+          -- return $ mkCcc (etaExpand 1 e)
           -- go (etaExpand 1 e)
+   goLam _ body | dtrace "ccc goLam:" (ppr body) False = undefined
    goLam x body = case body of
      Trying("Var")
      -- (\ x -> x) --> id
@@ -98,24 +100,25 @@ ccc (CccEnv {..}) guts dflags inScope =
                   (varApps forkV [xty,uty,vty]
                     [mkCcc (Lam x u), mkCcc (Lam x v)])
       where
-        xty = varType x
         uty = exprType u
         vty = exprType v
-        bty = exprType body
      Trying("Lambda")
-     -- (\ x -> \ y -> e) --> \ z -> curry (\ z -> [fst z/x, snd z/y]e)
+     -- (\ x -> \ y -> U) --> \ z -> curry (\ z -> U[fst z/x, snd z/y])
      Lam y e ->
        return $ varApps curryV [xty,yty,ety] [mkCcc $ Lam z (subst sub e)]
       where
-        xty = varType x
         yty = varType y
         ety = exprType e
-        z = freshId (exprFreeVars e) "z" (pairTy xty yty)
+        z = freshId (exprFreeVars e) zName (pairTy xty yty)
+        zName = uqVarName x ++ "_" ++ uqVarName y
         sub = [ (x, varApps fstV [xty,yty] [Var z])
               , (y, varApps sndV [xty,yty] [Var z]) ]
      -- bailing
      _e -> dtrace "ccc" ("Unhandled:" <+> ppr _e) $
            Nothing
+    where
+      xty = varType x
+      bty = exprType body
    traceRewrite :: (Outputable a, Outputable (f b)) =>
                    String -> Unop (a -> f b)
    traceRewrite str f a = pprTrans str a (f a)
@@ -125,6 +128,8 @@ ccc (CccEnv {..}) guts dflags inScope =
    mkCcc e = varApps cccV [a,b] [e]
     where
       (a,b) = splitFunTy (exprType e)
+   -- TODO: replace composeV with mkCompose in CccEnv
+   -- Maybe other variables as well
    mkCompose :: Binop CoreExpr
    g `mkCompose` f = varApps composeV [b,c,a] [g,f]
     where
@@ -212,10 +217,10 @@ mkCccEnv opts = do
       findMiscId  = findId "ConCat.Misc"
   ruleBase <- getRuleBase
   -- dtrace "mkReifyEnv: getRuleBase ==" (ppr ruleBase) (return ())
-  idV      <- findBaseId  "id"
-  constV   <- findBaseId  "const"
-  composeV <- findBaseId  "."
-  curryV   <- findTupleId "curry"
+  idV      <- findMiscId  "ident"
+  constV   <- findMiscId  "konst"
+  composeV <- findMiscId  "comp"
+  curryV   <- findMiscId  "kurry"
   fstV     <- findTupleId "fst"
   sndV     <- findTupleId "snd"
   cccV     <- findMiscId  "ccc"
@@ -399,3 +404,17 @@ v `isFreeIn` e = v `elemVarSet` (exprFreeVars e)
 
 pairTy :: Binop Type
 pairTy a b = mkBoxedTupleTy [a,b]
+
+etaReduce1 :: Unop CoreExpr
+etaReduce1 (Lam x (App e (Var y))) | x == y && not (isFreeIn x e) = e
+etaReduce1 e = e
+
+etaReduceN :: Unop CoreExpr
+etaReduceN (Lam x (etaReduceN -> body')) = etaReduce1 (Lam x body')
+etaReduceN e = e
+
+-- etaReduce :: ReExpr
+-- etaReduce (collectTyAndValBinders -> ( []
+--                                      , vs@(_:_)
+--                                      , collectArgs -> (f,args@(_:_))) )
+--   | Just rest <- matchArgs vs args = 
