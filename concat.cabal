@@ -76,6 +76,14 @@ Test-Suite basic
                   , base<5
                   , concat
   ghc-options:      -O2 -fforce-recomp
+                    -ddump-simpl
+                    -ddump-rule-rewrites
+                    -ddump-rule-firings
+
+--                     -dverbose-core2core
+                    -ddump-simpl-iterations
+--                     -dshow-passes
+
 
 -- "stack test" builds and runs both/all test suites.
 -- "stack build :shaped" or "stack build :basic" builds and runs just one suite.

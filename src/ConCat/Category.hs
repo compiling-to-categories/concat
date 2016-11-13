@@ -173,7 +173,7 @@ class Category (k :: u -> u -> *) where
   type Ok k = Yes1
   type Compat k :: u -> u -> Constraint  -- experiment
   type Compat k = Yes2
-  id  :: Oks k '[a] => a `k` a
+  id  :: Ok k a => a `k` a
   infixr 9 .
   (.) :: Oks k [a,b,c] => b `k` c -> a `k` b -> a `k` c
 #ifdef DefaultCat
@@ -821,6 +821,40 @@ instance ClosedCat (UTC con t) where
   uncurry (UTC g) = UTC (\ (a :*: b) -> unpack (g a) b)
 
 {--------------------------------------------------------------------
+    Add constraints to a category
+--------------------------------------------------------------------}
+
+data Constrained (con :: u -> Constraint) (k :: u -> u -> *) a b =
+  Constrained (a `k` b)
+
+instance (OpCon op con, OpCon op con') => OpCon op (con &+& con') where
+  inOp :: forall a b. (con &+& con') a && (con &+& con') b |- (con &+& con') (a `op` b)
+  inOp = Sub $ Dict <+ inOp @op @con @a @b <+ inOp @op @con' @a @b
+
+instance Category k => Category (Constrained con k) where
+  type Ok (Constrained con k) = Ok k &+& con
+  id = Constrained id
+  Constrained g . Constrained f = Constrained (g . f)
+
+instance (ProductCat k, OpCon (Prod k) con) => ProductCat (Constrained con k) where
+  type Prod (Constrained con k) = Prod k
+  exl = Constrained exl
+  exr = Constrained exr
+  Constrained f &&& Constrained g = Constrained (f &&& g)
+
+instance (CoproductCat k, OpCon (Coprod k) con) => CoproductCat (Constrained con k) where
+  type Coprod (Constrained con k) = Coprod k
+  inl = Constrained inl
+  inr = Constrained inr
+  Constrained a ||| Constrained b = Constrained (a ||| b)
+
+instance (ClosedCat k, OpCon (Prod k) con, OpCon (Exp k) con) => ClosedCat (Constrained con k) where
+  type Exp (Constrained con k) = Exp k
+  apply = Constrained apply
+  curry   (Constrained f) = Constrained (curry f)
+  uncurry (Constrained g) = Constrained (uncurry g)
+
+{--------------------------------------------------------------------
     Entailment
 --------------------------------------------------------------------}
 
@@ -1168,25 +1202,156 @@ instance Functor f => FunctorC f (->) (->) where
 #else
 
 -- | Functors map objects and arrows.
-class (Category cat, Category cat')
-   => FunctorC f (cat :: u -> u -> *) (cat' :: v -> v -> *) {-| f -> cat cat'-} where
+class (Category k, Category k'{-, OkTarget f k k'-})
+   => FunctorC f (k :: u -> u -> *) (k' :: v -> v -> *) {-| f -> k k'-} where
 #if 0
   type OkF f :: u -> Constraint
   type OkF f = Yes1
 #elif 0
   type OkF f (a :: u) :: Constraint
   type OkF f a = () 
-#else
+#elif 0
   type OkF f (a :: u) (b :: u) :: Constraint
   type OkF f a b = () 
 #endif
   -- | @%@ maps objects.
   type f % (a :: u) :: v
   -- | @fmapC@ maps arrows.
-  fmapC :: OkF f a b => cat a b -> cat' (f % a) (f % b)
+  -- fmapC :: OkF f a b => (a `k` b) -> ((f % a) `k'` (f % b))
+  fmapC :: -- OkF f a b
+           (Oks k [a,b], Oks k' [f % a, f % b])
+        => (a `k` b) -> ((f % a) `k'` (f % b))
   -- Laws:
   -- fmapC id == id
   -- fmapC (q . p) == fmapC q . fmapC p
+
+-- class OkTarget f (cat :: u -> u -> *) (cat' :: v -> v -> *) where
+--   okTarget :: forall a. Ok cat a |- Ok cat' (f % a)
+
+-- (<+) :: a => (b => r) -> (a |- b) -> r
+
+-- okTarg :: 
+
+id' :: (Category k, Ok k a) => a `k` a
+id' = id
+{-# NOINLINE [1] id' #-}
+
+comp' :: (Category k, Oks k [a,b,c]) => (b `k` c) -> (a `k` b) -> (a `k` c)
+comp' = (.)
+{-# NOINLINE [1] comp' #-}
+
+-- fmapC
+
+-- fmapComp :: forall h k k' a b c.
+--             (b `k` c) -> (a `k` b) -> [(h % a) `k'` (h % c)]
+-- fmapComp g f = [ fmapC (g . f)
+--                , fmapC g . fmapC f
+--                ]
+
+fmapComp :: forall k k' a b c h.
+            (FunctorC h k k', Oks k [a,b,c], Oks k' [h % a,h % b,h % c])
+         => (b `k` c) -> (a `k` b) -> [(h % a) `k'` (h % c)]
+fmapComp g f = [ fmapC @h (g . f)
+               , fmapC @h g . fmapC @h f
+               ]
+
+-- g :: b `k` c
+-- f :: a `k` b
+-- g . f :: a `k` c
+-- fmapC (g . f) :: (h % a) `k'` (h %c)
+
+{-# RULES
+
+"fmapC id" fmapC id' = id'
+
+-- "fmapC (g . f)" forall f g. fmapC (g `comp'` f) = fmapC g `comp'` fmapC f
+
+--     • Could not deduce: (f0 % b) ~ (f % b)
+--       from the context: (FunctorC f k2 k',
+--                          Oks k2 '[a, b],
+--                          Oks k' '[f % a, f % b],
+--                          Category k2,
+--                          Oks k2 '[a, b1, b])
+--         bound by the RULE "fmapC (g . f)"
+--         at /Users/conal/Haskell/concat/src/ConCat/Category.hs:1251:1-73
+--       Expected type: k' (f0 % b1) (f % b)
+--         Actual type: k' (f0 % b1) (f0 % b)
+--       NB: ‘%’ is a type function, and may not be injective
+--       The type variable ‘f0’ is ambiguous
+--     • In the first argument of ‘comp'’, namely ‘fmapC g’
+--       In the expression: fmapC g `comp'` fmapC f
+--       When checking the transformation rule "fmapC (g . f)"
+-- 
+--     • Could not deduce: (f1 % a) ~ (f % a)
+--       from the context: (FunctorC f k2 k',
+--                          Oks k2 '[a, b],
+--                          Oks k' '[f % a, f % b],
+--                          Category k2,
+--                          Oks k2 '[a, b1, b])
+--         bound by the RULE "fmapC (g . f)"
+--         at /Users/conal/Haskell/concat/src/ConCat/Category.hs:1251:1-73
+--       Expected type: k' (f % a) (f0 % b1)
+--         Actual type: k' (f1 % a) (f1 % b1)
+--       NB: ‘%’ is a type function, and may not be injective
+--       The type variable ‘f1’ is ambiguous
+--     • In the second argument of ‘comp'’, namely ‘fmapC f’
+--       In the expression: fmapC g `comp'` fmapC f
+--       When checking the transformation rule "fmapC (g . f)"
+
+-- "fmapC exl" fmapC exl = exl
+
+--     • Could not deduce: (f % Prod k1 b b1) ~ Prod k' (f % b) b0
+--       from the context: (FunctorC f k1 k',
+--                          Oks k1 '[Prod k1 b b1, b],
+--                          Oks k' '[f % Prod k1 b b1, f % b],
+--                          ProductCat k1,
+--                          Oks k1 '[b, b1])
+--         bound by the RULE "fmapC exl"
+--         at /Users/conal/Haskell/concat/src/ConCat/Category.hs:1253:1-27
+--       Expected type: k' (f % Prod k1 b b1) (f % b)
+--         Actual type: k' (Prod k' (f % b) b0) (f % b)
+--       The type variable ‘b0’ is ambiguous
+--     • In the expression: exl
+--       When checking the transformation rule "fmapC exl"
+
+ #-}
+
+-- If I used the class methods in the rules, I'd get
+
+-- src/ConCat/Category.hs:1241:1: warning: [-Winline-rule-shadowing] …
+--     Rule "fmapC id" may never fire
+--       because rule "Class op id" for ‘id’ might fire first
+--     Probable fix: add phase [n] or [~n] to the competing rule
+
+#if 0
+  
+-- Experiment: FunctorC *without* associated type family
+
+-- | Functors map objects and arrows.
+class (Category k, Category k')
+   => FunctorC' h (k :: u -> u -> *) (k' :: v -> v -> *) {-| h -> k k'-} where
+  fmapC' :: (Oks k [a,b], Oks k' [a,b]) => h -> (a `k` b) -> (a `k'` b)
+  -- Laws:
+  -- fmapC h id == id
+  -- fmapC h (q . p) == fmapC h q . fmapC h p
+
+{-# RULES
+
+-- "fmapC' id" forall h. fmapC' h id' = id'
+-- "fmapC' (g . f)" forall h f g. fmapC' h (g . f) = fmapC' h g . fmapC' h f
+-- "fmapC' exl" forall h. fmapC' h exl = exl
+
+-- The second and third rules fail to type-check
+
+ #-}
+
+-- fmapComp' :: forall k k' a b c h.
+--              (FunctorC' h k k', Oks k [a,b,c], Oks k' [a,b,c])
+--           => (b `k` c) -> (a `k` b) -> [a `k'` c]
+-- fmapComp' g f = [ fmapC' @h (g . f)
+--                 , fmapC' @h g . fmapC' @h f
+--                 ]
+
 
 class (ProductCat cat, ProductCat cat', FunctorC f cat cat')
    => CartesianFunctorC f cat cat' where
@@ -1197,17 +1362,31 @@ class (ProductCat cat, ProductCat cat', FunctorC f cat cat')
   -- fmapC exr == exr
   -- fmapC (q &&& p) = fmapC q &&& fmapC p
 
+#endif
+
 -- I'd like to express the object structure as a superclass constraint, but it's
 -- universally quantified over types. Noodling.
 
 -- Haskell-style functor
 
-instance Functor f => FunctorC f (->) (->) where
-  type f % a = f a
+data HFunctor (f :: * -> *)
+
+instance Functor f => FunctorC (HFunctor f) (->) (->) where
+  type HFunctor f % a = f a
   fmapC = fmap
+
+-- instance OkTarget (HFunctor f) (->) (->) where
+--   okTarget = Sub Dict
 
 -- TODO: Does this instance overlap with others I'll want, or do the two (->)s
 -- suffice to distinguish?
+
+-- | Add a constraint
+data Constrain con
+
+instance Category k => FunctorC (Constrain con) k (Constrained con k) where
+  type Constrain con % a = a
+  fmapC = Constrained
 
 #endif
 

@@ -483,7 +483,7 @@ data Lapply s
 instance FunctorC (Lapply s) (LMapF s) (UT s) where
   -- type OkF (Lapply s) = OkLMapF s
   -- type OkF (Lapply s) a = OkLMapF s a
-  type OkF (Lapply s) a b = (Num s, OkLF a, OkLF b)
+  -- type OkF (Lapply s) a b = (Num s, OkLF a, OkLF b)
   type Lapply s % a = a
   fmapC = lapply
 
@@ -493,12 +493,17 @@ data Linear s
 -- class    (Num s, HasL a) => OkLin s a
 -- instance (Num s, HasL a) => OkLin s a
 
-instance FunctorC (Linear s) (UT s) (LMapF s) where
-  -- type OkF (Linear s) = OkLin s
-  -- type OkF (Linear s) a = OkLin s a
-  -- type OkF (Linear s) a = (Num s, HasL a)
-  type OkF (Linear s) a b = (Num s, HasL a, OkLF b)
+-- instance FunctorC (Linear s) (UT s) (LMapF s) where
+--   -- type OkF (Linear s) = OkLin s
+--   -- type OkF (Linear s) a = OkLin s a
+--   -- type OkF (Linear s) a = (Num s, HasL a)
+--   type OkF (Linear s) a b = (Num s, HasL a, OkLF b)
+--   type Linear s % a = a
+--   fmapC = linear
+
+instance FunctorC (Linear s) (Constrained HasL (UT s)) (LMapF s) where
+  -- type OkF (Linear s) a b = (Num s, HasL a, OkLF b)
   type Linear s % a = a
-  fmapC = linear
+  fmapC (Constrained f) = linear f
 
 #endif

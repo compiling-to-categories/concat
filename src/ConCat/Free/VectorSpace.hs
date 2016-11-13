@@ -29,7 +29,7 @@ import Data.Key (Zip(..))
 import Control.Newtype
 
 import ConCat.Misc (inNew2,(:*),(<~))
-import ConCat.Category (UT(..),FunctorC(..))
+import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
 
 {--------------------------------------------------------------------
     Vector spaces
@@ -150,9 +150,10 @@ vfun = UT . inV
 -- | Free vector over scalar s
 data VFun s
 
-instance FunctorC (VFun s) (->) (UT s) where
+instance FunctorC (VFun s) (Constrained (HasV s) (->)) (UT s) where
   -- type OkF (VFun s) = HasV s
   -- type OkF (VFun s) a = HasV s a
-  type OkF (VFun s) b a = (HasV s a, HasV s b)
+  -- type OkF (VFun s) b a = (HasV s a, HasV s b)
   type VFun s % a = V s a
-  fmapC = vfun
+  fmapC (Constrained f) = UT (inV f)
+                          -- vfun f
