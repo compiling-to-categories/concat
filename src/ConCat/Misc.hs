@@ -16,6 +16,7 @@
 
 module ConCat.Misc where
 
+import Control.Arrow ((&&&))
 -- import Unsafe.Coerce (unsafeCoerce)
 -- import Data.Type.Equality
 
@@ -129,8 +130,15 @@ boolToInt c = if c then 1 else 0
     Type level computations
 --------------------------------------------------------------------}
 
+infixr 3 &&
+
 class    (a,b) => a && b
 instance (a,b) => a && b
+
+infixr 3 &+&
+
+class    (a t, b t) => (a &+& b) t
+instance (a t, b t) => (a &+& b) t
 
 class    f b a => Flip f a b
 instance f b a => Flip f a b
@@ -192,10 +200,30 @@ ccc _ = error "ccc: not implemented"
 
 -- Note: ccc mustn't be a CAF.
 
-fork :: forall a c d. (a -> c) -> (a -> d) -> (a -> c :* d)
-fork f g a = (f a, g a)
+ident :: a -> a
+ident = id
+{-# NOINLINE ident #-}
+
+konst :: b -> a -> b
+konst = const
+{-# NOINLINE konst #-}
+
+kurry :: (a :* b -> c) -> (a -> b -> c)
+kurry = curry
+{-# NOINLINE kurry #-}
+
+comp :: (b -> c) -> (a -> b) -> (a -> c)
+comp = (.)
+{-# NOINLINE comp #-}
+
+fork :: (a -> c) -> (a -> d) -> (a -> c :* d)
+fork = (&&&)
 {-# NOINLINE fork #-}
 
-appl :: forall a b. (a -> b) :* a -> b
+appl :: (a -> b) :* a -> b
 appl = uncurry ($)
 {-# NOINLINE appl #-}
+
+
+-- TODO: systematize names better, e.g., idC, constC, curryC, forkC, applyC.
+-- Fix in Plugin.
