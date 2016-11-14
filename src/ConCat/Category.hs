@@ -31,7 +31,7 @@
 
 module ConCat.Category where
 
-import Prelude hiding (id,(.),curry,uncurry)
+import Prelude hiding (id,(.),curry,uncurry,const)
 import qualified Prelude as P
 #ifdef DefaultCat
 import qualified Control.Category as C
@@ -121,7 +121,7 @@ inOL = inO @op @con @a @b . inO @op @con @(a `op` b) @c -- nope
 instance OpCon op Yes1 where
   inOp = Sub Dict
 
-#if 0
+#if 1
 -- type C1 (con :: u -> Constraint) a = con a
 -- type C2 con a b         = C1 con a && con b
 
@@ -175,7 +175,9 @@ class Category (k :: u -> u -> *) where
   type Compat k = Yes2
   id  :: Ok k a => a `k` a
   infixr 9 .
-  (.) :: Oks k [a,b,c] => b `k` c -> a `k` b -> a `k` c
+  -- (.) :: forall b c a. Oks k [a,b,c] => (b `k` c) -> (a `k` b) -> (a `k` c)
+  (.) :: forall b c a. Ok3 k a b c => (b `k` c) -> (a `k` b) -> (a `k` c)
+  -- (.) :: forall b c a. (Ok k a,Ok k b,Ok k c) => (b `k` c) -> (a `k` b) -> (a `k` c)
 #ifdef DefaultCat
   -- Defaults experiment
   default id :: C.Category k => a `k` a
@@ -608,11 +610,11 @@ unUnitFun g = uncurry g . (it &&& id)
 #if 0
   
 class TerminalCat k => ConstCat k where
+  const :: Oks k [a,b] => b -> (a `k` b)
+  const b = unitArrow b . it
   unitArrow  :: Ok k b => b -> Unit k `k` b
-  constArrow :: Oks k [a,b] => b -> (a `k` b)
-  constArrow b = unitArrow b . it
-  unitArrow = constArrow
-  {-# MINIMAL unitArrow | constArrow #-}
+  unitArrow = const
+  {-# MINIMAL const | unitArrow #-}
 
 #elif 0
 
@@ -620,12 +622,12 @@ class TerminalCat k => ConstCat k where
 
 class (TerminalCat k, Ok k b) => ConstCat k b where
   unitArrow  :: b -> Unit k `k` b
-  constArrow :: Ok k a => b -> (a `k` b)
-  constArrow b = unitArrow b . it
-  unitArrow = constArrow
-  {-# MINIMAL unitArrow | constArrow #-}
+  const :: Ok k a => b -> (a `k` b)
+  const b = unitArrow b . it
+  unitArrow = const
+  {-# MINIMAL unitArrow | const #-}
 
-#else
+#elif 0
 
 -- Associated type for the codomain
 
@@ -633,21 +635,36 @@ class (TerminalCat k, Ok k (ConstObj k b)) => ConstCat k b where
   type ConstObj k b
   type ConstObj k b = b
   unitArrow  :: b -> (Unit k `k` ConstObj k b)
-  constArrow :: Ok k a => b -> (a `k` ConstObj k b)
-  constArrow b = unitArrow b . it
-  unitArrow = constArrow
-  {-# MINIMAL unitArrow | constArrow #-}
+  const :: Ok k a => b -> (a `k` ConstObj k b)
+  const b = unitArrow b . it
+  unitArrow = const
+  {-# MINIMAL unitArrow | const #-}
+
+#else
+
+-- Drop ConstObj for now
+
+type ConstObj k b = b
+
+class (TerminalCat k, Ok k (ConstObj k b)) => ConstCat k b where
+--   type ConstObj k b
+--   type ConstObj k b = b
+  unitArrow  :: b -> (Unit k `k` ConstObj k b)
+  const :: Ok k a => b -> (a `k` ConstObj k b)
+  const b = unitArrow b . it
+  unitArrow = const
+  {-# MINIMAL unitArrow | const #-}
 
 #endif
 
-instance ConstCat (->) b where constArrow = const
+instance ConstCat (->) b where const = const
 
-instance Monad m => ConstCat (Kleisli m) b where constArrow b = arr (const b)
+instance Monad m => ConstCat (Kleisli m) b where const b = arr (const b)
 
 -- For prims, use constFun instead.
 
 -- Note that `ConstCat` is *not* poly-kinded. Since the codomain `b` is an
--- argument to `unitArrow` and `constArrow`, `k :: * -> * -> *`. I'm uneasy
+-- argument to `unitArrow` and `const`, `k :: * -> * -> *`. I'm uneasy
 -- about this kind restriction, which would preclude some useful categories,
 -- including linear maps and entailment. Revisit this issue later.
 

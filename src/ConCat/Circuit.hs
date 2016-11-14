@@ -102,7 +102,7 @@ module ConCat.Circuit
   , BusesM, abstB,abstC,reprC,Buses(..),Ty(..)
   ) where
 
-import Prelude hiding (id,(.),curry,uncurry,sequence)
+import Prelude hiding (id,(.),curry,uncurry,const,sequence)
 -- import qualified Prelude as P
 
 import Data.Monoid ({-mempty,-}(<>),Sum,Product)
