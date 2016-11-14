@@ -33,6 +33,7 @@ library
                        ConCat.Complex
                        ConCat.Rep
                        ConCat.Circuit
+                       ConCat.BuildDictionary
                        ConCat.Plugin
 
   include-dirs: src/ConCat
@@ -57,9 +58,11 @@ library
                      , directory >= 1.2.6.2
                      , process >= 1.4.2.0
                      , mtl >= 2.2.1
+                     , hermit >= 1.0.0.1
 
 --                      , dependent-map
 
+-- I only use hermit for initTcFromModGuts. To do: drop the dependency.
 
   hs-source-dirs:      src
   default-language:    Haskell2010
