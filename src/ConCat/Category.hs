@@ -1327,13 +1327,35 @@ fmapComp g f = [ fmapC @h (g . f)
   
 -- Experiment: FunctorC *without* associated type family
 
+class OkTarget {-(h :: *)-} (k :: u -> u -> *) (k' :: u -> u -> *) where
+  okTarget :: forall a. Ok k a |- Ok k' a -- (h % a)
+
 -- | Functors map objects and arrows.
-class (Category k, Category k')
+class (Category k, Category k', OkTarget k k')
    => FunctorC' h (k :: u -> u -> *) (k' :: v -> v -> *) {-| h -> k k'-} where
-  fmapC' :: (Oks k [a,b], Oks k' [a,b]) => h -> (a `k` b) -> (a `k'` b)
+  fmapC' :: Oks k [a,b] => h -> (a `k` b) -> (a `k'` b)
   -- Laws:
   -- fmapC h id == id
   -- fmapC h (q . p) == fmapC h q . fmapC h p
+
+-- fmapId :: forall h k k' a. (FunctorC' h k k', Ok k a) => a `k'` a
+-- fmapId = id' <+ okTarget @k @k' @a
+
+-- fmapComp' :: forall k k' a b c h.
+--              (FunctorC' h k k', Ok k a, Ok k b, Ok k c)
+--           => h -> (b `k` c) -> (a `k` b) -> [a `k'` c]
+-- fmapComp' h g f = [ fmapC' h (g . f)
+--                   , fmapC' h g . fmapC' h f
+--                   ]
+-- --   -- <+ okTarget ...
+
+-- ^^ Compiler stack overflow.
+
+-- compF :: forall h k k' a b c.
+--             (FunctorC' h k k', Oks k [a,b,c])
+--          => (b `k` c) -> (a `k` b) -> (a `k'` c)
+-- g `compF` f = fmapC' @h @k @k' g . fmapC' @h @k @k' f
+--   -- <+ okTarget @h @k @k' @a
 
 {-# RULES
 
