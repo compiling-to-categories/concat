@@ -17,7 +17,7 @@
 
 module ConCat.Lambda where
 
-import Prelude hiding (id,(.),curry,uncurry)
+import Prelude hiding (id,(.),curry,uncurry,const)
 import Control.Monad (mplus)
 import Data.Maybe (fromMaybe)
 import Data.Type.Equality ((:~:)(..),TestEquality(..))
@@ -94,7 +94,7 @@ lam a b p = curry (b (p :$ a))
 data L k b = L (forall p. Ok k p => Pat k p -> (p `k` b))
 
 lit :: ConstCat k b => b -> L k (ConstObj k b)
-lit b = L (const (constArrow b))
+lit b = L (const (const b))
 
 prim1 :: (ClosedCat k, Oks k [a,b]) => (a `k` b) -> L k (Exp k a b)
 prim1 f = L (const (constFun f))
