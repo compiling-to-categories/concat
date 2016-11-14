@@ -62,11 +62,13 @@ tests = return
     Testing utilities
 --------------------------------------------------------------------}
 
-test :: a -> Test
-test _ = error "test called"
-{-# NOINLINE test #-}
+test :: forall a b. (a -> b) -> Test
+test f = mkTest (ccc @(->) f)
+{-# INLINE test #-}
+-- test _ = error "test called"
+-- {-# NOINLINE test #-}
 
-{-# RULES "test" forall a. test a = mkTest (ccc a) #-}
+-- {-# RULES "test" forall f. test f = mkTest (ccc f) #-}
 
 mkTest :: a -> Test
 mkTest _a = Test inst
