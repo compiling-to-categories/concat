@@ -194,7 +194,7 @@ type AllC2 f as bs = AndC (CrossWith f as bs)
     For rewriting. Move elsewhere.
 --------------------------------------------------------------------}
 
-ccc :: forall a b. Unop (a -> b)
+ccc :: forall k a b. (a -> b) -> (a `k` b)
 ccc _ = error "ccc: not implemented"
 {-# NOINLINE ccc #-}
 
