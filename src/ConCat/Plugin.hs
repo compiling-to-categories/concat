@@ -143,7 +143,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- TODO: replace composeV with mkCompose in CccEnv
    -- Maybe other variables as well
    mkCompose :: Binop CoreExpr
-   g `mkCompose` f = varApps composeV [] [Type objKind,Type cat,catDict,Type b,Type c,Type a,g,f]
+   g `mkCompose` f = varApps composeV [objKind,cat]
+                       [catDict,Type b,Type c,Type a,g,f]
     where
       -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
       Just (b,c) = splitFunTy_maybe (exprType g)
