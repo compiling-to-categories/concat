@@ -42,7 +42,8 @@ import FamInstEnv (normaliseType)
 import TyCoRep                          -- TODO: explicit imports
 import Unique (mkBuiltinUnique)
 
-import ConCat.Misc (Unop,Binop)
+import ConCat.Misc (Unop,Binop,Ternop)
+import ConCat.Simplify
 import ConCat.BuildDictionary
 
 -- Information needed for reification. We construct this info in
@@ -58,6 +59,7 @@ data CccEnv = CccEnv { dtrace   :: forall a. String -> SDoc -> a -> a
                      , fstV     :: Id
                      , sndV     :: Id
                      , catIs    :: Binop Type
+                     , okIs     :: Ternop Type
                      , hsc_env  :: HscEnv
                      }
 
@@ -89,10 +91,12 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    goLam x body = case body of
      Trying("Var")
      -- (\ x -> x) --> id
-     Var y | x == y ->
+     Var y | x == y {-, Just okDict <- buildDictMaybe (okIs objKind cat xty) -} ->
        -- return $ varApps idV [xty] []
        -- pprTrace "goLam Var: id :: " (ppr (varType idV)) $
-       return $ varApps idV [] [Type objKind,Type cat,catDict,Type xty]
+       -- return $ varApps idV [] [Type objKind,Type cat,catDict,Type xty]
+       -- return $ varApps idV [objKind,cat] [catDict,Type xty,okDict]
+       return $ onDict (varApps idV [objKind,cat] [catDict,Type xty])
      Trying("constant")
      -- (\ x -> e) --> const e, where x is not free in e.
      e | not (isFreeIn x e) ->
@@ -124,13 +128,26 @@ ccc (CccEnv {..}) guts dflags inScope cat =
     where
       xty = varType x
       bty = exprType body
-   Just catDict = buildDictMaybe (catIs objKind cat)
+   catDict = buildDict (catIs objKind cat)
    ([objKind,_objKind],_star) = splitFunTys (typeKind cat)
+   noDictErr :: Outputable b => b -> Maybe a -> a
+   noDictErr b = fromMaybe (pprPanic "ccc - couldn't build dictionary for" (ppr b))
+   onDictMaybe :: CoreExpr -> Maybe CoreExpr
+   onDictMaybe e | Just (ty,_) <- splitFunTy_maybe (exprType e) =
+                     App e <$> buildDictMaybe ty
+                 | otherwise = pprPanic "ccc / onDictMaybe: not a function from pred"
+                                 (ppr e <+> dcolon <+> ppr (exprType e))
+--    onDictMaybe e | Just (ty,_) <- splitFunTy_maybe (exprType e) =
+--                      buildDictMaybe ty
+--                  | otherwise = pprPanic "ccc / onDictMaybe: not a function from pred"
+--                                  (ppr e <+> dcolon <+> ppr (exprType e))
+   onDict :: Unop CoreExpr
+   onDict f = noDictErr f (onDictMaybe f)
    buildDictMaybe :: Type -> Maybe CoreExpr
-   buildDictMaybe = buildDictionary hsc_env dflags guts inScope
+   buildDictMaybe ty = simplifyE dflags False <$>
+                       buildDictionary hsc_env dflags guts inScope ty
    buildDict :: Type -> CoreExpr
-   buildDict ty = fromMaybe (pprPanic "reify - couldn't build dictionary for" (ppr ty)) $
-                  buildDictMaybe ty
+   buildDict ty = noDictErr ty (buildDictMaybe ty)
    traceRewrite :: (Outputable a, Outputable (f b)) =>
                    String -> Unop (a -> f b)
    traceRewrite str f a = pprTrans str a (f a)
@@ -143,12 +160,17 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- TODO: replace composeV with mkCompose in CccEnv
    -- Maybe other variables as well
    mkCompose :: Binop CoreExpr
-   g `mkCompose` f = varApps composeV [objKind,cat]
-                       [catDict,Type b,Type c,Type a,g,f]
+--    g `mkCompose` f = varApps composeV [objKind,cat]
+--                        [catDict,Type b,Type c,Type a,ok a, ok b, ok c,g,f]
+   g `mkCompose` f = mkCoreApps
+                       (onDict (varApps composeV [objKind,cat]
+                               [catDict,Type b,Type c,Type a]))
+                       [g,f]
     where
       -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
       Just (b,c) = splitFunTy_maybe (exprType g)
       Just (a,_) = splitFunTy_maybe (exprType f)
+      ok t = buildDict (okIs objKind cat t)
    lintReExpr :: Unop ReExpr
    lintReExpr rew before =
      do after <- rew before
@@ -228,24 +250,26 @@ mkCccEnv opts = do
       findBaseId  = findId "GHC.Base"
       findTupleId = findId "Data.Tuple"
       findMiscId  = findId "ConCat.Misc"
-      findCatTc   = findTc "Control.Category"  -- later ConCat.Category
-      findCatId   = findId "Control.Category"  -- later ConCat.Category
+      findCatTc   = findTc "ConCat.Category"
+      findCatId   = findId "ConCat.Category"
   ruleBase <- getRuleBase
-  catTc  <- findTc "Control.Category" "Category"
+  catTc       <- findCatTc "Category"
+  okTc        <- findCatTc "Ok"
   -- dtrace "mkReifyEnv: getRuleBase ==" (ppr ruleBase) (return ())
   -- idV      <- findMiscId  "ident"
-  idV      <- findCatId  "id"
-  constV   <- findMiscId  "konst"
+  idV         <- findCatId  "id"
+  constV      <- findMiscId  "konst"
   -- composeV <- findMiscId  "comp"
-  composeV <- findCatId  "."
-  curryV   <- findMiscId  "kurry"
-  fstV     <- findTupleId "fst"
-  sndV     <- findTupleId "snd"
-  cccV     <- findMiscId  "ccc"
-  forkV    <- findMiscId  "fork"
-  applyV   <- findMiscId  "appl"
+  composeV    <- findCatId  "."
+  curryV      <- findMiscId  "kurry"
+  fstV        <- findTupleId "fst"
+  sndV        <- findTupleId "snd"
+  cccV        <- findMiscId  "ccc"
+  forkV       <- findMiscId  "fork"
+  applyV      <- findMiscId  "appl"
   let catTy = mkTyConApp catTc []
-      catIs u c = mkTyConApp catTc [u,c]
+      catIs u cat = mkTyConApp catTc [u,cat]
+      okIs u cat a = mkTyConApp okTc [u,cat,a]
   return (CccEnv { .. })
 
 {--------------------------------------------------------------------
