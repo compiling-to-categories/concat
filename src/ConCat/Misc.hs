@@ -67,8 +67,9 @@ class Evalable p where eval :: p a -> a
     Other
 --------------------------------------------------------------------}
 
-type Unop  a = a -> a
-type Binop a = a -> Unop a
+type Unop   a = a -> a
+type Binop  a = a -> Unop a
+type Ternop a = a -> Binop a
 
 infixl 1 <~
 infixr 1 ~>
@@ -135,6 +136,9 @@ infixr 3 &&
 class    (a,b) => a && b
 instance (a,b) => a && b
 
+-- Saying (b,a) instead of (a,b) causes Oks k [a,b,c] to expand in order, oddly.
+-- TODO: investigate.
+
 infixr 3 &+&
 
 class    (a t, b t) => (a &+& b) t
@@ -198,7 +202,7 @@ ccc :: forall k a b. (a -> b) -> (a `k` b)
 ccc _ = error "ccc: not implemented"
 {-# NOINLINE ccc #-}
 
--- Note: ccc mustn't be a CAF.
+-- Note: ccc mustn't be a CAF, or its uses will get simplified away.
 
 ident :: a -> a
 ident = id
