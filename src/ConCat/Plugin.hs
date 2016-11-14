@@ -78,12 +78,12 @@ type ReExpr = Rewrite CoreExpr
 
 ccc :: CccEnv -> ModGuts -> DynFlags -> InScopeEnv -> Type -> ReExpr
 ccc (CccEnv {..}) guts dflags inScope cat =
-  traceRewrite "ccc" $
+  -- traceRewrite "ccc" $
   (if lintSteps then lintReExpr else id) $
   go
  where
    go :: ReExpr
-   go e | dtrace "ccc go:" (ppr e) False = undefined
+   -- go e | dtrace "ccc go:" (ppr e) False = undefined
    go (Var {}) = Nothing   -- wait for inlining
    go (Lam x body) = goLam x (etaReduceN body)
    go e = return e
@@ -116,9 +116,10 @@ ccc (CccEnv {..}) guts dflags inScope cat =
         uty = exprType u
         vty = exprType v
      Trying("Lambda")
-     -- (\ x -> \ y -> U) --> \ z -> curry (\ z -> U[fst z/x, snd z/y])
+     -- (\ x -> \ y -> U) --> curry (\ z -> U[fst z/x, snd z/y])
      Lam y e ->
-       return $ varApps curryV [xty,yty,ety] [mkCcc $ Lam z (subst sub e)]
+       -- return $ varApps curryV [xty,yty,ety] [mkCcc $ Lam z (subst sub e)]
+       return $ mkCurry (mkCcc (Lam z (subst sub e)))
       where
         yty = varType y
         ety = exprType e
@@ -205,6 +206,26 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      let res = onDict (apps (varApps applyV [objKind,cat] [closedDict]) [a,b] []) in
      pprTrace "mkApply result" (pprWithType res) $
      res
+   mkCurry :: Unop CoreExpr
+   mkCurry e =
+     -- curry :: forall {k :: * -> * -> *} {a} {b} {c}.
+     --          (ClosedCat k, Ok k c, Ok k b, Ok k a)
+     --       => k (Prod k a b) c -> k a (Exp k b c)
+     pprTrace "mkCurry" (pprWithType e) $
+     pprTrace "mkCurry" (pprWithType (Var curryV)) $
+     pprTrace "mkCurry" (pprWithType (varApps curryV [objKind,cat] [])) $
+     pprTrace "mkCurry" (pprWithType (onDict (varApps curryV [objKind,cat] []))) $
+     pprTrace "mkCurry" (pprWithType (apps (onDict (varApps curryV [objKind,cat] [])) [a,b,c] [])) $
+     pprTrace "mkCurry" (pprWithType (onDict (apps (onDict (varApps curryV [objKind,cat] [])) [a,b,c] [])) ) $
+--      pprTrace "mkCurry" (pprWithType (onDict (apps (onDict (varApps curryV [objKind,cat] [])) [a,b,c] []) `App` e) ) $
+
+     let res = onDict (apps (onDict (varApps curryV [objKind,cat] []))
+                        [a,b,c] []) `App` e in
+     pprTrace "mkCurry result" (pprWithType res) $
+     res
+    where
+      ety = exprType e
+      (splitAppTys -> (_,[splitAppTys -> (_,[a,b]),c])) = ety
    mkConst :: Type -> Unop CoreExpr
    mkConst dom e =
      -- const :: forall (k :: * -> * -> *) b. ConstCat k b => forall dom.
