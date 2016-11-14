@@ -28,7 +28,7 @@ import qualified Data.Sequence as S
 import qualified Data.Map as M
 import Text.Printf (printf)
 
-import GhcPlugins hiding (substTy)
+import GhcPlugins hiding (substTy,cat)
 import Class (classAllSelIds)
 import CoreArity (etaExpand)
 import CoreLint (lintExpr)
@@ -43,6 +43,7 @@ import TyCoRep                          -- TODO: explicit imports
 import Unique (mkBuiltinUnique)
 
 import ConCat.Misc (Unop,Binop)
+import ConCat.BuildDictionary
 
 -- Information needed for reification. We construct this info in
 -- CoreM and use it in the reify rule, which must be pure.
@@ -56,6 +57,8 @@ data CccEnv = CccEnv { dtrace   :: forall a. String -> SDoc -> a -> a
                      , curryV   :: Id
                      , fstV     :: Id
                      , sndV     :: Id
+                     , catIs    :: Binop Type
+                     , hsc_env  :: HscEnv
                      }
 
 -- Whether to run Core Lint after every step
@@ -69,8 +72,8 @@ type ReExpr = Rewrite CoreExpr
 
 #define Trying(str)
 
-ccc :: CccEnv -> ModGuts -> DynFlags -> InScopeEnv -> ReExpr
-ccc (CccEnv {..}) guts dflags inScope =
+ccc :: CccEnv -> ModGuts -> DynFlags -> InScopeEnv -> Type -> ReExpr
+ccc (CccEnv {..}) guts dflags inScope cat =
   traceRewrite "ccc" $
   (if lintSteps then lintReExpr else id) $
   go
@@ -87,11 +90,13 @@ ccc (CccEnv {..}) guts dflags inScope =
      Trying("Var")
      -- (\ x -> x) --> id
      Var y | x == y ->
-       return $ varApps idV [varType x] []
+       -- return $ varApps idV [xty] []
+       -- pprTrace "goLam Var: id :: " (ppr (varType idV)) $
+       return $ varApps idV [] [Type objKind,Type cat,catDict,Type xty]
      Trying("constant")
      -- (\ x -> e) --> const e, where x is not free in e.
      e | not (isFreeIn x e) ->
-       return $ varApps constV [exprType e, varType x] [e]
+       return $ varApps constV [exprType e, xty] [e]
      Trying("app")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
      u `App` v ->
@@ -119,13 +124,20 @@ ccc (CccEnv {..}) guts dflags inScope =
     where
       xty = varType x
       bty = exprType body
+   Just catDict = buildDictMaybe (catIs objKind cat)
+   ([objKind,_objKind],_star) = splitFunTys (typeKind cat)
+   buildDictMaybe :: Type -> Maybe CoreExpr
+   buildDictMaybe = buildDictionary hsc_env dflags guts inScope
+   buildDict :: Type -> CoreExpr
+   buildDict ty = fromMaybe (pprPanic "reify - couldn't build dictionary for" (ppr ty)) $
+                  buildDictMaybe ty
    traceRewrite :: (Outputable a, Outputable (f b)) =>
                    String -> Unop (a -> f b)
    traceRewrite str f a = pprTrans str a (f a)
    pprTrans :: (Outputable a, Outputable b) => String -> a -> b -> b
    pprTrans str a b = dtrace str (ppr a $$ "-->" $$ ppr b) b
    mkCcc :: Unop CoreExpr
-   mkCcc e = varApps cccV [a,b] [e]
+   mkCcc e = varApps cccV [cat,a,b] [e]
     where
       (a,b) = splitFunTy (exprType e)
    -- TODO: replace composeV with mkCompose in CccEnv
@@ -156,9 +168,9 @@ cccRule :: CccEnv -> ModGuts -> CoreRule
 cccRule env guts =
   BuiltinRule { ru_name  = fsLit "ccc"
               , ru_fn    = varName (cccV env)
-              , ru_nargs = 3  -- including type args
-              , ru_try   = \ dflags inScope _fn [Type _a,Type _b,arg] ->
-                               ccc env guts dflags inScope arg
+              , ru_nargs = 4  -- including type args
+              , ru_try   = \ dflags inScope _fn [Type k, Type _a,Type _b,arg] ->
+                               ccc env guts dflags inScope k arg
               }
 
 plugin :: Plugin
@@ -215,9 +227,13 @@ mkCccEnv opts = do
       findBaseId  = findId "GHC.Base"
       findTupleId = findId "Data.Tuple"
       findMiscId  = findId "ConCat.Misc"
+      findCatTc   = findTc "Control.Category"  -- later ConCat.Category
+      findCatId   = findId "Control.Category"  -- later ConCat.Category
   ruleBase <- getRuleBase
   -- dtrace "mkReifyEnv: getRuleBase ==" (ppr ruleBase) (return ())
-  idV      <- findMiscId  "ident"
+  -- idV      <- findMiscId  "ident"
+  catTc  <- findTc "Control.Category" "Category"
+  idV      <- findCatId  "id"
   constV   <- findMiscId  "konst"
   composeV <- findMiscId  "comp"
   curryV   <- findMiscId  "kurry"
@@ -226,6 +242,8 @@ mkCccEnv opts = do
   cccV     <- findMiscId  "ccc"
   forkV    <- findMiscId  "fork"
   applyV   <- findMiscId  "appl"
+  let catTy = mkTyConApp catTc []
+      catIs u c = mkTyConApp catTc [u,c]
   return (CccEnv { .. })
 
 {--------------------------------------------------------------------
