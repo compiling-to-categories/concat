@@ -4,6 +4,10 @@ packages:
 #     git: https://github.com/ekmett/keys
 #     commit: 614bba8a4676bc8d5c8cc0ae94bef614ccfae71f
 #   extra-dep: true
+- location:
+    git: https://github.com/ku-fpg/hermit
+    commit: d38052f3ec4cdbcc3ed4df308dae5588354c5be7
+  extra-dep: true
 extra-deps:
 - newtype-generics-0.4
 - Stream-0.4.7.2
@@ -11,5 +15,7 @@ extra-deps:
 - lazysmallcheck-0.6
 - vector-space-0.10.4
 - MemoTrie-0.6.5
+- kure-2.16.12
+- marked-pretty-1.1.2.1
 resolver: nightly-2016-07-18
 flags: {}
