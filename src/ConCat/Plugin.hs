@@ -143,7 +143,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- TODO: replace composeV with mkCompose in CccEnv
    -- Maybe other variables as well
    mkCompose :: Binop CoreExpr
-   g `mkCompose` f = varApps composeV [b,c,a] [g,f]
+   g `mkCompose` f = varApps composeV [] [Type objKind,Type cat,catDict,Type b,Type c,Type a,g,f]
     where
       -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
       Just (b,c) = splitFunTy_maybe (exprType g)
@@ -230,12 +230,13 @@ mkCccEnv opts = do
       findCatTc   = findTc "Control.Category"  -- later ConCat.Category
       findCatId   = findId "Control.Category"  -- later ConCat.Category
   ruleBase <- getRuleBase
+  catTc  <- findTc "Control.Category" "Category"
   -- dtrace "mkReifyEnv: getRuleBase ==" (ppr ruleBase) (return ())
   -- idV      <- findMiscId  "ident"
-  catTc  <- findTc "Control.Category" "Category"
   idV      <- findCatId  "id"
   constV   <- findMiscId  "konst"
-  composeV <- findMiscId  "comp"
+  -- composeV <- findMiscId  "comp"
+  composeV <- findCatId  "."
   curryV   <- findMiscId  "kurry"
   fstV     <- findTupleId "fst"
   sndV     <- findTupleId "snd"
