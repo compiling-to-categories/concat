@@ -50,11 +50,12 @@ render = True -- False
 tests :: IO [Test]
 tests = return
   [ nopTest
-  , test (\ x -> x :: Int)
-  , test (\ _x -> 3 :: Int)
-  , test (\ x -> succ x :: Int)
-  , test (\ x -> x + 4 :: Int)
-  , test (\ a b -> a + b :: Int)
+--   , test (\ x -> x :: Int)
+--   , test (\ (_x :: Int) -> True)
+--   , test (\ f -> f True :: Bool)
+--   , test (\ x -> succ x :: Int)
+--   , test (\ x -> x + 4 :: Int)
+--   , test (\ a b -> a + b :: Int)
   , test (\ a b -> b + a :: Int)
   ]
 

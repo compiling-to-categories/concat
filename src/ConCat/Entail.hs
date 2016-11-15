@@ -28,20 +28,20 @@ import ConCat.Misc ((:*),type (&&),inNew2)
 class HasCon a where
   type Con a :: Constraint
   toD  :: a -> Dict (Con a)
-  unD' :: Con a => a
+  unD :: Con a => a
 
-unD :: HasCon a => Dict (Con a) -> a
-unD Dict = unD'
+unD' :: HasCon a => Dict (Con a) -> a
+unD' Dict = unD
 
 instance HasCon (Dict c) where
   type Con (Dict c) = c
   toD  = id
-  unD' = Dict
+  unD = Dict
 
 instance (HasCon a, HasCon b) => HasCon (a :* b) where
   type Con (a :* b) = Con a && Con b
   toD (toD -> Dict, toD -> Dict) = Dict
-  unD' = (unD',unD')
+  unD = (unD,unD)
 
 infixr 1 |-
 newtype a |- b = Entail (Con a :- Con b)
