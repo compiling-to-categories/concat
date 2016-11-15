@@ -720,7 +720,7 @@ dupB :: Applicative m =>
 dupB a = pure (PairB a a)
 
 instance ProductCat (:>) where
-  type Prod (:>) = (:*)
+  -- type Prod (:>) = (:*)
   exl   = C (arr exlB)
   exr   = C (arr exrB)
   dup   = mkCK dupB
@@ -728,7 +728,7 @@ instance ProductCat (:>) where
   (&&&) = inCK2 forkB   -- or default
 
 instance ClosedCat (:>) where
-  type Exp (:>) = (->)
+  -- type Exp (:>) = (->)
   apply   = C (applyK . first (arr (unC . unFunB)) . arr unPairB)
   curry   = inC $ \ h -> arr (FunB . C) . curryK (h . arr pairB)
   uncurry = inC $ \ f -> uncurryK (arr (unC . unFunB) . f) . arr unPairB 
@@ -775,7 +775,7 @@ uncurryK (arr (unC . unFunB) . f) . arr unPairB == h
 #endif
 
 instance TerminalCat (:>) where
-  type Unit (:>) = ()
+  -- type Unit (:>) = ()
   -- it = C (const UnitB . it)
   -- it = mkCK (const (return UnitB))
   it = C (arr (pure UnitB))
@@ -931,7 +931,7 @@ primDelay a0 = primOpt (delayName a0s) $ \ case
 
 
 instance BoolCat (:>) where
-  type BoolOf (:>) = Bool
+  -- type BoolOf (:>) = Bool
   notC = primOpt "¬" $ \ case
            [NotS a]  -> sourceB a
            [Val x]   -> newVal (not x)
@@ -2025,7 +2025,7 @@ sumErr :: String -> a
 sumErr str = error (str ++ " for (:>): not defined. Sorry")
 
 instance CoproductCat (:>) where
-  type Coprod (:>) = Either
+  -- type Coprod (:>) = Either
   inl   = sumErr "inl"
   inr   = sumErr "inr"
   (|||) = sumErr "(|||)"
