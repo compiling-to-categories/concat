@@ -998,3 +998,19 @@ class RepCat k where
 instance RepCat (->) where
   reprC = repr
   abstC = abst
+
+
+{--------------------------------------------------------------------
+    Functors
+--------------------------------------------------------------------}
+
+-- These functors change categories but not objects
+
+-- | Functors map objects and arrows.
+class (Category k, Category k'{-, OkTarget f k k'-})
+   => FunctorC f k k' {-| f -> k k'-} where
+  -- | @fmapC@ maps arrows.
+  fmapC :: (Oks k [a,b], Oks k' [a,b]) => (a `k` b) -> (a `k'` b)
+  -- Laws:
+  -- fmapC id == id
+  -- fmapC (q . p) == fmapC q . fmapC p

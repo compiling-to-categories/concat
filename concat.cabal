@@ -19,11 +19,6 @@ library
   exposed-modules:     ConCat.Category
                        ConCat.Misc
                        ConCat.Orphans
-                       ConCat.Additive
-                       ConCat.Semimodule
-                       ConCat.Basis
-                       ConCat.LMap
-                       ConCat.FLMap
                        ConCat.Free.VectorSpace
                        ConCat.Free.LinearCol
                        ConCat.Free.LinearRow
@@ -36,6 +31,13 @@ library
                        ConCat.Simplify
                        ConCat.BuildDictionary
                        ConCat.Plugin
+
+--                        ConCat.Additive
+--                        ConCat.Semimodule
+--                        ConCat.Basis
+--                        ConCat.LMap
+--                        ConCat.FLMap
+
 
   include-dirs: src/ConCat
   install-includes:    AbsTy.inc

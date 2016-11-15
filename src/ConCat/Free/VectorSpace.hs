@@ -29,7 +29,7 @@ import Data.Key (Zip(..))
 import Control.Newtype
 
 import ConCat.Misc (inNew2,(:*),(<~))
-import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
+-- import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
 
 {--------------------------------------------------------------------
     Vector spaces
@@ -138,6 +138,7 @@ instance Newtype (Pickle a) where
 instance HasV s a => HasV s (Pickle a)
 #endif
 
+#if 0
 -- -- | The 'unV' form of 'zeroV'
 -- zeroX :: forall s a. (HasV s a, Pointed (V s a)) => a
 -- zeroX = unV (zeroV :: V s a s)
@@ -157,3 +158,5 @@ instance FunctorC (VFun s) (Constrained (HasV s) (->)) (UT s) where
   type VFun s % a = V s a
   fmapC (Constrained f) = UT (inV f)
                           -- vfun f
+
+#endif
