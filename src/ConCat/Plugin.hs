@@ -1,3 +1,4 @@
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -25,6 +26,7 @@ import Data.Data (Data)
 import Data.Generics (GenericQ,mkQ,everything)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as S
+import Data.Map (Map)
 import qualified Data.Map as M
 import Text.Printf (printf)
 
@@ -59,12 +61,14 @@ data CccEnv = CccEnv { dtrace    :: forall a. String -> SDoc -> a -> a
                      , exlV      :: Id
                      , exrV      :: Id
                      , constFunV :: Id
-                     , catIs     :: Unop Type
-                     , prodIs    :: Unop Type
-                     , closedIs  :: Unop Type
-                     , okIs      :: Binop Type
+                     , ops       :: OpsMap
                      , hsc_env   :: HscEnv
+                     -- Experiments:
+                     , fiddleV   :: Id
                      }
+
+-- Map from fully qualified name of standard operation.
+type OpsMap = Map String (Var,[Type])
 
 -- Whether to run Core Lint after every step
 lintSteps :: Bool
@@ -85,7 +89,10 @@ ccc (CccEnv {..}) guts dflags inScope cat =
  where
    go :: ReExpr
    go e | dtrace "ccc go:" (ppr e) False = undefined
-   go (Var v) = catFun cat v
+   go (Var v) = -- pprTrace "go" (pprWithType (Var fiddleV)) $
+                -- pprTrace "go" (pprWithType (Var fiddleV `App` Type floatTy)) $
+                -- pprTrace "go" (pprWithType (onDict (Var fiddleV `App` Type floatTy))) $
+                catFun v
    go (Lam x body) = goLam x (etaReduceN body)
    go e = return e
           -- return $ mkCcc (etaExpand 1 e)
@@ -131,7 +138,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    noDictErr doc =
      fromMaybe (pprPanic "ccc - couldn't build dictionary for" doc)
    onDictMaybe :: CoreExpr -> Maybe CoreExpr
-   onDictMaybe e | Just (ty,_) <- splitFunTy_maybe (exprType e) =
+   onDictMaybe e | Just (ty,_) <- splitFunTy_maybe (exprType e)
+                 , isPredTy ty =
                      App e <$> buildDictMaybe ty
                  | otherwise = pprPanic "ccc / onDictMaybe: not a function from pred"
                                  (pprWithType e)
@@ -146,7 +154,6 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    catOp' op tys = onDict (Var op `mkTyApps` (cat : tys))
    catOp :: Var -> CoreExpr
    catOp op = catOp' op []
-              -- onDict (Var op `App` Type cat)
    mkCcc :: Unop CoreExpr
    mkCcc e = varApps cccV [cat,a,b] [e]
     where
@@ -155,7 +162,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- Maybe other variables as well
    mkCompose :: Binop CoreExpr
    g `mkCompose` f = mkCoreApps
-                       (onDict (apps (catOp composeV) [b,c,a] []))
+                       (onDict (catOp composeV `mkTyApps` [b,c,a]))
                        [g,f]
     where
       -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
@@ -164,7 +171,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    mkEx :: Var -> Unop CoreExpr
    mkEx ex z =
      -- exl :: (ProductCat k, Ok k b, Ok k a) => k (Prod k a b) a
-     onDict (apps (catOp ex) [a,b] []) `App` z
+     onDict (catOp ex `mkTyApps` [a,b]) `App` z
     where
       (_,[a,b])  = splitAppTys (exprType z)
    mkFork :: Binop CoreExpr
@@ -172,7 +179,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      -- (&&&) :: forall {k :: * -> * -> *} {a} {c} {d}.
      --          (ProductCat k, Ok k d, Ok k c, Ok k a)
      --       => k a c -> k a d -> k a (Prod k c d)
-     onDict (apps (catOp forkV) [a,c,d] []) `mkCoreApps` [f,g]
+     onDict (catOp forkV `mkTyApps` [a,c,d]) `mkCoreApps` [f,g]
     where
       (_,[a,c]) = splitAppTys (exprType f)
       (_,[_,d]) = splitAppTys (exprType g)
@@ -180,13 +187,13 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    mkApply a b =
      -- apply :: forall {k :: * -> * -> *} {a} {b}. (ClosedCat k, Ok k b, Ok k a)
      --       => k (Prod k (Exp k a b) a) b
-     onDict (apps (catOp applyV) [a,b] [])
+     onDict (catOp applyV `mkTyApps` [a,b])
    mkCurry :: Unop CoreExpr
    mkCurry e =
      -- curry :: forall {k :: * -> * -> *} {a} {b} {c}.
      --          (ClosedCat k, Ok k c, Ok k b, Ok k a)
      --       => k (Prod k a b) c -> k a (Exp k b c)
-     onDict (apps (catOp curryV) [a,b,c] []) `App` e
+     onDict (catOp curryV `mkTyApps` [a,b,c]) `App` e
     where
       ety = exprType e
       (splitAppTys -> (_,[splitAppTys -> (_,[a,b]),c])) = ety
@@ -194,13 +201,12 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    mkConst dom e =
      -- const :: forall (k :: * -> * -> *) b. ConstCat k b => forall dom.
      --          Ok k dom => b -> k dom (ConstObj k b)
-     -- onDict (onDict (varApps constV [cat,exprType e] []) `App` Type dom) `App` e
      onDict (catOp' constV [exprType e] `App` Type dom) `App` e
    mkConstFun :: Type -> Unop CoreExpr
    mkConstFun dom e =
      -- constFun :: forall k p a b. (ClosedCat k, Oks k '[p, a, b])
      --          => k a b -> k p (Exp k a b)
-     onDict (onDict (varApps constFunV [cat,dom,a,b] [])) `App` e
+     onDict (catOp' constFunV [dom,a,b]) `App` e
     where
       (a,b) = splitFunTy (exprType e)
    traceRewrite :: (Outputable a, Outputable (f b)) =>
@@ -223,9 +229,23 @@ ccc (CccEnv {..}) guts dflags inScope cat =
                   (ppr beforeTy <+> "vs" <+> ppr afterTy <+> "in"))
               (oops "Lint")
           (lintExpr dflags (varSetElems (exprFreeVars before)) before)
+   catFun :: Var -> Maybe CoreExpr
+   catFun v =
+     pprTrace "catFun" (text fullName <+> dcolon <+> ppr ty) $
+     do (op,tys) <- M.lookup fullName ops
+        -- Apply to types and dictionaries, and possibly curry.
+        return $ (if twoArgs ty then mkCurry else id) (catOp' op tys)
+    where
+      ty      = varType v
+      fullName = fqVarName v
+      twoArgs (splitFunTy_maybe -> Just (_,splitFunTy_maybe -> Just _)) = True
+      twoArgs _ = False
 
-catFun :: Type -> Var -> Maybe CoreExpr
-catFun cat f = Nothing
+-- TODO: replace idV, composeV, etc with class objects from which I can extract
+-- those variables. Better, module objects, since I sometimes want functions
+-- that aren't methods.
+
+-- TODO: consider a mkCoreApps variant that automatically inserts dictionaries.
 
 pprWithType :: CoreExpr -> SDoc
 pprWithType e = ppr e <+> dcolon <+> ppr (exprType e)
@@ -295,7 +315,7 @@ mkCccEnv opts = do
       findMiscId  = findId "ConCat.Misc"
       findCatTc   = findTc "ConCat.Category"
       findCatId   = findId "ConCat.Category"
-  ruleBase <- getRuleBase
+  -- ruleBase <- getRuleBase
   catTc       <- findCatTc "Category"
   prodTc      <- findCatTc "ProductCat"
   closedTc    <- findCatTc "ClosedCat"
@@ -317,13 +337,56 @@ mkCccEnv opts = do
   applyV      <- findCatId "apply"
   curryV      <- findCatId "curry"
   constFunV   <- findCatId "constFun"
+  -- notV <- findCatId "notC"
   cccV        <- findMiscId  "ccc"
-  let catTy = mkTyConApp catTc []
-      catIs    cat = mkTyConApp catTc    [cat]
-      prodIs   cat = mkTyConApp prodTc   [cat]
-      closedIs cat = mkTyConApp closedTc [cat]
-      okIs cat a   = mkTyConApp okTc     [cat,a]
+  let mkOp :: (String,(String,String,[Type])) -> CoreM (String,(Var,[Type]))
+      mkOp (stdName,(cmod,cop,tyArgs)) =
+        do cv <- findId cmod cop
+           return (stdName, (cv,tyArgs))
+  ops <- M.fromList <$> mapM mkOp opsInfo
+  -- Experiment: force loading of numeric instances for Float and Double.
+  -- Doesn't help.
+  floatTc <- findTc "GHC.Float" "Float"
+  liftIO (forceLoadNameModuleInterface hsc_env (text "mkCccEnv")
+           (getName floatTc))
+  fiddleV <- findMiscId "fiddle"
+  rationalToFloatV <- findId "GHC.Float" "rationalToFloat"  -- experiment
   return (CccEnv { .. })
+
+-- Association list 
+opsInfo :: [(String,(String,String,[Type]))]
+opsInfo = [ (hmod++"."++hop,("ConCat.Category",cop,tyArgs))
+          | (hmod,ps) <- monoInfo, (hop,cop,tyArgs) <- ps ]
+ where
+   monoInfo = [ ( "GHC.Classes"
+                , [ ("not","notC",[]),("&&","andC",[]),("||","orC",[])
+                  , ("eqInt","equal",[intTy]), ("eqFloat","equal",[floatTy])
+                  , ("eqDouble","equal",[doubleTy])
+                  , ("ltInt","lessThan",[intTy])
+                  , ("$fOrdFloat_$c<","lessThan",[floatTy])
+                  , ("$fOrdDouble_$c<","lessThan",[doubleTy])
+                  ] )
+              , ( "GHC.Num"
+                , [ ("$fNumInt_$cnegate", "negateC", [intTy])
+                  , ("$fNumInt_$c+", "addC", [intTy])
+                  , ("$fNumInt_$c-", "subC", [intTy])
+                  , ("$fNumInt_$c*", "mulC", [intTy])
+                  -- powIC
+                  ] )
+              , ( "GHC.Float",
+                  [ ("$fNumFloat_$cnegate", "negateC", [floatTy])
+                  , ("$fNumFloat_$c+", "addC", [floatTy])
+                  , ("$fNumFloat_$c-", "subC", [floatTy])
+                  , ("$fNumFloat_$c*", "mulC", [floatTy])
+                  , ("$fFractionalFloat_$crecip", "recipC", [floatTy])
+                  -- powIC
+                  , ("$fNumDouble_$cnegate", "negateC", [doubleTy])
+                  , ("$fNumDouble_$c+", "addC", [doubleTy])
+                  , ("$fNumDouble_$c-", "subC", [doubleTy])
+                  , ("$fNumDouble_$c*", "mulC", [doubleTy])
+                  -- powIC
+                  ] )
+              ]
 
 {--------------------------------------------------------------------
     Misc
@@ -332,8 +395,8 @@ mkCccEnv opts = do
 on_mg_rules :: Unop [CoreRule] -> Unop ModGuts
 on_mg_rules f mg = mg { mg_rules = f (mg_rules mg) }
 
--- fqVarName :: Var -> String
--- fqVarName = qualifiedName . varName
+fqVarName :: Var -> String
+fqVarName = qualifiedName . varName
 
 uqVarName :: Var -> String
 uqVarName = getOccString . varName

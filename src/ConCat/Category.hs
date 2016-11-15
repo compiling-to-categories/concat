@@ -598,7 +598,7 @@ instance Monad m => UnsafeArr (Kleisli m) where
   
 #endif
 
-constFun :: forall k p a b. (ClosedCat k, Oks k [p,a,b])
+constFun :: forall k p a b. (ClosedCat k, Ok3 k p a b)
          => (a `k` b) -> (p `k` Exp k a b)
 constFun f = curry (f . exr)
              <+ okProd @k @p @a
@@ -795,7 +795,28 @@ class Num a => NumCat k a where
   addC, subC, mulC :: Prod k a a `k` a
   powIC :: Prod k a Int `k` a
 
-instance Num a => NumCat (->) a where
+#if 1
+
+#define ClassIFD(cls,clsQ) \
+class cls a => clsQ a ; \
+instance clsQ Int ; \
+instance clsQ Float ; \
+instance clsQ Double
+
+#define ClassFD(cls,clsQ) \
+class cls a => clsQ a ; \
+instance clsQ Float ; \
+instance clsQ Double
+
+#else
+
+#define ClassIFD(cls,clsQ) type clsQ = cls
+#define ClassFD(cls,clsQ) type clsQ = cls
+
+#endif
+
+ClassIFD(Num,NumQ)
+instance NumQ a => NumCat (->) a where
   negateC = negate
   addC    = uncurry (+)
   subC    = uncurry (-)
@@ -815,7 +836,8 @@ class Fractional a => FractionalCat k a where
   recipC :: a `k` a
   divideC :: Prod k a a `k` a
 
-instance Fractional a => FractionalCat (->) a where
+ClassFD(Fractional,FractionalQ)
+instance FractionalQ a => FractionalCat (->) a where
   recipC = recip
   divideC = uncurry (/)
 
@@ -829,7 +851,8 @@ instance (Monad m, Fractional a) => FractionalCat (Kleisli m) a where
 class Floating a => FloatingCat k a where
   expC, cosC, sinC :: a `k` a
 
-instance Floating a => FloatingCat (->) a where
+ClassFD(Floating,FloatingQ)
+instance FloatingQ a => FloatingCat (->) a where
   expC = exp
   cosC = cos
   sinC = sin
@@ -1009,3 +1032,28 @@ class (Category k, Category k'{-, OkTarget f k k'-})
   -- Laws:
   -- fmapC id == id
   -- fmapC (q . p) == fmapC q . fmapC p
+
+#if 0
+{--------------------------------------------------------------------
+    Rewrite rules
+--------------------------------------------------------------------}
+
+ccc' :: forall k a b. (ClosedCat k, BoolCat k, NumCat k a, Ok k a)
+     => (a -> b) -> (a `k` b)
+ccc' = ccc
+{-# NOINLINE ccc' #-}
+
+
+{-# Rules
+
+"ccc not" ccc' not = notC
+
+"ccc +" ccc' (+) = curry addC
+
+ #-}
+
+
+-- cccz :: forall con k a b. ({-ClosedCat k, -}Ok2 k a b)
+--      => Dict (con k a) -> (a -> b) -> (a `k` b)
+-- cccz d = ccc
+#endif

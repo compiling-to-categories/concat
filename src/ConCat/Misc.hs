@@ -16,7 +16,7 @@
 
 module ConCat.Misc where
 
-import Control.Arrow ((&&&))
+-- import Control.Arrow ((&&&))
 -- import Unsafe.Coerce (unsafeCoerce)
 -- import Data.Type.Equality
 
@@ -202,6 +202,7 @@ ccc :: forall k a b. (a -> b) -> (a `k` b)
 ccc _ = error "ccc: not implemented"
 {-# NOINLINE ccc #-}
 
+#if 0
 -- Note: ccc mustn't be a CAF, or its uses will get simplified away.
 
 ident :: a -> a
@@ -231,3 +232,10 @@ appl = uncurry ($)
 
 -- TODO: systematize names better, e.g., idC, constC, curryC, forkC, applyC.
 -- Fix in Plugin.
+#endif
+
+
+-- Experiment in finding Num dictionary for Float or Double
+
+fiddle :: Num a => a
+fiddle = 0

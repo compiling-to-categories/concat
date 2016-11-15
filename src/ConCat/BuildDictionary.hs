@@ -92,8 +92,10 @@ buildDictionary' env dflags guts evar =
 buildDictionary :: HscEnv -> DynFlags -> ModGuts -> InScopeEnv -> Type -> Maybe CoreExpr
 buildDictionary env dflags guts inScope ty =
   do 
+--      pprTrace "buildDictionary" (ppr ty <+> text "-->" <+> ppr dict) (return ())
+--      pprTrace "buildDictionary" (ppr (exprFreeVars dict)) (return ())
+--      pprTrace "buildDictionary" (ppr (bnds,freeIds)) (return ())
      guard (notNull bnds && isEmptyVarSet freeIds)
-     -- pprTrace "buildDictionary" (ppr ty <+> text "-->" <+> ppr dict) (return ())
      return dict
  where
    name     = "$d" ++ zEncodeString (filter (not . isSpace) (showPpr dflags ty))

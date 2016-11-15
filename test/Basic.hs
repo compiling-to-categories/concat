@@ -40,26 +40,45 @@ module Basic (tests) where
 import Data.Tuple (swap)
 import Distribution.TestSuite
 
-import ConCat.Misc (ccc)
+import GHC.Float ()  -- experiment
+
+import ConCat.Misc (ccc,Unop,Binop)
 
 -- Whether to render to a PDF (vs print reified expression)
 render :: Bool
 render = True -- False
 
+-- Experiment: try to force loading of Num Float etc
+class Num a => Quuz a
+instance Quuz Float
+instance Quuz Double
+
 -- For FP & parallelism talk
 tests :: IO [Test]
 tests = return
   [ nopTest
-  , test (\ x -> x :: Int)
-  , test (\ (_x :: Int) -> True)
-  , test (\ f -> f True :: Bool)
-  , test (\ x -> succ x :: Int)
-  , test (\ x -> x + 4 :: Int)
-  , test (\ a _b -> a :: Int)
-  , test (\ _a b -> b :: Int)
-  , test (\ a b -> a + b :: Int)
-  , test (\ a -> a + 0 :: Int)
-  , test (\ a b -> b + a :: Int)
+--   , test not
+--   , test (negate :: Unop Int)
+--   , test ((+) :: Binop Float)
+--   , test (recip :: Unop Float)
+
+--   , test ((<) :: Int -> Int -> Bool)
+  , test ((<) :: Double -> Double -> Bool)
+
+--   , test (\ x -> x :: Int)
+--   , test (\ (_x :: Int) -> True)
+--   , test (\ (_x :: Int) -> not)
+--   , test (\ (_ :: Bool) -> negate :: Unop Int)
+--   , test (\ (x :: Int) -> negate (x + 1))
+--   , test (\ f -> f True :: Bool)
+--   , test (\ x -> succ x :: Int)
+--   , test (\ x -> x + 4 :: Int)
+--   , test (\ x -> x + x :: Int)
+--   , test (\ x -> 4 + x :: Int)
+--   , test (\ a _b -> a :: Int)
+--   , test (\ _a b -> b :: Int)
+--   , test (\ a b -> a + b :: Int)
+--   , test (\ a b -> b + a :: Int)
   ]
 
 {--------------------------------------------------------------------
