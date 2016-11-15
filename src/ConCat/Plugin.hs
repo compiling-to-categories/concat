@@ -355,38 +355,31 @@ mkCccEnv opts = do
 
 -- Association list 
 opsInfo :: [(String,(String,String,[Type]))]
-opsInfo = [ (hmod++"."++hop,("ConCat.Category",cop,tyArgs))
-          | (hmod,ps) <- monoInfo, (hop,cop,tyArgs) <- ps ]
+opsInfo = [ (hop,("ConCat.Category",cop,tyArgs))
+          | (cop,ps) <- monoInfo
+          , (hop,tyArgs) <- ps
+          ]
  where
-   monoInfo = [ ( "GHC.Classes"
-                , [ ("not","notC",[]),("&&","andC",[]),("||","orC",[])
-                  , ("eqInt","equal",[intTy]), ("eqFloat","equal",[floatTy])
-                  , ("eqDouble","equal",[doubleTy])
-                  , ("ltInt","lessThan",[intTy])
-                  , ("$fOrdFloat_$c<","lessThan",[floatTy])
-                  , ("$fOrdDouble_$c<","lessThan",[doubleTy])
-                  ] )
-              , ( "GHC.Num"
-                , [ ("$fNumInt_$cnegate", "negateC", [intTy])
-                  , ("$fNumInt_$c+", "addC", [intTy])
-                  , ("$fNumInt_$c-", "subC", [intTy])
-                  , ("$fNumInt_$c*", "mulC", [intTy])
-                  -- powIC
-                  ] )
-              , ( "GHC.Float",
-                  [ ("$fNumFloat_$cnegate", "negateC", [floatTy])
-                  , ("$fNumFloat_$c+", "addC", [floatTy])
-                  , ("$fNumFloat_$c-", "subC", [floatTy])
-                  , ("$fNumFloat_$c*", "mulC", [floatTy])
-                  , ("$fFractionalFloat_$crecip", "recipC", [floatTy])
-                  -- powIC
-                  , ("$fNumDouble_$cnegate", "negateC", [doubleTy])
-                  , ("$fNumDouble_$c+", "addC", [doubleTy])
-                  , ("$fNumDouble_$c-", "subC", [doubleTy])
-                  , ("$fNumDouble_$c*", "mulC", [doubleTy])
-                  -- powIC
-                  ] )
-              ]
+   monoInfo = 
+     [ ("notC",[("GHC.Classes.not",[])]),("andC",[("GHC.Classes.&&",[])]),("orC",[("GHC.Classes.||",[])])
+     , ("equal",[("GHC.Classes.eqInt",[intTy]),("GHC.Classes.eqFloat",[floatTy])
+                ,("GHC.Classes.eqDouble",[doubleTy])])
+     , ("lessThan", [("GHC.Classes.ltInt",[intTy]),("GHC.Classes.$fOrdFloat_$c<",[floatTy])
+                    ,("GHC.Classes.$fOrdDouble_$c<",[doubleTy])])
+     , ("negateC",[("GHC.Num.$fNumInt_$cnegate",[intTy])
+                  ,("GHC.Float.$fNumFloat_$cnegate",[floatTy])
+                  ,("GHC.Float.$fNumDouble_$cnegate",[doubleTy])])
+     , ("addC" ,[("GHC.Num.$fNumInt_$c+",[intTy])
+                ,("GHC.Float.$fNumFloat_$c+",[floatTy])
+                ,("GHC.Float.$fNumDouble_$c+",[doubleTy])])
+     , ("subC" ,[("GHC.Num.$fNumInt_$c-",[intTy])
+                ,("GHC.Float.$fNumFloat_$c-",[floatTy])
+                ,("GHC.Float.$fNumDouble_$c-",[doubleTy])])
+     , ("mulC" ,[("GHC.Num.$fNumInt_$c*",[intTy])
+                ,("GHC.Float.$fNumFloat_$c*",[floatTy])
+                ,("GHC.Float.$fNumDouble_$c*",[doubleTy])])
+       -- powIC
+     ]
 
 {--------------------------------------------------------------------
     Misc
