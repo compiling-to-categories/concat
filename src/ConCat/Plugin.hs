@@ -83,8 +83,9 @@ ccc (CccEnv {..}) guts dflags inScope cat =
   go
  where
    go :: ReExpr
-   -- go e | dtrace "ccc go:" (ppr e) False = undefined
-   go (Var {}) = Nothing   -- wait for inlining
+   go e | dtrace "ccc go:" (ppr e) False = undefined
+   go (Var v) = -- inlineId v
+                Nothing   -- wait for inlining
    go (Lam x body) = goLam x (etaReduceN body)
    go e = return e
           -- return $ mkCcc (etaExpand 1 e)
@@ -193,14 +194,14 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      -- (&&&) :: forall {k :: * -> * -> *} {a} {c} {d}.
      --          (ProductCat k, Ok k d, Ok k c, Ok k a)
      --       => k a c -> k a d -> k a (Prod k c d)
-     pprTrace "mkFork f" (pprWithType f) $
-     pprTrace "mkFork g" (pprWithType g) $
-     pprTrace "mkFork (a,c,d)" (ppr (a,c,d)) $
-     pprTrace "mkFork" (pprWithType (Var forkV)) $
+     -- pprTrace "mkFork f" (pprWithType f) $
+     -- pprTrace "mkFork g" (pprWithType g) $
+     -- pprTrace "mkFork (a,c,d)" (ppr (a,c,d)) $
+     -- pprTrace "mkFork" (pprWithType (Var forkV)) $
      let res = onDict (apps (varApps forkV [cat] [prodDict]) [a,c,d] [])
                  `mkCoreApps` [f,g] in
      -- TODO: maybe make catDict and prodDict via onDict.
-     pprTrace "mkFork result" (pprWithType res) $
+     -- pprTrace "mkFork result" (pprWithType res) $
      res
     where
       (_,[a,c]) = splitAppTys (exprType f)
@@ -213,7 +214,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      -- pprTrace "mkApply" (ppr (a,b)) $
      -- pprTrace "mkApply" (pprWithType (Var applyV)) $
      let res = onDict (apps (varApps applyV [cat] [closedDict]) [a,b] []) in
-     pprTrace "mkApply result" (pprWithType res) $
+     -- pprTrace "mkApply result" (pprWithType res) $
      res
    mkCurry :: Unop CoreExpr
    mkCurry e =
@@ -243,7 +244,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      -- pprTrace "mkConst" (pprWithType (Var constV)) $
      let res = onDict (onDict (varApps constV [cat,exprType e] [])
                         `App` Type dom) `App` e in
-     pprTrace "mkConst result" (pprWithType res) $
+     -- pprTrace "mkConst result" (pprWithType res) $
      res
      
    lintReExpr :: Unop ReExpr
@@ -301,7 +302,7 @@ install opts todos =
    mode = SimplMode { sm_names      = ["Ccc simplifier pass"]
                     , sm_phase      = InitialPhase
                     , sm_rules      = True  -- important
-                    , sm_inline     = False -- important
+                    , sm_inline     = True -- False -- important
                     , sm_eta_expand = False -- ??
                     , sm_case_case  = True  -- important
                     }
