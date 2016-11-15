@@ -172,6 +172,9 @@ type Ok6 k a b c d e f = C6 (Ok k) a b c d e f
 
 type Oks k as = AllC (Ok k) as
 
+-- I like the elegance of Oks, but it leads to complex dictionary expressions.
+-- For now, use Okn for the operations introduced by lambda-to-ccc conversion.
+
 {--------------------------------------------------------------------
     Categories
 --------------------------------------------------------------------}
@@ -181,7 +184,7 @@ class Category k where
   type Ok k = Yes1
   id  :: Ok k a => a `k` a
   infixr 9 .
-  (.) :: forall b c a. Oks k [a,b,c] => (b `k` c) -> (a `k` b) -> (a `k` c)
+  (.) :: forall b c a. Ok3 k a b c => (b `k` c) -> (a `k` b) -> (a `k` c)
 #ifdef DefaultCat
   -- Defaults experiment
   default id :: C.Category k => a `k` a
@@ -230,8 +233,8 @@ okProd = inOp
 class (OpCon (Prod k) (Ok' k), Category k) => ProductCat k where
   -- type Prod k :: u -> u -> u
   -- type Prod k = (:*)
-  exl :: Oks k [a,b] => Prod k a b `k` a
-  exr :: Oks k [a,b] => Prod k a b `k` b
+  exl :: Ok2 k a b => Prod k a b `k` a
+  exr :: Ok2 k a b => Prod k a b `k` b
   dup :: Ok  k a => a `k` Prod k a a
   dup = id &&& id
   swapP :: forall a b. Oks k [a,b] => Prod k a b `k` Prod k b a
@@ -241,7 +244,7 @@ class (OpCon (Prod k) (Ok' k), Category k) => ProductCat k where
         => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d)
   f *** g = f . exl &&& g . exr
             <+ okProd @k @a @b
-  (&&&) :: forall a c d. Oks k [a,c,d] 
+  (&&&) :: forall a c d. Ok3 k a c d
         => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d)
 #ifndef DefaultCat
   -- We can't give two default definitions for (&&&).
@@ -515,11 +518,11 @@ type Exp k = (->)
 
 class (OpCon (Exp k) (Ok' k), ProductCat k) => ClosedCat k where
   -- type Exp k :: u -> u -> u
-  apply   :: forall a b. Oks k [a,b] => Prod k (Exp k a b) a `k` b
+  apply   :: forall a b. Ok2 k a b => Prod k (Exp k a b) a `k` b
   apply = uncurry id
           <+ okExp @k @a @b
-  curry   :: Oks k [a,b,c] => (Prod k a b `k` c) -> (a `k` Exp k b c)
-  uncurry :: forall a b c. Oks k [a,b,c]
+  curry   :: Ok3 k a b c => (Prod k a b `k` c) -> (a `k` Exp k b c)
+  uncurry :: forall a b c. Ok3 k a b c
           => (a `k` Exp k b c)  -> (Prod k a b `k` c)
   uncurry g = apply . first g
               <+ okProd @k @(Exp k b c) @b
@@ -535,8 +538,6 @@ instance ClosedCat (->) where
   curry   = P.curry
   uncurry = P.uncurry
 
-#if 0
-#if 1
 applyK   ::            Kleisli m (Kleisli m a b :* a) b
 curryK   :: Monad m => Kleisli m (a :* b) c -> Kleisli m a (Kleisli m b c)
 uncurryK :: Monad m => Kleisli m a (Kleisli m b c) -> Kleisli m (a :* b) c
@@ -545,18 +546,12 @@ applyK   = pack (apply . first unpack)
 curryK   = inNew $ \ h -> return . pack . curry h
 uncurryK = inNew $ \ f -> \ (a,b) -> f a >>= ($ b) . unpack
 
+#if 0
 instance Monad m => ClosedCat (Kleisli m) where
   -- type Exp (Kleisli m) = Kleisli m
   apply   = applyK
   curry   = curryK
   uncurry = uncurryK
-#else
-instance Monad m => ClosedCat (Kleisli m) where
-  type Exp (Kleisli m) = Kleisli m
-  apply   = pack (apply . first unpack)
-  curry   = inNew $ \ h -> return . pack . curry h
-  uncurry = inNew $ \ f -> \ (a,b) -> f a >>= ($ b) . unpack
-#endif
 #endif
 
 type Unit k = ()
