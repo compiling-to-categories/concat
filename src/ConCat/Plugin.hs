@@ -95,7 +95,6 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      Trying("Var")
      -- (\ x -> x) --> id
      Var y | x == y ->
-       -- return $ onDict (varApps idV [cat] [catDict,Type xty])
       return $ onDict (catOp idV `App` Type xty)
      Trying("constant")
      -- (\ x -> e) --> const e, where x is not free in e.
@@ -128,9 +127,6 @@ ccc (CccEnv {..}) guts dflags inScope cat =
     where
       xty = varType x
       bty = exprType body
-   catDict    = buildDict (catIs    cat)
-   prodDict   = buildDict (prodIs   cat)
-   closedDict = buildDict (closedIs cat)
    noDictErr :: SDoc -> Maybe a -> a
    noDictErr doc =
      fromMaybe (pprPanic "ccc - couldn't build dictionary for" doc)
@@ -184,7 +180,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    mkApply a b =
      -- apply :: forall {k :: * -> * -> *} {a} {b}. (ClosedCat k, Ok k b, Ok k a)
      --       => k (Prod k (Exp k a b) a) b
-     onDict (apps (varApps applyV [cat] [closedDict]) [a,b] [])
+     onDict (apps (catOp applyV) [a,b] [])
    mkCurry :: Unop CoreExpr
    mkCurry e =
      -- curry :: forall {k :: * -> * -> *} {a} {b} {c}.
