@@ -27,7 +27,7 @@
 {-# OPTIONS_GHC -dsuppress-idinfo -dsuppress-module-prefixes -dsuppress-uniques #-}
 
 {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
-{-# OPTIONS_GHC -ddump-rule-rewrites #-}
+-- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
 
 -- When I list the plugin in the test suite's .cabal target instead of here, I get
 --
@@ -50,12 +50,15 @@ render = True -- False
 tests :: IO [Test]
 tests = return
   [ nopTest
---   , test (\ x -> x :: Int)
---   , test (\ (_x :: Int) -> True)
---   , test (\ f -> f True :: Bool)
---   , test (\ x -> succ x :: Int)
---   , test (\ x -> x + 4 :: Int)
---   , test (\ a b -> a + b :: Int)
+  , test (\ x -> x :: Int)
+  , test (\ (_x :: Int) -> True)
+  , test (\ f -> f True :: Bool)
+  , test (\ x -> succ x :: Int)
+  , test (\ x -> x + 4 :: Int)
+  , test (\ a _b -> a :: Int)
+  , test (\ _a b -> b :: Int)
+  , test (\ a b -> a + b :: Int)
+  , test (\ a -> a + 0 :: Int)
   , test (\ a b -> b + a :: Int)
   ]
 
