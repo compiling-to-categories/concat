@@ -95,7 +95,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      Trying("Var")
      -- (\ x -> x) --> id
      Var y | x == y ->
-       return $ onDict (varApps idV [cat] [catDict,Type xty])
+       -- return $ onDict (varApps idV [cat] [catDict,Type xty])
+      return $ onDict (catOp idV `App` Type xty)
      Trying("constant")
      -- (\ x -> e) --> const e, where x is not free in e.
      _ | not (isFreeIn x body) ->
@@ -145,13 +146,11 @@ ccc (CccEnv {..}) guts dflags inScope cat =
                        buildDictionary hsc_env dflags guts inScope ty
    buildDict :: Type -> CoreExpr
    buildDict ty = noDictErr (ppr ty) (buildDictMaybe ty)
-   traceRewrite :: (Outputable a, Outputable (f b)) =>
-                   String -> Unop (a -> f b)
-   traceRewrite str f a = pprTrans str a (f a)
-   pprTrans :: (Outputable a, Outputable b) => String -> a -> b -> b
-   pprTrans str a b = dtrace str (ppr a $$ "-->" $$ ppr b) b
+   catOp' :: Var -> [Type] -> CoreExpr
+   catOp' op tys = onDict (Var op `mkTyApps` (cat : tys))
    catOp :: Var -> CoreExpr
-   catOp op = onDict (Var op `App` Type cat)
+   catOp op = catOp' op []
+              -- onDict (Var op `App` Type cat)
    mkCcc :: Unop CoreExpr
    mkCcc e = varApps cccV [cat,a,b] [e]
     where
@@ -160,8 +159,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- Maybe other variables as well
    mkCompose :: Binop CoreExpr
    g `mkCompose` f = mkCoreApps
-                       (onDict (varApps composeV [cat]
-                                  [catDict,Type b,Type c,Type a]))
+                       (onDict (apps (catOp composeV) [b,c,a] []))
                        [g,f]
     where
       -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
@@ -170,7 +168,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    mkEx :: Var -> Unop CoreExpr
    mkEx ex z =
      -- exl :: (ProductCat k, Ok k b, Ok k a) => k (Prod k a b) a
-     onDict (apps (onDict (Var ex `App` Type cat)) [a,b] []) `App` z
+     onDict (apps (catOp ex) [a,b] []) `App` z
     where
       (_,[a,b])  = splitAppTys (exprType z)
    mkFork :: Binop CoreExpr
@@ -178,8 +176,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      -- (&&&) :: forall {k :: * -> * -> *} {a} {c} {d}.
      --          (ProductCat k, Ok k d, Ok k c, Ok k a)
      --       => k a c -> k a d -> k a (Prod k c d)
-     onDict (apps (varApps forkV [cat] [prodDict]) [a,c,d] []) `mkCoreApps` [f,g]
-     -- TODO: maybe make catDict and prodDict via onDict.
+     onDict (apps (catOp forkV) [a,c,d] []) `mkCoreApps` [f,g]
     where
       (_,[a,c]) = splitAppTys (exprType f)
       (_,[_,d]) = splitAppTys (exprType g)
@@ -193,7 +190,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      -- curry :: forall {k :: * -> * -> *} {a} {b} {c}.
      --          (ClosedCat k, Ok k c, Ok k b, Ok k a)
      --       => k (Prod k a b) c -> k a (Exp k b c)
-     onDict (apps (onDict (varApps curryV [cat] [])) [a,b,c] []) `App` e
+     onDict (apps (catOp curryV) [a,b,c] []) `App` e
     where
       ety = exprType e
       (splitAppTys -> (_,[splitAppTys -> (_,[a,b]),c])) = ety
@@ -201,7 +198,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    mkConst dom e =
      -- const :: forall (k :: * -> * -> *) b. ConstCat k b => forall dom.
      --          Ok k dom => b -> k dom (ConstObj k b)
-     onDict (onDict (varApps constV [cat,exprType e] []) `App` Type dom) `App` e
+     -- onDict (onDict (varApps constV [cat,exprType e] []) `App` Type dom) `App` e
+     onDict (catOp' constV [exprType e] `App` Type dom) `App` e
    mkConstFun :: Type -> Unop CoreExpr
    mkConstFun dom e =
      -- constFun :: forall k p a b. (ClosedCat k, Oks k '[p, a, b])
@@ -209,6 +207,11 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      onDict (onDict (varApps constFunV [cat,dom,a,b] [])) `App` e
     where
       (a,b) = splitFunTy (exprType e)
+   traceRewrite :: (Outputable a, Outputable (f b)) =>
+                   String -> Unop (a -> f b)
+   traceRewrite str f a = pprTrans str a (f a)
+   pprTrans :: (Outputable a, Outputable b) => String -> a -> b -> b
+   pprTrans str a b = dtrace str (ppr a $$ "-->" $$ ppr b) b
    lintReExpr :: Unop ReExpr
    lintReExpr rew before =
      do after <- rew before
