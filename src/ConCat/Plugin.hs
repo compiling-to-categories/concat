@@ -48,21 +48,22 @@ import ConCat.BuildDictionary
 
 -- Information needed for reification. We construct this info in
 -- CoreM and use it in the reify rule, which must be pure.
-data CccEnv = CccEnv { dtrace   :: forall a. String -> SDoc -> a -> a
-                     , cccV     :: Id
-                     , idV      :: Id
-                     , constV   :: Id
-                     , forkV    :: Id
-                     , applyV   :: Id
-                     , composeV :: Id
-                     , curryV   :: Id
-                     , exlV     :: Id
-                     , exrV     :: Id
-                     , catIs    :: Unop Type
-                     , prodIs   :: Unop Type
-                     , closedIs :: Unop Type
-                     , okIs     :: Binop Type
-                     , hsc_env  :: HscEnv
+data CccEnv = CccEnv { dtrace    :: forall a. String -> SDoc -> a -> a
+                     , cccV      :: Id
+                     , idV       :: Id
+                     , constV    :: Id
+                     , forkV     :: Id
+                     , applyV    :: Id
+                     , composeV  :: Id
+                     , curryV    :: Id
+                     , exlV      :: Id
+                     , exrV      :: Id
+                     , constFunV :: Id
+                     , catIs     :: Unop Type
+                     , prodIs    :: Unop Type
+                     , closedIs  :: Unop Type
+                     , okIs      :: Binop Type
+                     , hsc_env   :: HscEnv
                      }
 
 -- Whether to run Core Lint after every step
@@ -84,8 +85,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
  where
    go :: ReExpr
    go e | dtrace "ccc go:" (ppr e) False = undefined
-   go (Var v) = -- inlineId v
-                Nothing   -- wait for inlining
+   go (Var v) = catFun cat v
    go (Lam x body) = goLam x (etaReduceN body)
    go e = return e
           -- return $ mkCcc (etaExpand 1 e)
@@ -94,36 +94,34 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    goLam x body = case body of
      Trying("Var")
      -- (\ x -> x) --> id
-     Var y | x == y {-, Just okDict <- buildDictMaybe (okIs cat xty) -} ->
+     Var y | x == y ->
        return $ onDict (varApps idV [cat] [catDict,Type xty])
      Trying("constant")
      -- (\ x -> e) --> const e, where x is not free in e.
-     e | not (isFreeIn x e) ->
-       -- return $ varApps constV [exprType e, xty] [e]
-       return $ mkConst xty e
+     _ | not (isFreeIn x body) ->
+       return $
+       if isJust (splitFunTy_maybe bty) then
+         mkConstFun xty (mkCcc body)
+       else
+         mkConst xty body
      Trying("app")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
      u `App` v ->
        return $ mkCompose
-                  -- (varApps applyV [vty,bty] [])
-                  -- (varApps forkV [xty,uty,vty] [mkCcc (Lam x u), mkCcc (Lam x v)])
                   (mkApply vty bty)
                   (mkFork (mkCcc (Lam x u)) (mkCcc (Lam x v)))
       where
-        uty = exprType u
         vty = exprType v
      Trying("Lambda")
      -- (\ x -> \ y -> U) --> curry (\ z -> U[fst z/x, snd z/y])
      Lam y e ->
-       -- return $ varApps curryV [xty,yty,ety] [mkCcc $ Lam z (subst sub e)]
        return $ mkCurry (mkCcc (Lam z (subst sub e)))
       where
         yty = varType y
-        ety = exprType e
         z = freshId (exprFreeVars e) zName (pairTy xty yty)
         zName = uqVarName x ++ "_" ++ uqVarName y
         sub = [(x,mkEx exlV (Var z)),(y,mkEx exrV (Var z))]
-     -- bailing
+     -- Give up
      _e -> dtrace "ccc" ("Unhandled:" <+> ppr _e) $
            Nothing
     where
@@ -140,10 +138,6 @@ ccc (CccEnv {..}) guts dflags inScope cat =
                      App e <$> buildDictMaybe ty
                  | otherwise = pprPanic "ccc / onDictMaybe: not a function from pred"
                                  (pprWithType e)
---    onDictMaybe e | Just (ty,_) <- splitFunTy_maybe (exprType e) =
---                      buildDictMaybe ty
---                  | otherwise = pprPanic "ccc / onDictMaybe: not a function from pred"
---                                  (pprWithType e)
    onDict :: Unop CoreExpr
    onDict f = noDictErr (pprWithType f) (onDictMaybe f)
    buildDictMaybe :: Type -> Maybe CoreExpr
@@ -156,6 +150,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    traceRewrite str f a = pprTrans str a (f a)
    pprTrans :: (Outputable a, Outputable b) => String -> a -> b -> b
    pprTrans str a b = dtrace str (ppr a $$ "-->" $$ ppr b) b
+   catOp :: Var -> CoreExpr
+   catOp op = onDict (Var op `App` Type cat)
    mkCcc :: Unop CoreExpr
    mkCcc e = varApps cccV [cat,a,b] [e]
     where
@@ -163,8 +159,6 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- TODO: replace composeV with mkCompose in CccEnv
    -- Maybe other variables as well
    mkCompose :: Binop CoreExpr
---    g `mkCompose` f = varApps composeV [cat]
---                        [catDict,Type b,Type c,Type a,ok a, ok b, ok c,g,f]
    g `mkCompose` f = mkCoreApps
                        (onDict (varApps composeV [cat]
                                   [catDict,Type b,Type c,Type a]))
@@ -173,66 +167,33 @@ ccc (CccEnv {..}) guts dflags inScope cat =
       -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
       Just (b,c) = splitFunTy_maybe (exprType g)
       Just (a,_) = splitFunTy_maybe (exprType f)
-      ok t = buildDict (okIs cat t)
    mkEx :: Var -> Unop CoreExpr
    mkEx ex z =
      -- exl :: (ProductCat k, Ok k b, Ok k a) => k (Prod k a b) a
-     -- pprTrace "mkEx" (pprWithType (Var ex)) $
-     -- pprTrace "mkEx" (pprWithType z) $
-     -- pprTrace "mkEx" (pprWithType (Var ex `App` Type cat)) $
-     -- pprTrace "mkEx" (pprWithType (onDict (Var ex `App` Type cat))) $
-     -- pprTrace "mkEx" (pprWithType (apps (onDict (Var ex `App` Type cat)) [a,b] [])) $
-     -- pprTrace "mkEx" (pprWithType (onDict (apps (onDict (Var ex `App` Type cat)) [a,b] []))) $
-     -- pprTrace "mkEx" (pprWithType (onDict (apps (onDict (Var ex `App` Type cat)) [a,b] []) `App` z))
-     -- pprPanic "mkEx" (text "bailing")
      onDict (apps (onDict (Var ex `App` Type cat)) [a,b] []) `App` z
     where
       (_,[a,b])  = splitAppTys (exprType z)
-      ok t = buildDict (okIs cat t)
    mkFork :: Binop CoreExpr
    f `mkFork` g =
      -- (&&&) :: forall {k :: * -> * -> *} {a} {c} {d}.
      --          (ProductCat k, Ok k d, Ok k c, Ok k a)
      --       => k a c -> k a d -> k a (Prod k c d)
-     -- pprTrace "mkFork f" (pprWithType f) $
-     -- pprTrace "mkFork g" (pprWithType g) $
-     -- pprTrace "mkFork (a,c,d)" (ppr (a,c,d)) $
-     -- pprTrace "mkFork" (pprWithType (Var forkV)) $
-     let res = onDict (apps (varApps forkV [cat] [prodDict]) [a,c,d] [])
-                 `mkCoreApps` [f,g] in
+     onDict (apps (varApps forkV [cat] [prodDict]) [a,c,d] []) `mkCoreApps` [f,g]
      -- TODO: maybe make catDict and prodDict via onDict.
-     -- pprTrace "mkFork result" (pprWithType res) $
-     res
     where
       (_,[a,c]) = splitAppTys (exprType f)
       (_,[_,d]) = splitAppTys (exprType g)
-      ok t = buildDict (okIs cat t)
    mkApply :: Type -> Type -> CoreExpr
    mkApply a b =
      -- apply :: forall {k :: * -> * -> *} {a} {b}. (ClosedCat k, Ok k b, Ok k a)
      --       => k (Prod k (Exp k a b) a) b
-     -- pprTrace "mkApply" (ppr (a,b)) $
-     -- pprTrace "mkApply" (pprWithType (Var applyV)) $
-     let res = onDict (apps (varApps applyV [cat] [closedDict]) [a,b] []) in
-     -- pprTrace "mkApply result" (pprWithType res) $
-     res
+     onDict (apps (varApps applyV [cat] [closedDict]) [a,b] [])
    mkCurry :: Unop CoreExpr
    mkCurry e =
      -- curry :: forall {k :: * -> * -> *} {a} {b} {c}.
      --          (ClosedCat k, Ok k c, Ok k b, Ok k a)
      --       => k (Prod k a b) c -> k a (Exp k b c)
-     -- pprTrace "mkCurry" (pprWithType e) $
-     -- pprTrace "mkCurry" (pprWithType (Var curryV)) $
-     -- pprTrace "mkCurry" (pprWithType (varApps curryV [cat] [])) $
-     -- pprTrace "mkCurry" (pprWithType (onDict (varApps curryV [cat] []))) $
-     -- pprTrace "mkCurry" (pprWithType (apps (onDict (varApps curryV [cat] [])) [a,b,c] [])) $
-     -- pprTrace "mkCurry" (pprWithType (onDict (apps (onDict (varApps curryV [cat] [])) [a,b,c] [])) ) $
-     -- pprTrace "mkCurry" (pprWithType (onDict (apps (onDict (varApps curryV [cat] [])) [a,b,c] []) `App` e) ) $
-     let res = onDict (apps (onDict (varApps curryV [cat] []))
-                        [a,b,c] []) `App` e in
-     -- pprTrace "mkCurry result" (pprWithType res) $
-     -- pprPanic "mkCurry" (text "bailing") $
-     res
+     onDict (apps (onDict (varApps curryV [cat] [])) [a,b,c] []) `App` e
     where
       ety = exprType e
       (splitAppTys -> (_,[splitAppTys -> (_,[a,b]),c])) = ety
@@ -240,13 +201,14 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    mkConst dom e =
      -- const :: forall (k :: * -> * -> *) b. ConstCat k b => forall dom.
      --          Ok k dom => b -> k dom (ConstObj k b)
-     -- pprTrace "mkConst" (ppr (dom,e)) $
-     -- pprTrace "mkConst" (pprWithType (Var constV)) $
-     let res = onDict (onDict (varApps constV [cat,exprType e] [])
-                        `App` Type dom) `App` e in
-     -- pprTrace "mkConst result" (pprWithType res) $
-     res
-     
+     onDict (onDict (varApps constV [cat,exprType e] []) `App` Type dom) `App` e
+   mkConstFun :: Type -> Unop CoreExpr
+   mkConstFun dom e =
+     -- constFun :: forall k p a b. (ClosedCat k, Oks k '[p, a, b])
+     --          => k a b -> k p (Exp k a b)
+     onDict (onDict (varApps constFunV [cat,dom,a,b] [])) `App` e
+    where
+      (a,b) = splitFunTy (exprType e)
    lintReExpr :: Unop ReExpr
    lintReExpr rew before =
      do after <- rew before
@@ -262,6 +224,9 @@ ccc (CccEnv {..}) guts dflags inScope cat =
                   (ppr beforeTy <+> "vs" <+> ppr afterTy <+> "in"))
               (oops "Lint")
           (lintExpr dflags (varSetElems (exprFreeVars before)) before)
+
+catFun :: Type -> Var -> Maybe CoreExpr
+catFun cat f = Nothing
 
 pprWithType :: CoreExpr -> SDoc
 pprWithType e = ppr e <+> dcolon <+> ppr (exprType e)
@@ -352,6 +317,7 @@ mkCccEnv opts = do
   forkV       <- findCatId "&&&"
   applyV      <- findCatId "apply"
   curryV      <- findCatId "curry"
+  constFunV   <- findCatId "constFun"
   cccV        <- findMiscId  "ccc"
   let catTy = mkTyConApp catTc []
       catIs    cat = mkTyConApp catTc    [cat]
