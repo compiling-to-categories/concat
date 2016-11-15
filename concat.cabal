@@ -24,7 +24,6 @@ library
                        ConCat.Free.LinearRow
                        ConCat.ShowUtils
                        ConCat.Lambda
-                       ConCat.Entail
                        ConCat.Complex
                        ConCat.Rep
                        ConCat.Circuit
@@ -32,6 +31,7 @@ library
                        ConCat.BuildDictionary
                        ConCat.Plugin
 
+--                        ConCat.Entail
 --                        ConCat.Additive
 --                        ConCat.Semimodule
 --                        ConCat.Basis
