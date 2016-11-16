@@ -89,10 +89,10 @@ ccc (CccEnv {..}) guts dflags inScope cat =
  where
    go :: ReExpr
    go e | dtrace "ccc go:" (ppr e) False = undefined
-   go (Var v) = -- pprTrace "go" (pprWithType (Var fiddleV)) $
-                -- pprTrace "go" (pprWithType (Var fiddleV `App` Type floatTy)) $
-                -- pprTrace "go" (pprWithType (onDict (Var fiddleV `App` Type floatTy))) $
-                catFun v
+   go (Var v) = pprTrace "go Var" (ppr v) $
+                catFun v <|>
+                (pprTrace "inlining" (ppr v) $
+                 mkCcc <$> inlineId v)
    go (Lam x body) = goLam x (etaReduceN body)
    go e = return e
           -- return $ mkCcc (etaExpand 1 e)
@@ -161,13 +161,12 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- TODO: replace composeV with mkCompose in CccEnv
    -- Maybe other variables as well
    mkCompose :: Binop CoreExpr
-   g `mkCompose` f = mkCoreApps
-                       (onDict (catOp composeV `mkTyApps` [b,c,a]))
-                       [g,f]
-    where
-      -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
-      Just (b,c) = splitFunTy_maybe (exprType g)
-      Just (a,_) = splitFunTy_maybe (exprType f)
+   -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
+   g `mkCompose` f
+     | Just (b,c) <- splitCatTy_maybe (exprType g)
+     , Just (a,_) <- splitCatTy_maybe (exprType f)
+     = mkCoreApps (onDict (catOp composeV `mkTyApps` [b,c,a])) [g,f]
+     | otherwise = pprPanic "mkCompose:" (pprWithType g <+> text ";" <+> pprWithType f)
    mkEx :: Var -> Unop CoreExpr
    mkEx ex z =
      -- exl :: (ProductCat k, Ok k b, Ok k a) => k (Prod k a b) a
@@ -208,7 +207,15 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      --          => k a b -> k p (Exp k a b)
      onDict (catOp' constFunV [dom,a,b]) `App` e
     where
-      (a,b) = splitFunTy (exprType e)
+      (a,b) = splitCatTy (exprType e)
+   -- Split k a b into a & b.
+   -- TODO: check that k == cat
+   splitCatTy_maybe :: Type -> Maybe (Type,Type)
+   splitCatTy_maybe (splitAppTys -> (_,(a:b:_))) = Just (a,b)
+   splitCatTy_maybe _ = Nothing
+   splitCatTy :: Type -> (Type,Type)
+   splitCatTy (splitCatTy_maybe -> Just ab) = ab
+   splitCatTy ty = pprPanic "splitCatTy" (ppr ty)
    traceRewrite :: (Outputable a, Outputable (f b)) =>
                    String -> Unop (a -> f b)
    traceRewrite str f a = pprTrans str a (f a)
@@ -283,8 +290,8 @@ install opts todos =
  where
    flagCcc :: CccEnv -> PluginPass
    flagCcc (CccEnv {..}) guts
-     | pprTrace "ccc residuals:" (ppr (toList remaining)) False = undefined
-     | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
+     -- | pprTrace "ccc residuals:" (ppr (toList remaining)) False = undefined
+     -- | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
      | S.null remaining = return guts
      | otherwise = pprPanic "ccc residuals:" (ppr (toList remaining))
     where
@@ -392,6 +399,9 @@ monoInfo =
   , ("expC", floatingOp "exp" <$> fd)
   , ("cosC", floatingOp "cos" <$> fd)
   , ("sinC", floatingOp "sin" <$> fd)
+  --
+  , ("succC",[("GHC.Enum.$fEnumInt_$csucc",[intTy])])
+  , ("predC",[("GHC.Enum.$fEnumInt_$cpred",[intTy])])
   ]
  where
    ifd = intTy : fd
