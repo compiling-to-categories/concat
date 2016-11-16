@@ -359,27 +359,44 @@ opsInfo = [ (hop,("ConCat.Category",cop,tyArgs))
           | (cop,ps) <- monoInfo
           , (hop,tyArgs) <- ps
           ]
+
+monoInfo :: [(String, [([Char], [Type])])]
+monoInfo = 
+  [ ("notC",boolOp "not"), ("andC",boolOp "&&"), ("orC",boolOp "||")
+  , ("equal", eqOp <$> ifd) 
+  , ("lessThan"
+    , compOp <$> (liftA2 (,) ifd [("lt","<"),("gt",">"),("le","<="),("ge",">=")]))
+  , ("negateC",numOps "negate"), ("addC",numOps "+")
+  , ("subC",numOps "-"), ("mulC",numOps "*")
+    -- powIC
+  ]
  where
-   monoInfo = 
-     [ ("notC",[("GHC.Classes.not",[])]),("andC",[("GHC.Classes.&&",[])]),("orC",[("GHC.Classes.||",[])])
-     , ("equal",[("GHC.Classes.eqInt",[intTy]),("GHC.Classes.eqFloat",[floatTy])
-                ,("GHC.Classes.eqDouble",[doubleTy])])
-     , ("lessThan", [("GHC.Classes.ltInt",[intTy]),("GHC.Classes.$fOrdFloat_$c<",[floatTy])
-                    ,("GHC.Classes.$fOrdDouble_$c<",[doubleTy])])
-     , ("negateC",[("GHC.Num.$fNumInt_$cnegate",[intTy])
-                  ,("GHC.Float.$fNumFloat_$cnegate",[floatTy])
-                  ,("GHC.Float.$fNumDouble_$cnegate",[doubleTy])])
-     , ("addC" ,[("GHC.Num.$fNumInt_$c+",[intTy])
-                ,("GHC.Float.$fNumFloat_$c+",[floatTy])
-                ,("GHC.Float.$fNumDouble_$c+",[doubleTy])])
-     , ("subC" ,[("GHC.Num.$fNumInt_$c-",[intTy])
-                ,("GHC.Float.$fNumFloat_$c-",[floatTy])
-                ,("GHC.Float.$fNumDouble_$c-",[doubleTy])])
-     , ("mulC" ,[("GHC.Num.$fNumInt_$c*",[intTy])
-                ,("GHC.Float.$fNumFloat_$c*",[floatTy])
-                ,("GHC.Float.$fNumDouble_$c*",[doubleTy])])
-       -- powIC
-     ]
+   ifd = [intTy,floatTy,doubleTy]
+   boolOp op = [("GHC.Classes."++op,[])]
+   eqOp ty = ("GHC.Classes.eq"++pp ty,[ty])
+   compOp (ty,(opI,opFD)) = ("GHC.Classes."++clsOp,[ty])
+    where
+      clsOp | isIntTy ty = opI ++ tyName
+            | otherwise  = "$fOrd" ++ tyName ++ "_$c" ++ opFD
+      tyName = pp ty
+   numOps op = numOp <$> ifd
+    where
+      numOp ty = ("GHC."++modu++".$fNum"++tyName++"_$c"++op,[ty])
+       where
+         tyName = pp ty
+         modu | isIntTy ty = "Num"
+              | otherwise = "Float"
+
+-- (==): eqInt, eqFloat, eqDouble
+-- (/=): neInt, $fEqFloat_$c/=, $fEqDouble_$c/=
+-- (<):  ltI, $fOrdFloat_$c<
+
+-- An orphan instance to help me debug
+instance Show Type where show = pp
+
+pp :: Outputable a => a -> String
+pp = showPpr unsafeGlobalDynFlags
+
 
 {--------------------------------------------------------------------
     Misc
