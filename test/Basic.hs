@@ -43,15 +43,17 @@ import Distribution.TestSuite
 import GHC.Float ()  -- experiment
 
 import ConCat.Misc (ccc,Unop,Binop)
+import ConCat.Circuit ((:>))
+import ConCat.RunCircuit (go,Okay)
 
 -- Whether to render to a PDF (vs print reified expression)
 render :: Bool
 render = True -- False
 
--- Experiment: try to force loading of Num Float etc
-class Num a => Quuz a
-instance Quuz Float
-instance Quuz Double
+-- -- Experiment: try to force loading of Num Float etc
+-- class Num a => Quuz a
+-- instance Quuz Float
+-- instance Quuz Double
 
 -- For FP & parallelism talk
 tests :: IO [Test]
@@ -59,13 +61,50 @@ tests = return
   [ nopTest
 --   , test not
 --   , test (negate :: Unop Int)
+--   , test ((+) :: Binop Int)
 --   , test ((+) :: Binop Float)
 --   , test (recip :: Unop Float)
 
---   , test ((<) :: Int -> Int -> Bool)
-  , test ((<) :: Double -> Double -> Bool)
+--   , test ((==) :: Int -> Int -> Bool)
+--   , test ((==) :: Float -> Float -> Bool)
+--   , test ((==) :: Double -> Double -> Bool)
+--   , test ((/=) :: Int -> Int -> Bool)
+--   , test ((/=) :: Float -> Float -> Bool)
+--   , test ((/=) :: Double -> Double -> Bool)
 
---   , test (\ x -> x :: Int)
+--   , test ((<) :: Int -> Int -> Bool)
+--   , test ((<) :: Float -> Float -> Bool)
+--   , test ((<) :: Double -> Double -> Bool)
+--   , test ((<=) :: Int -> Int -> Bool)
+--   , test ((<=) :: Float -> Float -> Bool)
+--   , test ((<=) :: Double -> Double -> Bool)
+--   , test ((>) :: Int -> Int -> Bool)
+--   , test ((>) :: Float -> Float -> Bool)
+--   , test ((>) :: Double -> Double -> Bool)
+--   , test ((>=) :: Int -> Int -> Bool)
+--   , test ((>=) :: Float -> Float -> Bool)
+--   , test ((>=) :: Double -> Double -> Bool)
+
+--   , test ((+) :: Binop Int)
+--   , test ((+) :: Binop Float)
+--   , test ((+) :: Binop Double)
+--   , test ((-) :: Binop Int)
+--   , test ((-) :: Binop Float)
+--   , test ((-) :: Binop Double)
+  
+--   , test (recip :: Unop Float)
+--   , test (recip :: Unop Double)
+--   , test ((/) :: Binop Float)
+--   , test ((/) :: Binop Double)
+
+--   , test (exp :: Unop Float)
+--   , test (exp :: Unop Double)
+--   , test (cos :: Unop Float)
+--   , test (cos :: Unop Double)
+--   , test (sin :: Unop Float)
+--   , test (sin :: Unop Double)
+
+  , test (\ x -> x :: Int)
 --   , test (\ (_x :: Int) -> True)
 --   , test (\ (_x :: Int) -> not)
 --   , test (\ (_ :: Bool) -> negate :: Unop Int)
@@ -85,19 +124,31 @@ tests = return
     Testing utilities
 --------------------------------------------------------------------}
 
-test :: forall a b. (a -> b) -> Test
-test f = mkTest (ccc @(->) f)
-{-# INLINE test #-}
--- test _ = error "test called"
--- {-# NOINLINE test #-}
+-- type Cat = (->)
+-- type Cat = (:>)
+
+-- test :: forall a b. (a -> b) -> Test
+-- test f = mkTest (ccc @(:>) f)
+-- {-# INLINE test #-}
+-- -- test _ = error "test called"
+-- -- {-# NOINLINE test #-}
 
 -- {-# RULES "test" forall f. test f = mkTest (ccc f) #-}
 
-mkTest :: a -> Test
-mkTest _a = Test inst
+test :: Okay a => a -> Test
+test _ = error "test called"
+{-# NOINLINE test #-}
+
+{-# RULES "test" forall a. test a = mkTest (go "test" a) #-}
+
+-- test a = mkTest (go "test" a)
+-- {-# INLINE test #-}
+
+mkTest :: IO () -> Test
+mkTest doit = Test inst
  where
    inst = TestInstance
-            { run       = return (Finished Pass)
+            { run       = Finished Pass <$ doit
             , name      = "whatevs"
             , tags      = []
             , options   = []

@@ -797,25 +797,25 @@ class Num a => NumCat k a where
 
 #if 1
 
-#define ClassIFD(cls,clsQ) \
-class cls a => clsQ a ; \
+#define ClassIFD(cls,clsQ,super) \
+class (super a, cls a) => clsQ a ; \
 instance clsQ Int ; \
 instance clsQ Float ; \
 instance clsQ Double
 
-#define ClassFD(cls,clsQ) \
-class cls a => clsQ a ; \
+#define ClassFD(cls,clsQ,super) \
+class (super a, cls a) => clsQ a ; \
 instance clsQ Float ; \
 instance clsQ Double
 
 #else
 
-#define ClassIFD(cls,clsQ) type clsQ = cls
-#define ClassFD(cls,clsQ) type clsQ = cls
+#define ClassIFD(cls,clsQ,super) type clsQ = cls
+#define ClassFD(cls,clsQ,super)  type clsQ = cls
 
 #endif
 
-ClassIFD(Num,NumQ)
+ClassIFD(Num,NumQ,Yes1)
 instance NumQ a => NumCat (->) a where
   negateC = negate
   addC    = uncurry (+)
@@ -836,7 +836,7 @@ class Fractional a => FractionalCat k a where
   recipC :: a `k` a
   divideC :: Prod k a a `k` a
 
-ClassFD(Fractional,FractionalQ)
+ClassFD(Fractional,FractionalQ,NumQ)
 instance FractionalQ a => FractionalCat (->) a where
   recipC = recip
   divideC = uncurry (/)
@@ -851,7 +851,7 @@ instance (Monad m, Fractional a) => FractionalCat (Kleisli m) a where
 class Floating a => FloatingCat k a where
   expC, cosC, sinC :: a `k` a
 
-ClassFD(Floating,FloatingQ)
+ClassFD(Floating,FloatingQ,FractionalQ)
 instance FloatingQ a => FloatingCat (->) a where
   expC = exp
   cosC = cos

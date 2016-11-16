@@ -26,10 +26,11 @@ library
                        ConCat.Lambda
                        ConCat.Complex
                        ConCat.Rep
-                       ConCat.Circuit
                        ConCat.Simplify
                        ConCat.BuildDictionary
                        ConCat.Plugin
+                       ConCat.Circuit
+                       ConCat.RunCircuit
 
 --                        ConCat.Entail
 --                        ConCat.Additive

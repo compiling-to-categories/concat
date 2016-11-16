@@ -279,10 +279,25 @@ install opts todos =
           return $   CoreDoPluginPass "Ccc insert rule" addRule
                    : CoreDoSimplify 2 mode
                    : todos
+                   ++ [CoreDoPluginPass "Flag remaining ccc calls" (flagCcc env)]
  where
-   -- flagCcc guts = 
-   -- Extra simplifier pass for reification.
-   -- Rules on, no inlining, and case-of-case.
+   flagCcc :: CccEnv -> PluginPass
+   flagCcc (CccEnv {..}) guts
+     | pprTrace "ccc residuals:" (ppr (toList remaining)) False = undefined
+     | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
+     | S.null remaining = return guts
+     | otherwise = pprPanic "ccc residuals:" (ppr (toList remaining))
+    where
+      remaining :: Seq CoreExpr
+      remaining = collect cccArgs (mg_binds guts)
+      cccArgs :: CoreExpr -> Seq CoreExpr
+      cccArgs (App (App (Var v) _t) e) | v == cccV = S.singleton e
+      -- cccArgs e@(App (App (Var v) _t) _) | v == cccV = S.singleton e
+      cccArgs _                             = mempty
+      -- cccArgs = const mempty  -- for now
+      collect :: (Data a, Monoid m) => (a -> m) -> GenericQ m
+      collect f = everything mappend (mkQ mempty f)
+   -- Extra simplifier pass
    mode = SimplMode { sm_names      = ["Ccc simplifier pass"]
                     , sm_phase      = InitialPhase
                     , sm_rules      = True  -- important
@@ -363,22 +378,41 @@ opsInfo = [ (hop,("ConCat.Category",cop,tyArgs))
 monoInfo :: [(String, [([Char], [Type])])]
 monoInfo = 
   [ ("notC",boolOp "not"), ("andC",boolOp "&&"), ("orC",boolOp "||")
-  , ("equal", eqOp <$> ifd) 
-  , ("lessThan"
-    , compOp <$> (liftA2 (,) ifd [("lt","<"),("gt",">"),("le","<="),("ge",">=")]))
+  , ("equal", eqOp "==" <$> ifd) 
+  , ("notEqual", eqOp "/=" <$> ifd) 
+  , ("lessThan", compOps "lt" "<")
+  , ("greaterThan", compOps "gt" ">")
+  , ("lessThanOrEqual", compOps "le" "<=")
+  , ("greaterThanOrEqual", compOps "ge" ">=")
   , ("negateC",numOps "negate"), ("addC",numOps "+")
   , ("subC",numOps "-"), ("mulC",numOps "*")
     -- powIC
+  , ("recipC", fracOp "recip" <$> fd)
+  , ("divideC", fracOp "/" <$> fd)
+  , ("expC", floatingOp "exp" <$> fd)
+  , ("cosC", floatingOp "cos" <$> fd)
+  , ("sinC", floatingOp "sin" <$> fd)
   ]
  where
-   ifd = [intTy,floatTy,doubleTy]
+   ifd = intTy : fd
+   fd = [floatTy,doubleTy]
    boolOp op = [("GHC.Classes."++op,[])]
-   eqOp ty = ("GHC.Classes.eq"++pp ty,[ty])
-   compOp (ty,(opI,opFD)) = ("GHC.Classes."++clsOp,[ty])
+   -- eqOp ty = ("GHC.Classes.eq"++pp ty,[ty])
+   eqOp op ty = ("GHC.Classes."++clsOp,[ty])
     where
-      clsOp | isIntTy ty = opI ++ tyName
-            | otherwise  = "$fOrd" ++ tyName ++ "_$c" ++ opFD
       tyName = pp ty
+      clsOp =
+        case (op,ty) of
+          ("==",_) -> "eq"++tyName
+          ("/=",isIntTy -> True) -> "ne"++tyName
+          _ -> "$fEq"++tyName++"_$c"++op
+   compOps opI opFD = compOp <$> ifd
+    where
+      compOp ty = ("GHC.Classes."++clsOp,[ty])
+       where
+         clsOp | isIntTy ty = opI ++ tyName
+               | otherwise  = "$fOrd" ++ tyName ++ "_$c" ++ opFD
+         tyName = pp ty
    numOps op = numOp <$> ifd
     where
       numOp ty = ("GHC."++modu++".$fNum"++tyName++"_$c"++op,[ty])
@@ -386,13 +420,19 @@ monoInfo =
          tyName = pp ty
          modu | isIntTy ty = "Num"
               | otherwise = "Float"
+   fdOp cls op ty = ("GHC.Float.$f"++cls++pp ty++"_$c"++op,[ty])
+   fracOp = fdOp "Fractional"
+   floatingOp = fdOp "Floating"
+
+--    fracOp op ty = ("GHC.Float.$fFractional"++pp ty++"_$c"++op,[ty])
+--    floatingOp op ty = ("GHC.Float.$fFloating"++pp ty++"_$c"++op,[ty])
 
 -- (==): eqInt, eqFloat, eqDouble
 -- (/=): neInt, $fEqFloat_$c/=, $fEqDouble_$c/=
 -- (<):  ltI, $fOrdFloat_$c<
 
--- An orphan instance to help me debug
-instance Show Type where show = pp
+-- -- An orphan instance to help me debug
+-- instance Show Type where show = pp
 
 pp :: Outputable a => a -> String
 pp = showPpr unsafeGlobalDynFlags

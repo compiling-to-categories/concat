@@ -1212,7 +1212,7 @@ pattern NegateS a <- Source _ "negate" [a] 0
 pattern RecipS  :: Source -> Source
 pattern RecipS  a <- Source _ "recip"  [a] 0
 
-instance (Num a, Read a, GST a, Eq a, SourceToBuses a)
+instance (NumQ a, Read a, GST a, Eq a, SourceToBuses a)
       => NumCat (:>) a where
   negateC = primOpt "negate" $ \ case
               [Val x]        -> newVal (negate x)
@@ -1249,7 +1249,7 @@ instance (Num a, Read a, GST a, Eq a, SourceToBuses a)
               [_,  ZeroT(a)] -> newVal 1
               _              -> nothingA
 
-instance (Fractional a, Read a, Eq a, GST a, SourceToBuses a)
+instance (FractionalQ a, Read a, Eq a, GST a, SourceToBuses a)
       => FractionalCat (:>) a where
   recipC  = primOpt "recip" $ \ case
               [Val x]        -> newVal (recip x)
@@ -1262,7 +1262,7 @@ instance (Fractional a, Read a, Eq a, GST a, SourceToBuses a)
               [x,NegateS y]  -> newComp2 (negateC . divideC) x y
               _              -> nothingA
 
-instance (Floating a, Read a, GST a) => FloatingCat (:>) a where
+instance (FloatingQ a, Read a, GST a) => FloatingCat (:>) a where
   expC = primNoOpt1 "exp" exp
   cosC = primNoOpt1 "cos" cos
   sinC = primNoOpt1 "sin" sin
