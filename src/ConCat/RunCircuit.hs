@@ -37,8 +37,8 @@ import Control.Monad (when)
 -- import ReificationRules.HOS (reify)
 -- import ReificationRules.ToCCC (toCCC)
 
-import ConCat.Misc ((:+),(:*),ccc)
-import ConCat.Category (Ok,unitArrow)
+import ConCat.Misc (ccc) -- (:+),(:*)
+-- import ConCat.Category (Ok,unitArrow)
 import ConCat.Circuit (Attr,mkGraph,UU,writeDot,displayDot,unitize,(:>),GenBuses)
 
 -- import ConCat.Netlist (saveAsVerilog)
@@ -49,19 +49,20 @@ ranksep n = ("ranksep",show n)
 
 -- type Okay = Uncurriable (:>) ()
 
-type Okay a = (Ok (:>) a, Uncurriable () a, GenBuses (UncDom () a))
+-- type Okay = Yes2
+type Okay a b = GenBuses a
 
-go :: Okay a => String -> a -> IO ()
+go :: Okay a b => String -> (a -> b) -> IO ()
 -- go name = go' name []
 go _ _ = error "go: not implemented"
 {-# NOINLINE go #-}
 
-go' :: Okay a => String -> [Attr] -> a -> IO ()
+go' :: Okay a b => String -> [Attr] -> (a -> b) -> IO ()
 -- go' name attrs f = run name attrs (ccc (uncurries (unitArrow f)))
 go' _ _ _ = error "go': not implemented"
 {-# NOINLINE go' #-}
 
-goSep :: Okay a => String -> Double -> a -> IO ()
+goSep :: Okay a b => String -> Double -> (a -> b) -> IO ()
 -- goSep name s = go' name [ranksep s]
 goSep _ _ _ = error "goSep: not implemented"
 {-# NOINLINE goSep #-}
@@ -76,7 +77,7 @@ goSep _ _ _ = error "goSep: not implemented"
 
 {-# RULES
 
-"go'"   forall name attrs f . go' name attrs f = run name attrs (ccc (uncurries (unitArrow f)))
+"go'"   forall name attrs f . go' name attrs f = run name attrs (ccc f)
 "go"    forall name         . go name          = go' name []
 "goSep" forall name s       . goSep name s     = go' name [ranksep s]
 
@@ -86,7 +87,7 @@ goSep _ _ _ = error "goSep: not implemented"
 -- genVerilog = False -- True
 
 genPdf :: Bool
-genPdf = True
+genPdf = True -- False
 
 -- showPretty :: Bool
 -- showPretty = False -- True
@@ -141,6 +142,8 @@ goM' name attrs = go' name attrs . asFun
 
 #endif
 
+#if 0
+
 {--------------------------------------------------------------------
     Uncurrying --- maybe move elsewhere
 --------------------------------------------------------------------}
@@ -170,3 +173,5 @@ instance Uncurriable a Float
 instance Uncurriable a Double
 instance Uncurriable a (c :* d)
 instance Uncurriable a (c :+ d)
+
+#endif
