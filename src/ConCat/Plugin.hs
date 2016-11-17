@@ -9,7 +9,7 @@
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
-{-# OPTIONS_GHC -fno-warn-unused-binds -fno-warn-unused-matches #-} -- TEMP
+-- {-# OPTIONS_GHC -fno-warn-unused-binds -fno-warn-unused-matches #-} -- TEMP
 
 -- | GHC plugin converting to CCC form.
 
@@ -19,7 +19,7 @@ import Control.Arrow (first)
 import Control.Applicative (liftA2,(<|>))
 import Control.Monad (unless,guard)
 import Data.Foldable (toList)
-import Data.Maybe (fromMaybe,isJust,catMaybes)
+import Data.Maybe (fromMaybe,catMaybes)
 import Data.List (isPrefixOf,isSuffixOf,elemIndex,sort)
 import Data.Char (toLower)
 import Data.Data (Data)
@@ -58,13 +58,12 @@ data CccEnv = CccEnv { dtrace    :: forall a. String -> SDoc -> a -> a
                      , applyV    :: Id
                      , composeV  :: Id
                      , curryV    :: Id
+                     , uncurryPV :: Id
                      , exlV      :: Id
                      , exrV      :: Id
                      , constFunV :: Id
                      , ops       :: OpsMap
                      , hsc_env   :: HscEnv
-                     -- Experiments:
-                     , fiddleV   :: Id
                      }
 
 -- Map from fully qualified name of standard operation.
@@ -89,45 +88,57 @@ ccc (CccEnv {..}) guts dflags inScope cat =
  where
    go :: ReExpr
    go e | dtrace "ccc go:" (ppr e) False = undefined
-   go (Var v) = pprTrace "go Var" (ppr v) $
-                catFun v <|>
-                (pprTrace "inlining" (ppr v) $
-                 mkCcc <$> inlineId v)
-   go (Lam x body) = goLam x (etaReduceN body)
-   go e = return e
+--    go (Var v) = pprTrace "go Var" (ppr v) $
+--                 catFun v <|>
+--                 (pprTrace "inlining" (ppr v) $
+--                  mkCcc <$> inlineId v)
+   go (Lam x body) = -- goLam x body
+                     goLam x (etaReduceN body)
+--    go _ = Nothing
+   go e = go (etaExpand 1 e)
           -- return $ mkCcc (etaExpand 1 e)
-          -- go (etaExpand 1 e)
+   -- TODO: If I don't etaReduceN, merge goLam back into the go Lam case.
    goLam _ body | dtrace "ccc goLam:" (ppr body) False = undefined
    goLam x body = case body of
+     Trying("constant of non-function type")
+     -- (\ x -> e) --> const e, where x is not free in e.
+     _ | not (isFunTy bty) && not (isFreeIn x body) -> return (mkConst xty body)
      Trying("Var")
      -- (\ x -> x) --> id
-     Var y | x == y ->
-      return $ onDict (catOp idV `App` Type xty)
-     Trying("constant")
-     -- (\ x -> e) --> const e, where x is not free in e.
-     _ | not (isFreeIn x body) ->
-       return $
-       if isJust (splitFunTy_maybe bty) then
-         mkConstFun xty (mkCcc body)
-       else
-         mkConst xty body
-     Trying("app")
+     -- (\ x -> p) --> 
+     Var y | x == y    -> return $ onDict (catOp idV `App` Type xty)
+           | otherwise -> mkConstFun xty <$> catFun y -- or inline?
+     Trying("App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
-     u `App` v ->
+     u `App` v | not (isTyCoArg v) ->
        return $ mkCompose
                   (mkApply vty bty)
                   (mkFork (mkCcc (Lam x u)) (mkCcc (Lam x v)))
       where
         vty = exprType v
-     Trying("Lambda")
-     -- (\ x -> \ y -> U) --> curry (\ z -> U[fst z/x, snd z/y])
+     Trying("Lam")
      Lam y e ->
+       -- (\ x -> \ y -> U) --> curry (\ z -> U[fst z/x, snd z/y])
        return $ mkCurry (mkCcc (Lam z (subst sub e)))
       where
         yty = varType y
         z = freshId (exprFreeVars e) zName (pairTy xty yty)
         zName = uqVarName x ++ "_" ++ uqVarName y
         sub = [(x,mkEx exlV (Var z)),(y,mkEx exrV (Var z))]
+        -- TODO: consider using fst & snd instead of exl and exr here
+#if 1
+     Trying("Case of product")
+     e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
+         | isBoxedTupleTyCon (dataConTyCon dc) ->
+       -- To start, require v to be unused. Later, extend.
+       if not (isDeadBinder wild) then
+            pprPanic "ccc: product case with live wild var (not yet handled)" (ppr e)
+       else
+          -- (\ x -> case scrut of _ { (a, b) -> rhs }) ==
+          -- (\ x -> uncurry (\ a b -> rhs) scrut)
+          return (mkCcc (Lam x (mkUncurryP (mkLams [a,b] rhs) `App` scrut)))
+          -- goLam x (mkUncurry (mkLams [a,b] rhs) `App` scrut)
+#endif
      -- Give up
      _e -> dtrace "ccc" ("Unhandled:" <+> ppr _e) $
            Nothing
@@ -148,8 +159,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    buildDictMaybe :: Type -> Maybe CoreExpr
    buildDictMaybe ty = simplifyE dflags False <$>
                        buildDictionary hsc_env dflags guts inScope ty
-   buildDict :: Type -> CoreExpr
-   buildDict ty = noDictErr (ppr ty) (buildDictMaybe ty)
+   -- buildDict :: Type -> CoreExpr
+   -- buildDict ty = noDictErr (ppr ty) (buildDictMaybe ty)
    catOp' :: Var -> [Type] -> CoreExpr
    catOp' op tys = onDict (Var op `mkTyApps` (cat : tys))
    catOp :: Var -> CoreExpr
@@ -194,8 +205,12 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      --       => k (Prod k a b) c -> k a (Exp k b c)
      onDict (catOp curryV `mkTyApps` [a,b,c]) `App` e
     where
-      ety = exprType e
-      (splitAppTys -> (_,[splitAppTys -> (_,[a,b]),c])) = ety
+      (splitAppTys -> (_,[splitAppTys -> (_,[a,b]),c])) = exprType e
+   mkUncurryP :: Unop CoreExpr
+   mkUncurryP e = varApps uncurryPV [a,b,c] [e]
+     -- P.uncurry :: forall {a} {b} {c}. (a -> b -> c) -> (a, b) -> c
+    where
+      (splitFunTy -> (a, splitFunTy -> (b,c))) = exprType e
    mkConst :: Type -> Unop CoreExpr
    mkConst dom e =
      -- const :: forall (k :: * -> * -> *) b. ConstCat k b => forall dom.
@@ -298,9 +313,10 @@ install opts todos =
       remaining :: Seq CoreExpr
       remaining = collect cccArgs (mg_binds guts)
       cccArgs :: CoreExpr -> Seq CoreExpr
-      cccArgs (App (App (Var v) _t) e) | v == cccV = S.singleton e
-      -- cccArgs e@(App (App (Var v) _t) _) | v == cccV = S.singleton e
-      cccArgs _                             = mempty
+      -- unVarApps :: CoreExpr -> Maybe (Id,[Type],[CoreExpr])
+      -- ccc :: forall k a b. (a -> b) -> k a b
+      cccArgs c@(unVarApps -> Just (v,_tys,[_])) | v == cccV = S.singleton c
+      cccArgs _                                              = mempty
       -- cccArgs = const mempty  -- for now
       collect :: (Data a, Monoid m) => (a -> m) -> GenericQ m
       collect f = everything mappend (mkQ mempty f)
@@ -308,7 +324,7 @@ install opts todos =
    mode = SimplMode { sm_names      = ["Ccc simplifier pass"]
                     , sm_phase      = InitialPhase
                     , sm_rules      = True  -- important
-                    , sm_inline     = True -- False -- important
+                    , sm_inline     = False -- important
                     , sm_eta_expand = False -- ??
                     , sm_case_case  = True  -- important
                     }
@@ -331,18 +347,18 @@ mkCccEnv opts = do
       lookupTh mkOcc mk modu = lookupRdr (mkModuleName modu) mkOcc mk
       findId      = lookupTh mkVarOcc  lookupId
       findTc      = lookupTh mkTcOcc   lookupTyCon
-      findRepTc   = findTc "ConCat.Rep"
-      findBaseId  = findId "GHC.Base"
       findTupleId = findId "Data.Tuple"
       findMiscId  = findId "ConCat.Misc"
-      findCatTc   = findTc "ConCat.Category"
       findCatId   = findId "ConCat.Category"
+      -- findRepTc   = findTc "ConCat.Rep"
+      -- findBaseId  = findId "GHC.Base"
+      -- findCatTc   = findTc "ConCat.Category"
   -- ruleBase <- getRuleBase
-  catTc       <- findCatTc "Category"
-  prodTc      <- findCatTc "ProductCat"
-  closedTc    <- findCatTc "ClosedCat"
-  constTc     <- findCatTc "ConstCat"
-  okTc        <- findCatTc "Ok"
+  -- catTc       <- findCatTc "Category"
+  -- prodTc      <- findCatTc "ProductCat"
+  -- closedTc    <- findCatTc "ClosedCat"
+  -- constTc     <- findCatTc "ConstCat"
+  -- okTc        <- findCatTc "Ok"
   -- dtrace "mkReifyEnv: getRuleBase ==" (ppr ruleBase) (return ())
   -- idV      <- findMiscId  "ident"
   idV         <- findCatId  "id"
@@ -358,6 +374,7 @@ mkCccEnv opts = do
   forkV       <- findCatId "&&&"
   applyV      <- findCatId "apply"
   curryV      <- findCatId "curry"
+  uncurryPV   <- findTupleId "uncurry"
   constFunV   <- findCatId "constFun"
   -- notV <- findCatId "notC"
   cccV        <- findMiscId  "ccc"
@@ -371,8 +388,8 @@ mkCccEnv opts = do
   floatTc <- findTc "GHC.Float" "Float"
   liftIO (forceLoadNameModuleInterface hsc_env (text "mkCccEnv")
            (getName floatTc))
-  fiddleV <- findMiscId "fiddle"
-  rationalToFloatV <- findId "GHC.Float" "rationalToFloat"  -- experiment
+  -- fiddleV <- findMiscId "fiddle"
+  -- rationalToFloatV <- findId "GHC.Float" "rationalToFloat"  -- experiment
   return (CccEnv { .. })
 
 -- Association list 
