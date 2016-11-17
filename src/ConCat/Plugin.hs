@@ -88,13 +88,13 @@ ccc (CccEnv {..}) guts dflags inScope cat =
  where
    go :: ReExpr
    go e | dtrace "ccc go:" (ppr e) False = undefined
---    go (Var v) = pprTrace "go Var" (ppr v) $
---                 catFun v <|>
---                 (pprTrace "inlining" (ppr v) $
---                  mkCcc <$> inlineId v)
+   -- go (Var v) = pprTrace "go Var" (ppr v) $
+   --              catFun v <|>
+   --              (pprTrace "inlining" (ppr v) $
+   --               mkCcc <$> inlineId v)
    go (Lam x body) = -- goLam x body
                      goLam x (etaReduceN body)
---    go _ = Nothing
+   -- go _ = Nothing
    go e = go (etaExpand 1 e)
           -- return $ mkCcc (etaExpand 1 e)
    -- TODO: If I don't etaReduceN, merge goLam back into the go Lam case.
@@ -106,7 +106,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      Trying("Var")
      -- (\ x -> x) --> id
      -- (\ x -> p) --> 
-     Var y | x == y    -> return $ onDict (catOp idV `App` Type xty)
+     Var y | x == y    -> return (mkId xty)
            | otherwise -> mkConstFun xty <$> catFun y -- or inline?
      Trying("App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
@@ -126,7 +126,6 @@ ccc (CccEnv {..}) guts dflags inScope cat =
         zName = uqVarName x ++ "_" ++ uqVarName y
         sub = [(x,mkEx exlV (Var z)),(y,mkEx exrV (Var z))]
         -- TODO: consider using fst & snd instead of exl and exr here
-#if 1
      Trying("Case of product")
      e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
          | isBoxedTupleTyCon (dataConTyCon dc) ->
@@ -138,7 +137,6 @@ ccc (CccEnv {..}) guts dflags inScope cat =
           -- (\ x -> uncurry (\ a b -> rhs) scrut)
           return (mkCcc (Lam x (mkUncurryP (mkLams [a,b] rhs) `App` scrut)))
           -- goLam x (mkUncurry (mkLams [a,b] rhs) `App` scrut)
-#endif
      -- Give up
      _e -> dtrace "ccc" ("Unhandled:" <+> ppr _e) $
            Nothing
@@ -171,6 +169,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
       (a,b) = splitFunTy (exprType e)
    -- TODO: replace composeV with mkCompose in CccEnv
    -- Maybe other variables as well
+   mkId :: Type -> CoreExpr
+   mkId ty = onDict (catOp idV `App` Type ty)
    mkCompose :: Binop CoreExpr
    -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
    g `mkCompose` f
