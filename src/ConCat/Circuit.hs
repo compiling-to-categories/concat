@@ -84,7 +84,7 @@ module ConCat.Circuit
   ( CircuitM, (:>)
   , PinId, Width, Bus(..), Source(..)
   , GenBuses(..), GS, GST, genBusesRep', delayCRep, tyRep, bottomRep, unDelayName
-  , namedC, constS, constC
+  , namedC, constC -- , constS
   , SourceToBuses(..)
 --   , litUnit, litBool, litInt
   -- , (|||*), fromBool, toBool
@@ -511,7 +511,8 @@ flattenBHack name _ b = flattenB name b
 --          | otherwise     = id
 
 constComp' :: GenBuses b => String -> CircuitM (Buses b)
-constComp' str = genComp (Prim str) UnitB
+constComp' str = -- trace ("constComp' " ++ str) $
+                 genComp (Prim str) UnitB
 
 constComp :: GenBuses b => String -> BCirc a b
 constComp str = const (constComp' str)
@@ -658,13 +659,13 @@ primNoOpt1 name fun =
     \ case [Val x] -> newVal (fun x)
            _       -> nothingA
 
--- | Constant circuit from source generator (experimental)
-constSM :: CircuitM (Buses b) -> (a :> b)
-constSM mkB = mkCK (const mkB)
+-- -- | Constant circuit from source generator (experimental)
+-- constSM :: CircuitM (Buses b) -> (a :> b)
+-- constSM mkB = mkCK (const mkB)
 
--- | Constant circuit from source
-constS :: Buses b -> (a :> b)
-constS b = constSM (return b)
+-- -- | Constant circuit from source
+-- constS :: Buses b -> (a :> b)
+-- constS b = constSM (return b)
 
 constC :: GST b => b -> a :> b
 constC = mkCK . constM
@@ -780,9 +781,9 @@ instance TerminalCat (:>) where
   -- it = mkCK (const (return UnitB))
   it = C (arr (pure UnitB))
 
--- instance ConstCat (:>) where
---   type ConstKon (:>) a b = GS b
---   const = constC
+instance GST b => ConstCat (:>) b where
+  const b = -- trace ("circuit const " ++ show b) $
+            constC b
 
 #if 0
 class MaybeCat k where
@@ -1272,6 +1273,8 @@ instance (FloatingQ a, Read a, GST a) => FloatingCat (:>) a where
 instance (Integral a, Num b, Read a, GST b)
       => FromIntegralCat (:>) a b where
   fromIntegralC = primNoOpt1 "fromIntegral" fromIntegral
+
+instance (GST a, NumCat (:>) a) => EnumCat (:>) a
 
 -- Simplifications for all types:
 -- 
