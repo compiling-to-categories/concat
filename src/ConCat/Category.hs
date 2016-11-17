@@ -568,22 +568,11 @@ instance Monad m => TerminalCat (Kleisli m) where
   -- type Unit (Kleisli m) = ()
   it = arr it
 
--- -- | Categories with constant arrows (generalized elements)
--- class ConstCat k where
---   konst :: forall a b. Oks k [a,b] => b -> (a `k` b)
+lunit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k (Unit k) a
+lunit = it &&& id
 
--- instance ConstCat (->) where konst = const
-
--- instance Monad m => ConstCat (Kleisli m) where konst b = arr (const b)
-
--- class ApplyToCat k where
---   applyTo :: Oks k [a,b] => a -> ((a -> b) `k` b)
-
--- Do I want `Exp k a b` in place of `a -> b`?
--- LMap seems to want ->.
-
--- class ClosedCat k => ApplyToCat k where
---   applyTo :: Oks k [a,b] => a -> (Exp k a b `k` b)
+runit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k a (Unit k)
+runit = id &&& it
 
 #if 0
 
@@ -677,7 +666,22 @@ class (TerminalCat k, Ok k (ConstObj k b)) => ConstCat k b where
 
 #endif
 
-instance ConstCat (->) b where const = const
+-- | Inject a constant on the left
+lconst :: forall k a b. (ProductCat k, ConstCat k a, Ok2 k a b)
+       => a -> (b `k` (a :* b))
+lconst a = first  (const a) . lunit
+           <+ okProd @k @(Unit k) @b
+           <+ okProd @k @(ConstObj k a) @b
+
+-- | Inject a constant on the right
+rconst :: forall k a b. (ProductCat k, ConstCat k b, Ok2 k a b)
+       => b -> (a `k` (a :* b))
+rconst b = second (const b) . runit
+           <+ okProd @k @a @(Unit k)
+           <+ okProd @k @a @(ConstObj k b)
+
+
+instance ConstCat (->) b where const = P.const
 
 instance Monad m => ConstCat (Kleisli m) b where const b = arr (const b)
 
@@ -917,6 +921,17 @@ instance (Monad m, Ord a) => OrdCat (Kleisli m) a where
   lessThanOrEqual    = arr lessThanOrEqual
   greaterThanOrEqual = arr greaterThanOrEqual
 #endif
+
+class (Category k, Ok k a) => EnumCat k a where
+  succC, predC :: a `k` a
+  default succC :: (ProductCat k, NumCat k a, ConstCat k a) => a `k` a
+  default predC :: (ProductCat k, NumCat k a, ConstCat k a) => a `k` a
+  succC = addC . rconst 1 <+ okProd @k @a @a
+  predC = subC . rconst 1 <+ okProd @k @a @a
+
+instance Enum a => EnumCat (->) a where
+  succC = succ
+  predC = pred
 
 class Ok k a => BottomCat k a where
   bottomC :: Unit k `k` a
