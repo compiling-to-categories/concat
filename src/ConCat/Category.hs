@@ -280,6 +280,17 @@ class (OpCon (Prod k) (Ok' k), Category k) => ProductCat k where
 #endif
   {-# MINIMAL exl, exr, ((&&&) | ((***), dup)) #-}
 
+-- Experiment: Define aliases to the classOps so they won't get inlined away
+-- before we can optimize them.
+
+exl' :: (ProductCat k, Ok2 k a b) => Prod k a b `k` a
+exl' = exl
+{-# NOINLINE exl' #-}
+
+exr' :: (ProductCat k, Ok2 k a b) => Prod k a b `k` b
+exr' = exr
+{-# NOINLINE exr' #-}
+
 instance ProductCat (->) where
 #ifndef DefaultCat
   -- type Prod (->) = (:*)
@@ -1048,27 +1059,10 @@ class (Category k, Category k'{-, OkTarget f k k'-})
   -- fmapC id == id
   -- fmapC (q . p) == fmapC q . fmapC p
 
-#if 0
 {--------------------------------------------------------------------
-    Rewrite rules
+    For rewriting. Move elsewhere.
 --------------------------------------------------------------------}
 
-ccc' :: forall k a b. (ClosedCat k, BoolCat k, NumCat k a, Ok k a)
-     => (a -> b) -> (a `k` b)
-ccc' = ccc
-{-# NOINLINE ccc' #-}
-
-
-{-# Rules
-
-"ccc not" ccc' not = notC
-
-"ccc +" ccc' (+) = curry addC
-
- #-}
-
-
--- cccz :: forall con k a b. ({-ClosedCat k, -}Ok2 k a b)
---      => Dict (con k a) -> (a -> b) -> (a `k` b)
--- cccz d = ccc
-#endif
+ccc :: forall k a b. (a -> b) -> (a `k` b)
+ccc _ = error "ccc: not implemented"
+{-# NOINLINE ccc #-}
