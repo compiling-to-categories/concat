@@ -6,6 +6,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE PatternGuards #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
@@ -19,7 +20,7 @@ import Control.Arrow (first)
 import Control.Applicative (liftA2,(<|>))
 import Control.Monad (unless,guard)
 import Data.Foldable (toList)
-import Data.Maybe (fromMaybe,catMaybes)
+import Data.Maybe (isNothing,fromMaybe,catMaybes)
 import Data.List (isPrefixOf,isSuffixOf,elemIndex,sort)
 import Data.Char (toLower)
 import Data.Data (Data)
@@ -80,6 +81,10 @@ type ReExpr = Rewrite CoreExpr
 
 #define Trying(str)
 
+#define Doing(str) dtrace "Doing" (text (str)) id $
+
+-- #define Doing(str)
+
 -- Category
 type Cat = Type
 
@@ -90,38 +95,49 @@ ccc (CccEnv {..}) guts dflags inScope cat =
   go
  where
    go :: ReExpr
-   go e | dtrace "ccc go:" (ppr e) False = undefined
+   -- go e | dtrace "go ccc:" (ppr e) False = undefined
    -- go (Var v) = pprTrace "go Var" (ppr v) $
    --              catFun v <|>
    --              (pprTrace "inlining" (ppr v) $
    --               mkCcc <$> inlineId v)
+   -- go (etaReduceN -> transCatOp -> Just e') = Just e'
    go (Lam x body) = -- goLam x body
                      goLam x (etaReduceN body)
-   -- go _ = Nothing
    go e = go (etaExpand 1 e)
           -- return $ mkCcc (etaExpand 1 e)
    -- TODO: If I don't etaReduceN, merge goLam back into the go Lam case.
-   goLam _ body | dtrace "ccc goLam:" (ppr body) False = undefined
+   -- goLam x body | dtrace "go ccc:" (ppr (Lam x body)) False = undefined
    goLam x body = case body of
-     Trying("constant of non-function type")
-     -- (\ x -> e) --> const e, where x is not free in e.
-     _ | not (isFunTy bty) && not (isFreeIn x body) -> return (mkConst cat xty body)
+     -- Trying("constant") 
      Trying("Var")
-     -- (\ x -> x) --> id
-     -- (\ x -> p) --> 
-     Var y | x == y    -> return (mkId cat xty)
-           | otherwise -> mkConstFun cat xty <$> catFun cat y -- or inline?
+     Var y | x == y            -> Doing("Var")
+                                  return (mkId cat xty)
+       --  | not (isFunTy bty) -> Doing ("Const") return (mkConst cat xty body)
+     Trying("Category operation")
+     _ | not (isFreeIn x body), Just e' <- transCatOp body ->
+       Doing("Category operation")
+       return (mkConstFun cat xty e')
      Trying("App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
      u `App` v | not (isTyCoDictArg v) ->
+       Doing("App")
        return $ mkCompose cat
                   (mkApply cat vty bty)
                   (mkFork cat (mkCcc (Lam x u)) (mkCcc (Lam x v)))
       where
         vty = exprType v
+     Trying("unfold")
+     -- Only unfold applications if no argument is a regular value
+     e@(collectArgsPred isTyCoDictArg -> (Var v,_))
+       | isNothing (catFun cat v)
+       , Just e' <- unfoldMaybe e
+       -> Doing("unfold")
+          return (mkCcc (Lam x e'))
+          -- goLam x e'
      Trying("Lam")
      Lam y e ->
        -- (\ x -> \ y -> U) --> curry (\ z -> U[fst z/x, snd z/y])
+       Doing("Lam")
        return $ mkCurry cat (mkCcc (Lam z (subst sub e)))
       where
         yty = varType y
@@ -136,9 +152,22 @@ ccc (CccEnv {..}) guts dflags inScope cat =
        if not (isDeadBinder wild) then
             pprPanic "ccc: product case with live wild var (not yet handled)" (ppr e)
        else
+          Doing("Case of product")
+#if 0
           -- (\ x -> case scrut of _ { (a, b) -> rhs }) ==
           -- (\ x -> uncurry (\ a b -> rhs) scrut)
           return (mkCcc (Lam x (mkUncurry funCat (mkLams [a,b] rhs) `App` scrut)))
+#else
+          -- \ x -> case scrut of _ { (a, b) -> rhs }
+          -- \ x -> (\ (a,b) -> rhs) scrut
+          -- \ x -> (\ c -> rhs[a/exl c, b/exr c) scrut
+          -- TODO: refactor with Lam case
+          let c     = freshId (exprFreeVars e) cName (exprType scrut)  -- (pairTy (varTy a) (varTy b))
+              cName = uqVarName a ++ "_" ++ uqVarName b
+              sub   = [(a,mkEx funCat exlV (Var c)),(b,mkEx funCat exrV (Var c))]
+          in
+            return (mkCcc (Lam x (App (Lam c (subst sub rhs)) scrut)))
+#endif
           -- goLam x (mkUncurry (mkLams [a,b] rhs) `App` scrut)
      -- Give up
      _e -> dtrace "ccc" ("Unhandled:" <+> ppr _e) $
@@ -146,6 +175,17 @@ ccc (CccEnv {..}) guts dflags inScope cat =
     where
       xty = varType x
       bty = exprType body
+   unfoldMaybe :: ReExpr
+   unfoldMaybe = -- traceRewrite "unfoldMaybe" $
+                 onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe)
+   inlineMaybe :: Id -> Maybe CoreExpr
+   -- inlineMaybe v | dtrace "inlineMaybe" (ppr v) False = undefined
+   inlineMaybe v = (inlineId <+ -- onInlineFail <+ traceRewrite "inlineClassOp"
+                                inlineClassOp) v
+   -- onInlineFail :: Id -> Maybe CoreExpr
+   -- onInlineFail v =
+   --   pprTrace "onInlineFail idDetails" (ppr v <+> colon <+> ppr (idDetails v))
+   --   Nothing
    noDictErr :: SDoc -> Maybe a -> a
    noDictErr doc =
      fromMaybe (pprPanic "ccc - couldn't build dictionary for" doc)
@@ -183,25 +223,23 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      | otherwise = pprPanic "mkCompose:" (pprWithType g <+> text ";" <+> pprWithType f)
    mkEx :: Cat -> Var -> Unop CoreExpr
    mkEx k ex z =
-     -- exl :: (ProductCat k, Ok k b, Ok k a) => k (Prod k a b) a
+     -- -- For the class methods (exl, exr):
+     -- pprTrace "mkEx" (pprWithType z) $
+     -- pprTrace "mkEx" (pprWithType (Var ex)) $
+     -- pprTrace "mkEx" (pprWithType (catOp k ex)) $
+     -- pprTrace "mkEx" (pprWithType (catOp k ex `mkTyApps` [a,b])) $
+     -- pprTrace "mkEx" (pprWithType (onDict (catOp k ex `mkTyApps` [a,b]))) $
+     -- pprTrace "mkEx" (pprWithType (onDict (catOp k ex `mkTyApps` [a,b]) `App` z)) $
+     -- -- pprPanic "mkEx" (text "bailing")
+     -- onDict (catOp k ex `mkTyApps` [a,b]) `App` z
 
---      -- For the class methods (exl, exr):
---      pprTrace "mkEx" (pprWithType z) $
---      pprTrace "mkEx" (pprWithType (Var ex)) $
---      pprTrace "mkEx" (pprWithType (catOp k ex)) $
---      pprTrace "mkEx" (pprWithType (catOp k ex `mkTyApps` [a,b])) $
---      pprTrace "mkEx" (pprWithType (onDict (catOp k ex `mkTyApps` [a,b]))) $
---      pprTrace "mkEx" (pprWithType (onDict (catOp k ex `mkTyApps` [a,b]) `App` z)) $
---      -- pprPanic "mkEx" (text "bailing")
---      onDict (catOp k ex `mkTyApps` [a,b]) `App` z
-
---      -- For the class method aliases (exl', exr'):
---      pprTrace "mkEx" (pprWithType z) $
---      pprTrace "mkEx" (pprWithType (Var ex)) $
---      pprTrace "mkEx" (pprWithType (catOp' k ex [a,b])) $
---      pprTrace "mkEx" (pprWithType (onDict (catOp' k ex [a,b]))) $
---      pprTrace "mkEx" (pprWithType (onDict (catOp' k ex [a,b]) `App` z)) $
---      -- pprPanic "mkEx" (text "bailing")
+     -- -- For the class method aliases (exl', exr'):
+     -- pprTrace "mkEx" (pprWithType z) $
+     -- pprTrace "mkEx" (pprWithType (Var ex)) $
+     -- pprTrace "mkEx" (pprWithType (catOp' k ex [a,b])) $
+     -- pprTrace "mkEx" (pprWithType (onDict (catOp' k ex [a,b]))) $
+     -- pprTrace "mkEx" (pprWithType (onDict (catOp' k ex [a,b]) `App` z)) $
+     -- -- pprPanic "mkEx" (text "bailing")
      onDict (catOp' k ex [a,b]) `App` z
     where
       -- TODO: Replace splitAppTys uses by splitCatTy. Pass in k to confirm.
@@ -279,7 +317,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
           (lintExpr dflags (varSetElems (exprFreeVars before)) before)
    catFun :: Cat -> Var -> Maybe CoreExpr
    catFun k v =
-     pprTrace "catFun" (text fullName <+> dcolon <+> ppr ty) $
+     -- pprTrace "catFun" (text fullName <+> dcolon <+> ppr ty) $
      do (op,tys) <- M.lookup fullName ops
         -- Apply to types and dictionaries, and possibly curry.
         return $ (if twoArgs ty then mkCurry k else id) (catOp' k op tys)
@@ -288,6 +326,31 @@ ccc (CccEnv {..}) guts dflags inScope cat =
       fullName = fqVarName v
       twoArgs (splitCatTy_maybe -> Just (_,splitCatTy_maybe -> Just _)) = True
       twoArgs _ = False
+   transCatOp :: CoreExpr -> Maybe CoreExpr
+   -- transCatOp e | pprTrace "transCatOp" (ppr e) False = undefined
+   transCatOp (collectArgs -> (Var v, Type _wasCat : rest))
+     -- pprTrace "transCatOp (v,_wasCat,rest)" (ppr (v,_wasCat,rest)) True
+     | Just arity <- M.lookup (fqVarName v) catOpArities
+     -- , pprTrace "transCatOp arity" (ppr arity) True
+     , length (filter (not . isTyCoDictArg) rest) == arity
+     -- , pprTrace "transCatOp" (text "arity match") True
+     = Just (foldl addArg (Var v `App` Type cat) rest)
+    where
+      addArg :: Binop CoreExpr
+      addArg e arg | isTyCoArg arg = -- pprTrace "addArg isTyCoArg" (ppr arg)
+                                     e `App` arg
+                   | isPred    arg = -- pprTrace "addArg isPred" (ppr arg)
+                                     onDict e
+                   | otherwise     = -- pprTrace "addArg otherwise" (ppr arg)
+                                     e `App` mkCcc arg
+   transCatOp _ = -- pprTrace "transCatOp" (text "fail") $
+                  Nothing
+
+catOpArities :: Map String Int
+catOpArities = M.fromList $ map (first ("ConCat.Category." ++)) $
+  [ ("exl'",0), ("exr'",0) ]
+
+-- collectArgsPred :: (CoreExpr -> Bool) -> CoreExpr -> (CoreExpr,[CoreExpr])
 
 -- TODO: replace idV, composeV, etc with class objects from which I can extract
 -- those variables. Better, module objects, since I sometimes want functions
@@ -373,8 +436,8 @@ mkCccEnv opts = do
       lookupTh mkOcc mk modu = lookupRdr (mkModuleName modu) mkOcc mk
       findId      = lookupTh mkVarOcc  lookupId
       findTc      = lookupTh mkTcOcc   lookupTyCon
-      findMiscId  = findId "ConCat.Misc"
       findCatId   = findId "ConCat.Category"
+      -- findMiscId  = findId "ConCat.Misc"
       -- findTupleId = findId "Data.Tuple"
       -- findRepTc   = findTc "ConCat.Rep"
       -- findBaseId  = findId "GHC.Base"
@@ -403,7 +466,7 @@ mkCccEnv opts = do
   uncurryV    <- findCatId "uncurry"
   constFunV   <- findCatId "constFun"
   -- notV <- findCatId "notC"
-  cccV        <- findMiscId  "ccc"
+  cccV        <- findCatId  "ccc"
   let mkOp :: (String,(String,String,[Type])) -> CoreM (String,(Var,[Type]))
       mkOp (stdName,(cmod,cop,tyArgs)) =
         do cv <- findId cmod cop
@@ -504,15 +567,23 @@ fqVarName = qualifiedName . varName
 uqVarName :: Var -> String
 uqVarName = getOccString . varName
 
+varModuleName :: Var -> Maybe String
+varModuleName = nameModuleName_maybe . varName
+
+-- With dot
+nameModuleName_maybe :: Name -> Maybe String
+nameModuleName_maybe =
+  fmap (moduleNameString . moduleName) . nameModule_maybe
+
 -- Keep consistent with stripName in Exp.
 uniqVarName :: Var -> String
 uniqVarName v = uqVarName v ++ "_" ++ show (varUnique v)
 
--- Swiped from HERMIT.GHC
+-- Adapted from HERMIT.GHC
 -- | Get the fully qualified name from a 'Name'.
 qualifiedName :: Name -> String
-qualifiedName nm = modStr ++ getOccString nm
-    where modStr = maybe "" (\m -> moduleNameString (moduleName m) ++ ".") (nameModule_maybe nm)
+qualifiedName nm =
+  maybe "" (++ ".") (nameModuleName_maybe nm) ++ getOccString nm
 
 -- | Substitute new subexpressions for variables in an expression
 subst :: [(Id,CoreExpr)] -> Unop CoreExpr
@@ -538,7 +609,6 @@ collectTysDictsArgs e = (h,tys,dicts)
  where
    (e',dicts) = collectArgsPred isPred e
    (h,tys)    = collectTyArgs e'
-   isPred ex  = not (isTyCoArg ex) && isPredTy (exprType ex)
 
 collectArgsPred :: (CoreExpr -> Bool) -> CoreExpr -> (CoreExpr,[CoreExpr])
 collectArgsPred p = go []
@@ -557,6 +627,9 @@ isTyCoDictArg e = isTyCoArg e || isPredTy (exprType e)
 -- isConApp _ = False
 
 -- TODO: More efficient isConApp, discarding args early.
+
+isPred :: CoreExpr -> Bool
+isPred e  = not (isTyCoArg e) && isPredTy (exprType e)
 
 stringExpr :: String -> CoreExpr
 stringExpr = Lit . mkMachString
@@ -685,3 +758,4 @@ etaReduceN e = e
 -- The function category
 funCat :: Cat
 funCat = mkTyConTy funTyCon
+
