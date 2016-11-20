@@ -794,7 +794,7 @@ instance Monad m => BoolCat (Kleisli m) where
   xorC = arr xorC
 #endif
 
-#if 1
+#if 0
 
 -- Hack to get numeric instances for Float & Double recognized.
 -- No longer works.
@@ -1058,3 +1058,39 @@ class (Category k, Category k'{-, OkTarget f k k'-})
 ccc :: forall k a b. (a -> b) -> (a `k` b)
 ccc _ = error "ccc: not implemented"
 {-# NOINLINE ccc #-}
+
+
+#if 1
+
+{--------------------------------------------------------------------
+    Uncurrying --- maybe move elsewhere
+--------------------------------------------------------------------}
+
+-- Note: I'm not using yet. I think it needs to go before ccc.
+-- Alternatively, generalize from (->) to ClosedCat.
+
+-- | Repeatedly uncurried version of a -> b
+class Uncurriable k a b where
+  type UncDom a b
+  type UncRan a b
+  type UncDom a b = a
+  type UncRan a b = b
+  uncurries :: (a `k` b) -> (UncDom a b `k` UncRan a b)
+  default uncurries :: (a `k` b) -> (a `k` b)
+  uncurries = id
+
+instance (ClosedCat k, Uncurriable k (a :* b) c, Ok3 k a b c)
+      => Uncurriable k a (b -> c) where
+  type UncDom a (b -> c) = UncDom (a :* b) c
+  type UncRan a (b -> c) = UncRan (a :* b) c
+  uncurries = uncurries . uncurry
+
+instance Uncurriable k a ()
+instance Uncurriable k a Bool
+instance Uncurriable k a Int
+instance Uncurriable k a Float
+instance Uncurriable k a Double
+instance Uncurriable k a (c :* d)
+instance Uncurriable k a (c :+ d)
+
+#endif
