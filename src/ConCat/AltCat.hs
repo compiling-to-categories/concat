@@ -39,25 +39,32 @@ import qualified ConCat.Category as C
 import ConCat.Rep
 
 #define Op(nm,ty) \
+{- | C.nm without the eager inlining -}; \
 nm :: ty; \
 nm = C.nm ;\
 {-# NOINLINE [2] nm #-}
 
-#define InfixOp(nm,ty) \
+#define Ip(nm,ty) \
+{- | (C.nm) without the eager inlining -}; \
 (nm) :: ty; \
 (nm) = (C.nm) ;\
 {-# NOINLINE [2] (nm) #-}
 
+-- I use semicolons and the {- | ... -} style Haddock comment because CPP macros
+-- generate a single line. I want to inject single quotes around the C.foo and
+-- (C.op) names to form Haddock links, but CPP interprets them as preventing
+-- macro argument insertion.
+
 
 infixr 9 .
 Op(id,(Category k, Ok k a) => a `k` a)
-InfixOp(.,forall k b c a. (Category k, Ok3 k a b c) => (b `k` c) -> (a `k` b) -> (a `k` c))
+Ip(.,forall k b c a. (Category k, Ok3 k a b c) => (b `k` c) -> (a `k` b) -> (a `k` c))
 
 infixr 3 ***, &&&
 Op(exl,(ProductCat k, Ok2 k a b) => Prod k a b `k` a)
 Op(exr,(ProductCat k, Ok2 k a b) => Prod k a b `k` b)
-InfixOp(&&&,forall k a c d. (ProductCat k, Ok3 k a c d) => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d))
-InfixOp(***,forall k a b c d. (ProductCat k, Ok4 k a b c d) => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d))
+Ip(&&&,forall k a c d. (ProductCat k, Ok3 k a c d) => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d))
+Ip(***,forall k a b c d. (ProductCat k, Ok4 k a b c d) => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d))
 Op(swapP,forall k a b. (ProductCat k, Ok2 k a b) => Prod k a b `k` Prod k b a)
 Op(first,forall k a aa b. (ProductCat k, Ok3 k a b aa) => (a `k` aa) -> (Prod k a b `k` Prod k aa b))
 Op(second,forall k a b bb. (ProductCat k, Ok3 k a b bb) => (b `k` bb) -> (Prod k a b `k` Prod k a bb))
@@ -67,8 +74,8 @@ Op(rassocP,forall k a b c. (ProductCat k, Ok3 k a b c) => Prod k (Prod k a b) c 
 infixr 2 +++, |||
 Op(inl,(CoproductCat k, Ok2 k a b) => a `k` Coprod k a b)
 Op(inr,(CoproductCat k, Ok2 k a b) => b `k` Coprod k a b)
-InfixOp(|||,forall k a c d. (CoproductCat k, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a))
-InfixOp(+++,forall k a b c d. (CoproductCat k, Ok4 k a b c d) => (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b))
+Ip(|||,forall k a c d. (CoproductCat k, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a))
+Ip(+++,forall k a b c d. (CoproductCat k, Ok4 k a b c d) => (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b))
 Op(jam,(CoproductCat k, Ok k a) => Coprod k a a `k` a)
 Op(swapS,forall k a b. (CoproductCat k, Ok2 k a b) => Coprod k a b `k` Coprod k b a)
 Op(left ,forall k a aa b. (CoproductCat k, Ok3 k a b aa) => (a `k` aa) -> (Coprod k a b `k` Coprod k aa b))
