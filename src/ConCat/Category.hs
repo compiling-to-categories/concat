@@ -280,17 +280,6 @@ class (OpCon (Prod k) (Ok' k), Category k) => ProductCat k where
 #endif
   {-# MINIMAL exl, exr, ((&&&) | ((***), dup)) #-}
 
--- Experiment: Define aliases to the classOps so they won't get inlined away
--- before we can optimize them.
-
-exl' :: (ProductCat k, Ok2 k a b) => Prod k a b `k` a
-exl' = exl
-{-# NOINLINE exl' #-}
-
-exr' :: (ProductCat k, Ok2 k a b) => Prod k a b `k` b
-exr' = exr
-{-# NOINLINE exr' #-}
-
 instance ProductCat (->) where
 #ifndef DefaultCat
   -- type Prod (->) = (:*)
@@ -805,12 +794,10 @@ instance Monad m => BoolCat (Kleisli m) where
   xorC = arr xorC
 #endif
 
-class Num a => NumCat k a where
-  negateC :: a `k` a
-  addC, subC, mulC :: Prod k a a `k` a
-  powIC :: Prod k a Int `k` a
-
 #if 1
+
+-- Hack to get numeric instances for Float & Double recognized.
+-- No longer works.
 
 #define ClassIFD(cls,clsQ,super) \
 class (super a, cls a) => clsQ a ; \
@@ -829,6 +816,11 @@ instance clsQ Double
 #define ClassFD(cls,clsQ,super)  type clsQ = cls
 
 #endif
+
+class NumQ a => NumCat k a where
+  negateC :: a `k` a
+  addC, subC, mulC :: Prod k a a `k` a
+  powIC :: Prod k a Int `k` a
 
 ClassIFD(Num,NumQ,Yes1)
 instance NumQ a => NumCat (->) a where
