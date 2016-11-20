@@ -37,8 +37,7 @@ import Control.Monad (when)
 -- import ReificationRules.HOS (reify)
 -- import ReificationRules.ToCCC (toCCC)
 
-import ConCat.Misc (ccc) -- (:+),(:*)
--- import ConCat.Category (Ok,unitArrow)
+import ConCat.Category (ccc) -- Ok,unitArrow
 import ConCat.Circuit (Attr,mkGraph,UU,writeDot,displayDot,unitize,(:>),GenBuses)
 
 -- import ConCat.Netlist (saveAsVerilog)
