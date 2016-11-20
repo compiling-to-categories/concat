@@ -95,7 +95,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
   go
  where
    go :: ReExpr
-   -- go e | dtrace "go ccc:" (ppr e) False = undefined
+   go e | dtrace "go ccc:" (ppr e) False = undefined
    -- go (Var v) = pprTrace "go Var" (ppr v) $
    --              catFun v <|>
    --              (pprTrace "inlining" (ppr v) $
@@ -103,7 +103,11 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- go (etaReduceN -> transCatOp -> Just e') = Just e'
    go (Lam x body) = -- goLam x body
                      goLam x (etaReduceN body)
-   go e = go (etaExpand 1 e)
+   go (Cast {}) =
+     -- etaExpand turns cast lambdas into themselves
+     pprPanic "ccc" (text "Cast: not yet handled")
+   go e = dtrace "go etaExpand to" (ppr (etaExpand 1 e)) $
+          go (etaExpand 1 e)
           -- return $ mkCcc (etaExpand 1 e)
    -- TODO: If I don't etaReduceN, merge goLam back into the go Lam case.
    -- goLam x body | dtrace "go ccc:" (ppr (Lam x body)) False = undefined
@@ -114,15 +118,15 @@ ccc (CccEnv {..}) guts dflags inScope cat =
                             return (mkId cat xty)
            | isFunTy bty -> Doing("catFun")
                             mkConstFun cat xty <$> catFun cat y
-           | otherwise   -> Doing("Const")
-                            return (mkConst cat xty body)
-     Trying("Category operation")
-     _ | not (isFreeIn x body), Just e' <- transCatOp body ->
-       Doing("Category operation")
-       return (mkConstFun cat xty e')
+
+     _ | isConst, not isFun -> Doing("Const")
+                               return (mkConst cat xty body)
+     _ | isConst, Just e' <- transCatOp body ->
+                    Doing("Category operation")
+                    return (mkConstFun cat xty e')
      Trying("App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
-     u `App` v | not (isTyCoDictArg v) ->
+     u `App` v | liftedExpr v ->
        Doing("App")
        return $ mkCompose cat
                   (mkApply cat vty bty)
@@ -171,6 +175,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
     where
       xty = varType x
       bty = exprType body
+      isConst = not (isFreeIn x body)
+      isFun = isFunTy bty
    unfoldMaybe :: ReExpr
    unfoldMaybe = -- traceRewrite "unfoldMaybe" $
                  onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe)
@@ -281,7 +287,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    mkConst k dom e =
      -- const :: forall (k :: * -> * -> *) b. ConstCat k b => forall dom.
      --          Ok k dom => b -> k dom (ConstObj k b)
-     onDict (catOp k constV [exprType e] `App` Type dom) `App` e
+     onDict (catOp k constV [exprType e, dom]) `App` e
+     -- onDict (catOp k constV [exprType e] `App` Type dom) `App` e
    mkConstFun :: Cat -> Type -> Unop CoreExpr
    mkConstFun k dom e =
      -- constFun :: forall k p a b. (ClosedCat k, Oks k '[p, a, b])
@@ -763,4 +770,10 @@ etaReduceN e = e
 -- The function category
 funCat :: Cat
 funCat = mkTyConTy funTyCon
+
+liftedExpr :: CoreExpr -> Bool
+liftedExpr e = not (isTyCoDictArg e) && liftedType (exprType e)
+
+liftedType :: Type -> Bool
+liftedType = isLiftedTypeKind . typeKind
 
