@@ -399,8 +399,8 @@ install opts todos =
  where
    flagCcc :: CccEnv -> PluginPass
    flagCcc (CccEnv {..}) guts
-     -- | pprTrace "ccc residuals:" (ppr (toList remaining)) False = undefined
-     -- | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
+     --  | pprTrace "ccc residuals:" (ppr (toList remaining)) False = undefined
+     --  | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
      | S.null remaining = return guts
      | otherwise = pprPanic "ccc residuals:" (ppr (toList remaining))
     where

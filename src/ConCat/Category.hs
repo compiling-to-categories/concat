@@ -1044,7 +1044,7 @@ instance RepCat (->) where
 
 -- | Functors map objects and arrows.
 class (Category k, Category k'{-, OkTarget f k k'-})
-   => FunctorC f k k' {-| f -> k k'-} where
+   => FunctorC f k k' {-  | f -> k k'-} where
   -- | @fmapC@ maps arrows.
   fmapC :: (Oks k [a,b], Oks k' [a,b]) => (a `k` b) -> (a `k'` b)
   -- Laws:
