@@ -59,7 +59,7 @@ data CccEnv = CccEnv { dtrace    :: forall a. String -> SDoc -> a -> a
                      , applyV    :: Id
                      , composeV  :: Id
                      , curryV    :: Id
-                     , uncurryV  :: Id
+                  -- , uncurryV  :: Id
                      , exlV      :: Id
                      , exrV      :: Id
                      , constFunV :: Id
@@ -110,9 +110,12 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    goLam x body = case body of
      -- Trying("constant") 
      Trying("Var")
-     Var y | x == y            -> Doing("Var")
-                                  return (mkId cat xty)
-       --  | not (isFunTy bty) -> Doing ("Const") return (mkConst cat xty body)
+     Var y | x == y      -> Doing("Var")
+                            return (mkId cat xty)
+           | isFunTy bty -> Doing("catFun")
+                            mkConstFun cat xty <$> catFun cat y
+           | otherwise   -> Doing("Const")
+                            return (mkConst cat xty body)
      Trying("Category operation")
      _ | not (isFreeIn x body), Just e' <- transCatOp body ->
        Doing("Category operation")
@@ -153,22 +156,15 @@ ccc (CccEnv {..}) guts dflags inScope cat =
             pprPanic "ccc: product case with live wild var (not yet handled)" (ppr e)
        else
           Doing("Case of product")
-#if 0
-          -- (\ x -> case scrut of _ { (a, b) -> rhs }) ==
-          -- (\ x -> uncurry (\ a b -> rhs) scrut)
-          return (mkCcc (Lam x (mkUncurry funCat (mkLams [a,b] rhs) `App` scrut)))
-#else
-          -- \ x -> case scrut of _ { (a, b) -> rhs }
-          -- \ x -> (\ (a,b) -> rhs) scrut
-          -- \ x -> (\ c -> rhs[a/exl c, b/exr c) scrut
+          --    \ x -> case scrut of _ { (a, b) -> rhs }
+          -- == \ x -> (\ (a,b) -> rhs) scrut
+          -- == \ x -> (\ c -> rhs[a/exl c, b/exr c) scrut
           -- TODO: refactor with Lam case
           let c     = freshId (exprFreeVars e) cName (exprType scrut)  -- (pairTy (varTy a) (varTy b))
               cName = uqVarName a ++ "_" ++ uqVarName b
               sub   = [(a,mkEx funCat exlV (Var c)),(b,mkEx funCat exrV (Var c))]
           in
             return (mkCcc (Lam x (App (Lam c (subst sub rhs)) scrut)))
-#endif
-          -- goLam x (mkUncurry (mkLams [a,b] rhs) `App` scrut)
      -- Give up
      _e -> dtrace "ccc" ("Unhandled:" <+> ppr _e) $
            Nothing
@@ -202,10 +198,10 @@ ccc (CccEnv {..}) guts dflags inScope cat =
                        buildDictionary hsc_env dflags guts inScope ty
    -- buildDict :: Type -> CoreExpr
    -- buildDict ty = noDictErr (ppr ty) (buildDictMaybe ty)
-   catOp' :: Cat -> Var -> [Type] -> CoreExpr
-   catOp' k op tys = onDict (Var op `mkTyApps` (k : tys))
-   catOp :: Cat -> Var -> CoreExpr
-   catOp k op = catOp' k op []
+   catOp :: Cat -> Var -> [Type] -> CoreExpr
+   catOp k op tys = onDict (Var op `mkTyApps` (k : tys))
+   -- catOp :: Cat -> Var -> CoreExpr
+   -- catOp k op = catOp k op []
    mkCcc :: Unop CoreExpr  -- Any reason to parametrize over Cat?
    mkCcc e = varApps cccV [cat,a,b] [e]
     where
@@ -213,13 +209,15 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- TODO: replace composeV with mkCompose in CccEnv
    -- Maybe other variables as well
    mkId :: Cat -> Type -> CoreExpr
-   mkId k ty = onDict (catOp k idV `App` Type ty)
+   mkId k ty = onDict (catOp k idV [ty])
+               -- onDict (catOp k idV `App` Type ty)
    mkCompose :: Cat -> Binop CoreExpr
    -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
    mkCompose k g f
      | Just (b,c) <- splitCatTy_maybe (exprType g)
      , Just (a,_) <- splitCatTy_maybe (exprType f)
-     = mkCoreApps (onDict (catOp k composeV `mkTyApps` [b,c,a])) [g,f]
+     = -- mkCoreApps (onDict (catOp k composeV `mkTyApps` [b,c,a])) [g,f]
+       mkCoreApps (onDict (catOp k composeV [b,c,a])) [g,f]
      | otherwise = pprPanic "mkCompose:" (pprWithType g <+> text ";" <+> pprWithType f)
    mkEx :: Cat -> Var -> Unop CoreExpr
    mkEx k ex z =
@@ -233,14 +231,14 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      -- -- pprPanic "mkEx" (text "bailing")
      -- onDict (catOp k ex `mkTyApps` [a,b]) `App` z
 
-     -- -- For the class method aliases (exl', exr'):
+     -- -- For the class method aliases (exl, exr):
      -- pprTrace "mkEx" (pprWithType z) $
      -- pprTrace "mkEx" (pprWithType (Var ex)) $
-     -- pprTrace "mkEx" (pprWithType (catOp' k ex [a,b])) $
-     -- pprTrace "mkEx" (pprWithType (onDict (catOp' k ex [a,b]))) $
-     -- pprTrace "mkEx" (pprWithType (onDict (catOp' k ex [a,b]) `App` z)) $
+     -- pprTrace "mkEx" (pprWithType (catOp k ex [a,b])) $
+     -- pprTrace "mkEx" (pprWithType (onDict (catOp k ex [a,b]))) $
+     -- pprTrace "mkEx" (pprWithType (onDict (catOp k ex [a,b]) `App` z)) $
      -- -- pprPanic "mkEx" (text "bailing")
-     onDict (catOp' k ex [a,b]) `App` z
+     onDict (catOp k ex [a,b]) `App` z
     where
       -- TODO: Replace splitAppTys uses by splitCatTy. Pass in k to confirm.
       (_,[a,b])  = splitAppTys (exprType z)
@@ -249,7 +247,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      -- (&&&) :: forall {k :: * -> * -> *} {a} {c} {d}.
      --          (ProductCat k, Ok k d, Ok k c, Ok k a)
      --       => k a c -> k a d -> k a (Prod k c d)
-     onDict (catOp k forkV `mkTyApps` [a,c,d]) `mkCoreApps` [f,g]
+     -- onDict (catOp k forkV `mkTyApps` [a,c,d]) `mkCoreApps` [f,g]
+     onDict (catOp k forkV [a,c,d]) `mkCoreApps` [f,g]
     where
       (_,[a,c]) = splitAppTys (exprType f)
       (_,[_,d]) = splitAppTys (exprType g)
@@ -257,34 +256,37 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    mkApply k a b =
      -- apply :: forall {k :: * -> * -> *} {a} {b}. (ClosedCat k, Ok k b, Ok k a)
      --       => k (Prod k (Exp k a b) a) b
-     onDict (catOp k applyV `mkTyApps` [a,b])
+     -- onDict (catOp k applyV `mkTyApps` [a,b])
+     onDict (catOp k applyV [a,b])
    mkCurry :: Cat -> Unop CoreExpr
    mkCurry k e =
      -- curry :: forall {k :: * -> * -> *} {a} {b} {c}.
      --          (ClosedCat k, Ok k c, Ok k b, Ok k a)
      --       => k (Prod k a b) c -> k a (Exp k b c)
-     onDict (catOp k curryV `mkTyApps` [a,b,c]) `App` e
+     -- onDict (catOp k curryV `mkTyApps` [a,b,c]) `App` e
+     onDict (catOp k curryV [a,b,c]) `App` e
     where
       (splitAppTys -> (_,[splitAppTys -> (_,[a,b]),c])) = exprType e
-   mkUncurry :: Cat -> Unop CoreExpr
-   mkUncurry k e =
-   -- uncurry :: forall {k :: * -> * -> *} {a} {b} {c}.
-   --            (ClosedCat k, Ok k c, Ok k b, C1 (Ok k) a)
-   --         => k a (Exp k b c) -> k (Prod k a b) c
-     onDict (catOp k uncurryV `mkTyApps` [a,b,c]) `App` e
-     -- varApps uncurryV [a,b,c] [e]
-    where
-      (splitCatTy -> (a, splitCatTy -> (b,c))) = exprType e
+   -- mkUncurry :: Cat -> Unop CoreExpr
+   -- mkUncurry k e =
+   --   -- uncurry :: forall {k :: * -> * -> *} {a} {b} {c}.
+   --   --            (ClosedCat k, Ok k c, Ok k b, C1 (Ok k) a)
+   --   --         => k a (Exp k b c) -> k (Prod k a b) c
+   --   -- onDict (catOp k uncurryV `mkTyApps` [a,b,c]) `App` e
+   --   onDict (catOp k uncurryV [a,b,c]) `App` e
+   --   -- varApps uncurryV [a,b,c] [e]
+   --  where
+   --    (splitCatTy -> (a, splitCatTy -> (b,c))) = exprType e
    mkConst :: Cat -> Type -> Unop CoreExpr
    mkConst k dom e =
      -- const :: forall (k :: * -> * -> *) b. ConstCat k b => forall dom.
      --          Ok k dom => b -> k dom (ConstObj k b)
-     onDict (catOp' k constV [exprType e] `App` Type dom) `App` e
+     onDict (catOp k constV [exprType e] `App` Type dom) `App` e
    mkConstFun :: Cat -> Type -> Unop CoreExpr
    mkConstFun k dom e =
      -- constFun :: forall k p a b. (ClosedCat k, Oks k '[p, a, b])
      --          => k a b -> k p (Exp k a b)
-     onDict (catOp' k constFunV [dom,a,b]) `App` e
+     onDict (catOp k constFunV [dom,a,b]) `App` e
     where
       (a,b) = splitCatTy (exprType e)
    -- Split k a b into a & b.
@@ -320,7 +322,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      -- pprTrace "catFun" (text fullName <+> dcolon <+> ppr ty) $
      do (op,tys) <- M.lookup fullName ops
         -- Apply to types and dictionaries, and possibly curry.
-        return $ (if twoArgs ty then mkCurry k else id) (catOp' k op tys)
+        return $ (if twoArgs ty then mkCurry k else id) (catOp k op tys)
     where
       ty      = varType v
       fullName = fqVarName v
@@ -346,9 +348,12 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    transCatOp _ = -- pprTrace "transCatOp" (text "fail") $
                   Nothing
 
+catModule :: String
+catModule = "ConCat.AltCat"
+
 catOpArities :: Map String Int
-catOpArities = M.fromList $ map (first ("ConCat.Category." ++)) $
-  [ ("exl'",0), ("exr'",0) ]
+catOpArities = M.fromList $ map (first ((catModule ++) . ('.' :))) $
+  [ ("exl",0), ("exr",0) ]
 
 -- collectArgsPred :: (CoreExpr -> Bool) -> CoreExpr -> (CoreExpr,[CoreExpr])
 
@@ -436,12 +441,12 @@ mkCccEnv opts = do
       lookupTh mkOcc mk modu = lookupRdr (mkModuleName modu) mkOcc mk
       findId      = lookupTh mkVarOcc  lookupId
       findTc      = lookupTh mkTcOcc   lookupTyCon
-      findCatId   = findId "ConCat.Category"
+      findCatId   = findId catModule
       -- findMiscId  = findId "ConCat.Misc"
       -- findTupleId = findId "Data.Tuple"
       -- findRepTc   = findTc "ConCat.Rep"
       -- findBaseId  = findId "GHC.Base"
-      -- findCatTc   = findTc "ConCat.Category"
+      -- findCatTc   = findTc catModule
   -- ruleBase <- getRuleBase
   -- catTc       <- findCatTc "Category"
   -- prodTc      <- findCatTc "ProductCat"
@@ -458,12 +463,12 @@ mkCccEnv opts = do
 --   exlV        <- findTupleId "fst"
 --   exrV        <- findTupleId "snd"
 --   forkV       <- findMiscId  "fork"
-  exlV        <- findCatId "exl'"  -- Experiment: NOINLINE version
-  exrV        <- findCatId "exr'"
+  exlV        <- findCatId "exl"  -- Experiment: NOINLINE version
+  exrV        <- findCatId "exr"
   forkV       <- findCatId "&&&"
   applyV      <- findCatId "apply"
   curryV      <- findCatId "curry"
-  uncurryV    <- findCatId "uncurry"
+--   uncurryV    <- findCatId "uncurry"
   constFunV   <- findCatId "constFun"
   -- notV <- findCatId "notC"
   cccV        <- findCatId  "ccc"
@@ -483,7 +488,7 @@ mkCccEnv opts = do
 
 -- Association list 
 opsInfo :: [(String,(String,String,[Type]))]
-opsInfo = [ (hop,("ConCat.Category",cop,tyArgs))
+opsInfo = [ (hop,(catModule,cop,tyArgs))
           | (cop,ps) <- monoInfo
           , (hop,tyArgs) <- ps
           ]
