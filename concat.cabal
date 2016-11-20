@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     ConCat.Category
+                       ConCat.AltCat
                        ConCat.Misc
                        ConCat.Orphans
                        ConCat.Free.VectorSpace
