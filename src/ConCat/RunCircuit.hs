@@ -32,13 +32,9 @@ import Prelude
 
 import Control.Monad (when)
 
--- import ReificationRules.Exp (E)
--- import ReificationRules.Prim (Prim)
--- import ReificationRules.HOS (reify)
--- import ReificationRules.ToCCC (toCCC)
-
-import ConCat.Category (ccc) -- Ok,unitArrow
+import ConCat.Category (ccc,Uncurriable(..)) -- Ok,unitArrow
 import ConCat.Circuit (Attr,mkGraph,UU,writeDot,displayDot,unitize,(:>),GenBuses)
+import ConCat.Misc ((:*),(:+))
 
 -- import ConCat.Netlist (saveAsVerilog)
 -- import ConCat.Mealy (Mealy(..,asFun)
@@ -49,7 +45,8 @@ ranksep n = ("ranksep",show n)
 -- type Okay = Uncurriable (:>) ()
 
 -- type Okay = Yes2
-type Okay a b = GenBuses a
+-- type Okay a b = GenBuses a
+type Okay a b = (Uncurriable (:>) a b, GenBuses (UncDom a b))
 
 go :: Okay a b => String -> (a -> b) -> IO ()
 -- go name = go' name []
@@ -76,7 +73,7 @@ goSep _ _ _ = error "goSep: not implemented"
 
 {-# RULES
 
-"go'"   forall name attrs f . go' name attrs f = run name attrs (ccc f)
+"go'"   forall name attrs f . go' name attrs f = run name attrs (uncurries (ccc f))
 "go"    forall name         . go name          = go' name []
 "goSep" forall name s       . goSep name s     = go' name [ranksep s]
 
@@ -138,39 +135,5 @@ goM' :: Okay (a -> b) => String -> [Attr] -> Mealy a b -> IO ()
 {-# INLINE goM' #-}
 
 goM' name attrs = go' name attrs . asFun
-
-#endif
-
-#if 0
-
-{--------------------------------------------------------------------
-    Uncurrying --- maybe move elsewhere
---------------------------------------------------------------------}
-
--- Note: I'm not using yet. I think it needs to go before ccc.
--- Alternatively, generalize from (->) to ClosedCat.
-
--- | Repeatedly uncurried version of a -> b
-class Uncurriable a b where
-  type UncDom a b
-  type UncRan a b
-  type UncDom a b = a
-  type UncRan a b = b
-  uncurries :: (a -> b) -> (UncDom a b -> UncRan a b)
-  default uncurries :: (a -> b) -> (a -> b)
-  uncurries = id
-
-instance Uncurriable (a :* b) c => Uncurriable a (b -> c) where
-  type UncDom a (b -> c) = UncDom (a :* b) c
-  type UncRan a (b -> c) = UncRan (a :* b) c
-  uncurries = uncurries . uncurry
-
-instance Uncurriable a ()
-instance Uncurriable a Bool
-instance Uncurriable a Int
-instance Uncurriable a Float
-instance Uncurriable a Double
-instance Uncurriable a (c :* d)
-instance Uncurriable a (c :+ d)
 
 #endif
