@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 {-# OPTIONS_GHC -Wall #-}
@@ -26,13 +27,15 @@ import ConCat.Category
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
   , DistribCat, undistl, undistr
   , ClosedCat, Exp
-  , TerminalCat, Unit, lunit, runit, constFun, constFun2, unitFun, unUnitFun
+  , TerminalCat, Unit, lunit, runit{-, constFun-}, constFun2, unitFun, unUnitFun
   , ConstCat, ConstObj, lconst, rconst
   , BiCCC
   , BoolCat, BoolOf
   , NumCat, FractionalCat, FloatingCat, FromIntegralCat
   , EqCat, OrdCat, EnumCat, BottomCat, IfCat, UnknownCat, RepCat
   , ccc
+  --
+  , (<+), okProd
   )
 
 import qualified ConCat.Category as C
@@ -42,13 +45,13 @@ import ConCat.Rep
 {- | C.nm without the eager inlining -}; \
 nm :: ty; \
 nm = C.nm ;\
-{-# NOINLINE [2] nm #-}
+{-# NOINLINE nm #-}
 
 #define Ip(nm,ty) \
 {- | (C.nm) without the eager inlining -}; \
 (nm) :: ty; \
 (nm) = (C.nm) ;\
-{-# NOINLINE [2] (nm) #-}
+{-# NOINLINE (nm) #-}
 
 -- I use semicolons and the {- | ... -} style Haddock comment because CPP macros
 -- generate a single line. I want to inject single quotes around the C.foo and
@@ -91,7 +94,6 @@ Op(distl,forall k a u v. (DistribCat k, Ok3 k a u v) => Prod k a (Coprod k u v) 
 Op(distr,forall k u v b. (DistribCat k, Ok3 k u v b) => Prod k (Coprod k u v) b `k` Coprod k (Prod k u b) (Prod k v b))
 
 Op(it,(TerminalCat k, Ok k a) => a `k` Unit k)
-
 Op(unitArrow,ConstCat k b => b -> (Unit k `k` ConstObj k b))
 Op(const,(ConstCat k b, Ok k a) => b -> (a `k` ConstObj k b))
 
@@ -136,3 +138,10 @@ Op(reprC,(RepCat k, HasRep a) => a `k` Rep a)
 Op(abstC,(RepCat k, HasRep a) => Rep a `k` a)
 
 
+-- Unnecessary but helpful to track NOINLINE choice
+-- Op(constFun,forall k p a b. (ClosedCat k, Ok3 k p a b) => (a `k` b) -> (p `k` Exp k a b))
+
+constFun :: forall k p a b. (ClosedCat k, Ok3 k p a b)
+         => (a `k` b) -> (p `k` Exp k a b)
+constFun f = curry (f . exr) <+ okProd @k @p @a
+{-# INLINE constFun #-}
