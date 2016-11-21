@@ -476,8 +476,8 @@ mkCccEnv opts = do
   constFunV   <- findCatId "constFun"
   -- notV <- findCatId "notC"
   cccV        <- findCatId  "ccc"
-  floatT      <- findFloatTy "NFloat"
-  doubleT     <- findFloatTy "NDouble"
+  floatT      <- findFloatTy "Float"
+  doubleT     <- findFloatTy "Double"
   let mkOp :: (String,(String,String,[Type])) -> CoreM (String,(Var,[Type]))
       mkOp (stdName,(cmod,cop,tyArgs)) =
         do cv <- findId cmod cop
