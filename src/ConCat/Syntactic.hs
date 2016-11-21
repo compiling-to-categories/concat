@@ -7,7 +7,7 @@
 
 -- | Syntactic CCC
 
-module ConCat.SyntacticCCC where
+module ConCat.Syntactic where
 
 import Prelude hiding (id,(.),lookup)
 

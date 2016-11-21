@@ -30,6 +30,7 @@ library
                        ConCat.Simplify
                        ConCat.BuildDictionary
                        ConCat.Plugin
+                       ConCat.Syntactic
                        ConCat.Circuit
                        ConCat.RunCircuit
                        ConCat.Float
@@ -55,6 +56,7 @@ library
                      , keys >= 3.11
                      , newtype-generics
                      , pointed >= 5
+                     , pretty >= 1.1.3.3
                      , transformers >= 0.5.2.0
                      , vector-space >= 0.10.4
                      -- For Plugin
@@ -84,6 +86,7 @@ Test-Suite basic
   Build-Depends:    Cabal >= 1.24.0.0
                   , base<5
                   , concat
+                  , pretty >= 1.1.3.3
   ghc-options:      -O2 -fforce-recomp
 --                     -ddump-simpl
 --                     -ddump-rule-rewrites
