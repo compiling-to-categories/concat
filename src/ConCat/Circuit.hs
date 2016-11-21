@@ -1275,7 +1275,7 @@ instance (Integral a, Num b, Read a, GST b)
       => FromIntegralCat (:>) a b where
   fromIntegralC = primNoOpt1 "fromIntegral" fromIntegral
 
-instance (GST a, NumCat (:>) a) => EnumCat (:>) a
+instance (GST a, NumCat (:>) a, Num a) => EnumCat (:>) a
 
 -- Simplifications for all types:
 -- 
