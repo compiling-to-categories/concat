@@ -34,7 +34,6 @@ import Control.Monad (when)
 
 import ConCat.Category (ccc,Uncurriable(..)) -- Ok,unitArrow
 import ConCat.Circuit (Attr,mkGraph,UU,writeDot,displayDot,unitize,(:>),GenBuses)
-import ConCat.Misc ((:*),(:+))
 
 -- import ConCat.Netlist (saveAsVerilog)
 -- import ConCat.Mealy (Mealy(..,asFun)
