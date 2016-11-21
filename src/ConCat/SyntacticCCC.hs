@@ -22,21 +22,21 @@ import ConCat.Misc (inNew,inNew2,Binop)
     Untyped S-expression
 --------------------------------------------------------------------}
 
-data Sexp = Sexp String [Sexp]
+data SexpU = SexpU String [SexpU] deriving Show
 
-atomu :: String -> Sexp
-atomu s = Sexp s []
+atomu :: String -> SexpU
+atomu s = SexpU s []
 
-app1u :: String -> Sexp -> Sexp
-app1u s p = Sexp s [p]
+app1u :: String -> SexpU -> SexpU
+app1u s p = SexpU s [p]
 
-app2u :: String -> Sexp -> Sexp -> Sexp
-app2u s p q = Sexp s [p,q]
+app2u :: String -> SexpU -> SexpU -> SexpU
+app2u s p q = SexpU s [p,q]
 
-prettyu :: Sexp -> PDoc
-prettyu (Sexp f [u,v]) | Just fixity <- lookup f fixities =
+prettyu :: SexpU -> PDoc
+prettyu (SexpU f [u,v]) | Just fixity <- lookup f fixities =
   docOp2 False f fixity (prettyu u) (prettyu v)
-prettyu (Sexp f es) = \ prec ->
+prettyu (SexpU f es) = \ prec ->
   (if prec > appPrec then parens else id) $
   text f <+> hsep (map (flip prettyu (appPrec+1)) es)
 
@@ -53,32 +53,32 @@ fixities = fromList
     Phantom-typed S-expression
 --------------------------------------------------------------------}
 
-newtype Texp a b = Texp Sexp
+newtype Sexp a b = Sexp SexpU deriving Show
 
-instance Newtype (Texp a b) where
-  type O (Texp a b) = Sexp
-  pack s = Texp s
-  unpack (Texp s) = s
+instance Newtype (Sexp a b) where
+  type O (Sexp a b) = SexpU
+  pack s = Sexp s
+  unpack (Sexp s) = s
 
-atom :: String -> Texp a b
-atom s = pack (Sexp s [])
+atom :: String -> Sexp a b
+atom s = pack (SexpU s [])
 
-app1 :: String -> Texp a b -> Texp c d
+app1 :: String -> Sexp a b -> Sexp c d
 app1 = inNew . app1u
 
-app2 :: String -> Texp a1 b1 -> Texp a2 b2 -> Texp c d
+app2 :: String -> Sexp a1 b1 -> Sexp a2 b2 -> Sexp c d
 app2 = inNew2 . app2u
 
-pretty :: Texp a b -> PDoc
+pretty :: Sexp a b -> PDoc
 pretty = prettyu . unpack
 
-instance Show (Texp a b) where show = show . flip pretty 0
+-- instance Show (Sexp a b) where show = show . flip pretty 0
 
-instance Category Texp where
+instance Category Sexp where
   id  = atom "id"
   (.) = app2 "."
 
-instance ProductCat Texp where
+instance ProductCat Sexp where
   exl     = atom "exl"
   exr     = atom "exr"
   (&&&)   = app2 "&&&"
@@ -89,67 +89,67 @@ instance ProductCat Texp where
   lassocP = atom "lassocP"
   rassocP = atom "rassocP"
 
-instance TerminalCat Texp where it = atom "it"
+instance TerminalCat Sexp where it = atom "it"
 
-instance CoproductCat Texp where
-  inl = atom "inl"
-  inr = atom "inr"
-  (|||) = app2 "|||"
-  (+++) = app2 "+++"
-  jam = atom "jam"
-  left   = app1 "left"
-  right  = app1 "right"
+instance CoproductCat Sexp where
+  inl     = atom "inl"
+  inr     = atom "inr"
+  (|||)   = app2 "|||"
+  (+++)   = app2 "+++"
+  jam     = atom "jam"
+  left    = app1 "left"
+  right   = app1 "right"
   lassocS = atom "lassocS"
   rassocS = atom "rassocS"
   
-instance DistribCat Texp where distl = atom "distl"
+instance DistribCat Sexp where distl = atom "distl"
 
-instance ClosedCat Texp where
+instance ClosedCat Sexp where
   apply   = atom "apply"
   curry   = app1 "curry"
   uncurry = app1 "uncurry"
 
-instance Show b => ConstCat Texp b where
+instance Show b => ConstCat Sexp b where
   const b = app1 "const" (atom (show b))
 
-instance BoolCat Texp where
+instance BoolCat Sexp where
   notC = atom "notC"
   andC = atom "andC"
   orC  = atom "orC"
   xorC = atom "xorC"
 
-instance EqCat Texp a where
-  equal = atom "equal"
+instance EqCat Sexp a where
+  equal    = atom "equal"
   notEqual = atom "notEqual"
 
-instance OrdCat Texp a where
+instance OrdCat Sexp a where
   lessThan = atom "lessThan"
   greaterThan = atom "greaterThan"
   lessThanOrEqual = atom "lessThanOrEqual"
   greaterThanOrEqual = atom "greaterThanOrEqual"
 
-instance NumCat Texp a where
+instance NumCat Sexp a where
   negateC = atom "negateC"
   addC    = atom "addC"
   subC    = atom "subC"
   mulC    = atom "mulC"
   powIC   = atom "powIC"
 
-instance FractionalCat Texp a where
-  recipC = atom "recipC"
+instance FractionalCat Sexp a where
+  recipC  = atom "recipC"
   divideC = atom "divideC"
 
-instance FloatingCat Texp a where
+instance FloatingCat Sexp a where
   expC = atom "expC"
   cosC = atom "cosC"
   sinC = atom "sinC"
 
-instance RepCat Texp where
+instance RepCat Sexp where
   reprC = atom "reprC"
   abstC = atom "abstC"
 
 {--------------------------------------------------------------------
-    Prettyu-printing utilities
+    Pretty-printing utilities
 --------------------------------------------------------------------}
 
 type Prec   = Int
@@ -163,9 +163,6 @@ type PDoc = Prec -> Doc
 -- application is the left argument of a function composition.
 appPrec :: Prec
 appPrec = 11 -- was 10
-
--- TODO: Refactor showsApp & showsApp1
--- TODO: Resolve argument order
 
 docOp2 :: Bool -> String -> Fixity -> Binop PDoc
 docOp2 extraParens sop (p,assoc) a b q =
