@@ -24,21 +24,21 @@ import ConCat.Misc (inNew,inNew2,Binop)
 
 data Sexp = Sexp String [Sexp]
 
-atom :: String -> Sexp
-atom s = Sexp s []
+atomu :: String -> Sexp
+atomu s = Sexp s []
 
-app1 :: String -> Sexp -> Sexp
-app1 s p = Sexp s [p]
+app1u :: String -> Sexp -> Sexp
+app1u s p = Sexp s [p]
 
-app2 :: String -> Sexp -> Sexp -> Sexp
-app2 s p q = Sexp s [p,q]
+app2u :: String -> Sexp -> Sexp -> Sexp
+app2u s p q = Sexp s [p,q]
 
-pretty :: Sexp -> PDoc
-pretty (Sexp f [u,v]) | Just fixity <- lookup f fixities =
-  docOp2 False f fixity (pretty u) (pretty v)
-pretty (Sexp f es) = \ prec ->
+prettyu :: Sexp -> PDoc
+prettyu (Sexp f [u,v]) | Just fixity <- lookup f fixities =
+  docOp2 False f fixity (prettyu u) (prettyu v)
+prettyu (Sexp f es) = \ prec ->
   (if prec > appPrec then parens else id) $
-  text f <+> hsep (map (flip pretty (appPrec+1)) es)
+  text f <+> hsep (map (flip prettyu (appPrec+1)) es)
 
 fixities :: Map String Fixity
 fixities = fromList
@@ -60,96 +60,96 @@ instance Newtype (Texp a b) where
   pack s = Texp s
   unpack (Texp s) = s
 
-atomt :: String -> Texp a b
-atomt s = pack (Sexp s [])
+atom :: String -> Texp a b
+atom s = pack (Sexp s [])
 
-appt1 :: String -> Texp a b -> Texp c d
-appt1 = inNew . app1
+app1 :: String -> Texp a b -> Texp c d
+app1 = inNew . app1u
 
-appt2 :: String -> Texp a1 b1 -> Texp a2 b2 -> Texp c d
-appt2 = inNew2 . app2
+app2 :: String -> Texp a1 b1 -> Texp a2 b2 -> Texp c d
+app2 = inNew2 . app2u
 
-prettyt :: Texp a b -> PDoc
-prettyt = pretty . unpack
+pretty :: Texp a b -> PDoc
+pretty = prettyu . unpack
 
-instance Show (Texp a b) where show = show . flip prettyt 0
+instance Show (Texp a b) where show = show . flip pretty 0
 
 instance Category Texp where
-  id  = atomt "id"
-  (.) = appt2 "."
+  id  = atom "id"
+  (.) = app2 "."
 
 instance ProductCat Texp where
-  exl     = atomt "exl"
-  exr     = atomt "exr"
-  (&&&)   = appt2 "&&&"
-  (***)   = appt2 "***"
-  swapP   = atomt "swapP"
-  first   = appt1 "first"
-  second  = appt1 "second"
-  lassocP = atomt "lassocP"
-  rassocP = atomt "rassocP"
+  exl     = atom "exl"
+  exr     = atom "exr"
+  (&&&)   = app2 "&&&"
+  (***)   = app2 "***"
+  swapP   = atom "swapP"
+  first   = app1 "first"
+  second  = app1 "second"
+  lassocP = atom "lassocP"
+  rassocP = atom "rassocP"
 
-instance TerminalCat Texp where it = atomt "it"
+instance TerminalCat Texp where it = atom "it"
 
 instance CoproductCat Texp where
-  inl = atomt "inl"
-  inr = atomt "inr"
-  (|||) = appt2 "|||"
-  (+++) = appt2 "+++"
-  jam = atomt "jam"
-  left   = appt1 "left"
-  right  = appt1 "right"
-  lassocS = atomt "lassocS"
-  rassocS = atomt "rassocS"
+  inl = atom "inl"
+  inr = atom "inr"
+  (|||) = app2 "|||"
+  (+++) = app2 "+++"
+  jam = atom "jam"
+  left   = app1 "left"
+  right  = app1 "right"
+  lassocS = atom "lassocS"
+  rassocS = atom "rassocS"
   
-instance DistribCat Texp where distl = atomt "distl"
+instance DistribCat Texp where distl = atom "distl"
 
 instance ClosedCat Texp where
-  apply   = atomt "apply"
-  curry   = appt1 "curry"
-  uncurry = appt1 "uncurry"
+  apply   = atom "apply"
+  curry   = app1 "curry"
+  uncurry = app1 "uncurry"
 
 instance Show b => ConstCat Texp b where
-  const b = appt1 "const" (atomt (show b))
+  const b = app1 "const" (atom (show b))
 
 instance BoolCat Texp where
-  notC = atomt "notC"
-  andC = atomt "andC"
-  orC  = atomt "orC"
-  xorC = atomt "xorC"
+  notC = atom "notC"
+  andC = atom "andC"
+  orC  = atom "orC"
+  xorC = atom "xorC"
 
 instance EqCat Texp a where
-  equal = atomt "equal"
-  notEqual = atomt "notEqual"
+  equal = atom "equal"
+  notEqual = atom "notEqual"
 
 instance OrdCat Texp a where
-  lessThan = atomt "lessThan"
-  greaterThan = atomt "greaterThan"
-  lessThanOrEqual = atomt "lessThanOrEqual"
-  greaterThanOrEqual = atomt "greaterThanOrEqual"
+  lessThan = atom "lessThan"
+  greaterThan = atom "greaterThan"
+  lessThanOrEqual = atom "lessThanOrEqual"
+  greaterThanOrEqual = atom "greaterThanOrEqual"
 
 instance NumCat Texp a where
-  negateC = atomt "negateC"
-  addC    = atomt "addC"
-  subC    = atomt "subC"
-  mulC    = atomt "mulC"
-  powIC   = atomt "powIC"
+  negateC = atom "negateC"
+  addC    = atom "addC"
+  subC    = atom "subC"
+  mulC    = atom "mulC"
+  powIC   = atom "powIC"
 
 instance FractionalCat Texp a where
-  recipC = atomt "recipC"
-  divideC = atomt "divideC"
+  recipC = atom "recipC"
+  divideC = atom "divideC"
 
 instance FloatingCat Texp a where
-  expC = atomt "expC"
-  cosC = atomt "cosC"
-  sinC = atomt "sinC"
+  expC = atom "expC"
+  cosC = atom "cosC"
+  sinC = atom "sinC"
 
 instance RepCat Texp where
-  reprC = atomt "reprC"
-  abstC = atomt "abstC"
+  reprC = atom "reprC"
+  abstC = atom "abstC"
 
 {--------------------------------------------------------------------
-    Pretty-printing utilities
+    Prettyu-printing utilities
 --------------------------------------------------------------------}
 
 type Prec   = Int
