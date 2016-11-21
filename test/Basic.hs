@@ -38,7 +38,7 @@
 
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 
 -- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
 
@@ -83,7 +83,7 @@ tests = return
 
 --   , tst (negate :: Unop Float)
 
-  , tst (negate :: Unop Float)
+--   , tst (negate :: Unop Float)
 
 --   , tst (\ (_ :: ()) -> 1 :: Double)
 
@@ -153,8 +153,8 @@ tests = return
 --   , test "q6"  (\ x -> 4 + x :: Int)
 --   , test "q7"  (\ (a :: Int) (_b :: Int) -> a)
 --   , test "q8"  (\ (_ :: Int) (b :: Int) -> b)
---   , test "q9"  (\ (a :: Int) (b :: Int) -> a + b)
---   , test "q10" (\ (a :: Int) (b :: Int) -> b + a)
+  , test "q9"  (\ (a :: Float) (b :: Float) -> a + b)
+  , test "q10" (\ (a :: Float) (b :: Float) -> b + a)
 
 --   , tst (\ (_x :: Int) -> not)
 --   , tst (\ (_ :: Bool) -> negate :: Unop Int)
