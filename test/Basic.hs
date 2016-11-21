@@ -5,8 +5,10 @@
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- TEMP
-{-# LANGUAGE DeriveFunctor #-}
+-- -- TEMP for Pair
+-- {-# LANGUAGE DeriveFunctor #-}
+-- {-# LANGUAGE FlexibleInstances #-}
+-- {-# LANGUAGE MultiParamTypeClasses #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -38,7 +40,7 @@
 
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 
 -- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
 
@@ -56,7 +58,7 @@ import Data.Tuple (swap)
 import Distribution.TestSuite
 
 import ConCat.Misc (Unop,Binop)
-import ConCat.Category (ccc)
+import ConCat.Category (ccc,Uncurriable(..))
 import ConCat.Circuit ((:>))
 import ConCat.RunCircuit (go,Okay)
 import ConCat.Float
@@ -134,7 +136,8 @@ tests = return
 --   , tst (cos :: Unop Float)
 --   , tst (cos :: Unop Double)
 --   , tst (sin :: Unop Float)
---   , tst (sin :: Unop Double)
+
+  , tst (sin :: Unop Double)
 
 --   , tst (\ (_ :: ()) -> 1 :: Int)
 
@@ -153,8 +156,8 @@ tests = return
 --   , test "q6"  (\ x -> 4 + x :: Int)
 --   , test "q7"  (\ (a :: Int) (_b :: Int) -> a)
 --   , test "q8"  (\ (_ :: Int) (b :: Int) -> b)
-  , test "q9"  (\ (a :: Float) (b :: Float) -> a + b)
-  , test "q10" (\ (a :: Float) (b :: Float) -> b + a)
+--   , test "q9"  (\ (a :: Float) (b :: Float) -> a + b)
+--   , test "q10" (\ (a :: Float) (b :: Float) -> b + a)
 
 --   , tst (\ (_x :: Int) -> not)
 --   , tst (\ (_ :: Bool) -> negate :: Unop Int)
@@ -211,3 +214,5 @@ nopTest = Group "nop" False []
 --------------------------------------------------------------------}
 
 -- data Pair a = a :# a deriving Functor
+
+-- instance Uncurriable k a (Pair b)
