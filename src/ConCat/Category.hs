@@ -795,100 +795,10 @@ instance Monad m => BoolCat (Kleisli m) where
   xorC = arr xorC
 #endif
 
-#if 0
-
--- Hack to get numeric instances for Float & Double recognized.
--- No longer works.
-
-#define ClassIFD(cls,clsQ,super) \
-class (super a, cls a) => clsQ a ; \
-instance clsQ Int ; \
-instance clsQ Float ; \
-instance clsQ Double
-
-#define ClassFD(cls,clsQ,super) \
-class (super a, cls a) => clsQ a ; \
-instance clsQ Float ; \
-instance clsQ Double
-
-#else
-
-#define ClassIFD(cls,clsQ,super) type clsQ = cls
-#define ClassFD(cls,clsQ,super)  type clsQ = cls
-
-#endif
-
-class NumQ a => NumCat k a where
-  negateC :: a `k` a
-  addC, subC, mulC :: Prod k a a `k` a
-  powIC :: Prod k a Int `k` a
-
-ClassIFD(Num,NumQ,Yes1)
-instance NumQ a => NumCat (->) a where
-  negateC = negate
-  addC    = uncurry (+)
-  subC    = uncurry (-)
-  mulC    = uncurry (*)
-  powIC   = uncurry (^)
-
-#ifdef Kleisli
-instance (Monad m, Num a) => NumCat (Kleisli m) a where
-  negateC = arr negateC
-  addC    = arr addC
-  subC    = arr subC
-  mulC    = arr mulC
-  powIC   = arr powIC
-#endif
-
-class Fractional a => FractionalCat k a where
-  recipC :: a `k` a
-  divideC :: Prod k a a `k` a
-
-ClassFD(Fractional,FractionalQ,NumQ)
-instance FractionalQ a => FractionalCat (->) a where
-  recipC = recip
-  divideC = uncurry (/)
-
-#ifdef Kleisli
-instance (Monad m, Fractional a) => FractionalCat (Kleisli m) a where
-  recipC  = arr recipC
-  divideC = arr divideC
-#endif
-
--- HACK: generalize/replace/...
-class Floating a => FloatingCat k a where
-  expC, cosC, sinC :: a `k` a
-
-ClassFD(Floating,FloatingQ,FractionalQ)
-instance FloatingQ a => FloatingCat (->) a where
-  expC = exp
-  cosC = cos
-  sinC = sin
-
-#ifdef Kleisli
-instance (Monad m, Floating a) => FloatingCat (Kleisli m) a where
-  expC = arr expC
-  cosC = arr cosC
-  sinC = arr sinC
-#endif
-
--- Stand-in for fromIntegral, avoiding the intermediate Integer in the Prelude
--- definition.
-class (Integral a, Num b) => FromIntegralCat k a b where
-  fromIntegralC :: a `k` b
-
-instance (Integral a, Num b) => FromIntegralCat (->) a b where
-  fromIntegralC = fromIntegral
-
-#ifdef Kleisli
-instance (Monad m, Integral a, Num b) => FromIntegralCat (Kleisli m) a b where
-  fromIntegralC = arr fromIntegral
-#endif
-
 okTT :: forall k a. OpCon (Prod k) (Ok' k) => Ok' k a |- Ok' k (Prod k a a)
 okTT = okProd @k @a @a . dup
 
-class (BoolCat k, Ok k a, Eq a) => EqCat k a where
+class (BoolCat k, Ok k a) => EqCat k a where
   equal, notEqual :: Prod k a a `k` BoolOf k
   notEqual = notC . equal    <+ okTT @k @a
   equal    = notC . notEqual <+ okTT @k @a
@@ -904,7 +814,7 @@ instance (Monad m, Eq a) => EqCat (Kleisli m) a where
   notEqual = arr notEqual
 #endif
 
-class (EqCat k a, Ord a) => OrdCat k a where
+class EqCat k a => OrdCat k a where
   lessThan, greaterThan, lessThanOrEqual, greaterThanOrEqual :: Prod k a a `k` BoolOf k
   greaterThan        = lessThan . swapP    <+ okTT @k @a
   lessThan           = greaterThan . swapP <+ okTT @k @a
@@ -928,14 +838,104 @@ instance (Monad m, Ord a) => OrdCat (Kleisli m) a where
 
 class (Category k, Ok k a) => EnumCat k a where
   succC, predC :: a `k` a
-  default succC :: (ProductCat k, NumCat k a, ConstCat k a) => a `k` a
-  default predC :: (ProductCat k, NumCat k a, ConstCat k a) => a `k` a
+  default succC :: (ProductCat k, NumCat k a, ConstCat k a, Num a) => a `k` a
+  default predC :: (ProductCat k, NumCat k a, ConstCat k a, Num a) => a `k` a
   succC = addC . rconst 1 <+ okProd @k @a @a
   predC = subC . rconst 1 <+ okProd @k @a @a
 
 instance Enum a => EnumCat (->) a where
   succC = succ
   predC = pred
+
+#if 0
+
+-- Hack to get numeric instances for Float & Double recognized.
+-- No longer works.
+
+#define ClassIFD(cls,clsQ,super) \
+class (super a, cls a) => clsQ a ; \
+instance clsQ Int ; \
+instance clsQ Float ; \
+instance clsQ Double
+
+#define ClassFD(cls,clsQ,super) \
+class (super a, cls a) => clsQ a ; \
+instance clsQ Float ; \
+instance clsQ Double
+
+#else
+
+#define ClassIFD(cls,clsQ,super) type clsQ = cls
+#define ClassFD(cls,clsQ,super)  type clsQ = cls
+
+#endif
+
+class NumCat k a where
+  negateC :: a `k` a
+  addC, subC, mulC :: Prod k a a `k` a
+  powIC :: Prod k a Int `k` a
+
+ClassIFD(Num,NumQ,Yes1)
+instance NumQ a => NumCat (->) a where
+  negateC = negate
+  addC    = uncurry (+)
+  subC    = uncurry (-)
+  mulC    = uncurry (*)
+  powIC   = uncurry (^)
+
+#ifdef Kleisli
+instance (Monad m, Num a) => NumCat (Kleisli m) a where
+  negateC = arr negateC
+  addC    = arr addC
+  subC    = arr subC
+  mulC    = arr mulC
+  powIC   = arr powIC
+#endif
+
+class FractionalCat k a where
+  recipC :: a `k` a
+  divideC :: Prod k a a `k` a
+
+ClassFD(Fractional,FractionalQ,NumQ)
+instance FractionalQ a => FractionalCat (->) a where
+  recipC = recip
+  divideC = uncurry (/)
+
+#ifdef Kleisli
+instance (Monad m, Fractional a) => FractionalCat (Kleisli m) a where
+  recipC  = arr recipC
+  divideC = arr divideC
+#endif
+
+-- HACK: generalize/replace/...
+class FloatingCat k a where
+  expC, cosC, sinC :: a `k` a
+
+ClassFD(Floating,FloatingQ,FractionalQ)
+instance FloatingQ a => FloatingCat (->) a where
+  expC = exp
+  cosC = cos
+  sinC = sin
+
+#ifdef Kleisli
+instance (Monad m, Floating a) => FloatingCat (Kleisli m) a where
+  expC = arr expC
+  cosC = arr cosC
+  sinC = arr sinC
+#endif
+
+-- Stand-in for fromIntegral, avoiding the intermediate Integer in the Prelude
+-- definition.
+class FromIntegralCat k a b where
+  fromIntegralC :: a `k` b
+
+instance (Integral a, Num b) => FromIntegralCat (->) a b where
+  fromIntegralC = fromIntegral
+
+#ifdef Kleisli
+instance (Monad m, Integral a, Num b) => FromIntegralCat (Kleisli m) a b where
+  fromIntegralC = arr fromIntegral
+#endif
 
 class Ok k a => BottomCat k a where
   bottomC :: Unit k `k` a
