@@ -102,7 +102,7 @@ module ConCat.Circuit
   , BusesM, abstB,abstC,reprC,Buses(..),Ty(..)
   ) where
 
-import Prelude hiding (id,(.),curry,uncurry,const,sequence)
+import Prelude hiding (id,(.),curry,uncurry,const,sequence,Float,Double)
 -- import qualified Prelude as P
 
 import Data.Monoid ({-mempty,-}(<>),Sum,Product)
@@ -157,6 +157,7 @@ import ConCat.Misc ((:*),Unop,Binop)
 import ConCat.Complex
 import ConCat.Rep
 import ConCat.Category
+import ConCat.Float
 
 -- import ConCat.Pair
 -- import qualified ConCat.RTree as RTree

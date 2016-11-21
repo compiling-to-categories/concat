@@ -32,7 +32,7 @@
 
 module ConCat.Category where
 
-import Prelude hiding (id,(.),curry,uncurry,const)
+import Prelude hiding (id,(.),curry,uncurry,const,Float,Double)
 import qualified Prelude as P
 #ifdef DefaultCat
 import qualified Control.Category as C
@@ -54,6 +54,7 @@ import Data.MemoTrie
 import ConCat.Misc hiding ((<~),(~>),type (&&),type (&+&))
 import ConCat.Rep
 import ConCat.Orphans ()
+import ConCat.Float
 
 {--------------------------------------------------------------------
     Constraints

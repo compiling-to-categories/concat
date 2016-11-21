@@ -40,7 +40,7 @@ import MkId (mkDictSelRhs)
 import Pair (Pair(..))
 import PrelNames (leftDataConName,rightDataConName)
 import Type (coreView)
-import TcType (isIntTy, isFloatTy, isDoubleTy)
+import TcType (isIntTy)
 import FamInstEnv (normaliseType)
 import TyCoRep                          -- TODO: explicit imports
 import Unique (mkBuiltinUnique)
@@ -50,7 +50,7 @@ import ConCat.Simplify
 import ConCat.BuildDictionary
 
 -- Information needed for reification. We construct this info in
--- CoreM and use it in the reify rule, which must be pure.
+-- CoreM and use it in the ccc rule, which must be pure.
 data CccEnv = CccEnv { dtrace    :: forall a. String -> SDoc -> a -> a
                      , cccV      :: Id
                      , idV       :: Id
@@ -103,9 +103,11 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- go (etaReduceN -> transCatOp -> Just e') = Just e'
    go (Lam x body) = -- goLam x body
                      goLam x (etaReduceN body)
-   go (Cast {}) =
+   go (Cast e co) =
      -- etaExpand turns cast lambdas into themselves
-     pprPanic "ccc" (text "Cast: not yet handled")
+     Doing("reCatCo")
+     return (Cast (mkCcc e) (reCatCo co))
+     -- pprPanic "ccc" (text "Cast: not yet handled")
    go e = dtrace "go etaExpand to" (ppr (etaExpand 1 e)) $
           go (etaExpand 1 e)
           -- return $ mkCcc (etaExpand 1 e)
@@ -116,9 +118,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      Trying("Var")
      Var y | x == y      -> Doing("Var")
                             return (mkId cat xty)
-           | isFunTy bty -> Doing("catFun")
+           | isFunTy bty -> Doing("catFun " ++ fqVarName y)
                             mkConstFun cat xty <$> catFun cat y
-
      _ | isConst, not isFun -> Doing("Const")
                                return (mkConst cat xty body)
      _ | isConst, Just e' <- transCatOp body ->
@@ -177,6 +178,11 @@ ccc (CccEnv {..}) guts dflags inScope cat =
       bty = exprType body
       isConst = not (isFreeIn x body)
       isFun = isFunTy bty
+   Just catTc = tyConAppTyCon_maybe cat
+   reCatCo :: Unop Coercion
+   reCatCo (TyConAppCo _r tc args)
+     | tc == funTyCon = TyConAppCo Nominal catTc args
+   reCatCo co =pprPanic "ccc reCatCo: unhandled form" (ppr co)
    unfoldMaybe :: ReExpr
    unfoldMaybe = -- traceRewrite "unfoldMaybe" $
                  onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe)
@@ -227,16 +233,6 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      | otherwise = pprPanic "mkCompose:" (pprWithType g <+> text ";" <+> pprWithType f)
    mkEx :: Cat -> Var -> Unop CoreExpr
    mkEx k ex z =
-     -- -- For the class methods (exl, exr):
-     -- pprTrace "mkEx" (pprWithType z) $
-     -- pprTrace "mkEx" (pprWithType (Var ex)) $
-     -- pprTrace "mkEx" (pprWithType (catOp k ex)) $
-     -- pprTrace "mkEx" (pprWithType (catOp k ex `mkTyApps` [a,b])) $
-     -- pprTrace "mkEx" (pprWithType (onDict (catOp k ex `mkTyApps` [a,b]))) $
-     -- pprTrace "mkEx" (pprWithType (onDict (catOp k ex `mkTyApps` [a,b]) `App` z)) $
-     -- -- pprPanic "mkEx" (text "bailing")
-     -- onDict (catOp k ex `mkTyApps` [a,b]) `App` z
-
      -- -- For the class method aliases (exl, exr):
      -- pprTrace "mkEx" (pprWithType z) $
      -- pprTrace "mkEx" (pprWithType (Var ex)) $
@@ -443,11 +439,12 @@ mkCccEnv opts = do
         maybe (panic err) mkThing =<<
           liftIO (lookupRdrNameInModuleForPlugins hsc_env modu (Unqual (mkOcc str)))
        where
-         err = "reify installation: couldn't find "
+         err = "ccc installation: couldn't find "
                ++ str ++ " in " ++ moduleNameString modu
       lookupTh mkOcc mk modu = lookupRdr (mkModuleName modu) mkOcc mk
       findId      = lookupTh mkVarOcc  lookupId
       findTc      = lookupTh mkTcOcc   lookupTyCon
+      findFloatTy = fmap mkTyConTy . findTc floatModule
       findCatId   = findId catModule
       -- findMiscId  = findId "ConCat.Misc"
       -- findTupleId = findId "Data.Tuple"
@@ -460,7 +457,7 @@ mkCccEnv opts = do
   -- closedTc    <- findCatTc "ClosedCat"
   -- constTc     <- findCatTc "ConstCat"
   -- okTc        <- findCatTc "Ok"
-  -- dtrace "mkReifyEnv: getRuleBase ==" (ppr ruleBase) (return ())
+  -- dtrace "mkCccEnv: getRuleBase ==" (ppr ruleBase) (return ())
   -- idV      <- findMiscId  "ident"
   idV         <- findCatId  "id"
   constV      <- findCatId  "const"
@@ -479,29 +476,31 @@ mkCccEnv opts = do
   constFunV   <- findCatId "constFun"
   -- notV <- findCatId "notC"
   cccV        <- findCatId  "ccc"
+  floatT      <- findFloatTy "NFloat"
+  doubleT     <- findFloatTy "NDouble"
   let mkOp :: (String,(String,String,[Type])) -> CoreM (String,(Var,[Type]))
       mkOp (stdName,(cmod,cop,tyArgs)) =
         do cv <- findId cmod cop
            return (stdName, (cv,tyArgs))
-  ops <- M.fromList <$> mapM mkOp opsInfo
+  ops <- M.fromList <$> mapM mkOp (opsInfo (floatT,doubleT))
   -- Experiment: force loading of numeric instances for Float and Double.
   -- Doesn't help.
-  floatTc <- findTc "GHC.Float" "Float"
-  liftIO (forceLoadNameModuleInterface hsc_env (text "mkCccEnv")
-           (getName floatTc))
+  -- floatTc <- findTc "GHC.Float" "Float"
+  -- liftIO (forceLoadNameModuleInterface hsc_env (text "mkCccEnv")
+  --          (getName floatTc))
   -- fiddleV <- findMiscId "fiddle"
   -- rationalToFloatV <- findId "GHC.Float" "rationalToFloat"  -- experiment
   return (CccEnv { .. })
 
 -- Association list 
-opsInfo :: [(String,(String,String,[Type]))]
-opsInfo = [ (hop,(catModule,cop,tyArgs))
-          | (cop,ps) <- monoInfo
-          , (hop,tyArgs) <- ps
-          ]
+opsInfo :: (Type,Type) -> [(String,(String,String,[Type]))]
+opsInfo fd = [ (hop,(catModule,cop,tyArgs))
+             | (cop,ps) <- monoInfo fd
+             , (hop,tyArgs) <- ps
+             ]
 
-monoInfo :: [(String, [([Char], [Type])])]
-monoInfo = 
+monoInfo :: (Type,Type) -> [(String, [([Char], [Type])])]
+monoInfo (floatT,doubleT) =
   [ ("notC",boolOp "not"), ("andC",boolOp "&&"), ("orC",boolOp "||")
   , ("equal", eqOp "==" <$> ifd) 
   , ("notEqual", eqOp "/=" <$> ifd) 
@@ -523,7 +522,7 @@ monoInfo =
   ]
  where
    ifd = intTy : fd
-   fd = [floatTy,doubleTy]
+   fd = [floatT,doubleT]
    boolOp op = [("GHC.Classes."++op,[])]
    -- eqOp ty = ("GHC.Classes.eq"++pp ty,[ty])
    eqOp op ty = ("GHC.Classes."++clsOp,[ty])
@@ -543,14 +542,17 @@ monoInfo =
          tyName = pp ty
    numOps op = numOp <$> ifd
     where
-      numOp ty = ("GHC."++modu++".$fNum"++tyName++"_$c"++op,[ty])
+      numOp ty = (modu++".$fNum"++tyName++"_$c"++op,[ty])
        where
          tyName = pp ty
-         modu | isIntTy ty = "Num"
-              | otherwise = "Float"
-   fdOp cls op ty = ("GHC.Float.$f"++cls++pp ty++"_$c"++op,[ty])
+         modu | isIntTy ty = "GHC.Num"
+              | otherwise  = floatModule
+   fdOp cls op ty = (floatModule++".$f"++cls++pp ty++"_$c"++op,[ty])
    fracOp = fdOp "Fractional"
    floatingOp = fdOp "Floating"
+
+floatModule :: String
+floatModule = "ConCat.Float" -- "GHC.Float"
 
 --    fracOp op ty = ("GHC.Float.$fFractional"++pp ty++"_$c"++op,[ty])
 --    floatingOp op ty = ("GHC.Float.$fFloating"++pp ty++"_$c"++op,[ty])
