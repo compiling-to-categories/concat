@@ -96,13 +96,18 @@ ccc (CccEnv {..}) guts dflags inScope cat =
  where
    go :: ReExpr
    go e | dtrace "go ccc:" (ppr e) False = undefined
+   go (Lam x body) = goLam x (etaReduceN body)
    -- go (Var v) = pprTrace "go Var" (ppr v) $
    --              catFun v <|>
    --              (pprTrace "inlining" (ppr v) $
    --               mkCcc <$> inlineId v)
    -- go (etaReduceN -> transCatOp -> Just e') = Just e'
-   go (Lam x body) = -- goLam x body
-                     goLam x (etaReduceN body)
+--    go (Var v) | pprTrace "go Var local/inline?" (ppr (v, isLocalVar v,inlineId v)) False = undefined
+--    -- go (Var _) = Nothing
+--    go (Var v) | isLocalVar v, Just e' <- inlineId v =
+--      Doing("inline")
+--      return (mkCcc e')
+   go (unfoldMaybe -> Just e') = return (mkCcc e')
    go (Cast e co) =
      -- etaExpand turns cast lambdas into themselves
      Doing("reCatCo")
@@ -113,13 +118,15 @@ ccc (CccEnv {..}) guts dflags inScope cat =
           -- return $ mkCcc (etaExpand 1 e)
    -- TODO: If I don't etaReduceN, merge goLam back into the go Lam case.
    -- goLam x body | dtrace "go ccc:" (ppr (Lam x body)) False = undefined
+   -- go _ = Nothing
    goLam x body = case body of
      -- Trying("constant") 
      Trying("Var")
      Var y | x == y      -> Doing("Var")
                             return (mkId cat xty)
-           | isFunTy bty -> Doing("catFun " ++ fqVarName y)
-                            mkConstFun cat xty <$> catFun cat y
+           | isFunTy bty, Just e' <- catFun cat y ->
+               Doing("catFun " ++ fqVarName y)
+               return (mkConstFun cat xty e')
      _ | isConst, not isFun -> Doing("Const")
                                return (mkConst cat xty body)
      _ | isConst, Just e' <- transCatOp body ->
@@ -136,12 +143,15 @@ ccc (CccEnv {..}) guts dflags inScope cat =
         vty = exprType v
      Trying("unfold")
      -- Only unfold applications if no argument is a regular value
-     e@(collectArgsPred isTyCoDictArg -> (Var v,_))
-       | isNothing (catFun cat v)
-       , Just e' <- unfoldMaybe e
-       -> Doing("unfold")
-          return (mkCcc (Lam x e'))
-          -- goLam x e'
+     e | Just e' <- unfoldMaybe e -> -- lexical oddity
+                                     Doing("unfold")
+                                     return (mkCcc (Lam x e'))
+                                     -- goLam x e'
+     Trying("Let")
+     Let (NonRec v rhs) body' | liftedExpr rhs ->
+       Doing("Let")
+       -- Convert back to beta-redex. goLam, so GHC can't re-let.
+       goLam x (Lam v body' `App` rhs)
      Trying("Lam")
      Lam y e ->
        -- (\ x -> \ y -> U) --> curry (\ z -> U[fst z/x, snd z/y])
@@ -184,8 +194,12 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      | tc == funTyCon = TyConAppCo Nominal catTc args
    reCatCo co =pprPanic "ccc reCatCo: unhandled form" (ppr co)
    unfoldMaybe :: ReExpr
-   unfoldMaybe = -- traceRewrite "unfoldMaybe" $
-                 onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe)
+   unfoldMaybe e | (Var v, _) <- collectArgsPred isTyCoDictArg e
+                 , isNothing (catFun cat v)
+                 = onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe) e
+                 | otherwise = Nothing
+   -- unfoldMaybe = -- traceRewrite "unfoldMaybe" $
+   --               onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe)
    inlineMaybe :: Id -> Maybe CoreExpr
    -- inlineMaybe v | dtrace "inlineMaybe" (ppr v) False = undefined
    inlineMaybe v = (inlineId <+ -- onInlineFail <+ traceRewrite "inlineClassOp"
@@ -300,9 +314,10 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    splitCatTy :: Type -> (Type,Type)
    splitCatTy (splitCatTy_maybe -> Just ab) = ab
    splitCatTy ty = pprPanic "splitCatTy" (ppr ty)
-   traceRewrite :: (Outputable a, Outputable (f b)) =>
-                   String -> Unop (a -> f b)
-   traceRewrite str f a = pprTrans str a (f a)
+   -- traceRewrite :: (Outputable a, Outputable (f b)) => String -> Unop (a -> f b)
+   -- traceRewrite str f a = pprTrans str a (f a)
+   -- traceRewrite :: (Outputable a, Outputable (f b)) => String -> Unop (a -> f b)
+   traceRewrite str f a = pprTrans str a <$> f a
    pprTrans :: (Outputable a, Outputable b) => String -> a -> b -> b
    pprTrans str a b = dtrace str (ppr a $$ "-->" $$ ppr b) b
    lintReExpr :: Unop ReExpr
