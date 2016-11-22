@@ -102,6 +102,14 @@ inNew2 = inNew <~ unpack
 
 -- TODO: use inNew and inNew2 in place of ad hoc versions throughout.
 
+exNew :: (Newtype p, Newtype q) =>
+         (p -> q) -> (O p -> O q)
+exNew = unpack <~ pack
+
+exNew2 :: (Newtype p, Newtype q, Newtype r) =>
+          (p -> q -> r) -> (O p -> O q -> O r)
+exNew2 = exNew <~ pack
+
 -- | Compose list of unary transformations
 compose :: [Unop a] -> Unop a
 compose = foldr (.) id
