@@ -13,7 +13,7 @@ import Prelude hiding (id,(.),lookup)
 
 import Data.Map (Map,fromList,lookup)
 import Control.Newtype
-import Text.PrettyPrint
+import Text.PrettyPrint hiding (render)
 
 import ConCat.Category
 import ConCat.Misc (inNew,inNew2,Binop)
@@ -33,12 +33,16 @@ app1u s p = SexpU s [p]
 app2u :: String -> SexpU -> SexpU -> SexpU
 app2u s p q = SexpU s [p,q]
 
+-- TODO: use the Pretty class from Text.PrettyPrint.HughesPJClass
+
 prettyu :: SexpU -> PDoc
 prettyu (SexpU f [u,v]) | Just fixity <- lookup f fixities =
-  docOp2 False f fixity (prettyu u) (prettyu v)
+  docOp2 True f fixity (prettyu u) (prettyu v)
 prettyu (SexpU f es) = \ prec ->
-  (if prec > appPrec then parens else id) $
-  text f <+> hsep (map (flip prettyu (appPrec+1)) es)
+  -- (if not (null es) && prec > appPrec then parens else id) $
+  maybeParens (not (null es) && prec > appPrec) $
+  -- hang (text f) 2 (sep (map (flip prettyu (appPrec+1)) es))
+  sep (text f : map (flip prettyu (appPrec+1)) es)
 
 fixities :: Map String Fixity
 fixities = fromList
@@ -48,6 +52,11 @@ fixities = fromList
   , ("|||", (2,AssocRight))
   , ("+++", (2,AssocRight))
   ]
+
+renderu :: SexpU -> String
+renderu = renderStyle (Style PageMode 80 1) . flip prettyu 0
+
+-- renderu = PP.render . flip prettyu 0
 
 {--------------------------------------------------------------------
     Phantom-typed S-expression
@@ -72,7 +81,10 @@ app2 = inNew2 . app2u
 pretty :: Sexp a b -> PDoc
 pretty = prettyu . unpack
 
--- instance Show (Sexp a b) where show = show . flip pretty 0
+-- instance Show (Sexp a b) where show = render
+
+render :: Sexp a b -> String
+render = renderu . unpack
 
 instance Category Sexp where
   id  = atom "id"
@@ -166,8 +178,10 @@ appPrec = 11 -- was 10
 
 docOp2 :: Bool -> String -> Fixity -> Binop PDoc
 docOp2 extraParens sop (p,assoc) a b q =
-  (if q > p then parens else id) $
-      a (lf p) <+> text sop <+> b (rf p)
+  maybeParens (q > p) $
+  sep [a (lf p) <+> text sop, b (rf p)]
+  -- hang (a (lf p) <+> text sop) 2 (b (rf p))
+  -- sep [a (lf p), text sop <+> b (rf p)]
  where
    (lf,rf) = case assoc of
                AssocLeft  -> (incr, succ)
