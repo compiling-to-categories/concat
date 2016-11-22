@@ -3,6 +3,7 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeOperators       #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- -- TEMP for Pair
@@ -40,7 +41,7 @@
 
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 
 -- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
 
@@ -57,15 +58,12 @@ import Prelude hiding (Float,Double)
 import Data.Tuple (swap)
 import Distribution.TestSuite
 
-import ConCat.Misc (Unop,Binop)
+import ConCat.Misc (Unop,Binop,(:*))
 import ConCat.Category (ccc,Uncurriable(..))
+import ConCat.Float
 import ConCat.Circuit ((:>))
 import ConCat.RunCircuit (go,Okay)
-import ConCat.Float
-
--- Whether to render to a PDF (vs print reified expression)
-render :: Bool
-render = True -- False
+import ConCat.Syntactic (Sexp,render)
 
 -- -- Experiment: try to force loading of Num Float etc
 -- class Num a => Quuz a
@@ -77,14 +75,14 @@ tests :: IO [Test]
 tests = return
   [ nopTest
 
+--   , tst (id :: Unop Bool)
+--   , tst ((\ x -> x) :: Unop Bool)
+
 --   , tst (fst @Bool @Int)
 
 --   , tst not
 
 --   , tst (negate :: Unop Int)
-
---   , tst (negate :: Unop Float)
-
 --   , tst (negate :: Unop Float)
 
 --   , tst (\ (_ :: ()) -> 1 :: Double)
@@ -136,8 +134,7 @@ tests = return
 --   , tst (cos :: Unop Float)
 --   , tst (cos :: Unop Double)
 --   , tst (sin :: Unop Float)
-
-  , tst (sin :: Unop Double)
+--   , tst (sin :: Unop Double)
 
 --   , tst (\ (_ :: ()) -> 1 :: Int)
 
@@ -150,7 +147,9 @@ tests = return
 --   , test "q0"  (\ x -> x :: Int)
 --   , test "q1"  (\ (_x :: Int) -> True)
 --   , test "q2"  (\ (x :: Int) -> negate (x + 1))
---   , test "q3"  (\ (x :: Int) -> x > 0)
+
+  , test "q3"  (\ (x :: Int) -> x > 0)
+
 --   , test "q4"  (\ x -> x + 4 :: Int)
 --   , test "q5"  (\ x -> x + x :: Int)
 --   , test "q6"  (\ x -> 4 + x :: Int)
@@ -158,6 +157,11 @@ tests = return
 --   , test "q8"  (\ (_ :: Int) (b :: Int) -> b)
 --   , test "q9"  (\ (a :: Float) (b :: Float) -> a + b)
 --   , test "q10" (\ (a :: Float) (b :: Float) -> b + a)
+
+--   , test "q7u"  ((\ (a,_) -> a) :: Int :* Int -> Int)
+--   , test "q8u"  ((\ (_,b) -> b) :: Int :* Int -> Int)
+--   , test "q9u"  ((\ (a,b) -> a + b) :: Float :* Float -> Float)
+--   , test "q10u" ((\ (a,b) -> b + a) :: Float :* Float -> Float)
 
 --   , tst (\ (_x :: Int) -> not)
 --   , tst (\ (_ :: Bool) -> negate :: Unop Int)
@@ -169,42 +173,37 @@ tests = return
     Testing utilities
 --------------------------------------------------------------------}
 
--- type Cat = (->)
--- type Cat = (:>)
+#if 0
+-- Circuit interpretation
+test :: Okay a b => String -> (a -> b) -> Test
+tst  :: Okay a b => (a -> b) -> Test
+{-# RULES "test circuit" forall s f. test s f = mkTest s (go s f) #-}
+#else
+-- Syntactic interpretation
+test :: Uncurriable Sexp a b => String -> (a -> b) -> Test
+tst :: Uncurriable Sexp a b => (a -> b) -> Test
+{-# RULES "test syntactic" forall s f. test s f = mkTest s (putStrLn ('\n':render (uncurries (ccc f)))) #-}
+#endif
+test _ = error "test called"
+tst  _ = error "tst called"
 
--- test :: forall a b. (a -> b) -> Test
--- test f = mkTest (ccc @(:>) f)
--- {-# INLINE test #-}
--- -- test _ = error "test called"
--- -- {-# NOINLINE test #-}
-
--- {-# RULES "test" forall f. test f = mkTest (ccc f) #-}
-
-tst :: Okay a b => (a -> b) -> Test
-tst _ = error "test called"
+{-# NOINLINE test #-}
 {-# NOINLINE tst #-}
 
-test :: Okay a b => String -> (a -> b) -> Test
-test _ _ = error "test called"
-{-# NOINLINE test #-}
+-- {-# RULES "tst" forall f. tst f = test "test" f #-}
+{-# RULES "tst" tst = test "test" #-}
 
-{-# RULES "tst" forall f. tst f = test "test" f #-}
-{-# RULES "test" forall s f. test s f = mkTest (go s f) #-}
-
--- test a = mkTest (go "test" a)
--- {-# INLINE test #-}
-
-mkTest :: IO () -> Test
-mkTest doit = Test inst
+mkTest :: String -> IO () -> Test
+mkTest nm doit = Test inst
  where
    inst = TestInstance
             { run       = Finished Pass <$ doit
-            , name      = "whatevs"
+            , name      = nm
             , tags      = []
             , options   = []
             , setOption = \_ _ -> Right inst
             }
-{-# NOINLINE mkTest #-}
+-- {-# NOINLINE mkTest #-}
 
 nopTest :: Test
 nopTest = Group "nop" False []
