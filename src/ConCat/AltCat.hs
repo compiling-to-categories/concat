@@ -68,6 +68,7 @@ Op(exl,(ProductCat k, Ok2 k a b) => Prod k a b `k` a)
 Op(exr,(ProductCat k, Ok2 k a b) => Prod k a b `k` b)
 Ip(&&&,forall k a c d. (ProductCat k, Ok3 k a c d) => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d))
 Ip(***,forall k a b c d. (ProductCat k, Ok4 k a b c d) => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d))
+Op(dup,forall k a. (ProductCat k, Ok k a) => a `k` Prod k a a)
 Op(swapP,forall k a b. (ProductCat k, Ok2 k a b) => Prod k a b `k` Prod k b a)
 Op(first,forall k a aa b. (ProductCat k, Ok3 k a b aa) => (a `k` aa) -> (Prod k a b `k` Prod k aa b))
 Op(second,forall k a b bb. (ProductCat k, Ok3 k a b bb) => (b `k` bb) -> (Prod k a b `k` Prod k a bb))
@@ -169,7 +170,23 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 "f . h &&& g . h" forall (f :: a `k` c) (g :: a `k` d) h.
   f . h &&& g . h = (f &&& g) . h <+ okProd @k @c @d
 
+-- Careful with this one, since dup eventually inlines to id &&& id
+-- "id &&& id" [~2] id &&& id = dup
+
+-- -- Specializations with f == id and/or g == id
+-- "h &&& h    " forall (h :: a `k` b)               . h &&& h     = (id &&& id) . h <+ okProd @k @b @b
+-- "h &&& g . h" forall (g :: b `k` d) (h :: a `k` b). h &&& g . h = (id &&& g ) . h <+ okProd @k @b @d
+-- "f . h &&& h" forall (f :: b `k` c) (h :: a `k` b). f . h &&& h = (f  &&& id) . h <+ okProd @k @c @b
+
+-- Oops! the h &&& h rule generates id &&& id, which also matches the rule.
+
 "exl &&& exr" exl &&& exr = id
+
+-- "(f &&& const y) . h" forall y f h. (f &&& const y) . h = f . h &&& const y
+-- "(const x &&& g) . h" forall x g h. (const x &&& g) . h = const x &&& g . h
+
+-- "(k . (f &&& const y)) . h" forall y f h k. (k . (f &&& const y)) . h = k . (f . h &&& const y)
+-- "(k . (const x &&& g)) . h" forall x g h k. (k . (const x &&& g)) . h = k . (const x &&& g . h)
 
 "uncurry (curry f)" forall f. uncurry (curry f) = f
 "curry (uncurry g)" forall g. curry (uncurry g) = g
