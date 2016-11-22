@@ -874,10 +874,12 @@ instance clsQ Double
 
 #endif
 
-class NumCat k a where
+class Ok k a => NumCat k a where
   negateC :: a `k` a
   addC, subC, mulC :: Prod k a a `k` a
   powIC :: Prod k a Int `k` a
+  default subC :: ProductCat k => Prod k a a `k` a
+  subC = addC . second negateC <+ okProd @k @a @a
 
 ClassIFD(Num,NumQ,Yes1)
 instance NumQ a => NumCat (->) a where
@@ -896,9 +898,14 @@ instance (Monad m, Num a) => NumCat (Kleisli m) a where
   powIC   = arr powIC
 #endif
 
-class FractionalCat k a where
+class Ok k a => FractionalCat k a where
   recipC :: a `k` a
   divideC :: Prod k a a `k` a
+  default recipC :: (ProductCat k, ConstCat k a, Num a) => a `k` a
+  recipC = divideC . lconst 1 <+ okProd @k @a @a
+  default divideC :: (ProductCat k, NumCat k a) => Prod k a a `k` a
+  divideC = mulC . second recipC <+ okProd @k @a @a
+  {-# MINIMAL recipC | divideC #-}
 
 ClassFD(Fractional,FractionalQ,NumQ)
 instance FractionalQ a => FractionalCat (->) a where
@@ -911,8 +918,7 @@ instance (Monad m, Fractional a) => FractionalCat (Kleisli m) a where
   divideC = arr divideC
 #endif
 
--- HACK: generalize/replace/...
-class FloatingCat k a where
+class Ok k a => FloatingCat k a where
   expC, cosC, sinC :: a `k` a
 
 ClassFD(Floating,FloatingQ,FractionalQ)
@@ -1065,8 +1071,6 @@ ccc _ = error "ccc: not implemented"
 {-# NOINLINE ccc #-}
 
 
-#if 1
-
 {--------------------------------------------------------------------
     Uncurrying --- maybe move elsewhere
 --------------------------------------------------------------------}
@@ -1097,5 +1101,3 @@ instance Uncurriable k a Float
 instance Uncurriable k a Double
 instance Uncurriable k a (c :* d)
 instance Uncurriable k a (c :+ d)
-
-#endif
