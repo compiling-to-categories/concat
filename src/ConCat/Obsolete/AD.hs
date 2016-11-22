@@ -54,21 +54,21 @@ instance Category k => Category (D k) where
 --     in
 --       (c, q' . p')
 
---   (.) = inD2 $ \ q p -> \ a ->
+--   (.) = inNew2 $ \ q p -> \ a ->
 --     let (b,p') = p a
 --         (c,q') = q b
 --     in
 --       (c, q' . p')
 
---   (.) = inD2 $ \ q p -> \ a ->
+--   (.) = inNew2 $ \ q p -> \ a ->
 --     let ((c,q'),p') = first q (p a)
 --     in
 --       (c, q' . p')
 
---   (.) = inD2 $ \ q p -> \ a ->
+--   (.) = inNew2 $ \ q p -> \ a ->
 --     second (uncurry (.)) (rassocP (first q (p a)))
 
---   (.) = inD2 $ \ q p -> \ a ->
+--   (.) = inNew2 $ \ q p -> \ a ->
 --     second (uncurry (.)) (rassocP . (first q . p) $ a)
 
   (.) = inNew2 $ \ q p -> second (uncurry (.)) . rassocP . (first q . p)
