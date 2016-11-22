@@ -137,7 +137,6 @@ Op(unknownC,UnknownCat k a b => a `k` b)
 Op(reprC,(RepCat k, HasRep a) => a `k` Rep a)
 Op(abstC,(RepCat k, HasRep a) => Rep a `k` a)
 
-
 -- Unnecessary but helpful to track NOINLINE choice
 -- Op(constFun,forall k p a b. (ClosedCat k, Ok3 k p a b) => (a `k` b) -> (p `k` Exp k a b))
 
@@ -145,3 +144,57 @@ constFun :: forall k p a b. (ClosedCat k, Ok3 k p a b)
          => (a `k` b) -> (p `k` Exp k a b)
 constFun f = curry (f . exr) <+ okProd @k @p @a
 {-# INLINE constFun #-}
+
+-- TODO: Consider moving all of the auxiliary functions (like constFun) here.
+-- Rename "ConCat.Category" to something like "ConCat.Category.Class" and
+-- "ConCat.AltCat" to "ConCat.Category".
+-- 
+-- Maybe move some of the methods with defaults out of the classes, e.g.,
+-- "lassocP" and maybe "dup" and "jam".
+
+{-# RULES
+
+"g . id" forall g. g . id = g
+"id . f" forall f. id . f = f
+
+"exl/&&&" forall f g. exl . (f &&& g) = f
+"exr/&&&" forall f g. exr . (f &&& g) = g
+
+"exl2/&&&" forall f g h. (h . exl) . (f &&& g) = h . f
+"exr2/&&&" forall f g h. (h . exr) . (f &&& g) = h . g
+
+"exl3/&&&" forall f g h k. (h . (k . exl)) . (f &&& g) = h . k . f
+"exr3/&&&" forall f g h k. (h . (k . exr)) . (f &&& g) = h . k . g
+
+"f . h &&& g . h" forall (f :: a `k` c) (g :: a `k` d) h.
+  f . h &&& g . h = (f &&& g) . h <+ okProd @k @c @d
+
+"exl &&& exr" exl &&& exr = id
+
+"uncurry (curry f)" forall f. uncurry (curry f) = f
+"curry (uncurry g)" forall g. curry (uncurry g) = g
+
+"constFun 0" forall g f. apply . (curry (g . exr) &&& f) = g . f
+
+"constFun 1" forall f. apply . (curry exr &&& f) = f
+
+"constFun 3" forall f x. apply . (curry (const x) &&& f) = const x
+
+"foo1" forall (f :: a `k` c) (g :: a `k` d) h.
+  apply . (curry h . f &&& g) = h . (f &&& g) <+ okProd @k @c @d
+
+"foo2" forall (g :: a `k` d) h.
+  apply . (curry h &&& g) = h . (id &&& g) <+ okProd @k @a @d
+
+ #-}
+
+-- -- This rule helps expose some product rewrites.
+-- -- Will we want the opposite for coproducts?
+-- "(h . g) . f" forall f g h. (h . g) . f = h . (g . f)
+
+-- "constFun 1" forall f. apply . (curry (f . exr) &&& id) = f
+
+-- "constFun 2" apply . (curry exr &&& id) = id
+
+-- "constFun 3" forall x. apply . (curry (const x) &&& id) = const x
+
