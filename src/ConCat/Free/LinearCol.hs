@@ -53,31 +53,36 @@ type (a :-* b) s = a (b s)
 
 -- Apply a linear map
 infixr 9 $*
-($*), lapplyL :: (Zip a, Foldable a, Zip b, Pointed b, Num s)
+($*), lapplyL :: (Zip a, Foldable a, Zip b, Zeroable b, Num s)
               => (a :-* b) s -> a s -> b s
 bs $* a = sumV (zipWith (*^) a bs)
 
 lapplyL = ($*)
 
-zeroL :: (Pointed a, Pointed b, Num s) => (a :-* b) s
-zeroL = point zeroV
+zeroL :: (Zeroable a, Zeroable b, Num s) => (a :-* b) s
+zeroL = unComp1 zeroV
+-- zeroL = point zeroV
 
 {--------------------------------------------------------------------
     Other operations
 --------------------------------------------------------------------}
 
----- Category
-
--- Identity linear map
-idL :: (Adjustable m, Keyed m, Pointed m, Num r)
-    => (m :-* m) r
-idL = mapWithKey (flip replace 1) zeroL
+scaleL :: (Adjustable a, Keyed a, Zeroable a, Num s)
+       => s -> (a :-* a) s
+scaleL s = mapWithKey (flip replace s) zeroL
 
 -- mapWithKey :: Keyed f => (Key f -> a -> b) -> f a -> f b
 -- replace :: Adjustable f => Key f -> a -> f a -> f a
 
+---- Category
+
+-- Identity linear map
+idL :: (Adjustable a, Keyed a, Zeroable a, Num s)
+    => (a :-* a) s
+idL = scaleL 1
+
 -- Compose linear transformations
-(@.) :: (Functor a, Foldable b, Zip b, Pointed c, Zip c, Num s)
+(@.) :: (Functor a, Foldable b, Zip b, Zeroable c, Zip c, Num s)
      => (b :-* c) s -> (a :-* b) s -> (a :-* c) s
 bc @. ab = (bc $*) <$> ab
 
@@ -85,11 +90,11 @@ bc @. ab = (bc $*) <$> ab
 
 ---- Product
 
-exlL :: (Pointed a, Keyed a, Adjustable a, Pointed b, Num s)
+exlL :: (Zeroable a, Keyed a, Adjustable a, Zeroable b, Num s)
      => (a :*: b :-* a) s
 exlL = idL :*: zeroL
 
-exrL :: (Pointed b, Keyed b, Adjustable b, Pointed a, Num s)
+exrL :: (Zeroable b, Keyed b, Adjustable b, Zeroable a, Num s)
      => (a :*: b :-* b) s
 exrL = zeroL :*: idL
 
@@ -98,11 +103,11 @@ forkL = zipWith (:*:)
 
 ---- Coproduct as direct sum (represented as Cartesian product)
 
-inlL :: (Pointed a, Keyed a, Adjustable a, Pointed b, Num s)
+inlL :: (Zeroable a, Keyed a, Adjustable a, Zeroable b, Num s)
      => (a :-* a :*: b) s
 inlL = (:*: zeroV) <$> idL
 
-inrL :: (Pointed a, Pointed b, Keyed b, Adjustable b, Num s)
+inrL :: (Zeroable a, Zeroable b, Keyed b, Adjustable b, Num s)
      => (b :-* a :*: b) s
 inrL = (zeroV :*:) <$> idL
 
@@ -121,7 +126,7 @@ instance Newtype (LM s a b) where
   pack ab = LM ab
   unpack (LM ab) = ab
 
-type OkLF' f = (Foldable f, Pointed f, Zip f, Keyed f, Adjustable f)
+type OkLF' f = (Foldable f, Zeroable f, Zip f, Keyed f, Adjustable f)
 
 type OkLM' s a = (HasV s a, HasL (V s a), Num s)
 

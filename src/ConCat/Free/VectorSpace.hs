@@ -20,14 +20,16 @@ module ConCat.Free.VectorSpace where
 
 import Prelude hiding (zipWith)
 
-import GHC.Generics (Par1(..),(:*:)(..))
+import GHC.Generics (Par1(..),(:*:)(..),(:.:)(..))
 
 import Data.Foldable (fold)
 import Data.Pointed
 import Data.Key (Zip(..))
+import Data.Map (Map)
 
 import Control.Newtype
 
+import ConCat.Orphans ()
 import ConCat.Misc (inNew2,(:*),(<~))
 -- import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
 
@@ -38,9 +40,37 @@ import ConCat.Misc (inNew2,(:*),(<~))
 infixl 7 *^, <.>, >.<
 infixl 6 ^+^
 
+#if 0
+type Zeroable = Pointed
+
 -- Zero vector
 zeroV :: (Pointed f, Num a) => f a
 zeroV = point 0
+
+#else
+
+-- Experimental alternative to Pointed
+class Functor f => Zeroable f where
+  zeroV :: Num a => f a
+  default zeroV :: (Pointed f, Num a) => f a
+  zeroV = point 0
+
+-- The Functor superclass is just for convenience.
+-- Remove if needed (and fix other signatures).
+
+instance Zeroable Par1
+
+instance Zeroable ((->) k)
+
+instance Ord k => Zeroable (Map k) where zeroV = mempty
+
+instance (Zeroable f, Zeroable g) => Zeroable (f :*: g) where
+  zeroV = zeroV :*: zeroV
+
+instance (Zeroable f, Zeroable g) => Zeroable (g :.: f) where
+  zeroV = Comp1 (const zeroV <$> (zeroV :: g Int))
+
+#endif
 
 -- TODO: Replace Num constraints with Ring or SemiRing
 
@@ -71,11 +101,11 @@ instance Newtype (SumV f a) where
   pack as = SumV as
   unpack (SumV as) = as
 
-instance (Pointed f, Zip f, Num a) => Monoid (SumV f a) where
+instance (Zeroable f, Zip f, Num a) => Monoid (SumV f a) where
   mempty = pack zeroV
   mappend = inNew2 (^+^)
 
-sumV :: (Functor m, Foldable m, Pointed n, Zip n, Num a) => m (n a) -> n a
+sumV :: (Functor m, Foldable m, Zeroable n, Zip n, Num a) => m (n a) -> n a
 sumV = unpack . fold . fmap SumV
 
 {--------------------------------------------------------------------
@@ -86,10 +116,10 @@ type NewHasV s t = (Newtype t, HasV s (O t), V s t ~ V s (O t))
 
 class (Num s, Functor (V s t)) => HasV s t where
   type V s t :: * -> *
-  type V s t = V s (O t)
   toV :: t -> V s t s
   unV :: V s t s -> t
   -- Default via Newtype.
+  type V s t = V s (O t)
   default toV :: NewHasV s t => t -> V s t s
   default unV :: NewHasV s t => V s t s -> t
   toV = toV . unpack
@@ -125,6 +155,18 @@ instance (HasV s a, HasV s b) => HasV s (a :* b) where
 
 -- Similarly for other functors
 
+#if 1
+instance HasV s b => HasV s (a -> b) where
+  type V s (a -> b) = (->) a :.: V s b
+  toV = Comp1 . fmap toV
+  unV = fmap unV . unComp1
+#else
+instance HasV s b => HasV s (a -> b) where
+  type V s (a -> b) = Map a :.: V s b
+  toV = Comp1 . ??
+  unV = ?? . unComp1
+#endif
+
 #if 0
 -- Example default instance
 
@@ -140,7 +182,7 @@ instance HasV s a => HasV s (Pickle a)
 
 #if 0
 -- -- | The 'unV' form of 'zeroV'
--- zeroX :: forall s a. (HasV s a, Pointed (V s a)) => a
+-- zeroX :: forall s a. (HasV s a, Zeroable (V s a)) => a
 -- zeroX = unV (zeroV :: V s a s)
 
 vfun :: (HasV s a, HasV s b) => (a -> b) -> UT s (V s a) (V s b)

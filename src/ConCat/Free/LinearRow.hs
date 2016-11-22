@@ -23,15 +23,15 @@ module ConCat.Free.LinearRow where
 
 import Prelude hiding (id,(.),zipWith)
 
-import GHC.Generics (Par1(..),(:*:)(..)) -- (:.:)(..)
+import GHC.Generics (Par1(..),(:*:)(..),(:.:)(..))
 import Data.Constraint
 
-import Data.Pointed (Pointed(..))
+-- import Data.Pointed (Pointed(..))
 import Data.Key (Keyed(..),Zip(..),Adjustable(..))
 
 import Control.Newtype
 
-import ConCat.Misc (inNew2)  -- inNew,
+import ConCat.Misc ((:*),inNew2)  -- inNew,
 import ConCat.Orphans ()
 import ConCat.Free.VectorSpace
 import ConCat.Category
@@ -58,25 +58,30 @@ as $* a = (<.> a) <$> as
 
 lapplyL = ($*)
 
-zeroL :: (Pointed a, Pointed b, Num s) => (a :-* b) s
-zeroL = point zeroV
+zeroL :: (Zeroable a, Zeroable b, Num s) => (a :-* b) s
+zeroL = unComp1 zeroV
+-- zeroL = point zeroV
 
 {--------------------------------------------------------------------
     Other operations
 --------------------------------------------------------------------}
 
----- Category
-
--- Identity linear map
-idL :: (Adjustable m, Keyed m, Pointed m, Num r)
-    => (m :-* m) r
-idL = mapWithKey (flip replace 1) zeroL
+scaleL :: (Adjustable a, Keyed a, Zeroable a, Num s)
+       => s -> (a :-* a) s
+scaleL s = mapWithKey (flip replace s) zeroL
 
 -- mapWithKey :: Keyed f => (Key f -> a -> b) -> f a -> f b
 -- replace :: Adjustable f => Key f -> a -> f a -> f a
 
+---- Category
+
+-- Identity linear map
+idL :: (Adjustable a, Keyed a, Zeroable a, Num s)
+    => (a :-* a) s
+idL = scaleL 1
+
 -- Compose linear transformations
-(@.) :: (Zip a, Zip b, Pointed a, Foldable b, Functor c, Num s)
+(@.) :: (Zip a, Zip b, Zeroable a, Foldable b, Functor c, Num s)
      => (b :-* c) s -> (a :-* b) s -> (a :-* c) s
 -- bc @. ab = (bc $*) <$> ab
 
@@ -91,11 +96,11 @@ bc @. ab = (\ b -> sumV (zipWith (*^) b ab)) <$> bc
 
 ---- Product
 
-exlL :: (Pointed a, Keyed a, Adjustable a, Pointed b, Num s)
+exlL :: (Zeroable a, Keyed a, Adjustable a, Zeroable b, Num s)
      => (a :*: b :-* a) s
 exlL = (:*: zeroV) <$> idL
 
-exrL :: (Pointed b, Keyed b, Adjustable b, Pointed a, Num s)
+exrL :: (Zeroable b, Keyed b, Adjustable b, Zeroable a, Num s)
      => (a :*: b :-* b) s
 exrL = (zeroV :*:) <$> idL
 
@@ -104,11 +109,11 @@ forkL = (:*:)
 
 ---- Coproduct as direct sum (represented as Cartesian product)
 
-inlL :: (Pointed a, Keyed a, Adjustable a, Pointed b, Num s)
+inlL :: (Zeroable a, Keyed a, Adjustable a, Zeroable b, Num s)
      => (a :-* a :*: b) s
 inlL = idL :*: zeroL
 
-inrL :: (Pointed a, Pointed b, Keyed b, Adjustable b, Num s)
+inrL :: (Zeroable a, Zeroable b, Keyed b, Adjustable b, Num s)
      => (b :-* a :*: b) s
 inrL = zeroL :*: idL
 
@@ -126,7 +131,7 @@ instance Newtype (LM s a b) where
   pack ab = LM ab
   unpack (LM ab) = ab
 
-type OkLF' f = (Foldable f, Pointed f, Zip f, Keyed f, Adjustable f)
+type OkLF' f = (Foldable f, Zeroable f, Zip f, Keyed f, Adjustable f)
 
 type OkLM' s a = (HasV s a, HasL (V s a), Num s)
 
@@ -138,7 +143,7 @@ instance Category (LM s) where
   id = pack idL
   (.) = inNew2 (@.)
 
-instance OpCon (,) (Sat (OkLM s)) where inOp = Entail (Sub Dict)
+instance OpCon (:*) (Sat (OkLM s)) where inOp = Entail (Sub Dict)
 
 instance ProductCat (LM s) where
   -- type Prod (LM s) = (,)
@@ -153,6 +158,18 @@ instance ProductCat (LM s) where
 --   inl = pack inlL
 --   inr = pack inrL
 --   (|||) = inNew2 joinL
+
+inlLM :: Ok2 (LM s) a b => LM s a (a :* b)
+inlLM = pack inlL
+
+inrLM :: Ok2 (LM s) a b => LM s b (a :* b)
+inrLM = pack inrL
+
+joinLM :: Ok3 (LM s) a b c => LM s a c -> LM s b c -> LM s (a :* b) c
+joinLM = inNew2 joinL
+
+jamLM :: Ok (LM s) a => LM s (a :* a) a
+jamLM = id `joinLM` id
 
 -- We can't make a ClosedCat instance compatible with the ProductCat instance.
 -- We'd have to change the latter to use the tensor product.
@@ -185,11 +202,31 @@ instance (HasL f, HasL g) => HasL (f :*: g) where
 --          q . (:*: zeroV)  :: f s -> h s
 -- linear' (q . (:*: zeroV)) :: (f :-* h) s
 
+#if 0
+
+instance OpCon (->) (Sat (OkLM s)) where inOp = Entail (Sub Dict)
+
+instance HasL ((->) k) where
+  linear' h = ...
+
+h :: (k -> s) -> g s
+
+want :: ((k -> s) :-* g) s
+     :: g (k -> s)
+
+#endif
+
 linear :: (OkLM s a, OkLM s b) => (a -> b) -> LM s a b
 linear f = LM (linear' (inV f))
 
 -- f :: a -> b
 -- inV f :: V s a s -> V s b s
+
+scale :: OkLM s a => s -> LM s a a
+scale = LM . scaleL
+
+negateLM :: OkLM s a => LM s a a
+negateLM = scale (-1)
 
 {--------------------------------------------------------------------
     Functors
