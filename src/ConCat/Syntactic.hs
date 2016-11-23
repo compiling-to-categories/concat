@@ -13,7 +13,7 @@ import Prelude hiding (id,(.),lookup)
 
 import Data.Map (Map,fromList,lookup)
 import Control.Newtype
-import Text.PrettyPrint hiding (render)
+import Text.PrettyPrint.HughesPJ hiding (render)
 
 import ConCat.Category
 import ConCat.Misc (inNew,inNew2,Binop)
