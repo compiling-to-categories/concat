@@ -104,8 +104,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      Doing("reCatCo")
      return (Cast (mkCcc e) (reCatCo co))
      -- pprPanic "ccc" (text "Cast: not yet handled")
-   go (collectArgs -> (Var _,_)) = Doing("Wait for unfolding")
-                                   Nothing
+   -- go (collectArgs -> (Var v,_)) = Doing("Wait for unfolding of " ++ fqVarName v)
+   --                                 Nothing
    go e = dtrace "go etaExpand to" (ppr (etaExpand 1 e)) $
           go (etaExpand 1 e)
           -- return $ mkCcc (etaExpand 1 e)
@@ -543,6 +543,7 @@ mkCccEnv opts = do
         do cv <- findId cmod cop
            return (stdName, (cv,tyArgs))
   ops <- M.fromList <$> mapM mkOp (opsInfo (floatT,doubleT))
+  -- liftIO (print (opsInfo (floatT,doubleT)))
   -- Experiment: force loading of numeric instances for Float and Double.
   -- Doesn't help.
   -- floatTc <- findTc "GHC.Float" "Float"
