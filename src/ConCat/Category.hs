@@ -62,20 +62,20 @@ import ConCat.Float
 
 class HasCon a where
   type Con a :: Constraint
-  toD :: a -> Dict (Con a)
-  unD :: Con a => a
+  toDict :: a -> Dict (Con a)
+  unDict :: Con a => a
 
 newtype Sat kon a = Sat (Dict (kon a))
 
 instance HasCon (Sat kon a) where
   type Con (Sat kon a) = kon a
-  toD (Sat d) = d
-  unD = Sat Dict
+  toDict (Sat d) = d
+  unDict = Sat Dict
 
 instance (HasCon a, HasCon b) => HasCon (a :* b) where
   type Con (a :* b) = (Con a,Con b)
-  toD (toD -> Dict, toD -> Dict) = Dict
-  unD = (unD,unD)
+  toDict (toDict -> Dict, toDict -> Dict) = Dict
+  unDict = (unDict,unDict)
 
 infixr 1 |-
 newtype a |- b = Entail (Con a :- Con b)
@@ -722,8 +722,8 @@ instance (con a, con' a) => (con &+& con') a
 
 -- instance (HasCon (f a), HasCon (g a)) => HasCon ((f &+& g) a) where
 --   type Con ((f &+& g) a) = (Con (f a),Con (g a))
---   toD (And1 (toD -> Dict) (toD -> Dict)) = Dict
---   unD = And1 unD unD
+--   toDict (And1 (toDict -> Dict) (toDict -> Dict)) = Dict
+--   unDict = And1 unDict unDict
 
 -- class    (f a, g a) => (f &+& g) a
 -- instance (f a, g a) => (f &+& g) a
