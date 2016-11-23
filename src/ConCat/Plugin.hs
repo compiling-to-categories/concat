@@ -97,9 +97,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    go :: ReExpr
    go e | dtrace "go ccc:" (ppr e) False = undefined
    go (Lam x body) = goLam x (etaReduceN body)
-   go (etaReduceN -> transCatOp -> Just e') = Just e'
-   go (etaReduceN -> catFun     -> Just e') = Just e'
-   -- TODO: combine transCatOp and catFun into a new rewriter, and try together
+   go (etaReduceN -> reCat -> Just e') = Just e'
    go (unfoldMaybe -> Just e') = return (mkCcc e')
    go (Cast e co) =
      -- etaExpand turns cast lambdas into themselves
@@ -369,47 +367,49 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- transCatOp e | dtrace "transCatOp" (ppr e) False = undefined
    transCatOp (collectArgs -> (Var v, Type _wasCat : rest))
      | True || dtrace "transCatOp v _wasCat rest" (text (fqVarName v) <+> ppr _wasCat <+> ppr rest) True
-     , Just arity <- M.lookup (fqVarName v) catOpArities
+     , Just (nonCatArgs,catArgs) <- M.lookup (fqVarName v) catOpArities
      -- , dtrace "transCatOp arity" (ppr arity) True
-     , length (filter (not . isTyCoDictArg) rest) == arity
+     , length (filter (not . isTyCoDictArg) rest) == nonCatArgs + catArgs
      -- , dtrace "transCatOp" (text "arity match") True
-     = Just (foldl addArg (Var v `App` Type cat) rest)
-    where
-      addArg :: Binop CoreExpr
-      addArg e arg | isTyCoArg arg = -- pprTrace "addArg isTyCoArg" (ppr arg)
-                                     e `App` arg
-                   | isPred    arg = -- pprTrace "addArg isPred" (ppr arg)
-                                     onDict e
-                   | otherwise     = -- pprTrace "addArg otherwise" (ppr arg)
-                                     e `App` mkCcc arg
+     = let
+         addArg :: CoreExpr -> (Int,CoreExpr) -> CoreExpr
+         addArg e (i,arg) | isTyCoArg arg  = -- pprTrace "addArg isTyCoArg" (ppr arg)
+                                           e `App` arg
+                          | isPred    arg  = -- pprTrace "addArg isPred" (ppr arg)
+                                           onDict e
+                          | otherwise      = -- pprTrace "addArg otherwise" (ppr arg)
+                                           e `App` (if i < nonCatArgs then mkCcc else id) arg
+       in
+         Just (foldl addArg (Var v `App` Type cat) (zip [0 ..] rest))
    transCatOp _ = -- pprTrace "transCatOp" (text "fail") $
                   Nothing
 
 catModule :: String
 catModule = "ConCat.AltCat"
 
-catOpArities :: Map String Int
-catOpArities = M.fromList $ map (first ((catModule ++) . ('.' :))) $
-  [ ("id",0), (".",2)
-  , ("exl",0), ("exr",0), ("&&&",2), ("***",2), ("dup",0), ("swapP",0)
-  , ("first",1), ("second",1), ("lassocP",0), ("rassocP",0)
-  , ("inl",0), ("inr",0), ("|||",2), ("+++",2), ("jam",0), ("swapS",0)
-  , ("left",1), ("right",1), ("lassocS",0), ("rassocS",0)
-  , ("apply",0), ("curry",1), ("uncurry",1)
-  , ("distl",0), ("distr",0)
-  , ("it",0) -- ,("unitArrow",?) ,("const",?)
-  , ("notC",0), ("andC",0), ("orC",0), ("xorC",0)
-  , ("negateC",0), ("addC",0), ("subC",0), ("mulC",0), ("powIC",0)
-  , ("recipC",0), ("divideC",0)
-  , ("expC",0), ("cosC",0), ("sinC",0)
-  , ("fromIntegralC",0)
-  , ("equal",0), ("notEqual",0), ("greaterThan",0), ("lessThanOrEqual",0), ("greaterThanOrEqual",0)
-  , ("succC",0), ("predC",0)
-  , ("bottomC",0)
-  , ("ifC",0)
-  , ("unknownC",0)
-  , ("reprC",0), ("abstC",0)
-  , ("constFun",1)
+-- For each categorical operation, how many non-cat args (first) and how many cat args (last)
+catOpArities :: Map String (Int,Int)
+catOpArities = M.fromList $ map (\ (nm,m,n) -> (catModule ++ '.' : nm, (m,n))) $
+  [ ("id",0,0), (".",2,0)
+  , ("exl",0,0), ("exr",0,0), ("&&&",2,0), ("***",2,0), ("dup",0,0), ("swapP",0,0)
+  , ("first",1,0), ("second",1,0), ("lassocP",0,0), ("rassocP",0,0)
+  , ("inl",0,0), ("inr",0,0), ("|||",2,0), ("+++",2,0), ("jam",0,0), ("swapS",0,0)
+  , ("left",1,0), ("right",1,0), ("lassocS",0,0), ("rassocS",0,0)
+  , ("apply",0,0), ("curry",1,0), ("uncurry",1,0)
+  , ("distl",0,0), ("distr",0,0)
+  , ("it",0,0) ,("unitArrow",0,1) ,("const",0,1)
+  , ("notC",0,0), ("andC",0,0), ("orC",0,0), ("xorC",0,0)
+  , ("negateC",0,0), ("addC",0,0), ("subC",0,0), ("mulC",0,0), ("powIC",0,0)
+  , ("recipC",0,0), ("divideC",0,0)
+  , ("expC",0,0), ("cosC",0,0), ("sinC",0,0)
+  , ("fromIntegralC",0,0)
+  , ("equal",0,0), ("notEqual",0,0), ("greaterThan",0,0), ("lessThanOrEqual",0,0), ("greaterThanOrEqual",0,0)
+  , ("succC",0,0), ("predC",0,0)
+  , ("bottomC",0,0)
+  , ("ifC",0,0)
+  , ("unknownC",0,0)
+  , ("reprC",0,0), ("abstC",0,0)
+  , ("constFun",1,0)
   ]
 
 -- TODO: also handle non-categorical arguments, as in unitArrow and const. Maybe
