@@ -18,7 +18,7 @@ import Control.Newtype
 import ConCat.Misc ((:*),inNew2)
 import ConCat.Category
 
-newtype D a b = D (a -> b :* (a -> b))
+newtype D a b = D { unD :: a -> b :* (a -> b) }
 
 -- TODO: generalize from LM to any cartesian category
 
@@ -28,8 +28,8 @@ linearD f = D (f &&& const f)
 
 instance Newtype (D a b) where
   type O (D a b) = (a -> b :* (a -> b))
-  pack f = D f
-  unpack (D f) = f
+  pack = D
+  unpack = unD
 
 instance Category D where
   id = linearD id
@@ -57,6 +57,24 @@ instance ClosedCat D where
 --     • No instance for (OpCon (Exp D) (Sat (OkLM s)))
 --         arising from the superclasses of an instance declaration
 --     • In the instance declaration for ‘ClosedCat D’
+#if 0
+
+applyD :: D (D a b :* a) b
+applyD = D (\ (D h, a) ->
+              let (b,b') = h a in
+                (b,\ (df,da) -> df a + undefined)
+           )
+
+a :: a
+D h :: D a b
+h :: a -> b :* (a -> b)
+(b,b') :: b :* (a -> b)
+b :: b
+b' :: a -> b
+
+want :: D a b :* a -> b
+#endif
+
 
 {--------------------------------------------------------------------
     Other instances
