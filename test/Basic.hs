@@ -53,7 +53,7 @@
 
 module Basic (tests) where
 
-import Prelude hiding (Float,Double)
+import Prelude hiding (Float,Double,id,(.),const)
 
 import Data.Tuple (swap)
 import Distribution.TestSuite
@@ -61,9 +61,11 @@ import Distribution.TestSuite
 import ConCat.Misc (Unop,Binop,(:*))
 import ConCat.Category (ccc,Uncurriable(..))
 import ConCat.Float
-import ConCat.Circuit ((:>))
-import ConCat.RunCircuit (go,Okay)
 import ConCat.Syntactic (Sexp,render)
+import ConCat.RunCircuit (go,Okay,(:>))
+import ConCat.ADFun (D,unD)
+
+import ConCat.AltCat -- experiment
 
 -- -- Experiment: try to force loading of Num Float etc
 -- class Num a => Quuz a
@@ -82,8 +84,24 @@ tests = return
 
 --   , tst not
 
+--   , tst ((+) :: Binop Int)
+
+  , tst ((+) 3 :: Unop Int)
+
+--   , tst ((+) 3 :: Unop Float)
+
+--   , tst (||)
+
+--   , tst ((||) True)
+
+--   , tst (const True :: Unop Bool)
+
+--   , tst ((||) False)
+
 --   , tst (negate :: Unop Int)
---   , tst (negate :: Unop Float)
+
+--   , tst (negate  :: Unop Float)
+--   , tst (negateC :: Unop Float)
 
 --   , tst (\ (_ :: ()) -> 1 :: Double)
 
@@ -147,9 +165,7 @@ tests = return
 --   , test "q0"  (\ x -> x :: Int)
 --   , test "q1"  (\ (_x :: Int) -> True)
 --   , test "q2"  (\ (x :: Int) -> negate (x + 1))
-
-  , test "q3"  (\ (x :: Int) -> x > 0)
-
+--   , test "q3"  (\ (x :: Int) -> x > 0)
 --   , test "q4"  (\ x -> x + 4 :: Int)
 --   , test "q5"  (\ x -> x + x :: Int)
 --   , test "q6"  (\ x -> 4 + x :: Int)
@@ -173,16 +189,30 @@ tests = return
     Testing utilities
 --------------------------------------------------------------------}
 
-#if 0
+#if 1
 -- Circuit interpretation
 test :: Okay a b => String -> (a -> b) -> Test
 tst  :: Okay a b => (a -> b) -> Test
 {-# RULES "test circuit" forall s f. test s f = mkTest s (go s f) #-}
-#else
+#elif 1
 -- Syntactic interpretation
 test :: Uncurriable Sexp a b => String -> (a -> b) -> Test
 tst :: Uncurriable Sexp a b => (a -> b) -> Test
-{-# RULES "test syntactic" forall s f. test s f = mkTest s (putStrLn ('\n':render (uncurries (ccc f)))) #-}
+{-# RULES "test syntactic" forall s f.
+  test s f = mkTest s (putStrLn ('\n':render (ccc f))) #-}
+#elif 0
+test :: String -> (a -> b) -> Test
+tst  :: (a -> b) -> Test
+{-# RULES "test AD" forall s (f :: a -> b).
+   -- test s f = mkTest s (putStrLn (render (ccc (unD (ccc f)))))
+   test s f = mkTest s (doodleD (ccc f))
+ #-}
+#else
+test :: String -> (a -> b) -> Test
+tst  :: (a -> b) -> Test
+{-# RULES "test AD" forall s (f :: a -> b).
+   test s f = mkTest s (putStrLn (render (ccc (ccc f :: a -> b))))
+ #-}
 #endif
 test _ = error "test called"
 tst  _ = error "tst called"
@@ -192,6 +222,10 @@ tst  _ = error "tst called"
 
 -- {-# RULES "tst" forall f. tst f = test "test" f #-}
 {-# RULES "tst" tst = test "test" #-}
+
+doodleD :: D a b -> IO ()
+doodleD _ = return ()
+{-# NOINLINE doodleD #-}
 
 mkTest :: String -> IO () -> Test
 mkTest nm doit = Test inst
