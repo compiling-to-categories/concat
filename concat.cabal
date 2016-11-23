@@ -34,6 +34,8 @@ library
                        ConCat.Circuit
                        ConCat.RunCircuit
                        ConCat.Float
+                       ConCat.AD
+                       ConCat.ADFun
 
 --                        ConCat.Entail
 --                        ConCat.Additive
