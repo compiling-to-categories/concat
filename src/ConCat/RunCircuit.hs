@@ -24,7 +24,7 @@
 
 module ConCat.RunCircuit
   ( Okay, go,go',goSep,run,runSep,ranksep -- ,goM,goM',goMSep
-  ) where
+  , (:>)) where
 
 -- TODO: clean up interfaces.
 
