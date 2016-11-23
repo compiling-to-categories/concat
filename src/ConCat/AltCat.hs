@@ -214,4 +214,3 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 -- "constFun 2" apply . (curry exr &&& id) = id
 
 -- "constFun 3" forall x. apply . (curry (const x) &&& id) = const x
-
