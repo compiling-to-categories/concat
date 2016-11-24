@@ -1037,15 +1037,117 @@ class UnknownCat k a b where
 instance UnknownCat (->) a b where
   unknownC = error "unknown"
 
-
 class RepCat k where
   reprC :: HasRep a => a `k` Rep a
   abstC :: HasRep a => Rep a `k` a
+
+-- TODO: Maybe move a to a RepCat parameter, perhaps with HasRep a as a
+-- superclass constraint.
 
 instance RepCat (->) where
   reprC = repr
   abstC = abst
 
+{--------------------------------------------------------------------
+    Category constructions
+--------------------------------------------------------------------}
+
+infixr 6 :**:
+-- | Product of categories
+data (p :**: q) a b = p a b :**: q a b
+
+instance (Category k, Category k') => Category (k :**: k') where
+  type Ok (k :**: k') = Ok k &+& Ok k'
+  id = id :**: id
+  (g :**: g') . (f :**: f') = g.f :**: g'.f'
+
+instance (ProductCat k, ProductCat k') => ProductCat (k :**: k') where
+  exl = exl :**: exl
+  exr = exr :**: exr
+  (f :**: f') &&& (g :**: g') = (f &&& g) :**: (f' &&& g')
+  (f :**: f') *** (g :**: g') = (f *** g) :**: (f' *** g')
+  dup = dup :**: dup
+  swapP = swapP :**: swapP
+  first (f :**: f') = first f :**: first f'
+  second (f :**: f') = second f :**: second f'
+
+instance (CoproductCat k, CoproductCat k') => CoproductCat (k :**: k') where
+  inl = inl :**: inl
+  inr = inr :**: inr
+  (f :**: f') ||| (g :**: g') = (f ||| g) :**: (f' ||| g')
+  (f :**: f') +++ (g :**: g') = (f +++ g) :**: (f' +++ g')
+  jam = jam :**: jam
+  swapS = swapS :**: swapS
+  left (f :**: f') = left f :**: left f'
+  right (f :**: f') = right f :**: right f'
+
+instance (DistribCat k, DistribCat k') => DistribCat (k :**: k') where
+  distl = distl :**: distl
+  distr = distr :**: distr
+
+instance (ClosedCat k, ClosedCat k') => ClosedCat (k :**: k') where
+  apply = apply :**: apply
+  curry (f :**: f') = curry f :**: curry f'
+  uncurry (g :**: g') = uncurry g :**: uncurry g'
+
+instance (TerminalCat k, TerminalCat k') => TerminalCat (k :**: k') where
+  it = it :**: it
+
+instance (ConstCat k a, ConstCat k' a) => ConstCat (k :**: k') a where
+  const b = const b :**: const b
+  unitArrow b = unitArrow b :**: unitArrow b
+
+instance (BoolCat k, BoolCat k') => BoolCat (k :**: k') where
+  notC = notC :**: notC
+  andC = andC :**: andC
+  orC  = orC  :**: orC
+  xorC = xorC :**: xorC
+
+instance (EqCat k a, EqCat k' a) => EqCat (k :**: k') a where
+  equal = equal :**: equal
+  notEqual = notEqual :**: notEqual
+
+instance (OrdCat k a, OrdCat k' a) => OrdCat (k :**: k') a where
+  lessThan = lessThan :**: lessThan
+  greaterThan = greaterThan :**: greaterThan
+  lessThanOrEqual = lessThanOrEqual :**: lessThanOrEqual
+  greaterThanOrEqual = greaterThanOrEqual :**: greaterThanOrEqual
+
+instance (EnumCat k a, EnumCat k' a) => EnumCat (k :**: k') a where
+  succC = succC :**: succC
+  predC = predC :**: predC
+
+instance (NumCat k a, NumCat k' a) => NumCat (k :**: k') a where
+  negateC = negateC :**: negateC
+  addC    = addC    :**: addC
+  subC    = subC    :**: subC
+  mulC    = mulC    :**: mulC
+  powIC   = powIC   :**: powIC
+
+instance (FractionalCat k a, FractionalCat k' a) => FractionalCat (k :**: k') a where
+  recipC  = recipC  :**: recipC
+  divideC = divideC :**: divideC
+
+instance (FloatingCat k a, FloatingCat k' a) => FloatingCat (k :**: k') a where
+  expC = expC :**: expC
+  cosC = cosC :**: cosC
+  sinC = sinC :**: sinC
+
+instance (FromIntegralCat k a b, FromIntegralCat k' a b) => FromIntegralCat (k :**: k') a b where
+  fromIntegralC = fromIntegralC :**: fromIntegralC
+
+instance (BottomCat k a, BottomCat k' a) => BottomCat (k :**: k') a where
+  bottomC = bottomC :**: bottomC
+
+instance (IfCat k a, IfCat k' a) => IfCat (k :**: k') a where
+  ifC = ifC :**: ifC
+
+instance (UnknownCat k a b, UnknownCat k' a b) => UnknownCat (k :**: k') a b where
+  unknownC = unknownC :**: unknownC
+
+instance (RepCat k, RepCat k') => RepCat (k :**: k') where
+  reprC = reprC :**: reprC
+  abstC = abstC :**: abstC
 
 {--------------------------------------------------------------------
     Functors
