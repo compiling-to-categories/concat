@@ -90,6 +90,7 @@ Test-Suite basic
                   , concat
                   , pretty >= 1.1.3.3
   ghc-options:      -O2 -fforce-recomp
+
 --                     -ddump-simpl
 --                     -ddump-rule-rewrites
 --                     -ddump-rule-firings
@@ -99,5 +100,16 @@ Test-Suite basic
 --                     -dshow-passes
 
 
+Test-Suite opt-rules
+  type:             detailed-0.9
+  default-language: Haskell98
+  hs-Source-Dirs:   test
+  test-module:      OptRules
+  Build-Depends:    Cabal >= 1.24.0.0
+                  , base<5
+                  , concat
+                  , pretty >= 1.1.3.3
+  ghc-options:      -O2 -fforce-recomp
+
 -- "stack test" builds and runs both/all test suites.
--- "stack build :shaped" or "stack build :basic" builds and runs just one suite.
+-- "stack build :opt-rules" or "stack build :basic" builds and runs just one suite.
