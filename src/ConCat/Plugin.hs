@@ -97,6 +97,9 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    go :: ReExpr
    go e | dtrace ("go ccc "++pp cat++":") (ppr e) False = undefined
    go (Lam x body) = goLam x (etaReduceN body)
+   go (Let (NonRec v rhs) body) | incompleteCatOp rhs =
+     Doing("Let substitution")
+     go (subst1 v rhs body)
    go (etaReduceN -> reCat -> Just e') =
      Doing("reCat")
      Just e'
@@ -112,10 +115,10 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      -- pprPanic "ccc" (text "Cast: not yet handled")
      (`Cast` reCatCo co) <$> go e
    -- Temp hack while testing nested ccc calls.
-   go (etaReduceN -> Var v) = Doing("Wait for unfolding of " ++ fqVarName v)
-                              Nothing
-   -- go (collectArgs -> (Var v,_)) = Doing("Wait for unfolding of " ++ fqVarName v)
-   --                                 Nothing
+   -- go (etaReduceN -> Var v) = Doing("Wait for unfolding of " ++ fqVarName v)
+   --                            Nothing
+   go (collectArgs -> (Var v,_)) = Doing("Wait for unfolding of " ++ fqVarName v)
+                                   Nothing
    go e = dtrace "go etaExpand to" (ppr (etaExpand 1 e)) $
           go (etaExpand 1 e)
           -- return $ mkCcc (etaExpand 1 e)
@@ -150,6 +153,11 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      (collectArgs -> (Var ((== cccV) -> True),_)) ->
        Doing("Postponing ccc-of-ccc")
        Nothing
+     Trying("Pair")
+     (collectArgs -> (Var (fqVarName -> "GHC.Tuple.(,)"),[Type _, Type _, u, v]))
+       -> Doing("Pair")
+          -- dtrace "Pair test" (ppr (u,v)) $
+          return (mkFork cat (mkCcc (Lam x u)) (mkCcc (Lam x v)))
      Trying("App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
      u `App` v | liftedExpr v ->
@@ -167,9 +175,13 @@ ccc (CccEnv {..}) guts dflags inScope cat =
                                      -- goLam x e'
      Trying("Let")
      Let (NonRec v rhs) body' | liftedExpr rhs ->
-       Doing("Let")
-       -- Convert back to beta-redex. goLam, so GHC can't re-let.
-       goLam x (Lam v body' `App` rhs)
+       if incompleteCatOp rhs then
+         Doing("Let substitution")
+         goLam x (subst1 v rhs body')
+       else
+         Doing("Let")
+         -- Convert back to beta-redex. goLam, so GHC can't re-let.
+         goLam x (Lam v body' `App` rhs)
      Trying("Lam")
      Lam y e ->
        -- (\ x -> \ y -> U) --> curry (\ z -> U[fst z/x, snd z/y])
@@ -262,8 +274,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    mkCompose :: Cat -> Binop CoreExpr
    -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
    mkCompose k g f
-     | Just (b,c) <- splitCatTy_maybe (exprType g)
-     , Just (a,_) <- splitCatTy_maybe (exprType f)
+     | Just (b,c) <- tyArgs2_maybe (exprType g)
+     , Just (a,_) <- tyArgs2_maybe (exprType f)
      = -- mkCoreApps (onDict (catOp k composeV `mkTyApps` [b,c,a])) [g,f]
        mkCoreApps (onDict (catOp k composeV [b,c,a])) [g,f]
      | otherwise = pprPanic "mkCompose:" (pprWithType g <+> text ";" <+> pprWithType f)
@@ -278,10 +290,9 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      -- -- pprPanic "mkEx" (text "bailing")
      onDict (catOp k ex [a,b]) `App` z
     where
-      -- TODO: Replace splitAppTys uses by splitCatTy. Pass in k to confirm.
-      (_,[a,b])  = splitAppTys (exprType z)
+      (a,b)  = tyArgs2 (exprType z)
    mkFork :: Cat -> Binop CoreExpr
-   mkFork k f g | pprTrace "mkFork" (sep [ppr k, ppr f, ppr g]) False = undefined
+   -- mkFork k f g | pprTrace "mkFork" (sep [ppr k, ppr f, ppr g]) False = undefined
    mkFork k f g =
      -- (&&&) :: forall {k :: * -> * -> *} {a} {c} {d}.
      --          (ProductCat k, Ok k d, Ok k c, Ok k a)
@@ -289,8 +300,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      -- onDict (catOp k forkV `mkTyApps` [a,c,d]) `mkCoreApps` [f,g]
      onDict (catOp k forkV [a,c,d]) `mkCoreApps` [f,g]
     where
-      (_,[a,c]) = splitAppTys (exprType f)
-      (_,[_,d]) = splitAppTys (exprType g)
+      (a,c) = tyArgs2 (exprType f)
+      (_,d) = tyArgs2 (exprType g)
    mkApply :: Cat -> Type -> Type -> CoreExpr
    mkApply k a b =
      -- apply :: forall {k :: * -> * -> *} {a} {b}. (ClosedCat k, Ok k b, Ok k a)
@@ -298,14 +309,17 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      -- onDict (catOp k applyV `mkTyApps` [a,b])
      onDict (catOp k applyV [a,b])
    mkCurry :: Cat -> Unop CoreExpr
+   -- mkCurry k e | dtrace "mkCurry" (ppr k <+> pprWithType e) False = undefined
    mkCurry k e =
      -- curry :: forall {k :: * -> * -> *} {a} {b} {c}.
      --          (ClosedCat k, Ok k c, Ok k b, Ok k a)
      --       => k (Prod k a b) c -> k a (Exp k b c)
      -- onDict (catOp k curryV `mkTyApps` [a,b,c]) `App` e
+     -- dtrace "mkCurry: (a,b,c) ==" (ppr (a,b,c)) $
      onDict (catOp k curryV [a,b,c]) `App` e
     where
-      (splitAppTys -> (_,[splitAppTys -> (_,[a,b]),c])) = exprType e
+      (tyArgs2 -> (tyArgs2 -> (a,b),c)) = exprType e
+      -- (splitAppTys -> (_,[splitAppTys -> (_,[a,b]),c])) = exprType e
    -- mkUncurry :: Cat -> Unop CoreExpr
    -- mkUncurry k e =
    --   -- uncurry :: forall {k :: * -> * -> *} {a} {b} {c}.
@@ -315,7 +329,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    --   onDict (catOp k uncurryV [a,b,c]) `App` e
    --   -- varApps uncurryV [a,b,c] [e]
    --  where
-   --    (splitCatTy -> (a, splitCatTy -> (b,c))) = exprType e
+   --    (tyArgs2 -> (a, tyArgs2 -> (b,c))) = exprType e
    mkConst :: Cat -> Type -> ReExpr
    mkConst k dom e =
      -- const :: forall (k :: * -> * -> *) b. ConstCat k b => forall dom.
@@ -330,15 +344,21 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      -- (`App` e) <$> onDictMaybe (catOp k constFunV [dom,a,b])
      (`App` e) <$> (onDictMaybe =<< catOpMaybe k constFunV [dom,a,b])
     where
-      (a,b) = splitCatTy (exprType e)
+      (a,b) = tyArgs2 (exprType e)
    -- Split k a b into a & b.
    -- TODO: check that k == cat
-   splitCatTy_maybe :: Type -> Maybe (Type,Type)
-   splitCatTy_maybe (splitAppTys -> (_,(a:b:_))) = Just (a,b)
-   splitCatTy_maybe _ = Nothing
-   splitCatTy :: Type -> (Type,Type)
-   splitCatTy (splitCatTy_maybe -> Just ab) = ab
-   splitCatTy ty = pprPanic "splitCatTy" (ppr ty)
+   tyArgs2_maybe :: Type -> Maybe (Type,Type)
+   -- tyArgs2_maybe (splitAppTys -> (_,(a:b:_))) = Just (a,b)
+   tyArgs2_maybe _ty@(splitAppTy_maybe -> Just (splitAppTy_maybe -> Just (_,a),b)) =
+     -- dtrace "tyArgs2_maybe" (ppr _ty <+> text "-->" <+> (ppr (a,b))) $
+     Just (a,b)
+   tyArgs2_maybe _ = Nothing
+   -- tyArgs2_maybe ty = do (t1,b) <- splitAppTy_maybe ty
+   --                          (_ ,a) <- splitAppTy_maybe t1
+   --                          return (a,b)
+   tyArgs2 :: Type -> (Type,Type)
+   tyArgs2 (tyArgs2_maybe -> Just ab) = ab
+   tyArgs2 ty = pprPanic "tyArgs2" (ppr ty)
    -- traceRewrite :: (Outputable a, Outputable (f b)) => String -> Unop (a -> f b)
    -- traceRewrite str f a = pprTrans str a (f a)
    -- traceRewrite :: (Outputable a, Outputable (f b)) => String -> Unop (a -> f b)
@@ -367,9 +387,9 @@ ccc (CccEnv {..}) guts dflags inScope cat =
         -- Apply to types and dictionaries, and possibly curry.
         return $ (if twoArgs ty then mkCurry cat else id) (catOp cat op tys)
     where
-      ty      = varType v
+      ty = varType v
       fullName = fqVarName v
-      twoArgs (splitCatTy_maybe -> Just (_,splitCatTy_maybe -> Just _)) = True
+      twoArgs (tyArgs2_maybe -> Just (_,tyArgs2_maybe -> Just _)) = True
       twoArgs _ = False
    catFun _ = Nothing
    reCat :: ReExpr
@@ -378,9 +398,9 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- transCatOp e | dtrace "transCatOp" (ppr e) False = undefined
    transCatOp (collectArgs -> (Var v, Type _wasCat : rest))
      | True || dtrace "transCatOp v _wasCat rest" (text (fqVarName v) <+> ppr _wasCat <+> ppr rest) True
-     , Just (nonCatArgs,catArgs) <- M.lookup (fqVarName v) catOpArities
-     -- , dtrace "transCatOp arities" (ppr (nonCatArgs,catArgs)) True
-     , length (filter (not . isTyCoDictArg) rest) == nonCatArgs + catArgs
+     , Just (catArgs,nonCatArgs) <- M.lookup (fqVarName v) catOpArities
+     -- , dtrace "transCatOp arities" (ppr (catArgs,nonCatArgs)) True
+     , length (filter (not . isTyCoDictArg) rest) == catArgs + nonCatArgs
      -- , dtrace "transCatOp" (text "arity match") True
      = let
          -- Track how many regular (non-TyCo, non-pred) arguments we've seen
@@ -393,11 +413,23 @@ ccc (CccEnv {..}) guts dflags inScope cat =
                             (i,onDict e)
                           | otherwise
                           = -- dtrace "addArg otherwise" (ppr (i,arg))
-                            (i+1,e `App` (if i < nonCatArgs then mkCcc else id) arg)
+                            -- TODO: logic to sort out cat vs non-cat args.
+                            -- We currently don't have both.
+                            (i+1,e `App` (if i < catArgs then mkCcc else id) arg)
        in
          Just (snd (foldl addArg (0,Var v `App` Type cat) rest))
    transCatOp _ = -- pprTrace "transCatOp" (text "fail") $
                   Nothing
+   incompleteCatOp :: CoreExpr -> Bool
+   -- incompleteCatOp e | dtrace "incompleteCatOp" (ppr e) False = undefined
+   incompleteCatOp (collectArgs -> (Var v, Type _wasCat : rest))
+     | True || dtrace "incompleteCatOp v _wasCat rest" (text (fqVarName v) <+> ppr _wasCat <+> ppr rest) True
+     , Just (catArgs,_) <- M.lookup (fqVarName v) catOpArities
+     , let seen = length (filter (not . isTyCoDictArg) rest)
+     -- , dtrace "incompleteCatOp catArgs" (ppr seen <+> text "vs" <+> ppr catArgs) True
+     = seen < catArgs
+   incompleteCatOp _ = False
+   -- TODO: refactor transCatOp & isPartialCatOp
 
 catModule :: String
 catModule = "ConCat.AltCat"
