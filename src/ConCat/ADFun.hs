@@ -48,11 +48,11 @@ instance ProductCat D where
     in
       ((b,c), f' &&& g')
 
--- Don't define methods yet. I think I can optimize away the ClosedCat
--- operations in most cases. Once I'm happy with the results, define these
--- methods and turn off the optimizations.
-instance ClosedCat D where
-  -- apply = D (\ (f,a) -> (f a, \ (df,da) -> undefined))
+-- -- Don't define methods yet. I think I can optimize away the ClosedCat
+-- -- operations in most cases. Once I'm happy with the results, define these
+-- -- methods and turn off the optimizations.
+-- instance ClosedCat D where
+--   -- apply = D (\ (f,a) -> (f a, \ (df,da) -> undefined))
 
 --     • No instance for (OpCon (Exp D) (Sat (OkLM s)))
 --         arising from the superclasses of an instance declaration
