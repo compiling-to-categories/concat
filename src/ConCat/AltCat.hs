@@ -1,7 +1,15 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+
+-- For Uncurriable:
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
@@ -19,7 +27,8 @@ module ConCat.AltCat
 {-# OPTIONS_GHC -Wall #-}
 -- {-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
 
-import Prelude hiding (id,(.),curry,uncurry,const)
+import Prelude hiding (id,(.),curry,uncurry,const,Float,Double)
+import qualified Prelude as P
 
 import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5
@@ -33,6 +42,7 @@ import ConCat.Category
   , BoolCat, BoolOf
   , NumCat, FractionalCat, FloatingCat, FromIntegralCat
   , EqCat, OrdCat, EnumCat, BottomCat, IfCat, UnknownCat, RepCat
+  , (:**:)(..)
   , ccc
   --
   , (<+), okProd
@@ -40,18 +50,24 @@ import ConCat.Category
 
 import qualified ConCat.Category as C
 import ConCat.Rep
+import ConCat.Misc ((:*),(:+))
+import ConCat.Float
+
+-- #define OPINLINE INLINE [3]
+-- #define OPINLINE INLINE CONLIKE [3]
+#define OPINLINE NOINLINE
 
 #define Op(nm,ty) \
 {- | C.nm without the eager inlining -}; \
 nm :: ty; \
 nm = C.nm ;\
-{-# NOINLINE nm #-}
+{-# OPINLINE nm #-}
 
 #define Ip(nm,ty) \
 {- | (C.nm) without the eager inlining -}; \
 (nm) :: ty; \
 (nm) = (C.nm) ;\
-{-# NOINLINE (nm) #-}
+{-# OPINLINE (nm) #-}
 
 -- I use semicolons and the {- | ... -} style Haddock comment because CPP macros
 -- generate a single line. I want to inject single quotes around the C.foo and
@@ -144,7 +160,7 @@ Op(abstC,(RepCat k, HasRep a) => Rep a `k` a)
 constFun :: forall k p a b. (ClosedCat k, Ok3 k p a b)
          => (a `k` b) -> (p `k` Exp k a b)
 constFun f = curry (f . exr) <+ okProd @k @p @a
-{-# INLINE constFun #-}
+{-# OPINLINE constFun #-}
 
 -- TODO: Consider moving all of the auxiliary functions (like constFun) here.
 -- Rename "ConCat.Category" to something like "ConCat.Category.Class" and
@@ -152,6 +168,63 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 -- 
 -- Maybe move some of the methods with defaults out of the classes, e.g.,
 -- "lassocP" and maybe "dup" and "jam".
+
+{--------------------------------------------------------------------
+    Automatic uncurrying
+--------------------------------------------------------------------}
+
+-- Note: I'm not using yet. I think it needs to go before ccc.
+-- Alternatively, generalize from (->) to ClosedCat.
+
+-- | Repeatedly uncurried version of a -> b
+class Uncurriable k a b where
+  type UncDom a b
+  type UncRan a b
+  type UncDom a b = a
+  type UncRan a b = b
+  uncurries :: (a `k` b) -> (UncDom a b `k` UncRan a b)
+  default uncurries :: (a `k` b) -> (a `k` b)
+  -- uncurries = id
+  -- uncurries = P.id
+  uncurries f = f
+  -- experiment
+  fiddly_foo_unc :: k a b -> ()
+  fiddly_foo_unc = const ()
+  {-# INLINE uncurries #-}
+
+instance (ClosedCat k, Uncurriable k (a :* b) c, Ok3 k a b c)
+      => Uncurriable k a (b -> c) where
+  type UncDom a (b -> c) = UncDom (a :* b) c
+  type UncRan a (b -> c) = UncRan (a :* b) c
+  -- uncurries = uncurries C.. uncurry
+  uncurries = uncurries P.. uncurry
+  -- uncurries f = uncurries (uncurry f)
+  {-# INLINE uncurries #-}
+
+--     • The constraint ‘Uncurriable k (a :* b) c’
+--         is no smaller than the instance head
+--       (Use UndecidableInstances to permit this)
+
+-- I get better inlining and simplification with explicit uncurries
+-- definitions and specific INLINE pragmas.
+
+#define UncId(t) \
+instance Uncurriable k a (t) where uncurries f = f ; {-# INLINE uncurries #-}
+
+UncId(())
+UncId(Bool)
+UncId(Int)
+-- UncId(Float)
+
+instance Uncurriable k a Float where uncurries f = f ; {-# INLINE uncurries #-}
+
+UncId(Double)
+UncId(c :* d)
+UncId(c :+ d)
+
+{--------------------------------------------------------------------
+    Rewrite rules
+--------------------------------------------------------------------}
 
 {-# RULES
 
@@ -170,7 +243,7 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 "f . h &&& g . h" forall (f :: a `k` c) (g :: a `k` d) h.
   f . h &&& g . h = (f &&& g) . h <+ okProd @k @c @d
 
--- Careful with this one, since dup eventually inlines to id &&& id
+-- -- Careful with this one, since dup eventually inlines to id &&& id
 -- "id &&& id" [~2] id &&& id = dup
 
 -- -- Specializations with f == id and/or g == id
@@ -197,9 +270,14 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 
 "constFun 3" forall f x. apply . (curry (const x) &&& f) = const x
 
+-- Experiment: same rules but via constFun
+
+"constFun' 0" forall g f. apply . (constFun g &&& f) = g . f
+
 "foo1" forall (f :: a `k` c) (g :: a `k` d) h.
   apply . (curry h . f &&& g) = h . (f &&& g) <+ okProd @k @c @d
 
+-- The next one leads to a role error when I chain ccc calls. To investigate.
 "foo2" forall (g :: a `k` d) h.
   apply . (curry h &&& g) = h . (id &&& g) <+ okProd @k @a @d
 
