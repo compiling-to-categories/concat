@@ -22,23 +22,23 @@ import ConCat.Misc (inNew,inNew2,Binop)
     Untyped S-expression
 --------------------------------------------------------------------}
 
-data SexpU = SexpU String [SexpU] deriving Show
+data SynU = SynU String [SynU] deriving Show
 
-atomu :: String -> SexpU
-atomu s = SexpU s []
+atomu :: String -> SynU
+atomu s = SynU s []
 
-app1u :: String -> SexpU -> SexpU
-app1u s p = SexpU s [p]
+app1u :: String -> SynU -> SynU
+app1u s p = SynU s [p]
 
-app2u :: String -> SexpU -> SexpU -> SexpU
-app2u s p q = SexpU s [p,q]
+app2u :: String -> SynU -> SynU -> SynU
+app2u s p q = SynU s [p,q]
 
 -- TODO: use the Pretty class from Text.PrettyPrint.HughesPJClass
 
-prettyu :: SexpU -> PDoc
-prettyu (SexpU f [u,v]) | Just fixity <- lookup f fixities =
+prettyu :: SynU -> PDoc
+prettyu (SynU f [u,v]) | Just fixity <- lookup f fixities =
   docOp2 True f fixity (prettyu u) (prettyu v)
-prettyu (SexpU f es) = \ prec ->
+prettyu (SynU f es) = \ prec ->
   -- (if not (null es) && prec > appPrec then parens else id) $
   maybeParens (not (null es) && prec > appPrec) $
   -- hang (text f) 2 (sep (map (flip prettyu (appPrec+1)) es))
@@ -53,7 +53,7 @@ fixities = fromList
   , ("+++", (2,AssocRight))
   ]
 
-renderu :: SexpU -> String
+renderu :: SynU -> String
 renderu = renderStyle (Style PageMode 80 1) . flip prettyu 0
 
 -- renderu = PP.render . flip prettyu 0
@@ -62,35 +62,35 @@ renderu = renderStyle (Style PageMode 80 1) . flip prettyu 0
     Phantom-typed S-expression
 --------------------------------------------------------------------}
 
-newtype Sexp a b = Sexp SexpU deriving Show
+newtype Syn a b = Syn SynU deriving Show
 
-instance Newtype (Sexp a b) where
-  type O (Sexp a b) = SexpU
-  pack s = Sexp s
-  unpack (Sexp s) = s
+instance Newtype (Syn a b) where
+  type O (Syn a b) = SynU
+  pack s = Syn s
+  unpack (Syn s) = s
 
-atom :: String -> Sexp a b
-atom s = pack (SexpU s [])
+atom :: String -> Syn a b
+atom s = pack (SynU s [])
 
-app1 :: String -> Sexp a b -> Sexp c d
+app1 :: String -> Syn a b -> Syn c d
 app1 = inNew . app1u
 
-app2 :: String -> Sexp a1 b1 -> Sexp a2 b2 -> Sexp c d
+app2 :: String -> Syn a1 b1 -> Syn a2 b2 -> Syn c d
 app2 = inNew2 . app2u
 
-pretty :: Sexp a b -> PDoc
+pretty :: Syn a b -> PDoc
 pretty = prettyu . unpack
 
--- instance Show (Sexp a b) where show = render
+-- instance Show (Syn a b) where show = render
 
-render :: Sexp a b -> String
+render :: Syn a b -> String
 render = renderu . unpack
 
-instance Category Sexp where
+instance Category Syn where
   id  = atom "id"
   (.) = app2 "."
 
-instance ProductCat Sexp where
+instance ProductCat Syn where
   exl     = atom "exl"
   exr     = atom "exr"
   (&&&)   = app2 "&&&"
@@ -101,9 +101,9 @@ instance ProductCat Sexp where
   lassocP = atom "lassocP"
   rassocP = atom "rassocP"
 
-instance TerminalCat Sexp where it = atom "it"
+instance TerminalCat Syn where it = atom "it"
 
-instance CoproductCat Sexp where
+instance CoproductCat Syn where
   inl     = atom "inl"
   inr     = atom "inr"
   (|||)   = app2 "|||"
@@ -114,65 +114,65 @@ instance CoproductCat Sexp where
   lassocS = atom "lassocS"
   rassocS = atom "rassocS"
   
-instance DistribCat Sexp where distl = atom "distl"
+instance DistribCat Syn where distl = atom "distl"
 
-instance ClosedCat Sexp where
+instance ClosedCat Syn where
   apply   = atom "apply"
   curry   = app1 "curry"
   uncurry = app1 "uncurry"
 
-instance Show b => ConstCat Sexp b where
+instance Show b => ConstCat Syn b where
   const b = app1 "const" (atom (show b))
 
-instance BoolCat Sexp where
+instance BoolCat Syn where
   notC = atom "notC"
   andC = atom "andC"
   orC  = atom "orC"
   xorC = atom "xorC"
 
-instance EqCat Sexp a where
+instance EqCat Syn a where
   equal    = atom "equal"
   notEqual = atom "notEqual"
 
-instance OrdCat Sexp a where
+instance OrdCat Syn a where
   lessThan = atom "lessThan"
   greaterThan = atom "greaterThan"
   lessThanOrEqual = atom "lessThanOrEqual"
   greaterThanOrEqual = atom "greaterThanOrEqual"
 
-instance EnumCat Sexp a where
+instance EnumCat Syn a where
   succC = atom "succC"
   predC = atom "predC"
 
-instance NumCat Sexp a where
+instance NumCat Syn a where
   negateC = atom "negateC"
   addC    = atom "addC"
   subC    = atom "subC"
   mulC    = atom "mulC"
   powIC   = atom "powIC"
 
-instance FractionalCat Sexp a where
+instance FractionalCat Syn a where
   recipC  = atom "recipC"
   divideC = atom "divideC"
 
-instance FloatingCat Sexp a where
+instance FloatingCat Syn a where
   expC = atom "expC"
   cosC = atom "cosC"
   sinC = atom "sinC"
 
-instance FromIntegralCat Sexp a b where
+instance FromIntegralCat Syn a b where
   fromIntegralC = atom "fromIntegralC"
 
-instance BottomCat Sexp a where
+instance BottomCat Syn a where
   bottomC = atom "bottomC"
 
-instance IfCat Sexp a where
+instance IfCat Syn a where
   ifC = atom "ifC"
 
-instance UnknownCat Sexp a b where
+instance UnknownCat Syn a b where
   unknownC = atom "unknownC"
 
-instance RepCat Sexp where
+instance RepCat Syn where
   reprC = atom "reprC"
   abstC = atom "abstC"
 

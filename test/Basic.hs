@@ -64,7 +64,7 @@ import Distribution.TestSuite
 
 import ConCat.Misc (Unop,Binop,(:*))
 import ConCat.Float
-import ConCat.Syntactic (Sexp,render)
+import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay,(:>))
@@ -184,16 +184,16 @@ tests = return
 --   , tst ((,) :: Bool -> Int -> Bool :* Int)
 
   , test "q0"  (\ x -> x :: Int)
---   , test "q1"  (\ (_x :: Int) -> True)
---   , test "q2"  (\ (x :: Int) -> negate (x + 1))
---   , test "q3"  (\ (x :: Int) -> x > 0)
---   , test "q4"  (\ x -> x + 4 :: Int)
---   , test "q5"  (\ x -> x + x :: Int)
---   , test "q6"  (\ x -> 4 + x :: Int)
---   , test "q7"  (\ (a :: Int) (_b :: Int) -> a)
---   , test "q8"  (\ (_ :: Int) (b :: Int) -> b)
---   , test "q9"  (\ (a :: Float) (b :: Float) -> a + b)
---   , test "q10" (\ (a :: Float) (b :: Float) -> b + a)
+  , test "q1"  (\ (_x :: Int) -> True)
+  , test "q2"  (\ (x :: Int) -> negate (x + 1))
+  , test "q3"  (\ (x :: Int) -> x > 0)
+  , test "q4"  (\ x -> x + 4 :: Int)
+  , test "q5"  (\ x -> x + x :: Int)
+  , test "q6"  (\ x -> 4 + x :: Int)
+  , test "q7"  (\ (a :: Int) (_b :: Int) -> a)
+  , test "q8"  (\ (_ :: Int) (b :: Int) -> b)
+  , test "q9"  (\ (a :: Float) (b :: Float) -> a + b)
+  , test "q10" (\ (a :: Float) (b :: Float) -> b + a)
 
 --   , test "q7u"  ((\ (a,_) -> a) :: Int :* Int -> Int)
 --   , test "q8u"  ((\ (_,b) -> b) :: Int :* Int -> Int)
@@ -210,7 +210,7 @@ tests = return
     Testing utilities
 --------------------------------------------------------------------}
 
-type EC = Sexp :**: (:>)
+type EC = Syn :**: (:>)
 
 runEC :: GenBuses a => String -> EC a b -> IO ()
 runEC s (ex :**: circ) = putStrLn ('\n':render ex) >> RC.run s [] circ
@@ -231,13 +231,13 @@ tst :: (a -> b) -> Test
 -- With INLINE [3]: "Simplifier ticks exhausted"
 test :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
-{-# RULES "(->); Sexp" forall s f.
+{-# RULES "(->); Syn" forall s f.
    test s f = mkTest s (putStrLn ('\n':render (ccc (ccc f))))
  #-}
 #elif 0
 -- Syntactic, then uncurries
-test :: Uncurriable Sexp a b => String -> (a -> b) -> Test
-tst :: Uncurriable Sexp a b => (a -> b) -> Test
+test :: Uncurriable Syn a b => String -> (a -> b) -> Test
+tst :: Uncurriable Syn a b => (a -> b) -> Test
 {-# RULES "syntactic; uncurries" forall s f.
   test s f = mkTest s (putStrLn ('\n':render (uncurries (ccc f)))) #-}
 #elif 0
@@ -245,7 +245,7 @@ tst :: Uncurriable Sexp a b => (a -> b) -> Test
 -- Fine with INLINE and NOINLINE
 test :: Uncurriable (->) a b => String -> (a -> b) -> Test
 tst  :: Uncurriable (->) a b => (a -> b) -> Test
-{-# RULES "uncurries; Sexp" forall s f.
+{-# RULES "uncurries; Syn" forall s f.
    test s f = mkTest s (putStrLn ('\n':render (ccc (uncurries f))))
  #-}
 #elif 0
@@ -253,22 +253,30 @@ tst  :: Uncurriable (->) a b => (a -> b) -> Test
 -- Some trouble with INLINE [3]
 test :: Uncurriable (->) a b => String -> (a -> b) -> Test
 tst  :: Uncurriable (->) a b => (a -> b) -> Test
-{-# RULES "(->); uncurries; Sexp" forall s f.
+{-# RULES "(->); uncurries; Syn" forall s f.
    test s f = mkTest s (putStrLn ('\n':render (ccc (uncurries (ccc f)))))
  #-}
 #elif 0
 -- syntactic *and* circuit
 test :: GenBuses a => String -> (a -> b) -> Test
 tst  :: GenBuses a => (a -> b) -> Test
-{-# RULES "Sexp :**: (:>)" forall s f.
+{-# RULES "Syn :**: (:>)" forall s f.
    test s f = mkTest s (runEC s (ccc f))
+ #-}
+#elif 0
+-- syntactic *and* circuit, then uncurries
+-- OOPS: Core Lint error
+test :: (GenBuses (UncDom a b), Uncurriable (Syn :**: (:>)) a b) => String -> (a -> b) -> Test
+tst  :: (GenBuses (UncDom a b), Uncurriable (Syn :**: (:>)) a b) => (a -> b) -> Test
+{-# RULES "uncurries ; Syn :**: (:>)" forall s f.
+   test s f = mkTest s (runEC s (uncurries (ccc f)))
  #-}
 #elif 1
 -- uncurries, then syntactic *and* circuit
 -- OOPS: Core Lint error
 test :: (GenBuses (UncDom a b), Uncurriable (->) a b) => String -> (a -> b) -> Test
 tst  :: (GenBuses (UncDom a b), Uncurriable (->) a b) => (a -> b) -> Test
-{-# RULES "uncurries ; Sexp :**: (:>)" forall s f.
+{-# RULES "uncurries ; Syn :**: (:>)" forall s f.
    test s f = mkTest s (runEC s (ccc (uncurries f)))
  #-}
 #elif 1

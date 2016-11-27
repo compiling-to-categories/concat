@@ -67,7 +67,7 @@ import Distribution.TestSuite
 import ConCat.Misc (Unop,Binop,(:*))
 import ConCat.AltCat
 import ConCat.Float
-import ConCat.Syntactic (Sexp,render)
+import ConCat.Syntactic (Syn,render)
 
 -- For FP & parallelism talk
 tests :: IO [Test]
@@ -91,7 +91,7 @@ tst :: (a -> b) -> Test
 -- (->), then syntactic
 test :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
-{-# RULES "test (->) then Sexp" forall s f.
+{-# RULES "test (->) then Syn" forall s f.
    test s f = mkTest s (putStrLn ('\n':render (ccc (ccc f))))
  #-}
 #else
