@@ -36,7 +36,7 @@
 {-# OPTIONS_GHC -dsuppress-idinfo -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
 -- {-# OPTIONS_GHC -dsuppress-type-applications -dsuppress-coercions #-}
@@ -180,9 +180,10 @@ tests = return
 
 --     , tst (\ (x :: Int) -> succ (succ x))
 
-  , tst ((\ (x,y) -> (y,x)) :: Unop (Bool :* Bool))
+--   , tst ((\ (x,y) -> (y,x)) :: Unop (Bool :* Bool))
+--   , tst ((,) :: Bool -> Int -> Bool :* Int)
 
---   , test "q0"  (\ x -> x :: Int)
+  , test "q0"  (\ x -> x :: Int)
 --   , test "q1"  (\ (_x :: Int) -> True)
 --   , test "q2"  (\ (x :: Int) -> negate (x + 1))
 --   , test "q3"  (\ (x :: Int) -> x > 0)
@@ -218,56 +219,56 @@ runEC s (ex :**: circ) = putStrLn ('\n':render ex) >> RC.run s [] circ
 -- Circuit interpretation
 test :: Okay a b => String -> (a -> b) -> Test
 tst  :: Okay a b => (a -> b) -> Test
-{-# RULES "test circuit" forall s f. test s f = mkTest s (go s f) #-}
-#elif 1
+{-# RULES "circuit" forall s f. test s f = mkTest s (go s f) #-}
+#elif 0
 -- Syntactic interpretation
 test :: String -> (a -> b) -> Test
 tst :: (a -> b) -> Test
-{-# RULES "test syntactic" forall s f.
+{-# RULES "syntactic" forall s f.
   test s f = mkTest s (putStrLn ('\n':render (ccc f))) #-}
 #elif 0
 -- (->), then syntactic
 -- With INLINE [3]: "Simplifier ticks exhausted"
 test :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
-{-# RULES "test (->) then Sexp" forall s f.
+{-# RULES "(->); Sexp" forall s f.
    test s f = mkTest s (putStrLn ('\n':render (ccc (ccc f))))
  #-}
 #elif 0
 -- Syntactic, then uncurries
 test :: Uncurriable Sexp a b => String -> (a -> b) -> Test
 tst :: Uncurriable Sexp a b => (a -> b) -> Test
-{-# RULES "test syntactic" forall s f.
+{-# RULES "syntactic; uncurries" forall s f.
   test s f = mkTest s (putStrLn ('\n':render (uncurries (ccc f)))) #-}
 #elif 0
 -- uncurries, then syntactic
 -- Fine with INLINE and NOINLINE
 test :: Uncurriable (->) a b => String -> (a -> b) -> Test
 tst  :: Uncurriable (->) a b => (a -> b) -> Test
-{-# RULES "test (->) then Sexp" forall s f.
+{-# RULES "uncurries; Sexp" forall s f.
    test s f = mkTest s (putStrLn ('\n':render (ccc (uncurries f))))
  #-}
 #elif 0
--- (->), then auto-uncurrying, then syntactic
+-- (->), then uncurries, then syntactic
 -- Some trouble with INLINE [3]
 test :: Uncurriable (->) a b => String -> (a -> b) -> Test
 tst  :: Uncurriable (->) a b => (a -> b) -> Test
-{-# RULES "test (->) then Sexp" forall s f.
+{-# RULES "(->); uncurries; Sexp" forall s f.
    test s f = mkTest s (putStrLn ('\n':render (ccc (uncurries (ccc f)))))
  #-}
-#elif 1
+#elif 0
 -- syntactic *and* circuit
 test :: GenBuses a => String -> (a -> b) -> Test
 tst  :: GenBuses a => (a -> b) -> Test
-{-# RULES "test (->) then Sexp" forall s f.
+{-# RULES "Sexp :**: (:>)" forall s f.
    test s f = mkTest s (runEC s (ccc f))
  #-}
 #elif 1
--- auto-uncurrying, then syntactic *and* circuit
+-- uncurries, then syntactic *and* circuit
 -- OOPS: Core Lint error
 test :: (GenBuses (UncDom a b), Uncurriable (->) a b) => String -> (a -> b) -> Test
 tst  :: (GenBuses (UncDom a b), Uncurriable (->) a b) => (a -> b) -> Test
-{-# RULES "test (->) then Sexp" forall s f.
+{-# RULES "uncurries ; Sexp :**: (:>)" forall s f.
    test s f = mkTest s (runEC s (ccc (uncurries f)))
  #-}
 #elif 1
@@ -275,15 +276,8 @@ tst  :: (GenBuses (UncDom a b), Uncurriable (->) a b) => (a -> b) -> Test
 -- OOPS: "Simplifier ticks exhausted"
 test :: Okay a b => String -> (a -> b) -> Test
 tst  :: Okay a b => (a -> b) -> Test
-{-# RULES "test (->) then (:>)" forall s f.
+{-# RULES "(->); (:>)" forall s f.
    test s f = mkTest s (go s (ccc f))
- #-}
-#elif 0
--- (->), then syntactic *and* circuit
-test :: Okay a b => String -> (a -> b) -> Test
-tst  :: Okay a b => (a -> b) -> Test
-{-# RULES "test AD" forall s f.
-   test s f = mkTest s (putStrLn ('\n':render (ccc (ccc f))) >> go s (ccc f))
  #-}
 #elif 0
 -- Derivative, then syntactic
