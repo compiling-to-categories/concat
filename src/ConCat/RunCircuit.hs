@@ -32,7 +32,7 @@ import Prelude
 
 import Control.Monad (when)
 
-import ConCat.Category (ccc,Uncurriable(..)) -- Ok,unitArrow
+import ConCat.AltCat (ccc,Uncurriable(..)) -- Ok,unitArrow
 import ConCat.Circuit (Attr,mkGraph,UU,writeDot,displayDot,unitize,(:>),GenBuses)
 
 -- import ConCat.Netlist (saveAsVerilog)
