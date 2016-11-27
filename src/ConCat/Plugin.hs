@@ -117,9 +117,12 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- Temp hack while testing nested ccc calls.
    -- go (etaReduceN -> Var v) = Doing("Wait for unfolding of " ++ fqVarName v)
    --                            Nothing
-   go (collectArgs -> (Var v,_)) | isJust (inlineMaybe v) =
+   go (collectArgs -> (Var v,_)) | waitForVar =
      Doing("Wait for unfolding of " ++ fqVarName v)
      Nothing
+    where
+      -- Expand later
+      waitForVar = fqVarName v /= "GHC.Tuple.(,)"
    go e = dtrace "go etaExpand to" (ppr (etaExpand 1 e)) $
           go (etaExpand 1 e)
           -- return $ mkCcc (etaExpand 1 e)
@@ -129,8 +132,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    goLam x body = case body of
      -- Trying("constant")
      Trying("Id")
-     Var y | x == y      -> Doing("Var")
-                            return (mkId cat xty)
+     Var y | x == y -> Doing("Id")
+                       return (mkId cat xty)
      Trying("constFun catFun")
      Var _ | isFunTy bty
            , Just e'  <- catFun body
@@ -224,10 +227,10 @@ ccc (CccEnv {..}) guts dflags inScope cat =
       bty = exprType body
       isConst = not (isFreeIn x body)
       isFun = isFunTy bty
-   Just catTc = tyConAppTyCon_maybe cat
    reCatCo :: Unop Coercion
-   reCatCo (TyConAppCo r tc args)
-     | tc == funTyCon = TyConAppCo r catTc args
+   -- reCatCo co | dtrace "reCatCo" (ppr co) False = undefined
+   reCatCo (splitAppCo_maybe -> Just (splitAppCo_maybe -> Just (_,a),b)) =
+     mkAppCos (mkRepReflCo cat) [a,b]
    reCatCo (co1 `TransCo` co2) = reCatCo co1 `TransCo` reCatCo co2
    reCatCo co = pprPanic "ccc reCatCo: unhandled form" (ppr co)
    unfoldMaybe :: ReExpr
@@ -262,6 +265,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- buildDict :: Type -> CoreExpr
    -- buildDict ty = noDictErr (ppr ty) (buildDictMaybe ty)
    catOp :: Cat -> Var -> [Type] -> CoreExpr
+   catOp k op tys | dtrace "catOp" (ppr (k,op,tys)) False = undefined
    catOp k op tys = onDict (Var op `mkTyApps` (k : tys))
    -- TODO: refactor catOp and catOpMaybe when the dust settles
    -- catOp :: Cat -> Var -> CoreExpr
