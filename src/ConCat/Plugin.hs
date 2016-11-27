@@ -95,15 +95,25 @@ ccc (CccEnv {..}) guts dflags inScope cat =
   go
  where
    go :: ReExpr
-   go e | dtrace "go ccc:" (ppr e) False = undefined
+   go e | dtrace ("go ccc "++pp cat++":") (ppr e) False = undefined
    go (Lam x body) = goLam x (etaReduceN body)
-   go (etaReduceN -> reCat -> Just e') = Just e'
-   go (unfoldMaybe -> Just e') = return (mkCcc e')
+   go (etaReduceN -> reCat -> Just e') =
+     Doing("reCat")
+     Just e'
+   go (unfoldMaybe -> Just e') =
+     Doing("unfold")
+     return (mkCcc e')
    go (Cast e co) =
      -- etaExpand turns cast lambdas into themselves
      Doing("reCatCo")
-     return (Cast (mkCcc e) (reCatCo co))
+     -- dtrace "reCatCo" (ppr co <+> text "-->" <+> ppr (reCatCo co)) $
+     -- I think GHC is undoing this transformation, so continue eagerly
+     -- return (Cast (mkCcc e) (reCatCo co))
      -- pprPanic "ccc" (text "Cast: not yet handled")
+     (`Cast` reCatCo co) <$> go e
+   -- Temp hack while testing nested ccc calls.
+   go (etaReduceN -> Var v) = Doing("Wait for unfolding of " ++ fqVarName v)
+                              Nothing
    -- go (collectArgs -> (Var v,_)) = Doing("Wait for unfolding of " ++ fqVarName v)
    --                                 Nothing
    go e = dtrace "go etaExpand to" (ppr (etaExpand 1 e)) $
@@ -133,13 +143,12 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      -- TODO: handle isConst and isFun via mkConstFun and ccc, but beware cycles.
      Trying("Category operation.")
      _ | isConst
-       , Just e'  <- transCatOp body
-       , Just e'' <- mkConstFun cat xty e'
+       , Just e'' <- mkConstFun cat xty =<< transCatOp body
        -> Doing("Category operation")
           return e''
      -- Take care not to break up a ccc call as if a regular App
      (collectArgs -> (Var ((== cccV) -> True),_)) ->
-       Doing("Postponing inner ccc")
+       Doing("Postponing ccc-of-ccc")
        Nothing
      Trying("App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
@@ -199,9 +208,10 @@ ccc (CccEnv {..}) guts dflags inScope cat =
       isFun = isFunTy bty
    Just catTc = tyConAppTyCon_maybe cat
    reCatCo :: Unop Coercion
-   reCatCo (TyConAppCo _r tc args)
-     | tc == funTyCon = TyConAppCo Nominal catTc args
-   reCatCo co =pprPanic "ccc reCatCo: unhandled form" (ppr co)
+   reCatCo (TyConAppCo r tc args)
+     | tc == funTyCon = TyConAppCo r catTc args
+   reCatCo (co1 `TransCo` co2) = reCatCo co1 `TransCo` reCatCo co2
+   reCatCo co = pprPanic "ccc reCatCo: unhandled form" (ppr co)
    unfoldMaybe :: ReExpr
    unfoldMaybe e | (Var v, _) <- collectArgsPred isTyCoDictArg e
                  , isNothing (catFun (Var v))
@@ -271,6 +281,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
       -- TODO: Replace splitAppTys uses by splitCatTy. Pass in k to confirm.
       (_,[a,b])  = splitAppTys (exprType z)
    mkFork :: Cat -> Binop CoreExpr
+   mkFork k f g | pprTrace "mkFork" (sep [ppr k, ppr f, ppr g]) False = undefined
    mkFork k f g =
      -- (&&&) :: forall {k :: * -> * -> *} {a} {c} {d}.
      --          (ProductCat k, Ok k d, Ok k c, Ok k a)
@@ -368,19 +379,23 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    transCatOp (collectArgs -> (Var v, Type _wasCat : rest))
      | True || dtrace "transCatOp v _wasCat rest" (text (fqVarName v) <+> ppr _wasCat <+> ppr rest) True
      , Just (nonCatArgs,catArgs) <- M.lookup (fqVarName v) catOpArities
-     -- , dtrace "transCatOp arity" (ppr arity) True
+     -- , dtrace "transCatOp arities" (ppr (nonCatArgs,catArgs)) True
      , length (filter (not . isTyCoDictArg) rest) == nonCatArgs + catArgs
      -- , dtrace "transCatOp" (text "arity match") True
      = let
-         addArg :: CoreExpr -> (Int,CoreExpr) -> CoreExpr
-         addArg e (i,arg) | isTyCoArg arg  = -- pprTrace "addArg isTyCoArg" (ppr arg)
-                                           e `App` arg
-                          | isPred    arg  = -- pprTrace "addArg isPred" (ppr arg)
-                                           onDict e
-                          | otherwise      = -- pprTrace "addArg otherwise" (ppr arg)
-                                           e `App` (if i < nonCatArgs then mkCcc else id) arg
+         -- Track how many regular (non-TyCo, non-pred) arguments we've seen
+         addArg :: (Int,CoreExpr) -> CoreExpr -> (Int,CoreExpr)
+         addArg (i,e) arg | isTyCoArg arg
+                          = -- dtrace "addArg isTyCoArg" (ppr arg)
+                            (i,e `App` arg)
+                          | isPred arg
+                          = -- dtrace "addArg isPred" (ppr arg)
+                            (i,onDict e)
+                          | otherwise
+                          = -- dtrace "addArg otherwise" (ppr (i,arg))
+                            (i+1,e `App` (if i < nonCatArgs then mkCcc else id) arg)
        in
-         Just (foldl addArg (Var v `App` Type cat) (zip [0 ..] rest))
+         Just (snd (foldl addArg (0,Var v `App` Type cat) rest))
    transCatOp _ = -- pprTrace "transCatOp" (text "fail") $
                   Nothing
 
@@ -481,7 +496,7 @@ install opts todos =
    mode = SimplMode { sm_names      = ["Ccc simplifier pass"]
                     , sm_phase      = InitialPhase
                     , sm_rules      = True  -- important
-                    , sm_inline     = False -- important
+                    , sm_inline     = True -- False -- important
                     , sm_eta_expand = False -- ??
                     , sm_case_case  = True  -- important
                     }
