@@ -140,6 +140,10 @@ instance OrdCat Sexp a where
   lessThanOrEqual = atom "lessThanOrEqual"
   greaterThanOrEqual = atom "greaterThanOrEqual"
 
+instance EnumCat Sexp a where
+  succC = atom "succC"
+  predC = atom "predC"
+
 instance NumCat Sexp a where
   negateC = atom "negateC"
   addC    = atom "addC"
@@ -155,6 +159,18 @@ instance FloatingCat Sexp a where
   expC = atom "expC"
   cosC = atom "cosC"
   sinC = atom "sinC"
+
+instance FromIntegralCat Sexp a b where
+  fromIntegralC = atom "fromIntegralC"
+
+instance BottomCat Sexp a where
+  bottomC = atom "bottomC"
+
+instance IfCat Sexp a where
+  ifC = atom "ifC"
+
+instance UnknownCat Sexp a b where
+  unknownC = atom "unknownC"
 
 instance RepCat Sexp where
   reprC = atom "reprC"
