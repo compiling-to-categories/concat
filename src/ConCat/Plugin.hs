@@ -20,7 +20,7 @@ import Control.Arrow (first)
 import Control.Applicative (liftA2,(<|>))
 import Control.Monad (unless,guard)
 import Data.Foldable (toList)
-import Data.Maybe (isNothing,fromMaybe,catMaybes)
+import Data.Maybe (isNothing,isJust,fromMaybe,catMaybes)
 import Data.List (isPrefixOf,isSuffixOf,elemIndex,sort)
 import Data.Char (toLower)
 import Data.Data (Data)
@@ -117,8 +117,9 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- Temp hack while testing nested ccc calls.
    -- go (etaReduceN -> Var v) = Doing("Wait for unfolding of " ++ fqVarName v)
    --                            Nothing
-   go (collectArgs -> (Var v,_)) = Doing("Wait for unfolding of " ++ fqVarName v)
-                                   Nothing
+   go (collectArgs -> (Var v,_)) | isJust (inlineMaybe v) =
+     Doing("Wait for unfolding of " ++ fqVarName v)
+     Nothing
    go e = dtrace "go etaExpand to" (ppr (etaExpand 1 e)) $
           go (etaExpand 1 e)
           -- return $ mkCcc (etaExpand 1 e)
@@ -154,10 +155,15 @@ ccc (CccEnv {..}) guts dflags inScope cat =
        Doing("Postponing ccc-of-ccc")
        Nothing
      Trying("Pair")
-     (collectArgs -> (Var (fqVarName -> "GHC.Tuple.(,)"),[Type _, Type _, u, v]))
-       -> Doing("Pair")
+     (collectArgs -> (Var (fqVarName -> "GHC.Tuple.(,)"),(Type _ : Type _ : rest)))
+       | dtrace "Pair" (ppr rest) False -> undefined
+       | [u,v] <- rest ->
+          Doing("Pair")
           -- dtrace "Pair test" (ppr (u,v)) $
           return (mkFork cat (mkCcc (Lam x u)) (mkCcc (Lam x v)))
+       | otherwise ->
+          Doing("Pair eta-expand")
+          goLam x (etaExpand (2 - length rest) body)
      Trying("App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
      u `App` v | liftedExpr v ->
