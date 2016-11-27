@@ -105,7 +105,9 @@ infixl 1 <+
 
 -- | Wrapper
 (<+) :: Con a => (Con b => r) -> (a |- b) -> r
-f <+ Entail e = f \\ e
+r <+ Entail (Sub Dict) = r
+-- f <+ Entail e = f \\ e
+{-# INLINE (<+) #-}
 
 infixr 3 &&
 -- (&&) = Prod (|-)
@@ -1066,7 +1068,7 @@ instance (ProductCat k, ProductCat k') => ProductCat (k :**: k') where
   exr = exr :**: exr
   (f :**: f') &&& (g :**: g') = (f &&& g) :**: (f' &&& g')
   (f :**: f') *** (g :**: g') = (f *** g) :**: (f' *** g')
-  dup = dup :**: dup
+  dup   = dup   :**: dup
   swapP = swapP :**: swapP
   first (f :**: f') = first f :**: first f'
   second (f :**: f') = second f :**: second f'
@@ -1171,35 +1173,3 @@ class (Category k, Category k'{-, OkTarget f k k'-})
 ccc :: forall k a b. (a -> b) -> (a `k` b)
 ccc _ = error "ccc: not implemented"
 {-# NOINLINE ccc #-}
-
-
-{--------------------------------------------------------------------
-    Uncurrying --- maybe move elsewhere
---------------------------------------------------------------------}
-
--- Note: I'm not using yet. I think it needs to go before ccc.
--- Alternatively, generalize from (->) to ClosedCat.
-
--- | Repeatedly uncurried version of a -> b
-class Uncurriable k a b where
-  type UncDom a b
-  type UncRan a b
-  type UncDom a b = a
-  type UncRan a b = b
-  uncurries :: (a `k` b) -> (UncDom a b `k` UncRan a b)
-  default uncurries :: (a `k` b) -> (a `k` b)
-  uncurries = id
-
-instance (ClosedCat k, Uncurriable k (a :* b) c, Ok3 k a b c)
-      => Uncurriable k a (b -> c) where
-  type UncDom a (b -> c) = UncDom (a :* b) c
-  type UncRan a (b -> c) = UncRan (a :* b) c
-  uncurries = uncurries . uncurry
-
-instance Uncurriable k a ()
-instance Uncurriable k a Bool
-instance Uncurriable k a Int
-instance Uncurriable k a Float
-instance Uncurriable k a Double
-instance Uncurriable k a (c :* d)
-instance Uncurriable k a (c :+ d)
