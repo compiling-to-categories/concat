@@ -1,5 +1,7 @@
 -- -*- flycheck-disabled-checkers: '(haskell-ghc haskell-stack-ghc); -*-
 
+-- stack build :basic
+
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE TypeApplications    #-}
@@ -30,20 +32,22 @@
 ----------------------------------------------------------------------
 
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin -fexpose-all-unfoldings #-}
+{-# OPTIONS_GHC -dcore-lint #-}
 {-# OPTIONS_GHC -dsuppress-idinfo -dsuppress-uniques #-}
+{-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
--- {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
-
--- {-# OPTIONS_GHC -dcore-lint #-}
+{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
 -- {-# OPTIONS_GHC -dsuppress-type-applications -dsuppress-coercions #-}
 
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
-
 -- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
+
+-- {-# OPTIONS_GHC -dverbose-core2core #-}
+
+{-# OPTIONS_GHC -fsimpl-tick-factor=300 #-} -- default 100
 
 -- When I list the plugin in the test suite's .cabal target instead of here, I get
 --
@@ -53,19 +57,20 @@
 
 module Basic (tests) where
 
-import Prelude hiding (Float,Double,id,(.),const)
+import Prelude hiding (Float,Double)   -- ,id,(.),const
 
 import Data.Tuple (swap)
 import Distribution.TestSuite
 
 import ConCat.Misc (Unop,Binop,(:*))
-import ConCat.Category (ccc,Uncurriable(..))
 import ConCat.Float
 import ConCat.Syntactic (Sexp,render)
+import ConCat.Circuit (GenBuses)
+import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay,(:>))
 import ConCat.ADFun (D,unD)
 
-import ConCat.AltCat -- experiment
+import ConCat.AltCat (ccc,Uncurriable(..),(:**:)(..))
 
 -- -- Experiment: try to force loading of Num Float etc
 -- class Num a => Quuz a
@@ -78,15 +83,18 @@ tests = return
   [ nopTest
 
 --   , tst (id :: Unop Bool)
+
 --   , tst ((\ x -> x) :: Unop Bool)
 
 --   , tst (fst @Bool @Int)
+
+--   , tst (C.exl :: Int :* Bool -> Int)
 
 --   , tst not
 
 --   , tst ((+) :: Binop Int)
 
-  , tst ((+) 3 :: Unop Int)
+--   , tst ((+) 3 :: Unop Int)
 
 --   , tst ((+) 3 :: Unop Float)
 
@@ -162,6 +170,18 @@ tests = return
 --   , test "succ" (\ x -> succ x :: Int)
 --   , test "pred" (pred :: Unop Int)
 
+--   , tst (id :: Unop Bool)
+
+--   , tst (\ (x :: Int) -> succ (succ x))
+
+--   , tst ((.) :: Binop (Unop Bool))
+
+--     , tst (succ . succ :: Unop Int)
+
+--     , tst (\ (x :: Int) -> succ (succ x))
+
+  , tst ((\ (x,y) -> (y,x)) :: Unop (Bool :* Bool))
+
 --   , test "q0"  (\ x -> x :: Int)
 --   , test "q1"  (\ (_x :: Int) -> True)
 --   , test "q2"  (\ (x :: Int) -> negate (x + 1))
@@ -189,18 +209,84 @@ tests = return
     Testing utilities
 --------------------------------------------------------------------}
 
-#if 1
+type EC = Sexp :**: (:>)
+
+runEC :: GenBuses a => String -> EC a b -> IO ()
+runEC s (ex :**: circ) = putStrLn ('\n':render ex) >> RC.run s [] circ
+
+#if 0
 -- Circuit interpretation
 test :: Okay a b => String -> (a -> b) -> Test
 tst  :: Okay a b => (a -> b) -> Test
 {-# RULES "test circuit" forall s f. test s f = mkTest s (go s f) #-}
 #elif 1
 -- Syntactic interpretation
-test :: Uncurriable Sexp a b => String -> (a -> b) -> Test
-tst :: Uncurriable Sexp a b => (a -> b) -> Test
+test :: String -> (a -> b) -> Test
+tst :: (a -> b) -> Test
 {-# RULES "test syntactic" forall s f.
   test s f = mkTest s (putStrLn ('\n':render (ccc f))) #-}
 #elif 0
+-- (->), then syntactic
+-- With INLINE [3]: "Simplifier ticks exhausted"
+test :: String -> (a -> b) -> Test
+tst  :: (a -> b) -> Test
+{-# RULES "test (->) then Sexp" forall s f.
+   test s f = mkTest s (putStrLn ('\n':render (ccc (ccc f))))
+ #-}
+#elif 0
+-- Syntactic, then uncurries
+test :: Uncurriable Sexp a b => String -> (a -> b) -> Test
+tst :: Uncurriable Sexp a b => (a -> b) -> Test
+{-# RULES "test syntactic" forall s f.
+  test s f = mkTest s (putStrLn ('\n':render (uncurries (ccc f)))) #-}
+#elif 0
+-- uncurries, then syntactic
+-- Fine with INLINE and NOINLINE
+test :: Uncurriable (->) a b => String -> (a -> b) -> Test
+tst  :: Uncurriable (->) a b => (a -> b) -> Test
+{-# RULES "test (->) then Sexp" forall s f.
+   test s f = mkTest s (putStrLn ('\n':render (ccc (uncurries f))))
+ #-}
+#elif 0
+-- (->), then auto-uncurrying, then syntactic
+-- Some trouble with INLINE [3]
+test :: Uncurriable (->) a b => String -> (a -> b) -> Test
+tst  :: Uncurriable (->) a b => (a -> b) -> Test
+{-# RULES "test (->) then Sexp" forall s f.
+   test s f = mkTest s (putStrLn ('\n':render (ccc (uncurries (ccc f)))))
+ #-}
+#elif 1
+-- syntactic *and* circuit
+test :: GenBuses a => String -> (a -> b) -> Test
+tst  :: GenBuses a => (a -> b) -> Test
+{-# RULES "test (->) then Sexp" forall s f.
+   test s f = mkTest s (runEC s (ccc f))
+ #-}
+#elif 1
+-- auto-uncurrying, then syntactic *and* circuit
+-- OOPS: Core Lint error
+test :: (GenBuses (UncDom a b), Uncurriable (->) a b) => String -> (a -> b) -> Test
+tst  :: (GenBuses (UncDom a b), Uncurriable (->) a b) => (a -> b) -> Test
+{-# RULES "test (->) then Sexp" forall s f.
+   test s f = mkTest s (runEC s (ccc (uncurries f)))
+ #-}
+#elif 1
+-- (->), then circuit
+-- OOPS: "Simplifier ticks exhausted"
+test :: Okay a b => String -> (a -> b) -> Test
+tst  :: Okay a b => (a -> b) -> Test
+{-# RULES "test (->) then (:>)" forall s f.
+   test s f = mkTest s (go s (ccc f))
+ #-}
+#elif 0
+-- (->), then syntactic *and* circuit
+test :: Okay a b => String -> (a -> b) -> Test
+tst  :: Okay a b => (a -> b) -> Test
+{-# RULES "test AD" forall s f.
+   test s f = mkTest s (putStrLn ('\n':render (ccc (ccc f))) >> go s (ccc f))
+ #-}
+#elif 0
+-- Derivative, then syntactic
 test :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "test AD" forall s (f :: a -> b).
@@ -208,11 +294,7 @@ tst  :: (a -> b) -> Test
    test s f = mkTest s (doodleD (ccc f))
  #-}
 #else
-test :: String -> (a -> b) -> Test
-tst  :: (a -> b) -> Test
-{-# RULES "test AD" forall s (f :: a -> b).
-   test s f = mkTest s (putStrLn (render (ccc (ccc f :: a -> b))))
- #-}
+NOTHING
 #endif
 test _ = error "test called"
 tst  _ = error "tst called"
@@ -222,10 +304,6 @@ tst  _ = error "tst called"
 
 -- {-# RULES "tst" forall f. tst f = test "test" f #-}
 {-# RULES "tst" tst = test "test" #-}
-
-doodleD :: D a b -> IO ()
-doodleD _ = return ()
-{-# NOINLINE doodleD #-}
 
 mkTest :: String -> IO () -> Test
 mkTest nm doit = Test inst
