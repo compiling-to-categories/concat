@@ -63,12 +63,16 @@ data CccEnv = CccEnv { dtrace    :: forall a. String -> SDoc -> a -> a
                      , exlV      :: Id
                      , exrV      :: Id
                      , constFunV :: Id
-                     , ops       :: OpsMap
+                     , polyOps   :: PolyOpsMap
+                     , monoOps   :: MonoOpsMap
                      , hsc_env   :: HscEnv
                      }
 
 -- Map from fully qualified name of standard operation.
-type OpsMap = Map String (Var,[Type])
+type MonoOpsMap = Map String (Var,[Type])
+
+-- Map from fully qualified name of standard operation.
+type PolyOpsMap = Map String Var
 
 -- Whether to run Core Lint after every step
 lintSteps :: Bool
@@ -97,20 +101,25 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    go :: ReExpr
    go e | dtrace ("go ccc "++pp cat++":") (ppr e) False = undefined
    go (Lam x body) = goLam x (etaReduceN body)
+   -- ccc-of-case. Maybe restrict to isTyCoDictArg for all bound variables, but
+   -- perhaps I don't need to.
+   go (Case scrut wild rhsTy alts) =
+     Doing("ccc Case")
+     return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
    go (Let (NonRec v rhs) body) | incompleteCatOp rhs =
      Doing("Let substitution")
      go (subst1 v rhs body)
    go (etaReduceN -> reCat -> Just e') =
      Doing("reCat")
      Just e'
-   go (Cast e co) =
+   go (Cast e co) | Just co' <- reCatCo co =
      -- etaExpand turns cast lambdas into themselves
      Doing("reCatCo")
      -- dtrace "reCatCo" (ppr co <+> text "-->" <+> ppr (reCatCo co)) $
      -- I think GHC is undoing this transformation, so continue eagerly
      -- return (Cast (mkCcc e) (reCatCo co))
      -- pprPanic "ccc" (text "Cast: not yet handled")
-     (`Cast` reCatCo co) <$> go e
+     (`Cast` co') <$> go e
    -- Temp hack while testing nested ccc calls.
    -- go (etaReduceN -> Var v) = Doing("Wait for unfolding of " ++ fqVarName v)
    --                            Nothing
@@ -122,12 +131,13 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      Nothing
     where
       -- Expand later
-      waitForVar = fqVarName v /= "GHC.Tuple.(,)"
+      waitForVar = not (isPairVar v)
+                   -- fqVarName v /= "GHC.Tuple.(,)"
    go e = dtrace "go etaExpand to" (ppr (etaExpand 1 e)) $
           go (etaExpand 1 e)
           -- return $ mkCcc (etaExpand 1 e)
    -- TODO: If I don't etaReduceN, merge goLam back into the go Lam case.
-   -- goLam x body | dtrace "go ccc:" (ppr (Lam x body)) False = undefined
+   goLam x body | dtrace "goLam:" (ppr (Lam x body)) False = undefined
    -- go _ = Nothing
    goLam x body = case body of
      -- Trying("constant")
@@ -158,15 +168,19 @@ ccc (CccEnv {..}) guts dflags inScope cat =
        Doing("Postponing ccc-of-ccc")
        Nothing
      Trying("Pair")
-     (collectArgs -> (Var (fqVarName -> "GHC.Tuple.(,)"),(Type _ : Type _ : rest)))
-       | dtrace "Pair" (ppr rest) False -> undefined
-       | [u,v] <- rest ->
-          Doing("Pair")
-          -- dtrace "Pair test" (ppr (u,v)) $
-          return (mkFork cat (mkCcc (Lam x u)) (mkCcc (Lam x v)))
-       | otherwise ->
-          Doing("Pair eta-expand")
-          goLam x (etaExpand (2 - length rest) body)
+     (collectArgs -> (PairVar,(Type a : Type b : rest))) ->
+       -- | dtrace "Pair" (ppr rest) False -> undefined
+       case rest of
+         []    -> -- (,) == curry id
+                  -- Do we still need this case, or is it handled by catFun?
+                  Doing("Plain (,)")
+                  return (mkCurry cat (mkId cat (pairTy a b)))
+         [_]   -> Doing("Pair eta-expand")
+                  goLam x (etaExpand 1 body)
+         [u,v] -> Doing("Pair")
+                  -- dtrace "Pair test" (ppr (u,v)) $
+                  return (mkFork cat (mkCcc (Lam x u)) (mkCcc (Lam x v)))
+         _     -> pprPanic "goLam Pair: too many arguments: " (ppr rest)
      Trying("App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
      u `App` v | liftedExpr v ->
@@ -188,7 +202,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
          Doing("Let substitution")
          goLam x (subst1 v rhs body')
        else
-         Doing("Let")
+         Doing("Let to beta redex")
          -- Convert back to beta-redex. goLam, so GHC can't re-let.
          goLam x (Lam v body' `App` rhs)
      Trying("Lam")
@@ -227,16 +241,21 @@ ccc (CccEnv {..}) guts dflags inScope cat =
       bty = exprType body
       isConst = not (isFreeIn x body)
       isFun = isFunTy bty
-   reCatCo :: Unop Coercion
+   -- Change categories
+   catTy :: Unop Type
+   catTy (tyArgs2 -> (a,b)) = mkAppTys cat [a,b]
+   reCatCo :: Rewrite Coercion
    -- reCatCo co | dtrace "reCatCo" (ppr co) False = undefined
    reCatCo (splitAppCo_maybe -> Just (splitAppCo_maybe -> Just (_,a),b)) =
-     mkAppCos (mkRepReflCo cat) [a,b]
-   reCatCo (co1 `TransCo` co2) = reCatCo co1 `TransCo` reCatCo co2
-   reCatCo co = pprPanic "ccc reCatCo: unhandled form" (ppr co)
+     Just (mkAppCos (mkRepReflCo cat) [a,b])
+   reCatCo (co1 `TransCo` co2) = TransCo <$> reCatCo co1 <*> reCatCo co2
+   reCatCo co = dtrace "ccc reCatCo: unhandled coercion" (ppr co) $
+                Nothing
    unfoldMaybe :: ReExpr
    unfoldMaybe e | (Var v, _) <- collectArgsPred isTyCoDictArg e
                  , isNothing (catFun (Var v))
-                 = onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe) e
+                 = -- dtrace "unfoldMaybe" (text (fqVarName v)) $
+                   onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe) e
                  | otherwise = Nothing
    -- unfoldMaybe = -- traceRewrite "unfoldMaybe" $
    --               onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe)
@@ -251,7 +270,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    noDictErr :: SDoc -> Maybe a -> a
    noDictErr doc =
      fromMaybe (pprPanic "ccc - couldn't build dictionary for" doc)
-   onDictMaybe :: CoreExpr -> Maybe CoreExpr
+   onDictMaybe :: ReExpr
    onDictMaybe e | Just (ty,_) <- splitFunTy_maybe (exprType e)
                  , isPredTy ty =
                      App e <$> buildDictMaybe ty
@@ -391,16 +410,20 @@ ccc (CccEnv {..}) guts dflags inScope cat =
               (oops "Lint")
           (lintExpr dflags (varSetElems (exprFreeVars before)) before)
    catFun :: ReExpr
-   catFun (Var v) =
-     -- pprTrace "catFun" (text fullName <+> dcolon <+> ppr ty) $
-     do (op,tys) <- M.lookup fullName ops
-        -- Apply to types and dictionaries, and possibly curry.
-        return $ (if twoArgs ty then mkCurry cat else id) (catOp cat op tys)
+   catFun (Var v) | True || dtrace "catFun" (text fullName <+> dcolon <+> ppr ty) True
+                  , Just (op,tys) <- M.lookup fullName monoOps =
+     -- Apply to types and dictionaries, and possibly curry.
+     return $ (if twoArgs ty then mkCurry cat else id) (catOp cat op tys)
     where
       ty = varType v
       fullName = fqVarName v
       twoArgs (tyArgs2_maybe -> Just (_,tyArgs2_maybe -> Just _)) = True
       twoArgs _ = False
+   catFun (collectTyArgs -> (Var v, tys))
+     | True || dtrace "catFun poly" (text (fqVarName v) <+> dcolon <+> ppr (varType v)) True
+     , Just op <- M.lookup (fqVarName v) polyOps
+     = -- dtrace "catFun poly" (ppr (v,tys,op) <+> text "-->" <+> ppr (onDictMaybe (catOp cat op tys))) $
+       return (onDict (catOp cat op tys))
    catFun _ = Nothing
    reCat :: ReExpr
    reCat = transCatOp <+ catFun
@@ -563,111 +586,111 @@ mkCccEnv opts = do
       findTc      = lookupTh mkTcOcc   lookupTyCon
       findFloatTy = fmap mkTyConTy . findTc floatModule
       findCatId   = findId catModule
-      -- findMiscId  = findId "ConCat.Misc"
-      -- findTupleId = findId "Data.Tuple"
-      -- findRepTc   = findTc "ConCat.Rep"
-      -- findBaseId  = findId "GHC.Base"
-      -- findCatTc   = findTc catModule
-  -- ruleBase <- getRuleBase
-  -- catTc       <- findCatTc "Category"
-  -- prodTc      <- findCatTc "ProductCat"
-  -- closedTc    <- findCatTc "ClosedCat"
-  -- constTc     <- findCatTc "ConstCat"
-  -- okTc        <- findCatTc "Ok"
-  -- dtrace "mkCccEnv: getRuleBase ==" (ppr ruleBase) (return ())
-  -- idV      <- findMiscId  "ident"
   idV         <- findCatId  "id"
   constV      <- findCatId  "const"
-  -- constV      <- findMiscId  "konst"
-  -- composeV <- findMiscId  "comp"
   composeV    <- findCatId  "."
---   exlV        <- findTupleId "fst"
---   exrV        <- findTupleId "snd"
---   forkV       <- findMiscId  "fork"
-  exlV        <- findCatId "exl"  -- Experiment: NOINLINE version
+  exlV        <- findCatId "exl"
   exrV        <- findCatId "exr"
   forkV       <- findCatId "&&&"
   applyV      <- findCatId "apply"
   curryV      <- findCatId "curry"
---   uncurryV    <- findCatId "uncurry"
   constFunV   <- findCatId "constFun"
-  -- notV <- findCatId "notC"
   cccV        <- findCatId  "ccc"
   floatT      <- findFloatTy "Float"
   doubleT     <- findFloatTy "Double"
-  let mkOp :: (String,(String,String,[Type])) -> CoreM (String,(Var,[Type]))
-      mkOp (stdName,(cmod,cop,tyArgs)) =
+  let mkPolyOp :: (String,(String,String)) -> CoreM (String,Var)
+      mkPolyOp (stdName,(cmod,cop)) =
+        do cv <- findId cmod cop
+           return (stdName, cv)
+  polyOps <- M.fromList <$> mapM mkPolyOp polyInfo
+  let mkMonoOp :: (String,(String,String,[Type])) -> CoreM (String,(Var,[Type]))
+      mkMonoOp (stdName,(cmod,cop,tyArgs)) =
         do cv <- findId cmod cop
            return (stdName, (cv,tyArgs))
-  ops <- M.fromList <$> mapM mkOp (opsInfo (floatT,doubleT))
-  -- liftIO (print (opsInfo (floatT,doubleT)))
-  -- Experiment: force loading of numeric instances for Float and Double.
-  -- Doesn't help.
-  -- floatTc <- findTc "GHC.Float" "Float"
-  -- liftIO (forceLoadNameModuleInterface hsc_env (text "mkCccEnv")
-  --          (getName floatTc))
-  -- fiddleV <- findMiscId "fiddle"
-  -- rationalToFloatV <- findId "GHC.Float" "rationalToFloat"  -- experiment
+  monoOps <- M.fromList <$> mapM mkMonoOp (monoInfo (floatT,doubleT))
   return (CccEnv { .. })
 
--- Association list 
-opsInfo :: (Type,Type) -> [(String,(String,String,[Type]))]
-opsInfo fd = [ (hop,(catModule,cop,tyArgs))
-             | (cop,ps) <- monoInfo fd
-             , (hop,tyArgs) <- ps
-             ]
+-- TODO: perhaps consolidate poly & mono.
 
-monoInfo :: (Type,Type) -> [(String, [([Char], [Type])])]
+-- Polymorphic operations. Assoc list from the fully qualified standard Haskell
+-- operation name to
+-- * module name for categorical counterpart (always catModule now)
+-- * categorical operation name
+polyInfo :: [(String,(String,String))]
+polyInfo = [(hmod++"."++hop,(catModule,cop)) | (hmod,ops) <- info, (hop,cop) <- ops]
+ where
+   -- Haskell module, Cat Haskell/Cat op names
+   info :: [(String,[(String,String)])]
+   info = [ ("GHC.Base"  ,[tw "id",tw "."])
+          , ("GHC.Tuple", [("(,)","pair")])
+          , ("Data.Tuple",[("fst","exl"),("snd","exr"),tw "curry", tw "uncurry"])
+          ]
+   tw x = (x,x)
+
+-- Monomorphic operations. Given newtype-wrapped (Float,Double), yield an assoc
+-- list from the fully qualified standard Haskell operation name to
+-- * module name for categorical counterpart (always catModule now)
+-- * categorical operation name
+-- * type arguments to cat op
+monoInfo :: (Type,Type) -> [(String,(String,String,[Type]))]
 monoInfo (floatT,doubleT) =
-  [ ("notC",boolOp "not"), ("andC",boolOp "&&"), ("orC",boolOp "||")
-  , ("equal", eqOp "==" <$> ifd) 
-  , ("notEqual", eqOp "/=" <$> ifd) 
-  , ("lessThan", compOps "lt" "<")
-  , ("greaterThan", compOps "gt" ">")
-  , ("lessThanOrEqual", compOps "le" "<=")
-  , ("greaterThanOrEqual", compOps "ge" ">=")
-  , ("negateC",numOps "negate"), ("addC",numOps "+")
-  , ("subC",numOps "-"), ("mulC",numOps "*")
-    -- powIC
-  , ("recipC", fracOp "recip" <$> fd)
-  , ("divideC", fracOp "/" <$> fd)
-  , ("expC", floatingOp "exp" <$> fd)
-  , ("cosC", floatingOp "cos" <$> fd)
-  , ("sinC", floatingOp "sin" <$> fd)
-  --
-  , ("succC",[("GHC.Enum.$fEnumInt_$csucc",[intTy])])
-  , ("predC",[("GHC.Enum.$fEnumInt_$cpred",[intTy])])
+  [ (hop,(catModule,cop,tyArgs))
+  | (cop,ps) <- info
+  , (hop,tyArgs) <- ps
   ]
  where
-   ifd = intTy : fd
-   fd = [floatT,doubleT]
-   boolOp op = [("GHC.Classes."++op,[])]
-   -- eqOp ty = ("GHC.Classes.eq"++pp ty,[ty])
-   eqOp op ty = ("GHC.Classes."++clsOp,[ty])
+   -- (cat-name, [(std-name,cat-type-args)]
+   info :: [(String, [(String, [Type])])]
+   info =
+     [ ("notC",boolOp "not"), ("andC",boolOp "&&"), ("orC",boolOp "||")
+     , ("equal", eqOp "==" <$> ifd) 
+     , ("notEqual", eqOp "/=" <$> ifd) 
+     , ("lessThan", compOps "lt" "<")
+     , ("greaterThan", compOps "gt" ">")
+     , ("lessThanOrEqual", compOps "le" "<=")
+     , ("greaterThanOrEqual", compOps "ge" ">=")
+     , ("negateC",numOps "negate"), ("addC",numOps "+")
+     , ("subC",numOps "-"), ("mulC",numOps "*")
+       -- powIC
+     , ("recipC", fracOp "recip" <$> fd)
+     , ("divideC", fracOp "/" <$> fd)
+     , ("expC", floatingOp "exp" <$> fd)
+     , ("cosC", floatingOp "cos" <$> fd)
+     , ("sinC", floatingOp "sin" <$> fd)
+     --
+     , ("succC",[("GHC.Enum.$fEnumInt_$csucc",[intTy])])
+     , ("predC",[("GHC.Enum.$fEnumInt_$cpred",[intTy])])
+     ]
     where
-      tyName = pp ty
-      clsOp =
-        case (op,ty) of
-          ("==",_) -> "eq"++tyName
-          ("/=",isIntTy -> True) -> "ne"++tyName
-          _ -> "$fEq"++tyName++"_$c"++op
-   compOps opI opFD = compOp <$> ifd
-    where
-      compOp ty = ("GHC.Classes."++clsOp,[ty])
+      ifd = intTy : fd
+      fd = [floatT,doubleT]
+      boolOp op = [("GHC.Classes."++op,[])]
+      -- eqOp ty = ("GHC.Classes.eq"++pp ty,[ty])
+      eqOp op ty = ("GHC.Classes."++clsOp,[ty])
        where
-         clsOp | isIntTy ty = opI ++ tyName
-               | otherwise  = "$fOrd" ++ tyName ++ "_$c" ++ opFD
          tyName = pp ty
-   numOps op = numOp <$> ifd
-    where
-      numOp ty = (modu++".$fNum"++tyName++"_$c"++op,[ty])
+         clsOp =
+           case (op,ty) of
+             ("==",_) -> "eq"++tyName
+             ("/=",isIntTy -> True) -> "ne"++tyName
+             _ -> "$fEq"++tyName++"_$c"++op
+      compOps opI opFD = compOp <$> ifd
        where
-         tyName = pp ty
-         modu | isIntTy ty = "GHC.Num"
-              | otherwise  = floatModule
-   fdOp cls op ty = (floatModule++".$f"++cls++pp ty++"_$c"++op,[ty])
-   fracOp = fdOp "Fractional"
-   floatingOp = fdOp "Floating"
+         compOp ty = ("GHC.Classes."++clsOp,[ty])
+          where
+            clsOp | isIntTy ty = opI ++ tyName
+                  | otherwise  = "$fOrd" ++ tyName ++ "_$c" ++ opFD
+            tyName = pp ty
+      numOps op = numOp <$> ifd
+       where
+         numOp ty = (modu++".$fNum"++tyName++"_$c"++op,[ty])
+          where
+            tyName = pp ty
+            modu | isIntTy ty = "GHC.Num"
+                 | otherwise  = floatModule
+      fdOp cls op ty = (floatModule++".$f"++cls++pp ty++"_$c"++op,[ty])
+      fracOp = fdOp "Fractional"
+      floatingOp = fdOp "Floating"
 
 floatModule :: String
 floatModule = "ConCat.Float" -- "GHC.Float"
@@ -897,3 +920,10 @@ liftedExpr e = not (isTyCoDictArg e) && liftedType (exprType e)
 liftedType :: Type -> Bool
 liftedType = isLiftedTypeKind . typeKind
 
+pattern PairVar :: CoreExpr
+pattern PairVar <- Var (isPairVar -> True)
+                   -- Var PairVarName
+                   -- Var (fqVarName -> "GHC.Tuple.(,)")
+
+isPairVar :: Var -> Bool
+isPairVar = (== "GHC.Tuple.(,)") . fqVarName
