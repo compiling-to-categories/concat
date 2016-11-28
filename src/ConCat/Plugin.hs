@@ -77,9 +77,9 @@ lintSteps = True -- False
 type Rewrite a = a -> Maybe a
 type ReExpr = Rewrite CoreExpr
 
-#define Trying(str) e | dtrace ("Trying " ++ (str)) (e `seq` empty) False -> undefined
+-- #define Trying(str) e | dtrace ("Trying " ++ (str)) (e `seq` empty) False -> undefined
 
--- #define Trying(str)
+#define Trying(str)
 
 #define Doing(str) dtrace "Doing" (text (str)) id $
 
@@ -103,9 +103,6 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    go (etaReduceN -> reCat -> Just e') =
      Doing("reCat")
      Just e'
-   go (unfoldMaybe -> Just e') =
-     Doing("unfold")
-     return (mkCcc e')
    go (Cast e co) =
      -- etaExpand turns cast lambdas into themselves
      Doing("reCatCo")
@@ -117,6 +114,9 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- Temp hack while testing nested ccc calls.
    -- go (etaReduceN -> Var v) = Doing("Wait for unfolding of " ++ fqVarName v)
    --                            Nothing
+   go (unfoldMaybe -> Just e') =
+     Doing("unfold")
+     return (mkCcc e')
    go (collectArgs -> (Var v,_)) | waitForVar =
      Doing("Wait for unfolding of " ++ fqVarName v)
      Nothing
@@ -265,7 +265,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- buildDict :: Type -> CoreExpr
    -- buildDict ty = noDictErr (ppr ty) (buildDictMaybe ty)
    catOp :: Cat -> Var -> [Type] -> CoreExpr
-   catOp k op tys | dtrace "catOp" (ppr (k,op,tys)) False = undefined
+   -- catOp k op tys | dtrace "catOp" (ppr (k,op,tys)) False = undefined
    catOp k op tys = onDict (Var op `mkTyApps` (k : tys))
    -- TODO: refactor catOp and catOpMaybe when the dust settles
    -- catOp :: Cat -> Var -> CoreExpr
@@ -538,7 +538,7 @@ install opts todos =
    mode = SimplMode { sm_names      = ["Ccc simplifier pass"]
                     , sm_phase      = InitialPhase
                     , sm_rules      = True  -- important
-                    , sm_inline     = True -- False -- important
+                    , sm_inline     = True -- False -- ??
                     , sm_eta_expand = False -- ??
                     , sm_case_case  = True  -- important
                     }
