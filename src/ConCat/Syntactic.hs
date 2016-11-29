@@ -16,7 +16,7 @@ import Control.Newtype
 import Text.PrettyPrint.HughesPJ hiding (render)
 
 import ConCat.Category
-import ConCat.Misc (inNew,inNew2,Binop)
+import ConCat.Misc (inNew,inNew2,Unop,Binop)
 
 {--------------------------------------------------------------------
     Untyped S-expression
@@ -27,10 +27,10 @@ data SynU = SynU String [SynU] deriving Show
 atomu :: String -> SynU
 atomu s = SynU s []
 
-app1u :: String -> SynU -> SynU
+app1u :: String -> Unop SynU
 app1u s p = SynU s [p]
 
-app2u :: String -> SynU -> SynU -> SynU
+app2u :: String -> Binop SynU
 app2u s p q = SynU s [p,q]
 
 -- TODO: use the Pretty class from Text.PrettyPrint.HughesPJClass
@@ -85,6 +85,10 @@ pretty = prettyu . unpack
 
 render :: Syn a b -> String
 render = renderu . unpack
+{-# NOINLINE render #-}
+
+-- NOINLINE here avoids the empty-case problem that was plaguing me.
+-- Perhaps a strictness-based optimization forced my ccc definition.
 
 instance Category Syn where
   id  = atom "id"
