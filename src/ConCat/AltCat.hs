@@ -53,6 +53,16 @@ import ConCat.Rep
 import ConCat.Misc ((:*),(:+))
 import ConCat.Float
 
+-- | Dummy identity function set up to trigger rewriting of non-inlining
+-- operations to inling operations.
+reveal :: a -> a
+-- reveal f = f
+-- reveal f = reveal f
+-- {-# INLINE [0] reveal #-}
+reveal _f = error "reveal called"
+{-# NOINLINE reveal #-}
+{-# RULES "reveal = id" [0] reveal = id #-}
+
 #define OPINLINE INLINE [3]
 -- #define OPINLINE INLINE CONLIKE [3]
 -- #define OPINLINE NOINLINE
@@ -63,96 +73,117 @@ nm :: ty; \
 nm = C.nm ;\
 {-# OPINLINE nm #-}
 
+#define OpRule0(nm) {-# RULES "reveal op0" reveal nm = C.nm #-}
+
+#define Op0(nm,ty) Op(nm,ty); OpRule0(nm)
+
+#define Op1(nm,ty) \
+Op(nm,ty) ; \
+{-# RULES "reveal op1" forall a1. reveal (nm a1) = C.nm (reveal a1) #-}
+
+#define Op2(nm,ty) \
+Op(nm,ty) ; \
+{-# RULES "reveal op2" forall a1 a2. reveal (nm a1 a2) = C.nm (reveal a1) (reveal a2) #-}
+
 #define Ip(nm,ty) \
 {- | (C.nm) without the eager inlining -}; \
 (nm) :: ty; \
 (nm) = (C.nm) ;\
 {-# OPINLINE (nm) #-}
 
+#define Ip1(nm,ty) \
+Ip(nm,ty) ; \
+{-# RULES "reveal ip1" forall a1. reveal ((nm) a1) = (C.nm) (reveal a1) #-}
+
+#define Ip2(nm,ty) \
+Ip(nm,ty) ; \
+{-# RULES "reveal ip2" forall a1 a2. reveal ((nm) a1 a2) = (C.nm) (reveal a1) (reveal a2) #-}
+
 -- I use semicolons and the {- | ... -} style Haddock comment because CPP macros
 -- generate a single line. I want to inject single quotes around the C.foo and
 -- (C.op) names to form Haddock links, but CPP interprets them as preventing
 -- macro argument insertion.
 
+-- Can I get the operation names (nm) into the rule names?
 
 infixr 9 .
-Op(id,(Category k, Ok k a) => a `k` a)
-Ip(.,forall k b c a. (Category k, Ok3 k a b c) => (b `k` c) -> (a `k` b) -> (a `k` c))
+Op0(id,(Category k, Ok k a) => a `k` a)
+Ip2(.,forall k b c a. (Category k, Ok3 k a b c) => (b `k` c) -> (a `k` b) -> (a `k` c))
 
 infixr 3 ***, &&&
-Op(exl,(ProductCat k, Ok2 k a b) => Prod k a b `k` a)
-Op(exr,(ProductCat k, Ok2 k a b) => Prod k a b `k` b)
-Ip(&&&,forall k a c d. (ProductCat k, Ok3 k a c d) => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d))
-Ip(***,forall k a b c d. (ProductCat k, Ok4 k a b c d) => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d))
-Op(dup,forall k a. (ProductCat k, Ok k a) => a `k` Prod k a a)
-Op(swapP,forall k a b. (ProductCat k, Ok2 k a b) => Prod k a b `k` Prod k b a)
-Op(first,forall k a aa b. (ProductCat k, Ok3 k a b aa) => (a `k` aa) -> (Prod k a b `k` Prod k aa b))
-Op(second,forall k a b bb. (ProductCat k, Ok3 k a b bb) => (b `k` bb) -> (Prod k a b `k` Prod k a bb))
-Op(lassocP,forall k a b c. (ProductCat k, Ok3 k a b c) => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c)
-Op(rassocP,forall k a b c. (ProductCat k, Ok3 k a b c) => Prod k (Prod k a b) c `k` Prod k a (Prod k b c))
+Op0(exl,(ProductCat k, Ok2 k a b) => Prod k a b `k` a)
+Op0(exr,(ProductCat k, Ok2 k a b) => Prod k a b `k` b)
+Ip2(&&&,forall k a c d. (ProductCat k, Ok3 k a c d) => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d))
+Ip2(***,forall k a b c d. (ProductCat k, Ok4 k a b c d) => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d))
+Op0(dup,forall k a. (ProductCat k, Ok k a) => a `k` Prod k a a)
+Op0(swapP,forall k a b. (ProductCat k, Ok2 k a b) => Prod k a b `k` Prod k b a)
+Op1(first,forall k a aa b. (ProductCat k, Ok3 k a b aa) => (a `k` aa) -> (Prod k a b `k` Prod k aa b))
+Op2(second,forall k a b bb. (ProductCat k, Ok3 k a b bb) => (b `k` bb) -> (Prod k a b `k` Prod k a bb))
+Op1(lassocP,forall k a b c. (ProductCat k, Ok3 k a b c) => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c)
+Op1(rassocP,forall k a b c. (ProductCat k, Ok3 k a b c) => Prod k (Prod k a b) c `k` Prod k a (Prod k b c))
 
 infixr 2 +++, |||
-Op(inl,(CoproductCat k, Ok2 k a b) => a `k` Coprod k a b)
-Op(inr,(CoproductCat k, Ok2 k a b) => b `k` Coprod k a b)
-Ip(|||,forall k a c d. (CoproductCat k, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a))
-Ip(+++,forall k a b c d. (CoproductCat k, Ok4 k a b c d) => (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b))
-Op(jam,(CoproductCat k, Ok k a) => Coprod k a a `k` a)
-Op(swapS,forall k a b. (CoproductCat k, Ok2 k a b) => Coprod k a b `k` Coprod k b a)
-Op(left ,forall k a aa b. (CoproductCat k, Ok3 k a b aa) => (a `k` aa) -> (Coprod k a b `k` Coprod k aa b))
-Op(right,forall k a b bb. (CoproductCat k, Ok3 k a b bb) => (b `k` bb) -> (Coprod k a b `k` Coprod k a bb))
-Op(lassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c)
-Op(rassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c))
+Op0(inl,(CoproductCat k, Ok2 k a b) => a `k` Coprod k a b)
+Op0(inr,(CoproductCat k, Ok2 k a b) => b `k` Coprod k a b)
+Ip2(|||,forall k a c d. (CoproductCat k, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a))
+Ip2(+++,forall k a b c d. (CoproductCat k, Ok4 k a b c d) => (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b))
+Op0(jam,(CoproductCat k, Ok k a) => Coprod k a a `k` a)
+Op0(swapS,forall k a b. (CoproductCat k, Ok2 k a b) => Coprod k a b `k` Coprod k b a)
+Op1(left ,forall k a aa b. (CoproductCat k, Ok3 k a b aa) => (a `k` aa) -> (Coprod k a b `k` Coprod k aa b))
+Op1(right,forall k a b bb. (CoproductCat k, Ok3 k a b bb) => (b `k` bb) -> (Coprod k a b `k` Coprod k a bb))
+Op1(lassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c)
+Op1(rassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c))
 
-Op(apply,forall k a b. (ClosedCat k, Ok2 k a b) => Prod k (Exp k a b) a `k` b)
-Op(curry,(ClosedCat k, Ok3 k a b c) => (Prod k a b `k` c) -> (a `k` Exp k b c))
-Op(uncurry,forall k a b c. (ClosedCat k, Ok3 k a b c) => (a `k` Exp k b c)  -> (Prod k a b `k` c))
+Op0(apply,forall k a b. (ClosedCat k, Ok2 k a b) => Prod k (Exp k a b) a `k` b)
+Op1(curry,(ClosedCat k, Ok3 k a b c) => (Prod k a b `k` c) -> (a `k` Exp k b c))
+Op1(uncurry,forall k a b c. (ClosedCat k, Ok3 k a b c) => (a `k` Exp k b c)  -> (Prod k a b `k` c))
 
-Op(distl,forall k a u v. (DistribCat k, Ok3 k a u v) => Prod k a (Coprod k u v) `k` Coprod k (Prod k a u) (Prod k a v))
-Op(distr,forall k u v b. (DistribCat k, Ok3 k u v b) => Prod k (Coprod k u v) b `k` Coprod k (Prod k u b) (Prod k v b))
+Op0(distl,forall k a u v. (DistribCat k, Ok3 k a u v) => Prod k a (Coprod k u v) `k` Coprod k (Prod k a u) (Prod k a v))
+Op0(distr,forall k u v b. (DistribCat k, Ok3 k u v b) => Prod k (Coprod k u v) b `k` Coprod k (Prod k u b) (Prod k v b))
 
-Op(it,(TerminalCat k, Ok k a) => a `k` Unit k)
-Op(unitArrow,ConstCat k b => b -> (Unit k `k` ConstObj k b))
-Op(const,(ConstCat k b, Ok k a) => b -> (a `k` ConstObj k b))
+Op0(it,(TerminalCat k, Ok k a) => a `k` Unit k)
+Op0(unitArrow,ConstCat k b => b -> (Unit k `k` ConstObj k b))
+Op1(const,(ConstCat k b, Ok k a) => b -> (a `k` ConstObj k b))
 
-Op(notC,BoolCat k => BoolOf k `k` BoolOf k)
-Op(andC,BoolCat k => Prod k (BoolOf k) (BoolOf k) `k` BoolOf k)
-Op(orC,BoolCat k => Prod k (BoolOf k) (BoolOf k) `k` BoolOf k)
-Op(xorC,BoolCat k => Prod k (BoolOf k) (BoolOf k) `k` BoolOf k)
+Op0(notC,BoolCat k => BoolOf k `k` BoolOf k)
+Op0(andC,BoolCat k => Prod k (BoolOf k) (BoolOf k) `k` BoolOf k)
+Op0(orC,BoolCat k => Prod k (BoolOf k) (BoolOf k) `k` BoolOf k)
+Op0(xorC,BoolCat k => Prod k (BoolOf k) (BoolOf k) `k` BoolOf k)
 
-Op(negateC,NumCat k a => a `k` a)
-Op(addC,NumCat k a => Prod k a a `k` a)
-Op(subC,NumCat k a => Prod k a a `k` a)
-Op(mulC,NumCat k a => Prod k a a `k` a)
-Op(powIC,NumCat k a => Prod k a Int `k` a)
+Op0(negateC,NumCat k a => a `k` a)
+Op0(addC,NumCat k a => Prod k a a `k` a)
+Op0(subC,NumCat k a => Prod k a a `k` a)
+Op0(mulC,NumCat k a => Prod k a a `k` a)
+Op0(powIC,NumCat k a => Prod k a Int `k` a)
 
-Op(recipC,FractionalCat k a => a `k` a)
-Op(divideC,FractionalCat k a => Prod k a a `k` a)
+Op0(recipC,FractionalCat k a => a `k` a)
+Op0(divideC,FractionalCat k a => Prod k a a `k` a)
 
-Op(expC,FloatingCat k a => a `k` a)
-Op(cosC,FloatingCat k a => a `k` a)
-Op(sinC,FloatingCat k a => a `k` a)
+Op0(expC,FloatingCat k a => a `k` a)
+Op0(cosC,FloatingCat k a => a `k` a)
+Op0(sinC,FloatingCat k a => a `k` a)
 
-Op(fromIntegralC,FromIntegralCat k a b => a `k` b)
+Op0(fromIntegralC,FromIntegralCat k a b => a `k` b)
 
-Op(equal,EqCat k a => Prod k a a `k` BoolOf k)
-Op(notEqual,EqCat k a => Prod k a a `k` BoolOf k)
+Op0(equal,EqCat k a => Prod k a a `k` BoolOf k)
+Op0(notEqual,EqCat k a => Prod k a a `k` BoolOf k)
 
-Op(lessThan,OrdCat k a => Prod k a a `k` BoolOf k)
-Op(greaterThan,OrdCat k a => Prod k a a `k` BoolOf k)
-Op(lessThanOrEqual,OrdCat k a => Prod k a a `k` BoolOf k)
-Op(greaterThanOrEqual,OrdCat k a => Prod k a a `k` BoolOf k)
+Op0(lessThan,OrdCat k a => Prod k a a `k` BoolOf k)
+Op0(greaterThan,OrdCat k a => Prod k a a `k` BoolOf k)
+Op0(lessThanOrEqual,OrdCat k a => Prod k a a `k` BoolOf k)
+Op0(greaterThanOrEqual,OrdCat k a => Prod k a a `k` BoolOf k)
 
-Op(succC,EnumCat k a => a `k` a)
-Op(predC,EnumCat k a => a `k` a)
+Op0(succC,EnumCat k a => a `k` a)
+Op0(predC,EnumCat k a => a `k` a)
 
-Op(bottomC,BottomCat k a => Unit k `k` a)
+Op0(bottomC,BottomCat k a => Unit k `k` a)
 
-Op(ifC,IfCat k a => Prod k (BoolOf k) (Prod k a a) `k` a)
+Op0(ifC,IfCat k a => Prod k (BoolOf k) (Prod k a a) `k` a)
 
-Op(unknownC,UnknownCat k a b => a `k` b)
+Op0(unknownC,UnknownCat k a b => a `k` b)
 
-Op(reprC,(RepCat k, HasRep a) => a `k` Rep a)
-Op(abstC,(RepCat k, HasRep a) => Rep a `k` a)
+Op0(reprC,(RepCat k, HasRep a) => a `k` Rep a)
+Op0(abstC,(RepCat k, HasRep a) => Rep a `k` a)
 
 -- Unnecessary but helpful to track NOINLINE choice
 -- Op(constFun,forall k p a b. (ClosedCat k, Ok3 k p a b) => (a `k` b) -> (p `k` Exp k a b))
