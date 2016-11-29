@@ -537,7 +537,7 @@ install opts todos =
           -- specialized ccc rules are tried first.
           let addRule guts = pure (on_mg_rules (++ [cccRule env guts]) guts)
           return $   CoreDoPluginPass "Ccc insert rule" addRule
-                   : CoreDoSimplify 2 mode
+                   : CoreDoSimplify 5 mode
                    : todos
                    ++ [CoreDoPluginPass "Flag remaining ccc calls" (flagCcc env)]
  where
