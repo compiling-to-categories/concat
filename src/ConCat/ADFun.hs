@@ -22,19 +22,21 @@ import ConCat.AltCat
 
 -- newtype D a b = D { unD :: a -> b :* (a -> b) }
 -- newtype D a b = D (a -> b :* (a -> b))
--- data D a b = D (a -> b :* (a -> b))
-data D a b = D { unD :: a -> b :* (a -> b) }
+data D a b = D (a -> b :* (a -> b))
+-- data D a b = D { unD :: a -> b :* (a -> b) }
 
 -- TODO: revert to newtype, and fix Plugin to handle it correctly.
 
--- unD :: D a b -> (a -> b :* (a -> b))
--- unD (D f) = f
+unD :: D a b -> (a -> b :* (a -> b))
+unD (D f) = f
+{-# INLINE unD #-}
 
 -- TODO: generalize from LM to any cartesian category
 
 -- Differentiable linear function
 linearD :: (a -> b) -> D a b
 linearD f = D (f &&& const f)
+{-# INLINE linearD #-}
 
 instance Newtype (D a b) where
   type O (D a b) = a -> b :* (a -> b)
