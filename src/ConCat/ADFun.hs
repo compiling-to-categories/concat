@@ -100,9 +100,11 @@ want :: D a b :* a -> b
 
 instance TerminalCat D where
   it = linearD (const ())
+  {-# INLINE it #-}
 
 instance Num b => ConstCat D b where
   const b = D (const (b, const 0))
+  {-# INLINE const #-}
 
 notDef :: String -> a
 notDef meth = error (meth ++ " on D not defined")
@@ -112,6 +114,10 @@ instance Num a => NumCat D a where
   addC    = linearD addC
   mulC    = D (mulC &&& (\ (a,b) (da,db) -> da*b + db*a))
   powIC   = notDef "powC"
+  {-# INLINE negateC #-}
+  {-# INLINE addC    #-}
+  {-# INLINE mulC    #-}
+  {-# INLINE powIC   #-}
 
 const' :: (a -> c) -> (a -> b -> c)
 const' = (const .)
