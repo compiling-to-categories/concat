@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -90,9 +91,14 @@ render = renderu . unpack
 -- NOINLINE here avoids the empty-case problem that was plaguing me.
 -- Perhaps a strictness-based optimization forced my ccc definition.
 
+#define INLINER(nm) {-# INLINE nm #-}
+-- #define INLINER(nm)
+
 instance Category Syn where
   id  = atom "id"
   (.) = app2 "."
+  INLINER(id)
+  INLINER((.))
 
 instance ProductCat Syn where
   exl     = atom "exl"
@@ -104,8 +110,19 @@ instance ProductCat Syn where
   second  = app1 "second"
   lassocP = atom "lassocP"
   rassocP = atom "rassocP"
+  INLINER(exl)
+  INLINER(exr)
+  INLINER((&&&))
+  INLINER((***))
+  INLINER(swapP)
+  INLINER(first)
+  INLINER(second)
+  INLINER(lassocP)
+  INLINER(rassocP)
 
-instance TerminalCat Syn where it = atom "it"
+instance TerminalCat Syn where
+  it = atom "it"
+  INLINER(it)
 
 instance CoproductCat Syn where
   inl     = atom "inl"
@@ -113,40 +130,70 @@ instance CoproductCat Syn where
   (|||)   = app2 "|||"
   (+++)   = app2 "+++"
   jam     = atom "jam"
+  swapS   = atom "swapS"
   left    = app1 "left"
   right   = app1 "right"
   lassocS = atom "lassocS"
   rassocS = atom "rassocS"
+  INLINER(inl)
+  INLINER(inr)
+  INLINER((|||))
+  INLINER((+++))
+  INLINER(swapS)
+  INLINER(left)
+  INLINER(right)
+  INLINER(lassocS)
+  INLINER(rassocS)
   
-instance DistribCat Syn where distl = atom "distl"
+instance DistribCat Syn where
+  distl = atom "distl"
+  distr = atom "distr"
+  INLINER(distl)
+  INLINER(distr)
 
 instance ClosedCat Syn where
   apply   = atom "apply"
   curry   = app1 "curry"
   uncurry = app1 "uncurry"
+  INLINER(apply)
+  INLINER(curry)
+  INLINER(uncurry)
 
 instance Show b => ConstCat Syn b where
   const b = app1 "const" (atom (show b))
+  INLINER(const)
 
 instance BoolCat Syn where
   notC = atom "notC"
   andC = atom "andC"
   orC  = atom "orC"
   xorC = atom "xorC"
+  INLINER(notC)
+  INLINER(andC)
+  INLINER(orC)
+  INLINER(xorC)
 
 instance EqCat Syn a where
   equal    = atom "equal"
   notEqual = atom "notEqual"
+  INLINER(equal)
+  INLINER(notEqual)
 
 instance OrdCat Syn a where
   lessThan = atom "lessThan"
   greaterThan = atom "greaterThan"
   lessThanOrEqual = atom "lessThanOrEqual"
   greaterThanOrEqual = atom "greaterThanOrEqual"
+  INLINER(lessThan)
+  INLINER(greaterThan)
+  INLINER(lessThanOrEqual)
+  INLINER(greaterThanOrEqual)
 
 instance EnumCat Syn a where
   succC = atom "succC"
   predC = atom "predC"
+  INLINER(succC)
+  INLINER(predC)
 
 instance NumCat Syn a where
   negateC = atom "negateC"
@@ -154,31 +201,47 @@ instance NumCat Syn a where
   subC    = atom "subC"
   mulC    = atom "mulC"
   powIC   = atom "powIC"
+  INLINER(negateC)
+  INLINER(addC)
+  INLINER(subC)
+  INLINER(mulC)
+  INLINER(powIC)
 
 instance FractionalCat Syn a where
   recipC  = atom "recipC"
   divideC = atom "divideC"
+  INLINER(recipC)
+  INLINER(divideC)
 
 instance FloatingCat Syn a where
   expC = atom "expC"
   cosC = atom "cosC"
   sinC = atom "sinC"
+  INLINER(expC)
+  INLINER(cosC)
+  INLINER(sinC)
 
 instance FromIntegralCat Syn a b where
   fromIntegralC = atom "fromIntegralC"
+  INLINER(fromIntegralC)
 
 instance BottomCat Syn a where
   bottomC = atom "bottomC"
+  INLINER(bottomC)
 
 instance IfCat Syn a where
   ifC = atom "ifC"
+  INLINER(ifC)
 
 instance UnknownCat Syn a b where
   unknownC = atom "unknownC"
+  INLINER(unknownC)
 
 instance RepCat Syn where
   reprC = atom "reprC"
   abstC = atom "abstC"
+  INLINER(reprC)
+  INLINER(abstC)
 
 {--------------------------------------------------------------------
     Pretty-printing utilities
