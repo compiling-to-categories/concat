@@ -97,9 +97,9 @@ tst  :: (a -> b) -> Test
 #else
 NOTHING
 #endif
+
 test _ = error "test called"
 tst  _ = error "tst called"
-
 {-# NOINLINE test #-}
 {-# NOINLINE tst #-}
 
