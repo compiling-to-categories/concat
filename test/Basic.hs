@@ -39,12 +39,12 @@
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
 
--- {-# OPTIONS_GHC -dsuppress-all #-}
--- {-# OPTIONS_GHC -dsuppress-type-applications -dsuppress-coercions #-}
+{-# OPTIONS_GHC -dsuppress-all #-}
+{-# OPTIONS_GHC -dsuppress-type-applications -dsuppress-coercions #-}
 
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 
--- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
+{-# OPTIONS_GHC -ddump-rule-rewrites #-}
 
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=300 #-} -- default 100
 {-# OPTIONS_GHC -fsimpl-tick-factor=10   #-} -- default 100
@@ -68,10 +68,10 @@ import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay,(:>))
-import ConCat.ADFun (D(..))
+import ConCat.ADFun (D(),unD)
 
-import ConCat.AltCat (ccc,Uncurriable(..),(:**:)(..))
-import qualified ConCat.AltCat as C
+import ConCat.AltCat (ccc,reveal,Uncurriable(..),(:**:)(..))
+import qualified ConCat.AltCat as A
 
 -- -- Experiment: try to force loading of Num Float etc
 -- class Num a => Quuz a
@@ -89,7 +89,7 @@ tests = return
 
 --   , tst (fst @Bool @Int)
 
---   , tst (C.exl :: Int :* Bool -> Int)
+--   , tst (A.exl :: Int :* Bool -> Int)
 
 --   , tst not
 
@@ -171,7 +171,7 @@ tests = return
 --   , test "succ" (\ x -> succ x :: Int)
 --   , test "pred" (pred :: Unop Int)
 
-  , tst (id :: Unop Float)
+--   , tst (id :: Unop Float)
 
 --   , tst ((\ x -> x) :: Unop Float)
 
@@ -297,7 +297,7 @@ tst  :: Okay a b => (a -> b) -> Test
 {-# RULES "(->); (:>)" forall s f.
    test s f = mkTest s (go s (ccc f))
  #-}
-#elif 1
+#elif 0
 -- Derivative, then syntactic
 test :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
@@ -368,11 +368,20 @@ foo4 = sampleD (ccc id)
 #endif
 
 unD' :: D a b -> a -> b :* (a -> b)
-unD' (D f) = f
+-- unD' (D f) = f
+unD' d = unD d
 -- {-# INLINE unD' #-}
 {-# INLINE [2] unD' #-}
 
-#if 0
+-- Experiment: inline on demand
+{-# RULES "ccc of unD'" forall g. ccc (unD' g) = ccc (unD g) #-}
+
+dfun :: (a -> b) -> (a -> b :* (a -> b))
+dfun _ = error "dfun called"
+{-# NOINLINE dfun #-}
+{-# RULES "dfun" forall h. dfun h = unD' (reveal (ccc h)) #-}
+
+#if 1
 
 -- unD :: D a b -> a -> b :* (a -> b)
 -- unD (D f) = f
@@ -383,39 +392,54 @@ unD' (D f) = f
 
 -- -- Okay
 -- foo1 :: Float -> Float :* (Float -> Float)
--- foo1 = unD' C.id
+-- foo1 = unD' A.id
 
 -- -- Okay
 -- foo2 :: Syn Float (Float :* (Float -> Float))
--- foo2 = ccc (unD' C.id)
+-- foo2 = ccc (unD' A.id)
 
 -- -- Okay (now with NOINLINE render)
 -- foo3 :: String
--- foo3 = render (ccc (unD' (C.id :: D Float Float)))
+-- foo3 = render (ccc (unD' (A.id :: D Float Float)))
 
 -- -- Okay
 -- foo4 :: Test
--- foo4 = mkTest "foo4" (putStrLn (render (ccc (unD' (C.id :: D Float Float)))))
+-- foo4 = mkTest "foo4" (putStrLn (render (ccc (unD' (A.id :: D Float Float)))))
 
 -- -- Okay
 -- bar1 :: D Float Float
--- bar1 = ccc (C.id :: Float -> Float)
+-- bar1 = ccc (A.id :: Float -> Float)
 
 -- -- residual with unD, but okay with unD'
 -- bar2 :: Float -> (Float :* (Float -> Float))
--- bar2 = unD' (ccc (C.id :: Float -> Float))
+-- bar2 = unD' (ccc (A.id :: Float -> Float))
+
+-- bar :: D Float Float
+-- bar = ccc id
+
+-- bar :: D Float Float
+-- bar = reveal (ccc id)
+
+-- bar :: Float -> (Float :* (Float -> Float))
+-- bar = unD' (reveal (ccc id))
+
+-- bar :: Float -> (Float :* (Float -> Float))
+-- bar = dfun id
 
 -- bar :: Syn Float (Float :* (Float -> Float))
--- bar = ccc (unD' (ccc (C.id :: Float -> Float)))
+-- bar = ccc (dfun id)
+
+bar :: Syn Float (Float :* (Float -> Float))
+bar = reveal (ccc (dfun id))
 
 -- bar :: String
--- bar = render (ccc (unD' (ccc (C.id :: Float -> Float))))
+-- bar = render (ccc (unD' (ccc (A.id :: Float -> Float))))
 
 -- bar :: IO ()
--- bar = putStrLn (render (ccc (unD' (ccc (C.id :: Float -> Float)))))
+-- bar = putStrLn (render (ccc (unD' (ccc (A.id :: Float -> Float)))))
 
 -- bar :: Test
--- bar = mkTest "bar" (putStrLn (render (ccc (unD' (ccc (C.id :: Float -> Float))))))
+-- bar = mkTest "bar" (putStrLn (render (ccc (unD' (ccc (A.id :: Float -> Float))))))
 
 -- bar :: String
 -- bar = render (ccc (unD' (ccc (ccc (double :: Float -> Float)))))
@@ -425,7 +449,7 @@ unD' (D f) = f
 --  #-}
 
 -- bar :: Test
--- bar = test "bar" (C.id :: Float -> Float)
+-- bar = test "bar" (A.id :: Float -> Float)
 
 #endif
 
