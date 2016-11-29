@@ -63,7 +63,7 @@ data CccEnv = CccEnv { dtrace    :: forall a. String -> SDoc -> a -> a
                      , exlV      :: Id
                      , exrV      :: Id
                      , constFunV :: Id
-                     , inlineV   :: Id
+                  -- , inlineV   :: Id
                      , polyOps   :: PolyOpsMap
                      , monoOps   :: MonoOpsMap
                      , hsc_env   :: HscEnv
@@ -587,19 +587,19 @@ mkCccEnv opts = do
       findTc      = lookupTh mkTcOcc  lookupTyCon
       findFloatTy = fmap mkTyConTy . findTc floatModule
       findCatId   = findId catModule
-  idV         <- findCatId  "id"
-  constV      <- findCatId  "const"
-  composeV    <- findCatId  "."
-  exlV        <- findCatId "exl"
-  exrV        <- findCatId "exr"
-  forkV       <- findCatId "&&&"
-  applyV      <- findCatId "apply"
-  curryV      <- findCatId "curry"
-  constFunV   <- findCatId "constFun"
-  cccV        <- findCatId  "ccc"
-  floatT      <- findFloatTy "Float"
-  doubleT     <- findFloatTy "Double"
-  inlineV     <- findId "GHC.Exts" "inline"
+  idV       <- findCatId "id"
+  constV    <- findCatId "const"
+  composeV  <- findCatId "."
+  exlV      <- findCatId "exl"
+  exrV      <- findCatId "exr"
+  forkV     <- findCatId "&&&"
+  applyV    <- findCatId "apply"
+  curryV    <- findCatId "curry"
+  constFunV <- findCatId "constFun"
+  cccV      <- findCatId "ccc"
+  floatT    <- findFloatTy "Float"
+  doubleT   <- findFloatTy "Double"
+--   inlineV   <- findId "GHC.Exts" "inline"
   let mkPolyOp :: (String,(String,String)) -> CoreM (String,Var)
       mkPolyOp (stdName,(cmod,cop)) =
         do cv <- findId cmod cop
