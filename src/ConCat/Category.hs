@@ -1063,10 +1063,15 @@ infixr 6 :**:
 -- | Product of categories
 data (p :**: q) a b = p a b :**: q a b
 
+#define PINLINER(nm) {-# INLINE nm #-}
+-- #define PINLINER(nm)
+
 instance (Category k, Category k') => Category (k :**: k') where
   type Ok (k :**: k') = Ok k &+& Ok k'
   id = id :**: id
   (g :**: g') . (f :**: f') = g.f :**: g'.f'
+  PINLINER(id)
+  PINLINER((.))
 
 instance (ProductCat k, ProductCat k') => ProductCat (k :**: k') where
   exl = exl :**: exl
@@ -1077,6 +1082,17 @@ instance (ProductCat k, ProductCat k') => ProductCat (k :**: k') where
   swapP = swapP :**: swapP
   first (f :**: f') = first f :**: first f'
   second (f :**: f') = second f :**: second f'
+  lassocP = lassocP :**: lassocP
+  rassocP = rassocP :**: rassocP
+  PINLINER(exl)
+  PINLINER(exr)
+  PINLINER((&&&))
+  PINLINER((***))
+  PINLINER(swapP)
+  PINLINER(first)
+  PINLINER(second)
+  PINLINER(lassocP)
+  PINLINER(rassocP)
 
 instance (CoproductCat k, CoproductCat k') => CoproductCat (k :**: k') where
   inl = inl :**: inl
@@ -1087,42 +1103,73 @@ instance (CoproductCat k, CoproductCat k') => CoproductCat (k :**: k') where
   swapS = swapS :**: swapS
   left (f :**: f') = left f :**: left f'
   right (f :**: f') = right f :**: right f'
+  lassocS = lassocS :**: lassocS
+  rassocS = rassocS :**: rassocS
+  PINLINER(inl)
+  PINLINER(inr)
+  PINLINER((|||))
+  PINLINER((+++))
+  PINLINER(swapS)
+  PINLINER(left)
+  PINLINER(right)
+  PINLINER(lassocS)
+  PINLINER(rassocS)
 
 instance (DistribCat k, DistribCat k') => DistribCat (k :**: k') where
   distl = distl :**: distl
   distr = distr :**: distr
+  PINLINER(distl)
+  PINLINER(distr)
 
 instance (ClosedCat k, ClosedCat k') => ClosedCat (k :**: k') where
   apply = apply :**: apply
   curry (f :**: f') = curry f :**: curry f'
   uncurry (g :**: g') = uncurry g :**: uncurry g'
+  PINLINER(apply)
+  PINLINER(curry)
+  PINLINER(uncurry)
 
 instance (TerminalCat k, TerminalCat k') => TerminalCat (k :**: k') where
   it = it :**: it
+  PINLINER(it)
 
 instance (ConstCat k a, ConstCat k' a) => ConstCat (k :**: k') a where
   const b = const b :**: const b
   unitArrow b = unitArrow b :**: unitArrow b
+  PINLINER(const)
+  PINLINER(unitArrow)
 
 instance (BoolCat k, BoolCat k') => BoolCat (k :**: k') where
   notC = notC :**: notC
   andC = andC :**: andC
   orC  = orC  :**: orC
   xorC = xorC :**: xorC
+  PINLINER(notC)
+  PINLINER(andC)
+  PINLINER(orC)
+  PINLINER(xorC)
 
 instance (EqCat k a, EqCat k' a) => EqCat (k :**: k') a where
   equal = equal :**: equal
   notEqual = notEqual :**: notEqual
+  PINLINER(equal)
+  PINLINER(notEqual)
 
 instance (OrdCat k a, OrdCat k' a) => OrdCat (k :**: k') a where
   lessThan = lessThan :**: lessThan
   greaterThan = greaterThan :**: greaterThan
   lessThanOrEqual = lessThanOrEqual :**: lessThanOrEqual
   greaterThanOrEqual = greaterThanOrEqual :**: greaterThanOrEqual
+  PINLINER(lessThan)
+  PINLINER(greaterThan)
+  PINLINER(lessThanOrEqual)
+  PINLINER(greaterThanOrEqual)
 
 instance (EnumCat k a, EnumCat k' a) => EnumCat (k :**: k') a where
   succC = succC :**: succC
   predC = predC :**: predC
+  PINLINER(succC)
+  PINLINER(predC)
 
 instance (NumCat k a, NumCat k' a) => NumCat (k :**: k') a where
   negateC = negateC :**: negateC
@@ -1130,31 +1177,47 @@ instance (NumCat k a, NumCat k' a) => NumCat (k :**: k') a where
   subC    = subC    :**: subC
   mulC    = mulC    :**: mulC
   powIC   = powIC   :**: powIC
+  PINLINER(negateC)
+  PINLINER(addC)
+  PINLINER(subC)
+  PINLINER(mulC)
+  PINLINER(powIC)
 
 instance (FractionalCat k a, FractionalCat k' a) => FractionalCat (k :**: k') a where
   recipC  = recipC  :**: recipC
   divideC = divideC :**: divideC
+  PINLINER(recipC)
+  PINLINER(divideC)
 
 instance (FloatingCat k a, FloatingCat k' a) => FloatingCat (k :**: k') a where
   expC = expC :**: expC
   cosC = cosC :**: cosC
   sinC = sinC :**: sinC
+  PINLINER(expC)
+  PINLINER(cosC)
+  PINLINER(sinC)
 
 instance (FromIntegralCat k a b, FromIntegralCat k' a b) => FromIntegralCat (k :**: k') a b where
   fromIntegralC = fromIntegralC :**: fromIntegralC
+  PINLINER(fromIntegralC)
 
 instance (BottomCat k a, BottomCat k' a) => BottomCat (k :**: k') a where
   bottomC = bottomC :**: bottomC
+  PINLINER(bottomC)
 
 instance (IfCat k a, IfCat k' a) => IfCat (k :**: k') a where
   ifC = ifC :**: ifC
+  PINLINER(ifC)
 
 instance (UnknownCat k a b, UnknownCat k' a b) => UnknownCat (k :**: k') a b where
   unknownC = unknownC :**: unknownC
+  PINLINER(unknownC)
 
 instance (RepCat k, RepCat k') => RepCat (k :**: k') where
   reprC = reprC :**: reprC
   abstC = abstC :**: abstC
+  PINLINER(reprC)
+  PINLINER(abstC)
 
 {--------------------------------------------------------------------
     Functors
