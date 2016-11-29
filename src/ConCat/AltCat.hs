@@ -53,9 +53,9 @@ import ConCat.Rep
 import ConCat.Misc ((:*),(:+))
 import ConCat.Float
 
--- #define OPINLINE INLINE [3]
+#define OPINLINE INLINE [3]
 -- #define OPINLINE INLINE CONLIKE [3]
-#define OPINLINE NOINLINE
+-- #define OPINLINE NOINLINE
 
 #define Op(nm,ty) \
 {- | C.nm without the eager inlining -}; \
@@ -168,6 +168,9 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 -- 
 -- Maybe move some of the methods with defaults out of the classes, e.g.,
 -- "lassocP" and maybe "dup" and "jam".
+
+pair :: forall k a b. (ClosedCat k, Ok2 k a b) => a `k` Exp k b (Prod k a b)
+pair = curry id <+ okProd @k @a @b
 
 {--------------------------------------------------------------------
     Automatic uncurrying
