@@ -161,7 +161,9 @@ instance ClosedCat Syn where
 
 instance Show b => ConstCat Syn b where
   const b = app1 "const" (atom (show b))
+  unitArrow b = app1 "unitArrow" (atom (show b))
   INLINER(const)
+  INLINER(unitArrow)
 
 instance BoolCat Syn where
   notC = atom "notC"
