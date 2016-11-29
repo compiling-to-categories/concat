@@ -63,6 +63,7 @@ data CccEnv = CccEnv { dtrace    :: forall a. String -> SDoc -> a -> a
                      , exlV      :: Id
                      , exrV      :: Id
                      , constFunV :: Id
+                     , inlineV   :: Id
                      , polyOps   :: PolyOpsMap
                      , monoOps   :: MonoOpsMap
                      , hsc_env   :: HscEnv
@@ -130,9 +131,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      Doing("Wait for unfolding of " ++ fqVarName v)
      Nothing
     where
-      -- Expand later
+      -- expand later
       waitForVar = not (isPairVar v)
-                   -- fqVarName v /= "GHC.Tuple.(,)"
    go e = dtrace "go etaExpand to" (ppr (etaExpand 1 e)) $
           go (etaExpand 1 e)
           -- return $ mkCcc (etaExpand 1 e)
@@ -145,22 +145,21 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      Var y | x == y -> Doing("Id")
                        return (mkId cat xty)
      Trying("constFun catFun")
-     Var _ | isFunTy bty
-           , Just e'  <- catFun body
-           , Just e'' <- (mkConstFun cat xty e')
-           -> Doing("Const catFun")
-              return e''
+--      Var _ | isFunTy bty
+--            , Just e'  <- catFun body
+--            , Just e'' <- (mkConstFun cat xty e')
+--            -> Doing("Const catFun")
+--               return e''
      Trying("Const")
      _ | isConst
        , not isFun
        , Just e' <- mkConst cat xty body
        -> Doing("Const")
          return e'                               
-     -- TODO: combine transCatOp and transCatOp.
-     -- TODO: handle isConst and isFun via mkConstFun and ccc, but beware cycles.
      Trying("Category operation.")
      _ | isConst
-       , Just e'' <- mkConstFun cat xty =<< transCatOp body
+       , Just e'' <- mkConstFun cat xty =<< reCat body
+                                            -- transCatOp body
        -> Doing("Category operation")
           return e''
      -- Take care not to break up a ccc call as if a regular App
@@ -246,6 +245,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    catTy (tyArgs2 -> (a,b)) = mkAppTys cat [a,b]
    reCatCo :: Rewrite Coercion
    -- reCatCo co | dtrace "reCatCo" (ppr co) False = undefined
+   reCatCo (TyConAppCo _r tc [a,b])
+     | tc == funTyCon = Just (mkAppCos (mkRepReflCo cat) [a,b])
    reCatCo (splitAppCo_maybe -> Just (splitAppCo_maybe -> Just (_,a),b)) =
      Just (mkAppCos (mkRepReflCo cat) [a,b])
    reCatCo (co1 `TransCo` co2) = TransCo <$> reCatCo co1 <*> reCatCo co2
@@ -582,8 +583,8 @@ mkCccEnv opts = do
          err = "ccc installation: couldn't find "
                ++ str ++ " in " ++ moduleNameString modu
       lookupTh mkOcc mk modu = lookupRdr (mkModuleName modu) mkOcc mk
-      findId      = lookupTh mkVarOcc  lookupId
-      findTc      = lookupTh mkTcOcc   lookupTyCon
+      findId      = lookupTh mkVarOcc lookupId
+      findTc      = lookupTh mkTcOcc  lookupTyCon
       findFloatTy = fmap mkTyConTy . findTc floatModule
       findCatId   = findId catModule
   idV         <- findCatId  "id"
@@ -598,6 +599,7 @@ mkCccEnv opts = do
   cccV        <- findCatId  "ccc"
   floatT      <- findFloatTy "Float"
   doubleT     <- findFloatTy "Double"
+  inlineV     <- findId "GHC.Exts" "inline"
   let mkPolyOp :: (String,(String,String)) -> CoreM (String,Var)
       mkPolyOp (stdName,(cmod,cop)) =
         do cv <- findId cmod cop
