@@ -92,6 +92,7 @@ instance Category (|-) where
 
 instance OpCon (:*) (Sat HasCon) where
   inOp = Entail (Sub Dict)
+  {-# INLINE inOp #-}
 
 instance ProductCat (|-) where
   -- type Prod (|-) = (:*)
@@ -157,6 +158,7 @@ inOpLR = inOpL *** inOpR
 
 instance OpCon op Yes1' where
   inOp = Entail (Sub Dict)
+  {-# INLINE inOp #-}
 
 #if 1
 
@@ -235,6 +237,7 @@ infixr 3 ***, &&&
 okProd :: forall k a b. OpCon (Prod k) (Ok' k)
        => Ok' k a && Ok' k b |- Ok' k (Prod k a b)
 okProd = inOp
+{-# INLINE okProd #-}
 
 -- | Category with product.
 class (OpCon (Prod k) (Ok' k), Category k) => ProductCat k where
@@ -365,6 +368,7 @@ type Coprod k = (:+)
 okCoprod :: forall k a b. OpCon (Coprod k) (Ok' k)
          => Ok' k a && Ok' k b |- Ok' k (Coprod k a b)
 okCoprod = inOp
+{-# INLINE okCoprod #-}
 
 infixr 2 +++, |||
 
@@ -520,6 +524,7 @@ undistr = (exl +++ exl) &&& (exr ||| exr)
 okExp :: forall k a b. OpCon (Exp k) (Ok' k)
       => Ok' k a && Ok' k b |- Ok' k (Exp k a b)
 okExp = inOp
+{-# INLINE okExp #-}
 
 type Exp k = (->)
 
@@ -596,8 +601,8 @@ instance Monad m => UnsafeArr (Kleisli m) where
 
 constFun :: forall k p a b. (ClosedCat k, Ok3 k p a b)
          => (a `k` b) -> (p `k` Exp k a b)
-constFun f = curry (f . exr)
-             <+ okProd @k @p @a
+constFun f = curry (f . exr) <+ okProd @k @p @a
+{-# INLINE constFun #-}
 
 --        f        :: a `k` b
 --        f . exl  :: Prod k p a `k` b
