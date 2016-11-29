@@ -37,7 +37,7 @@
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
--- {-# OPTIONS_GHC -dverbose-core2core #-}
+{-# OPTIONS_GHC -dverbose-core2core #-}
 
 {-# OPTIONS_GHC -dsuppress-all #-}
 {-# OPTIONS_GHC -dsuppress-type-applications -dsuppress-coercions #-}
@@ -429,14 +429,14 @@ dfun _ = error "dfun called"
 -- bar :: Syn Float (Float :* (Float -> Float))
 -- bar = ccc (dfun id)
 
-bar :: Syn Float (Float :* (Float -> Float))
-bar = reveal (ccc (dfun id))
+-- bar :: Syn Float (Float :* (Float -> Float))
+-- bar = reveal (ccc (dfun id))
 
 -- bar :: String
--- bar = render (ccc (unD' (ccc (A.id :: Float -> Float))))
+-- bar = render (reveal (ccc (dfun (id :: Unop Float))))
 
--- bar :: IO ()
--- bar = putStrLn (render (ccc (unD' (ccc (A.id :: Float -> Float)))))
+bar :: IO ()
+bar = putStrLn (render (reveal (ccc (dfun (id :: Unop Float)))))
 
 -- bar :: Test
 -- bar = mkTest "bar" (putStrLn (render (ccc (unD' (ccc (A.id :: Float -> Float))))))
@@ -450,6 +450,15 @@ bar = reveal (ccc (dfun id))
 
 -- bar :: Test
 -- bar = test "bar" (A.id :: Float -> Float)
+
+-- bar :: EC Float (Float :* (Float -> Float))
+-- bar = ccc (dfun id)
+
+-- bar :: EC Float (Float :* (Float -> Float))
+-- bar = reveal (ccc (dfun id))
+
+-- bar :: IO ()
+-- bar = runEC "bar" (ccc (dfun (id :: Unop Float)))
 
 #endif
 
