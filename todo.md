@@ -1,5 +1,6 @@
 # To do
 
+*   Why aren't the syntactic `BoolCat`, `NumCat` etc methods inlining, while the `Category`, and `ProductCat` ones are?
 *   Other CCCs:
     *   *All* CCCs (universally quantified)
     *   Automatic differentiation
