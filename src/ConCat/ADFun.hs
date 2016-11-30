@@ -11,14 +11,13 @@
 
 module ConCat.ADFun where
 
-import Prelude hiding (id,(.),const,curry,uncurry)
-
 import Control.Newtype
 
 import ConCat.Misc ((:*),inNew2)
+
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
-import ConCat.AltCat
+import ConCat.AltCat hiding (id,(.),const)
 
 -- newtype D a b = D { unD :: a -> b :* (a -> b) }
 -- newtype D a b = D (a -> b :* (a -> b))
