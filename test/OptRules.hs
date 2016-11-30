@@ -69,7 +69,6 @@ import ConCat.AltCat
 import ConCat.Float
 import ConCat.Syntactic (Syn,render)
 
--- For FP & parallelism talk
 tests :: IO [Test]
 tests = return
   [ nopTest
