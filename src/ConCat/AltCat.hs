@@ -12,6 +12,7 @@
 {-# LANGUAGE UndecidableInstances  #-}
 
 {-# OPTIONS_GHC -Wall #-}
+{-# OPTIONS_GHC -fno-warn-inline-rule-shadowing #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
 -- | Alternative interface to the class operations from ConCat.Category, so as
@@ -29,6 +30,9 @@ module ConCat.AltCat
 
 import Prelude hiding (id,(.),curry,uncurry,const,Float,Double)
 import qualified Prelude as P
+import qualified Data.Tuple as P
+-- import qualified Control.Category as A
+-- import qualified Control.Arrow as A
 
 import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5
@@ -43,7 +47,6 @@ import ConCat.Category
   , NumCat, FractionalCat, FloatingCat, FromIntegralCat
   , EqCat, OrdCat, EnumCat, BottomCat, IfCat, UnknownCat, RepCat
   , (:**:)(..)
-  , ccc
   --
   , (<+), okProd
   )
@@ -143,8 +146,13 @@ Op0(distl,forall k a u v. (DistribCat k, Ok3 k a u v) => Prod k a (Coprod k u v)
 Op0(distr,forall k u v b. (DistribCat k, Ok3 k u v b) => Prod k (Coprod k u v) b `k` Coprod k (Prod k u b) (Prod k v b))
 
 Op0(it,(TerminalCat k, Ok k a) => a `k` Unit k)
-Op0(unitArrow,ConstCat k b => b -> (Unit k `k` ConstObj k b))
-Op1(const,(ConstCat k b, Ok k a) => b -> (a `k` ConstObj k b))
+Op(unitArrow,ConstCat k b => b -> (Unit k `k` ConstObj k b))
+Op(const,(ConstCat k b, Ok k a) => b -> (a `k` ConstObj k b))
+
+{-# RULES
+"inOp unitArrow" forall b. reveal (unitArrow b) = C.unitArrow b
+"inOp const" forall b. reveal (const b) = C.const b
+ #-}
 
 Op0(notC,BoolCat k => BoolOf k `k` BoolOf k)
 Op0(andC,BoolCat k => Prod k (BoolOf k) (BoolOf k) `k` BoolOf k)
@@ -317,6 +325,9 @@ UncId(c :+ d)
 "foo2" forall (g :: a `k` d) h.
   apply . (curry h &&& g) = h . (id &&& g) <+ okProd @k @a @d
 
+-- -- experiment
+-- "constFun id" constFun id = curry exr
+
  #-}
 
 -- -- This rule helps expose some product rewrites.
@@ -328,3 +339,57 @@ UncId(c :+ d)
 -- "constFun 2" apply . (curry exr &&& id) = id
 
 -- "constFun 3" forall x. apply . (curry (const x) &&& id) = const x
+
+-- | Pseudo function to trigger rewriting to CCC form.
+ccc :: forall k a b. (a -> b) -> (a `k` b)
+ccc _ = error "ccc: not implemented"
+{-# NOINLINE ccc #-}
+
+-- Prelude versions of categorical ops
+{-# RULES
+
+#if 0
+
+"ccc Prelude id" ccc P.id = ccc id
+"ccc Prelude (.)" forall g f. ccc (g P.. f) = ccc (g . f)
+
+"ccc Prelude (,)" ccc (,) = ccc pair
+"ccc Prelude fst" ccc fst = ccc exl
+"ccc Prelude snd" ccc snd = ccc exr
+"ccc Prelude swap" ccc P.swap = ccc swapP
+
+"ccc Prelude Left" ccc Left = ccc inl
+"ccc Prelude Right" ccc Right = ccc inl
+"ccc Prelude either" ccc either = ccc (|||)
+
+"ccc Prelude curry" forall f. ccc (P.curry f) = ccc (curry f)
+"ccc Prelude uncurry" forall f.  ccc (P.uncurry f) = ccc (uncurry f)
+
+"ccc Prelude const" forall x. ccc (P.const x) = ccc (const x)
+
+#endif
+
+-- Use this one for now.
+"ccc Prelude const" forall x. ccc (P.const x) = ccc (\ _ -> x)
+
+#if 0
+
+-- I've commented out the class-ops, since they'll get expanded away early via
+-- auto-generated built-in rules.
+
+"ccc Control.Category id" ccc A.id = ccc id
+"ccc Control.Category (.)" forall g f. ccc (g A.. f) = ccc (g . f)
+
+"ccc Arrow (&&&)" forall f g. ccc (f A.&&& g) = ccc (f &&& g)
+"ccc Arrow (***)" forall f g. ccc (f A.*** g) = ccc (f *** g)
+"ccc Arrow first" forall f. ccc (A.first f) = ccc (first f)
+"ccc Arrow second" forall g. ccc (A.second g) = ccc (second g)
+
+"ccc Arrow (|||)" forall f g. ccc (f A.||| g) = ccc (f ||| g)
+"ccc Arrow (+++)" forall f g. ccc (f A.+++ g) = ccc (f +++ g)
+"ccc Arrow left" forall f. ccc (A.left f) = ccc (left f)
+"ccc Arrow right" forall g. ccc (A.right g) = ccc (right g)
+
+#endif
+
+ #-}
