@@ -107,6 +107,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    go (Case scrut wild rhsTy alts) =
      Doing("ccc Case")
      return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
+#if 0
    go (Let (NonRec v rhs) body) | doSubst =
      Doing("Let substitution")
      -- TODO: try commuting Let & ccc instead of substituting.
@@ -114,6 +115,11 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      go (subst1 v rhs body)
     where
       doSubst = incompleteCatOp rhs || isPred rhs
+#else
+   go (Let bind body) =
+     Doing("Let float")
+     return (Let bind (mkCcc body))
+#endif
    go (etaReduceN -> reCat -> Just e') =
      Doing("reCat")
      Just e'
@@ -538,7 +544,7 @@ install opts todos =
           let addRule guts = pure (on_mg_rules (++ [cccRule env guts]) guts)
           -- pprTrace "ccc install todos:" (ppr todos) (return ())
           return $   CoreDoPluginPass "Ccc insert rule" addRule
-                   : CoreDoSimplify 5 mode
+                   : CoreDoSimplify 7 mode
                    : todos
                    ++ [CoreDoPluginPass "Flag remaining ccc calls" (flagCcc env)]
  where
@@ -624,11 +630,12 @@ polyInfo :: [(String,(String,String))]
 polyInfo = [(hmod++"."++hop,(catModule,cop)) | (hmod,ops) <- info, (hop,cop) <- ops]
  where
    -- Haskell module, Cat Haskell/Cat op names
-   -- 
+   -- No cat args. In progress.
    info :: [(String,[(String,String)])]
-   info = [ ("GHC.Base"  ,[tw "id",tw ".",tw "const"])
-          , ("GHC.Tuple", [("(,)","pair")])
+   info = [ ("GHC.Base"  ,[tw "id"])
+          , ("GHC.Tuple", [("(,)","pair"),("swap","swapP")])
           , ("Data.Tuple",[("fst","exl"),("snd","exr")])
+          , ("Data.Either", [("Left","inl"),("Right","inr")])
           ]
    tw x = (x,x)
 
