@@ -10,7 +10,7 @@
 
 module ConCat.Syntactic where
 
-import Prelude hiding (id,(.),lookup)
+import Prelude hiding (id,(.),lookup,Float,Double)
 
 import Data.Map (Map,fromList,lookup)
 import Control.Newtype
@@ -18,6 +18,7 @@ import Text.PrettyPrint.HughesPJ hiding (render)
 
 import ConCat.Category
 import ConCat.Misc (inNew,inNew2,Unop,Binop)
+-- import ConCat.Float (Float,Double)
 
 {--------------------------------------------------------------------
     Untyped S-expression
@@ -91,8 +92,8 @@ render = renderu . unpack
 -- NOINLINE here avoids the empty-case problem that was plaguing me.
 -- Perhaps a strictness-based optimization forced my ccc definition.
 
-#define INLINER(nm) {-# INLINE nm #-}
--- #define INLINER(nm)
+-- #define INLINER(nm) {-# INLINE nm #-}
+#define INLINER(nm)
 
 instance Category Syn where
   id  = atom "id"
@@ -158,6 +159,14 @@ instance ClosedCat Syn where
   INLINER(apply)
   INLINER(curry)
   INLINER(uncurry)
+
+-- class Show b => HasLit b
+
+-- instance HasLit ()
+-- instance HasLit Bool
+-- instance HasLit Int
+-- instance HasLit Float
+-- instance HasLit Double
 
 instance Show b => ConstCat Syn b where
   const b = app1 "const" (atom (show b))
