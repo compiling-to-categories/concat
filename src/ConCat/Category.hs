@@ -628,41 +628,6 @@ unUnitFun g = uncurry g . (it &&& id)
     Constant arrows
 --------------------------------------------------------------------}
 
-#if 0
-  
-class TerminalCat k => ConstCat k where
-  const :: Oks k [a,b] => b -> (a `k` b)
-  const b = unitArrow b . it
-  unitArrow  :: Ok k b => b -> Unit k `k` b
-  unitArrow = const
-  {-# MINIMAL const | unitArrow #-}
-
-#elif 0
-
--- Alternatively, make `b` a parameter to `ConstCat`:
-
-class (TerminalCat k, Ok k b) => ConstCat k b where
-  unitArrow  :: b -> Unit k `k` b
-  const :: Ok k a => b -> (a `k` b)
-  const b = unitArrow b . it
-  unitArrow = const
-  {-# MINIMAL unitArrow | const #-}
-
-#elif 0
-
--- Associated type for the codomain
-
-class (TerminalCat k, Ok k (ConstObj k b)) => ConstCat k b where
-  type ConstObj k b
-  type ConstObj k b = b
-  unitArrow  :: b -> (Unit k `k` ConstObj k b)
-  const :: Ok k a => b -> (a `k` ConstObj k b)
-  const b = unitArrow b . it
-  unitArrow = const
-  {-# MINIMAL unitArrow | const #-}
-
-#else
-
 -- Drop ConstObj for now
 
 type ConstObj k b = b
@@ -676,7 +641,6 @@ class (TerminalCat k, Ok k (ConstObj k b)) => ConstCat k b where
   unitArrow = const
   {-# MINIMAL unitArrow | const #-}
 
-#endif
 
 -- | Inject a constant on the left
 lconst :: forall k a b. (ProductCat k, ConstCat k a, Ok2 k a b)
@@ -1233,11 +1197,3 @@ class (Category k, Category k'{-, OkTarget f k k'-})
   -- Laws:
   -- fmapC id == id
   -- fmapC (q . p) == fmapC q . fmapC p
-
-{--------------------------------------------------------------------
-    For rewriting. Move elsewhere.
---------------------------------------------------------------------}
-
-ccc :: forall k a b. (a -> b) -> (a `k` b)
-ccc _ = error "ccc: not implemented"
-{-# NOINLINE ccc #-}
