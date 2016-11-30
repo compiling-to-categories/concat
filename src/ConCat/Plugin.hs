@@ -124,8 +124,9 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    -- Temp hack while testing nested ccc calls.
    -- go (etaReduceN -> Var v) = Doing("Wait for unfolding of " ++ fqVarName v)
    --                            Nothing
-   go (unfoldMaybe -> Just e') =
+   go e@(unfoldMaybe -> Just e') =
      Doing("unfold")
+     dtrace "go unfold" (ppr e <+> text "-->" <+> ppr e')
      return (mkCcc e')
    go (collectArgs -> (Var v,_)) | waitForVar =
      Doing("Wait for unfolding of " ++ fqVarName v)
@@ -144,24 +145,17 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      Trying("Id")
      Var y | x == y -> Doing("Id")
                        return (mkId cat xty)
-     Trying("constFun catFun")
---      Var _ | isFunTy bty
---            , Just e'  <- catFun body
---            , Just e'' <- (mkConstFun cat xty e')
---            -> Doing("Const catFun")
---               return e''
-     Trying("Const")
-     _ | isConst
-       , not isFun
-       , Just e' <- mkConst cat xty body
-       -> Doing("Const")
-         return e'                               
      Trying("Category operation.")
      _ | isConst
        , Just e'' <- mkConstFun cat xty =<< reCat body
-                                            -- transCatOp body
        -> Doing("Category operation")
           return e''
+     Trying("Const")
+     _ | isConst
+       , not isFun  -- TODO: just try mkConst
+       , Just e' <- mkConst cat xty body
+       -> Doing("Const")
+         return e'                               
      -- Take care not to break up a ccc call as if a regular App
      (collectArgs -> (Var ((== cccV) -> True),_)) ->
        Doing("Postponing ccc-of-ccc")
@@ -177,7 +171,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
          [_]   -> Doing("Pair eta-expand")
                   goLam x (etaExpand 1 body)
          [u,v] -> Doing("Pair")
-                  -- dtrace "Pair test" (ppr (u,v)) $
+                  -- dtrace "Pair test" (pprWithType u <> comma <+> pprWithType v) $
                   return (mkFork cat (mkCcc (Lam x u)) (mkCcc (Lam x v)))
          _     -> pprPanic "goLam Pair: too many arguments: " (ppr rest)
      Trying("App")
@@ -208,6 +202,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      Lam y e ->
        -- (\ x -> \ y -> U) --> curry (\ z -> U[fst z/x, snd z/y])
        Doing("Lam")
+       -- dtrace "Lam isDeads" (ppr (isDeadBinder x, isDeadBinder y)) $
+       -- dtrace "Lam sub" (ppr sub) $
        return $ mkCurry cat (mkCcc (Lam z (subst sub e)))
       where
         yty = varType y
@@ -409,7 +405,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
                  oops "type change"
                   (ppr beforeTy <+> "vs" <+> ppr afterTy <+> "in"))
               (oops "Lint")
-          (lintExpr dflags (varSetElems (exprFreeVars before)) before)
+          (lintExpr dflags (varSetElems (exprFreeVars after)) after)
    catFun :: ReExpr
    catFun (Var v) | True || dtrace "catFun" (text fullName <+> dcolon <+> ppr ty) True
                   , Just (op,tys) <- M.lookup fullName monoOps =
@@ -536,6 +532,7 @@ install opts todos =
           -- Add the rule after existing ones, so that automatically generated
           -- specialized ccc rules are tried first.
           let addRule guts = pure (on_mg_rules (++ [cccRule env guts]) guts)
+          -- pprTrace "ccc install todos:" (ppr todos) (return ())
           return $   CoreDoPluginPass "Ccc insert rule" addRule
                    : CoreDoSimplify 5 mode
                    : todos
@@ -546,7 +543,8 @@ install opts todos =
      --  | pprTrace "ccc residuals:" (ppr (toList remaining)) False = undefined
      --  | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
      | S.null remaining = return guts
-     | otherwise = pprPanic "ccc residuals:" (ppr (toList remaining))
+     | otherwise = pprTrace "ccc residuals:" (ppr (toList remaining)) $
+                   return guts
     where
       remaining :: Seq CoreExpr
       remaining = collect cccArgs (mg_binds guts)
@@ -564,7 +562,7 @@ install opts todos =
                     , sm_rules      = True  -- important
                     , sm_inline     = True -- False -- ??
                     , sm_eta_expand = False -- ??
-                    , sm_case_case  = True  -- important
+                    , sm_case_case  = True  -- important?
                     }
 
 mkCccEnv :: [CommandLineOption] -> CoreM CccEnv
@@ -622,10 +620,11 @@ polyInfo :: [(String,(String,String))]
 polyInfo = [(hmod++"."++hop,(catModule,cop)) | (hmod,ops) <- info, (hop,cop) <- ops]
  where
    -- Haskell module, Cat Haskell/Cat op names
+   -- 
    info :: [(String,[(String,String)])]
-   info = [ ("GHC.Base"  ,[tw "id",tw "."])
+   info = [ ("GHC.Base"  ,[tw "id",tw ".",tw "const"])
           , ("GHC.Tuple", [("(,)","pair")])
-          , ("Data.Tuple",[("fst","exl"),("snd","exr"),tw "curry", tw "uncurry"])
+          , ("Data.Tuple",[("fst","exl"),("snd","exr")])
           ]
    tw x = (x,x)
 
@@ -742,11 +741,14 @@ qualifiedName :: Name -> String
 qualifiedName nm =
   maybe "" (++ ".") (nameModuleName_maybe nm) ++ getOccString nm
 
--- | Substitute new subexpressions for variables in an expression
+-- | Substitute new subexpressions for variables in an expression. Drop any dead
+-- binders, which is handy as dead binders can appear with live binders of the
+-- same variable.
 subst :: [(Id,CoreExpr)] -> Unop CoreExpr
-subst ps = substExpr "subst" (foldr add emptySubst ps)
+subst ps = substExpr "subst" (foldr add emptySubst ps')
  where
    add (v,new) sub = extendIdSubst sub v new
+   ps' = filter (not . isDeadBinder . fst) ps
 
 subst1 :: Id -> CoreExpr -> Unop CoreExpr
 subst1 v e = subst [(v,e)]
