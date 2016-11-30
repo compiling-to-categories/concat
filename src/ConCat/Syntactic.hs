@@ -92,8 +92,8 @@ render = renderu . unpack
 -- NOINLINE here avoids the empty-case problem that was plaguing me.
 -- Perhaps a strictness-based optimization forced my ccc definition.
 
--- #define INLINER(nm) {-# INLINE nm #-}
-#define INLINER(nm)
+#define INLINER(nm) {-# INLINE nm #-}
+-- #define INLINER(nm)
 
 instance Category Syn where
   id  = atom "id"
@@ -173,6 +173,8 @@ instance Show b => ConstCat Syn b where
   unitArrow b = app1 "unitArrow" (atom (show b))
   INLINER(const)
   INLINER(unitArrow)
+
+-- Some or all of the methods below are failing to inline
 
 instance BoolCat Syn where
   notC = atom "notC"
