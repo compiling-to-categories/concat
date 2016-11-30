@@ -15,10 +15,10 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
-{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports #-}
-{-# OPTIONS_GHC -fno-warn-unused-binds   #-}
-
+{-# OPTIONS_GHC -Wno-missing-signatures #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
+{-# OPTIONS_GHC -Wno-unused-binds   #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Basic
@@ -33,22 +33,23 @@
 
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin -fexpose-all-unfoldings #-}
 {-# OPTIONS_GHC -dcore-lint #-}
+-- {-# OPTIONS_GHC -funfolding-keeness-factor=5 #-} -- Try. Defaults to 1.5
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
--- {-# OPTIONS_GHC -dverbose-core2core #-}
+{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+{-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
--- {-# OPTIONS_GHC -dsuppress-type-applications -dsuppress-coercions #-}
+{-# OPTIONS_GHC -dsuppress-type-applications -dsuppress-coercions #-}
 
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 
 {-# OPTIONS_GHC -ddump-rule-rewrites #-}
 
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=300 #-} -- default 100
-{-# OPTIONS_GHC -fsimpl-tick-factor=10   #-} -- default 100
+-- {-# OPTIONS_GHC -fsimpl-tick-factor=10  #-} -- default 100
 
 -- When I list the plugin in the test suite's .cabal target instead of here, I get
 --
@@ -60,6 +61,7 @@ module Basic {-(tests)-} where
 
 import Prelude hiding (Float,Double)   -- ,id,(.),const
 
+import Control.Arrow (second)
 import Data.Tuple (swap)
 import Distribution.TestSuite
 
@@ -79,14 +81,16 @@ import qualified ConCat.AltCat as A
 -- instance Quuz Float
 -- instance Quuz Double
 
--- For FP & parallelism talk
 tests :: IO [Test]
 tests = return
   [ nopTest
 
---   , tst (id :: Unop Bool)
+--   , tst (id :: Unop Float)
+--   , tst (const 4 :: Unop Float)
+--   , tst  (\ x -> 4 + x :: Float)
+--   , tst (\ x -> x * x :: Float)
 
---   , tst ((\ x -> x) :: Unop Bool)
+  , tst (cos :: Unop Float)
 
 --   , tst (fst @Bool @Int)
 
@@ -193,8 +197,6 @@ tests = return
 
 --   , tst (double :: Unop Float)
 
-  , tst  (\ x -> 4 + x :: Float)
-
 --   , test "q0"  (\ x -> x :: Int)
 --   , test "q1"  (\ (_x :: Int) -> True)
 --   , test "q2"  (\ (x :: Int) -> negate (x + 1))
@@ -232,6 +234,12 @@ dfun :: (a -> b) -> (a -> b :* (a -> b))
 dfun _ = error "dfun called"
 {-# NOINLINE dfun #-}
 {-# RULES "dfun" forall h. dfun h = unD' (reveal (ccc h)) #-}
+
+dsc :: Num a => (a -> b :* (a -> b)) -> (a -> b :* b)
+-- dsc f a = (b,b' 1) where (b,b') = f a
+-- dsc f = second (`id` 1) . f
+dsc f = \ a -> let (b,b') = f a in (b, b' 1)
+{-# INLINE dsc #-}
 
 #if 0
 -- Circuit interpretation
@@ -304,20 +312,27 @@ tst  :: Okay a b => (a -> b) -> Test
 {-# RULES "(->); (:>)" forall s f.
    test s f = mkTest s (go s (ccc f))
  #-}
-#elif 1
+#elif 0
 -- Derivative, then syntactic
 test :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "test AD" forall s f.
    test s f = mkTest s (putStrLn ('\n' : render (ccc (dfun f))))
  #-}
-#elif 1
+#elif 0
 -- (->), then derivative, then syntactic. The first (->) gives us a chance to
 -- transform away the ClosedCat operations.
 test :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall s f.
    test s f = mkTest s (putStrLn ('\n' : render (ccc (dfun (ccc f)))))
+ #-}
+#elif 1
+-- (->), then *scalar* derivative, then syntactic.
+test :: Num a => String -> (a -> b) -> Test
+tst  :: Num a => (a -> b) -> Test
+{-# RULES "(->); D; Syn" forall s f.
+   test s f = mkTest s (putStrLn ('\n' : render (ccc (dsc (dfun (ccc f))))))
  #-}
 #else
 -- NOTHING
@@ -428,21 +443,73 @@ unD' d = unD d
 -- bar = unD' (reveal (ccc id))
 
 -- bar :: Float -> (Float :* (Float -> Float))
+-- bar = dfun (const 4)
+
+-- bar :: Float -> (Float :* (Float -> Float))
 -- bar = dfun ((\ _x -> 4) :: Unop Float)
 --       -- dfun id
 
 -- bar :: Syn Float (Float :* (Float -> Float))
 -- bar = ccc (dfun id)
 
--- bar :: Syn Float Float
--- bar = ccc (const 4)
---       -- ccc (\ _ -> 4)
+-- bar :: D Float Float
+-- bar = ccc cos
+
+-- bar :: D Float Float
+-- bar = reveal (ccc cos)
+
+-- bar :: D Float Float
+-- bar = reveal (reveal (ccc cos))
+
+-- bar :: Float -> Float :* (Float -> Float)
+-- bar = dfun (ccc cos)
 
 -- bar :: Syn Float (Float :* (Float -> Float))
--- bar = ccc (dfun ((\ _x -> 4) :: Unop Float))
+-- bar = ccc (dfun (ccc cos))
+
+-- bar :: Float -> Float :* (Float -> Float)
+-- bar = unD' (ccc cos)
+
+-- bar :: Syn Float (Float :* (Float -> Float))
+-- bar = ccc (unD' (ccc cos))
+
+-- bar :: Float -> Float :* (Float -> Float)
+-- bar = unD' (reveal (ccc cos))
+
+-- bar :: Syn Float (Float :* (Float -> Float))
+-- bar = ccc (unD' (reveal (ccc cos)))
+
+-- bar :: Syn Float (Float :* (Float -> Float))
+-- bar = reveal (ccc (unD' (reveal (ccc cos))))
+
+-- bar :: Syn Bool Bool
+-- bar = reveal (ccc not)
+
+-- bar :: Syn Float (Float :* (Float -> Float))
+-- bar = reveal (ccc (unD' (reveal (ccc (ccc cos)))))
+
+-- bar :: Float -> Float :* Float
+-- bar = dsc (unD' (reveal (ccc cos)))
+
+-- bar :: Syn Float (Float :* Float)
+-- bar = ccc (dsc (unD' (reveal (ccc cos))))
+
+-- bar :: Syn Float (Float :* Float)
+-- bar = reveal (ccc (dsc (unD' (reveal (ccc cos)))))
+
+
+-- bar :: String
+-- bar = render (ccc (dfun (ccc (cos :: Unop Float))))
+
+-- bar :: String
+-- bar = render (ccc (dfun (ccc (cos :: Unop Float))))
+
+-- test s f = mkTest s (putStrLn ('\n' : render (ccc (dfun (ccc f)))))
+
+-- bar :: Syn Float (Float :* (Float -> Float))
+-- bar = ccc (dfun (ccc (\ x -> 4 + x)))
 
 -- -- dfun h = unD' (reveal (ccc h))
-
 
 -- bar :: Syn Float (Float :* (Float -> Float))
 -- bar = reveal (ccc (dfun id))
@@ -498,6 +565,7 @@ unD' d = unD d
 -- bar :: IO ()
 -- bar = runEC "bar" (ccc (dfun (id :: Unop Float)))
 
+  
 #endif
 
 render' :: Syn a b -> String
