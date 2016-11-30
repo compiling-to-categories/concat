@@ -11,13 +11,14 @@
 
 module ConCat.ADFun where
 
+import Prelude hiding (id,(.))
 import Control.Newtype
 
 import ConCat.Misc ((:*),inNew2)
 
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
-import ConCat.AltCat hiding (id,(.),const)
+import ConCat.AltCat hiding (const)
 
 -- newtype D a b = D { unD :: a -> b :* (a -> b) }
 -- newtype D a b = D (a -> b :* (a -> b))
@@ -44,25 +45,28 @@ instance Newtype (D a b) where
 
 instance Category D where
   id = linearD id
-  D g . D f = D $ \ a ->
+  D g . D f = D (\ a ->
     let (b,f') = f a
         (c,g') = g b
     in
-      (c, g' . f')
+      (c, g' . f'))
   {-# INLINE id #-}
   {-# INLINE (.) #-}
 
 instance ProductCat D where
   exl = linearD exl
   exr = linearD exr
-  D f &&& D g = D $ \ a ->
+  D f &&& D g = D (\ a ->
     let (b,f') = f a
         (c,g') = g a
     in
-      ((b,c), f' &&& g')
+      ((b,c), f' &&& g'))
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
+
+-- TODO: use $ in (.) and (&&&) definitions.
+-- My compiler plugin was struggling with ($) in case scrutinees.
 
 -- -- Don't define methods yet. I think I can optimize away the ClosedCat
 -- -- operations in most cases. Once I'm happy with the results, define these
@@ -120,27 +124,37 @@ instance Num a => NumCat D a where
 
 const' :: (a -> c) -> (a -> b -> c)
 const' = (const .)
+{-# INLINE const' #-}
 
 scalarD :: Num s => (s -> s) -> (s -> s -> s) -> D s s
 scalarD f der = D (\ x -> let r = f x in (r, (der x r *)))
+{-# INLINE scalarD #-}
 
 -- Use scalarD with const f when only r matters and with const' g when only x
 -- matters.
 
 scalarR :: Num s => (s -> s) -> (s -> s) -> D s s
 scalarR f = scalarD f . const
+{-# INLINE scalarR #-}
 
 scalarX :: Num s => (s -> s) -> (s -> s) -> D s s
-scalarX f = scalarD f . const'
+-- scalarX f = scalarD f . const'
+scalarX f f' = scalarD f (const' f')  -- better inlining
+{-# INLINE scalarX #-}
 
 square :: Num a => a -> a
 square a = a * a
+{-# INLINE square #-}
 
 instance Fractional s => FractionalCat D s where
   recipC = scalarR recip (negate . square)
+  {-# INLINE recipC #-}
 
 instance Floating s => FloatingCat D s where
   expC = scalarR exp id
   sinC = scalarX sin cos
   cosC = scalarX cos (negate . sin)
+  {-# INLINE expC #-}
+  {-# INLINE sinC #-}
+  {-# INLINE cosC #-}
 
