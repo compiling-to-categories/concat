@@ -33,14 +33,15 @@
 
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin -fexpose-all-unfoldings #-}
 {-# OPTIONS_GHC -dcore-lint #-}
-{-# OPTIONS_GHC -dsuppress-idinfo -dsuppress-uniques #-}
+{-# OPTIONS_GHC -dsuppress-idinfo #-}
+{-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
-{-# OPTIONS_GHC -dverbose-core2core #-}
+-- {-# OPTIONS_GHC -dverbose-core2core #-}
 
-{-# OPTIONS_GHC -dsuppress-all #-}
-{-# OPTIONS_GHC -dsuppress-type-applications -dsuppress-coercions #-}
+-- {-# OPTIONS_GHC -dsuppress-all #-}
+-- {-# OPTIONS_GHC -dsuppress-type-applications -dsuppress-coercions #-}
 
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 
@@ -68,7 +69,7 @@ import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay,(:>))
-import ConCat.ADFun (D(),unD)
+import ConCat.ADFun (D(..),unD)
 
 import ConCat.AltCat (ccc,reveal,Uncurriable(..),(:**:)(..))
 import qualified ConCat.AltCat as A
@@ -190,10 +191,11 @@ tests = return
 --   , tst ((\ (x,y) -> (y,x)) :: Unop (Bool :* Bool))
 --   , tst ((,) :: Bool -> Int -> Bool :* Int)
 
---   , tst (double :: Unop Int)
+--   , tst (double :: Unop Float)
+
+  , tst  (\ x -> 4 + x :: Float)
 
 --   , test "q0"  (\ x -> x :: Int)
-
 --   , test "q1"  (\ (_x :: Int) -> True)
 --   , test "q2"  (\ (x :: Int) -> negate (x + 1))
 --   , test "q3"  (\ (x :: Int) -> x > 0)
@@ -225,6 +227,11 @@ type EC = Syn :**: (:>)
 
 runEC :: GenBuses a => String -> EC a b -> IO ()
 runEC s (ex :**: circ) = putStrLn ('\n':render ex) >> RC.run s [] circ
+
+dfun :: (a -> b) -> (a -> b :* (a -> b))
+dfun _ = error "dfun called"
+{-# NOINLINE dfun #-}
+{-# RULES "dfun" forall h. dfun h = unD' (reveal (ccc h)) #-}
 
 #if 0
 -- Circuit interpretation
@@ -297,25 +304,26 @@ tst  :: Okay a b => (a -> b) -> Test
 {-# RULES "(->); (:>)" forall s f.
    test s f = mkTest s (go s (ccc f))
  #-}
-#elif 0
+#elif 1
 -- Derivative, then syntactic
 test :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "test AD" forall s f.
-   test s f = mkTest s (putStrLn ('\n' : render (ccc (unD' (ccc f)))))
+   test s f = mkTest s (putStrLn ('\n' : render (ccc (dfun f))))
  #-}
-#elif 0
--- (->), then derivative, then syntactic
+#elif 1
+-- (->), then derivative, then syntactic. The first (->) gives us a chance to
+-- transform away the ClosedCat operations.
 test :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall s f.
-   test s f = mkTest s (putStrLn ('\n' : render (ccc (unD' (ccc (ccc f))))))
+   test s f = mkTest s (putStrLn ('\n' : render (ccc (dfun (ccc f)))))
  #-}
 #else
 -- NOTHING
 #endif
-test _ = error "test called"
-tst  _ = error "tst called"
+test s _f = mkTest s (putStrLn ("test called on " ++ s))
+tst _f = test "tst" _f
 
 {-# NOINLINE test #-}
 {-# NOINLINE tst #-}
@@ -375,11 +383,7 @@ unD' d = unD d
 
 -- Experiment: inline on demand
 {-# RULES "ccc of unD'" forall g. ccc (unD' g) = ccc (unD g) #-}
-
-dfun :: (a -> b) -> (a -> b :* (a -> b))
-dfun _ = error "dfun called"
-{-# NOINLINE dfun #-}
-{-# RULES "dfun" forall h. dfun h = unD' (reveal (ccc h)) #-}
+{-# RULES "unD' of D" forall f. unD' (D f) = f #-}
 
 #if 1
 
@@ -424,10 +428,21 @@ dfun _ = error "dfun called"
 -- bar = unD' (reveal (ccc id))
 
 -- bar :: Float -> (Float :* (Float -> Float))
--- bar = dfun id
+-- bar = dfun ((\ _x -> 4) :: Unop Float)
+--       -- dfun id
 
 -- bar :: Syn Float (Float :* (Float -> Float))
 -- bar = ccc (dfun id)
+
+-- bar :: Syn Float Float
+-- bar = ccc (const 4)
+--       -- ccc (\ _ -> 4)
+
+-- bar :: Syn Float (Float :* (Float -> Float))
+-- bar = ccc (dfun ((\ _x -> 4) :: Unop Float))
+
+-- -- dfun h = unD' (reveal (ccc h))
+
 
 -- bar :: Syn Float (Float :* (Float -> Float))
 -- bar = reveal (ccc (dfun id))
@@ -435,21 +450,44 @@ dfun _ = error "dfun called"
 -- bar :: String
 -- bar = render (reveal (ccc (dfun (id :: Unop Float))))
 
-bar :: IO ()
-bar = putStrLn (render (reveal (ccc (dfun (id :: Unop Float)))))
+-- bar :: String
+-- bar = render (ccc (dfun ((\ x_ -> 4) :: Unop Float)))
+
+-- bar :: IO ()
+-- bar = putStrLn (render (reveal (ccc (dfun (id :: Unop Float)))))
+
+-- boozle :: String -> (a -> b) -> Test
+-- boozle _ _ = undefined
+-- {-# NOINLINE boozle #-}
+-- {-# RULES
+-- "boozle" forall s f. boozle s f = mkTest s (putStrLn ('\n' : render (ccc (dfun f))))
+--  #-}
+
+-- bar :: Test
+-- bar = boozle "bar" (id :: Unop Float)
+
+-- -- Derivative, then syntactic
+-- test' :: String -> (a -> b) -> Test
+-- {-# RULES "test AD" forall s f.
+--    test' s f = mkTest s (putStrLn ('\n' : render (ccc (dfun f))))
+--  #-}
+-- test' s _f = undefined -- mkTest s (putStrLn ("test called on " ++ s))
+-- {-# NOINLINE test' #-}
+
+-- bar :: Test
+-- bar = boozle "bar" (id :: Unop Float)
+
+-- bar :: IO ()
+-- bar = putStrLn (render (ccc (dfun (id :: Unop Float))))
+
+-- bar :: IO ()
+-- bar = putStrLn (render (ccc (dfun ((\ _x -> 4) :: Unop Float))))
 
 -- bar :: Test
 -- bar = mkTest "bar" (putStrLn (render (ccc (unD' (ccc (A.id :: Float -> Float))))))
 
 -- bar :: String
 -- bar = render (ccc (unD' (ccc (ccc (double :: Float -> Float)))))
-
--- {-# RULES "test foo" forall s f.
---    test s f = mkTest s (putStrLn (render (ccc (unD' (ccc f)))))
---  #-}
-
--- bar :: Test
--- bar = test "bar" (A.id :: Float -> Float)
 
 -- bar :: EC Float (Float :* (Float -> Float))
 -- bar = ccc (dfun id)
