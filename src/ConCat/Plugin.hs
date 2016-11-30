@@ -107,9 +107,13 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    go (Case scrut wild rhsTy alts) =
      Doing("ccc Case")
      return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
-   go (Let (NonRec v rhs) body) | incompleteCatOp rhs =
+   go (Let (NonRec v rhs) body) | doSubst =
      Doing("Let substitution")
+     -- TODO: try commuting Let & ccc instead of substituting.
+     -- Then I probably can return mkCcc.
      go (subst1 v rhs body)
+    where
+      doSubst = incompleteCatOp rhs || isPred rhs
    go (etaReduceN -> reCat -> Just e') =
      Doing("reCat")
      Just e'
