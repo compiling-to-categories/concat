@@ -38,8 +38,8 @@
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
-{-# OPTIONS_GHC -dverbose-core2core #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
 {-# OPTIONS_GHC -dsuppress-type-applications -dsuppress-coercions #-}
@@ -49,7 +49,7 @@
 {-# OPTIONS_GHC -ddump-rule-rewrites #-}
 
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=300 #-} -- default 100
--- {-# OPTIONS_GHC -fsimpl-tick-factor=10  #-} -- default 100
+-- {-# OPTIONS_GHC -fsimpl-tick-factor=50  #-} -- default 100
 
 -- When I list the plugin in the test suite's .cabal target instead of here, I get
 --
@@ -85,12 +85,14 @@ tests :: IO [Test]
 tests = return
   [ nopTest
 
---   , tst (id :: Unop Float)
---   , tst (const 4 :: Unop Float)
---   , tst  (\ x -> 4 + x :: Float)
---   , tst (\ x -> x * x :: Float)
+  , test "id"          (id :: Unop Float)
+--   , test "const-4"     (const 4 :: Unop Float)
+--   , test "four-plus-x" (\ x -> 4 + x :: Float)
+--   , test "square"      (\ x -> x * x :: Float)
+--   , test "cos"         (cos :: Unop Float)
 
-  , tst (cos :: Unop Float)
+--   , test "cos-2x"         (\ x -> cos (2 * x) :: Float)
+--   , test "cos-2xx"        (\ x -> cos (2 * x * x) :: Float)
 
 --   , tst (fst @Bool @Int)
 
@@ -243,32 +245,32 @@ dsc f = \ a -> let (b,b') = f a in (b, b' 1)
 
 #if 0
 -- Circuit interpretation
-test :: Okay a b => String -> (a -> b) -> Test
+test, test' :: Okay a b => String -> (a -> b) -> Test
 tst  :: Okay a b => (a -> b) -> Test
 {-# RULES "circuit" forall s f. test s f = mkTest s (go s f) #-}
 #elif 0
 -- Syntactic interpretation
-test :: String -> (a -> b) -> Test
+test, test' :: String -> (a -> b) -> Test
 tst :: (a -> b) -> Test
 {-# RULES "syntactic" forall s f.
   test s f = mkTest s (putStrLn ('\n':render (ccc f))) #-}
 #elif 0
 -- (->), then syntactic
 -- With INLINE [3]: "Simplifier ticks exhausted"
-test :: String -> (a -> b) -> Test
+test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "(->); Syn" forall s f.
    test s f = mkTest s (putStrLn ('\n':render (ccc (ccc f))))
  #-}
 #elif 0
 -- Syntactic, then uncurries
-test :: Uncurriable Syn a b => String -> (a -> b) -> Test
+test, test' :: Uncurriable Syn a b => String -> (a -> b) -> Test
 tst :: Uncurriable Syn a b => (a -> b) -> Test
 {-# RULES "syntactic; uncurries" forall s f.
   test s f = mkTest s (putStrLn ('\n':render (uncurries (ccc f)))) #-}
 #elif 0
 -- uncurries, then syntactic
-test :: Uncurriable (->) a b => String -> (a -> b) -> Test
+test, test' :: Uncurriable (->) a b => String -> (a -> b) -> Test
 tst  :: Uncurriable (->) a b => (a -> b) -> Test
 {-# RULES "uncurries; Syn" forall s f.
    test s f = mkTest s (putStrLn ('\n':render (ccc (uncurries f))))
@@ -276,14 +278,14 @@ tst  :: Uncurriable (->) a b => (a -> b) -> Test
 #elif 0
 -- (->), then uncurries, then syntactic
 -- Some trouble with INLINE [3]
-test :: Uncurriable (->) a b => String -> (a -> b) -> Test
+test, test' :: Uncurriable (->) a b => String -> (a -> b) -> Test
 tst  :: Uncurriable (->) a b => (a -> b) -> Test
 {-# RULES "(->); uncurries; Syn" forall s f.
    test s f = mkTest s (putStrLn ('\n':render (ccc (uncurries (ccc f)))))
  #-}
 #elif 0
 -- syntactic *and* circuit
-test :: GenBuses a => String -> (a -> b) -> Test
+test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst  :: GenBuses a => (a -> b) -> Test
 {-# RULES "Syn :**: (:>)" forall s f.
    test s f = mkTest s (runEC s (ccc f))
@@ -291,7 +293,7 @@ tst  :: GenBuses a => (a -> b) -> Test
 #elif 0
 -- syntactic *and* circuit, then uncurries
 -- OOPS: Core Lint error
-test :: (GenBuses (UncDom a b), Uncurriable (Syn :**: (:>)) a b) => String -> (a -> b) -> Test
+test, test' :: (GenBuses (UncDom a b), Uncurriable (Syn :**: (:>)) a b) => String -> (a -> b) -> Test
 tst  :: (GenBuses (UncDom a b), Uncurriable (Syn :**: (:>)) a b) => (a -> b) -> Test
 {-# RULES "uncurries ; Syn :**: (:>)" forall s f.
    test s f = mkTest s (runEC s (uncurries (ccc f)))
@@ -299,7 +301,7 @@ tst  :: (GenBuses (UncDom a b), Uncurriable (Syn :**: (:>)) a b) => (a -> b) -> 
 #elif 0
 -- uncurries, then syntactic *and* circuit
 -- OOPS: Core Lint error
-test :: (GenBuses (UncDom a b), Uncurriable (->) a b) => String -> (a -> b) -> Test
+test, test' :: (GenBuses (UncDom a b), Uncurriable (->) a b) => String -> (a -> b) -> Test
 tst  :: (GenBuses (UncDom a b), Uncurriable (->) a b) => (a -> b) -> Test
 {-# RULES "uncurries ; Syn :**: (:>)" forall s f.
    test s f = mkTest s (runEC s (ccc (uncurries f)))
@@ -307,14 +309,14 @@ tst  :: (GenBuses (UncDom a b), Uncurriable (->) a b) => (a -> b) -> Test
 #elif 0
 -- (->), then circuit
 -- OOPS: "Simplifier ticks exhausted"
-test :: Okay a b => String -> (a -> b) -> Test
+test, test' :: Okay a b => String -> (a -> b) -> Test
 tst  :: Okay a b => (a -> b) -> Test
 {-# RULES "(->); (:>)" forall s f.
    test s f = mkTest s (go s (ccc f))
  #-}
 #elif 0
 -- Derivative, then syntactic
-test :: String -> (a -> b) -> Test
+test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "test AD" forall s f.
    test s f = mkTest s (putStrLn ('\n' : render (ccc (dfun f))))
@@ -322,28 +324,35 @@ tst  :: (a -> b) -> Test
 #elif 0
 -- (->), then derivative, then syntactic. The first (->) gives us a chance to
 -- transform away the ClosedCat operations.
-test :: String -> (a -> b) -> Test
+test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall s f.
    test s f = mkTest s (putStrLn ('\n' : render (ccc (dfun (ccc f)))))
  #-}
-#elif 1
+#elif 0
 -- (->), then *scalar* derivative, then syntactic.
-test :: Num a => String -> (a -> b) -> Test
+test, test' :: Num a => String -> (a -> b) -> Test
 tst  :: Num a => (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall s f.
    test s f = mkTest s (putStrLn ('\n' : render (ccc (dsc (dfun (ccc f))))))
  #-}
+#elif 1
+-- (->), scalar D, syntax+circuit.
+test, test' :: (Num a, GenBuses a) => String -> (a -> b) -> Test
+tst         :: (Num a, GenBuses a) =>           (a -> b) -> Test
+{-# RULES "(->); D; Syn" forall s f.
+   test s f = mkTest s (runEC s (ccc (dsc (dfun (ccc f)))))
+ #-}
 #else
 -- NOTHING
 #endif
-test s _f = mkTest s (putStrLn ("test called on " ++ s))
-tst _f = test "tst" _f
 
+test' s _f = mkTest s (putStrLn ("test called on " ++ s))
+
+test s = test' s
+tst    = test' "tst"
 {-# NOINLINE test #-}
 {-# NOINLINE tst #-}
-
--- {-# RULES "tst" forall f. tst f = test "test" f #-}
 {-# RULES "tst" tst = test "test" #-}
 
 mkTest :: String -> IO () -> Test
