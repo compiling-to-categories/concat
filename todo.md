@@ -1,5 +1,9 @@
 # To do
 
+*   Simple, general treatment of `ccc (\ _ -> U)` as `constFun (ccc u)`.
+*   Look into work replication.
+    See 2016-11-30 notes.
+*   Better CCC optimization.
 *   Why aren't the syntactic `BoolCat`, `NumCat` etc methods inlining, while the `Category`, and `ProductCat` ones are?
 *   Other CCCs:
     *   *All* CCCs (universally quantified)
