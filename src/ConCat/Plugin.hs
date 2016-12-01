@@ -107,7 +107,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    go (Case scrut wild rhsTy alts) =
      Doing("ccc Case")
      return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
-#if 0
+#if 1
    go (Let (NonRec v rhs) body) | doSubst =
      Doing("Let substitution")
      -- TODO: try commuting Let & ccc instead of substituting.
@@ -209,13 +209,15 @@ ccc (CccEnv {..}) guts dflags inScope cat =
                                      -- goLam x e'
      Trying("Let")
      Let (NonRec v rhs) body' | liftedExpr rhs ->
-       if incompleteCatOp rhs then
+       if doSubst then
          Doing("Let substitution")
          goLam x (subst1 v rhs body')
        else
          Doing("Let to beta redex")
          -- Convert back to beta-redex. goLam, so GHC can't re-let.
          goLam x (Lam v body' `App` rhs)
+      where
+        doSubst = incompleteCatOp rhs
      Trying("Lam")
      Lam y e ->
        -- (\ x -> \ y -> U) --> curry (\ z -> U[fst z/x, snd z/y])
