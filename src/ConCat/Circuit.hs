@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 
-#define NoOptimizeCircuit
+-- #define NoOptimizeCircuit
 -- #define NoHashCons
 
 -- #define NoIfBotOpt
