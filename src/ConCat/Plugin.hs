@@ -155,11 +155,19 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      Trying("Id")
      Var y | x == y -> Doing("Id")
                        return (mkId cat xty)
-     Trying("Category operation.")
+#if 1
+     Trying("Category operation")
      _ | isConst
        , Just e'' <- mkConstFun cat xty =<< reCat body
        -> Doing("Category operation")
           return e''
+#else
+     -- TODO: try this elegant alternative.
+     -- If it works, maybe remove some other cases.
+     Trying("Constant function")
+     _ | isConst, isFun
+       -> mkConstFun cat xty (mkCcc body)
+#endif
      Trying("Const")
      _ | isConst
        , not isFun  -- TODO: just try mkConst
