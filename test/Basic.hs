@@ -38,11 +38,12 @@
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
--- {-# OPTIONS_GHC -dverbose-core2core #-}
+{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+{-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
-{-# OPTIONS_GHC -dsuppress-type-applications -dsuppress-coercions #-}
+{-# OPTIONS_GHC -dsuppress-type-applications #-}
+{-# OPTIONS_GHC -dsuppress-coercions #-}
 
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 
@@ -85,14 +86,13 @@ tests :: IO [Test]
 tests = return
   [ nopTest
 
-  , test "id"          (id :: Unop Float)
+--   , test "id"          (id :: Unop Float)
 --   , test "const-4"     (const 4 :: Unop Float)
 --   , test "four-plus-x" (\ x -> 4 + x :: Float)
---   , test "square"      (\ x -> x * x :: Float)
 --   , test "cos"         (cos :: Unop Float)
-
---   , test "cos-2x"         (\ x -> cos (2 * x) :: Float)
---   , test "cos-2xx"        (\ x -> cos (2 * x * x) :: Float)
+--   , test "square"      (\ x -> x * x :: Float)
+--   , test "cos-2x"      (\ x -> cos (2 * x) :: Float)
+--   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: Float)
 
 --   , tst (fst @Bool @Int)
 
@@ -248,7 +248,7 @@ dsc f = \ a -> let (b,b') = f a in (b, b' 1)
 test, test' :: Okay a b => String -> (a -> b) -> Test
 tst  :: Okay a b => (a -> b) -> Test
 {-# RULES "circuit" forall s f. test s f = mkTest s (go s f) #-}
-#elif 0
+#elif 1
 -- Syntactic interpretation
 test, test' :: String -> (a -> b) -> Test
 tst :: (a -> b) -> Test
@@ -451,8 +451,8 @@ unD' d = unD d
 -- bar :: Float -> (Float :* (Float -> Float))
 -- bar = unD' (reveal (ccc id))
 
--- bar :: Float -> (Float :* (Float -> Float))
--- bar = dfun (const 4)
+bar :: Float -> (Float :* (Float -> Float))
+bar = dfun (const 4)
 
 -- bar :: Float -> (Float :* (Float -> Float))
 -- bar = dfun ((\ _x -> 4) :: Unop Float)
@@ -573,7 +573,6 @@ unD' d = unD d
 
 -- bar :: IO ()
 -- bar = runEC "bar" (ccc (dfun (id :: Unop Float)))
-
   
 #endif
 
