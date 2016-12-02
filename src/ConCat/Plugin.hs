@@ -59,7 +59,7 @@ data CccEnv = CccEnv { dtrace    :: forall a. String -> SDoc -> a -> a
                      , applyV    :: Id
                      , composeV  :: Id
                      , curryV    :: Id
-                  -- , uncurryV  :: Id
+                     , uncurryV  :: Id
                      , exlV      :: Id
                      , exrV      :: Id
                      , constFunV :: Id
@@ -82,7 +82,7 @@ lintSteps = True -- False
 type Rewrite a = a -> Maybe a
 type ReExpr = Rewrite CoreExpr
 
--- #define Trying(str) e | dtrace ("Trying " ++ (str)) (e `seq` empty) False -> undefined
+-- #define Trying(str) e_ | dtrace ("Trying " ++ (str)) (e_ `seq` empty) False -> undefined
 
 #define Trying(str)
 
@@ -100,84 +100,110 @@ ccc (CccEnv {..}) guts dflags inScope cat =
   go
  where
    go :: ReExpr
-   go e | dtrace ("go ccc "++pp cat++":") (ppr e) False = undefined
-   go (Lam x body) = goLam x (etaReduceN body)
-   -- ccc-of-case. Maybe restrict to isTyCoDictArg for all bound variables, but
-   -- perhaps I don't need to.
-   go (Case scrut wild rhsTy alts) =
-     Doing("ccc Case")
-     return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
+   go = \ case
+     e | dtrace ("go ccc "++pp cat++":") (pprWithType e) False -> undefined
+     Trying("Lam")
+     Lam x body -> goLam x body
+     Trying("reCat")
+     (etaReduceN -> reCat -> Just e') ->
+       Doing("reCat")
+       Just e'
 #if 1
-   go (Let (NonRec v rhs) body) | doSubst =
-     Doing("Let substitution")
-     -- TODO: try commuting Let & ccc instead of substituting.
-     -- Then I probably can return mkCcc.
-     go (subst1 v rhs body)
-    where
-      doSubst = incompleteCatOp rhs || isPred rhs
+     Trying("Avoid ruled")
+     (ruledApp -> True) ->
+       Doing("Avoid ruled")
+       Nothing
 #else
-   go (Let bind body) =
-     Doing("Let float")
-     return (Let bind (mkCcc body))
+     -- Trying("Postponing ccc-of-ccc")
+     (collectArgs -> (Var v,_)) | v == cccV ->
+       Doing("Postponing ccc-of-ccc")
+       Nothing
 #endif
-   go (etaReduceN -> reCat -> Just e') =
-     Doing("reCat")
-     Just e'
-   go (Cast e co) | Just co' <- reCatCo co =
-     -- etaExpand turns cast lambdas into themselves
-     Doing("reCatCo")
-     -- dtrace "reCatCo" (ppr co <+> text "-->" <+> ppr (reCatCo co)) $
-     -- I think GHC is undoing this transformation, so continue eagerly
-     -- return (Cast (mkCcc e) (reCatCo co))
-     -- pprPanic "ccc" (text "Cast: not yet handled")
-     (`Cast` co') <$> go e
-   -- Temp hack while testing nested ccc calls.
-   -- go (etaReduceN -> Var v) = Doing("Wait for unfolding of " ++ fqVarName v)
-   --                            Nothing
-   go e@(unfoldMaybe -> Just e') =
-     Doing("unfold")
-     dtrace "go unfold" (ppr e <+> text "-->" <+> ppr e')
-     return (mkCcc e')
-   go (collectArgs -> (Var v,_)) | waitForVar =
-     Doing("Wait for unfolding of " ++ fqVarName v)
-     Nothing
-    where
-      -- expand later
-      waitForVar = not (isPairVar v)
-   go e = dtrace "go etaExpand to" (ppr (etaExpand 1 e)) $
-          go (etaExpand 1 e)
-          -- return $ mkCcc (etaExpand 1 e)
-   -- TODO: If I don't etaReduceN, merge goLam back into the go Lam case.
+     Trying("App")
+     e@(App u v) | liftedExpr v, Just v' <- mkConst' cat dom v ->
+       -- dtrace "go App v'" (pprWithType v') $
+       Doing("App")
+       -- u v == uncurry u . (constFun v &&& id)
+       return (mkCompose cat (mkUncurry cat (mkCcc u)) (mkFork cat v' (mkId cat dom)))
+      where
+        Just (dom,_) = splitFunTy_maybe (exprType e)
+     Trying("Let")
+     Let bind@(NonRec v rhs) body ->
+       if doFloat then
+         Doing("Let floating")
+         return (Let bind (mkCcc body))
+       else
+         Doing("Let to beta-redex")
+         go (App (Lam v body) rhs)
+      where
+        doFloat = not (liftedExpr rhs) || incompleteCatOp rhs
+     -- ccc-of-case. Maybe restrict to isTyCoDictArg for all bound variables, but
+     -- perhaps I don't need to.
+     Trying("Case")
+     Case scrut wild rhsTy alts ->
+       Doing("ccc Case")
+       return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
+     Trying("Cast")
+     Cast e co | Just co' <- reCatCo co ->
+       -- etaExpand turns cast lambdas into themselves
+       Doing("reCatCo")
+       -- dtrace "reCatCo" (ppr co <+> text "-->" <+> ppr (reCatCo co)) $
+       -- I think GHC is undoing this transformation, so continue eagerly
+       -- return (Cast (mkCcc e) (reCatCo co))
+       -- pprPanic "ccc" (text "Cast: not yet handled")
+       (`Cast` co') <$> go e
+     -- Temp hack while testing nested ccc calls.
+     -- go (etaReduceN -> Var v) = Doing("Wait for unfolding of " ++ fqVarName v)
+     --                            Nothing
+     Trying("unfold")
+     e@(unfoldMaybe -> Just e') ->
+       Doing("unfold")
+       dtrace "go unfold" (ppr e <+> text "-->" <+> ppr e')
+       return (mkCcc e')
+     Trying("Wait for unfolding")
+     (collectArgs -> (Var v,_)) | waitForVar ->
+       Doing("Wait for unfolding of " ++ fqVarName v)
+       Nothing
+      where
+        -- expand later
+        waitForVar = not (isPairVar v)
+     -- go e = dtrace "go etaExpand to" (ppr (etaExpand 1 e)) $
+     --        go (etaExpand 1 e)
+     --        -- return $ mkCcc (etaExpand 1 e)
+     -- TODO: If I don't etaReduceN, merge goLam back into the go Lam case.
+     e -> pprPanic "ccc go. Unhandled " (ppr e)
    goLam x body | dtrace "goLam:" (ppr (Lam x body)) False = undefined
    -- go _ = Nothing
+   goLam x body | Just e' <- etaReduce_maybe (Lam x body) =
+    Doing("eta-reduce")
+    return (mkCcc e')
    goLam x body = case body of
      -- Trying("constant")
      Trying("Id")
      Var y | x == y -> Doing("Id")
                        return (mkId cat xty)
-#if 1
-     Trying("Category operation")
-     _ | isConst
-       , Just e'' <- mkConstFun cat xty =<< reCat body
-       -> Doing("Category operation")
-          return e''
-#else
-     -- TODO: try this elegant alternative.
-     -- If it works, maybe remove some other cases.
-     Trying("Constant function")
-     _ | isConst, isFun
-       -> mkConstFun cat xty (mkCcc body)
-#endif
+     Trying("Poly const")
+     _ | isConst, not (isFunTy bty), not (isMonoTy bty)
+       -> Doing("Poly const bail")
+          Nothing
      Trying("Const")
      _ | isConst
-       , not isFun  -- TODO: just try mkConst
-       , Just e' <- mkConst cat xty body
-       -> Doing("Const")
-         return e'                               
+       , dtrace "goLam mkConst'" (ppr (mkConst' cat xty body)) False -> undefined
+     _ | isConst, Just body' <- mkConst' cat xty body
+       -> Doing("mkConst'")
+       return body'
+#if 1
+     -- Refactor with top-level version
+     Trying("Avoid ruled")
+     (ruledApp -> True) ->
+       Doing("Avoid ruled")
+       Nothing
+#else
      -- Take care not to break up a ccc call as if a regular App
-     (collectArgs -> (Var ((== cccV) -> True),_)) ->
+     (collectArgs -> (Var v,_)) | v == cccV ->
        Doing("Postponing ccc-of-ccc")
        Nothing
+#endif
      Trying("Pair")
      (collectArgs -> (PairVar,(Type a : Type b : rest))) ->
        -- | dtrace "Pair" (ppr rest) False -> undefined
@@ -217,13 +243,22 @@ ccc (CccEnv {..}) guts dflags inScope cat =
          -- Convert back to beta-redex. goLam, so GHC can't re-let.
          goLam x (Lam v body' `App` rhs)
       where
-        doSubst = incompleteCatOp rhs
+        doSubst = incompleteCatOp rhs || allSelectors rhs
+        allSelectors (Var _) = True
+        allSelectors (App (collectArgsPred isTyCoDictArg -> (Var h,_)) e) =
+          h `elem` [exlV,exrV] && allSelectors e
+        allSelectors _ = False
+     Trying("eta-reduce")
+     (etaReduce_maybe -> Just e') ->
+       Doing("eta-reduce")
+       goLam x e'
      Trying("Lam")
      Lam y e ->
        -- (\ x -> \ y -> U) --> curry (\ z -> U[fst z/x, snd z/y])
        Doing("Lam")
        -- dtrace "Lam isDeads" (ppr (isDeadBinder x, isDeadBinder y)) $
        -- dtrace "Lam sub" (ppr sub) $
+       -- TODO: maybe let instead of subst
        return $ mkCurry cat (mkCcc (Lam z (subst sub e)))
       where
         yty = varType y
@@ -243,6 +278,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
           -- == \ x -> (\ (a,b) -> rhs) scrut
           -- == \ x -> (\ c -> rhs[a/exl c, b/exr c) scrut
           -- TODO: refactor with Lam case
+          -- Maybe let instead of subst
           let c     = freshId (exprFreeVars e) cName (exprType scrut)  -- (pairTy (varTy a) (varTy b))
               cName = uqVarName a ++ "_" ++ uqVarName b
               sub   = [(a,mkEx funCat exlV (Var c)),(b,mkEx funCat exrV (Var c))]
@@ -255,7 +291,6 @@ ccc (CccEnv {..}) guts dflags inScope cat =
       xty = varType x
       bty = exprType body
       isConst = not (isFreeIn x body)
-      isFun = isFunTy bty
    -- Change categories
    catTy :: Unop Type
    catTy (tyArgs2 -> (a,b)) = mkAppTys cat [a,b]
@@ -311,7 +346,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
    mkCcc :: Unop CoreExpr  -- Any reason to parametrize over Cat?
    mkCcc e = varApps cccV [cat,a,b] [e]
     where
-      (a,b) = splitFunTy (exprType e)
+      (a,b) = fromMaybe (pprPanic "mkCcc non-function:" (pprWithType e)) $
+              splitFunTy_maybe (exprType e)
    -- TODO: replace composeV with mkCompose in CccEnv
    -- Maybe other variables as well
    mkId :: Cat -> Type -> CoreExpr
@@ -366,16 +402,15 @@ ccc (CccEnv {..}) guts dflags inScope cat =
     where
       (tyArgs2 -> (tyArgs2 -> (a,b),c)) = exprType e
       -- (splitAppTys -> (_,[splitAppTys -> (_,[a,b]),c])) = exprType e
-   -- mkUncurry :: Cat -> Unop CoreExpr
-   -- mkUncurry k e =
-   --   -- uncurry :: forall {k :: * -> * -> *} {a} {b} {c}.
-   --   --            (ClosedCat k, Ok k c, Ok k b, C1 (Ok k) a)
-   --   --         => k a (Exp k b c) -> k (Prod k a b) c
-   --   -- onDict (catOp k uncurryV `mkTyApps` [a,b,c]) `App` e
-   --   onDict (catOp k uncurryV [a,b,c]) `App` e
-   --   -- varApps uncurryV [a,b,c] [e]
-   --  where
-   --    (tyArgs2 -> (a, tyArgs2 -> (b,c))) = exprType e
+   mkUncurry :: Cat -> Unop CoreExpr
+   mkUncurry k e =
+     -- uncurry :: forall {k :: * -> * -> *} {a} {b} {c}.
+     --            (ClosedCat k, Ok k c, Ok k b, C1 (Ok k) a)
+     --         => k a (Exp k b c) -> k (Prod k a b) c
+     -- onDict (catOp k uncurryV `mkTyApps` [a,b,c]) `App` e
+     onDict (catOp k uncurryV [a,b,c]) `App` e
+    where
+      (tyArgs2 -> (a, tyArgs2 -> (b,c))) = exprType e
    mkConst :: Cat -> Type -> ReExpr
    mkConst k dom e =
      -- const :: forall (k :: * -> * -> *) b. ConstCat k b => forall dom.
@@ -393,6 +428,12 @@ ccc (CccEnv {..}) guts dflags inScope cat =
       (a,b) = tyArgs2 (exprType e)
    -- Split k a b into a & b.
    -- TODO: check that k == cat
+   -- Turn U into either const U or constFun (mkCcc U) if possible.
+   mkConst' :: Cat -> Type -> ReExpr
+   -- mkConst' k dom e | dtrace "mkConst'" (ppr (k,dom) <+> pprWithType e) False = undefined
+   -- mkConst' k dom e = (mkConst k dom <+ (mkConstFun k dom . mkCcc)) e
+   mkConst' k dom e | isFunTy (exprType e) = mkConstFun k dom (mkCcc e)
+                    | otherwise            = mkConst k dom e
    tyArgs2_maybe :: Type -> Maybe (Type,Type)
    -- tyArgs2_maybe (splitAppTys -> (_,(a:b:_))) = Just (a,b)
    tyArgs2_maybe _ty@(splitAppTy_maybe -> Just (splitAppTy_maybe -> Just (_,a),b)) =
@@ -427,8 +468,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
               (oops "Lint")
           (lintExpr dflags (varSetElems (exprFreeVars after)) after)
    catFun :: ReExpr
-   catFun (Var v) | True || dtrace "catFun" (text fullName <+> dcolon <+> ppr ty) True
-                  , Just (op,tys) <- M.lookup fullName monoOps =
+   -- catFun e | dtrace "catFun" (pprWithType e) False = undefined
+   catFun (Var v) | Just (op,tys) <- M.lookup fullName monoOps =
      -- Apply to types and dictionaries, and possibly curry.
      return $ (if twoArgs ty then mkCurry cat else id) (catOp cat op tys)
     where
@@ -441,9 +482,8 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      , Just op <- M.lookup (fqVarName v) polyOps
      = -- dtrace "catFun poly" (ppr (v,tys,op) <+> text "-->" <+> ppr (onDictMaybe (catOp cat op tys))) $
        return (onDict (catOp cat op tys))
+   -- TODO: handle Prelude.const. Or let it inline.
    catFun _ = Nothing
-   reCat :: ReExpr
-   reCat = transCatOp <+ catFun
    transCatOp :: ReExpr
    -- transCatOp e | dtrace "transCatOp" (ppr e) False = undefined
    transCatOp (collectArgs -> (Var v, Type _wasCat : rest))
@@ -470,6 +510,10 @@ ccc (CccEnv {..}) guts dflags inScope cat =
          Just (snd (foldl addArg (0,Var v `App` Type cat) rest))
    transCatOp _ = -- pprTrace "transCatOp" (text "fail") $
                   Nothing
+   reCat :: ReExpr
+   reCat = {- traceFail "reCat" <+ -} transCatOp <+ catFun
+   -- traceFail :: String -> ReExpr
+   -- traceFail str a = dtrace str (pprWithType a) Nothing
    incompleteCatOp :: CoreExpr -> Bool
    -- incompleteCatOp e | dtrace "incompleteCatOp" (ppr e) False = undefined
    incompleteCatOp (collectArgs -> (Var v, Type _wasCat : rest))
@@ -613,6 +657,7 @@ mkCccEnv opts = do
   forkV     <- findCatId "&&&"
   applyV    <- findCatId "apply"
   curryV    <- findCatId "curry"
+  uncurryV  <- findCatId "uncurry"
   constFunV <- findCatId "constFun"
   cccV      <- findCatId "ccc"
   floatT    <- findFloatTy "Float"
@@ -863,7 +908,19 @@ coercionTag SubCo       {} = "SubCo"
 -- Try to inline an identifier.
 -- TODO: Also class ops
 inlineId :: Id -> Maybe CoreExpr
-inlineId v = maybeUnfoldingTemplate (realIdUnfolding v)
+-- inlineId v = maybeUnfoldingTemplate (idUnfolding v) -- realIdUnfolding?
+
+inlineId v =
+  do e <- maybeUnfoldingTemplate (idUnfolding v)
+     guard (not (isErr e))
+     return e
+ where
+   isErr (Lam _ body) = isErr body
+   isErr (collectArgs -> (Var h,_)) = fqVarName h == "GHC.Err.error"
+   isErr _ = False
+
+-- TODO: try idUnfolding in place of realIdUnfolding to avoid warnings about
+-- "loop breakers".
 
 -- Adapted from Andrew Farmer's getUnfoldingsT in HERMIT.Dictionary.Inline:
 inlineClassOp :: Id -> Maybe CoreExpr
@@ -921,19 +978,18 @@ v `isFreeIn` e = v `elemVarSet` (exprFreeVars e)
 pairTy :: Binop Type
 pairTy a b = mkBoxedTupleTy [a,b]
 
+etaReduce_maybe :: ReExpr
+etaReduce_maybe (Lam x (App e (Var y))) | x == y && not (isFreeIn x e) = Just e
+etaReduce_maybe _ = Nothing
+
+-- TODO: phase out etaReduce1 and etaReduce1N in favor of etaReduce_maybe.
+-- Then rename etaReduce_maybe to "etaReduce"
 etaReduce1 :: Unop CoreExpr
-etaReduce1 (Lam x (App e (Var y))) | x == y && not (isFreeIn x e) = e
-etaReduce1 e = e
+etaReduce1 e = fromMaybe e (etaReduce_maybe e)
 
 etaReduceN :: Unop CoreExpr
 etaReduceN (Lam x (etaReduceN -> body')) = etaReduce1 (Lam x body')
 etaReduceN e = e
-
--- etaReduce :: ReExpr
--- etaReduce (collectTyAndValBinders -> ( []
---                                      , vs@(_:_)
---                                      , collectArgs -> (f,args@(_:_))) )
---   | Just rest <- matchArgs vs args = 
 
 -- The function category
 funCat :: Cat
@@ -952,3 +1008,15 @@ pattern PairVar <- Var (isPairVar -> True)
 
 isPairVar :: Var -> Bool
 isPairVar = (== "GHC.Tuple.(,)") . fqVarName
+
+isMonoTy :: Type -> Bool
+isMonoTy (TyConApp _ tys) = all isMonoTy tys
+isMonoTy (AppTy u v)      = isMonoTy u && isMonoTy v
+isMonoTy _                = False
+
+hasRules :: Id -> Bool
+hasRules = not . isEmptyRuleInfo . ruleInfo . idInfo
+
+ruledApp :: CoreExpr -> Bool
+ruledApp (collectArgs -> (Var v,_)) = hasRules v
+ruledApp _ = False
