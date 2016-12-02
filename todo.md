@@ -1,6 +1,12 @@
 # To do
 
+*   There are `case` and `let` expressions in the middle of categorical compositions, where they can thwart CCC simplifications.
+    Inlining those `let` expressions may be exactly what's needed to enable the simplifier's other transformations to eliminate the `case` expressions.
+*   AD with non-scalar domains.
 *   Simple, general treatment of `ccc (\ _ -> U)` as `constFun (ccc u)`.
+    Oops! Take care.
+    If I have to $\eta$-expand `U`, I'll then get `apply . (constFun (ccc U) &&& id)`
+    Needs more thought.
 *   Look into work replication.
     See 2016-11-30 notes.
 *   Better CCC optimization.
