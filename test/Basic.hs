@@ -38,19 +38,19 @@
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
-{-# OPTIONS_GHC -dverbose-core2core #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
-{-# OPTIONS_GHC -dsuppress-type-applications #-}
-{-# OPTIONS_GHC -dsuppress-coercions #-}
+-- {-# OPTIONS_GHC -dsuppress-type-applications #-}
+-- {-# OPTIONS_GHC -dsuppress-coercions #-}
 
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 
 {-# OPTIONS_GHC -ddump-rule-rewrites #-}
 
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=300 #-} -- default 100
--- {-# OPTIONS_GHC -fsimpl-tick-factor=50  #-} -- default 100
+-- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-} -- default 100
 
 -- When I list the plugin in the test suite's .cabal target instead of here, I get
 --
@@ -86,13 +86,25 @@ tests :: IO [Test]
 tests = return
   [ nopTest
 
-  , test "id"          (id :: Unop Float)
---   , test "const-4"     (const 4 :: Unop Float)
---   , test "four-plus-x" (\ x -> 4 + x :: Float)
---   , test "cos"         (cos :: Unop Float)
---   , test "square"      (\ x -> x * x :: Float)
---   , test "cos-2x"      (\ x -> cos (2 * x) :: Float)
---   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: Float)
+--   , test "id"          (id :: Unop R)
+--   , test "const-4"     (const 4 :: Unop R)
+--   , test "four-plus-x" (\ x -> 4 + x :: R)
+--   , test "cos"         (cos :: Unop R)
+--   , test "square"      (\ x -> x * x :: R)
+--   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
+--   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
+
+--   , test "xy" (\ (x,y) -> x * y :: R)
+
+--   , test "cos-x"         (\ x -> cos x :: R)
+
+--   , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
+
+  , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
+
+--   , test "mul" ((*) :: Binop R)
+
+--   , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
 
 --   , tst (fst @Bool @Int)
 
@@ -104,7 +116,7 @@ tests = return
 
 --   , tst ((+) 3 :: Unop Int)
 
---   , tst ((+) 3 :: Unop Float)
+--   , tst ((+) 3 :: Unop R)
 
 --   , tst (||)
 
@@ -116,8 +128,8 @@ tests = return
 
 --   , tst (negate :: Unop Int)
 
---   , tst (negate  :: Unop Float)
---   , tst (negateC :: Unop Float)
+--   , tst (negate  :: Unop R)
+--   , tst (negateC :: Unop R)
 
 --   , tst (\ (_ :: ()) -> 1 :: Double)
 
@@ -127,47 +139,47 @@ tests = return
 
 --   , tst ((+) :: Binop Int)
 
---   , tst ((+) :: Binop Float)
+--   , tst ((+) :: Binop R)
 
---   , tst (recip :: Unop Float)
+--   , tst (recip :: Unop R)
 
 --   , tst ((==) :: Int -> Int -> Bool)
---   , tst ((==) :: Float -> Float -> Bool)
+--   , tst ((==) :: R -> R -> Bool)
 --   , tst ((==) :: Double -> Double -> Bool)
 --   , tst ((/=) :: Int -> Int -> Bool)
---   , tst ((/=) :: Float -> Float -> Bool)
+--   , tst ((/=) :: R -> R -> Bool)
 --   , tst ((/=) :: Double -> Double -> Bool)
 
 --   , tst ((<) :: Int -> Int -> Bool)
---   , tst ((<) :: Float -> Float -> Bool)
+--   , tst ((<) :: R -> R -> Bool)
 --   , tst ((<) :: Double -> Double -> Bool)
 --   , tst ((<=) :: Int -> Int -> Bool)
---   , tst ((<=) :: Float -> Float -> Bool)
+--   , tst ((<=) :: R -> R -> Bool)
 --   , tst ((<=) :: Double -> Double -> Bool)
 --   , tst ((>) :: Int -> Int -> Bool)
---   , tst ((>) :: Float -> Float -> Bool)
+--   , tst ((>) :: R -> R -> Bool)
 --   , tst ((>) :: Double -> Double -> Bool)
 --   , tst ((>=) :: Int -> Int -> Bool)
---   , tst ((>=) :: Float -> Float -> Bool)
+--   , tst ((>=) :: R -> R -> Bool)
 --   , tst ((>=) :: Double -> Double -> Bool)
 
 --   , tst ((+) :: Binop Int)
---   , tst ((+) :: Binop Float)
+--   , tst ((+) :: Binop R)
 --   , tst ((+) :: Binop Double)
 --   , tst ((-) :: Binop Int)
---   , tst ((-) :: Binop Float)
+--   , tst ((-) :: Binop R)
 --   , tst ((-) :: Binop Double)
   
---   , tst (recip :: Unop Float)
+--   , tst (recip :: Unop R)
 --   , tst (recip :: Unop Double)
---   , tst ((/) :: Binop Float)
+--   , tst ((/) :: Binop R)
 --   , tst ((/) :: Binop Double)
 
---   , tst (exp :: Unop Float)
+--   , tst (exp :: Unop R)
 --   , tst (exp :: Unop Double)
---   , tst (cos :: Unop Float)
+--   , tst (cos :: Unop R)
 --   , tst (cos :: Unop Double)
---   , tst (sin :: Unop Float)
+--   , tst (sin :: Unop R)
 --   , tst (sin :: Unop Double)
 
 --   , tst (\ (_ :: ()) -> 1 :: Int)
@@ -178,11 +190,11 @@ tests = return
 --   , test "succ" (\ x -> succ x :: Int)
 --   , test "pred" (pred :: Unop Int)
 
---   , tst (id :: Unop Float)
+--   , tst (id :: Unop R)
 
---   , tst ((\ x -> x) :: Unop Float)
+--   , tst ((\ x -> x) :: Unop R)
 
---   , tst  ((\ _ -> 4) :: Unop Float)
+--   , tst  ((\ _ -> 4) :: Unop R)
 
 --   , tst (fst :: Bool :* Int -> Bool)
 
@@ -197,7 +209,7 @@ tests = return
 --   , tst ((\ (x,y) -> (y,x)) :: Unop (Bool :* Bool))
 --   , tst ((,) :: Bool -> Int -> Bool :* Int)
 
---   , tst (double :: Unop Float)
+--   , tst (double :: Unop R)
 
 --   , test "q0"  (\ x -> x :: Int)
 --   , test "q1"  (\ (_x :: Int) -> True)
@@ -209,13 +221,13 @@ tests = return
 
 --   , test "q7"  (\ (a :: Int) (_b :: Int) -> a)
 --   , test "q8"  (\ (_ :: Int) (b :: Int) -> b)
---   , test "q9"  (\ (a :: Float) (b :: Float) -> a + b)
---   , test "q10" (\ (a :: Float) (b :: Float) -> b + a)
+--   , test "q9"  (\ (a :: R) (b :: R) -> a + b)
+--   , test "q10" (\ (a :: R) (b :: R) -> b + a)
 
 --   , test "q7u"  ((\ (a,_) -> a) :: Int :* Int -> Int)
 --   , test "q8u"  ((\ (_,b) -> b) :: Int :* Int -> Int)
---   , test "q9u"  ((\ (a,b) -> a + b) :: Float :* Float -> Float)
---   , test "q10u" ((\ (a,b) -> b + a) :: Float :* Float -> Float)
+--   , test "q9u"  ((\ (a,b) -> a + b) :: R :* R -> R)
+--   , test "q10u" ((\ (a,b) -> b + a) :: R :* R -> R)
 
 --   , tst (\ (_x :: Int) -> not)
 --   , tst (\ (_ :: Bool) -> negate :: Unop Int)
@@ -332,12 +344,37 @@ tst         :: (Num a, GenBuses a) =>           (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall s f.
    test s f = mkTest s (runEC s (ccc (dsc (dfun (ccc f)))))
  #-}
-#elif 1
+#elif 0
 -- scalar D, syntax+circuit.
 test, test' :: (Num a, GenBuses a) => String -> (a -> b) -> Test
 tst         :: (Num a, GenBuses a) =>           (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall s f.
    test s f = mkTest s (runEC s (ccc (dsc (dfun f))))
+ #-}
+#elif 1
+-- (->), non-scalar D, syntax+circuit.
+test, test' :: GenBuses a => String -> (a -> b) -> Test
+tst         :: GenBuses a =>           (a -> b) -> Test
+{-# RULES "(->); D; Syn" forall s f.
+   test s f = mkTest s (runEC s (ccc (dsc' (dfun (ccc f)))))
+ #-}
+#elif 0
+-- uncurries, (->), non-scalar D, syntax+circuit.
+test, test' :: (GenBuses (UncDom a b), Uncurriable (->) a b)
+            => String -> (a -> b) -> Test
+tst         :: (GenBuses (UncDom a b), Uncurriable (->) a b)
+            => GenBuses a =>           (a -> b) -> Test
+{-# RULES "uncurries; (->); D; Syn" forall s f.
+   test s f = mkTest s (runEC s (ccc (dsc' (dfun (ccc (uncurries f))))))
+ #-}
+#elif 0
+-- (->), uncurries, non-scalar D, syntax+circuit.
+test, test' :: (GenBuses (UncDom a b), Uncurriable (->) a b)
+            => String -> (a -> b) -> Test
+tst         :: (GenBuses (UncDom a b), Uncurriable (->) a b)
+            => GenBuses a =>           (a -> b) -> Test
+{-# RULES "uncurries; (->); D; Syn" forall s f.
+   test s f = mkTest s (runEC s (ccc (dsc' (dfun (ccc (uncurries f))))))
  #-}
 #else
 -- NOTHING
@@ -382,17 +419,17 @@ nopTest = Group "nop" False []
 
 #if 0
 
-foo1 :: D Float Float
+foo1 :: D R R
 foo1 = ccc id
 
-foo2, foo3 :: Float -> Float :* (Float -> Float)
+foo2, foo3 :: R -> R :* (R -> R)
 foo2 = unD foo1
 foo3 = unD (ccc id)
 
 sampleD :: D a b -> a -> b
 sampleD (D f) = fst . f
 
-foo4 :: Float -> Float
+foo4 :: R -> R
 foo4 = sampleD (ccc id)
 
 #endif
@@ -407,118 +444,137 @@ foo4 = sampleD (ccc id)
 -- bar = putStrLn (render (ccc (unD' (ccc (id :: Bool -> Bool)))))
 
 -- -- Okay
--- foo1 :: Float -> Float :* (Float -> Float)
+-- foo1 :: R -> R :* (R -> R)
 -- foo1 = unD' A.id
 
 -- -- Okay
--- foo2 :: Syn Float (Float :* (Float -> Float))
+-- foo2 :: Syn R (R :* (R -> R))
 -- foo2 = ccc (unD' A.id)
 
 -- -- Okay (now with NOINLINE render)
 -- foo3 :: String
--- foo3 = render (ccc (unD' (A.id :: D Float Float)))
+-- foo3 = render (ccc (unD' (A.id :: D R R)))
 
 -- -- Okay
 -- foo4 :: Test
--- foo4 = mkTest "foo4" (putStrLn (render (ccc (unD' (A.id :: D Float Float)))))
+-- foo4 = mkTest "foo4" (putStrLn (render (ccc (unD' (A.id :: D R R)))))
 
 -- -- Okay
--- bar1 :: D Float Float
--- bar1 = ccc (A.id :: Float -> Float)
+-- bar1 :: D R R
+-- bar1 = ccc (A.id :: R -> R)
 
 -- -- residual with unD, but okay with unD'
--- bar2 :: Float -> (Float :* (Float -> Float))
--- bar2 = unD' (ccc (A.id :: Float -> Float))
+-- bar2 :: R -> (R :* (R -> R))
+-- bar2 = unD' (ccc (A.id :: R -> R))
 
--- bar :: D Float Float
+-- bar :: D R R
 -- bar = ccc id
 
--- bar :: D Float Float
+-- bar :: D R R
 -- bar = reveal (ccc id)
 
--- bar :: Float -> (Float :* (Float -> Float))
+-- bar :: R -> (R :* (R -> R))
 -- bar = unD' (reveal (ccc id))
 
--- bar :: Float -> (Float :* (Float -> Float))
+-- bar :: R -> (R :* (R -> R))
 -- bar = dfun (const 4)
 
--- bar :: Float -> (Float :* (Float -> Float))
--- bar = dfun ((\ _x -> 4) :: Unop Float)
---       -- dfun id
+-- bar :: R -> (R :* (R -> R))
+-- bar = -- dfun ((\ _x -> 4))
+--       dfun id
 
--- bar :: Syn Float (Float :* (Float -> Float))
+-- bar :: Syn R (R :* (R -> R))
 -- bar = ccc (dfun id)
 
--- bar :: D Float Float
+-- bar :: Syn R (R :* (R -> R))
+-- bar = ccc (dfun id)
+
+-- bar :: D R R
 -- bar = ccc cos
 
--- bar :: D Float Float
+-- bar :: D R R
 -- bar = reveal (ccc cos)
 
--- bar :: D Float Float
+-- bar :: D R R
 -- bar = reveal (reveal (ccc cos))
 
--- bar :: Float -> Float :* (Float -> Float)
+-- bar :: R -> R :* (R -> R)
 -- bar = dfun (ccc cos)
 
--- bar :: Syn Float (Float :* (Float -> Float))
+-- bar :: Syn R (R :* (R -> R))
 -- bar = ccc (dfun (ccc cos))
 
--- bar :: Float -> Float :* (Float -> Float)
+-- bar :: R -> R :* (R -> R)
 -- bar = unD' (ccc cos)
 
--- bar :: Syn Float (Float :* (Float -> Float))
+-- bar :: Syn R (R :* (R -> R))
 -- bar = ccc (unD' (ccc cos))
 
--- bar :: Float -> Float :* (Float -> Float)
+-- bar :: R -> R :* (R -> R)
 -- bar = unD' (reveal (ccc cos))
 
--- bar :: Syn Float (Float :* (Float -> Float))
+-- bar :: Syn R (R :* (R -> R))
 -- bar = ccc (unD' (reveal (ccc cos)))
 
--- bar :: Syn Float (Float :* (Float -> Float))
+-- bar :: Syn R (R :* (R -> R))
 -- bar = reveal (ccc (unD' (reveal (ccc cos))))
 
 -- bar :: Syn Bool Bool
 -- bar = reveal (ccc not)
 
--- bar :: Syn Float (Float :* (Float -> Float))
+-- bar :: Syn R (R :* (R -> R))
 -- bar = reveal (ccc (unD' (reveal (ccc (ccc cos)))))
 
--- bar :: Float -> Float :* Float
+-- bar :: R -> R :* R
 -- bar = dsc (unD' (reveal (ccc cos)))
 
--- bar :: Syn Float (Float :* Float)
+-- bar :: R -> R :* R
+-- bar = dsc (dfun id)
+
+-- bar :: R -> R :* R
+-- bar = ccc (dsc (dfun id))
+
+-- bar :: Syn R (R :* R)
+-- bar = ccc (dsc (dfun id))
+
+-- bar :: Syn R (R :* R)
+-- bar = ccc (dsc (dfun id))
+
+-- bar :: EC R (R :* R)
+-- bar = ccc (dsc (dfun id))
+
+
+-- bar :: Syn R (R :* R)
 -- bar = ccc (dsc (unD' (reveal (ccc cos))))
 
--- bar :: Syn Float (Float :* Float)
+-- bar :: Syn R (R :* R)
 -- bar = reveal (ccc (dsc (unD' (reveal (ccc cos)))))
 
 
 -- bar :: String
--- bar = render (ccc (dfun (ccc (cos :: Unop Float))))
+-- bar = render (ccc (dfun (ccc (cos :: Unop R))))
 
 -- bar :: String
--- bar = render (ccc (dfun (ccc (cos :: Unop Float))))
+-- bar = render (ccc (dfun (ccc (cos :: Unop R))))
 
 -- test s f = mkTest s (putStrLn ('\n' : render (ccc (dfun (ccc f)))))
 
--- bar :: Syn Float (Float :* (Float -> Float))
+-- bar :: Syn R (R :* (R -> R))
 -- bar = ccc (dfun (ccc (\ x -> 4 + x)))
 
 -- -- dfun h = unD' (reveal (ccc h))
 
--- bar :: Syn Float (Float :* (Float -> Float))
+-- bar :: Syn R (R :* (R -> R))
 -- bar = reveal (ccc (dfun id))
 
 -- bar :: String
--- bar = render (reveal (ccc (dfun (id :: Unop Float))))
+-- bar = render (reveal (ccc (dfun (id :: Unop R))))
 
 -- bar :: String
--- bar = render (ccc (dfun ((\ x_ -> 4) :: Unop Float)))
+-- bar = render (ccc (dfun ((\ x_ -> 4) :: Unop R)))
 
 -- bar :: IO ()
--- bar = putStrLn (render (reveal (ccc (dfun (id :: Unop Float)))))
+-- bar = putStrLn (render (reveal (ccc (dfun (id :: Unop R)))))
 
 -- boozle :: String -> (a -> b) -> Test
 -- boozle _ _ = undefined
@@ -528,7 +584,7 @@ foo4 = sampleD (ccc id)
 --  #-}
 
 -- bar :: Test
--- bar = boozle "bar" (id :: Unop Float)
+-- bar = boozle "bar" (id :: Unop R)
 
 -- -- Derivative, then syntactic
 -- test' :: String -> (a -> b) -> Test
@@ -539,28 +595,28 @@ foo4 = sampleD (ccc id)
 -- {-# NOINLINE test' #-}
 
 -- bar :: Test
--- bar = boozle "bar" (id :: Unop Float)
+-- bar = boozle "bar" (id :: Unop R)
 
 -- bar :: IO ()
--- bar = putStrLn (render (ccc (dfun (id :: Unop Float))))
+-- bar = putStrLn (render (ccc (dfun (id :: Unop R))))
 
 -- bar :: IO ()
--- bar = putStrLn (render (ccc (dfun ((\ _x -> 4) :: Unop Float))))
+-- bar = putStrLn (render (ccc (dfun ((\ _x -> 4) :: Unop R))))
 
 -- bar :: Test
--- bar = mkTest "bar" (putStrLn (render (ccc (unD' (ccc (A.id :: Float -> Float))))))
+-- bar = mkTest "bar" (putStrLn (render (ccc (unD' (ccc (A.id :: R -> R))))))
 
 -- bar :: String
--- bar = render (ccc (unD' (ccc (ccc (double :: Float -> Float)))))
+-- bar = render (ccc (unD' (ccc (ccc (double :: R -> R)))))
 
--- bar :: EC Float (Float :* (Float -> Float))
+-- bar :: EC R (R :* (R -> R))
 -- bar = ccc (dfun id)
 
--- bar :: EC Float (Float :* (Float -> Float))
+-- bar :: EC R (R :* (R -> R))
 -- bar = reveal (ccc (dfun id))
 
 -- bar :: IO ()
--- bar = runEC "bar" (ccc (dfun (id :: Unop Float)))
+-- bar = runEC "bar" (ccc (dfun (id :: Unop R)))
   
 #endif
 
@@ -571,4 +627,11 @@ render' = render
 double :: Num a => a -> a
 double a = a + a
 {-# INLINE double #-}
+
+cosSin :: Floating a => a -> a :* a
+cosSin a = (cos a, sin a)
+{-# INLINE cosSin #-}
+
+type R = Float
+type R2 = R :* R
 
