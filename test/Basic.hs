@@ -356,7 +356,7 @@ tst         :: (Num a, GenBuses a) =>           (a -> b) -> Test
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst         :: GenBuses a =>           (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall s f.
-   test s f = mkTest s (runEC s (ccc (dsc' (dfun (ccc f)))))
+   test s f = mkTest s (runEC s (ccc (da2b2 (dfun (ccc f)))))
  #-}
 #elif 0
 -- uncurries, (->), non-scalar D, syntax+circuit.
@@ -365,7 +365,7 @@ test, test' :: (GenBuses (UncDom a b), Uncurriable (->) a b)
 tst         :: (GenBuses (UncDom a b), Uncurriable (->) a b)
             => GenBuses a =>           (a -> b) -> Test
 {-# RULES "uncurries; (->); D; Syn" forall s f.
-   test s f = mkTest s (runEC s (ccc (dsc' (dfun (ccc (uncurries f))))))
+   test s f = mkTest s (runEC s (ccc (da2b2 (dfun (ccc (uncurries f))))))
  #-}
 #elif 0
 -- (->), uncurries, non-scalar D, syntax+circuit.
@@ -374,7 +374,7 @@ test, test' :: (GenBuses (UncDom a b), Uncurriable (->) a b)
 tst         :: (GenBuses (UncDom a b), Uncurriable (->) a b)
             => GenBuses a =>           (a -> b) -> Test
 {-# RULES "uncurries; (->); D; Syn" forall s f.
-   test s f = mkTest s (runEC s (ccc (dsc' (dfun (ccc (uncurries f))))))
+   test s f = mkTest s (runEC s (ccc (da2b2 (dfun (ccc (uncurries f))))))
  #-}
 #else
 -- NOTHING

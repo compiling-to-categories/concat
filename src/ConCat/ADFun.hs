@@ -205,9 +205,9 @@ dsc :: Num a => (a -> b :* (a -> b)) -> (a -> b :* b)
 dsc f = \ a -> let (b,b') = f a in (b, b' 1)
 {-# INLINE dsc #-}
 
-dsc' :: (a -> b :* (a -> b)) -> (a :* a -> b :* b)
-dsc' f = \ (a,da) -> let (b,b') = f a in (b, b' da)
-{-# INLINE dsc' #-}
+da2b2 :: (a -> b :* (a -> b)) -> (a :* a -> b :* b)
+da2b2 f = \ (a,da) -> let (b,b') = f a in (b, b' da)
+{-# INLINE da2b2 #-}
 
 unD' :: D a b -> a -> b :* (a -> b)
 -- unD' (D f) = f
