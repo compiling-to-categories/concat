@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -123,7 +124,8 @@ instance Num a => NumCat D a where
   {-# INLINE powIC   #-}
 
 const' :: (a -> c) -> (a -> b -> c)
-const' = (const .)
+const' f a _b = f a
+-- const' = (const .)
 {-# INLINE const' #-}
 
 scalarD :: Num s => (s -> s) -> (s -> s -> s) -> D s s
@@ -159,6 +161,35 @@ instance Floating s => FloatingCat D s where
   {-# INLINE cosC #-}
 
 {--------------------------------------------------------------------
+    Sampling on a basis
+--------------------------------------------------------------------}
+
+-- Temporary hack until I'm using functors
+
+class HasZero a where
+  zero :: a
+
+instance HasZero Float  where zero = 0
+instance HasZero Double where zero = 0
+instance (HasZero a, HasZero b) => HasZero (a :* b) where zero = (zero,zero)
+
+class HasZero a => HasBasis a r where
+  type B a r
+  onBasis :: (a -> r) -> B a r
+
+instance HasBasis Float r where
+  type B Float r = r
+  onBasis f = f 1
+
+instance HasBasis Double r where
+  type B Double r = r
+  onBasis f = f 1
+
+instance (HasBasis a r, HasBasis b r) => HasBasis (a :* b) r where
+  type B (a :* b) r = B a r :* B b r
+  onBasis f = (onBasis (f . (,zero)), onBasis (f . (zero,)))
+
+{--------------------------------------------------------------------
     Utilities
 --------------------------------------------------------------------}
 
@@ -174,6 +205,10 @@ dsc :: Num a => (a -> b :* (a -> b)) -> (a -> b :* b)
 dsc f = \ a -> let (b,b') = f a in (b, b' 1)
 {-# INLINE dsc #-}
 
+dsc' :: (a -> b :* (a -> b)) -> (a :* a -> b :* b)
+dsc' f = \ (a,da) -> let (b,b') = f a in (b, b' da)
+{-# INLINE dsc' #-}
+
 unD' :: D a b -> a -> b :* (a -> b)
 -- unD' (D f) = f
 #if 0
@@ -188,5 +223,6 @@ unD' _ = error "unD' called"
 #endif
 
 -- Experiment: inline on demand
-{-# RULES "ccc of unD'" forall g. ccc (unD' g) = ccc (unD g) #-}
+{-# RULES "ccc of unD'" forall q. ccc (unD' q) = ccc (unD q) #-}
 {-# RULES "unD' of D" forall f. unD' (D f) = f #-}
+
