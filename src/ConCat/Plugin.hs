@@ -105,23 +105,24 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    go :: ReExpr
    go = \ case
      e | dtrace ("go ccc "++pp cat++":") (pprWithType e) False -> undefined
+     -- Temporarily make `ccc` bail on polymorphic terms. Doing so will speed up
+     -- my experiments, since much time is spent optimizing rules, IIUC. It'll
+     -- be important to restore polymorphic transformation later for useful
+     -- separate compilation.
+     Trying("top poly bail")
+     (exprType -> isMonoTy -> False) ->
+       Doing("top poly bail")
+       Nothing
      Trying("top Lam")
      Lam x body -> goLam x body
      Trying("top reCat")
-     (etaReduceN -> reCat -> Just e') ->
+     (reCat -> Just e') ->
        Doing("top reCat")
        Just e'
-#if 1
      Trying("top Avoid pseudo-app")
      (isPseudoApp -> True) ->
        Doing("top Avoid pseudo-app")
        Nothing
-#else
-     -- Trying("top Postponing ccc-of-ccc")
-     (collectArgs -> (Var v,_)) | v == cccV ->
-       Doing("top Postponing ccc-of-ccc")
-       Nothing
-#endif
      Trying("top App")
      e@(App u v)
        | liftedExpr v
@@ -157,9 +158,8 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        Doing("top reCatCo")
        -- dtrace "reCatCo" (ppr co <+> text "-->" <+> ppr (reCatCo co)) $
        -- I think GHC is undoing this transformation, so continue eagerly
-       -- return (Cast (mkCcc e) (reCatCo co))
-       -- pprPanic "ccc" (text "Cast: not yet handled")
-       (`Cast` co') <$> go e
+       return (Cast (mkCcc e) co')
+       -- (`Cast` co') <$> go e
      -- Temp hack while testing nested ccc calls.
      -- go (etaReduceN -> Var v) = Doing("top Wait for unfolding of " ++ fqVarName v)
      --                            Nothing
@@ -202,18 +202,10 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      _ | isConst, Just body' <- mkConst' cat xty body
        -> Doing("lam mkConst'")
        return body'
-#if 1
-     -- Refactor with top-level version
      Trying("lam Avoid pseudo-app")
      (isPseudoApp -> True) ->
        Doing("lam Avoid pseudo-app")
        Nothing
-#else
-     -- Take care not to break up a ccc call as if a regular App
-     (collectArgs -> (Var v,_)) | v == cccV ->
-       Doing("lam Postponing ccc-of-ccc")
-       Nothing
-#endif
      Trying("lam Pair")
      (collectArgs -> (PairVar,(Type a : Type b : rest))) ->
        -- | dtrace "Pair" (ppr rest) False -> undefined
@@ -230,7 +222,10 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
          _     -> pprPanic "goLam Pair: too many arguments: " (ppr rest)
      Trying("lam App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
-     u `App` v | liftedExpr v, Just app <- mkApplyMaybe cat vty bty ->
+     u `App` v | liftedExpr v
+               -- , dtrace "lam App mkApplyMaybe -->"
+               --     (ppr (mkApplyMaybe cat vty bty)) True
+               , Just app <- mkApplyMaybe cat vty bty ->
        Doing("lam App")
        return $ mkCompose cat
                   app -- (mkApply cat vty bty)
@@ -244,6 +239,25 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
                                      return (mkCcc (Lam x e'))
                                      -- goLam x e'
      Trying("lam Let")
+#if 1
+     -- TODO: refactor with top Let
+     Let (NonRec v rhs) body' ->
+       if doSubst then
+         -- TODO: decide whether to float or substitute.
+         -- To float, x must not occur freely in rhs
+         Doing("lam Let subst")
+         -- return (mkCcc (Lam x (subst1 v rhs body'))) The simplifier seems to
+         -- re-let my dicts if I let it. Will the simplifier re-hoist later? If
+         -- so, we can still let-hoist instead of substituting.
+         goLam x (subst1 v rhs body')
+       else
+         Doing("lam Let to beta-redex")
+         goLam x (App (Lam v body') rhs)
+      where
+        doSubst = not (liftedExpr rhs)
+               || not (isFunTy (varType v))  -- experimental
+               || incompleteCatOp rhs
+#else
      Let (NonRec v rhs) body' | liftedExpr rhs ->
        if doSubst then
          Doing("lam Let substitution")
@@ -258,6 +272,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
         allSelectors (App (collectArgsPred isTyCoDictArg -> (Var h,_)) e) =
           h `elem` [exlV,exrV] && allSelectors e
         allSelectors _ = False
+#endif
      Trying("lam eta-reduce")
      (etaReduce_maybe -> Just e') ->
        Doing("lam eta-reduce")
@@ -295,8 +310,9 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
           in
             return (mkCcc (Lam x (App (Lam c (subst sub rhs)) scrut)))
      -- Give up
-     _e -> dtrace "ccc" ("Unhandled:" <+> ppr _e) $
-           Nothing
+     _e -> pprPanic "ccc" ("Unhandled:" <+> ppr _e)
+           -- dtrace "ccc" ("Unhandled:" <+> ppr _e) $
+           -- Nothing
     where
       xty = varType x
       bty = exprType body
@@ -305,11 +321,14 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    catTy :: Unop Type
    catTy (tyArgs2 -> (a,b)) = mkAppTys cat [a,b]
    reCatCo :: Rewrite Coercion
-   -- reCatCo co | dtrace "reCatCo" (ppr co) False = undefined
-   reCatCo (TyConAppCo _r tc [a,b])
-     | tc == funTyCon = Just (mkAppCos (mkRepReflCo cat) [a,b])
-   reCatCo (splitAppCo_maybe -> Just (splitAppCo_maybe -> Just (_,a),b)) =
-     Just (mkAppCos (mkRepReflCo cat) [a,b])
+   reCatCo co | dtrace "reCatCo" (ppr co) False = undefined
+   -- reCatCo (TyConAppCo r tc [a,b])
+   --   | tc == funTyCon = Just (mkAppCos (mkReflCo r cat) [a,b])
+   reCatCo (splitAppCo_maybe -> Just
+            (splitAppCo_maybe -> Just
+             (Refl r _k,a),b)) =
+     -- pprTrace "reCatCo app" (ppr (r,_k,a,b))
+     Just (mkAppCos (mkReflCo r cat) [a,b])
    reCatCo (co1 `TransCo` co2) = TransCo <$> reCatCo co1 <*> reCatCo co2
    reCatCo co = dtrace "ccc reCatCo: unhandled coercion" (ppr co) $
                 Nothing
@@ -616,6 +635,9 @@ catOpArities = M.fromList $ map (\ (nm,m,n) -> (catModule ++ '.' : nm, (m,n))) $
 pprWithType :: CoreExpr -> SDoc
 pprWithType e = ppr e <+> dcolon <+> ppr (exprType e)
 
+cccRuleName :: FastString
+cccRuleName = fsLit "ccc"
+
 cccRule :: CccEnv -> ModGuts -> AnnEnv -> CoreRule
 cccRule env guts annotations =
   BuiltinRule { ru_name  = fsLit "ccc"
@@ -646,12 +668,19 @@ install opts todos =
           env <- mkCccEnv opts
           -- Add the rule after existing ones, so that automatically generated
           -- specialized ccc rules are tried first.
-          let addRule :: ModGuts -> CoreM ModGuts
+          let addRule, delRule :: ModGuts -> CoreM ModGuts
               addRule guts = do allAnns <- liftIO (prepareAnnotations hsc_env (Just guts))
                                 return (on_mg_rules (++ [cccRule env guts allAnns]) guts)
+              delRule guts = return (on_mg_rules (filter (not . isCCC)) guts)
+              -- isCCC r = isBuiltinRule r && ru_name r == cccRuleName
+              isCCC r | is = pprTrace "delRule" (ppr cccRuleName) is
+                      | otherwise = is
+               where
+                 is = isBuiltinRule r && ru_name r == cccRuleName
           -- pprTrace "ccc install todos:" (ppr todos) (return ())
           return $   CoreDoPluginPass "Ccc insert rule" addRule
                    : CoreDoSimplify 7 mode
+                   : CoreDoPluginPass "Ccc remove rule" delRule
                    : todos
                    ++ [CoreDoPluginPass "Flag remaining ccc calls" (flagCcc env)]
  where
