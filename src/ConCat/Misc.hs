@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
@@ -19,6 +20,8 @@ module ConCat.Misc where
 -- import Control.Arrow ((&&&))
 -- import Unsafe.Coerce (unsafeCoerce)
 -- import Data.Type.Equality
+
+import Data.Data (Typeable,Data)
 
 import Control.Newtype
 
@@ -202,3 +205,15 @@ type family CrossWith f as bs where
 
 type AllC2 f as bs = AndC (CrossWith f as bs)
 
+{--------------------------------------------------------------------
+    Source annotations
+--------------------------------------------------------------------}
+
+-- | Annotation for pseudo-function, i.e., defined by rules. During ccc
+-- generation, don't split applications. TODO: maybe add an arity.
+data PseudoFun = PseudoFun deriving (Typeable,Data)
+
+-- Alternatively, we could keep PseudoFun abstract:
+
+-- pseudoFun :: PseudoFun
+-- pseudoFun = PseudoFun

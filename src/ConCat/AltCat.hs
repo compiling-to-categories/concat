@@ -53,7 +53,7 @@ import ConCat.Category
 
 import qualified ConCat.Category as C
 import ConCat.Rep
-import ConCat.Misc ((:*),(:+))
+import ConCat.Misc ((:*),(:+),PseudoFun(..))
 import ConCat.Float
 
 -- | Dummy identity function set up to trigger rewriting of non-inlining
@@ -65,6 +65,7 @@ reveal :: a -> a
 reveal _f = error "reveal called"
 {-# NOINLINE reveal #-}
 {-# RULES "reveal = id" [0] reveal = id #-}
+{-# ANN reveal PseudoFun #-}
 
 #define OPINLINE INLINE [3]
 -- #define OPINLINE INLINE CONLIKE [3]

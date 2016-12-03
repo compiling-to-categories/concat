@@ -14,7 +14,7 @@ module ConCat.ADFun where
 import Prelude hiding (id,(.))
 import Control.Newtype
 
-import ConCat.Misc ((:*),inNew2)
+import ConCat.Misc ((:*),inNew2,PseudoFun(..))
 
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
@@ -158,3 +158,35 @@ instance Floating s => FloatingCat D s where
   {-# INLINE sinC #-}
   {-# INLINE cosC #-}
 
+{--------------------------------------------------------------------
+    Utilities
+--------------------------------------------------------------------}
+
+dfun :: (a -> b) -> (a -> b :* (a -> b))
+dfun _ = error "dfun called"
+{-# NOINLINE dfun #-}
+{-# RULES "dfun" forall h. dfun h = unD' (reveal (ccc h)) #-}
+{-# ANN dfun PseudoFun #-}
+
+dsc :: Num a => (a -> b :* (a -> b)) -> (a -> b :* b)
+-- dsc f a = (b,b' 1) where (b,b') = f a
+-- dsc f = second (`id` 1) . f
+dsc f = \ a -> let (b,b') = f a in (b, b' 1)
+{-# INLINE dsc #-}
+
+unD' :: D a b -> a -> b :* (a -> b)
+-- unD' (D f) = f
+#if 0
+unD' d = unD d
+-- {-# INLINE unD' #-}
+-- {-# INLINE [2] unD' #-}
+{-# INLINE [0] unD' #-}
+#else
+unD' _ = error "unD' called"
+{-# NOINLINE unD' #-}
+{-# RULES "unD'" [0] unD' = unD #-}
+#endif
+
+-- Experiment: inline on demand
+{-# RULES "ccc of unD'" forall g. ccc (unD' g) = ccc (unD g) #-}
+{-# RULES "unD' of D" forall f. unD' (D f) = f #-}

@@ -26,7 +26,9 @@ import Data.Char (toLower)
 import Data.Data (Data)
 import Data.Generics (GenericQ,mkQ,everything)
 import Data.Sequence (Seq)
-import qualified Data.Sequence as S
+import qualified Data.Sequence as Seq
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map as M
 import Text.Printf (printf)
@@ -45,7 +47,7 @@ import FamInstEnv (normaliseType)
 import TyCoRep                          -- TODO: explicit imports
 import Unique (mkBuiltinUnique)
 
-import ConCat.Misc (Unop,Binop,Ternop)
+import ConCat.Misc (Unop,Binop,Ternop,PseudoFun(..))
 import ConCat.Simplify
 import ConCat.BuildDictionary
 
@@ -67,6 +69,7 @@ data CccEnv = CccEnv { dtrace    :: forall a. String -> SDoc -> a -> a
                      , polyOps   :: PolyOpsMap
                      , monoOps   :: MonoOpsMap
                      , hsc_env   :: HscEnv
+                     , ruleBase  :: RuleBase  -- to remove
                      }
 
 -- Map from fully qualified name of standard operation.
@@ -93,8 +96,8 @@ type ReExpr = Rewrite CoreExpr
 -- Category
 type Cat = Type
 
-ccc :: CccEnv -> ModGuts -> DynFlags -> InScopeEnv -> Type -> ReExpr
-ccc (CccEnv {..}) guts dflags inScope cat =
+ccc :: CccEnv -> ModGuts -> AnnEnv -> DynFlags -> InScopeEnv -> Type -> ReExpr
+ccc (CccEnv {..}) guts annotations dflags inScope cat =
   traceRewrite "ccc" $
   (if lintSteps then lintReExpr else id) $
   go
@@ -109,9 +112,9 @@ ccc (CccEnv {..}) guts dflags inScope cat =
        Doing("top reCat")
        Just e'
 #if 1
-     Trying("top Avoid ruled")
-     (ruledApp -> True) ->
-       Doing("top Avoid ruled")
+     Trying("top Avoid pseudo-app")
+     (isPseudoApp -> True) ->
+       Doing("top Avoid pseudo-app")
        Nothing
 #else
      -- Trying("top Postponing ccc-of-ccc")
@@ -201,9 +204,9 @@ ccc (CccEnv {..}) guts dflags inScope cat =
        return body'
 #if 1
      -- Refactor with top-level version
-     Trying("lam Avoid ruled")
-     (ruledApp -> True) ->
-       Doing("lam Avoid ruled")
+     Trying("lam Avoid pseudo-app")
+     (isPseudoApp -> True) ->
+       Doing("lam Avoid pseudo-app")
        Nothing
 #else
      -- Take care not to break up a ccc call as if a regular App
@@ -277,7 +280,7 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
          | isBoxedTupleTyCon (dataConTyCon dc) ->
        -- To start, require v to be unused. Later, extend.
-       if not (isDeadBinder wild) then
+       if not (isDeadBinder wild) && isFreeIn wild rhs then
             pprPanic "ccc: product case with live wild var (not yet handled)" (ppr e)
        else
           Doing("lam Case of product")
@@ -553,6 +556,24 @@ ccc (CccEnv {..}) guts dflags inScope cat =
      = seen < catArgs
    incompleteCatOp _ = False
    -- TODO: refactor transCatOp & isPartialCatOp
+   -- TODO: phase out hasRules, since I'm using annotations instead
+   isPseudoApp :: CoreExpr -> Bool
+   isPseudoApp (collectArgs -> (Var v,_)) = isPseudoFun v
+   isPseudoApp _ = False
+   isPseudoFun :: Id -> Bool
+#if 0
+   isPseudoFun v =
+     not (isEmptyRuleInfo (ruleInfo (idInfo v))) || elemNameEnv (varName v) ruleBase
+#else
+   isPseudoFun = not . null . pseudoAnns
+    where
+      pseudoAnns :: Id -> [PseudoFun]
+      pseudoAnns = findAnns deserializeWithData annotations . NamedTarget . varName
+#endif
+
+-- findAnns :: Typeable a => ([Word8] -> a) -> AnnEnv -> CoreAnnTarget -> [a]
+
+ 
 
 catModule :: String
 catModule = "ConCat.AltCat"
@@ -595,15 +616,15 @@ catOpArities = M.fromList $ map (\ (nm,m,n) -> (catModule ++ '.' : nm, (m,n))) $
 pprWithType :: CoreExpr -> SDoc
 pprWithType e = ppr e <+> dcolon <+> ppr (exprType e)
 
-cccRule :: CccEnv -> ModGuts -> CoreRule
-cccRule env guts =
+cccRule :: CccEnv -> ModGuts -> AnnEnv -> CoreRule
+cccRule env guts annotations =
   BuiltinRule { ru_name  = fsLit "ccc"
               , ru_fn    = varName (cccV env)
               , ru_nargs = 4  -- including type args
               , ru_try   = \ dflags inScope _fn ->
                               \ case
                                 [Type k, Type _a,Type _b,arg] ->
-                                   ccc env guts dflags inScope k arg
+                                   ccc env guts annotations dflags inScope k arg
                                 args -> pprTrace "cccRule ru_try args" (ppr args) $
                                         Nothing
               }
@@ -621,10 +642,13 @@ install opts todos =
         return todos
       else
        do reinitializeGlobals
+          hsc_env <- getHscEnv
           env <- mkCccEnv opts
           -- Add the rule after existing ones, so that automatically generated
           -- specialized ccc rules are tried first.
-          let addRule guts = pure (on_mg_rules (++ [cccRule env guts]) guts)
+          let addRule :: ModGuts -> CoreM ModGuts
+              addRule guts = do allAnns <- liftIO (prepareAnnotations hsc_env (Just guts))
+                                return (on_mg_rules (++ [cccRule env guts allAnns]) guts)
           -- pprTrace "ccc install todos:" (ppr todos) (return ())
           return $   CoreDoPluginPass "Ccc insert rule" addRule
                    : CoreDoSimplify 7 mode
@@ -635,7 +659,7 @@ install opts todos =
    flagCcc (CccEnv {..}) guts
      --  | pprTrace "ccc residuals:" (ppr (toList remaining)) False = undefined
      --  | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
-     | S.null remaining = return guts
+     | Seq.null remaining = return guts
      | otherwise = pprTrace "ccc residuals:" (ppr (toList remaining)) $
                    return guts
     where
@@ -644,7 +668,7 @@ install opts todos =
       cccArgs :: CoreExpr -> Seq CoreExpr
       -- unVarApps :: CoreExpr -> Maybe (Id,[Type],[CoreExpr])
       -- ccc :: forall k a b. (a -> b) -> k a b
-      cccArgs c@(unVarApps -> Just (v,_tys,[_])) | v == cccV = S.singleton c
+      cccArgs c@(unVarApps -> Just (v,_tys,[_])) | v == cccV = Seq.singleton c
       cccArgs _                                              = mempty
       -- cccArgs = const mempty  -- for now
       collect :: (Data a, Monoid m) => (a -> m) -> GenericQ m
@@ -702,6 +726,8 @@ mkCccEnv opts = do
         do cv <- findId cmod cop
            return (stdName, (cv,tyArgs))
   monoOps <- M.fromList <$> mapM mkMonoOp (monoInfo (floatT,doubleT))
+  ruleBase <- eps_rule_base <$> (liftIO $ hscEPS hsc_env)
+  -- pprTrace "ruleBase" (ppr ruleBase) (return ())
   return (CccEnv { .. })
 
 -- TODO: perhaps consolidate poly & mono.
@@ -1031,10 +1057,3 @@ isMonoTy (TyConApp _ tys)      = all isMonoTy tys
 isMonoTy (AppTy u v)           = isMonoTy u && isMonoTy v
 isMonoTy (ForAllTy (Anon u) v) = isMonoTy u && isMonoTy v
 isMonoTy _                     = False
-
-hasRules :: Id -> Bool
-hasRules = not . isEmptyRuleInfo . ruleInfo . idInfo
-
-ruledApp :: CoreExpr -> Bool
-ruledApp (collectArgs -> (Var v,_)) = hasRules v
-ruledApp _ = False

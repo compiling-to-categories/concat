@@ -66,13 +66,13 @@ import Control.Arrow (second)
 import Data.Tuple (swap)
 import Distribution.TestSuite
 
-import ConCat.Misc (Unop,Binop,(:*))
+import ConCat.Misc (Unop,Binop,(:*),PseudoFun(..))
 import ConCat.Float
 import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay,(:>))
-import ConCat.ADFun (D(..),unD)
+import ConCat.ADFun
 
 import ConCat.AltCat (ccc,reveal,Uncurriable(..),(:**:)(..))
 import qualified ConCat.AltCat as A
@@ -86,7 +86,7 @@ tests :: IO [Test]
 tests = return
   [ nopTest
 
---   , test "id"          (id :: Unop Float)
+  , test "id"          (id :: Unop Float)
 --   , test "const-4"     (const 4 :: Unop Float)
 --   , test "four-plus-x" (\ x -> 4 + x :: Float)
 --   , test "cos"         (cos :: Unop Float)
@@ -232,23 +232,12 @@ type EC = Syn :**: (:>)
 runEC :: GenBuses a => String -> EC a b -> IO ()
 runEC s (ex :**: circ) = putStrLn ('\n':render ex) >> RC.run s [] circ
 
-dfun :: (a -> b) -> (a -> b :* (a -> b))
-dfun _ = error "dfun called"
-{-# NOINLINE dfun #-}
-{-# RULES "dfun" forall h. dfun h = unD' (reveal (ccc h)) #-}
-
-dsc :: Num a => (a -> b :* (a -> b)) -> (a -> b :* b)
--- dsc f a = (b,b' 1) where (b,b') = f a
--- dsc f = second (`id` 1) . f
-dsc f = \ a -> let (b,b') = f a in (b, b' 1)
-{-# INLINE dsc #-}
-
 #if 0
 -- Circuit interpretation
 test, test' :: Okay a b => String -> (a -> b) -> Test
 tst  :: Okay a b => (a -> b) -> Test
 {-# RULES "circuit" forall s f. test s f = mkTest s (go s f) #-}
-#elif 1
+#elif 0
 -- Syntactic interpretation
 test, test' :: String -> (a -> b) -> Test
 tst :: (a -> b) -> Test
@@ -336,12 +325,19 @@ tst  :: Num a => (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall s f.
    test s f = mkTest s (putStrLn ('\n' : render (ccc (dsc (dfun (ccc f))))))
  #-}
-#elif 1
+#elif 0
 -- (->), scalar D, syntax+circuit.
 test, test' :: (Num a, GenBuses a) => String -> (a -> b) -> Test
 tst         :: (Num a, GenBuses a) =>           (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall s f.
    test s f = mkTest s (runEC s (ccc (dsc (dfun (ccc f)))))
+ #-}
+#elif 1
+-- scalar D, syntax+circuit.
+test, test' :: (Num a, GenBuses a) => String -> (a -> b) -> Test
+tst         :: (Num a, GenBuses a) =>           (a -> b) -> Test
+{-# RULES "(->); D; Syn" forall s f.
+   test s f = mkTest s (runEC s (ccc (dsc (dfun f))))
  #-}
 #else
 -- NOTHING
@@ -352,8 +348,10 @@ test' s _f = mkTest s (putStrLn ("test called on " ++ s))
 test s = test' s
 tst    = test' "tst"
 {-# NOINLINE test #-}
+-- {-# ANN test PseudoFun #-}
 {-# NOINLINE tst #-}
 {-# RULES "tst" tst = test "test" #-}
+
 
 mkTest :: String -> IO () -> Test
 mkTest nm doit = Test inst
@@ -399,16 +397,6 @@ foo4 = sampleD (ccc id)
 
 #endif
 
-unD' :: D a b -> a -> b :* (a -> b)
--- unD' (D f) = f
-unD' d = unD d
--- {-# INLINE unD' #-}
-{-# INLINE [2] unD' #-}
-
--- Experiment: inline on demand
-{-# RULES "ccc of unD'" forall g. ccc (unD' g) = ccc (unD g) #-}
-{-# RULES "unD' of D" forall f. unD' (D f) = f #-}
-
 #if 1
 
 -- unD :: D a b -> a -> b :* (a -> b)
@@ -451,8 +439,8 @@ unD' d = unD d
 -- bar :: Float -> (Float :* (Float -> Float))
 -- bar = unD' (reveal (ccc id))
 
-bar :: Float -> (Float :* (Float -> Float))
-bar = dfun (const 4)
+-- bar :: Float -> (Float :* (Float -> Float))
+-- bar = dfun (const 4)
 
 -- bar :: Float -> (Float :* (Float -> Float))
 -- bar = dfun ((\ _x -> 4) :: Unop Float)
