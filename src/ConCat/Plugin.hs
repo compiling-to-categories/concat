@@ -664,11 +664,11 @@ install opts todos =
               addRule guts = do allAnns <- liftIO (prepareAnnotations hsc_env (Just guts))
                                 return (on_mg_rules (++ [cccRule env guts allAnns]) guts)
               delRule guts = return (on_mg_rules (filter (not . isCCC)) guts)
-              -- isCCC r = isBuiltinRule r && ru_name r == cccRuleName
-              isCCC r | is = pprTrace "delRule" (ppr cccRuleName) is
-                      | otherwise = is
-               where
-                 is = isBuiltinRule r && ru_name r == cccRuleName
+              isCCC r = isBuiltinRule r && ru_name r == cccRuleName
+              -- isCCC r | is = pprTrace "delRule" (ppr cccRuleName) is
+              --         | otherwise = is
+              --  where
+              --    is = isBuiltinRule r && ru_name r == cccRuleName
           -- pprTrace "ccc install todos:" (ppr todos) (return ())
           return $   CoreDoPluginPass "Ccc insert rule" addRule
                    : CoreDoSimplify 7 mode
