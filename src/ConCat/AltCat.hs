@@ -393,4 +393,13 @@ ccc _ = error "ccc: not implemented"
 
 #endif
 
+"const x . f" forall x f. const x . f = const x
+
+-- ConstCat k a && ConstCat k b doesn't entail that ConstCat k (a :* b). I could
+-- require that implication to hold via a superclass constraint of `ConstCat k
+-- t` using my `OpCon` entailment technique. However, that constraint may be too
+-- onerous for some categories.
+
+-- "const a &&& const b" forall a b . const a &&& const b = const (a,b)
+
  #-}
