@@ -12,10 +12,11 @@
 
 module ConCat.ADFun where
 
-import Prelude hiding (id,(.))
+import Prelude hiding (id,(.),Float,Double)
 import Control.Newtype
 
 import ConCat.Misc ((:*),inNew2,PseudoFun(..))
+import ConCat.Float
 
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
@@ -97,7 +98,6 @@ b' :: a -> b
 want :: D a b :* a -> b
 #endif
 
-
 {--------------------------------------------------------------------
     Other instances
 --------------------------------------------------------------------}
@@ -169,9 +169,11 @@ instance Floating s => FloatingCat D s where
 class HasZero a where
   zero :: a
 
-instance HasZero Float  where zero = 0
-instance HasZero Double where zero = 0
-instance (HasZero a, HasZero b) => HasZero (a :* b) where zero = (zero,zero)
+instance HasZero Float  where zero = 0; {-# INLINE zero #-}
+instance HasZero Double where zero = 0; {-# INLINE zero #-}
+instance (HasZero a, HasZero b) => HasZero (a :* b) where
+  zero = (zero,zero)
+  {-# INLINE zero #-}
 
 class HasZero a => HasBasis a r where
   type B a r
@@ -180,14 +182,17 @@ class HasZero a => HasBasis a r where
 instance HasBasis Float r where
   type B Float r = r
   onBasis f = f 1
+  {-# INLINE onBasis #-}
 
 instance HasBasis Double r where
   type B Double r = r
   onBasis f = f 1
+  {-# INLINE onBasis #-}
 
 instance (HasBasis a r, HasBasis b r) => HasBasis (a :* b) r where
   type B (a :* b) r = B a r :* B b r
   onBasis f = (onBasis (f . (,zero)), onBasis (f . (zero,)))
+  {-# INLINE onBasis #-}
 
 {--------------------------------------------------------------------
     Utilities
@@ -208,6 +213,10 @@ dsc f = \ a -> let (b,b') = f a in (b, b' 1)
 da2b2 :: (a -> b :* (a -> b)) -> (a :* a -> b :* b)
 da2b2 f = \ (a,da) -> let (b,b') = f a in (b, b' da)
 {-# INLINE da2b2 #-}
+
+dbas :: HasBasis a b => (a -> b :* (a -> b)) -> (a -> b :* B a b)
+dbas f = \ a -> let (b,b') = f a in (b, onBasis b')
+{-# INLINE dbas #-}
 
 unD' :: D a b -> a -> b :* (a -> b)
 -- unD' (D f) = f
