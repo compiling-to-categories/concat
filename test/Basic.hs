@@ -92,7 +92,10 @@ tests = return
 --   , test "cos"         (cos :: Unop R)
 --   , test "square"      (\ x -> x * x :: R)
 --   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
+--   , test "cos-xpx"      (\ x -> cos (x + x) :: R)
 --   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
+
+  , test "cos-xpy"      (\ (x,y) -> cos (x + y) :: R)
 
 --   , test "xy" (\ (x,y) -> x * y :: R)
 
@@ -100,7 +103,7 @@ tests = return
 
 --   , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
 
-  , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
+--   , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
 
 --   , test "mul" ((*) :: Binop R)
 
