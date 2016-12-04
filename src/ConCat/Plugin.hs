@@ -136,16 +136,13 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
         Just (dom,_) = splitFunTy_maybe (exprType e)
      Trying("top Let")
      Let bind@(NonRec v rhs) body ->
-       if doFloat then
+       -- Experiment: always float.
+       if {- True || -} substFriendly rhs then
          Doing("top Let floating")
          return (Let bind (mkCcc body))
        else
          Doing("top Let to beta-redex")
          go (App (Lam v body) rhs)
-      where
-        doFloat = not (liftedExpr rhs)
-               || not (isFunTy (varType v))  -- experimental
-               || incompleteCatOp rhs
      -- ccc-of-case. Maybe restrict to isTyCoDictArg for all bound variables, but
      -- perhaps I don't need to.
      Trying("top Case")
@@ -239,40 +236,25 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
                                      return (mkCcc (Lam x e'))
                                      -- goLam x e'
      Trying("lam Let")
-#if 1
      -- TODO: refactor with top Let
      Let (NonRec v rhs) body' ->
-       if doSubst then
+       if substFriendly rhs || not xInRhs then
          -- TODO: decide whether to float or substitute.
          -- To float, x must not occur freely in rhs
-         Doing("lam Let subst")
          -- return (mkCcc (Lam x (subst1 v rhs body'))) The simplifier seems to
          -- re-let my dicts if I let it. Will the simplifier re-hoist later? If
          -- so, we can still let-hoist instead of substituting.
-         goLam x (subst1 v rhs body')
+         if xInRhs then
+           Doing("lam Let subst")
+           goLam x (subst1 v rhs body')
+         else
+           Doing("lam Let float")
+           return (Let (NonRec v rhs) (mkCcc (Lam x body')))
        else
          Doing("lam Let to beta-redex")
          goLam x (App (Lam v body') rhs)
       where
-        doSubst = not (liftedExpr rhs)
-               || not (isFunTy (varType v))  -- experimental
-               || incompleteCatOp rhs
-#else
-     Let (NonRec v rhs) body' | liftedExpr rhs ->
-       if doSubst then
-         Doing("lam Let substitution")
-         goLam x (subst1 v rhs body')
-       else
-         Doing("lam Let to beta redex")
-         -- Convert back to beta-redex. goLam, so GHC can't re-let.
-         goLam x (Lam v body' `App` rhs)
-      where
-        doSubst = incompleteCatOp rhs || allSelectors rhs
-        allSelectors (Var _) = True
-        allSelectors (App (collectArgsPred isTyCoDictArg -> (Var h,_)) e) =
-          h `elem` [exlV,exrV] && allSelectors e
-        allSelectors _ = False
-#endif
+        xInRhs = x `isFreeIn` rhs
      Trying("lam eta-reduce")
      (etaReduce_maybe -> Just e') ->
        Doing("lam eta-reduce")
@@ -295,7 +277,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
          | isBoxedTupleTyCon (dataConTyCon dc) ->
        -- To start, require v to be unused. Later, extend.
-       if not (isDeadBinder wild) && isFreeIn wild rhs then
+       if not (isDeadBinder wild) && wild `isFreeIn` rhs then
             pprPanic "ccc: product case with live wild var (not yet handled)" (ppr e)
        else
           Doing("lam Case of product")
@@ -316,7 +298,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
     where
       xty = varType x
       bty = exprType body
-      isConst = not (isFreeIn x body)
+      isConst = not (x `isFreeIn` body)
    -- Change categories
    catTy :: Unop Type
    catTy (tyArgs2 -> (a,b)) = mkAppTys cat [a,b]
@@ -565,15 +547,6 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    reCat = {- traceFail "reCat" <+ -} transCatOp <+ catFun
    -- traceFail :: String -> ReExpr
    -- traceFail str a = dtrace str (pprWithType a) Nothing
-   incompleteCatOp :: CoreExpr -> Bool
-   -- incompleteCatOp e | dtrace "incompleteCatOp" (ppr e) False = undefined
-   incompleteCatOp (collectArgs -> (Var v, Type _wasCat : rest))
-     | True || dtrace "incompleteCatOp v _wasCat rest" (text (fqVarName v) <+> ppr _wasCat <+> ppr rest) True
-     , Just (catArgs,_) <- M.lookup (fqVarName v) catOpArities
-     , let seen = length (filter (not . isTyCoDictArg) rest)
-     -- , dtrace "incompleteCatOp catArgs" (ppr seen <+> text "vs" <+> ppr catArgs) True
-     = seen < catArgs
-   incompleteCatOp _ = False
    -- TODO: refactor transCatOp & isPartialCatOp
    -- TODO: phase out hasRules, since I'm using annotations instead
    isPseudoApp :: CoreExpr -> Bool
@@ -590,9 +563,28 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
       pseudoAnns = findAnns deserializeWithData annotations . NamedTarget . varName
 #endif
 
--- findAnns :: Typeable a => ([Word8] -> a) -> AnnEnv -> CoreAnnTarget -> [a]
+substFriendly :: CoreExpr -> Bool
+substFriendly rhs =
+     not (liftedExpr rhs)
+  -- || substFriendlyTy (exprType rhs)
+  || incompleteCatOp rhs
 
- 
+incompleteCatOp :: CoreExpr -> Bool
+-- incompleteCatOp e | dtrace "incompleteCatOp" (ppr e) False = undefined
+incompleteCatOp (collectArgs -> (Var v, Type _wasCat : rest))
+  | True || pprTrace "incompleteCatOp v _wasCat rest" (text (fqVarName v) <+> ppr _wasCat <+> ppr rest) True
+  , Just (catArgs,_) <- M.lookup (fqVarName v) catOpArities
+  , let seen = length (filter (not . isTyCoDictArg) rest)
+  -- , dtrace "incompleteCatOp catArgs" (ppr seen <+> text "vs" <+> ppr catArgs) True
+  = seen < catArgs
+incompleteCatOp _ = False
+
+-- Whether to substitute based on type. Experimental. This version: substitute
+-- if a function or has a subst-friendly type argument (e.g., pair components).
+substFriendlyTy :: Type -> Bool
+substFriendlyTy (coreView -> Just ty) = substFriendlyTy ty
+substFriendlyTy (splitTyConApp_maybe -> Just (tc,tys)) = isFunTyCon tc || any substFriendlyTy tys
+substFriendlyTy _ = False
 
 catModule :: String
 catModule = "ConCat.AltCat"
@@ -1051,7 +1043,7 @@ pairTy :: Binop Type
 pairTy a b = mkBoxedTupleTy [a,b]
 
 etaReduce_maybe :: ReExpr
-etaReduce_maybe (Lam x (App e (Var y))) | x == y && not (isFreeIn x e) = Just e
+etaReduce_maybe (Lam x (App e (Var y))) | x == y && not (x `isFreeIn` e) = Just e
 etaReduce_maybe _ = Nothing
 
 -- TODO: phase out etaReduce1 and etaReduce1N in favor of etaReduce_maybe.
