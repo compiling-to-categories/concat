@@ -127,11 +127,11 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      e@(App u v)
        | liftedExpr v
        , Just v' <- mkConst' cat dom v
-       , Just u' <- mkUncurryMaybe cat (mkCcc u)
+       , Just uncU' <- mkUncurryMaybe cat (mkCcc u)
        -> -- dtrace "go App v'" (pprWithType v') $
           Doing("top App")
           -- u v == uncurry u . (constFun v &&& id)
-          return (mkCompose cat u' (mkFork cat v' (mkId cat dom)))
+          return (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))
       where
         Just (dom,_) = splitFunTy_maybe (exprType e)
      Trying("top Let")
