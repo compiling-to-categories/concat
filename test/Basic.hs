@@ -38,8 +38,8 @@
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
--- {-# OPTIONS_GHC -dverbose-core2core #-}
+{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+{-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
 -- {-# OPTIONS_GHC -dsuppress-type-applications #-}
@@ -95,7 +95,7 @@ tests = return
 --   , test "cos-xpx"      (\ x -> cos (x + x) :: R)
 --   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
 
-  , test "cos-xpy"      (\ (x,y) -> cos (x + y) :: R)
+--   , test "cos-xpy"      (\ (x,y) -> cos (x + y) :: R)
 
 --   , test "xy" (\ (x,y) -> x * y :: R)
 
@@ -618,7 +618,7 @@ foo4 = sampleD (ccc id)
 
 -- bar :: IO ()
 -- bar = runEC "bar" (ccc (dfun (id :: Unop R)))
-  
+
 #endif
 
 render' :: Syn a b -> String
@@ -636,3 +636,14 @@ cosSin a = (cos a, sin a)
 type R = Float
 type R2 = R :* R
 
+{--------------------------------------------------------------------
+    More examples
+--------------------------------------------------------------------}
+
+type R3 = (R,R,R)
+
+three :: R -> R3
+three x = (x, x*x, x*x*x)
+
+bar :: Syn R R3
+bar = ccc three
