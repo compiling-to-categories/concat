@@ -2,6 +2,8 @@
 {-# LANGUAGE FlexibleInstances, EmptyCase, LambdaCase #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ScopedTypeVariables #-} -- experiment
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE TypeInType #-}
 
 -- -- Experiment
 -- {-# LANGUAGE MagicHash #-}
@@ -19,7 +21,8 @@
 -- Maintainer  :  conal@conal.net
 -- Stability   :  experimental
 -- 
--- Convert to and from standard representations
+-- Convert to and from standard representations.
+-- TODO: Can I replace HasRep with Generic or Newtype?
 ----------------------------------------------------------------------
 
 module ConCat.Rep (HasRep(..)) where
@@ -39,7 +42,7 @@ import Control.Monad.Trans.State (StateT(..))
 
 import ConCat.Complex
 
--- -- Experiment
+-- import GHC.Types (TYPE)
 -- import GHC.Exts (Int(..),Int#)
 
 -- TODO: Eliminate most of the following when I drop these types.
@@ -102,35 +105,6 @@ instance HasRep (a,b,c,d,e,f,g,h) where
   repr (a,b,c,d,e,f,g,h) = ((a,b,c,d),(e,f,g,h))
   abst ((a,b,c,d),(e,f,g,h)) = (a,b,c,d,e,f,g,h)
   INLINES
-
-#if 0
--- Switching to ShapedTypes.Vec
-instance HasRep (Vec Z a) where
-  type Rep (Vec Z a) = ()
-  repr ZVec = ()
-  abst () = ZVec
-  INLINES
-
-instance HasRep (Vec (S n) a) where
-  type Rep (Vec (S n) a) = (a,Vec n a)
-  repr (a :< as) = (a, as)
-  abst (a, as) = (a :< as)
-  INLINES
-
-instance HasRep (Nat Z) where
-  type Rep (Nat Z) = ()
-  repr Zero = ()
-  abst () = Zero
-  INLINES
-
-instance IsNat n => HasRep (Nat (S n)) where
-  type Rep (Nat (S n)) = () :* Nat n
-  repr (Succ n) = ((),n)
-  abst ((),n) = Succ n
-  INLINES
--- The IsNat constraint comes from Succ.
--- TODO: See about eliminating that constructor constraint.
-#endif
 
 #if 1
 
@@ -246,7 +220,7 @@ instance HasRep ((G.:.:) f g p) where
 -- TODO: Can I *replace* HasRep with Generic?
 
 {--------------------------------------------------------------------
-    Experiments
+    Unlifted types
 --------------------------------------------------------------------}
 
 #if 0
@@ -257,8 +231,21 @@ instance HasRep Int# where
   abst (I# n) = n
   repr n = I# n
   INLINES
+#elif 0
+-- Represent boxed types as unboxed counterparts.
 
---     • Expecting a lifted type, but ‘Int#’ is unlifted
---     • In the first argument of ‘HasRep’, namely ‘Int#’
---       In the instance declaration for ‘HasRep Int#’
+instance HasRep Int where
+  type Rep Int = Int#
+  abst n = I# n
+  repr (I# n) = n
+  INLINES
+
 #endif
+
+
+-- data Int = I# Int# 	-- Defined in ‘GHC.Types’
+
+-- class HasRep (a :: TYPE r) where
+--   type Rep a :: TYPE s
+--   repr :: a -> Rep a
+--   abst :: Rep a -> a
