@@ -165,7 +165,9 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      -- Temp hack while testing nested ccc calls.
      -- go (etaReduceN -> Var v) = Doing("top Wait for unfolding of " ++ fqVarName v)
      --                            Nothing
-#if 1
+#if 0
+     -- TODO: If this simplifier phase isn't eta-expanding, I'll need to handle
+     -- unsaturated constructors here.
      Trying("top con")
      -- Constructor applied to ty/co/dict arguments
      e@(collectTyCoDictArgs -> (Var (isDataConId_maybe -> Just dc),_))
@@ -238,6 +240,21 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
                   -- dtrace "Pair test" (pprWithType u <> comma <+> pprWithType v) $
                   return (mkFork cat (mkCcc (Lam x u)) (mkCcc (Lam x v)))
          _     -> pprPanic "goLam Pair: too many arguments: " (ppr rest)
+
+#if 1
+     Trying("lam con")
+     -- Constructor applied to ty/co/dict arguments
+     e@(collectNonTyCoDictArgs ->
+        (collectTyCoDictArgs -> (Var (isDataConId_maybe -> Just dc),_), args))
+       | let (binds,body') = collectBinders (etaExpand (dataConRepArity dc - length args) e)
+       , Just meth <- hrMeth (exprType body')
+       -> Doing("top con")
+          return $ mkCcc $
+           Lam x $
+            mkLams binds $
+             mkAbstC funCat (exprType body') `App` (meth reprV `App` body')
+#endif
+
      Trying("lam App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
      u `App` v | liftedExpr v
@@ -1010,6 +1027,9 @@ collectArgsPred p = go []
 
 collectTyCoDictArgs :: CoreExpr -> (CoreExpr,[CoreExpr])
 collectTyCoDictArgs = collectArgsPred isTyCoDictArg
+
+collectNonTyCoDictArgs :: CoreExpr -> (CoreExpr,[CoreExpr])
+collectNonTyCoDictArgs = collectArgsPred (not . isTyCoDictArg)
 
 isTyCoDictArg :: CoreExpr -> Bool
 isTyCoDictArg e = isTyCoArg e || isPredTy (exprType e)
