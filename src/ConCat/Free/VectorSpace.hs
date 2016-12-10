@@ -114,7 +114,7 @@ sumV = unpack . fold . fmap SumV
 
 type NewHasV s t = (Newtype t, HasV s (O t), V s t ~ V s (O t))
 
-class (Num s, Functor (V s t)) => HasV s t where
+class HasV s t where
   type V s t :: * -> *
   toV :: t -> V s t s
   unV :: V s t s -> t
