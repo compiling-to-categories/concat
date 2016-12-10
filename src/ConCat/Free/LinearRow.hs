@@ -124,12 +124,19 @@ joinL = zipWith (:*:)
     Category
 --------------------------------------------------------------------}
 
-newtype LM s a b = LM ((V s a :-* V s b) s)
+newtype L s a b = L ((V s a :-* V s b) s)
 
-instance Newtype (LM s a b) where
-  type O (LM s a b) = (V s a :-* V s b) s
-  pack ab = LM ab
-  unpack (LM ab) = ab
+instance Newtype (L s a b) where
+  type O (L s a b) = (V s a :-* V s b) s
+  pack ab = L ab
+  unpack (L ab) = ab
+
+instance HasV s (L s a b) where
+  type V s (L s a b) = V s b :.: V s a
+  toV = pack . unpack
+  unV = pack . unpack
+  -- toV (L bas) = Comp1 bas
+  -- unV (Comp1 bas) = L bas
 
 type OkLF' f = (Foldable f, Zeroable f, Zip f, Keyed f, Adjustable f)
 
@@ -138,47 +145,53 @@ type OkLM' s a = (HasV s a, HasL (V s a), Num s)
 class    OkLM' s a => OkLM s a
 instance OkLM' s a => OkLM s a
 
-instance Category (LM s) where
-  type Ok (LM s) = OkLM s
+-- instance Zeroable (L s a) where zeroV = L zeroV
+
+zeroLM :: (Num s, Zeroable (V s a), Zeroable (V s b)) => L s a b
+zeroLM = L zeroL
+
+instance Category (L s) where
+  type Ok (L s) = OkLM s
   id = pack idL
   (.) = inNew2 (@.)
 
 instance OpCon (:*) (Sat (OkLM s)) where inOp = Entail (Sub Dict)
 
-instance ProductCat (LM s) where
-  -- type Prod (LM s) = (,)
+instance ProductCat (L s) where
+  -- type Prod (L s) = (,)
   exl = pack exlL
   exr = pack exrL
   (&&&) = inNew2 forkL
 
 -- Can I still have coproducts? Seems problematic without a definable Coprod
 
--- instance CoproductCat (LM s) where
---   -- type Coprod (LM s) = (,)
+-- instance CoproductCat (L s) where
+--   -- type Coprod (L s) = (,)
 --   inl = pack inlL
 --   inr = pack inrL
 --   (|||) = inNew2 joinL
 
-inlLM :: Ok2 (LM s) a b => LM s a (a :* b)
+inlLM :: Ok2 (L s) a b => L s a (a :* b)
 inlLM = pack inlL
 
-inrLM :: Ok2 (LM s) a b => LM s b (a :* b)
+inrLM :: Ok2 (L s) a b => L s b (a :* b)
 inrLM = pack inrL
 
-joinLM :: Ok3 (LM s) a b c => LM s a c -> LM s b c -> LM s (a :* b) c
+joinLM :: Ok3 (L s) a b c => L s a c -> L s b c -> L s (a :* b) c
 joinLM = inNew2 joinL
 
-jamLM :: Ok (LM s) a => LM s (a :* a) a
+jamLM :: Ok (L s) a => L s (a :* a) a
 jamLM = id `joinLM` id
 
 -- We can't make a ClosedCat instance compatible with the ProductCat instance.
 -- We'd have to change the latter to use the tensor product.
 
--- type instance Exp (LM s) = (:.:)
+-- type instance Exp (L s) = (:.:)
 
 -- Conversion to linear map
-lapply :: (Num s, Oks (LM s) [a,b]) => LM s a b -> (a -> b)
-lapply (LM gfa) = unV . lapplyL gfa . toV
+-- lapply :: (Num s, Oks (L s) [a,b]) => L s a b -> (a -> b)
+lapply :: (Num s, HasV s a, HasV s b, Foldable (V s a), Zip (V s a), Zip (V s b)) => L s a b -> (a -> b)
+lapply (L gfa) = unV . lapplyL gfa . toV
 
 -- lapplyL :: ... => (a :-* b) s -> a s -> b s
 
@@ -216,16 +229,16 @@ want :: ((k -> s) :-* g) s
 
 #endif
 
-linear :: (OkLM s a, OkLM s b) => (a -> b) -> LM s a b
-linear f = LM (linear' (inV f))
+linear :: (OkLM s a, OkLM s b) => (a -> b) -> L s a b
+linear f = L (linear' (inV f))
 
 -- f :: a -> b
 -- inV f :: V s a s -> V s b s
 
-scale :: OkLM s a => s -> LM s a a
-scale = LM . scaleL
+scale :: OkLM s a => s -> L s a a
+scale = L . scaleL
 
-negateLM :: OkLM s a => LM s a a
+negateLM :: OkLM s a => L s a a
 negateLM = scale (-1)
 
 {--------------------------------------------------------------------
@@ -234,8 +247,8 @@ negateLM = scale (-1)
 
 data Lapply s
 
-instance FunctorC (Lapply s) (LM s) (->) where fmapC = lapply
+instance FunctorC (Lapply s) (L s) (->) where fmapC = lapply
 
 data Linear s
 
-instance FunctorC (Linear s) (->) (LM s) where fmapC = linear
+instance FunctorC (Linear s) (->) (L s) where fmapC = linear

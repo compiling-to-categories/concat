@@ -119,12 +119,12 @@ joinL = (:*:)
     Category
 --------------------------------------------------------------------}
 
-newtype LM s a b = LM ((V s a :-* V s b) s)
+newtype L s a b = L ((V s a :-* V s b) s)
 
-instance Newtype (LM s a b) where
-  type O (LM s a b) = (V s a :-* V s b) s
-  pack ab = LM ab
-  unpack (LM ab) = ab
+instance Newtype (L s a b) where
+  type O (L s a b) = (V s a :-* V s b) s
+  pack ab = L ab
+  unpack (L ab) = ab
 
 type OkLF' f = (Foldable f, Zeroable f, Zip f, Keyed f, Adjustable f)
 
@@ -133,23 +133,23 @@ type OkLM' s a = (HasV s a, HasL (V s a), Num s)
 class    OkLM' s a => OkLM s a
 instance OkLM' s a => OkLM s a
 
-instance Category (LM s) where
-  type Ok (LM s) = OkLM s
+instance Category (L s) where
+  type Ok (L s) = OkLM s
   id = pack idL
   (.) = inNew2 (@.)
 
 instance OpCon (,) (Sat (OkLM s)) where inOp = Entail (Sub Dict)
 
-instance ProductCat (LM s) where
-  -- type Prod (LM s) = (,)
+instance ProductCat (L s) where
+  -- type Prod (L s) = (,)
   exl = pack exlL
   exr = pack exrL
   (&&&) = inNew2 forkL
 
 -- Can I still have coproducts? Seems problematic without a definable Coprod
 
--- instance CoproductCat (LM s) where
---   -- type Coprod (LM s) = (,)
+-- instance CoproductCat (L s) where
+--   -- type Coprod (L s) = (,)
 --   inl = pack inlL
 --   inr = pack inrL
 --   (|||) = inNew2 joinL
@@ -158,8 +158,8 @@ instance ProductCat (LM s) where
 -- We'd have to change the latter to use the tensor product.
 
 -- Conversion to linear map
-lapply :: (Num s, Oks (LM s) [a,b]) => LM s a b -> (a -> b)
-lapply (LM gfa) = unV . lapplyL gfa . toV
+lapply :: (Num s, Oks (L s) [a,b]) => L s a b -> (a -> b)
+lapply (L gfa) = unV . lapplyL gfa . toV
 
 -- lapplyL :: ... => (a :-* b) s -> a s -> b s
 
@@ -183,8 +183,8 @@ instance (HasL f, HasL g) => HasL (f :*: g) where
 --          q . (:*: zeroV)  :: f s -> h s
 -- linear' (q . (:*: zeroV)) :: (f :-* h) s
 
-linear :: (OkLM s a, OkLM s b) => (a -> b) -> LM s a b
-linear f = LM (linear' (inV f))
+linear :: (OkLM s a, OkLM s b) => (a -> b) -> L s a b
+linear f = L (linear' (inV f))
 
 -- f :: a -> b
 -- inV f :: V s a s -> V s b s
@@ -195,8 +195,8 @@ linear f = LM (linear' (inV f))
 
 data Lapply s
 
-instance FunctorC (Lapply s) (LM s) (->) where fmapC = lapply
+instance FunctorC (Lapply s) (L s) (->) where fmapC = lapply
 
 data Linear s
 
-instance FunctorC (Linear s) (->) (LM s) where fmapC = linear
+instance FunctorC (Linear s) (->) (L s) where fmapC = linear
