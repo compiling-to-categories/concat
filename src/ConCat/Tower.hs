@@ -1,11 +1,16 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
--- | 
+-- | Experiments with derivative towers
 
 module ConCat.Tower where
 
@@ -16,29 +21,72 @@ import Control.Newtype (Newtype(..))
 import ConCat.Misc ((:*))
 import qualified ConCat.Category as C
 import ConCat.AltCat
+import ConCat.Free.VectorSpace
+import ConCat.Free.LinearRow
 
-newtype T a b = T (a -> b :* T a b)
+-- b :* (a :-* b) :* (a :-* a :-* b) :* ...
+type T' s a b = b :* T s a b
 
-instance Newtype (T a b) where
-  type O (T a b) = a -> b :* T a b
+-- (a :-* b) :* (a :-* a :-* b) :* ...
+newtype T s a b = T (T' s a (L s a b))
+
+newtype D s a b = D (a -> T' s a b)
+
+instance Newtype (T s a b) where
+  type O (T s a b) = T' s a (L s a b)
   pack h = T h
   unpack (T h) = h
 
+instance Newtype (D s a b) where
+  type O (D s a b) = a -> T' s a b
+  pack h = D h
+  unpack (D h) = h
+
+zeroT :: (Num s, Zeroable (V s a), Zeroable (V s b)) => T s a b
+zeroT = constT zeroLM
+-- zeroT = T (zeroLM,zeroT)
+
+constT :: (Num s, Zeroable (V s a), Zeroable (V s b)) => L s a b -> T s a b
+constT f = T (f,zeroT)
+{-# INLINE constT #-}
+
 -- Differentiable linear function
-linearT :: (a -> b) -> T a b
-linearT f = t where t = T (f &&& const t)
-{-# INLINE linearT #-}
+linearD :: (Num s, HasV s a, HasV s b, HasL (V s a), HasL (V s b)) => L s a b -> D s a b
+linearD f = D (\ a -> (lapply f a, constT f))
+{-# INLINE linearD #-}
 
-instance Category T where
-  id = linearT id
+-- a :: a
+-- f :: L s a b
+-- lapply f a :: b
+-- constT f :: T s a b
 
-  T g . T f = T (\ a ->
-    let (b,f') = f a
-        (c,g') = g b
-    in
-      (c, g' . f'))
+class    (Num s, HasV s a, HasL (V s a)) => OkT s a
+instance (Num s, HasV s a, HasL (V s a)) => OkT s a
 
---   T g . T f = T (second (uncurry (.)) . rassocP . (first g . f))
+instance Category (T s) where
+  type Ok (T s) = OkT s
+  id = constT id
+  T (g,g') . T (f,f') = T (g . f, _)
+
+
+#if 0
+
+T (g,g') :: T s b c
+T (f,f') :: T s a b
+
+g :: b :-* c
+f :: a :-* b
+
+g' :: T s b (b :-* c)
+f' :: T s a (a :-* b)
+
+
+-- (    let (b,f') = f a
+--         (c,g') = g b
+--     in
+--       (c, g' . f'))
+
+--   T g . T f = T (second (uncurry (.)) . rassocP . first g . f)
 
 instance ProductCat T where
   exl = linearT exl
@@ -61,7 +109,9 @@ deriv :: T a b -> a -> T a b
 -- deriv (T h) = exr . h
 deriv = (fmap.fmap) exr unpack
 
+#endif
 
+#if 0
 
 -- newtype T' a b = T' (a :-* b :* (T' a b))
 
@@ -75,3 +125,5 @@ type Q a b = b :* (a :-* Q a b)
 
 
 deriv' :: T a b -> T a (a -> b)
+
+#endif
