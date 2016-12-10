@@ -12,7 +12,7 @@
 
 module ConCat.ADFun where
 
-import Prelude hiding (id,(.),Float,Double)
+import Prelude hiding (id,(.),curry,uncurry,Float,Double)
 import Control.Newtype
 
 import ConCat.Misc ((:*),inNew2,PseudoFun(..))
@@ -24,8 +24,9 @@ import ConCat.AltCat hiding (const)
 
 -- newtype D a b = D { unD :: a -> b :* (a -> b) }
 -- newtype D a b = D (a -> b :* (a -> b))
-data D a b = D (a -> b :* (a -> b))
 -- data D a b = D { unD :: a -> b :* (a -> b) }
+
+data D a b = D (a -> b :* (a -> b))
 
 -- TODO: revert to newtype, and fix Plugin to handle it correctly.
 
