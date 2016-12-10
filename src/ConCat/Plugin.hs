@@ -53,23 +53,28 @@ import ConCat.BuildDictionary
 
 -- Information needed for reification. We construct this info in
 -- CoreM and use it in the ccc rule, which must be pure.
-data CccEnv = CccEnv { dtrace    :: forall a. String -> SDoc -> a -> a
-                     , cccV      :: Id
-                     , idV       :: Id
-                     , constV    :: Id
-                     , forkV     :: Id
-                     , applyV    :: Id
-                     , composeV  :: Id
-                     , curryV    :: Id
-                     , uncurryV  :: Id
-                     , exlV      :: Id
-                     , exrV      :: Id
-                     , constFunV :: Id
-                  -- , inlineV   :: Id
-                     , polyOps   :: PolyOpsMap
-                     , monoOps   :: MonoOpsMap
-                     , hsc_env   :: HscEnv
-                     , ruleBase  :: RuleBase  -- to remove
+data CccEnv = CccEnv { dtrace     :: forall a. String -> SDoc -> a -> a
+                     , cccV       :: Id
+                     , idV        :: Id
+                     , constV     :: Id
+                     , forkV      :: Id
+                     , applyV     :: Id
+                     , composeV   :: Id
+                     , curryV     :: Id
+                     , uncurryV   :: Id
+                     , exlV       :: Id
+                     , exrV       :: Id
+                     , constFunV  :: Id
+                     , reprV      :: Id
+                     , abstV      :: Id
+                     , reprCV     :: Id
+                     , abstCV     :: Id
+                     , hasRepMeth :: HasRepMeth
+                  -- , inlineV    :: Id
+                     , polyOps    :: PolyOpsMap
+                     , monoOps    :: MonoOpsMap
+                     , hsc_env    :: HscEnv
+                     , ruleBase   :: RuleBase  -- to remove
                      }
 
 -- Map from fully qualified name of standard operation.
@@ -160,6 +165,22 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      -- Temp hack while testing nested ccc calls.
      -- go (etaReduceN -> Var v) = Doing("top Wait for unfolding of " ++ fqVarName v)
      --                            Nothing
+#if 1
+     Trying("top con")
+     -- Constructor applied to ty/co/dict arguments
+     e@(collectTyCoDictArgs -> (Var (isDataConId_maybe -> Just dc),_))
+       | let (binds,body) = collectBinders (etaExpand (dataConRepArity dc) e)
+       , Just meth <- hrMeth (exprType body)
+       -> Doing("top con")
+          return $ mkCcc $
+           mkLams binds $
+            -- meth abstV `App` simplifyE dflags True (meth reprV `App` body)
+            -- TODO: try without simplify
+            -- meth abstV `App` (meth reprV `App` body)
+            -- mkAbstC funCat (exprType body) `App` simplifyE dflags True (meth reprV `App` body)
+            mkAbstC funCat (exprType body) `App` (meth reprV `App` body)
+            -- TODO: Try simpleE on just (meth repr'V), not body.
+#endif
      Trying("top unfold")
      (unfoldMaybe -> Just e') ->
        Doing("top unfold")
@@ -299,6 +320,9 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
       xty = varType x
       bty = exprType body
       isConst = not (x `isFreeIn` body)
+   hrMeth :: Type -> Maybe (Id -> CoreExpr)
+   hrMeth ty = -- dtrace "hasRepMeth:" (ppr ty) $
+               hasRepMeth dflags guts inScope ty
    -- Change categories
    catTy :: Unop Type
    catTy (tyArgs2 -> (a,b)) = mkAppTys cat [a,b]
@@ -342,7 +366,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    onDict :: Unop CoreExpr
    onDict f = noDictErr (pprWithType f) (onDictMaybe f)
    buildDictMaybe :: Type -> Maybe CoreExpr
-   buildDictMaybe ty = simplifyE dflags False <$>
+   buildDictMaybe ty = simplifyE dflags False <$>  -- remove simplifyE call later?
                        buildDictionary hsc_env dflags guts inScope ty
    -- buildDict :: Type -> CoreExpr
    -- buildDict ty = noDictErr (ppr ty) (buildDictMaybe ty)
@@ -467,6 +491,17 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    -- mkConst' k dom e = (mkConst k dom <+ (mkConstFun k dom . mkCcc)) e
    mkConst' k dom e | isFunTy (exprType e) = mkConstFun k dom (mkCcc e)
                     | otherwise            = mkConst k dom e
+
+#if 1
+   mkAbstC :: Cat -> Type -> CoreExpr
+   mkAbstC k ty =
+     -- pprTrace "mkAbstC" (ppr ty) $
+     -- pprTrace "mkAbstC" (pprWithType (Var abstCV)) $
+     -- pprTrace "mkAbstC" (pprWithType (catOp k abstCV [ty])) $
+     -- pprTrace "mkAbstC" (pprWithType (onDict (catOp k abstCV [ty]))) $
+     -- pprPanic "mkAbstC" (text "bailing")
+     onDict (catOp k abstCV [ty])
+#endif
    tyArgs2_maybe :: Type -> Maybe (Type,Type)
    -- tyArgs2_maybe (splitAppTys -> (_,(a:b:_))) = Just (a,b)
    tyArgs2_maybe _ty@(splitAppTy_maybe -> Just (splitAppTy_maybe -> Just (_,a),b)) =
@@ -588,6 +623,9 @@ substFriendlyTy _ = False
 
 catModule :: String
 catModule = "ConCat.AltCat"
+
+repModule :: String
+repModule = "ConCat.Rep"
 
 -- For each categorical operation, how many non-cat args (first) and how many cat args (last)
 catOpArities :: Map String (Int,Int)
@@ -723,20 +761,29 @@ mkCccEnv opts = do
       findTc      = lookupTh mkTcOcc  lookupTyCon
       findFloatTy = fmap mkTyConTy . findTc floatModule
       findCatId   = findId catModule
-  idV       <- findCatId "id"
-  constV    <- findCatId "const"
-  composeV  <- findCatId "."
-  exlV      <- findCatId "exl"
-  exrV      <- findCatId "exr"
-  forkV     <- findCatId "&&&"
-  applyV    <- findCatId "apply"
-  curryV    <- findCatId "curry"
-  uncurryV  <- findCatId "uncurry"
-  constFunV <- findCatId "constFun"
-  cccV      <- findCatId "ccc"
-  floatT    <- findFloatTy "Float"
-  doubleT   <- findFloatTy "Double"
---   inlineV   <- findId "GHC.Exts" "inline"
+      findRepTc   = findTc repModule
+      findRepId   = findId repModule
+  idV        <- findCatId "id"
+  constV     <- findCatId "const"
+  composeV   <- findCatId "."
+  exlV       <- findCatId "exl"
+  exrV       <- findCatId "exr"
+  forkV      <- findCatId "&&&"
+  applyV     <- findCatId "apply"
+  curryV     <- findCatId "curry"
+  uncurryV   <- findCatId "uncurry"
+  constFunV  <- findCatId "constFun"
+  abstCV     <- findCatId "abstC"
+  reprCV     <- findCatId "reprC"
+  cccV       <- findCatId "ccc"
+  floatT     <- findFloatTy "Float"
+  doubleT    <- findFloatTy "Double"
+  reprV      <- findRepId "repr"
+  abstV      <- findRepId "abst"
+  hasRepTc   <- findRepTc "HasRep"
+  repTc      <- findRepTc "Rep"
+  hasRepMeth <- hasRepMethodM tracing hasRepTc repTc idV
+  -- inlineV   <- findId "GHC.Exts" "inline"
   let mkPolyOp :: (String,(String,String)) -> CoreM (String,Var)
       mkPolyOp (stdName,(cmod,cop)) =
         do cv <- findId cmod cop
@@ -750,6 +797,50 @@ mkCccEnv opts = do
   ruleBase <- eps_rule_base <$> (liftIO $ hscEPS hsc_env)
   -- pprTrace "ruleBase" (ppr ruleBase) (return ())
   return (CccEnv { .. })
+
+type HasRepMeth = DynFlags -> ModGuts -> InScopeEnv -> Type -> Maybe (Id -> CoreExpr)
+
+hasRepMethodM :: Bool -> TyCon -> TyCon -> Id -> CoreM HasRepMeth
+hasRepMethodM tracing hasRepTc _repTc _idV =
+  do hscEnv <- getHscEnv
+     _eps   <- liftIO (hscEPS hscEnv)
+     return $ \ dflags guts inScope ty ->
+       let dtrace str doc a | tracing   = pprTrace str doc a
+                            | otherwise = a
+#if 1
+           newtypeDict :: Maybe CoreExpr
+           newtypeDict = Nothing
+#else
+           repTy = mkTyConApp _repTc [ty]
+           newtypeDict :: Maybe (CoreExpr,(Coercion,Type))
+           newtypeDict =
+             do (tc,tyArgs) <- splitTyConApp_maybe ty
+                (tvs,newtyRhs,_coax) <- unwrapNewTyCon_maybe tc
+                -- TODO: refactor to isolate the Maybe stuff.
+                -- dtrace "newtypeDict. coax:" (ppr _coax) (return ())
+                let ty'   = substTy (zipTvSubst tvs tyArgs) newtyRhs
+                    [hasRepDc] = tyConDataCons hasRepTc
+                    mkIdFun t = varApps idV [t] []
+                    repNt = UnivCo (PluginProv "RepNT") Representational ty repTy
+                    reflTo t = mkFunCo Representational (mkRepReflCo t)
+                    mkMeth t co = mkCast (mkIdFun t) (reflTo t co)
+                    -- repNtIs = mkUnbranchedAxInstCo Nominal _coax tyArgs
+                    --             (mkNomReflCo <$> [ty])  -- tyArgs ?? repTy?
+                    repNtIs = UnivCo (PluginProv "RepNtIs") Nominal repTy ty'
+                    repr = mkMeth    ty          repNt
+                    abst = mkMeth repTy (mkSymCo repNt)
+                    dict = conApps hasRepDc [ty] [repr,abst]
+                return (dict,(repNtIs,ty'))
+#endif
+           findDict :: Maybe CoreExpr
+           findDict = buildDictionary hscEnv dflags guts inScope
+                         (mkTyConApp hasRepTc [ty])
+           mkMethApp dict =
+             dtrace "hasRepMeth" (ppr ty <+> "-->" <+> ppr dict) $
+             \ meth -> varApps meth [ty] [dict]
+       in
+          -- Real dictionary or synthesize
+          mkMethApp <$> (findDict <|> newtypeDict)
 
 -- TODO: perhaps consolidate poly & mono.
 
@@ -984,7 +1075,7 @@ coercionTag SubCo       {} = "SubCo"
 -- Try to inline an identifier.
 -- TODO: Also class ops
 inlineId :: Id -> Maybe CoreExpr
-inlineId v = maybeUnfoldingTemplate (idUnfolding v)
+inlineId v = maybeUnfoldingTemplate (realIdUnfolding v)  -- idUnfolding
 
 -- Adapted from Andrew Farmer's getUnfoldingsT in HERMIT.Dictionary.Inline:
 inlineClassOp :: Id -> Maybe CoreExpr
