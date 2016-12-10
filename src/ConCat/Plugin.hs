@@ -173,7 +173,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      e@(collectTyCoDictArgs -> (Var (isDataConId_maybe -> Just dc),_))
        | let (binds,body) = collectBinders (etaExpand (dataConRepArity dc) e)
        , Just meth <- hrMeth (exprType body)
-       -> Doing("top con")
+       -> Doing("top abstReprCon")
           return $ mkCcc $
            mkLams binds $
             -- meth abstV `App` simplifyE dflags True (meth reprV `App` body)
@@ -242,7 +242,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
          _     -> pprPanic "goLam Pair: too many arguments: " (ppr rest)
 
 #if 1
-     Trying("lam con")
+     Trying("lam abstReprCon")
      -- Constructor applied to ty/co/dict arguments
      e@(collectNonTyCoDictArgs ->
         (collectTyCoDictArgs -> (Var (isDataConId_maybe -> Just dc),_), args))
@@ -330,6 +330,13 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
           in
             return (mkCcc (Lam x (App (Lam c (subst sub rhs)) scrut)))
      -- Give up
+     Trying("lam abstReprCase")
+     -- Do I also need top abstReprCase?
+     Case scrut v altsTy alts
+       | Just meth <- hrMeth (exprType scrut)
+       -> Doing("lam abstReprCase")
+          return $ mkCcc $ Lam x $
+           Case (meth abstV `App` (mkReprC funCat (varType v) `App` scrut)) v altsTy alts
      _e -> pprPanic "ccc" ("Unhandled:" <+> ppr _e)
            -- dtrace "ccc" ("Unhandled:" <+> ppr _e) $
            -- Nothing
@@ -509,7 +516,6 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    mkConst' k dom e | isFunTy (exprType e) = mkConstFun k dom (mkCcc e)
                     | otherwise            = mkConst k dom e
 
-#if 1
    mkAbstC :: Cat -> Type -> CoreExpr
    mkAbstC k ty =
      -- pprTrace "mkAbstC" (ppr ty) $
@@ -518,7 +524,14 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      -- pprTrace "mkAbstC" (pprWithType (onDict (catOp k abstCV [ty]))) $
      -- pprPanic "mkAbstC" (text "bailing")
      onDict (catOp k abstCV [ty])
-#endif
+   mkReprC :: Cat -> Type -> CoreExpr
+   mkReprC k ty =
+     -- pprTrace "mkReprC" (ppr ty) $
+     -- pprTrace "mkReprC" (pprWithType (Var reprCV)) $
+     -- pprTrace "mkReprC" (pprWithType (catOp k reprCV [ty])) $
+     -- pprTrace "mkReprC" (pprWithType (onDict (catOp k reprCV [ty]))) $
+     -- pprPanic "mkReprC" (text "bailing")
+     onDict (catOp k reprCV [ty])
    tyArgs2_maybe :: Type -> Maybe (Type,Type)
    -- tyArgs2_maybe (splitAppTys -> (_,(a:b:_))) = Just (a,b)
    tyArgs2_maybe _ty@(splitAppTy_maybe -> Just (splitAppTy_maybe -> Just (_,a),b)) =
