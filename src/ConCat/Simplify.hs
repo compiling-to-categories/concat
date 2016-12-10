@@ -57,7 +57,7 @@ simplifyExpr dflags inline expr
        let sz = exprSize expr
        (expr', counts) <- initSmpl dflags emptyRuleEnv
                             emptyFamInstEnvs us sz
-                            (simplExprGently (simplEnvForReify dflags inline) expr)
+                            (simplExprGently (simplEnvForCcc dflags inline) expr)
        Err.dumpIfSet dflags (dopt Opt_D_dump_simpl_stats dflags)
                "Simplifier statistics" (pprSimplCount counts)
        Err.dumpIfSet_dyn dflags Opt_D_dump_simpl "Simplified expression"
@@ -71,9 +71,9 @@ simplExprGently env expr = do
     simplExpr env (occurAnalyseExpr expr1)
 
 -- Like simplEnvForGHCi but with inlining.
-simplEnvForReify :: DynFlags -> Bool -> SimplEnv
-simplEnvForReify dflags inline
-  = mkSimplEnv $ SimplMode { sm_names = ["Simplify for reify"]
+simplEnvForCcc :: DynFlags -> Bool -> SimplEnv
+simplEnvForCcc dflags inline
+  = mkSimplEnv $ SimplMode { sm_names = ["Simplify for ccc"]
                            , sm_phase = Phase 0 -- Was InitialPhase
                            , sm_rules = rules_on
                            , sm_inline = inline -- was False
