@@ -86,7 +86,11 @@ tests :: IO [Test]
 tests = return
   [ nopTest
 
-  , test "three" three
+  , test "addThree" addThree
+
+--   , test "threep" three'
+
+--   , test "three" three
 
 --   , test "id"          (id :: Unop R)
 --   , test "const-4"     (const 4 :: Unop R)
@@ -647,5 +651,13 @@ type R3 = (R,R,R)
 three :: R -> R3
 three x = (x, x*x, x*x*x)
 
+three' :: R -> (R3,R3)
+three' x = (f 5, f 6)
+ where
+   f y = (x, x*x, x*y*x)
+
 -- bar :: Syn R R3
 -- bar = ccc three
+
+addThree :: R3 -> R
+addThree (a,b,c) = a+b+c
