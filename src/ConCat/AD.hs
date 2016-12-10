@@ -19,16 +19,16 @@ import ConCat.Free.VectorSpace
 import ConCat.Free.LinearRow
 import ConCat.Category
 
-newtype D s a b = D (a -> b :* LM s a b)
+newtype D s a b = D (a -> b :* L s a b)
 
--- TODO: generalize from LM to any cartesian category
+-- TODO: generalize from L to any cartesian category
 
 -- Differentiable linear function, given the function and linear map version
-linearD :: (a -> b) -> LM s a b -> D s a b
+linearD :: (a -> b) -> L s a b -> D s a b
 linearD f f' = D (f &&& const f')
 
 instance Newtype (D s a b) where
-  type O (D s a b) = (a -> b :* LM s a b)
+  type O (D s a b) = (a -> b :* L s a b)
   pack f = D f
   unpack (D f) = f
 
