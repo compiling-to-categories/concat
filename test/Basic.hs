@@ -38,8 +38,8 @@
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
-{-# OPTIONS_GHC -dverbose-core2core #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
 -- {-# OPTIONS_GHC -dsuppress-type-applications #-}
@@ -85,6 +85,8 @@ import qualified ConCat.AltCat as A
 tests :: IO [Test]
 tests = return
   [ nopTest
+
+  , test "three" three
 
 --   , test "id"          (id :: Unop R)
 --   , test "const-4"     (const 4 :: Unop R)
@@ -287,7 +289,7 @@ tst  :: Uncurriable (->) a b => (a -> b) -> Test
 {-# RULES "(->); uncurries; Syn" forall s f.
    test s f = mkTest s (putStrLn ('\n':render (ccc (uncurries (ccc f)))))
  #-}
-#elif 0
+#elif 1
 -- syntactic *and* circuit
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst  :: GenBuses a => (a -> b) -> Test
@@ -645,5 +647,5 @@ type R3 = (R,R,R)
 three :: R -> R3
 three x = (x, x*x, x*x*x)
 
-bar :: Syn R R3
-bar = ccc three
+-- bar :: Syn R R3
+-- bar = ccc three
