@@ -641,6 +641,13 @@ class (TerminalCat k, Ok k (ConstObj k b)) => ConstCat k b where
   unitArrow = const
   {-# MINIMAL unitArrow | const #-}
 
+repConst :: (HasRep (ConstObj k b), ConstCat k (Rep b), RepCat k, Ok k a, Ok k (ConstObj k b))
+         => b -> (a `k` ConstObj k b)
+repConst b = abstC . const (repr b)
+
+pairConst :: (ProductCat k, ConstCat k b, ConstCat k c, Ok k a)
+          => b :* c -> (a `k` (b :* c))
+pairConst (b,c) = const b &&& const c
 
 -- | Inject a constant on the left
 lconst :: forall k a b. (ProductCat k, ConstCat k a, Ok2 k a b)
