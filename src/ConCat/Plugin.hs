@@ -311,6 +311,20 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
         zName = uqVarName x ++ "_" ++ uqVarName y
         sub = [(x,mkEx funCat exlV (Var z)),(y,mkEx funCat exrV (Var z))]
         -- TODO: consider using fst & snd instead of exl and exr here
+     Trying("lam Case default")
+     Case _scrut (isDeadBinder -> True) _rhsTy [(DEFAULT,[],rhs)] ->
+       Doing("lam case-default")
+       return (mkCcc (Lam x rhs))
+     Trying("lam Case unit")
+     e@(Case _scrut wild _rhsTy [(DataAlt dc, [], rhs)])
+       | isBoxedTupleTyCon (dataConTyCon dc)
+       -> Doing("lam Case unit")
+          if isDeadBinder wild then
+            return (mkCcc (Lam x rhs))
+            -- TODO: abstract return (mkCcc (Lam x ...))
+          else
+            -- TODO: handle live wild var.
+            pprPanic "reify - case with live wild var (not yet handled)" (ppr e)
      Trying("lam Case of product")
      e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
          | isBoxedTupleTyCon (dataConTyCon dc) ->
@@ -360,7 +374,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      -- pprTrace "reCatCo app" (ppr (r,_k,a,b))
      Just (mkAppCos (mkReflCo r cat) [a,b])
    reCatCo (co1 `TransCo` co2) = TransCo <$> reCatCo co1 <*> reCatCo co2
-   reCatCo co = dtrace "ccc reCatCo: unhandled coercion" (ppr co) $
+   reCatCo co = pprTrace "ccc reCatCo: unhandled coercion" (ppr co) $
                 Nothing
    unfoldMaybe :: ReExpr
    unfoldMaybe e | (Var v, _) <- collectArgsPred isTyCoDictArg e
