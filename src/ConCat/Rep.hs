@@ -25,7 +25,7 @@
 -- TODO: Can I replace HasRep with Generic or Newtype?
 ----------------------------------------------------------------------
 
-module ConCat.Rep (HasRep(..)) where
+module ConCat.Rep (HasRep(..),inAbst,inAbst2) where
 
 import Data.Monoid
 -- import Data.Newtypes.PrettyDouble
@@ -46,7 +46,7 @@ import ConCat.Complex
 -- import GHC.Exts (Int(..),Int#)
 
 -- TODO: Eliminate most of the following when I drop these types.
-import ConCat.Misc ((:*),(:+),Parity(..))
+import ConCat.Misc ((:*),(:+),Parity(..),(<~))
 
 -- import TypeUnary.TyNat (Z,S)
 -- import TypeUnary.Nat (Nat(..),IsNat(..))
@@ -218,6 +218,18 @@ instance HasRep ((G.:.:) f g p) where
   INLINES
 
 -- TODO: Can I *replace* HasRep with Generic?
+
+{--------------------------------------------------------------------
+    Utilities
+--------------------------------------------------------------------}
+
+inAbst :: (HasRep p, HasRep q) =>
+          (Rep p -> Rep q) -> (p -> q)
+inAbst = abst <~ repr
+
+inAbst2 :: (HasRep p, HasRep q, HasRep r) =>
+           (Rep p -> Rep q -> Rep r) -> (p -> q -> r)
+inAbst2 = inAbst <~ repr
 
 {--------------------------------------------------------------------
     Unlifted types
