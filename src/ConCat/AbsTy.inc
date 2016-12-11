@@ -5,8 +5,8 @@
 #define AbsTy(abs) \
 instance GenBuses (Rep (abs)) => GenBuses (abs) where \
   { genBuses' = genBusesRep' ; delay = delayCRep ; ty = tyRep }; \
-instance Tweakable (Rep (abs)) => Tweakable (abs) where \
-  { tweakVal = tweakValRep } ; \
+instance ConstCat (:>) (Rep (abs)) => ConstCat (:>) (abs) where \
+  { const = repConst } ; \
 instance BottomCat (:>) (Rep (abs)) => BottomCat (:>) (abs) where \
   { bottomC = bottomRep };\
 instance IfCat (:>) (Rep (abs)) => IfCat (:>) (abs) where { ifC = repIf };\
@@ -16,5 +16,5 @@ instance Uncurriable k _a_ (abs) where uncurries f = f ; {-# INLINE uncurries #-
 {-# LANGUAGE MultiParamTypeClasses, UndecidableInstances, FlexibleInstances #-}
 
 #define AbsTyImports \
-import ConCat.AltCat (BottomCat(..),IfCat(..),repIf,Uncurriable(..)) ;\
+import ConCat.AltCat (BottomCat(..),IfCat(..),repIf,Uncurriable(..),constRepr) ;\
 import ConCat.Circuit (GenBuses(..),delayCRep,tyRep,bottomRep,genBusesRep',(:>));
