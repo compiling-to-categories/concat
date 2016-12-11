@@ -7,6 +7,7 @@
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeOperators       #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ConstraintKinds     #-}
 
 -- -- TEMP for Pair
 -- {-# LANGUAGE DeriveFunctor #-}
@@ -72,7 +73,14 @@ import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay,(:>))
+#if 1
+import ConCat.AD
+#else
 import ConCat.ADFun
+#endif
+import ConCat.Free.VectorSpace (V)
+import ConCat.Free.LinearRow
+import ConCat.Rep (repr)
 
 import ConCat.AltCat (ccc,reveal,Uncurriable(..),(:**:)(..))
 import qualified ConCat.AltCat as A
@@ -86,13 +94,10 @@ tests :: IO [Test]
 tests = return
   [ nopTest
 
-  , test "addThree" addThree
+--   , test "id-r"          (id :: Unop R)
 
---   , test "threep" three'
+  , test "id-r2"          (id :: Unop R2)
 
---   , test "three" three
-
---   , test "id"          (id :: Unop R)
 --   , test "const-4"     (const 4 :: Unop R)
 --   , test "four-plus-x" (\ x -> 4 + x :: R)
 --   , test "cos"         (cos :: Unop R)
@@ -114,6 +119,10 @@ tests = return
 --   , test "mul" ((*) :: Binop R)
 
 --   , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
+
+--   , test "addThree" addThree
+--   , test "threep" three'
+--   , test "three" three
 
 --   , tst (fst @Bool @Int)
 
@@ -250,129 +259,162 @@ tests = return
 
 type EC = Syn :**: (:>)
 
+runSyn :: Syn a b -> IO ()
+runSyn syn = putStrLn ('\n' : render syn)
+
 runEC :: GenBuses a => String -> EC a b -> IO ()
-runEC s (ex :**: circ) = putStrLn ('\n':render ex) >> RC.run s [] circ
+runEC nm (syn :**: circ) = runSyn syn >> RC.run nm [] circ
 
 #if 0
 -- Circuit interpretation
 test, test' :: Okay a b => String -> (a -> b) -> Test
 tst  :: Okay a b => (a -> b) -> Test
-{-# RULES "circuit" forall s f. test s f = mkTest s (go s f) #-}
+{-# RULES "circuit" forall nm f. test nm f = mkTest nm (go nm f) #-}
 #elif 0
 -- Syntactic interpretation
 test, test' :: String -> (a -> b) -> Test
 tst :: (a -> b) -> Test
-{-# RULES "syntactic" forall s f.
-  test s f = mkTest s (putStrLn ('\n':render (ccc f))) #-}
+{-# RULES "syntactic" forall nm f.
+  test nm f = mkTest nm (runSyn (ccc f)) #-}
 #elif 0
 -- (->), then syntactic
 -- With INLINE [3]: "Simplifier ticks exhausted"
 test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
-{-# RULES "(->); Syn" forall s f.
-   test s f = mkTest s (putStrLn ('\n':render (ccc (ccc f))))
+{-# RULES "(->); Syn" forall nm f.
+   test nm f = mkTest nm (runSyn (ccc (ccc f)))
  #-}
 #elif 0
 -- Syntactic, then uncurries
 test, test' :: Uncurriable Syn a b => String -> (a -> b) -> Test
 tst :: Uncurriable Syn a b => (a -> b) -> Test
-{-# RULES "syntactic; uncurries" forall s f.
-  test s f = mkTest s (putStrLn ('\n':render (uncurries (ccc f)))) #-}
+{-# RULES "syntactic; uncurries" forall nm f.
+  test nm f = mkTest nm (runSyn (uncurries (ccc f))) #-}
 #elif 0
 -- uncurries, then syntactic
 test, test' :: Uncurriable (->) a b => String -> (a -> b) -> Test
 tst  :: Uncurriable (->) a b => (a -> b) -> Test
-{-# RULES "uncurries; Syn" forall s f.
-   test s f = mkTest s (putStrLn ('\n':render (ccc (uncurries f))))
+{-# RULES "uncurries; Syn" forall nm f.
+   test nm f = mkTest nm (runSyn (ccc (uncurries f)))
  #-}
 #elif 0
 -- (->), then uncurries, then syntactic
 -- Some trouble with INLINE [3]
 test, test' :: Uncurriable (->) a b => String -> (a -> b) -> Test
 tst  :: Uncurriable (->) a b => (a -> b) -> Test
-{-# RULES "(->); uncurries; Syn" forall s f.
-   test s f = mkTest s (putStrLn ('\n':render (ccc (uncurries (ccc f)))))
+{-# RULES "(->); uncurries; Syn" forall nm f.
+   test nm f = mkTest nm (runSyn (ccc (uncurries (ccc f))))
  #-}
-#elif 1
+#elif 0
 -- syntactic *and* circuit
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst  :: GenBuses a => (a -> b) -> Test
-{-# RULES "Syn :**: (:>)" forall s f.
-   test s f = mkTest s (runEC s (ccc f))
+{-# RULES "Syn :**: (:>)" forall nm f.
+   test nm f = mkTest nm (runEC nm (ccc f))
  #-}
 #elif 0
 -- syntactic *and* circuit, then uncurries
 -- OOPS: Core Lint error
 test, test' :: (GenBuses (UncDom a b), Uncurriable (Syn :**: (:>)) a b) => String -> (a -> b) -> Test
 tst  :: (GenBuses (UncDom a b), Uncurriable (Syn :**: (:>)) a b) => (a -> b) -> Test
-{-# RULES "uncurries ; Syn :**: (:>)" forall s f.
-   test s f = mkTest s (runEC s (uncurries (ccc f)))
+{-# RULES "uncurries ; Syn :**: (:>)" forall nm f.
+   test nm f = mkTest nm (runEC nm (uncurries (ccc f)))
  #-}
 #elif 0
 -- uncurries, then syntactic *and* circuit
 -- OOPS: Core Lint error
 test, test' :: (GenBuses (UncDom a b), Uncurriable (->) a b) => String -> (a -> b) -> Test
 tst  :: (GenBuses (UncDom a b), Uncurriable (->) a b) => (a -> b) -> Test
-{-# RULES "uncurries ; Syn :**: (:>)" forall s f.
-   test s f = mkTest s (runEC s (ccc (uncurries f)))
+{-# RULES "uncurries ; Syn :**: (:>)" forall nm f.
+   test nm f = mkTest nm (runEC nm (ccc (uncurries f)))
  #-}
 #elif 0
 -- (->), then circuit
 -- OOPS: "Simplifier ticks exhausted"
 test, test' :: Okay a b => String -> (a -> b) -> Test
 tst  :: Okay a b => (a -> b) -> Test
-{-# RULES "(->); (:>)" forall s f.
-   test s f = mkTest s (go s (ccc f))
+{-# RULES "(->); (:>)" forall nm f.
+   test nm f = mkTest nm (go nm (ccc f))
+ #-}
+#elif 0
+-- L, then syntactic
+test, test' :: String -> (a -> b) -> Test
+tst  :: (a -> b) -> Test
+{-# RULES "L ; Syn" forall nm f.
+   test nm f = mkTest nm (runSyn (ccc (\ () -> lmap @R f)))
+ #-}
+#elif 1
+type Q a b = (V R a :-* V R b) R
+type GB a b = (GenBuses (UncDom () (Q a b)), Uncurriable (:>) () (Q a b))
+-- L, then circuit
+test, test' :: GB a b => String -> (a -> b) -> Test
+tst         :: GB a b =>           (a -> b) -> Test
+{-# RULES "L ; Syn" forall nm f.
+   test nm f = mkTest nm (go nm (ccc (\ () -> repr (lmap @R f))))
+ #-}
+#elif 1
+-- L, then syntactic and circuit
+test, test' :: GenBuses a => String -> (a -> b) -> Test
+tst         :: GenBuses a => (a -> b) -> Test
+{-# RULES "L ; Syn" forall nm f.
+   test nm f = mkTest nm (runEC nm (ccc (\ () -> lmap @R f)))
  #-}
 #elif 0
 -- Derivative, then syntactic
 test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
-{-# RULES "test AD" forall s f.
-   test s f = mkTest s (putStrLn ('\n' : render (ccc (dfun f))))
+{-# RULES "test AD" forall nm f.
+   test nm f = mkTest nm (runSyn (ccc (dfun f)))
  #-}
 #elif 0
 -- (->), then derivative, then syntactic. The first (->) gives us a chance to
 -- transform away the ClosedCat operations.
 test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
-{-# RULES "(->); D; Syn" forall s f.
-   test s f = mkTest s (putStrLn ('\n' : render (ccc (dfun (ccc f)))))
+{-# RULES "(->); D; Syn" forall nm f.
+   test nm f = mkTest nm (runSyn (ccc (dfun (ccc f))))
+ #-}
+#elif 0
+-- (->), then derivative, then syntactic and circuit.
+test, test' :: GenBuses a => String -> (a -> b) -> Test
+tst         :: GenBuses a =>           (a -> b) -> Test
+{-# RULES "(->); D; EC" forall nm f.
+   test nm f = mkTest nm (runEC (nm++"-ad") (ccc (dfun @R (ccc f))))
  #-}
 #elif 0
 -- (->), then *scalar* derivative, then syntactic.
 test, test' :: Num a => String -> (a -> b) -> Test
 tst  :: Num a => (a -> b) -> Test
-{-# RULES "(->); D; Syn" forall s f.
-   test s f = mkTest s (putStrLn ('\n' : render (ccc (dsc (dfun (ccc f))))))
+{-# RULES "(->); D; Syn" forall nm f.
+   test nm f = mkTest nm (runSyn (ccc (dsc (dfun (ccc f)))))
  #-}
 #elif 0
 -- (->), scalar D, syntax+circuit.
 test, test' :: (Num a, GenBuses a) => String -> (a -> b) -> Test
 tst         :: (Num a, GenBuses a) =>           (a -> b) -> Test
-{-# RULES "(->); D; Syn" forall s f.
-   test s f = mkTest s (runEC s (ccc (dsc (dfun (ccc f)))))
+{-# RULES "(->); D; Syn" forall nm f.
+   test nm f = mkTest nm (runEC nm (ccc (dsc (dfun (ccc f)))))
  #-}
 #elif 0
 -- scalar D, syntax+circuit.
 test, test' :: (Num a, GenBuses a) => String -> (a -> b) -> Test
 tst         :: (Num a, GenBuses a) =>           (a -> b) -> Test
-{-# RULES "(->); D; Syn" forall s f.
-   test s f = mkTest s (runEC s (ccc (dsc (dfun f))))
+{-# RULES "(->); D; Syn" forall nm f.
+   test nm f = mkTest nm (runEC nm (ccc (dsc (dfun f))))
  #-}
 #elif 0
 -- (->), non-scalar D, syntax+circuit.
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst         :: GenBuses a =>           (a -> b) -> Test
-{-# RULES "(->); D; Syn" forall s f.
-   test s f = mkTest s (runEC (s++"-da2b2") (ccc (da2b2 (dfun (ccc f)))))
+{-# RULES "(->); D; Syn" forall nm f.
+   test nm f = mkTest nm (runEC (nm++"-da2b2") (ccc (da2b2 (dfun (ccc f)))))
  #-}
-#elif 1
+#elif 0
 -- (->), basis D, syntax+circuit.
 test, test' :: (HasBasis a b, GenBuses a) => String -> (a -> b) -> Test
 tst         :: (HasBasis a b, GenBuses a) =>           (a -> b) -> Test
-{-# RULES "(->); D; Syn" forall s f.
-   test s f = mkTest s (runEC (s++"-dbas") (ccc (dbas (dfun (ccc f)))))
+{-# RULES "(->); D; Syn" forall nm f.
+   test nm f = mkTest nm (runEC (nm++"-dbas") (ccc (dbas (dfun (ccc f)))))
  #-}
 #elif 0
 -- (->), uncurries, non-scalar D, syntax+circuit.
@@ -380,16 +422,16 @@ test, test' :: (GenBuses (UncDom a b), Uncurriable (->) a b)
             => String -> (a -> b) -> Test
 tst         :: (GenBuses (UncDom a b), Uncurriable (->) a b)
             => GenBuses a =>           (a -> b) -> Test
-{-# RULES "uncurries; (->); D; Syn" forall s f.
-   test s f = mkTest s (runEC s (ccc (da2b2 (dfun (ccc (uncurries f))))))
+{-# RULES "uncurries; (->); D; Syn" forall nm f.
+   test nm f = mkTest nm (runEC nm (ccc (da2b2 (dfun (ccc (uncurries f))))))
  #-}
 #else
 -- NOTHING
 #endif
 
-test' s _f = mkTest s (putStrLn ("test called on " ++ s))
+test' nm _f = mkTest nm (putStrLn ("test called on " ++ nm))
 
-test s = test' s
+test nm = test' nm
 tst    = test' "tst"
 {-# NOINLINE test #-}
 -- {-# ANN test PseudoFun #-}
@@ -448,7 +490,7 @@ foo4 = sampleD (ccc id)
 -- {-# INLINE unD #-}
 
 -- bar :: IO ()
--- bar = putStrLn (render (ccc (unD' (ccc (id :: Bool -> Bool)))))
+-- bar = runSyn (ccc (unD' (ccc (id :: Bool -> Bool))))
 
 -- -- Okay
 -- foo1 :: R -> R :* (R -> R)
@@ -464,7 +506,7 @@ foo4 = sampleD (ccc id)
 
 -- -- Okay
 -- foo4 :: Test
--- foo4 = mkTest "foo4" (putStrLn (render (ccc (unD' (A.id :: D R R)))))
+-- foo4 = mkTest "foo4" (runSyn (ccc (unD' (A.id :: D R R))))
 
 -- -- Okay
 -- bar1 :: D R R
@@ -564,7 +606,7 @@ foo4 = sampleD (ccc id)
 -- bar :: String
 -- bar = render (ccc (dfun (ccc (cos :: Unop R))))
 
--- test s f = mkTest s (putStrLn ('\n' : render (ccc (dfun (ccc f)))))
+-- test nm f = mkTest nm (runSyn (ccc (dfun (ccc f))))
 
 -- bar :: Syn R (R :* (R -> R))
 -- bar = ccc (dfun (ccc (\ x -> 4 + x)))
@@ -581,13 +623,13 @@ foo4 = sampleD (ccc id)
 -- bar = render (ccc (dfun ((\ x_ -> 4) :: Unop R)))
 
 -- bar :: IO ()
--- bar = putStrLn (render (reveal (ccc (dfun (id :: Unop R)))))
+-- bar = runSyn (reveal (ccc (dfun (id :: Unop R))))
 
 -- boozle :: String -> (a -> b) -> Test
 -- boozle _ _ = undefined
 -- {-# NOINLINE boozle #-}
 -- {-# RULES
--- "boozle" forall s f. boozle s f = mkTest s (putStrLn ('\n' : render (ccc (dfun f))))
+-- "boozle" forall nm f. boozle nm f = mkTest nm (runSyn (ccc (dfun f)))
 --  #-}
 
 -- bar :: Test
@@ -595,23 +637,23 @@ foo4 = sampleD (ccc id)
 
 -- -- Derivative, then syntactic
 -- test' :: String -> (a -> b) -> Test
--- {-# RULES "test AD" forall s f.
---    test' s f = mkTest s (putStrLn ('\n' : render (ccc (dfun f))))
+-- {-# RULES "test AD" forall nm f.
+--    test' nm f = mkTest nm (runSyn (ccc (dfun f)))
 --  #-}
--- test' s _f = undefined -- mkTest s (putStrLn ("test called on " ++ s))
+-- test' nm _f = undefined -- mkTest nm (putStrLn ("test called on " ++ nm))
 -- {-# NOINLINE test' #-}
 
 -- bar :: Test
 -- bar = boozle "bar" (id :: Unop R)
 
 -- bar :: IO ()
--- bar = putStrLn (render (ccc (dfun (id :: Unop R))))
+-- bar = runSyn (ccc (dfun (id :: Unop R)))
 
 -- bar :: IO ()
--- bar = putStrLn (render (ccc (dfun ((\ _x -> 4) :: Unop R))))
+-- bar = runSyn (ccc (dfun ((\ _x -> 4) :: Unop R)))
 
 -- bar :: Test
--- bar = mkTest "bar" (putStrLn (render (ccc (unD' (ccc (A.id :: R -> R))))))
+-- bar = mkTest "bar" (runSyn (ccc (unD' (ccc (A.id :: R -> R)))))
 
 -- bar :: String
 -- bar = render (ccc (unD' (ccc (ccc (double :: R -> R)))))
@@ -661,3 +703,6 @@ three' x = (f 5, f 6)
 
 addThree :: R3 -> R
 addThree (a,b,c) = a+b+c
+
+-- bar :: L R R R
+-- bar = ccc id
