@@ -27,10 +27,11 @@ import Data.Pointed
 import Data.Key (Zip(..))
 import Data.Map (Map)
 
-import Control.Newtype
+-- import Control.Newtype
 
 import ConCat.Orphans ()
-import ConCat.Misc (inNew2,(:*),(<~))
+import ConCat.Misc ((:*),(<~))
+import ConCat.Rep
 import ConCat.Float
 -- import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
 
@@ -99,34 +100,34 @@ x >.< y = (*^ y) <$> x
 -- After transposing (:-), do I still need sumV?
 newtype SumV f a = SumV (f a)
 
-instance Newtype (SumV f a) where
-  type O (SumV f a) = f a
-  pack as = SumV as
-  unpack (SumV as) = as
+instance HasRep (SumV f a) where
+  type Rep (SumV f a) = f a
+  abst as = SumV as
+  repr (SumV as) = as
 
 instance (Zeroable f, Zip f, Num a) => Monoid (SumV f a) where
-  mempty = pack zeroV
-  mappend = inNew2 (^+^)
+  mempty = abst zeroV
+  mappend = inAbst2 (^+^)
 
 sumV :: (Functor m, Foldable m, Zeroable n, Zip n, Num a) => m (n a) -> n a
-sumV = unpack . fold . fmap SumV
+sumV = repr . fold . fmap SumV
 
 {--------------------------------------------------------------------
     Conversion
 --------------------------------------------------------------------}
 
-type NewHasV s t = (Newtype t, HasV s (O t), V s t ~ V s (O t))
+type RepHasV s t = (HasRep t, HasV s (Rep t), V s t ~ V s (Rep t))
 
 class HasV s t where
   type V s t :: * -> *
   toV :: t -> V s t s
   unV :: V s t s -> t
-  -- Default via Newtype.
-  type V s t = V s (O t)
-  default toV :: NewHasV s t => t -> V s t s
-  default unV :: NewHasV s t => V s t s -> t
-  toV = toV . unpack
-  unV = pack . unV
+  -- Default via Rep.
+  type V s t = V s (Rep t)
+  default toV :: RepHasV s t => t -> V s t s
+  default unV :: RepHasV s t => V s t s -> t
+  toV = toV . repr
+  unV = abst . unV
 
 inV :: (HasV s a, HasV s b) => (a -> b) -> (V s a s -> V s b s)
 inV = toV <~ unV
@@ -161,6 +162,9 @@ instance (HasV s a, HasV s b) => HasV s (a :* b) where
   toV (a,b) = toV a :*: toV b
   unV (f :*: g) = (unV f,unV g)
 
+instance (HasV s a, HasV s b, HasV s c) => HasV s (a,b,c)
+instance (HasV s a, HasV s b, HasV s c, HasV s d) => HasV s (a,b,c,d)
+
 -- instance HasV s a => HasV s (Pair a) where
 --   type V s (Pair a) = Pair :.: V s a
 --   toV = Comp1 . fmap toV
@@ -185,10 +189,10 @@ instance HasV s b => HasV s (a -> b) where
 
 data Pickle a = Pickle a a a
 
-instance Newtype (Pickle a) where
-  type O (Pickle a) = (a :* a) :* a
-  unpack (Pickle a b c) = ((a,b),c)
-  pack ((a,b),c) = Pickle a b c
+instance HasRep (Pickle a) where
+  type Rep (Pickle a) = (a :* a) :* a
+  repr (Pickle a b c) = ((a,b),c)
+  abst ((a,b),c) = Pickle a b c
 
 instance HasV s a => HasV s (Pickle a)
 #endif
