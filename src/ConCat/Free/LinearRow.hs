@@ -16,6 +16,7 @@
 {-# LANGUAGE TypeApplications #-}
 
 {-# OPTIONS_GHC -Wall #-}
+-- {-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
 
 -- | Linear maps as "row-major" functor compositions
 
@@ -26,15 +27,17 @@ import Prelude hiding (id,(.),zipWith)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import Data.Constraint
 
--- import Data.Pointed (Pointed(..))
 import Data.Key (Keyed(..),Zip(..),Adjustable(..))
 
 import Control.Newtype
 
-import ConCat.Misc ((:*),inNew2)  -- inNew,
+import ConCat.Misc ((:*),PseudoFun(..))
 import ConCat.Orphans ()
 import ConCat.Free.VectorSpace
-import ConCat.Category
+-- The following import allows the instances to type-check. Why?
+import qualified ConCat.Category as C
+import ConCat.AltCat
+import ConCat.Rep
 
 {--------------------------------------------------------------------
     Linear maps
@@ -50,6 +53,7 @@ type (a :-* b) s = b (a s)
 -- 
 -- so that Linear itself forms a vector space.
 
+-- Apply a linear map
 infixr 9 $*
 -- Apply a linear map
 ($*), lapplyL :: (Zip a, Foldable a, Zip b, Num s)
@@ -83,8 +87,6 @@ idL = scaleL 1
 -- Compose linear transformations
 (@.) :: (Zip a, Zip b, Zeroable a, Foldable b, Functor c, Num s)
      => (b :-* c) s -> (a :-* b) s -> (a :-* c) s
--- bc @. ab = (bc $*) <$> ab
-
 bc @. ab = (\ b -> sumV (zipWith (*^) b ab)) <$> bc
 
 -- bc :: c (b s)
@@ -128,21 +130,25 @@ data L s a b = L ((V s a :-* V s b) s)
 
 -- TODO: "data" --> "newtype" when the plugin is up for it.
 
+-- Just for AbsTy in ConCat.Circuit
 instance Newtype (L s a b) where
   type O (L s a b) = (V s a :-* V s b) s
   pack ab = L ab
   unpack (L ab) = ab
 
+instance HasRep (L s a b) where
+  type Rep (L s a b) = (V s a :-* V s b) s
+  abst ab = L ab
+  repr (L ab) = ab
+
 instance HasV s (L s a b) where
   type V s (L s a b) = V s b :.: V s a
-  toV = pack . unpack
-  unV = pack . unpack
-  -- toV (L bas) = Comp1 bas
-  -- unV (Comp1 bas) = L bas
+  toV = abst . repr
+  unV = abst . repr
 
 type OkLF' f = (Foldable f, Zeroable f, Zip f, Keyed f, Adjustable f)
 
-type OkLM' s a = (HasV s a, HasL (V s a), Num s)
+type OkLM' s a = (Num s, HasV s a, OkLF' (V s a)) -- , HasL (V s a)
 
 class    OkLM' s a => OkLM s a
 instance OkLM' s a => OkLM s a
@@ -154,33 +160,38 @@ zeroLM = L zeroL
 
 instance Category (L s) where
   type Ok (L s) = OkLM s
-  id = pack idL
-  (.) = inNew2 (@.)
+  id = abst idL
+  (.) = inAbst2 (@.)
+  {-# INLINE id #-}
+  {-# INLINE (.) #-}
 
 instance OpCon (:*) (Sat (OkLM s)) where inOp = Entail (Sub Dict)
 
 instance ProductCat (L s) where
   -- type Prod (L s) = (,)
-  exl = pack exlL
-  exr = pack exrL
-  (&&&) = inNew2 forkL
+  exl = abst exlL
+  exr = abst exrL
+  (&&&) = inAbst2 forkL
+  {-# INLINE exl #-}
+  {-# INLINE exr #-}
+  {-# INLINE (&&&) #-}
 
 -- Can I still have coproducts? Seems problematic without a definable Coprod
 
 -- instance CoproductCat (L s) where
 --   -- type Coprod (L s) = (,)
---   inl = pack inlL
---   inr = pack inrL
---   (|||) = inNew2 joinL
+--   inl = abst inlL
+--   inr = abst inrL
+--   (|||) = inAbst2 joinL
 
 inlLM :: Ok2 (L s) a b => L s a (a :* b)
-inlLM = pack inlL
+inlLM = abst inlL
 
 inrLM :: Ok2 (L s) a b => L s b (a :* b)
-inrLM = pack inrL
+inrLM = abst inrL
 
 joinLM :: Ok3 (L s) a b c => L s a c -> L s b c -> L s (a :* b) c
-joinLM = inNew2 joinL
+joinLM = inAbst2 joinL
 
 jamLM :: Ok (L s) a => L s (a :* a) a
 jamLM = id `joinLM` id
@@ -191,8 +202,7 @@ jamLM = id `joinLM` id
 -- type instance Exp (L s) = (:.:)
 
 -- Conversion to linear map
--- lapply :: (Num s, Oks (L s) [a,b]) => L s a b -> (a -> b)
-lapply :: (Num s, HasV s a, HasV s b, Foldable (V s a), Zip (V s a), Zip (V s b)) => L s a b -> (a -> b)
+lapply :: (Num s, Ok2 (L s) a b) => L s a b -> (a -> b)
 lapply (L gfa) = unV . lapplyL gfa . toV
 
 -- lapplyL :: ... => (a :-* b) s -> a s -> b s
@@ -238,7 +248,7 @@ want :: ((k -> s) :-* g) s
 
 #endif
 
-linear :: (OkLM s a, OkLM s b) => (a -> b) -> L s a b
+linear :: (OkLM s a, OkLM s b, HasL (V s a)) => (a -> b) -> L s a b
 linear f = L (linear' (inV f))
 
 -- f :: a -> b
@@ -249,6 +259,8 @@ scale = L . scaleL
 
 negateLM :: OkLM s a => L s a a
 negateLM = scale (-1)
+
+#if 0
 
 {--------------------------------------------------------------------
     Functors
@@ -261,3 +273,16 @@ instance FunctorC (Lapply s) (L s) (->) where fmapC = lapply
 data Linear s
 
 instance FunctorC (Linear s) (->) (L s) where fmapC = linear
+
+#endif
+
+{--------------------------------------------------------------------
+    CCC conversion
+--------------------------------------------------------------------}
+
+lmap :: forall s a b. (a -> b) -> L s a b
+-- lmap h = reveal (ccc h)
+lmap _ = error "lmap called"
+{-# NOINLINE lmap #-}
+{-# RULES "lmap" forall h. lmap h = reveal (ccc h) #-}
+{-# ANN lmap PseudoFun #-}
