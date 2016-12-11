@@ -83,7 +83,7 @@
 module ConCat.Circuit
   ( CircuitM, (:>)
   , PinId, Width, Bus(..), Source(..)
-  , GenBuses(..), GS, GST, genBusesRep', tweakValRep, delayCRep, tyRep, bottomRep, unDelayName
+  , GenBuses(..), GS, GST, genBusesRep', delayCRep, tyRep, bottomRep, unDelayName
   , namedC, constC -- , constS
   , SourceToBuses(..)
 --   , litUnit, litBool, litInt
@@ -535,8 +535,6 @@ instance Tweakable Int
 instance Tweakable Float  where tweakVal = pullZero 1e-7
 instance Tweakable Double where tweakVal = pullZero 1e-14
 -- TODO: tune the deltas
-instance (Tweakable a, Tweakable b) => Tweakable (a :* b) where
-  tweakVal = tweakVal *** tweakVal
 
 -- Hack to help eliminate numeric errors involved
 pullZero :: (Ord a, Num a) => a -> a -> a
@@ -782,9 +780,28 @@ instance TerminalCat (:>) where
   -- it = mkCK (const (return UnitB))
   it = C (arr (pure UnitB))
 
+#if 0
+
 instance GST b => ConstCat (:>) b where
   const b = -- trace ("circuit const " ++ show b) $
             constC b
+
+#else
+
+#define LitConst(ty) instance ConstCat (:>) (ty) where const = constC
+
+LitConst(())
+LitConst(Bool)
+LitConst(Int)
+LitConst(Float)
+LitConst(Double)
+
+instance (ConstCat (:>) a, ConstCat (:>) b) => ConstCat (:>) (a :* b) where
+  const = pairConst
+
+-- TODO: pairConst, reprConst
+
+#endif
 
 #if 0
 class MaybeCat k where
@@ -1275,7 +1292,7 @@ instance (Integral a, Num b, Read a, GST b)
       => FromIntegralCat (:>) a b where
   fromIntegralC = primNoOpt1 "fromIntegral" fromIntegral
 
-instance (GST a, NumCat (:>) a, Num a) => EnumCat (:>) a
+instance (ConstCat (:>) a, NumCat (:>) a, Num a) => EnumCat (:>) a
 
 -- Simplifications for all types:
 -- 
@@ -2463,9 +2480,9 @@ genBusesRep' :: GenBuses (Rep a) =>
                 String -> Sources -> BusesM (Buses a)
 genBusesRep' prim ins = abstB <$> genBuses' prim ins
 
-tweakValRep :: (HasRep a, Tweakable (Rep a)) => Unop a
-tweakValRep = abst . tweakVal . repr
-                
+-- tweakValRep :: (HasRep a, Tweakable (Rep a)) => Unop a
+-- tweakValRep = abst . tweakVal . repr
+
 bottomRep :: (HasRep a, BottomCat (:>) (Rep a)) => () :> a
 bottomRep = abstC . bottomC
 
