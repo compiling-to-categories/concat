@@ -161,7 +161,7 @@ import ConCat.AltCat (Uncurriable(..))
 import ConCat.Float
 
 import qualified ConCat.Free.LinearRow as LR
--- import qualified ConCat.Free.LinearCol as LC
+import qualified ConCat.Free.LinearCol as LC
 
 {--------------------------------------------------------------------
     Buses
@@ -2524,6 +2524,4 @@ AbsTy(M.StateT s m a)
 -- I put the following two here instead of in LinearRow and LinearCol to avoid
 -- the GHCi problem with this module.
 AbsTy(LR.L s a b)
--- AbsTy(LC.L s a b)
-
--- instance Uncurriable k q (LR.L s a b) where uncurries f = f ; {-# INLINE uncurries #-}
+AbsTy(LC.L s a b)
