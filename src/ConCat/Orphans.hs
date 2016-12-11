@@ -41,15 +41,21 @@ type instance Key (f :*: g) = Either (Key f) (Key g)
 
 -- Keyed
 
-instance Keyed U1 where mapWithKey _ U1 = U1
+instance Keyed U1 where
+  mapWithKey _ U1 = U1
+  {-# INLINE mapWithKey #-}
 
-instance Keyed Par1 where mapWithKey q = fmap (q ())
+instance Keyed Par1 where
+  mapWithKey q = fmap (q ())
+  {-# INLINE mapWithKey #-}
 
 instance (Keyed g, Keyed f) => Keyed (f :*: g) where
   mapWithKey q (fa :*: ga) = mapWithKey (q . Left) fa :*: mapWithKey (q . Right) ga
+  {-# INLINE mapWithKey #-}
 
 instance (Keyed g, Keyed f) => Keyed (g :.: f) where
   mapWithKey q = inNew (mapWithKey (mapWithKey . fmap q . (,)))
+  {-# INLINE mapWithKey #-}
 
 #if 0
 mapWithKey :: (Key (g :.: f) -> a -> b) -> (g :.: f) a -> (g :.: f) b
@@ -72,16 +78,22 @@ fk  :: Key f
 
 -- Zip
 
-instance Zip U1 where zipWith = liftA2
+instance Zip U1 where
+  zipWith = liftA2
+  {-# INLINE zipWith #-}
 
-instance Zip Par1 where zipWith = liftA2
+instance Zip Par1 where
+  zipWith = liftA2
+  {-# INLINE zipWith #-}
 
 instance (Zip f, Zip g) => Zip (f :*: g) where
   zipWith h (fa :*: ga) (fa' :*: ga') =
     zipWith h fa fa' :*: zipWith h ga ga'
+  {-# INLINE zipWith #-}
 
 instance (Zip f, Zip g) => Zip (g :.: f) where
   zipWith = inNew2 . zipWith . zipWith
+  {-# INLINE zipWith #-}
 
 
 -- ZipWithKey
@@ -105,10 +117,12 @@ instance (Indexable g, Indexable f) =>
          Indexable (f :*: g) where
   index (fa :*: _) (Left  fk) = fa ! fk
   index (_ :*: ga) (Right gk) = ga ! gk
+  {-# INLINE index #-}
 
 instance (Indexable g, Indexable f) =>
          Indexable (g :.: f) where
   index (Comp1 gfa) (gk,fk) = gfa ! gk ! fk
+  {-# INLINE index #-}
 
 
 -- Lookup
@@ -126,16 +140,22 @@ instance (Indexable g, Indexable f) => Lookup (g :.: f) where
 
 -- Adjustable
 
-instance Adjustable U1 where adjust = const (const id)
+instance Adjustable U1 where
+  adjust = const (const id)
+  {-# INLINE adjust #-}
 
-instance Adjustable Par1 where adjust h () = fmap h
+instance Adjustable Par1 where
+  adjust h () = fmap h
+  {-# INLINE adjust #-}
 
 instance (Adjustable g, Adjustable f) => Adjustable (f :*: g) where
   adjust h (Left  fk) (fa :*: ga) = adjust h fk fa :*: ga
   adjust h (Right gk) (fa :*: ga) = fa :*: adjust h gk ga
+  {-# INLINE adjust #-}
 
 instance (Adjustable g, Adjustable f) => Adjustable (g :.: f) where
   adjust h (gk,fk) = inNew (adjust (adjust h fk) gk)
+  {-# INLINE adjust #-}
 
 #endif
 
@@ -143,20 +163,29 @@ instance (Adjustable g, Adjustable f) => Adjustable (g :.: f) where
     GHC.Generics and pointed
 --------------------------------------------------------------------}
 
+instance Pointed U1 where
+  point = const U1
+  {-# INLINE point #-}
+
 instance Pointed Par1 where
   point = Par1
+  {-# INLINE point #-}
 
 instance (Pointed f, Pointed g) => Pointed (f :*: g) where
   point a = point a :*: point a
+  {-# INLINE point #-}
 
 instance (Pointed f, Pointed g) => Pointed (g :.: f) where
   point = Comp1 . point . point
+  {-# INLINE point #-}
 
 instance Copointed Par1 where
   copoint = unPar1
+  {-# INLINE copoint #-}
 
 instance (Copointed f, Copointed g) => Copointed (g :.: f) where
   copoint = copoint . copoint . unComp1
+  {-# INLINE copoint #-}
 
 -- TODO: many Pointed and Copointed instances for GHC.Generics types.
 -- Offer as a pointed patch, as I did with keys.
