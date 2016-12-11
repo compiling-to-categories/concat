@@ -148,7 +148,10 @@ instance HasV s (L s a b) where
 
 type OkLF' f = (Foldable f, Zeroable f, Zip f, Keyed f, Adjustable f)
 
-type OkLM' s a = (Num s, HasV s a, OkLF' (V s a)) -- , HasL (V s a)
+type OkLM' s a = (Num s, HasV s a, HasL (V s a)) -- , OkLF' (V s a)
+
+-- I'd like to use OkLF' in place of HasL, but the plugin isn't able to find Ok
+-- (L Float) Float. I suspect that the problem is due to orphan instances.
 
 class    OkLM' s a => OkLM s a
 instance OkLM' s a => OkLM s a
@@ -248,7 +251,7 @@ want :: ((k -> s) :-* g) s
 
 #endif
 
-linear :: (OkLM s a, OkLM s b, HasL (V s a)) => (a -> b) -> L s a b
+linear :: (OkLM s a, OkLM s b) => (a -> b) -> L s a b
 linear f = L (linear' (inV f))
 
 -- f :: a -> b
