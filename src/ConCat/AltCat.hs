@@ -47,8 +47,8 @@ import ConCat.Category
   , NumCat, FractionalCat, FloatingCat, FromIntegralCat
   , EqCat, OrdCat, EnumCat, BottomCat, IfCat, UnknownCat, RepCat
   , (:**:)(..)
-  --
-  , (<+), okProd
+  , type (|-)(..), (<+), okProd
+  , OpCon(..),FunctorC(..),Sat(..)
   )
 
 import qualified ConCat.Category as C
@@ -259,10 +259,7 @@ instance Uncurriable k a (t) where uncurries f = f ; {-# INLINE uncurries #-}
 UncId(())
 UncId(Bool)
 UncId(Int)
--- UncId(Float)
-
-instance Uncurriable k a Float where uncurries f = f ; {-# INLINE uncurries #-}
-
+UncId(Float)
 UncId(Double)
 UncId(c :* d)
 UncId(c :+ d)
