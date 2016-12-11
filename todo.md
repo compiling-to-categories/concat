@@ -1,5 +1,9 @@
 # To do
 
+
+*   I think I'll want to rename `ProductCat`, `CoproductCat`, and `ClosedCat` to "`Cartesian`", "`Cocartesian`", and "`Closed`".
+    What about other `Category` subclasses?
+*   Handle `newtype` better, and change some `data` uses back to `newtype`.
 *   There are `case` and `let` expressions in the middle of categorical compositions, where they can thwart CCC simplifications.
     Inlining those `let` expressions may be exactly what's needed to enable the simplifier's other transformations to eliminate the `case` expressions.
 *   AD with non-scalar domains.
