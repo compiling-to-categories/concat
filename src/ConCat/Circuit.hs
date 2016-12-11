@@ -83,7 +83,7 @@
 module ConCat.Circuit
   ( CircuitM, (:>)
   , PinId, Width, Bus(..), Source(..)
-  , GenBuses(..), GS, GST, genBusesRep', delayCRep, tyRep, bottomRep, unDelayName
+  , GenBuses(..), GS, GST, genBusesRep', tweakValRep, delayCRep, tyRep, bottomRep, unDelayName
   , namedC, constC -- , constS
   , SourceToBuses(..)
 --   , litUnit, litBool, litInt
@@ -157,13 +157,11 @@ import ConCat.Misc ((:*),Unop,Binop)
 import ConCat.Complex
 import ConCat.Rep
 import ConCat.Category
+import ConCat.AltCat (Uncurriable(..))
 import ConCat.Float
 
--- import ConCat.Pair
--- import qualified ConCat.RTree as RTree
--- import qualified ConCat.LTree as LTree
--- import ConCat.RaggedTree (TU(..))
--- import qualified ConCat.RaggedTree as Rag
+import qualified ConCat.Free.LinearRow as LR
+-- import qualified ConCat.Free.LinearCol as LC
 
 {--------------------------------------------------------------------
     Buses
@@ -537,6 +535,8 @@ instance Tweakable Int
 instance Tweakable Float  where tweakVal = pullZero 1e-7
 instance Tweakable Double where tweakVal = pullZero 1e-14
 -- TODO: tune the deltas
+instance (Tweakable a, Tweakable b) => Tweakable (a :* b) where
+  tweakVal = tweakVal *** tweakVal
 
 -- Hack to help eliminate numeric errors involved
 pullZero :: (Ord a, Num a) => a -> a -> a
@@ -1766,7 +1766,7 @@ recordDots depths = nodes ++ edges
          escape [] = []
          escape (c:cs) = mbEsc (c : escape cs)
           where
-             mbEsc | (c `elem` "<>|") || not (isAscii c)  = ('\\' :)
+             mbEsc | (c `elem` "<>|{}") || not (isAscii c)  = ('\\' :)
                    | otherwise     = id
    showDepth :: Bus -> String
 #ifdef ShowDepths
@@ -2463,6 +2463,9 @@ genBusesRep' :: GenBuses (Rep a) =>
                 String -> Sources -> BusesM (Buses a)
 genBusesRep' prim ins = abstB <$> genBuses' prim ins
 
+tweakValRep :: (HasRep a, Tweakable (Rep a)) => Unop a
+tweakValRep = abst . tweakVal . repr
+                
 bottomRep :: (HasRep a, BottomCat (:>) (Rep a)) => () :> a
 bottomRep = abstC . bottomC
 
@@ -2479,8 +2482,6 @@ AbsTy((a,b,c,d))
 AbsTy(Maybe a)
 -- AbsTy(Either a b)
 AbsTy(Complex a)
-
-#if 1
 
 -- Moving types to ShapedTypes
 
@@ -2520,4 +2521,9 @@ AbsTy(M.ReaderT e m a)
 AbsTy(M.WriterT w m a)
 AbsTy(M.StateT s m a)
 
-#endif
+-- I put the following two here instead of in LinearRow and LinearCol to avoid
+-- the GHCi problem with this module.
+AbsTy(LR.L s a b)
+-- AbsTy(LC.L s a b)
+
+-- instance Uncurriable k q (LR.L s a b) where uncurries f = f ; {-# INLINE uncurries #-}
