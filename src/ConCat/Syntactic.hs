@@ -169,8 +169,8 @@ instance ClosedCat Syn where
 -- instance HasLit Double
 
 instance Show b => ConstCat Syn b where
-  const b = app1 "const" (atom (show b))
-  unitArrow b = app1 "unitArrow" (atom (show b))
+  const b = app1 "const" (atom (showPrec appPrec b))
+  unitArrow b = app1 "unitArrow" (atom (showPrec appPrec b))
   INLINER(const)
   INLINER(unitArrow)
 
@@ -285,3 +285,6 @@ docOp2 extraParens sop (p,assoc) a b q =
                AssocNone  -> (succ, succ)
    incr | extraParens = succ
         | otherwise   = id
+
+showPrec :: Show a => Int -> a -> String
+showPrec p a = showsPrec p a ""
