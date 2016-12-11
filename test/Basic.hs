@@ -95,8 +95,9 @@ tests = return
   [ nopTest
 
 --   , test "id-r"          (id :: Unop R)
+--   , test "id-r2"         (id :: Unop R2)
 
-  , test "id-r2"          (id :: Unop R2)
+  , test "id-r3"       (id :: Unop R3)
 
 --   , test "const-4"     (const 4 :: Unop R)
 --   , test "four-plus-x" (\ x -> 4 + x :: R)
@@ -346,18 +347,11 @@ tst  :: (a -> b) -> Test
 #elif 1
 type Q a b = (V R a :-* V R b) R
 type GB a b = (GenBuses (UncDom () (Q a b)), Uncurriable (:>) () (Q a b))
--- L, then circuit
+-- L, then syntax+circuit
 test, test' :: GB a b => String -> (a -> b) -> Test
 tst         :: GB a b =>           (a -> b) -> Test
-{-# RULES "L ; Syn" forall nm f.
-   test nm f = mkTest nm (go nm (ccc (\ () -> repr (lmap @R f))))
- #-}
-#elif 1
--- L, then syntactic and circuit
-test, test' :: GenBuses a => String -> (a -> b) -> Test
-tst         :: GenBuses a => (a -> b) -> Test
-{-# RULES "L ; Syn" forall nm f.
-   test nm f = mkTest nm (runEC nm (ccc (\ () -> lmap @R f)))
+{-# RULES "L ; Syn+circuit" forall nm f.
+   test nm f = mkTest nm (runEC (nm++"-lmap") (ccc (\ () -> repr (lmap @R f))))
  #-}
 #elif 0
 -- Derivative, then syntactic
@@ -676,6 +670,11 @@ render' = render
 double :: Num a => a -> a
 double a = a + a
 {-# INLINE double #-}
+
+
+fooId :: L R R R
+fooId = A.id
+
 
 cosSin :: Floating a => a -> a :* a
 cosSin a = (cos a, sin a)
