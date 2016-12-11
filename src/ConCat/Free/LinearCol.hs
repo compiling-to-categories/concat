@@ -183,7 +183,7 @@ inlLM = abst inlL
 inrLM :: Ok2 (L s) a b => L s b (a :* b)
 inrLM = abst inrL
 
-joinLM :: Ok3 (L s) a b c => L s a c -> L s b c -> L s (a :* b) c
+joinLM :: L s a c -> L s b c -> L s (a :* b) c
 joinLM = inAbst2 joinL
 
 jamLM :: Ok (L s) a => L s (a :* a) a
