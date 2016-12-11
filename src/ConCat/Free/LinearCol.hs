@@ -24,7 +24,7 @@ module ConCat.Free.LinearCol where
 
 import Prelude hiding (id,(.),zipWith)
 
-import GHC.Generics (Par1(..),(:*:)(..),(:.:)(..))
+import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import Data.Constraint
 
 import Data.Pointed (Pointed(..))
@@ -163,10 +163,13 @@ lapply (L gfa) = unV . lapplyL gfa . toV
 
 -- lapplyL :: ... => (a :-* b) s -> a s -> b s
 
-
 class OkLF' f => HasL f where
   -- | Law: @'linear' . 'lapply' == 'id'@ (but not the other way around)
   linear' :: forall s g. (Num s, OkLF' g) => (f s -> g s) -> (f :-* g) s
+
+instance HasL U1 where
+  -- linear' :: forall s g. (Num s, OkLF' g) => (U1 s -> g s) -> (U1 :-* g) s
+  linear' _ = U1
 
 instance HasL Par1 where
   linear' f = Par1 (f (Par1 1))

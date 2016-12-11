@@ -23,7 +23,7 @@ module ConCat.Free.LinearRow where
 
 import Prelude hiding (id,(.),zipWith)
 
-import GHC.Generics (Par1(..),(:*:)(..),(:.:)(..))
+import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import Data.Constraint
 
 -- import Data.Pointed (Pointed(..))
@@ -124,7 +124,9 @@ joinL = zipWith (:*:)
     Category
 --------------------------------------------------------------------}
 
-newtype L s a b = L ((V s a :-* V s b) s)
+data L s a b = L ((V s a :-* V s b) s)
+
+-- TODO: "data" --> "newtype" when the plugin is up for it.
 
 instance Newtype (L s a b) where
   type O (L s a b) = (V s a :-* V s b) s
@@ -195,10 +197,17 @@ lapply (L gfa) = unV . lapplyL gfa . toV
 
 -- lapplyL :: ... => (a :-* b) s -> a s -> b s
 
-
 class OkLF' f => HasL f where
   -- | Law: @'linear' . 'lapply' == 'id'@ (but not the other way around)
   linear' :: forall s g. (Num s, OkLF' g) => (f s -> g s) -> (f :-* g) s
+
+instance HasL U1 where
+  -- linear' :: forall s g. (Num s, OkLF' g) => (U1 s -> g s) -> (U1 :-* g) s
+  linear' h = U1 <$ h U1
+
+--       h    :: U1 s -> g s
+--       h U1 :: g s
+-- U1 <$ h U1 :: g (U1 s)
 
 instance HasL Par1 where
   linear' f = Par1 <$> f (Par1 1)

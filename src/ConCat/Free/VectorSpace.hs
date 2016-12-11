@@ -18,9 +18,9 @@
 
 module ConCat.Free.VectorSpace where
 
-import Prelude hiding (zipWith)
+import Prelude hiding (zipWith,Float,Double)
 
-import GHC.Generics (Par1(..),(:*:)(..),(:.:)(..))
+import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 
 import Data.Foldable (fold)
 import Data.Pointed
@@ -31,6 +31,7 @@ import Control.Newtype
 
 import ConCat.Orphans ()
 import ConCat.Misc (inNew2,(:*),(<~))
+import ConCat.Float
 -- import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
 
 {--------------------------------------------------------------------
@@ -57,6 +58,8 @@ class Functor f => Zeroable f where
 
 -- The Functor superclass is just for convenience.
 -- Remove if needed (and fix other signatures).
+
+instance Zeroable U1
 
 instance Zeroable Par1
 
@@ -135,6 +138,16 @@ inV = toV <~ unV
 --   type V s s = Par1
 --   toV = Par1
 --   unV = unPar1
+
+instance HasV s () where
+  type V s () = U1
+  toV () = U1
+  unV U1 = ()
+
+instance HasV Float Float where
+  type V Float Float = Par1
+  toV = Par1
+  unV = unPar1
 
 instance HasV Double Double where
   type V Double Double = Par1
