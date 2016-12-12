@@ -1,6 +1,8 @@
 # To do
 
 
+*   Fix `reCat` in `ConCat.Plugin` to fail gracefully if the target category doesn't inhabit the needed `Category` subclass.
+    Then fix the `ConstCat (->)` instance in `ConCat.Category`, and replace `P.const` by `const` in `ConCat.Circuit` and ConCat.`Lambda`.
 *   I think I'll want to rename `ProductCat`, `CoproductCat`, and `ClosedCat` to "`Cartesian`", "`Cocartesian`", and "`Closed`".
     What about other `Category` subclasses?
 *   Handle `newtype` better, and change some `data` uses back to `newtype`.
