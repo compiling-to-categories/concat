@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE RankNTypes #-}
@@ -727,22 +728,25 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      -- , dtrace "transCatOp arities" (ppr (catArgs,nonCatArgs)) True
      , length (filter (not . isTyCoDictArg) rest) == catArgs + nonCatArgs
      -- , dtrace "transCatOp" (text "arity match") True
-     = let
-         -- Track how many regular (non-TyCo, non-pred) arguments we've seen
-         addArg :: (Int,CoreExpr) -> CoreExpr -> (Int,CoreExpr)
-         addArg (i,e) arg | isTyCoArg arg
-                          = -- dtrace "addArg isTyCoArg" (ppr arg)
-                            (i,e `App` arg)
-                          | isPred arg
-                          = -- dtrace "addArg isPred" (ppr arg)
-                            (i,onDict e)
-                          | otherwise
-                          = -- dtrace "addArg otherwise" (ppr (i,arg))
-                            -- TODO: logic to sort out cat vs non-cat args.
-                            -- We currently don't have both.
-                            (i+1,e `App` (if i < catArgs then mkCcc else id) arg)
+     = let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
+           addArg :: Maybe (Int,CoreExpr) -> CoreExpr -> Maybe (Int,CoreExpr)
+           addArg Nothing _ = Nothing
+           addArg (Just (i,e)) arg
+              | isTyCoArg arg
+              = -- dtrace "addArg isTyCoArg" (ppr arg)
+                Just (i,e `App` arg)
+              | isPred arg
+              = -- dtrace "addArg isPred" (ppr arg)
+                -- onDictMaybe may fail (Nothing) in the target category.
+                (i,) <$> onDictMaybe e  --  fails gracefully
+                -- Just (i,onDict e)    -- succeed or die
+              | otherwise
+              = -- dtrace "addArg otherwise" (ppr (i,arg))
+                -- TODO: logic to sort out cat vs non-cat args.
+                -- We currently don't have both.
+                Just (i+1,e `App` (if i < catArgs then mkCcc else id) arg)
        in
-         Just (snd (foldl addArg (0,Var v `App` Type cat) rest))
+         snd <$> foldl addArg (Just (0,Var v `App` Type cat)) rest
    transCatOp _ = -- pprTrace "transCatOp" (text "fail") $
                   Nothing
    reCat :: ReExpr
