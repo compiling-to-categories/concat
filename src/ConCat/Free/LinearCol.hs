@@ -119,9 +119,7 @@ joinL = (:*:)
     Category
 --------------------------------------------------------------------}
 
-data L s a b = L ((V s a :-* V s b) s)
-
--- TODO: "data" --> "newtype" when the plugin is up for it.
+newtype L s a b = L ((V s a :-* V s b) s)
 
 -- Just for AbsTy in ConCat.Circuit
 instance Newtype (L s a b) where

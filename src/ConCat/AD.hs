@@ -25,9 +25,7 @@ import ConCat.Free.LinearRow
 import qualified ConCat.Category as C
 import ConCat.AltCat hiding (const)
 
-data D s a b = D (a -> b :* L s a b)
-
--- TODO: "data" --> "newtype" when the plugin is up for it.
+newtype D s a b = D (a -> b :* L s a b)
 
 unD :: D s a b -> (a -> b :* L s a b)
 unD (D f) = f
