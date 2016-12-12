@@ -140,6 +140,8 @@ instance HasRep (L s a b) where
   type Rep (L s a b) = (V s a :-* V s b) s
   abst ab = L ab
   repr (L ab) = ab
+  {-# INLINE abst #-}
+  {-# INLINE repr #-}
 
 instance HasV s (L s a b) where
   type V s (L s a b) = V s b :.: V s a
