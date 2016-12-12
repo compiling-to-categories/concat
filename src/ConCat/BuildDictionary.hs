@@ -19,12 +19,17 @@
 module ConCat.BuildDictionary (buildDictionary) where
 
 import Control.Monad (guard)
+import Data.Monoid (Any(..))
 import Data.Char (isSpace)
+import Data.Data (Data)
+import Data.Generics (mkQ,everything)
 import System.IO.Unsafe (unsafePerformIO)
 
 import GhcPlugins
 
 import Control.Arrow (second)
+
+import TyCoRep (CoercionHole(..))
 import TcHsSyn (emptyZonkEnv,zonkEvBinds)
 import           TcRnMonad (getCtLocM)
 import           TcRnTypes (cc_ev)
@@ -58,7 +63,7 @@ runTcMUnsafe env dflags guts m = unsafePerformIO $ do
 runDsMUnsafe :: HscEnv -> DynFlags -> ModGuts -> DsM a -> a
 runDsMUnsafe env dflags guts = runTcMUnsafe env dflags guts . initDsTc
 
--- | Build a dictionary for the given
+-- | Build a dictionary for the given id
 buildDictionary' :: HscEnv -> DynFlags -> ModGuts -> Id -> (Id, [CoreBind])
 buildDictionary' env dflags guts evar =
     let (i, bs) =
@@ -75,6 +80,7 @@ buildDictionary' env dflags guts evar =
              (_env',bnds) <- zonkEvBinds emptyZonkEnv bnds0
              -- pprTrace "buildDictionary' _wCs'" (ppr _wCs') (return ())
              -- changed next line from reportAllUnsolved, which panics. revisit and fix!
+             -- warnAllUnsolved _wCs'
              warnAllUnsolved _wCs'
              return (evar, bnds)
     in
@@ -95,7 +101,7 @@ buildDictionary env dflags guts inScope ty =
 --      pprTrace "buildDictionary" (ppr ty <+> text "-->" <+> ppr dict) (return ())
 --      pprTrace "buildDictionary" (ppr (exprFreeVars dict)) (return ())
 --      pprTrace "buildDictionary" (ppr (bnds,freeIds)) (return ())
-     guard (notNull bnds && isEmptyVarSet freeIds)
+     guard (notNull bnds && isEmptyVarSet freeIds && not (hasCoercionHole dict))
      return dict
  where
    name     = "$d" ++ zEncodeString (filter (not . isSpace) (showPpr dflags ty))
@@ -112,6 +118,12 @@ buildDictionary env dflags guts inScope ty =
    -- parameters. Alternatively, check that there are no free variables (val or
    -- type) in the resulting dictionary that were not in the original type.
    freeIds = filterVarSet isId (exprFreeVars dict)
+
+hasCoercionHole :: Data t => t -> Bool
+hasCoercionHole = getAny . everything mappend (mkQ mempty (Any . isHole))
+ where
+   isHole :: CoercionHole -> Bool
+   isHole = const True
 
 -- | Make a unique identifier for a specified type, using a provided name.
 localId :: InScopeEnv -> String -> Type -> Id
