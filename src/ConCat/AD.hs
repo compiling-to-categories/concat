@@ -38,6 +38,7 @@ unD (D f) = f
 -- Differentiable linear function, given the function and linear map version
 linearD :: (a -> b) -> L s a b -> D s a b
 linearD f f' = D (f &&& const f')
+-- linearD f f' = D (\ a -> (f a, f'))
 {-# INLINE linearD #-}
 
 -- TODO: have linearD accept *just* the L version and convert via lapply
