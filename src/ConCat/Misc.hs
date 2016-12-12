@@ -78,13 +78,15 @@ infixl 1 <~
 infixr 1 ~>
 
 -- | Add pre- and post-processing
-(~>) :: (a' -> a) -> (b -> b') -> ((a -> b) -> (a' -> b'))
-(~>) = flip (<~)
+(~>) :: forall a b a' b'. (a' -> a) -> (b -> b') -> ((a -> b) -> (a' -> b'))
+(f ~> h) g = h . g . f
+-- (~>) = flip (<~)
+{-# INLINE (~>) #-}
 
 -- | Add post- and pre-processing
-(<~) :: (b -> b') -> (a' -> a) -> ((a -> b) -> (a' -> b'))
+(<~) :: forall a b a' b'. (b -> b') -> (a' -> a) -> ((a -> b) -> (a' -> b'))
 (h <~ f) g = h . g . f
-
+{-# INLINE (<~) #-}
 
 class    Yes0
 instance Yes0
