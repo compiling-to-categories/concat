@@ -646,7 +646,7 @@ class (TerminalCat k, Ok k (ConstObj k b)) => ConstCat k b where
 #else
 
 -- TODO: If I keep this version, remove TerminalCat parent
-class (TerminalCat k, Ok k (ConstObj k b)) => ConstCat k b where
+class (Category k, Ok k (ConstObj k b)) => ConstCat k b where
 --   type ConstObj k b
 --   type ConstObj k b = b
   const :: Ok k a => b -> (a `k` ConstObj k b)
@@ -655,6 +655,14 @@ class (TerminalCat k, Ok k (ConstObj k b)) => ConstCat k b where
   const = repConst
 
 #endif
+
+-- instance (ProductCat k, TerminalCat, ConstCat k b, ConstCat k c, Ok k a)
+--       => ConstCat k (b :* c) where
+--   const = pairConst <+ okProd @k @b @c
+
+-- instance (HasRep (ConstObj k b), ConstCat k (Rep b), RepCat k, Ok k a, Ok k (ConstObj k b))
+--       => ConstCat k b where
+--   const = repConst
 
 repConst :: (HasRep (ConstObj k b), ConstCat k (Rep b), RepCat k, Ok k a, Ok k (ConstObj k b))
          => b -> (a `k` ConstObj k b)
@@ -667,15 +675,15 @@ pairConst (b,c) = const b &&& const c
 -- | Inject a constant on the left
 lconst :: forall k a b. (ProductCat k, ConstCat k a, Ok2 k a b)
        => a -> (b `k` (a :* b))
-lconst a = first  (const a) . lunit
-           <+ okProd @k @(Unit k) @b
+lconst a = first  (const a) . dup
+           <+ okProd @k @b @b
            <+ okProd @k @(ConstObj k a) @b
 
 -- | Inject a constant on the right
 rconst :: forall k a b. (ProductCat k, ConstCat k b, Ok2 k a b)
        => b -> (a `k` (a :* b))
-rconst b = second (const b) . runit
-           <+ okProd @k @a @(Unit k)
+rconst b = second (const b) . dup
+           <+ okProd @k @a @a
            <+ okProd @k @a @(ConstObj k b)
 
 #if 1
