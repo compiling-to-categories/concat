@@ -60,19 +60,30 @@ class Functor f => Zeroable f where
 -- The Functor superclass is just for convenience.
 -- Remove if needed (and fix other signatures).
 
-instance Zeroable U1
+instance Zeroable U1 where
+  -- zeroV = U1
+  -- {-# INLINE zeroV #-}
 
-instance Zeroable Par1
+-- The following instance could be defaulted. I'm tracking down what might be an
+-- inlining failure.
+
+instance Zeroable Par1 where
+  zeroV = Par1 0
+  {-# INLINE zeroV #-}
 
 instance Zeroable ((->) k)
 
-instance Ord k => Zeroable (Map k) where zeroV = mempty
+instance Ord k => Zeroable (Map k) where
+  zeroV = mempty
+  {-# INLINE zeroV #-}
 
 instance (Zeroable f, Zeroable g) => Zeroable (f :*: g) where
   zeroV = zeroV :*: zeroV
+  {-# INLINE zeroV #-}
 
 instance (Zeroable f, Zeroable g) => Zeroable (g :.: f) where
   zeroV = Comp1 (const zeroV <$> (zeroV :: g Int))
+  {-# INLINE zeroV #-}
 
 #endif
 
@@ -104,6 +115,8 @@ instance HasRep (SumV f a) where
   type Rep (SumV f a) = f a
   abst as = SumV as
   repr (SumV as) = as
+  {-# INLINE abst #-}
+  {-# INLINE repr #-}
 
 instance (Zeroable f, Zip f, Num a) => Monoid (SumV f a) where
   mempty = abst zeroV
