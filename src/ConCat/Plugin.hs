@@ -47,34 +47,39 @@ import FamInstEnv (normaliseType)
 import TyCoRep                          -- TODO: explicit imports
 import Unique (mkBuiltinUnique)
 
-import ConCat.Misc (Unop,Binop,Ternop,PseudoFun(..))
+import ConCat.Misc (Unop,Binop,Ternop,PseudoFun(..),(~>))
 import ConCat.Simplify
 import ConCat.BuildDictionary
 
 -- Information needed for reification. We construct this info in
 -- CoreM and use it in the ccc rule, which must be pure.
-data CccEnv = CccEnv { dtrace     :: forall a. String -> SDoc -> a -> a
-                     , cccV       :: Id
-                     , idV        :: Id
-                     , constV     :: Id
-                     , forkV      :: Id
-                     , applyV     :: Id
-                     , composeV   :: Id
-                     , curryV     :: Id
-                     , uncurryV   :: Id
-                     , exlV       :: Id
-                     , exrV       :: Id
-                     , constFunV  :: Id
-                     , reprV      :: Id
-                     , abstV      :: Id
-                     , reprCV     :: Id
-                     , abstCV     :: Id
-                     , hasRepMeth :: HasRepMeth
-                  -- , inlineV    :: Id
-                     , polyOps    :: PolyOpsMap
-                     , monoOps    :: MonoOpsMap
-                     , hsc_env    :: HscEnv
-                     , ruleBase   :: RuleBase  -- to remove
+data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
+                     , cccV             :: Id
+                     , idV              :: Id
+                     , constV           :: Id
+                     , forkV            :: Id
+                     , applyV           :: Id
+                     , composeV         :: Id
+                     , curryV           :: Id
+                     , uncurryV         :: Id
+                     , exlV             :: Id
+                     , exrV             :: Id
+                     , constFunV        :: Id
+                     , reprV            :: Id
+                     , abstV            :: Id
+                     , reprCV           :: Id
+                     , abstCV           :: Id
+                     , reprC'V          :: Id
+                     , abstC'V          :: Id
+                     , repTc            :: TyCon
+                     , hasRepMeth       :: HasRepMeth
+                     -- , hasRepFromAbstCo :: Coercion   -> CoreExpr
+                     , prePostV         :: Id
+                  -- , inlineV          :: Id
+                     , polyOps          :: PolyOpsMap
+                     , monoOps          :: MonoOpsMap
+                     , hsc_env          :: HscEnv
+                     , ruleBase         :: RuleBase  -- to remove
                      }
 
 -- Map from fully qualified name of standard operation.
@@ -143,8 +148,11 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      Let bind@(NonRec v rhs) body ->
        -- Experiment: always float.
        if {- True || -} substFriendly rhs then
-         Doing("top Let floating")
+         Doing("top Let float")
          return (Let bind (mkCcc body))
+         -- -- Experiment:
+         -- Doing("top Let substitution")
+         -- return (mkCcc (subst1 v rhs body))
        else
          Doing("top Let to beta-redex")
          go (App (Lam v body) rhs)
@@ -154,14 +162,27 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      Case scrut wild rhsTy alts ->
        Doing("top ccc Case")
        return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
-     Trying("top Cast")
-     Cast e co | Just co' <- reCatCo co ->
+     Trying("top nominal Cast")
+     Cast e co@(setNominalRole_maybe -> Just (reCatCo -> Just co')) ->
        -- etaExpand turns cast lambdas into themselves
-       Doing("top reCatCo")
+       Doing("top nominal cast")
        -- dtrace "reCatCo" (ppr co <+> text "-->" <+> ppr (reCatCo co)) $
+       return (Cast (mkCcc e) 
+               (downgradeRole (coercionRole co) (coercionRole co') co'))
        -- I think GHC is undoing this transformation, so continue eagerly
-       return (Cast (mkCcc e) co')
        -- (`Cast` co') <$> go e
+#if 0
+     Trying("top recast")
+     Cast e co | Just e' <- recast e co ->
+       Doing("top recast")
+       -- return (mkCcc e')
+       go e'
+#else
+     Trying("top recast")
+     Cast e co ->
+       Doing("top recast")
+       return (mkCcc (recast' co `App` e))
+#endif
      -- Temp hack while testing nested ccc calls.
      -- go (etaReduceN -> Var v) = Doing("top Wait for unfolding of " ++ fqVarName v)
      --                            Nothing
@@ -217,8 +238,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
           -- dtrace("lam Poly const: bty & isMonoTy") (ppr (bty, isMonoTy bty)) $
           Nothing
      Trying("lam Const")
-     _ | isConst
-       , dtrace "goLam mkConst'" (ppr (mkConst' cat xty body)) False -> undefined
+     -- _ | isConst, dtrace "goLam mkConst'" (ppr (exprType body,mkConst' cat xty body)) False -> undefined
      _ | isConst, Just body' <- mkConst' cat xty body
        -> Doing("lam mkConst'")
        return body'
@@ -254,7 +274,14 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
             mkLams binds $
              mkAbstC funCat (exprType body') `App` (meth reprV `App` body')
 #endif
-
+#if 0
+     Trying("lam App compose")
+     -- (\ x -> U V) --> U . (\ x -> V) if x not free in U
+     u `App` v | liftedExpr v
+               , not (x `isFreeIn` u)
+               -> Doing("lam App compose")
+                  return $ mkCompose cat (mkCcc u) (mkCcc (Lam x v))
+#endif
      Trying("lam App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
      u `App` v | liftedExpr v
@@ -268,14 +295,16 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
       where
         vty = exprType v
      Trying("lam unfold")
-     -- Only unfold applications if no argument is a regular value
-     e | Just e' <- unfoldMaybe e -> -- lexical oddity
-                                     Doing("lam unfold")
-                                     return (mkCcc (Lam x e'))
-                                     -- goLam x e'
+     (unfoldMaybe -> Just body') ->
+       Doing("lam unfold")
+       -- dtrace "lam unfold" (ppr body <+> text "-->" <+> ppr body')
+       return (mkCcc (Lam x body'))
+       -- goLam x body'
+       -- TODO: factor out Lam x (mkCcc ...)
      Trying("lam Let")
      -- TODO: refactor with top Let
-     Let (NonRec v rhs) body' ->
+     Let bind@(NonRec v rhs) body' ->
+#if 1
        if substFriendly rhs || not xInRhs then
          -- TODO: decide whether to float or substitute.
          -- To float, x must not occur freely in rhs
@@ -287,10 +316,18 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
            goLam x (subst1 v rhs body')
          else
            Doing("lam Let float")
-           return (Let (NonRec v rhs) (mkCcc (Lam x body')))
+           return (Let bind (mkCcc (Lam x body')))
        else
          Doing("lam Let to beta-redex")
          goLam x (App (Lam v body') rhs)
+#else
+       if substFriendly rhs then
+         Doing("lam Let substitution")
+         goLam x (subst1 v rhs body')
+       else
+         Doing("lam Let to beta-redex")
+         goLam x (App (Lam v body') rhs)
+#endif
       where
         xInRhs = x `isFreeIn` rhs
      Trying("lam eta-reduce")
@@ -315,10 +352,9 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      Case _scrut (isDeadBinder -> True) _rhsTy [(DEFAULT,[],rhs)] ->
        Doing("lam case-default")
        return (mkCcc (Lam x rhs))
-     Trying("lam Case unit")
-     e@(Case _scrut wild _rhsTy [(DataAlt dc, [], rhs)])
-       | isBoxedTupleTyCon (dataConTyCon dc)
-       -> Doing("lam Case unit")
+     Trying("lam Case nullary")
+     e@(Case _scrut wild _rhsTy [(_, [], rhs)])
+       -> Doing("lam Case nullary")
           if isDeadBinder wild then
             return (mkCcc (Lam x rhs))
             -- TODO: abstract return (mkCcc (Lam x ...))
@@ -343,7 +379,14 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
               sub   = [(a,mkEx funCat exlV (Var c)),(b,mkEx funCat exrV (Var c))]
           in
             return (mkCcc (Lam x (App (Lam c (subst sub rhs)) scrut)))
-     -- Give up
+     Trying("lam Case of dictionary")
+     -- Do I also need top version?
+     Case scrut v altsTy alts
+       | isPredTy (varType v)
+       , Just scrut' <- unfoldMaybe scrut
+       -> Doing("lam Case of dictionary")
+          return $ mkCcc $ Lam x $
+           Case scrut' v altsTy alts
      Trying("lam abstReprCase")
      -- Do I also need top abstReprCase?
      Case scrut v altsTy alts
@@ -351,9 +394,9 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        -> Doing("lam abstReprCase")
           return $ mkCcc $ Lam x $
            Case (meth abstV `App` (mkReprC funCat (varType v) `App` scrut)) v altsTy alts
+     -- Give up
      _e -> pprPanic "ccc" ("Unhandled:" <+> ppr _e)
-           -- dtrace "ccc" ("Unhandled:" <+> ppr _e) $
-           -- Nothing
+           -- pprTrace "goLam" ("Unhandled:" <+> ppr _e) $ Nothing
     where
       xty = varType x
       bty = exprType body
@@ -366,8 +409,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    catTy (tyArgs2 -> (a,b)) = mkAppTys cat [a,b]
    reCatCo :: Rewrite Coercion
    reCatCo co | dtrace "reCatCo" (ppr co) False = undefined
-   -- reCatCo (TyConAppCo r tc [a,b])
-   --   | tc == funTyCon = Just (mkAppCos (mkReflCo r cat) [a,b])
+   reCatCo (FunCo r a b) = Just (mkAppCos (mkReflCo r cat) [a,b])
    reCatCo (splitAppCo_maybe -> Just
             (splitAppCo_maybe -> Just
              (Refl r _k,a),b)) =
@@ -376,11 +418,113 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    reCatCo (co1 `TransCo` co2) = TransCo <$> reCatCo co1 <*> reCatCo co2
    reCatCo co = pprTrace "ccc reCatCo: unhandled coercion" (ppr co) $
                 Nothing
+   -- Interpret a representational cast
+   -- TODO: Try swapping argument order
+#if 0
+   repTy :: Unop Type
+   repTy t = mkTyConApp repTc [t]
+   recast :: CoreExpr -> Coercion -> Maybe CoreExpr
+   recast _ co | dtrace "recast" (ppr co <+> dcolon <+> ppr (coercionType co)) False = undefined
+   -- If we have a nominal(able) coercion, let another reify pass handle it.
+   -- Importantly, 'go' above tries this case before recast. Thus, if we see a
+   -- nominal coercion here, we've already made progress.
+   -- I'm not really sure about this argument, so take care!
+   recast e co | Just _ <- setNominalRole_maybe co = Just (mkCast e co)
+   recast e (Refl {}) = Just e  -- or leave for the simplifier
+   recast e (FunCo _r domCo ranCo) =
+     Just (Lam x (mkCast (e `App` mkCast (Var x) (mkSymCo domCo)) ranCo))
+     -- TODO: Will the simplifier move the outer mkCast back out through the Lam
+     -- to make another FunCo? If so, rethink.
+     -- Lam x <$> recast (e `App` mkCast (Var x) (mkSymCo domCo)) ranCo
+    where
+      x = freshId (exprFreeVars e) "x" (pSnd (coercionKind domCo))
+      -- TODO: take care with the directions
+   recast e co
+     | dom `eqType` repTy ran = return (mkAbstC funCat ran)
+     | ran `eqType` repTy dom = return (mkReprC funCat dom)
+     | AxiomInstCo {} <- co =
+         -- co :: dom ~#R ran for a newtype instance dom and its representation ran.
+         -- repCo :: Rep dom ~# ran
+         let repCo = UnivCo UnsafeCoerceProv Representational (repTy dom) ran in
+           dtrace "recast AxiomInstCo:" (ppr repCo) $
+           Just $ Cast (mkCast e (TransCo co (mkSymCo (mkSubCo repCo)))) repCo
+           -- Outer Cast instead of mkCast to avoid optimization.
+     | SymCo (AxiomInstCo {}) <- co =
+         -- co :: dom ~#R ran for a newtype instance ran
+         -- repCo :: Rep ran ~# dom
+         let repCo = UnivCo UnsafeCoerceProv Representational (repTy ran) dom in
+           Just $ Cast (mkCast e (mkSymCo repCo)) (TransCo (mkSubCo repCo) co)
+    where
+      Pair dom ran = coercionKind co
+   -- TransCo must come after the abst (dom == Rep ran) and repr (ran == Rep
+   -- dom) cases, since the AxiomInstCo (newtype) cases create transitive
+   -- coercions having those shapes.
+   recast e (TransCo inner outer) = -- Use at least one recursive recast so
+                                    -- the simplifier doesn't recombine.
+                                    dtrace "TransCo" empty $ -- order?
+                                    recast (mkCast e inner) outer
+   recast (unfoldMaybe -> Just e') co = dtrace "unfold castee" empty $
+                                        Just $ Cast e' co
+   recast _ co = dtrace ("recast: unhandled " ++ coercionTag co ++ " coercion:")
+                   (ppr co {- <+> dcolon $$ ppr (coercionType co)-}) Nothing
+   -- TODO: Check the type, in case the coercion is not
+#else
+   -- Another try:
+   recast' :: Coercion -> CoreExpr
+   -- recast' co | dtrace ("recast' " ++ coercionTag co) (ppr co <+> dcolon <+> ppr (coercionType co)) False = undefined
+   -- Refl is subsumed by setNominalRole. Handle here for simpler output.
+   recast' (Refl _ ty) = -- dtrace "recast' Refl" (pprWithType (mkId funCat ty)) $
+                         mkId funCat ty
+   -- If we have a nominal(able) coercion, let another reify pass handle it.
+   -- Importantly, 'go' above tries this case before recast'. Thus, if we see a
+   -- nominal coercion here, we've already made progress.
+   -- I'm not really sure about this argument, so take care!
+   recast' co | Just _ <- setNominalRole_maybe co = Lam x (mkCast (Var x) co)
+    where
+      x = freshId emptyVarSet "w" dom
+      Pair dom _ = coercionKind co
+   recast' (FunCo _r domCo ranCo) = mkPrePost (recast' domCo) (recast' ranCo)
+   recast' co
+     -- | dtrace "recast' tys" (ppr (dom,ran)) False = undefined
+     | Just a <- mkAbstC' funCat dom ran = a
+     | Just r <- mkReprC' funCat dom ran = r
+     
+--      | dom `eqType` repTy ran = mkAbstC funCat ran
+--      | ran `eqType` repTy dom = mkReprC funCat dom
+--      | AxiomInstCo {} <- co =
+--          -- co :: dom ~#R ran for a newtype instance dom and its representation ran.
+--          -- repCo :: Rep dom ~# ran
+--          let repCo = UnivCo UnsafeCoerceProv Representational (repTy dom) ran in
+--            dtrace "recast' AxiomInstCo:" (ppr repCo) $
+--            Just $ Cast (mkCast e (TransCo co (mkSymCo (mkSubCo repCo)))) repCo
+--            -- Outer Cast instead of mkCast to avoid optimization.
+--      | SymCo (AxiomInstCo {}) <- co =
+--          -- co :: dom ~#R ran for a newtype instance ran
+--          -- repCo :: Rep ran ~# dom
+--          let repCo = UnivCo UnsafeCoerceProv Representational (repTy ran) dom in
+--            Just $ Cast (mkCast e (mkSymCo repCo)) (TransCo (mkSubCo repCo) co)
+    where
+      Pair dom ran = coercionKind co
+#if 0
+   -- TransCo must come after the abst (dom == Rep ran) and repr (ran == Rep
+   -- dom) cases, since the AxiomInstCo (newtype) cases create transitive
+   -- coercions having those shapes.
+   recast' e (TransCo inner outer) = -- Use at least one recursive recast' so
+                                    -- the simplifier doesn't recombine.
+                                    dtrace "TransCo" empty $ -- order?
+                                    recast' (mkCast e inner) outer
+   recast' (unfoldMaybe -> Just e') co = dtrace "unfold castee" empty $
+                                        Just $ Cast e' co
+#endif
+   recast' co = pprPanic ("recast': unhandled " ++ coercionTag co ++ " coercion:")
+                  (ppr co {- <+> dcolon $$ ppr (coercionType co)-})
+#endif
    unfoldMaybe :: ReExpr
+   -- unfoldMaybe e | dtrace "unfoldMaybe" (ppr (e,collectArgsPred isTyCoDictArg e)) False = undefined
    unfoldMaybe e | (Var v, _) <- collectArgsPred isTyCoDictArg e
+                 -- , dtrace "unfoldMaybe" (text (fqVarName v)) True
                  , isNothing (catFun (Var v))
-                 = -- dtrace "unfoldMaybe" (text (fqVarName v)) $
-                   onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe) e
+                 = onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe) e
                  | otherwise = Nothing
    -- unfoldMaybe = -- traceRewrite "unfoldMaybe" $
    --               onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe)
@@ -546,6 +690,26 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      -- pprTrace "mkReprC" (pprWithType (onDict (catOp k reprCV [ty]))) $
      -- pprPanic "mkReprC" (text "bailing")
      onDict (catOp k reprCV [ty])
+
+   mkAbstC', mkReprC' :: Cat -> Type -> Type -> Maybe CoreExpr
+   mkAbstC' k dom ran =
+--      pprTrace "mkAbstC' 1" (ppr (dom,ran)) $
+--      pprTrace "mkAbstC' 2" (pprWithType (Var abstC'V)) $
+--      pprTrace "mkAbstC' 3" (pprWithType (catOp k abstC'V [dom,ran])) $
+--      pprTrace "mkAbstC' 4" (pprWithType (onDict (catOp k abstC'V [dom,ran]))) $
+--      pprTrace "mkAbstC' 5" (pprWithType (onDict (onDict (catOp k abstC'V [dom,ran])))) $
+     onDictMaybe =<< onDictMaybe (catOp k abstC'V [dom,ran])
+   mkReprC' k dom ran = onDictMaybe =<< onDictMaybe (catOp k reprC'V [dom,ran])
+
+   mkPrePost f g = -- dtrace "mkPrePost f" (pprWithType f) $
+                   -- dtrace "mkPrePost g" (pprWithType g) $
+                   varApps prePostV [a,b,a',b'] [f,g]
+    where
+      -- (~>) :: forall a b a' b'. (a' -> a) -> (b -> b') -> ((a -> b) -> (a' -> b'))
+      FunTy a' a = exprType f
+      FunTy b b' = exprType g
+      -- Just (a',a) = splitFunTy_maybe (exprType f)
+      -- Just (b,b') = splitFunTy_maybe (exprType g)
    tyArgs2_maybe :: Type -> Maybe (Type,Type)
    -- tyArgs2_maybe (splitAppTys -> (_,(a:b:_))) = Just (a,b)
    tyArgs2_maybe _ty@(splitAppTy_maybe -> Just (splitAppTy_maybe -> Just (_,a),b)) =
@@ -647,6 +811,28 @@ substFriendly rhs =
      not (liftedExpr rhs)
   -- || substFriendlyTy (exprType rhs)
   || incompleteCatOp rhs
+  || isTrivial rhs
+  -- || isVarTyCos rhs
+
+isVarTyCos :: CoreExpr -> Bool
+isVarTyCos (collectTyCoDictArgs -> (Var _,_)) = True
+isVarTyCos _ = False
+
+-- Adapted from exprIsTrivial in CoreUtils. This version considers dictionaries
+-- trivial.
+isTrivial :: CoreExpr -> Bool
+-- isTrivial e | pprTrace "isTrivial" (ppr e) False = undefined
+isTrivial (Var _)          = True        -- See Note [Variables are trivial]
+isTrivial (Type _)         = True
+isTrivial (Coercion _)     = True
+isTrivial (Lit lit)        = litIsTrivial lit
+isTrivial (App e arg)      = isTyCoDictArg arg && isTrivial e
+isTrivial (Tick _ e)       = isTrivial e
+isTrivial (Cast e _)       = isTrivial e
+isTrivial (Lam b body)     = not (isRuntimeVar b) && isTrivial body
+isTrivial (Case e _ _ [])  = isTrivial e  -- See Note [Empty case is trivial]
+isTrivial (Case _ _ _ [(DEFAULT,[],rhs)]) = isTrivial rhs
+isTrivial _                = False
 
 incompleteCatOp :: CoreExpr -> Bool
 -- incompleteCatOp e | dtrace "incompleteCatOp" (ppr e) False = undefined
@@ -819,6 +1005,8 @@ mkCccEnv opts = do
   constFunV  <- findCatId "constFun"
   abstCV     <- findCatId "abstC"
   reprCV     <- findCatId "reprC"
+  abstC'V    <- findCatId "abstC'"
+  reprC'V    <- findCatId "reprC'"
   cccV       <- findCatId "ccc"
   floatT     <- findFloatTy "Float"
   doubleT    <- findFloatTy "Double"
@@ -827,6 +1015,7 @@ mkCccEnv opts = do
   hasRepTc   <- findRepTc "HasRep"
   repTc      <- findRepTc "Rep"
   hasRepMeth <- hasRepMethodM tracing hasRepTc repTc idV
+  prePostV   <- findId "ConCat.Misc" "~>"
   -- inlineV   <- findId "GHC.Exts" "inline"
   let mkPolyOp :: (String,(String,String)) -> CoreM (String,Var)
       mkPolyOp (stdName,(cmod,cop)) =
@@ -840,6 +1029,19 @@ mkCccEnv opts = do
   monoOps <- M.fromList <$> mapM mkMonoOp (monoInfo (floatT,doubleT))
   ruleBase <- eps_rule_base <$> (liftIO $ hscEPS hsc_env)
   -- pprTrace "ruleBase" (ppr ruleBase) (return ())
+#if 0
+  let idAt t = Var idV `App` Type t     -- varApps idV [t] []
+      [hasRepDc] = tyConDataCons hasRepTc
+      mkHasRep :: Binop CoreExpr
+      mkHasRep repr abst = conApps hasRepDc [ty] [repr,abst]
+       where
+         FunTy ty _ = exprType repr
+      -- co :: Rep t ~#R t, i.e., abst. repr comes first in the dictionary.
+      hasRepFromAbstCo co = mkHasRep (caster (mkSymCo co)) (caster co)
+      caster :: Coercion -> CoreExpr
+      caster co@(pFst . coercionKind -> dom) =
+        mkCast (idAt dom) (mkFunCo Representational (mkRepReflCo dom) co)
+#endif
   return (CccEnv { .. })
 
 type HasRepMeth = DynFlags -> ModGuts -> InScopeEnv -> Type -> Maybe (Id -> CoreExpr)
@@ -1099,6 +1301,7 @@ onAltRhs f (con,bs,rhs) = (con,bs,f rhs)
 -- To help debug. Sometimes I'm unsure what constructor goes with what ppr.
 coercionTag :: Coercion -> String
 coercionTag Refl        {} = "Refl"
+coercionTag FunCo       {} = "FunCo" -- pattern synonym
 coercionTag TyConAppCo  {} = "TyConAppCo"
 coercionTag AppCo       {} = "AppCo"
 coercionTag ForAllCo    {} = "ForAllCo"
@@ -1122,6 +1325,7 @@ coercionTag SubCo       {} = "SubCo"
 -- Try to inline an identifier.
 -- TODO: Also class ops
 inlineId :: Id -> Maybe CoreExpr
+-- inlineId v | pprTrace ("inlineId " ++ uqVarName v) (ppr (maybeUnfoldingTemplate (realIdUnfolding v))) False = undefined
 inlineId v = maybeUnfoldingTemplate (realIdUnfolding v)  -- idUnfolding
 
 -- Adapted from Andrew Farmer's getUnfoldingsT in HERMIT.Dictionary.Inline:
