@@ -147,11 +147,12 @@ Op0(distl,forall k a u v. (DistribCat k, Ok3 k a u v) => Prod k a (Coprod k u v)
 Op0(distr,forall k u v b. (DistribCat k, Ok3 k u v b) => Prod k (Coprod k u v) b `k` Coprod k (Prod k u b) (Prod k v b))
 
 Op0(it,(TerminalCat k, Ok k a) => a `k` Unit k)
-Op(unitArrow,ConstCat k b => b -> (Unit k `k` ConstObj k b))
+
 Op(const,(ConstCat k b, Ok k a) => b -> (a `k` ConstObj k b))
+-- Op(unitArrow,ConstCat k b => b -> (Unit k `k` ConstObj k b))
 
 {-# RULES
-"inOp unitArrow" forall b. reveal (unitArrow b) = C.unitArrow b
+-- "inOp unitArrow" forall b. reveal (unitArrow b) = C.unitArrow b
 "inOp const" forall b. reveal (const b) = C.const b
  #-}
 
@@ -194,6 +195,14 @@ Op0(unknownC,UnknownCat k a b => a `k` b)
 
 Op0(reprC,(RepCat k, HasRep a) => a `k` Rep a)
 Op0(abstC,(RepCat k, HasRep a) => Rep a `k` a)
+
+reprC' :: forall k a r. (RepCat k, HasRep a, Rep a ~ r) => a `k` r
+reprC' = reprC
+{-# INLINE reprC' #-}
+
+abstC' :: forall k r a. (RepCat k, HasRep a, Rep a ~ r) => r `k` a
+abstC' = abstC
+{-# INLINE abstC' #-}
 
 -- Unnecessary but helpful to track NOINLINE choice
 -- Op(constFun,forall k p a b. (ClosedCat k, Ok3 k p a b) => (a `k` b) -> (p `k` Exp k a b))
