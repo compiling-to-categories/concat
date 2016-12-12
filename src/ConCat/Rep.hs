@@ -58,6 +58,7 @@ import ConCat.Misc ((:*),(:+),Parity(..),(<~))
 -- such a representation, via another type with a 'HasRep' instance. The 'abst'
 -- method should reveal a constructor so that we can perform the
 -- case-of-known-constructor transformation.
+-- It is very important to give @INLINE@ pragmas for 'repr' and 'abst' definitions.
 
 class HasRep a where
   type Rep a
