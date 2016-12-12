@@ -687,13 +687,12 @@ rconst b = second (const b) . dup
            <+ okProd @k @a @a
            <+ okProd @k @a @(ConstObj k b)
 
-#if 0
+#if 1
 instance ConstCat (->) b where const = P.const
 #else
 
--- Temp cheat. I need to fix reCat in Plugin to fail gracefully when the target
--- category doesn't inhabit the needed class. Meanwhile, suppress the symptom by
--- artificially restricting the ConstCat instance for (->).
+-- Temp cheat. No longer needed, since I fix transCatOp in Plugin to fail
+-- gracefully when the target category doesn't inhabit the needed class.
 
 #define LitConst(ty) \
 instance ConstCat (->) (ty) where { const = P.const ; {-# INLINE const #-} }

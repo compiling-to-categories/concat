@@ -18,7 +18,6 @@
 module ConCat.Lambda where
 
 import Prelude hiding (id,(.),curry,uncurry,const)
-import qualified Prelude as P
 import Control.Monad (mplus)
 import Data.Maybe (fromMaybe)
 import Data.Type.Equality ((:~:)(..),TestEquality(..))
@@ -95,14 +94,14 @@ lam a b p = curry (b (p :$ a))
 data L k b = L (forall p. Ok k p => Pat k p -> (p `k` b))
 
 lit :: ConstCat k b => b -> L k (ConstObj k b)
-lit b = L (P.const (const b))
+lit b = L (const (const b))
 
 prim1 :: (ClosedCat k, Oks k [a,b]) => (a `k` b) -> L k (Exp k a b)
-prim1 f = L (P.const (constFun f))
+prim1 f = L (const (constFun f))
 
 prim2 :: (ClosedCat k, Oks k [a,b,c])
       => (Prod k a b `k` c) -> L k (Exp k a (Exp k b c))
-prim2 f = L (P.const (constFun2 f))
+prim2 f = L (const (constFun2 f))
 
 var :: forall k b. (ProductCat k, Ok k b) => V b -> L k b
 var u = L (fromMaybe (error $ "convert: unbound variable: " ++ show u) . conv)
