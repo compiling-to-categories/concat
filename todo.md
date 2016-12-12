@@ -1,8 +1,9 @@
 # To do
 
-
-*   Fix `reCat` in `ConCat.Plugin` to fail gracefully if the target category doesn't inhabit the needed `Category` subclass.
-    Then fix the `ConstCat (->)` instance in `ConCat.Category`, and replace `P.const` by `const` in `ConCat.Circuit` and ConCat.`Lambda`.
+*   In `Plugin`, maybe float/subst when an expression is only used once.
+    I think this one change would save a lot of work and lead to smaller CCC expressions.
+*   Fix `reCat` in `Plugin` to fail gracefully if the target category doesn't inhabit the needed `Category` subclass.
+    Then fix the `ConstCat (->)` instance in `Category`, and replace `P.const` by `const` in `Circuit` and `Lambda`.
 *   I think I'll want to rename `ProductCat`, `CoproductCat`, and `ClosedCat` to "`Cartesian`", "`Cocartesian`", and "`Closed`".
     What about other `Category` subclasses?
 *   Handle `newtype` better, and change some `data` uses back to `newtype`.
@@ -11,7 +12,7 @@
 *   AD with non-scalar domains.
 *   Simple, general treatment of `ccc (\ _ -> U)` as `constFun (ccc u)`.
     Oops! Take care.
-    If I have to $\eta$-expand `U`, I'll then get `apply . (constFun (ccc U) &&& id)`
+    If I have to $\eta$-expand `U`, I'll then get `apply . (constFun (ccc U) &&& id)`.
     Needs more thought.
 *   Look into work replication.
     See 2016-11-30 notes.
@@ -20,10 +21,10 @@
 *   Other CCCs:
     *   *All* CCCs (universally quantified)
     *   Automatic differentiation
-*   Fancier data types via `ConCat.HasRep` or `Control.Newtype`.
+*   Fancier data types via `HasRep` or `Control.Newtype`.
 *   More rule-based optimization.
 *   Better solution for numeric operations on `Float` and `Double`, which don't work, perhaps due to orphan instances.
-    My temporary workaround is `ConCat.Float`.
+    My temporary workaround is `Float`.
 
 # Done
 
@@ -36,5 +37,5 @@
         *   Would be nice to pretty-print rather than `show`.
 *   Inspect categorical code, and start optimizing.
 *   Work around problem with numeric operations on `Float` and `Double`.
-    I added a module `ConCat.Float` with `Float` and `Double` types that `newtype`-wrap the standard versions.
+    I added a module `Float` with `Float` and `Double` types that `newtype`-wrap the standard versions.
 
