@@ -103,7 +103,9 @@ module ConCat.Circuit
   ) where
 
 import Prelude hiding (id,(.),curry,uncurry,const,sequence,Float,Double)
--- import qualified Prelude as P
+import qualified Prelude as P
+
+-- TODO: Replace "P.const below" by "const" when I remove the restricted ConstCat instance for (->).
 
 import Data.Monoid ({-mempty,-}(<>),Sum,Product)
 -- import Data.Newtypes.PrettyDouble
@@ -296,7 +298,7 @@ genBus wrap w prim ins = do o <- M.get
 instance GenBuses () where
   genBuses' _ _ = return UnitB
   delay () = id
-  ty = const UnitT
+  ty = P.const UnitT
 
 delayPrefix :: String
 delayPrefix = "Cons "
@@ -315,22 +317,22 @@ instance GenBuses Bool where
   genBuses' = -- trace "genBuses' @ Bool" $
               genBus BoolB 1
   delay = primDelay
-  ty = const BoolT
+  ty = P.const BoolT
 
 instance GenBuses Int  where
   genBuses' = genBus IntB 32
   delay = primDelay
-  ty = const IntT
+  ty = P.const IntT
 
 instance GenBuses Float  where
   genBuses' = genBus FloatB 32
   delay = primDelay
-  ty = const FloatT
+  ty = P.const FloatT
 
 instance GenBuses Double  where
   genBuses' = genBus DoubleB 64
   delay = primDelay
-  ty = const DoubleT
+  ty = P.const DoubleT
 
 instance (GenBuses a, GenBuses b) => GenBuses (a :* b) where
   genBuses' prim ins =
@@ -514,7 +516,7 @@ constComp' str = -- trace ("constComp' " ++ str) $
                  genComp (Prim str) UnitB
 
 constComp :: GenBuses b => String -> BCirc a b
-constComp str = const (constComp' str)
+constComp str = P.const (constComp' str)
 
 -- TODO: eliminate constComp in favor of a more restrictive version in which a
 -- == (), defined as flip genComp UnitB. Add domain flexibility in lambda-ccc
@@ -840,7 +842,7 @@ BottomPrim(Double)
 
 instance BottomCat (:>) () where
 --   bottomC = mkCK (const (return UnitB))
-  bottomC = C (arr (const UnitB))
+  bottomC = C (arr (P.const UnitB))
 
 instance (BottomCat (:>) a, BottomCat (:>) b) => BottomCat (:>) (a :* b) where
   bottomC = bottomC &&& bottomC
@@ -871,7 +873,7 @@ instance BottomCat (:>) where
 -- TODO: state names like "⊕" and "≡" just once.
 
 class SourceToBuses a where toBuses :: Source -> Buses a
-instance SourceToBuses ()     where toBuses = const UnitB
+instance SourceToBuses ()     where toBuses = P.const UnitB
 instance SourceToBuses Bool   where toBuses = BoolB
 instance SourceToBuses Int    where toBuses = IntB
 instance SourceToBuses Float  where toBuses = FloatB
@@ -2487,7 +2489,7 @@ bottomRep :: (HasRep a, BottomCat (:>) (Rep a)) => () :> a
 bottomRep = abstC . bottomC
 
 tyRep :: forall a. GenBuses (Rep a) => a -> Ty
-tyRep = const (ty (undefined :: Rep a))
+tyRep = P.const (ty (undefined :: Rep a))
 
 delayCRep :: (HasRep a, GenBuses (Rep a)) => a -> (a :> a)
 delayCRep a0 = abstC . delay (repr a0) . reprC
