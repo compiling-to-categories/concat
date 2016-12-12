@@ -147,7 +147,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      Trying("top Let")
      Let bind@(NonRec v rhs) body ->
        -- Experiment: always float.
-       if {- True || -} substFriendly rhs then
+       if {- True || -} substFriendly rhs || idOccs v body <= 1 then
          Doing("top Let float")
          return (Let bind (mkCcc body))
          -- -- Experiment:
@@ -304,7 +304,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      -- TODO: refactor with top Let
      Let bind@(NonRec v rhs) body' ->
 #if 1
-       if substFriendly rhs || not xInRhs then
+       if substFriendly rhs || not xInRhs || idOccs v body' <= 1 then
          -- TODO: decide whether to float or substitute.
          -- To float, x must not occur freely in rhs
          -- return (mkCcc (Lam x (subst1 v rhs body'))) The simplifier seems to
@@ -1382,3 +1382,18 @@ isMonoTy (TyConApp _ tys)      = all isMonoTy tys
 isMonoTy (AppTy u v)           = isMonoTy u && isMonoTy v
 isMonoTy (ForAllTy (Anon u) v) = isMonoTy u && isMonoTy v
 isMonoTy _                     = False
+
+-- | Number of occurrences of a given Id in an expression
+idOccs :: Id -> CoreExpr -> Int
+idOccs x = go
+ where
+   go (Var y)      | y == x = 1
+   go (App u v)             = go u + go v
+   go (Tick _ e)            = go e
+   go (Cast e _)            = go e
+   go (Lam y body) | y /= x = go body
+   go (Case e _ _ alts)     = go e + sum (goAlt <$> alts)
+   go _                     = 0
+   goAlt (_,ys,rhs) | x `notElem` ys = 0
+                    | otherwise      = go rhs
+

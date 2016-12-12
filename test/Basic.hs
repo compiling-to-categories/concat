@@ -39,7 +39,7 @@
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
@@ -96,11 +96,15 @@ tests = return
 --   , tst (\ () -> Par1 True)
 
 --   , test "id-r"          (id :: Unop R)
+
 --   , test "id-r2"         (id :: Unop R2)
 
 --   , test "id-r3"       (id :: Unop R3)
 
 --   , test "const-4"     (const 4 :: Unop R)
+
+  , test "const-34"     (const (3,4) :: () -> R2)
+
 --   , test "four-plus-x" (\ x -> 4 + x :: R)
 --   , test "cos"         (cos :: Unop R)
 --   , test "square"      (\ x -> x * x :: R)
@@ -307,12 +311,19 @@ tst  :: Uncurriable (->) a b => (a -> b) -> Test
 {-# RULES "(->); uncurries; Syn" forall nm f.
    test nm f = mkTest nm (runSyn (ccc (uncurries (ccc f))))
  #-}
-#elif 1
+#elif 0
 -- syntactic *and* circuit
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst  :: GenBuses a => (a -> b) -> Test
 {-# RULES "Syn :**: (:>)" forall nm f.
    test nm f = mkTest nm (runEC nm (ccc f))
+ #-}
+#elif 1
+-- (->), then syntactic *and* circuit
+test, test' :: GenBuses a => String -> (a -> b) -> Test
+tst  :: GenBuses a => (a -> b) -> Test
+{-# RULES "(->); Syn :**: (:>)" forall nm f.
+   test nm f = mkTest nm (runEC nm (ccc (ccc f)))
  #-}
 #elif 0
 -- syntactic *and* circuit, then uncurries
@@ -376,7 +387,7 @@ tst  :: (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall nm f.
    test nm f = mkTest nm (runSyn (ccc (dfun (ccc f))))
  #-}
-#elif 0
+#elif 1
 -- (->), then derivative, then syntactic and circuit.
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst         :: GenBuses a =>           (a -> b) -> Test

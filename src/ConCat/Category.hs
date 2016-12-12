@@ -656,13 +656,14 @@ class (Category k, Ok k (ConstObj k b)) => ConstCat k b where
 
 #endif
 
--- instance (ProductCat k, TerminalCat, ConstCat k b, ConstCat k c, Ok k a)
+-- instance (ProductCat k, ConstCat k b, ConstCat k c, Ok k a)
 --       => ConstCat k (b :* c) where
 --   const = pairConst <+ okProd @k @b @c
 
--- instance (HasRep (ConstObj k b), ConstCat k (Rep b), RepCat k, Ok k a, Ok k (ConstObj k b))
---       => ConstCat k b where
---   const = repConst
+instance {-# OVERLAPPABLE #-}
+  ( Category k, ConstCat k (Rep b), RepCat k, HasRep (ConstObj k b)
+  , Ok k (ConstObj k b) ) => ConstCat k b where
+  const = repConst
 
 repConst :: (HasRep (ConstObj k b), ConstCat k (Rep b), RepCat k, Ok k a, Ok k (ConstObj k b))
          => b -> (a `k` ConstObj k b)
@@ -686,7 +687,7 @@ rconst b = second (const b) . dup
            <+ okProd @k @a @a
            <+ okProd @k @a @(ConstObj k b)
 
-#if 1
+#if 0
 instance ConstCat (->) b where const = P.const
 #else
 

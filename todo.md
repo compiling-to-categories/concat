@@ -3,6 +3,7 @@
 *   In `Plugin`, maybe float/subst when an expression is only used once.
     I think this one change would save a lot of work and lead to smaller CCC expressions.
 *   Fix `reCat` in `Plugin` to fail gracefully if the target category doesn't inhabit the needed `Category` subclass.
+    Fall back to unfolding.
     Then fix the `ConstCat (->)` instance in `Category`, and replace `P.const` by `const` in `Circuit` and `Lambda`.
 *   I think I'll want to rename `ProductCat`, `CoproductCat`, and `ClosedCat` to "`Cartesian`", "`Cocartesian`", and "`Closed`".
     What about other `Category` subclasses?
