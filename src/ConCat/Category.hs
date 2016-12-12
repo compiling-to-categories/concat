@@ -632,6 +632,8 @@ unUnitFun g = uncurry g . (it &&& id)
 
 type ConstObj k b = b
 
+#if 0
+
 class (TerminalCat k, Ok k (ConstObj k b)) => ConstCat k b where
 --   type ConstObj k b
 --   type ConstObj k b = b
@@ -640,6 +642,19 @@ class (TerminalCat k, Ok k (ConstObj k b)) => ConstCat k b where
   const b = unitArrow b . it
   unitArrow = const
   {-# MINIMAL unitArrow | const #-}
+
+#else
+
+-- TODO: If I keep this version, remove TerminalCat parent
+class (TerminalCat k, Ok k (ConstObj k b)) => ConstCat k b where
+--   type ConstObj k b
+--   type ConstObj k b = b
+  const :: Ok k a => b -> (a `k` ConstObj k b)
+  default const :: (HasRep (ConstObj k b), ConstCat k (Rep b), RepCat k, Ok k a)
+                => b -> (a `k` ConstObj k b)
+  const = repConst
+
+#endif
 
 repConst :: (HasRep (ConstObj k b), ConstCat k (Rep b), RepCat k, Ok k a, Ok k (ConstObj k b))
          => b -> (a `k` ConstObj k b)
@@ -663,10 +678,29 @@ rconst b = second (const b) . runit
            <+ okProd @k @a @(Unit k)
            <+ okProd @k @a @(ConstObj k b)
 
-
+#if 1
 instance ConstCat (->) b where const = P.const
+#else
 
-instance Monad m => ConstCat (Kleisli m) b where const b = arr (const b)
+-- Temp cheat. I need to fix reCat in Plugin to fail gracefully when the target
+-- category doesn't inhabit the needed class. Meanwhile, suppress the symptom by
+-- artificially restricting the ConstCat instance for (->).
+
+#define LitConst(ty) \
+instance ConstCat (->) (ty) where { const = P.const ; {-# INLINE const #-} }
+
+LitConst(())
+LitConst(Bool)
+LitConst(Int)
+LitConst(Float)
+LitConst(Double)
+
+#endif
+
+-- instance Monad m => ConstCat (Kleisli m) b where const b = arr (const b)
+
+instance (Monad m, ConstCat (->) b) => ConstCat (Kleisli m) b where const b = arr (const b)
+
 
 -- For prims, use constFun instead.
 
@@ -1106,9 +1140,9 @@ instance (TerminalCat k, TerminalCat k') => TerminalCat (k :**: k') where
 
 instance (ConstCat k a, ConstCat k' a) => ConstCat (k :**: k') a where
   const b = const b :**: const b
-  unitArrow b = unitArrow b :**: unitArrow b
+  -- unitArrow b = unitArrow b :**: unitArrow b
   PINLINER(const)
-  PINLINER(unitArrow)
+  -- PINLINER(unitArrow)
 
 instance (BoolCat k, BoolCat k') => BoolCat (k :**: k') where
   notC = notC :**: notC
