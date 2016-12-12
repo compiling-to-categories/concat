@@ -66,21 +66,18 @@ import Prelude hiding (Float,Double)   -- ,id,(.),const
 import Control.Arrow (second)
 import Data.Tuple (swap)
 import Distribution.TestSuite
+import GHC.Generics hiding (R)
 
 import ConCat.Misc (Unop,Binop,(:*),PseudoFun(..))
+import ConCat.Rep
 import ConCat.Float
+import ConCat.Free.VectorSpace (V)
+import ConCat.Free.LinearRow
+import ConCat.AD
 import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay,(:>))
-#if 1
-import ConCat.AD
-#else
-import ConCat.ADFun
-#endif
-import ConCat.Free.VectorSpace (V)
-import ConCat.Free.LinearRow
-import ConCat.Rep (repr)
 
 import ConCat.AltCat (ccc,reveal,Uncurriable(..),(:**:)(..))
 import qualified ConCat.AltCat as A
@@ -94,10 +91,14 @@ tests :: IO [Test]
 tests = return
   [ nopTest
 
+--   , tst (Par1 @ Bool)
+
+--   , tst (\ () -> Par1 True)
+
 --   , test "id-r"          (id :: Unop R)
 --   , test "id-r2"         (id :: Unop R2)
 
-  , test "id-r3"       (id :: Unop R3)
+--   , test "id-r3"       (id :: Unop R3)
 
 --   , test "const-4"     (const 4 :: Unop R)
 --   , test "four-plus-x" (\ x -> 4 + x :: R)
@@ -306,7 +307,7 @@ tst  :: Uncurriable (->) a b => (a -> b) -> Test
 {-# RULES "(->); uncurries; Syn" forall nm f.
    test nm f = mkTest nm (runSyn (ccc (uncurries (ccc f))))
  #-}
-#elif 0
+#elif 1
 -- syntactic *and* circuit
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst  :: GenBuses a => (a -> b) -> Test
@@ -344,7 +345,14 @@ tst  :: (a -> b) -> Test
 {-# RULES "L ; Syn" forall nm f.
    test nm f = mkTest nm (runSyn (ccc (\ () -> lmap @R f)))
  #-}
-#elif 1
+#elif 0
+-- (->), L, Syn
+test, test' :: String -> (a -> b) -> Test
+tst  :: (a -> b) -> Test
+{-# RULES "(->) ; L ; Syn" forall nm f.
+   test nm f = mkTest nm (runSyn (ccc (\ () -> lmap @R (ccc f))))
+ #-}
+#elif 0
 type Q a b = (V R a :-* V R b) R
 type GB a b = (GenBuses (UncDom () (Q a b)), Uncurriable (:>) () (Q a b))
 -- L, then syntax+circuit
@@ -705,3 +713,7 @@ addThree (a,b,c) = a+b+c
 
 -- bar :: L R R R
 -- bar = ccc id
+
+-- bar :: Syn Bool (Par1 Bool)
+-- bar = ccc Par1
+
