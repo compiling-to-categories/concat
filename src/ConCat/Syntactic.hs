@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -17,8 +19,8 @@ import Control.Newtype
 import Text.PrettyPrint.HughesPJ hiding (render)
 
 import ConCat.Category
-import ConCat.Misc (inNew,inNew2,Unop,Binop)
--- import ConCat.Float (Float,Double)
+import ConCat.Misc ((:*),inNew,inNew2,Unop,Binop)
+import ConCat.Float (Float,Double)
 
 {--------------------------------------------------------------------
     Untyped S-expression
@@ -168,11 +170,32 @@ instance ClosedCat Syn where
 -- instance HasLit Float
 -- instance HasLit Double
 
+litConst :: Show b => b -> Syn a b
+litConst b = app1 "const" (atom (showPrec appPrec b))
+
+#if 1
+
+#define LitConst(ty) \
+instance ConstCat Syn (ty) where { const = litConst ; INLINER(const) }
+
+LitConst(())
+LitConst(Bool)
+LitConst(Int)
+LitConst(Float)
+LitConst(Double)
+
+instance (ConstCat Syn a, ConstCat Syn b) => ConstCat Syn (a :* b) where
+  const = pairConst
+
+#else
+
 instance Show b => ConstCat Syn b where
   const b = app1 "const" (atom (showPrec appPrec b))
   unitArrow b = app1 "unitArrow" (atom (showPrec appPrec b))
   INLINER(const)
   INLINER(unitArrow)
+
+#endif
 
 -- Some or all of the methods below are failing to inline
 
