@@ -158,9 +158,16 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
          go (App (Lam v body) rhs)
      -- ccc-of-case. Maybe restrict to isTyCoDictArg for all bound variables, but
      -- perhaps I don't need to.
+     Trying("top Case of dictionary")
+     Case scrut wild rhsTy alts
+       | isPred scrut
+       , Just scrut' <- unfoldMaybe scrut
+       -> Doing("top Case of dictionary")
+          return $ mkCcc (Case scrut' wild rhsTy alts)
+          -- TODO: also for lam?
      Trying("top Case")
      Case scrut wild rhsTy alts ->
-       Doing("top ccc Case")
+       Doing("top Case")
        return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
      Trying("top nominal Cast")
      Cast e co@(setNominalRole_maybe -> Just (reCatCo -> Just co')) ->
@@ -171,21 +178,13 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
                (downgradeRole (coercionRole co) (coercionRole co') co'))
        -- I think GHC is undoing this transformation, so continue eagerly
        -- (`Cast` co') <$> go e
-#if 0
-     Trying("top recast")
-     Cast e co | Just e' <- recast e co ->
-       Doing("top recast")
-       -- return (mkCcc e')
-       go e'
-#else
      Trying("top recast")
      Cast e co ->
        Doing("top recast")
-       return (mkCcc (recast' co `App` e))
-#endif
-     -- Temp hack while testing nested ccc calls.
-     -- go (etaReduceN -> Var v) = Doing("top Wait for unfolding of " ++ fqVarName v)
-     --                            Nothing
+       -- return (mkCcc (recast co `App` e))
+       let re = recast co in
+         dtrace "recaster" (ppr re) $
+         return (mkCcc (re `App` e))
 #if 0
      -- TODO: If this simplifier phase isn't eta-expanding, I'll need to handle
      -- unsaturated constructors here.
@@ -205,7 +204,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
             -- TODO: Try simpleE on just (meth repr'V), not body.
 #endif
      Trying("top unfold")
-     (unfoldMaybe -> Just e') ->
+     ({- traceRewrite "top unfold" -} unfoldMaybe -> Just e') ->
        Doing("top unfold")
        -- dtrace "go unfold" (ppr e <+> text "-->" <+> ppr e')
        return (mkCcc e')
@@ -420,82 +419,36 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
                 Nothing
    -- Interpret a representational cast
    -- TODO: Try swapping argument order
-#if 0
-   repTy :: Unop Type
-   repTy t = mkTyConApp repTc [t]
-   recast :: CoreExpr -> Coercion -> Maybe CoreExpr
-   recast _ co | dtrace "recast" (ppr co <+> dcolon <+> ppr (coercionType co)) False = undefined
+
+   recast :: Coercion -> CoreExpr
+   -- recast co | pprTrace ("recast " ++ coercionTag co) (ppr co <+> dcolon <+> ppr (coercionType co)) False = undefined
+   -- Refl is subsumed by setNominalRole. Handle here for simpler output.
+   recast (Refl _ ty) = -- pprTrace "recast Refl -->" (pprWithType (mkId funCat ty)) $
+                        mkId funCat ty
    -- If we have a nominal(able) coercion, let another reify pass handle it.
    -- Importantly, 'go' above tries this case before recast. Thus, if we see a
    -- nominal coercion here, we've already made progress.
    -- I'm not really sure about this argument, so take care!
-   recast e co | Just _ <- setNominalRole_maybe co = Just (mkCast e co)
-   recast e (Refl {}) = Just e  -- or leave for the simplifier
-   recast e (FunCo _r domCo ranCo) =
-     Just (Lam x (mkCast (e `App` mkCast (Var x) (mkSymCo domCo)) ranCo))
-     -- TODO: Will the simplifier move the outer mkCast back out through the Lam
-     -- to make another FunCo? If so, rethink.
-     -- Lam x <$> recast (e `App` mkCast (Var x) (mkSymCo domCo)) ranCo
-    where
-      x = freshId (exprFreeVars e) "x" (pSnd (coercionKind domCo))
-      -- TODO: take care with the directions
-   recast e co
-     | dom `eqType` repTy ran = return (mkAbstC funCat ran)
-     | ran `eqType` repTy dom = return (mkReprC funCat dom)
-     | AxiomInstCo {} <- co =
-         -- co :: dom ~#R ran for a newtype instance dom and its representation ran.
-         -- repCo :: Rep dom ~# ran
-         let repCo = UnivCo UnsafeCoerceProv Representational (repTy dom) ran in
-           dtrace "recast AxiomInstCo:" (ppr repCo) $
-           Just $ Cast (mkCast e (TransCo co (mkSymCo (mkSubCo repCo)))) repCo
-           -- Outer Cast instead of mkCast to avoid optimization.
-     | SymCo (AxiomInstCo {}) <- co =
-         -- co :: dom ~#R ran for a newtype instance ran
-         -- repCo :: Rep ran ~# dom
-         let repCo = UnivCo UnsafeCoerceProv Representational (repTy ran) dom in
-           Just $ Cast (mkCast e (mkSymCo repCo)) (TransCo (mkSubCo repCo) co)
-    where
-      Pair dom ran = coercionKind co
-   -- TransCo must come after the abst (dom == Rep ran) and repr (ran == Rep
-   -- dom) cases, since the AxiomInstCo (newtype) cases create transitive
-   -- coercions having those shapes.
-   recast e (TransCo inner outer) = -- Use at least one recursive recast so
-                                    -- the simplifier doesn't recombine.
-                                    dtrace "TransCo" empty $ -- order?
-                                    recast (mkCast e inner) outer
-   recast (unfoldMaybe -> Just e') co = dtrace "unfold castee" empty $
-                                        Just $ Cast e' co
-   recast _ co = dtrace ("recast: unhandled " ++ coercionTag co ++ " coercion:")
-                   (ppr co {- <+> dcolon $$ ppr (coercionType co)-}) Nothing
-   -- TODO: Check the type, in case the coercion is not
-#else
-   -- Another try:
-   recast' :: Coercion -> CoreExpr
-   -- recast' co | dtrace ("recast' " ++ coercionTag co) (ppr co <+> dcolon <+> ppr (coercionType co)) False = undefined
-   -- Refl is subsumed by setNominalRole. Handle here for simpler output.
-   recast' (Refl _ ty) = -- dtrace "recast' Refl" (pprWithType (mkId funCat ty)) $
-                         mkId funCat ty
-   -- If we have a nominal(able) coercion, let another reify pass handle it.
-   -- Importantly, 'go' above tries this case before recast'. Thus, if we see a
-   -- nominal coercion here, we've already made progress.
-   -- I'm not really sure about this argument, so take care!
-   recast' co | Just _ <- setNominalRole_maybe co = Lam x (mkCast (Var x) co)
+   -- recast _ | pprTrace "recast about to setNominalRole_maybe" empty False = undefined
+   recast co | Just _ <- setNominalRole_maybe co = -- pprTrace "recast setNominalRole" empty $
+                                                   Lam x (mkCast (Var x) co)
     where
       x = freshId emptyVarSet "w" dom
       Pair dom _ = coercionKind co
-   recast' (FunCo _r domCo ranCo) = mkPrePost (recast' domCo) (recast' ranCo)
-   recast' co
-     -- | dtrace "recast' tys" (ppr (dom,ran)) False = undefined
-     | Just a <- mkAbstC' funCat dom ran = a
-     | Just r <- mkReprC' funCat dom ran = r
-     
---      | dom `eqType` repTy ran = mkAbstC funCat ran
---      | ran `eqType` repTy dom = mkReprC funCat dom
+   -- recast _ | pprTrace "recast setNominalRole_maybe failed" empty False = undefined
+   recast (FunCo _r domCo ranCo) = -- pprTrace "recast FunCo" empty $
+                                   mkPrePost (recast domCo) (recast ranCo)
+   recast co
+     -- | pprTrace "recast tys" (ppr (dom,ran)) False = undefined
+     | Just a <- mkAbstC' funCat dom ran = -- pprTrace "recast mkAbstC'" (ppr a) $
+                                           a
+     | Just r <- mkReprC' funCat dom ran = -- pprTrace "recast mkReprC'" (ppr r) $
+                                           r
 --      | AxiomInstCo {} <- co =
 --          -- co :: dom ~#R ran for a newtype instance dom and its representation ran.
 --          -- repCo :: Rep dom ~# ran
 --          let repCo = UnivCo UnsafeCoerceProv Representational (repTy dom) ran in
---            dtrace "recast' AxiomInstCo:" (ppr repCo) $
+--            pprTrace "recast AxiomInstCo:" (ppr repCo) $
 --            Just $ Cast (mkCast e (TransCo co (mkSymCo (mkSubCo repCo)))) repCo
 --            -- Outer Cast instead of mkCast to avoid optimization.
 --      | SymCo (AxiomInstCo {}) <- co =
@@ -503,28 +456,26 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
 --          -- repCo :: Rep ran ~# dom
 --          let repCo = UnivCo UnsafeCoerceProv Representational (repTy ran) dom in
 --            Just $ Cast (mkCast e (mkSymCo repCo)) (TransCo (mkSubCo repCo) co)
+
     where
       Pair dom ran = coercionKind co
-#if 0
+   -- recast _ | pprTrace "recast not abst/repr" empty False = undefined
    -- TransCo must come after the abst (dom == Rep ran) and repr (ran == Rep
    -- dom) cases, since the AxiomInstCo (newtype) cases create transitive
    -- coercions having those shapes.
-   recast' e (TransCo inner outer) = -- Use at least one recursive recast' so
-                                    -- the simplifier doesn't recombine.
-                                    dtrace "TransCo" empty $ -- order?
-                                    recast' (mkCast e inner) outer
-   recast' (unfoldMaybe -> Just e') co = dtrace "unfold castee" empty $
-                                        Just $ Cast e' co
-#endif
-   recast' co = pprPanic ("recast': unhandled " ++ coercionTag co ++ " coercion:")
-                  (ppr co {- <+> dcolon $$ ppr (coercionType co)-})
-#endif
+   recast (TransCo inner outer) =
+     pprTrace "TransCo" empty $ -- order?
+     mkCompose funCat (recast outer) (recast inner)
+   recast co = pprPanic ("recast: unhandled " ++ coercionTag co ++ " coercion:")
+                 (ppr co {- <+> dcolon $$ ppr (coercionType co)-})
+
    unfoldMaybe :: ReExpr
    -- unfoldMaybe e | dtrace "unfoldMaybe" (ppr (e,collectArgsPred isTyCoDictArg e)) False = undefined
-   unfoldMaybe e | (Var v, _) <- collectArgsPred isTyCoDictArg e
-                 -- , dtrace "unfoldMaybe" (text (fqVarName v)) True
-                 , isNothing (catFun (Var v))
-                 = onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe) e
+   unfoldMaybe e -- | (Var v, _) <- collectArgsPred isTyCoDictArg e
+                 -- -- , dtrace "unfoldMaybe" (text (fqVarName v)) True
+                 -- , isNothing (catFun (Var v))
+                 | True  -- experiment: don't restrict unfolding
+                 = onExprHead ({- traceRewrite "inlineMaybe" -} inlineMaybe) e
                  | otherwise = Nothing
    -- unfoldMaybe = -- traceRewrite "unfoldMaybe" $
    --               onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe)
@@ -674,6 +625,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    mkConst' k dom e | isFunTy (exprType e) = mkConstFun k dom (mkCcc e)
                     | otherwise            = mkConst k dom e
 
+   -- TODO: refactor mkReprC and mkAbstC into one function that takes an Id. p
    mkAbstC :: Cat -> Type -> CoreExpr
    mkAbstC k ty =
      -- pprTrace "mkAbstC" (ppr ty) $
@@ -691,15 +643,22 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      -- pprPanic "mkReprC" (text "bailing")
      onDict (catOp k reprCV [ty])
 
-   mkAbstC', mkReprC' :: Cat -> Type -> Type -> Maybe CoreExpr
+   -- TODO: refactor mkReprC' and mkAbstC' into one function that takes an Id. p
+   mkReprC', mkAbstC' :: Cat -> Type -> Type -> Maybe CoreExpr
+   mkReprC' k dom ran =
+     -- pprTrace "mkReprC' 1" (ppr (dom,ran)) $
+     -- pprTrace "mkReprC' 2" (pprWithType (Var reprC'V)) $
+     -- pprTrace "mkReprC' 3" (pprWithType (catOp k reprC'V [dom,ran])) $
+     -- pprTrace "mkReprC' 4" (pprMbWithType (onDictMaybe (catOp k reprC'V [dom,ran]))) $
+     -- pprTrace "mkReprC' 5" (pprMbWithType (onDictMaybe =<< onDictMaybe (catOp k reprC'V [dom,ran]))) $
+     onDictMaybe =<< onDictMaybe (catOp k reprC'V [dom,ran])
    mkAbstC' k dom ran =
---      pprTrace "mkAbstC' 1" (ppr (dom,ran)) $
---      pprTrace "mkAbstC' 2" (pprWithType (Var abstC'V)) $
---      pprTrace "mkAbstC' 3" (pprWithType (catOp k abstC'V [dom,ran])) $
---      pprTrace "mkAbstC' 4" (pprWithType (onDict (catOp k abstC'V [dom,ran]))) $
---      pprTrace "mkAbstC' 5" (pprWithType (onDict (onDict (catOp k abstC'V [dom,ran])))) $
+     -- pprTrace "mkAbstC' 1" (ppr (dom,ran)) $
+     -- pprTrace "mkAbstC' 2" (pprWithType (Var abstC'V)) $
+     -- pprTrace "mkAbstC' 3" (pprWithType (catOp k abstC'V [dom,ran])) $
+     -- pprTrace "mkAbstC' 4" (pprMbWithType (onDictMaybe (catOp k abstC'V [dom,ran]))) $
+     -- pprTrace "mkAbstC' 5" (pprMbWithType (onDictMaybe =<< onDictMaybe (catOp k abstC'V [dom,ran]))) $
      onDictMaybe =<< onDictMaybe (catOp k abstC'V [dom,ran])
-   mkReprC' k dom ran = onDictMaybe =<< onDictMaybe (catOp k reprC'V [dom,ran])
 
    mkPrePost f g = -- dtrace "mkPrePost f" (pprWithType f) $
                    -- dtrace "mkPrePost g" (pprWithType g) $
@@ -895,6 +854,9 @@ catOpArities = M.fromList $ map (\ (nm,m,n) -> (catModule ++ '.' : nm, (m,n))) $
 pprWithType :: CoreExpr -> SDoc
 pprWithType e = ppr e <+> dcolon <+> ppr (exprType e)
 
+pprMbWithType :: Maybe CoreExpr -> SDoc
+pprMbWithType = maybe (text "failed") pprWithType
+
 cccRuleName :: FastString
 cccRuleName = fsLit "ccc"
 
@@ -953,15 +915,15 @@ install opts todos =
                    return guts
     where
       remaining :: Seq CoreExpr
-      remaining = collect cccArgs (mg_binds guts)
+      remaining = collectQ cccArgs (mg_binds guts)
       cccArgs :: CoreExpr -> Seq CoreExpr
       -- unVarApps :: CoreExpr -> Maybe (Id,[Type],[CoreExpr])
       -- ccc :: forall k a b. (a -> b) -> k a b
       cccArgs c@(unVarApps -> Just (v,_tys,[_])) | v == cccV = Seq.singleton c
       cccArgs _                                              = mempty
       -- cccArgs = const mempty  -- for now
-      collect :: (Data a, Monoid m) => (a -> m) -> GenericQ m
-      collect f = everything mappend (mkQ mempty f)
+      collectQ :: (Data a, Monoid m) => (a -> m) -> GenericQ m
+      collectQ f = everything mappend (mkQ mempty f)
    -- Extra simplifier pass
    mode = SimplMode { sm_names      = ["Ccc simplifier pass"]
                     , sm_phase      = InitialPhase
