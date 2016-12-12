@@ -1,10 +1,10 @@
 # To do
 
-*   In `Plugin`, maybe float/subst when an expression is only used once.
-    I think this one change would save a lot of work and lead to smaller CCC expressions.
-*   Fix `reCat` in `Plugin` to fail gracefully if the target category doesn't inhabit the needed `Category` subclass.
-    Fall back to unfolding.
-    Then fix the `ConstCat (->)` instance in `Category`, and replace `P.const` by `const` in `Circuit` and `Lambda`.
+
+*   Now that I'm unfolding more effectively (even with value args), maybe I no longer need the `reveal` hack.
+    Find out.
+*   Eliminate the hack of first `ccc`ing to `(->)`, letting simplifications happen, and then `ccc`ing to another category, say without `Closed`.
+    I think I'd have to improve my ability to do without `Closed`, including floating or substituting more `let` bindings.
 *   I think I'll want to rename `ProductCat`, `CoproductCat`, and `ClosedCat` to "`Cartesian`", "`Cocartesian`", and "`Closed`".
     What about other `Category` subclasses?
 *   Handle `newtype` better, and change some `data` uses back to `newtype`.
@@ -29,6 +29,11 @@
 
 # Done
 
+*   Fix `transCatOp` in `Plugin` to fail gracefully if the target category doesn't inhabit the needed `Category` subclass.
+    Fall back to unfolding.
+    Then fix the `ConstCat (->)` instance in `Category`, and replace `P.const` by `const` in `Circuit` and `Lambda`.
+*   In `Plugin`, maybe float/subst when an expression is only used once.
+    I think this one change would save a lot of work and lead to smaller CCC expressions.
 *   Other CCCs:
     *   A syntactic CCC for showing.
         *   Use to test rule-based optimization.
