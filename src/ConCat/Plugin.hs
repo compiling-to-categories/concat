@@ -425,7 +425,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    repTy t = mkTyConApp repTc [t]
 
    recast :: Coercion -> CoreExpr
-   -- recast co | pprTrace ("recast " ++ coercionTag co) (ppr co <+> dcolon <+> ppr (coercionType co)) False = undefined
+   recast co | pprTrace ("recast " ++ coercionTag co) (ppr co <+> dcolon <+> ppr (coercionType co)) False = undefined
    -- Refl is subsumed by setNominalRole. Handle here for simpler output.
    recast (Refl _ ty) = -- pprTrace "recast Refl -->" (pprWithType (mkId funCat ty)) $
                         mkId funCat ty
@@ -437,27 +437,33 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
 
 -- Experiment: drop setNominalRole case
 
---    recast co | Just _ <- setNominalRole_maybe co = -- pprTrace "recast setNominalRole" empty $
---                                                    castE co
+   recast co | Just _ <- setNominalRole_maybe co = -- pprTrace "recast setNominalRole" empty $
+                                                   castE co
 
    -- recast _ | pprTrace "recast setNominalRole_maybe failed" empty False = undefined
    recast (FunCo _r domCo ranCo) = -- pprTrace "recast FunCo" empty $
                                    mkPrePost (recast domCo) (recast ranCo)
+#if 1
+   recast co@(       AxiomInstCo {} ) = fromMaybe (error "mkReprC' fail") $
+                                        mkReprC' funCat (coercionKind co)
+   recast co@(SymCo (AxiomInstCo {})) = fromMaybe (error "mkAbstC' fail") $
+                                        mkAbstC' funCat (coercionKind co)
+#else
    recast co
      -- | pprTrace "recast tys" (ppr (dom,ran)) False = undefined
-     | Just a <- mkAbstC' funCat dom ran = a
-     | Just r <- mkReprC' funCat dom ran = r
+     | Just a <- mkAbstC' funCat dom ran = pprTrace "recast mkAbstC'" (ppr a) $
+                                           a
+     | Just r <- mkReprC' funCat dom ran = pprTrace "recast mkReprC'" (ppr r) $
+                                           r
+
    -- TODO: Try going directly from AxiomInstCo and SymCo AxiomInstCo to reprC
    -- and abstC.
 
---      | AxiomInstCo {} <- co =
---          -- co :: dom ~#R ran for a newtype instance dom and its representation ran.
---          -- repCo :: Rep dom ~# ran
---          let repCo = UnivCo UnsafeCoerceProv Representational (repTy dom) ran in
---            pprTrace "recast AxiomInstCo:" (ppr repCo) $
---            Just $ Cast (mkCast e (TransCo co (mkSymCo (mkSubCo repCo)))) repCo
---            -- Outer Cast instead of mkCast to avoid optimization.
-
+     | AxiomInstCo {} <- co =
+         -- co :: dom ~#R ran for a newtype instance dom and its representation ran.
+         -- repCo :: Rep dom ~# ran
+         let repCo = UnivCo UnsafeCoerceProv Representational (repTy dom) ran in
+           mkCompose funCat (recast (TransCo co (mkSymCo repCo))) (recast repCo)
      | SymCo (AxiomInstCo {}) <- co =
          -- co :: dom ~#R ran for a newtype instance ran
          -- repCo :: Rep ran ~# dom
@@ -466,6 +472,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
     where
       Pair dom ran = coercionKind co
    -- recast _ | pprTrace "recast not abst/repr" empty False = undefined
+#endif
    -- TransCo must come after the abst (dom == Rep ran) and repr (ran == Rep
    -- dom) cases, since the AxiomInstCo (newtype) cases create transitive
    -- coercions having those shapes.
@@ -649,15 +656,15 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      onDict (catOp k reprCV [ty])
 
    -- TODO: refactor mkReprC' and mkAbstC' into one function that takes an Id. p
-   mkReprC', mkAbstC' :: Cat -> Type -> Type -> Maybe CoreExpr
-   mkReprC' k dom ran =
+   mkReprC', mkAbstC' :: Cat -> Pair Type -> Maybe CoreExpr
+   mkReprC' k (Pair dom ran) =
      -- pprTrace "mkReprC' 1" (ppr (dom,ran)) $
      -- pprTrace "mkReprC' 2" (pprWithType (Var reprC'V)) $
      -- pprTrace "mkReprC' 3" (pprWithType (catOp k reprC'V [dom,ran])) $
      -- pprTrace "mkReprC' 4" (pprMbWithType (onDictMaybe (catOp k reprC'V [dom,ran]))) $
      -- pprTrace "mkReprC' 5" (pprMbWithType (onDictMaybe =<< onDictMaybe (catOp k reprC'V [dom,ran]))) $
      onDictMaybe =<< onDictMaybe (catOp k reprC'V [dom,ran])
-   mkAbstC' k dom ran =
+   mkAbstC' k (Pair dom ran) =
      -- pprTrace "mkAbstC' 1" (ppr (dom,ran)) $
      -- pprTrace "mkAbstC' 2" (pprWithType (Var abstC'V)) $
      -- pprTrace "mkAbstC' 3" (pprWithType (catOp k abstC'V [dom,ran])) $
