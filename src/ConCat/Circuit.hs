@@ -795,10 +795,9 @@ LitConst(Int)
 LitConst(Float)
 LitConst(Double)
 
--- -- Now a general instance across categories.
-
--- instance (ConstCat (:>) a, ConstCat (:>) b) => ConstCat (:>) (a :* b) where
---   const = pairConst
+-- TODO: Fix the more general instance in Category, and remove this one.
+instance (ConstCat (:>) a, ConstCat (:>) b) => ConstCat (:>) (a :* b) where
+  const = pairConst
 
 #endif
 
