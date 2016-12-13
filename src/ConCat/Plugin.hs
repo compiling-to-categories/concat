@@ -445,11 +445,11 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
                                    mkPrePost (recast domCo) (recast ranCo)
    recast co
      -- | pprTrace "recast tys" (ppr (dom,ran)) False = undefined
-     | Just a <- mkAbstC' funCat dom ran = -- pprTrace "recast mkAbstC'" (ppr a) $
-                                           a
-     | Just r <- mkReprC' funCat dom ran = -- pprTrace "recast mkReprC'" (ppr r) $
+     | Just a <- mkAbstC' funCat dom ran = a
+     | Just r <- mkReprC' funCat dom ran = r
    -- TODO: Try going directly from AxiomInstCo and SymCo AxiomInstCo to reprC
    -- and abstC.
+
 --      | AxiomInstCo {} <- co =
 --          -- co :: dom ~#R ran for a newtype instance dom and its representation ran.
 --          -- repCo :: Rep dom ~# ran
@@ -457,6 +457,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
 --            pprTrace "recast AxiomInstCo:" (ppr repCo) $
 --            Just $ Cast (mkCast e (TransCo co (mkSymCo (mkSubCo repCo)))) repCo
 --            -- Outer Cast instead of mkCast to avoid optimization.
+
      | SymCo (AxiomInstCo {}) <- co =
          -- co :: dom ~#R ran for a newtype instance ran
          -- repCo :: Rep ran ~# dom
