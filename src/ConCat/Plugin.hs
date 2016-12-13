@@ -171,6 +171,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        Doing("top Case")
        return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
      Trying("top nominal Cast")
+#if 1
      Cast e co@(setNominalRole_maybe -> Just (reCatCo -> Just co')) ->
        -- etaExpand turns cast lambdas into themselves
        Doing("top nominal cast")
@@ -179,6 +180,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
                (downgradeRole (coercionRole co) (coercionRole co') co'))
        -- I think GHC is undoing this transformation, so continue eagerly
        -- (`Cast` co') <$> go e
+#endif
      Trying("top recast")
      Cast e co ->
        Doing("top recast")
@@ -360,7 +362,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
             -- TODO: abstract return (mkCcc (Lam x ...))
           else
             -- TODO: handle live wild var.
-            pprPanic "reify - case with live wild var (not yet handled)" (ppr e)
+            pprPanic "ccc - case with live wild var (not yet handled)" (ppr e)
      Trying("lam Case of product")
      e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
          | isBoxedTupleTyCon (dataConTyCon dc) ->
@@ -379,14 +381,6 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
               sub   = [(a,mkEx funCat exlV (Var c)),(b,mkEx funCat exrV (Var c))]
           in
             return (mkCcc (Lam x (App (Lam c (subst sub rhs)) scrut)))
-     Trying("lam Case of dictionary")
-     -- Do I also need top version?
-     Case scrut v altsTy alts
-       | isPredTy (varType v)
-       , Just scrut' <- unfoldMaybe scrut
-       -> Doing("lam Case of dictionary")
-          return $ mkCcc $ Lam x $
-           Case scrut' v altsTy alts
      Trying("lam abstReprCase")
      -- Do I also need top abstReprCase?
      Case scrut v altsTy alts
@@ -394,6 +388,13 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        -> Doing("lam abstReprCase")
           return $ mkCcc $ Lam x $
            Case (meth abstV `App` (mkReprC funCat (varType v) `App` scrut)) v altsTy alts
+     Trying("lam Case unfold")
+     Case scrut v altsTy alts
+       | {- isPred scrut
+       , -} Just scrut' <- unfoldMaybe scrut
+       -> Doing("lam Case unfold")
+          return $ mkCcc $ Lam x $
+           Case scrut' v altsTy alts
      -- Give up
      _e -> pprPanic "ccc" ("Unhandled:" <+> ppr _e)
            -- pprTrace "goLam" ("Unhandled:" <+> ppr _e) $ Nothing
@@ -420,22 +421,25 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
                 Nothing
    -- Interpret a representational cast
    -- TODO: Try swapping argument order
+   repTy :: Unop Type
+   repTy t = mkTyConApp repTc [t]
 
    recast :: Coercion -> CoreExpr
    -- recast co | pprTrace ("recast " ++ coercionTag co) (ppr co <+> dcolon <+> ppr (coercionType co)) False = undefined
    -- Refl is subsumed by setNominalRole. Handle here for simpler output.
    recast (Refl _ ty) = -- pprTrace "recast Refl -->" (pprWithType (mkId funCat ty)) $
                         mkId funCat ty
-   -- If we have a nominal(able) coercion, let another reify pass handle it.
+   -- If we have a nominal(able) coercion, let another ccc pass handle it.
    -- Importantly, 'go' above tries this case before recast. Thus, if we see a
    -- nominal coercion here, we've already made progress.
    -- I'm not really sure about this argument, so take care!
    -- recast _ | pprTrace "recast about to setNominalRole_maybe" empty False = undefined
-   recast co | Just _ <- setNominalRole_maybe co = -- pprTrace "recast setNominalRole" empty $
-                                                   Lam x (mkCast (Var x) co)
-    where
-      x = freshId emptyVarSet "w" dom
-      Pair dom _ = coercionKind co
+
+-- Experiment: drop setNominalRole case
+
+--    recast co | Just _ <- setNominalRole_maybe co = -- pprTrace "recast setNominalRole" empty $
+--                                                    castE co
+
    -- recast _ | pprTrace "recast setNominalRole_maybe failed" empty False = undefined
    recast (FunCo _r domCo ranCo) = -- pprTrace "recast FunCo" empty $
                                    mkPrePost (recast domCo) (recast ranCo)
@@ -445,6 +449,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
                                            a
      | Just r <- mkReprC' funCat dom ran = -- pprTrace "recast mkReprC'" (ppr r) $
                                            r
+
 --      | AxiomInstCo {} <- co =
 --          -- co :: dom ~#R ran for a newtype instance dom and its representation ran.
 --          -- repCo :: Rep dom ~# ran
@@ -452,11 +457,12 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
 --            pprTrace "recast AxiomInstCo:" (ppr repCo) $
 --            Just $ Cast (mkCast e (TransCo co (mkSymCo (mkSubCo repCo)))) repCo
 --            -- Outer Cast instead of mkCast to avoid optimization.
---      | SymCo (AxiomInstCo {}) <- co =
---          -- co :: dom ~#R ran for a newtype instance ran
---          -- repCo :: Rep ran ~# dom
---          let repCo = UnivCo UnsafeCoerceProv Representational (repTy ran) dom in
---            Just $ Cast (mkCast e (mkSymCo repCo)) (TransCo (mkSubCo repCo) co)
+
+     | SymCo (AxiomInstCo {}) <- co =
+         -- co :: dom ~#R ran for a newtype instance ran
+         -- repCo :: Rep ran ~# dom
+         let repCo = UnivCo UnsafeCoerceProv Representational (repTy ran) dom in
+           mkCompose funCat (recast (TransCo repCo co)) (recast (mkSymCo repCo))
 
     where
       Pair dom ran = coercionKind co
@@ -493,8 +499,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      fromMaybe (pprPanic "ccc - couldn't build dictionary for" doc)
    onDictMaybe :: ReExpr
    onDictMaybe e | Just (ty,_) <- splitFunTy_maybe (exprType e)
-                 , isPredTy ty =
-                     App e <$> buildDictMaybe ty
+                 , isPredTy' ty = App e <$> buildDictMaybe ty
                  | otherwise = pprPanic "ccc / onDictMaybe: not a function from pred"
                                  (pprWithType e)
    onDict :: Unop CoreExpr
@@ -1227,7 +1232,7 @@ collectNonTyCoDictArgs :: CoreExpr -> (CoreExpr,[CoreExpr])
 collectNonTyCoDictArgs = collectArgsPred (not . isTyCoDictArg)
 
 isTyCoDictArg :: CoreExpr -> Bool
-isTyCoDictArg e = isTyCoArg e || isPredTy (exprType e)
+isTyCoDictArg e = isTyCoArg e || isPredTy' (exprType e)
 
 -- isConApp :: CoreExpr -> Bool
 -- isConApp (collectArgs -> (Var (isDataConId_maybe -> Just _), _)) = True
@@ -1236,7 +1241,7 @@ isTyCoDictArg e = isTyCoArg e || isPredTy (exprType e)
 -- TODO: More efficient isConApp, discarding args early.
 
 isPred :: CoreExpr -> Bool
-isPred e  = not (isTyCoArg e) && isPredTy (exprType e)
+isPred e  = not (isTyCoArg e) && isPredTy' (exprType e)
 
 stringExpr :: String -> CoreExpr
 stringExpr = Lit . mkMachString
@@ -1401,3 +1406,30 @@ idOccs x = go
    goAlt (_,ys,rhs) | x `notElem` ys = 0
                     | otherwise      = go rhs
 
+-- GHC's isPredTy says "no" to unboxed tuples of pred types.
+isPredTy' :: Type -> Bool
+-- isPredTy' ty | pprTrace "isPredTy'" (ppr (ty,splitTyConApp_maybe ty)) False = undefined
+isPredTy' ty = isPredTy ty || others ty
+ where
+   others (splitTyConApp_maybe -> Just (tc,tys)) =
+     -- pprTrace "isPredTy' tyCon arity" (ppr (tyConArity tc)) $
+     -- The first half of the arguments are representation types ('PtrRepLifted)
+     isUnboxedTupleTyCon tc && all isPredTy' (drop (length tys `div` 2) tys)
+   others _ = False
+
+#if 0
+
+isUnboxedTupleType :: Type -> Bool
+isUnboxedTupleType ty = case tyConAppTyCon_maybe ty of
+                           Just tc -> isUnboxedTupleTyCon tc
+                           _       -> False
+
+splitTyConApp_maybe :: Type -> Maybe (TyCon, [Type])
+
+#endif
+
+castE :: Coercion -> CoreExpr
+castE co = Lam x (mkCast (Var x) co)
+ where
+   x = freshId emptyVarSet "w" dom
+   Pair dom _ = coercionKind co
