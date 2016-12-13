@@ -14,6 +14,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeApplications #-}
+-- {-# LANGUAGE StandaloneDeriving #-}
 
 {-# OPTIONS_GHC -Wall #-}
 -- {-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
@@ -24,10 +25,11 @@ module ConCat.Free.LinearRow where
 
 import Prelude hiding (id,(.),zipWith)
 
+import Data.Foldable (toList)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import Data.Constraint
 
-import Data.Key (Keyed(..),Zip(..),Adjustable(..))
+import Data.Key (Zip(..))
 
 import Control.Newtype
 
@@ -36,8 +38,11 @@ import ConCat.Orphans ()
 import ConCat.Free.VectorSpace
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
-import ConCat.AltCat
+import ConCat.AltCat hiding (const)
 import ConCat.Rep
+import ConCat.Free.Diagonal
+
+-- TODO: generalize from Num to Semiring
 
 {--------------------------------------------------------------------
     Linear maps
@@ -66,21 +71,17 @@ zeroL :: (Zeroable a, Zeroable b, Num s) => (a :-* b) s
 zeroL = unComp1 zeroV
 -- zeroL = point zeroV
 
+scaleL :: (Diagonal a, Num s) => s -> (a :-* a) s
+scaleL = diag 0
+
 {--------------------------------------------------------------------
     Other operations
 --------------------------------------------------------------------}
 
-scaleL :: (Adjustable a, Keyed a, Zeroable a, Num s)
-       => s -> (a :-* a) s
-scaleL s = mapWithKey (flip replace s) zeroL
-
--- mapWithKey :: Keyed f => (Key f -> a -> b) -> f a -> f b
--- replace :: Adjustable f => Key f -> a -> f a -> f a
-
 ---- Category
 
 -- Identity linear map
-idL :: (Adjustable a, Keyed a, Zeroable a, Num s)
+idL :: (Diagonal a, Num s)
     => (a :-* a) s
 idL = scaleL 1
 
@@ -98,11 +99,11 @@ bc @. ab = (\ b -> sumV (zipWith (*^) b ab)) <$> bc
 
 ---- Product
 
-exlL :: (Zeroable a, Keyed a, Adjustable a, Zeroable b, Num s)
+exlL :: (Zeroable a, Diagonal a, Zeroable b, Num s)
      => (a :*: b :-* a) s
 exlL = (:*: zeroV) <$> idL
 
-exrL :: (Zeroable b, Keyed b, Adjustable b, Zeroable a, Num s)
+exrL :: (Zeroable b, Diagonal b, Zeroable a, Num s)
      => (a :*: b :-* b) s
 exrL = (zeroV :*:) <$> idL
 
@@ -111,11 +112,11 @@ forkL = (:*:)
 
 ---- Coproduct as direct sum (represented as Cartesian product)
 
-inlL :: (Zeroable a, Keyed a, Adjustable a, Zeroable b, Num s)
+inlL :: (Zeroable a, Diagonal a, Zeroable b, Num s)
      => (a :-* a :*: b) s
 inlL = idL :*: zeroL
 
-inrL :: (Zeroable a, Zeroable b, Keyed b, Adjustable b, Num s)
+inrL :: (Zeroable a, Zeroable b, Diagonal b, Num s)
      => (b :-* a :*: b) s
 inrL = zeroL :*: idL
 
@@ -127,6 +128,11 @@ joinL = zipWith (:*:)
 --------------------------------------------------------------------}
 
 newtype L s a b = L ((V s a :-* V s b) s)
+
+-- deriving instance Show ((V s a :-* V s b) s) => Show (L s a b)
+
+instance (Foldable (V s a), Foldable (V s b), Show s) => Show (L s a b) where
+  show = show . fmap toList . toList . unpack
 
 -- Just for AbsTy in ConCat.Circuit
 instance Newtype (L s a b) where
@@ -146,7 +152,7 @@ instance HasV s (L s a b) where
   toV = abst . repr
   unV = abst . repr
 
-type OkLF' f = (Foldable f, Zeroable f, Zip f, Keyed f, Adjustable f)
+type OkLF' f = (Foldable f, Zeroable f, Zip f, Diagonal f)
 
 type OkLM' s a = (Num s, HasV s a, HasL (V s a)) -- , OkLF' (V s a)
 
