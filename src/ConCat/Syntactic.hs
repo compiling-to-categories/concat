@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE CPP #-}
@@ -41,7 +42,7 @@ app2u s p q = SynU s [p,q]
 
 prettyu :: SynU -> PDoc
 prettyu (SynU f [u,v]) | Just fixity <- lookup f fixities =
-  docOp2 True f fixity (prettyu u) (prettyu v)
+  docOp2 False f fixity (prettyu u) (prettyu v)
 prettyu (SynU f es) = \ prec ->
   -- (if not (null es) && prec > appPrec then parens else id) $
   maybeParens (not (null es) && prec > appPrec) $
@@ -162,18 +163,10 @@ instance ClosedCat Syn where
   INLINER(curry)
   INLINER(uncurry)
 
--- class Show b => HasLit b
-
--- instance HasLit ()
--- instance HasLit Bool
--- instance HasLit Int
--- instance HasLit Float
--- instance HasLit Double
+#if 0
 
 litConst :: Show b => b -> Syn a b
 litConst b = app1 "const" (atom (showPrec appPrec b))
-
-#if 1
 
 #define LitConst(ty) \
 instance ConstCat Syn (ty) where { const = litConst ; INLINER(const) }
@@ -184,6 +177,7 @@ LitConst(Int)
 LitConst(Float)
 LitConst(Double)
 
+-- TODO: Fix the more general instance in Category, and remove this one.
 instance (ConstCat Syn a, ConstCat Syn b) => ConstCat Syn (a :* b) where
   const = pairConst
 
@@ -191,9 +185,9 @@ instance (ConstCat Syn a, ConstCat Syn b) => ConstCat Syn (a :* b) where
 
 instance Show b => ConstCat Syn b where
   const b = app1 "const" (atom (showPrec appPrec b))
-  unitArrow b = app1 "unitArrow" (atom (showPrec appPrec b))
   INLINER(const)
-  INLINER(unitArrow)
+  -- unitArrow b = app1 "unitArrow" (atom (showPrec appPrec b))
+  -- INLINER(unitArrow)
 
 #endif
 
