@@ -20,8 +20,8 @@ import Control.Newtype
 import Text.PrettyPrint.HughesPJ hiding (render)
 
 import ConCat.Category
-import ConCat.Misc ((:*),inNew,inNew2,Unop,Binop)
-import ConCat.Float (Float,Double)
+import ConCat.Misc (inNew,inNew2,Unop,Binop)
+-- import ConCat.Float (Float,Double)
 
 {--------------------------------------------------------------------
     Untyped S-expression
@@ -177,7 +177,6 @@ LitConst(Int)
 LitConst(Float)
 LitConst(Double)
 
--- TODO: Fix the more general instance in Category, and remove this one.
 instance (ConstCat Syn a, ConstCat Syn b) => ConstCat Syn (a :* b) where
   const = pairConst
 

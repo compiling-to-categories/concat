@@ -795,7 +795,6 @@ LitConst(Int)
 LitConst(Float)
 LitConst(Double)
 
--- TODO: Fix the more general instance in Category, and remove this one.
 instance (ConstCat (:>) a, ConstCat (:>) b) => ConstCat (:>) (a :* b) where
   const = pairConst
 

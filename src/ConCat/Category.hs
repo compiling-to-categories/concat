@@ -650,20 +650,24 @@ class (Category k, Ok k (ConstObj k b)) => ConstCat k b where
 --   type ConstObj k b
 --   type ConstObj k b = b
   const :: Ok k a => b -> (a `k` ConstObj k b)
-  default const :: (HasRep (ConstObj k b), ConstCat k (Rep b), RepCat k, Ok k a)
-                => b -> (a `k` ConstObj k b)
-  const = repConst
+  -- default const :: (HasRep (ConstObj k b), ConstCat k (Rep b), RepCat k, Ok k a)
+  --               => b -> (a `k` ConstObj k b)
+  -- const = repConst
 
 #endif
 
--- instance (ProductCat k, ConstCat k b, ConstCat k c, Ok k a)
---       => ConstCat k (b :* c) where
---   const = pairConst <+ okProd @k @b @c
+#if 0
+
+instance (ProductCat k, ConstCat k b, ConstCat k c, Ok k a)
+      => ConstCat k (b :* c) where
+  const = pairConst
 
 instance {-# OVERLAPPABLE #-}
   ( Category k, ConstCat k (Rep b), RepCat k, HasRep (ConstObj k b)
   , Ok k (ConstObj k b) ) => ConstCat k b where
   const = repConst
+
+#endif
 
 repConst :: (HasRep (ConstObj k b), ConstCat k (Rep b), RepCat k, Ok k a, Ok k (ConstObj k b))
          => b -> (a `k` ConstObj k b)
