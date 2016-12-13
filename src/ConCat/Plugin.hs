@@ -448,8 +448,8 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      | Just a <- mkAbstC' funCat dom ran = -- pprTrace "recast mkAbstC'" (ppr a) $
                                            a
      | Just r <- mkReprC' funCat dom ran = -- pprTrace "recast mkReprC'" (ppr r) $
-                                           r
-
+   -- TODO: Try going directly from AxiomInstCo and SymCo AxiomInstCo to reprC
+   -- and abstC.
 --      | AxiomInstCo {} <- co =
 --          -- co :: dom ~#R ran for a newtype instance dom and its representation ran.
 --          -- repCo :: Rep dom ~# ran
@@ -457,13 +457,11 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
 --            pprTrace "recast AxiomInstCo:" (ppr repCo) $
 --            Just $ Cast (mkCast e (TransCo co (mkSymCo (mkSubCo repCo)))) repCo
 --            -- Outer Cast instead of mkCast to avoid optimization.
-
      | SymCo (AxiomInstCo {}) <- co =
          -- co :: dom ~#R ran for a newtype instance ran
          -- repCo :: Rep ran ~# dom
          let repCo = UnivCo UnsafeCoerceProv Representational (repTy ran) dom in
            mkCompose funCat (recast (TransCo repCo co)) (recast (mkSymCo repCo))
-
     where
       Pair dom ran = coercionKind co
    -- recast _ | pprTrace "recast not abst/repr" empty False = undefined
