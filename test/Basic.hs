@@ -39,7 +39,7 @@
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
@@ -92,18 +92,17 @@ tests = return
   [ nopTest
 
 --   , tst (Par1 @ Bool)
-
+--   , tst (Par1 . Par1 @ Bool)
+--   , tst (\ (x :: Bool) -> Par1 (Par1 x))
 --   , tst (\ () -> Par1 True)
 
 --   , test "id-r"          (id :: Unop R)
-
 --   , test "id-r2"         (id :: Unop R2)
-
---   , test "id-r3"       (id :: Unop R3)
+--   , test "id-r3"         (id :: Unop R3)
+  , test "id-r4"         (id :: Unop R4)
 
 --   , test "const-4"     (const 4 :: Unop R)
-
-  , test "const-34"     (const (3,4) :: () -> R2)
+--   , test "const-34"     (const (3,4) :: () -> R2)
 
 --   , test "four-plus-x" (\ x -> 4 + x :: R)
 --   , test "cos"         (cos :: Unop R)
@@ -318,7 +317,7 @@ tst  :: GenBuses a => (a -> b) -> Test
 {-# RULES "Syn :**: (:>)" forall nm f.
    test nm f = mkTest nm (runEC nm (ccc f))
  #-}
-#elif 1
+#elif 0
 -- (->), then syntactic *and* circuit
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst  :: GenBuses a => (a -> b) -> Test
@@ -707,6 +706,8 @@ type R2 = R :* R
 --------------------------------------------------------------------}
 
 type R3 = (R,R,R)
+
+type R4 = (R2,R2)
 
 three :: R -> R3
 three x = (x, x*x, x*x*x)
