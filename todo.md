@@ -1,13 +1,17 @@
 # To do
 
-
+*   In `Syn`, use the pretty-printing class.
+*   Change the `ConstCat Syn` instance to pretty-print instead of `show`ing, so that the layout logic works.
+*   In `Plugin`, try going directly from `AxiomInstCo` and `SymCo AxiomInstCo` to `reprC` and `abstC`.
+*   In `LinearRow` and `LinearCol`, retry my old `scaleL` definition via `Keyed` and `Adjustable`, comparing for robustness and speed.
+*   In `Plugin`, factor out `return (mkCcc (Lam x ...))` (for lam) and maybe also `return (mkCcc ...)` (for top).
+*   Maybe switch from `INLINE` to `INLINABLE`.
 *   Now that I'm unfolding more effectively (even with value args), maybe I no longer need the `reveal` hack.
-    Find out.
+    My first test in `AD` failed, but I may need to tweak `unD'` *also*.
 *   Eliminate the hack of first `ccc`ing to `(->)`, letting simplifications happen, and then `ccc`ing to another category, say without `Closed`.
     I think I'd have to improve my ability to do without `Closed`, including floating or substituting more `let` bindings.
 *   I think I'll want to rename `ProductCat`, `CoproductCat`, and `ClosedCat` to "`Cartesian`", "`Cocartesian`", and "`Closed`".
     What about other `Category` subclasses?
-*   Handle `newtype` better, and change some `data` uses back to `newtype`.
 *   There are `case` and `let` expressions in the middle of categorical compositions, where they can thwart CCC simplifications.
     Inlining those `let` expressions may be exactly what's needed to enable the simplifier's other transformations to eliminate the `case` expressions.
 *   AD with non-scalar domains.
@@ -29,6 +33,7 @@
 
 # Done
 
+*   Handle `newtype` better, and change some `data` uses back to `newtype`.
 *   Fix `transCatOp` in `Plugin` to fail gracefully if the target category doesn't inhabit the needed `Category` subclass.
     Fall back to unfolding.
     Then fix the `ConstCat (->)` instance in `Category`, and replace `P.const` by `const` in `Circuit` and `Lambda`.
