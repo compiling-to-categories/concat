@@ -355,20 +355,16 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        Doing("lam case-default")
        return (mkCcc (Lam x rhs))
      Trying("lam Case nullary")
-     e@(Case _scrut wild _rhsTy [(_, [], rhs)])
-       -> Doing("lam Case nullary")
-          if isDeadBinder wild then
-            return (mkCcc (Lam x rhs))
-            -- TODO: abstract return (mkCcc (Lam x ...))
-          else
-            -- TODO: handle live wild var.
-            pprPanic "ccc - case with live wild var (not yet handled)" (ppr e)
+     e@(Case _scrut (isDeadBinder -> True) _rhsTy [(_, [], rhs)]) ->
+       Doing("lam Case nullary")
+       return (mkCcc (Lam x rhs))
+       -- TODO: abstract return (mkCcc (Lam x ...))
      Trying("lam Case of product")
      e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
          | isBoxedTupleTyCon (dataConTyCon dc) ->
        -- To start, require v to be unused. Later, extend.
        if not (isDeadBinder wild) && wild `isFreeIn` rhs then
-            pprPanic "ccc: product case with live wild var (not yet handled)" (ppr e)
+            pprPanic "lam Case of product: live wild var (not yet handled)" (ppr e)
        else
           Doing("lam Case of product")
           --    \ x -> case scrut of _ { (a, b) -> rhs }
@@ -444,6 +440,24 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    recast (FunCo _r domCo ranCo) = -- pprTrace "recast FunCo" empty $
                                    mkPrePost (recast domCo) (recast ranCo)
 #if 1
+   recast co@(SymCo (AxiomInstCo _ _ [mkSymCo -> co'])) =
+     pprTrace "recast SymCo AxiomInstCo kinds" (ppr (coercionKind co, coercionKind co')) $
+     mkCompose funCat
+       (fromMaybe (error "mkAbstC' fail") $
+        mkAbstC' funCat (Pair (pSnd (coercionKind co')) (pSnd (coercionKind co))))
+       (recast co')
+     -- pprPanic "recast SymCo AxiomInstCo bail" empty
+     -- fromMaybe (error "mkAbstC' fail") $
+     -- mkAbstC' funCat (coercionKind co)
+
+   recast co@(AxiomInstCo _ _ [co']) =
+     pprTrace "recast AxiomInstCo kinds" (ppr (coercionKind co, coercionKind co')) $
+     mkCompose funCat
+       (recast co')
+       (fromMaybe (error "mkReprC' fail") $
+        mkReprC' funCat (Pair (pFst (coercionKind co)) (pFst (coercionKind co'))))
+   
+#elif 1
    recast co@(       AxiomInstCo {} ) = fromMaybe (error "mkReprC' fail") $
                                         mkReprC' funCat (coercionKind co)
    recast co@(SymCo (AxiomInstCo {})) = fromMaybe (error "mkAbstC' fail") $
