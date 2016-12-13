@@ -21,6 +21,7 @@ library
                        ConCat.Misc
                        ConCat.Orphans
                        ConCat.Free.VectorSpace
+                       ConCat.Free.Diagonal
                        ConCat.Free.LinearCol
                        ConCat.Free.LinearRow
                        ConCat.ShowUtils
