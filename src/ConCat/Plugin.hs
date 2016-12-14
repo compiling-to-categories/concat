@@ -186,7 +186,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        Doing("top recast")
        -- return (mkCcc (recast co `App` e))
        let re = recast co in
-         dtrace "recaster" (ppr re) $
+         dtrace "top recaster" (ppr re) $
          return (mkCcc (re `App` e))
 #if 0
      -- TODO: If this simplifier phase isn't eta-expanding, I'll need to handle
@@ -224,7 +224,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      -- TODO: If I don't etaReduceN, merge goLam back into the go Lam case.
      _ -> Doing("top Unhandled")
           Nothing
-          -- pprPanic "ccc go. Unhandled " (ppr e)
+          -- pprPanic "ccc go. Unhandled" (ppr e)
    goLam x body | dtrace "goLam:" (ppr (Lam x body)) False = undefined
    -- go _ = Nothing
    goLam x body | Just e' <- etaReduce_maybe (Lam x body) =
@@ -315,6 +315,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
          -- so, we can still let-hoist instead of substituting.
          if xInRhs then
            Doing("lam Let subst")
+           -- TODO: mkCcc instead of goLam?
            goLam x (subst1 v rhs body')
          else
            Doing("lam Let float")
@@ -355,7 +356,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        Doing("lam case-default")
        return (mkCcc (Lam x rhs))
      Trying("lam Case nullary")
-     e@(Case _scrut (isDeadBinder -> True) _rhsTy [(_, [], rhs)]) ->
+     Case _scrut (isDeadBinder -> True) _rhsTy [(_, [], rhs)] ->
        Doing("lam Case nullary")
        return (mkCcc (Lam x rhs))
        -- TODO: abstract return (mkCcc (Lam x ...))
@@ -391,9 +392,16 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        -> Doing("lam Case unfold")
           return $ mkCcc $ Lam x $
            Case scrut' v altsTy alts
+     Trying("lam recast")
+     Cast e co ->
+       Doing("lam recast")
+       -- return (mkCcc (recast co `App` e))
+       let re = recast co in
+         dtrace "lam recaster" (ppr re) $
+         return (mkCcc (Lam x (re `App` e)))
      -- Give up
-     _e -> pprPanic "ccc" ("Unhandled:" <+> ppr _e)
-           -- pprTrace "goLam" ("Unhandled:" <+> ppr _e) $ Nothing
+     _e -> pprPanic "ccc" ("lam Unhandled" <+> ppr _e)
+           -- pprTrace "goLam" ("Unhandled" <+> ppr _e) $ Nothing
     where
       xty = varType x
       bty = exprType body
@@ -421,27 +429,18 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    repTy t = mkTyConApp repTc [t]
 
    recast :: Coercion -> CoreExpr
-   recast co | pprTrace ("recast " ++ coercionTag co) (ppr co <+> dcolon <+> ppr (coercionType co)) False = undefined
+   -- recast co | pprTrace ("recast " ++ coercionTag co) (ppr co <+> dcolon <+> ppr (coercionType co)) False = undefined
    -- Refl is subsumed by setNominalRole. Handle here for simpler output.
    recast (Refl _ ty) = -- pprTrace "recast Refl -->" (pprWithType (mkId funCat ty)) $
                         mkId funCat ty
-   -- If we have a nominal(able) coercion, let another ccc pass handle it.
-   -- Importantly, 'go' above tries this case before recast. Thus, if we see a
-   -- nominal coercion here, we've already made progress.
-   -- I'm not really sure about this argument, so take care!
-   -- recast _ | pprTrace "recast about to setNominalRole_maybe" empty False = undefined
-
--- Experiment: drop setNominalRole case
-
-   recast co | Just _ <- setNominalRole_maybe co = -- pprTrace "recast setNominalRole" empty $
-                                                   castE co
 
    -- recast _ | pprTrace "recast setNominalRole_maybe failed" empty False = undefined
    recast (FunCo _r domCo ranCo) = -- pprTrace "recast FunCo" empty $
                                    mkPrePost (recast domCo) (recast ranCo)
-#if 1
+
+#if 0
    recast co@(SymCo (AxiomInstCo _ _ [mkSymCo -> co'])) =
-     pprTrace "recast SymCo AxiomInstCo kinds" (ppr (coercionKind co, coercionKind co')) $
+     -- pprTrace "recast SymCo AxiomInstCo kinds" (ppr (coercionKind co, coercionKind co')) $
      mkCompose funCat
        (fromMaybe (error "mkAbstC' fail") $
         mkAbstC' funCat (Pair (pSnd (coercionKind co')) (pSnd (coercionKind co))))
@@ -451,48 +450,67 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      -- mkAbstC' funCat (coercionKind co)
 
    recast co@(AxiomInstCo _ _ [co']) =
-     pprTrace "recast AxiomInstCo kinds" (ppr (coercionKind co, coercionKind co')) $
+     -- pprTrace "recast AxiomInstCo kinds" (ppr (coercionKind co, coercionKind co')) $
      mkCompose funCat
        (recast co')
        (fromMaybe (error "mkReprC' fail") $
         mkReprC' funCat (Pair (pFst (coercionKind co)) (pFst (coercionKind co'))))
    
-#elif 1
+#elif 0
    recast co@(       AxiomInstCo {} ) = fromMaybe (error "mkReprC' fail") $
                                         mkReprC' funCat (coercionKind co)
    recast co@(SymCo (AxiomInstCo {})) = fromMaybe (error "mkAbstC' fail") $
                                         mkAbstC' funCat (coercionKind co)
-#else
+#elif 0
    recast co
      -- | pprTrace "recast tys" (ppr (dom,ran)) False = undefined
-     | Just a <- mkAbstC' funCat dom ran = pprTrace "recast mkAbstC'" (ppr a) $
-                                           a
-     | Just r <- mkReprC' funCat dom ran = pprTrace "recast mkReprC'" (ppr r) $
-                                           r
-
+     | Just a <- mkAbstC' funCat (Pair dom ran) = -- pprTrace "recast mkAbstC'" (ppr a) $
+                                                  a
+     | Just r <- mkReprC' funCat (Pair dom ran) = -- pprTrace "recast mkReprC'" (ppr r) $
+                                                  r
    -- TODO: Try going directly from AxiomInstCo and SymCo AxiomInstCo to reprC
    -- and abstC.
 
+#else
+   recast co
+     | Just r <- mkReprC' funCat coK = -- pprTrace ("recast via reprC'") (ppr r) $
+                                       r
+     | Just a <- mkAbstC' funCat coK = -- pprTrace ("recast via abstC'") (ppr a) $
+                                       a
      | AxiomInstCo {} <- co =
          -- co :: dom ~#R ran for a newtype instance dom and its representation ran.
          -- repCo :: Rep dom ~# ran
          let repCo = UnivCo UnsafeCoerceProv Representational (repTy dom) ran in
-           mkCompose funCat (recast (TransCo co (mkSymCo repCo))) (recast repCo)
+           mkCompose funCat (recast repCo) (recast (TransCo co (mkSymCo repCo)))
      | SymCo (AxiomInstCo {}) <- co =
          -- co :: dom ~#R ran for a newtype instance ran
          -- repCo :: Rep ran ~# dom
          let repCo = UnivCo UnsafeCoerceProv Representational (repTy ran) dom in
            mkCompose funCat (recast (TransCo repCo co)) (recast (mkSymCo repCo))
+       -- TODO: bypass 'recast repCo' and 'recast (mkSymCo repCo)', and use
+       -- reprC and abstC
     where
-      Pair dom ran = coercionKind co
+      coK = coercionKind co
+      Pair dom ran = coK
    -- recast _ | pprTrace "recast not abst/repr" empty False = undefined
+
 #endif
    -- TransCo must come after the abst (dom == Rep ran) and repr (ran == Rep
    -- dom) cases, since the AxiomInstCo (newtype) cases create transitive
    -- coercions having those shapes.
    recast (TransCo inner outer) =
-     pprTrace "TransCo" empty $ -- order?
+     -- pprTrace "TransCo" empty $ -- order?
      mkCompose funCat (recast outer) (recast inner)
+
+   -- If we have a nominal(able) coercion, let another ccc pass handle it.
+   -- Importantly, 'go' above tries this case before recast. Thus, if we see a
+   -- nominal coercion here, we've already made progress.
+   -- I'm not really sure about this argument, so take care!
+   -- recast _ | pprTrace "recast about to setNominalRole_maybe" empty False = undefined
+   -- Oops. Succeeds for UnivCo.
+   recast co | Just _ <- setNominalRole_maybe co = -- pprTrace "recast setNominalRole" empty $
+                                                   castE co
+
    recast co = pprPanic ("recast: unhandled " ++ coercionTag co ++ " coercion:")
                  (ppr co {- <+> dcolon $$ ppr (coercionType co)-})
 
@@ -550,11 +568,12 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    mkCompose :: Cat -> Binop CoreExpr
    -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
    mkCompose k g f
-     | Just (b,c) <- tyArgs2_maybe (exprType g)
-     , Just (a,_) <- tyArgs2_maybe (exprType f)
+     | Just (b,c ) <- tyArgs2_maybe (exprType g)
+     , Just (a,b') <- tyArgs2_maybe (exprType f)
+     , b `eqType` b'
      = -- mkCoreApps (onDict (catOp k composeV `mkTyApps` [b,c,a])) [g,f]
        mkCoreApps (onDict (catOp k composeV [b,c,a])) [g,f]
-     | otherwise = pprPanic "mkCompose:" (pprWithType g <+> text ";" <+> pprWithType f)
+     | otherwise = pprPanic "mkCompose mismatch:" (pprWithType g $$ pprWithType f)
    mkEx :: Cat -> Var -> Unop CoreExpr
    mkEx k ex z =
      -- -- For the class method aliases (exl, exr):
