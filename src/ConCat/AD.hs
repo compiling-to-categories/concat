@@ -35,8 +35,8 @@ unD (D f) = f
 
 -- Differentiable linear function, given the function and linear map version
 linearD :: (a -> b) -> L s a b -> D s a b
-linearD f f' = D (f &&& const f')
--- linearD f f' = D (\ a -> (f a, f'))
+-- linearD f f' = D (f &&& const f')
+linearD f f' = D (\ a -> (f a, f'))
 {-# INLINE linearD #-}
 
 -- TODO: have linearD accept *just* the L version and convert via lapply
@@ -145,11 +145,18 @@ scalarD f der = D (\ x -> let r = f x in (r, scale (der x r)))
 -- matters.
 
 scalarR :: OkLM s s => (s -> s) -> (s -> s) -> D s s s
-scalarR f = scalarD f . const
+scalarR f f' = scalarD f (\ _ -> f')
+-- scalarR f x = scalarD f (const x)
+-- scalarR f = scalarD f . const
 {-# INLINE scalarR #-}
 
 scalarX :: OkLM s s => (s -> s) -> (s -> s) -> D s s s
-scalarX f = scalarD f . const'
+scalarX f f' = scalarD f (\ x _ -> f' x)
+-- scalarX f f' = scalarD f (\ x y -> const (f' x) y)
+-- scalarX f f' = scalarD f (\ x -> const (f' x))
+-- scalarX f f' = scalarD f (const . f')
+-- scalarX f f' = scalarD f (const' f')
+-- scalarX f = scalarD f . const'
 {-# INLINE scalarX #-}
 
 square :: Num a => a -> a
