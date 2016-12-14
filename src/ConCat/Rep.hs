@@ -227,10 +227,12 @@ instance HasRep ((G.:.:) f g p) where
 inAbst :: (HasRep p, HasRep q) =>
           (Rep p -> Rep q) -> (p -> q)
 inAbst = abst <~ repr
+{-# INLINE inAbst #-}
 
 inAbst2 :: (HasRep p, HasRep q, HasRep r) =>
            (Rep p -> Rep q -> Rep r) -> (p -> q -> r)
 inAbst2 = inAbst <~ repr
+{-# INLINE inAbst2 #-}
 
 {--------------------------------------------------------------------
     Unlifted types
