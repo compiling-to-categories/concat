@@ -23,7 +23,7 @@
 
 module ConCat.Free.LinearRow where
 
-import Prelude hiding (id,(.),zipWith)
+import Prelude hiding (id,(.),zipWith,Float,Double)
 
 import Data.Foldable (toList)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
@@ -41,6 +41,8 @@ import qualified ConCat.Category as C
 import ConCat.AltCat hiding (const)
 import ConCat.Rep
 import ConCat.Free.Diagonal
+
+import ConCat.Float
 
 -- TODO: generalize from Num to Semiring
 
@@ -90,12 +92,15 @@ idL = scaleL 1
      => (b :-* c) s -> (a :-* b) s -> (a :-* c) s
 bc @. ab = (\ b -> sumV (zipWith (*^) b ab)) <$> bc
 
--- bc :: c (b s)
--- ab :: b (a s)
-
--- ac :: c (a s)
-
--- (bc $*) :: b s -> c s
+#if 0
+bc :: c (b s)
+ab :: b (a s)
+b  :: b s
+zipWith (*^) b ab :: b (a s)
+sumV (zipWith (*^) b ab) :: a s
+\ b -> sumV (zipWith (*^) b ab) :: b -> a s
+(\ b -> sumV (zipWith (*^) b ab)) <$> bc :: c (a s)
+#endif
 
 ---- Product
 
@@ -295,3 +300,31 @@ lmap _ = error "lmap called"
 {-# NOINLINE lmap #-}
 {-# RULES "lmap" forall h. lmap h = reveal (ccc h) #-}
 {-# ANN lmap PseudoFun #-}
+
+{--------------------------------------------------------------------
+   Some specializations 
+--------------------------------------------------------------------}
+
+type One = Par1
+type Two = One :*: One
+
+-- Becomes (*) (and casts)
+{-# SPECIALIZE (@.) :: Num s =>
+  (One :-* One) s -> (One :-* One) s -> (One :-* One) s #-}
+
+-- Becomes timesFloat
+{-# SPECIALIZE (@.) ::
+  (One :-* One) Float -> (One :-* One) Float -> (One :-* One) Float #-}
+
+-- Becomes + (* ww1 ww4) (* ww2 ww5)
+{-# SPECIALIZE (@.) :: Num s =>
+  (Two :-* One) s -> (One :-* Two) s -> (One :-* One) s #-}
+
+-- Becomes plusFloat# (timesFloat# x y) (timesFloat# x1 y1)
+{-# SPECIALIZE (@.) ::
+  (Two :-* One) Float -> (One :-* Two) Float -> (One :-* One) Float #-}
+
+type LR = L Float Float Float
+
+-- Becomes timesFloat (and casts)
+{-# SPECIALIZE (.) :: LR -> LR -> LR #-}
