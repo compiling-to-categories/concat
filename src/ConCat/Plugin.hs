@@ -134,6 +134,12 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      (isPseudoApp -> True) ->
        Doing("top Avoid pseudo-app")
        Nothing
+     Trying("top ruled var app")
+     (collectArgs -> (Var (fqVarName -> nm),args))
+       | Just arity <- M.lookup nm cccRuledArities
+       , length args >= arity
+       -> dtrace "top ruled var app" (text nm) $
+          Nothing
      Trying("top App")
      e@(App u v)
        | liftedExpr v
@@ -160,6 +166,8 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      -- ccc-of-case. Maybe restrict to isTyCoDictArg for all bound variables, but
      -- perhaps I don't need to.
      Trying("top Case of dictionary")
+     -- For case-of dictionary, push on unfolding so that the specific methods
+     -- get revealed. Otherwise, ccc residuals.
      Case scrut wild rhsTy alts
        | isPred scrut
        , Just scrut' <- unfoldMaybe scrut
@@ -170,8 +178,8 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      Case scrut wild rhsTy alts ->
        Doing("top Case")
        return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
-     Trying("top nominal Cast")
 #if 1
+     Trying("top nominal Cast")
      Cast e co@(setNominalRole_maybe -> Just (reCatCo -> Just co')) ->
        -- etaExpand turns cast lambdas into themselves
        Doing("top nominal cast")
@@ -276,7 +284,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
             mkLams binds $
              mkAbstC funCat (exprType body') `App` (meth reprV `App` body')
 #endif
-#if 0
+#if 1
      Trying("lam App compose")
      -- (\ x -> U V) --> U . (\ x -> V) if x not free in U
      u `App` v | liftedExpr v
@@ -344,6 +352,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        -- dtrace "Lam isDeads" (ppr (isDeadBinder x, isDeadBinder y)) $
        -- dtrace "Lam sub" (ppr sub) $
        -- TODO: maybe let instead of subst
+       -- Substitute rather than making a Let, to prevent infinite regress.
        return $ mkCurry cat (mkCcc (Lam z (subst sub e)))
       where
         yty = varType y
@@ -427,7 +436,6 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    -- TODO: Try swapping argument order
    repTy :: Unop Type
    repTy t = mkTyConApp repTc [t]
-
    recast :: Coercion -> CoreExpr
    -- recast co | pprTrace ("recast " ++ coercionTag co) (ppr co <+> dcolon <+> ppr (coercionType co)) False = undefined
    -- Refl is subsumed by setNominalRole. Handle here for simpler output.
@@ -436,7 +444,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
 
    -- recast _ | pprTrace "recast setNominalRole_maybe failed" empty False = undefined
    recast (FunCo _r domCo ranCo) = -- pprTrace "recast FunCo" empty $
-                                   mkPrePost (recast domCo) (recast ranCo)
+                                   mkPrePost (recast (mkSymCo domCo)) (recast ranCo)
 
 #if 0
    recast co@(SymCo (AxiomInstCo _ _ [mkSymCo -> co'])) =
@@ -493,7 +501,6 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
       coK = coercionKind co
       Pair dom ran = coK
    -- recast _ | pprTrace "recast not abst/repr" empty False = undefined
-
 #endif
    -- TransCo must come after the abst (dom == Rep ran) and repr (ran == Rep
    -- dom) cases, since the AxiomInstCo (newtype) cases create transitive
@@ -513,7 +520,6 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
 
    recast co = pprPanic ("recast: unhandled " ++ coercionTag co ++ " coercion:")
                  (ppr co {- <+> dcolon $$ ppr (coercionType co)-})
-
    unfoldMaybe :: ReExpr
    -- unfoldMaybe e | dtrace "unfoldMaybe" (ppr (e,collectArgsPred isTyCoDictArg e)) False = undefined
    unfoldMaybe e -- | (Var v, _) <- collectArgsPred isTyCoDictArg e
@@ -669,7 +675,6 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    -- mkConst' k dom e = (mkConst k dom <+ (mkConstFun k dom . mkCcc)) e
    mkConst' k dom e | isFunTy (exprType e) = mkConstFun k dom (mkCcc e)
                     | otherwise            = mkConst k dom e
-
    -- TODO: refactor mkReprC and mkAbstC into one function that takes an Id. p
    mkAbstC :: Cat -> Type -> CoreExpr
    mkAbstC k ty =
@@ -1116,6 +1121,13 @@ polyInfo = [(hmod++"."++hop,(catModule,cop)) | (hmod,ops) <- info, (hop,cop) <- 
           , ("Data.Either", [("Left","inl"),("Right","inr")])
           ]
    tw x = (x,x)
+
+-- Variables that have associated ccc rewrite rules in AltCat. If we have
+-- sufficient arity for the rule, including types, give it a chance to kick in.
+cccRuledArities :: Map String Int
+cccRuledArities = M.fromList
+  [("Data.Tuple.curry",4),("Data.Tuple.uncurry",4)]
+
 
 -- Monomorphic operations. Given newtype-wrapped (Float,Double), yield an assoc
 -- list from the fully qualified standard Haskell operation name to
