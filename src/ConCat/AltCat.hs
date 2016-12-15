@@ -325,12 +325,20 @@ UncId(c :+ d)
 
 "constFun' 0" forall g f. apply . (constFun g &&& f) = g . f
 
+-- "foo1" forall (f :: a `k` c) (g :: a `k` d) h.
+--   apply . (curry h . f &&& g) = h . (f &&& g) <+ okProd @k @c @d
+
+-- -- The next one leads to a role error when I chain ccc calls. To investigate.
+-- "foo2" forall (g :: a `k` d) h.
+--   apply . (curry h &&& g) = h . (id &&& g) <+ okProd @k @a @d
+
 "foo1" forall (f :: a `k` c) (g :: a `k` d) h.
-  apply . (curry h . f &&& g) = h . (f &&& g) <+ okProd @k @c @d
+  apply . (h . f &&& g) = uncurry h . (f &&& g) <+ okProd @k @c @d
 
 -- The next one leads to a role error when I chain ccc calls. To investigate.
 "foo2" forall (g :: a `k` d) h.
-  apply . (curry h &&& g) = h . (id &&& g) <+ okProd @k @a @d
+  apply . (h &&& g) = uncurry h . (id &&& g) <+ okProd @k @a @d
+
 
 -- -- experiment
 -- "constFun id" constFun id = curry exr
@@ -407,5 +415,8 @@ ccc _ = error "ccc: not implemented"
 -- onerous for some categories.
 
 -- "const a &&& const b" forall a b . const a &&& const b = const (a,b)
+
+"ccc P.curry" forall f. ccc (P.curry f) = ccc (curry f)
+"ccc P.uncurry" forall f. ccc (P.uncurry f) = ccc (uncurry f)
 
  #-}
