@@ -1,9 +1,24 @@
 # To do
 
+*   Experiment with running the plugin much later.
+    Try second to last.
+    Use `newtype`-wrapped `Int` as well as `Float` and `Double`, scheduled to inline just after the plugin, i.e., phase 0.
+    Hm.
+    Given the `deriving` specification, *can* I delay inlining?
+*   Rewrite rule loop involving "`foo2`" and "`uncurry id`" in `AltCat`.
+*   In `recast`, when handing `AxiomInstCo` and `Sym` variant, Check for HasRep instances.
 *   In `Syn`, use the pretty-printing class.
 *   Change the `ConstCat Syn` instance to pretty-print instead of `show`ing, so that the layout logic works.
-*   In `Plugin`, try going directly from `AxiomInstCo` and `SymCo AxiomInstCo` to `reprC` and `abstC`.
+*   Another idea about casts.
+    Maybe I can operate not on the coercions but on their domain and range types as yielded by `coercionKind`.
+    Then I wouldn't have to concoct sketchy coercions.
+    *   When domain and range agree, yield `id`.
+    *   If both are function types, use `(<~)` as now.
+    *   If the domain type has a `HasRep` instance, pre-compose `repr`, recursively "solving" for the other factor.
+    *   If the range type has a `HasRep` instance, post-compose `abst`, solving for other factor.
+I think this algorithm is the essence of what I'm doing now.
 *   In `LinearRow` and `LinearCol`, retry my old `scaleL` definition via `Keyed` and `Adjustable`, comparing for robustness and speed.
+*   `SPECIALIZE` vector space and linear map operations for some common functors, particularly `Par1`, e.g., `scaleL` as used for numeric primitives.
 *   In `Plugin`, factor out `return (mkCcc (Lam x ...))` (for lam) and maybe also `return (mkCcc ...)` (for top).
 *   Maybe switch from `INLINE` to `INLINABLE`.
 *   Now that I'm unfolding more effectively (even with value args), maybe I no longer need the `reveal` hack.
@@ -33,6 +48,7 @@
 
 # Done
 
+*   In `Plugin`, try going directly from `AxiomInstCo` and `SymCo AxiomInstCo` to `reprC` and `abstC`. Failed.
 *   Handle `newtype` better, and change some `data` uses back to `newtype`.
 *   Fix `transCatOp` in `Plugin` to fail gracefully if the target category doesn't inhabit the needed `Category` subclass.
     Fall back to unfolding.
