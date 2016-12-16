@@ -50,8 +50,9 @@
 
 {-# OPTIONS_GHC -ddump-rule-rewrites #-}
 
--- {-# OPTIONS_GHC -fsimpl-tick-factor=300 #-} -- default 100
--- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-} -- default 100
+-- Tweak simpl-tick-factor from default of 100
+-- {-# OPTIONS_GHC -fsimpl-tick-factor=300 #-}
+-- {-# OPTIONS_GHC -fsimpl-tick-factor=20  #-}
 
 -- When I list the plugin in the test suite's .cabal target instead of here, I get
 --
@@ -91,20 +92,36 @@ tests :: IO [Test]
 tests = return
   [ nopTest
 
+--   , test "linear-compose-r-r-r" (uncurry ((A..) :: LComp R R R))
+--   , test "linear-compose-r2-r-r" (uncurry ((A..) :: LComp R2 R R))
+--   , test "linear-compose-r-r2-r" (uncurry ((A..) :: LComp R R2 R))
+  , test "linear-compose-r2-r2-r2" (uncurry ((A..) :: LComp R2 R2 R2))
+
 --   , tst (Par1 @ Bool)
 --   , tst (Par1 . Par1 @ Bool)
 --   , tst (\ (x :: Bool) -> Par1 (Par1 x))
 --   , tst (\ () -> Par1 True)
 
+--   , tst (\ (Par1 b) -> b :: Bool)
+--   , tst (\ (Par1 (Par1 b)) -> b :: Bool)
+
+--   , tst ((\ (L w) -> w) :: LR R R -> (V R R :-* V R R) R)
+--   , tst ((\ (L (Par1 (Par1 s))) -> s) :: LR R R -> R)
+
 --   , test "id-r"          (id :: Unop R)
+
 --   , test "id-r2"         (id :: Unop R2)
 --   , test "id-r3"         (id :: Unop R3)
-  , test "id-r4"         (id :: Unop R4)
+--   , test "id-r4"         (id :: Unop R4)
 
---   , test "const-4"     (const 4 :: Unop R)
---   , test "const-34"     (const (3,4) :: () -> R2)
+--   , test "const-r-4"     (const 4 :: Unop R)
+--   , test "const-r-34"    (const (3,4) :: R -> R2)
+--   , test "const-r2-34"   (const (3,4) :: Unop R2)
 
+--   , test "x-plus-four" (\ x -> x + 4 :: R)
 --   , test "four-plus-x" (\ x -> 4 + x :: R)
+
+--   , test "sin"         (sin :: Unop R)
 --   , test "cos"         (cos :: Unop R)
 --   , test "square"      (\ x -> x * x :: R)
 --   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
@@ -125,9 +142,9 @@ tests = return
 
 --   , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
 
---   , test "addThree" addThree
---   , test "threep" three'
 --   , test "three" three
+--   , test "threep" three'
+--   , test "addThree" addThree
 
 --   , tst (fst @Bool @Int)
 
@@ -310,7 +327,7 @@ tst  :: Uncurriable (->) a b => (a -> b) -> Test
 {-# RULES "(->); uncurries; Syn" forall nm f.
    test nm f = mkTest nm (runSyn (ccc (uncurries (ccc f))))
  #-}
-#elif 0
+#elif 1
 -- syntactic *and* circuit
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst  :: GenBuses a => (a -> b) -> Test
@@ -386,7 +403,7 @@ tst  :: (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall nm f.
    test nm f = mkTest nm (runSyn (ccc (dfun (ccc f))))
  #-}
-#elif 1
+#elif 0
 -- (->), then derivative, then syntactic and circuit.
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst         :: GenBuses a =>           (a -> b) -> Test
@@ -690,7 +707,7 @@ double a = a + a
 {-# INLINE double #-}
 
 
-fooId :: L R R R
+fooId :: LR R R
 fooId = A.id
 
 
@@ -701,13 +718,17 @@ cosSin a = (cos a, sin a)
 type R = Float
 type R2 = R :* R
 
-{--------------------------------------------------------------------
-    More examples
---------------------------------------------------------------------}
+type LR = L R
 
 type R3 = (R,R,R)
 
 type R4 = (R2,R2)
+
+type LComp a b c = LR b c -> LR a b -> LR a c
+
+{--------------------------------------------------------------------
+    More examples
+--------------------------------------------------------------------}
 
 three :: R -> R3
 three x = (x, x*x, x*x*x)
@@ -723,7 +744,7 @@ three' x = (f 5, f 6)
 addThree :: R3 -> R
 addThree (a,b,c) = a+b+c
 
--- bar :: L R R R
+-- bar :: LR R R
 -- bar = ccc id
 
 -- bar :: Syn Bool (Par1 Bool)
