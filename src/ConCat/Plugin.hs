@@ -140,17 +140,6 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        , length args >= arity
        -> dtrace "top ruled var app" (text nm) $
           Nothing
-     Trying("top App")
-     e@(App u v)
-       | liftedExpr v
-       , Just v' <- mkConst' cat dom v
-       , Just uncU' <- mkUncurryMaybe cat (mkCcc u)
-       -> -- dtrace "go App v'" (pprWithType v') $
-          Doing("top App")
-          -- u v == uncurry u . (constFun v &&& id)
-          return (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))
-      where
-        Just (dom,_) = splitFunTy_maybe (exprType e)
      Trying("top Let")
      Let bind@(NonRec v rhs) body ->
        -- Experiment: always float.
@@ -219,6 +208,17 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        Doing("top unfold")
        -- dtrace "go unfold" (ppr e <+> text "-->" <+> ppr e')
        return (mkCcc e')
+     Trying("top App")
+     e@(App u v)
+       | liftedExpr v
+       , Just v' <- mkConst' cat dom v
+       , Just uncU' <- mkUncurryMaybe cat (mkCcc u)
+       -> -- dtrace "go App v'" (pprWithType v') $
+          Doing("top App")
+          -- u v == uncurry u . (constFun v &&& id)
+          return (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))
+      where
+        Just (dom,_) = splitFunTy_maybe (exprType e)
      Trying("top Wait for unfolding")
      (collectArgs -> (Var v,_)) | waitForVar ->
        Doing("top Wait for unfolding of " ++ fqVarName v)
@@ -284,37 +284,11 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
             mkLams binds $
              mkAbstC funCat (exprType body') `App` (meth reprV `App` body')
 #endif
-#if 1
-     Trying("lam App compose")
-     -- (\ x -> U V) --> U . (\ x -> V) if x not free in U
-     u `App` v | liftedExpr v
-               , not (x `isFreeIn` u)
-               -> Doing("lam App compose")
-                  return $ mkCompose cat (mkCcc u) (mkCcc (Lam x v))
-#endif
-     Trying("lam App")
-     -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
-     u `App` v | liftedExpr v
-               -- , dtrace "lam App mkApplyMaybe -->"
-               --     (ppr (mkApplyMaybe cat vty bty)) True
-               , Just app <- mkApplyMaybe cat vty bty ->
-       Doing("lam App")
-       return $ mkCompose cat
-                  app -- (mkApply cat vty bty)
-                  (mkFork cat (mkCcc (Lam x u)) (mkCcc (Lam x v)))
-      where
-        vty = exprType v
-     Trying("lam unfold")
-     (unfoldMaybe -> Just body') ->
-       Doing("lam unfold")
-       -- dtrace "lam unfold" (ppr body <+> text "-->" <+> ppr body')
-       return (mkCcc (Lam x body'))
-       -- goLam x body'
-       -- TODO: factor out Lam x (mkCcc ...)
      Trying("lam Let")
      -- TODO: refactor with top Let
      Let bind@(NonRec v rhs) body' ->
 #if 1
+       -- dtrace "lam Let subst criteria" (ppr (substFriendly rhs, not xInRhs, idOccs v body')) $
        if substFriendly rhs || not xInRhs || idOccs v body' <= 1 then
          -- TODO: decide whether to float or substitute.
          -- To float, x must not occur freely in rhs
@@ -408,6 +382,33 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        let re = recast co in
          dtrace "lam recaster" (ppr re) $
          return (mkCcc (Lam x (re `App` e)))
+#if 1
+     Trying("lam App compose")
+     -- (\ x -> U V) --> U . (\ x -> V) if x not free in U
+     u `App` v | liftedExpr v
+               , not (x `isFreeIn` u)
+               -> Doing("lam App compose")
+                  return $ mkCompose cat (mkCcc u) (mkCcc (Lam x v))
+#endif
+     Trying("lam unfold")
+     (unfoldMaybe -> Just body') ->
+       Doing("lam unfold")
+       -- dtrace "lam unfold" (ppr body <+> text "-->" <+> ppr body')
+       return (mkCcc (Lam x body'))
+       -- goLam x body'
+       -- TODO: factor out Lam x (mkCcc ...)
+     Trying("lam App")
+     -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
+     u `App` v | liftedExpr v
+               -- , dtrace "lam App mkApplyMaybe -->"
+               --     (ppr (mkApplyMaybe cat vty bty)) True
+               , Just app <- mkApplyMaybe cat vty bty ->
+       Doing("lam App")
+       return $ mkCompose cat
+                  app -- (mkApply cat vty bty)
+                  (mkFork cat (mkCcc (Lam x u)) (mkCcc (Lam x v)))
+      where
+        vty = exprType v
      -- Give up
      _e -> pprPanic "ccc" ("lam Unhandled" <+> ppr _e)
            -- pprTrace "goLam" ("Unhandled" <+> ppr _e) $ Nothing
@@ -445,46 +446,12 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    -- recast _ | pprTrace "recast setNominalRole_maybe failed" empty False = undefined
    recast (FunCo _r domCo ranCo) = -- pprTrace "recast FunCo" empty $
                                    mkPrePost (recast (mkSymCo domCo)) (recast ranCo)
-
-#if 0
-   recast co@(SymCo (AxiomInstCo _ _ [mkSymCo -> co'])) =
-     -- pprTrace "recast SymCo AxiomInstCo kinds" (ppr (coercionKind co, coercionKind co')) $
-     mkCompose funCat
-       (fromMaybe (error "mkAbstC' fail") $
-        mkAbstC' funCat (Pair (pSnd (coercionKind co')) (pSnd (coercionKind co))))
-       (recast co')
-     -- pprPanic "recast SymCo AxiomInstCo bail" empty
-     -- fromMaybe (error "mkAbstC' fail") $
-     -- mkAbstC' funCat (coercionKind co)
-
-   recast co@(AxiomInstCo _ _ [co']) =
-     -- pprTrace "recast AxiomInstCo kinds" (ppr (coercionKind co, coercionKind co')) $
-     mkCompose funCat
-       (recast co')
-       (fromMaybe (error "mkReprC' fail") $
-        mkReprC' funCat (Pair (pFst (coercionKind co)) (pFst (coercionKind co'))))
-   
-#elif 0
-   recast co@(       AxiomInstCo {} ) = fromMaybe (error "mkReprC' fail") $
-                                        mkReprC' funCat (coercionKind co)
-   recast co@(SymCo (AxiomInstCo {})) = fromMaybe (error "mkAbstC' fail") $
-                                        mkAbstC' funCat (coercionKind co)
-#elif 0
-   recast co
-     -- | pprTrace "recast tys" (ppr (dom,ran)) False = undefined
-     | Just a <- mkAbstC' funCat (Pair dom ran) = -- pprTrace "recast mkAbstC'" (ppr a) $
-                                                  a
-     | Just r <- mkReprC' funCat (Pair dom ran) = -- pprTrace "recast mkReprC'" (ppr r) $
-                                                  r
-   -- TODO: Try going directly from AxiomInstCo and SymCo AxiomInstCo to reprC
-   -- and abstC.
-
-#else
    recast co
      | Just r <- mkReprC' funCat coK = -- pprTrace ("recast via reprC'") (ppr r) $
                                        r
      | Just a <- mkAbstC' funCat coK = -- pprTrace ("recast via abstC'") (ppr a) $
                                        a
+     -- TODO: check for HasRep instances
      | AxiomInstCo {} <- co =
          -- co :: dom ~#R ran for a newtype instance dom and its representation ran.
          -- repCo :: Rep dom ~# ran
@@ -501,7 +468,6 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
       coK = coercionKind co
       Pair dom ran = coK
    -- recast _ | pprTrace "recast not abst/repr" empty False = undefined
-#endif
    -- TransCo must come after the abst (dom == Rep ran) and repr (ran == Rep
    -- dom) cases, since the AxiomInstCo (newtype) cases create transitive
    -- coercions having those shapes.
@@ -520,12 +486,16 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
 
    recast co = pprPanic ("recast: unhandled " ++ coercionTag co ++ " coercion:")
                  (ppr co {- <+> dcolon $$ ppr (coercionType co)-})
+   unfoldOkay :: CoreExpr -> Bool
+   unfoldOkay (exprHead -> Just v) = isNothing (catFun (Var v))
+   unfoldOkay _                    = False
    unfoldMaybe :: ReExpr
    -- unfoldMaybe e | dtrace "unfoldMaybe" (ppr (e,collectArgsPred isTyCoDictArg e)) False = undefined
-   unfoldMaybe e -- | (Var v, _) <- collectArgsPred isTyCoDictArg e
+   unfoldMaybe e | unfoldOkay e
+                 -- | (Var v, _) <- collectArgsPred isTyCoDictArg e
                  -- -- , dtrace "unfoldMaybe" (text (fqVarName v)) True
                  -- , isNothing (catFun (Var v))
-                 | True  -- experiment: don't restrict unfolding
+                 -- | True  -- experiment: don't restrict unfolding
                  = onExprHead ({- traceRewrite "inlineMaybe" -} inlineMaybe) e
                  | otherwise = Nothing
    -- unfoldMaybe = -- traceRewrite "unfoldMaybe" $
@@ -1357,6 +1327,12 @@ inlineClassOp v =
     ClassOpId cls -> mkDictSelRhs cls <$> elemIndex v (classAllSelIds cls)
     _             -> Nothing
 
+exprHead :: CoreExpr -> Maybe Id
+exprHead (Var v)     = Just v
+exprHead (App fun _) = exprHead fun
+exprHead (Cast e _)  = exprHead e
+exprHead _           = Nothing
+
 onExprHead :: (Id -> Maybe CoreExpr) -> ReExpr
 onExprHead h = (fmap.fmap) simpleOptExpr $
                go id
@@ -1447,15 +1423,18 @@ isMonoTy _                     = False
 idOccs :: Id -> CoreExpr -> Int
 idOccs x = go
  where
-   go (Var y)      | y == x = 1
+   -- go e | pprTrace "idOccs go" (ppr e) False = undefined
+   go (Var y)      | y == x = -- pprTrace "idOccs found" (ppr y) $
+                              1
    go (App u v)             = go u + go v
    go (Tick _ e)            = go e
    go (Cast e _)            = go e
    go (Lam y body) | y /= x = go body
    go (Case e _ _ alts)     = go e + sum (goAlt <$> alts)
    go _                     = 0
-   goAlt (_,ys,rhs) | x `notElem` ys = 0
-                    | otherwise      = go rhs
+   -- goAlt alt | pprTrace "idOccs goAlt" (ppr alt) False = undefined
+   goAlt (_,ys,rhs) | x `elem` ys = 0
+                    | otherwise   = go rhs
 
 -- GHC's isPredTy says "no" to unboxed tuples of pred types.
 isPredTy' :: Type -> Bool
