@@ -416,7 +416,15 @@ ccc _ = error "ccc: not implemented"
 
 -- "const a &&& const b" forall a b . const a &&& const b = const (a,b)
 
+-- -- Leads to a loop involving foo2. To investigate.
+-- "uncurry id" uncurry id = apply
+
+-- "curry apply" curry apply = id
+
 "ccc P.curry" forall f. ccc (P.curry f) = ccc (curry f)
 "ccc P.uncurry" forall f. ccc (P.uncurry f) = ccc (uncurry f)
+
+"abstC . reprC" abstC . reprC = id
+"reprC . abstC" reprC . abstC = id
 
  #-}
