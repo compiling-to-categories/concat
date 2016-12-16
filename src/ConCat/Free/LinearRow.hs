@@ -42,7 +42,7 @@ import ConCat.AltCat hiding (const)
 import ConCat.Rep
 import ConCat.Free.Diagonal
 
-import ConCat.Float
+-- import ConCat.Float
 
 -- TODO: generalize from Num to Semiring
 
@@ -305,6 +305,8 @@ lmap _ = error "lmap called"
    Some specializations 
 --------------------------------------------------------------------}
 
+#if 0
+
 type One = Par1
 type Two = One :*: One
 
@@ -324,7 +326,9 @@ type Two = One :*: One
 {-# SPECIALIZE (@.) ::
   (Two :-* One) Float -> (One :-* Two) Float -> (One :-* One) Float #-}
 
-type LR = L Float Float Float
+type LRRR = L Float Float Float
 
 -- Becomes timesFloat (and casts)
-{-# SPECIALIZE (.) :: LR -> LR -> LR #-}
+{-# SPECIALIZE (.) :: LRRR -> LRRR -> LRRR #-}
+
+#endif
