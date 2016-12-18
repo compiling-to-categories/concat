@@ -172,9 +172,9 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      Cast e co@(setNominalRole_maybe -> Just (reCatCo -> Just co')) ->
        -- etaExpand turns cast lambdas into themselves
        Doing("top nominal cast")
-       -- dtrace "reCatCo" (ppr co <+> text "-->" <+> ppr (reCatCo co)) $
-       return (Cast (mkCcc e) 
-               (downgradeRole (coercionRole co) (coercionRole co') co'))
+       let co'' = downgradeRole (coercionRole co) (coercionRole co') co' in
+         -- pprTrace "top nominal Cast" (ppr co $$ text "-->" $$ ppr co'') $
+         return (Cast (mkCcc e) co'')
        -- I think GHC is undoing this transformation, so continue eagerly
        -- (`Cast` co') <$> go e
 #endif
@@ -861,6 +861,7 @@ catOpArities = M.fromList $ map (\ (nm,m,n) -> (catModule ++ '.' : nm, (m,n))) $
   , ("ifC",0,0)
   , ("unknownC",0,0)
   , ("reprC",0,0), ("abstC",0,0)
+  , ("reprC'",0,0), ("abstC'",0,0)
   , ("constFun",1,0)
   ]
 
