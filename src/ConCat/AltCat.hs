@@ -198,11 +198,11 @@ Op0(abstC,(RepCat k, HasRep a) => Rep a `k` a)
 
 reprC' :: forall k a r. (RepCat k, HasRep a, Rep a ~ r) => a `k` r
 reprC' = reprC
-{-# INLINE reprC' #-}
+{-# OPINLINE reprC' #-}
 
 abstC' :: forall k r a. (RepCat k, HasRep a, Rep a ~ r) => r `k` a
 abstC' = abstC
-{-# INLINE abstC' #-}
+{-# OPINLINE abstC' #-}
 
 -- Unnecessary but helpful to track NOINLINE choice
 -- Op(constFun,forall k p a b. (ClosedCat k, Ok3 k p a b) => (a `k` b) -> (p `k` Exp k a b))
@@ -426,5 +426,8 @@ ccc _ = error "ccc: not implemented"
 
 "abstC . reprC" abstC . reprC = id
 "reprC . abstC" reprC . abstC = id
+
+"abstC' . reprC'" abstC' . reprC' = id
+"reprC' . abstC'" reprC' . abstC' = id
 
  #-}
