@@ -336,10 +336,9 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
         sub = [(x,mkEx funCat exlV (Var z)),(y,mkEx funCat exrV (Var z))]
         -- TODO: consider using fst & snd instead of exl and exr here
      Trying("lam boxI")
-     -- Experimenting
-     (outerIntCon -> Just (e',rewrap)) ->
+     (outerIntCon -> Just e') ->
        Doing("lam boxI")
-       return (mkCcc (Lam x (rewrap (Var boxIV `App` e'))))
+       return (mkCcc (Lam x e'))
      Trying("lam Case of Int")
      Case scrut wild _ty [(_dc,[unboxedV],rhs)] | varType wild `eqType` intTy ->
        Doing("lam Case of Int")
@@ -440,6 +439,17 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
       xty = varType x
       bty = exprType body
       isConst = not (x `isFreeIn` body)
+      outerIntCon :: ReExpr
+      outerIntCon = fmap (\ (e',rewrap) -> rewrap (Var boxIV `App` e')) . goI
+       where
+         -- Unwrap I# e' through case expressions, yielding e' and the case rewrapper.
+         goI :: CoreExpr -> Maybe (CoreExpr,Unop CoreExpr)
+         goI e@(App (Var con) e') | isDataConWorkId con && isIntTy (exprType e) =
+           Just (e',id)
+         goI (Case scrut wild ty [(con,bs,rhs)]) =
+           (fmap.second) ((\ rhs' -> Case scrut wild ty [(con,bs,rhs')]) .) (goI rhs)
+         goI _ = Nothing
+
    hrMeth :: Type -> Maybe (Id -> CoreExpr)
    hrMeth ty = -- dtrace "hasRepMeth:" (ppr ty) $
                hasRepMeth dflags guts inScope ty
@@ -811,14 +821,6 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
       pseudoAnns :: Id -> [PseudoFun]
       pseudoAnns = findAnns deserializeWithData annotations . NamedTarget . varName
 #endif
-
--- Unwrap I# e' through case expressions, yielding e' and the case rewrapper.
-outerIntCon :: CoreExpr -> Maybe (CoreExpr,Unop CoreExpr)
-outerIntCon e@(App (Var con) e') | isDataConWorkId con && isIntTy (exprType e) =
-  Just (e',id)
-outerIntCon (Case scrut wild ty [(con,bs,rhs)]) =
-  (fmap.second) ((\ rhs' -> Case scrut wild ty [(con,bs,rhs')]) .) (outerIntCon rhs)
-outerIntCon _ = Nothing
 
 substFriendly :: CoreExpr -> Bool
 substFriendly rhs =
