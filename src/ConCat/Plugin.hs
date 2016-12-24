@@ -440,32 +440,6 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
       xty = varType x
       bty = exprType body
       isConst = not (x `isFreeIn` body)
-#if 0
-   -- Transform in the context of mappings from unboxed to boxed
-   intCase :: Map Id Id -> ReExpr
-   
-   intCase _ e | dtrace "intCase" (ppr e) False = undefined
-   intCase vs (Case scrut wild _ty [(_dc,[unboxedV],rhs)])
-     | varType wild `eqType` intTy
-     , Just rhs' <- intCase (Map.insert unboxedV wild' vs) rhs
-     = dtrace "intCase add variable" (ppr wild' <+> "-->" <+> ppr unboxedV) $
-       return (Let (NonRec wild' scrut) rhs')
-     where
-       wild' = setIdOccInfo wild NoOccInfo
-   -- I# e'
-   intCase vs e@(App vc@(Var con) e') | isDataConId con && isIntTy (exprType e) =
-     case e' of
-       Var v -> dtrace "intCase var" (text "-->" <+> ppr (Map.lookup v vs)) $
-                return (Var (fromMaybe v (Map.lookup v vs)))
-       (collectArgs -> (Var f,args)) | ...
-         -- HERE: rebox f, wrapping I# around args.
-         
-   intCase vs (App u v) = liftA2 App (intCase vs u) (intCase vs v)
-   -- Let, etc
-   intCase e = return e
-   -- Does intCase ever fail?
-   intCase _ e = return e
-#endif
    hrMeth :: Type -> Maybe (Id -> CoreExpr)
    hrMeth ty = -- dtrace "hasRepMeth:" (ppr ty) $
                hasRepMeth dflags guts inScope ty
