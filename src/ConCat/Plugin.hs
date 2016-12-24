@@ -17,7 +17,7 @@
 
 module ConCat.Plugin where
 
-import Control.Arrow (first)
+import Control.Arrow (first,(***))
 import Control.Applicative (liftA2,(<|>))
 import Control.Monad (unless,guard)
 import Data.Foldable (toList)
@@ -334,6 +334,13 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
         zName = uqVarName x ++ "_" ++ uqVarName y
         sub = [(x,mkEx funCat exlV (Var z)),(y,mkEx funCat exrV (Var z))]
         -- TODO: consider using fst & snd instead of exl and exr here
+#if 0
+     Trying("lam Case of Int")
+     -- Experimenting
+     e@(Case _ wild _ _) | varType wild `eqType` intTy ->
+       Doing("lam Case of Int")
+       intCase mempty id e
+#endif
      Trying("lam Case default")
      Case _scrut (isDeadBinder -> True) _rhsTy [(DEFAULT,[],rhs)] ->
        Doing("lam case-default")
@@ -343,6 +350,11 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        Doing("lam Case nullary")
        return (mkCcc (Lam x rhs))
        -- TODO: abstract return (mkCcc (Lam x ...))
+     Trying("lam Case to let")
+     Case scrut v@(isDeadBinder -> False) _rhsTy [(_, bs, rhs)]
+       | isEmptyVarSet (mkVarSet bs `intersectVarSet` exprFreeVars rhs) ->
+       Doing("lam Case to let")
+       return (mkCcc (Lam x (Let (NonRec v scrut) rhs)))
      Trying("lam Case of product")
      e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
          | isBoxedTupleTyCon (dataConTyCon dc) ->
@@ -416,6 +428,17 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
       xty = varType x
       bty = exprType body
       isConst = not (x `isFreeIn` body)
+#if 0
+   intCase :: Set Id -> Unop CoreExpr -> ReExpr
+   intCase _ _ e | dtrace "intCase" (ppr e) False = undefined
+   intCase vs k (Case scrut wild@(isDeadBinder -> True) _ty [(dc,[unboxedV],rhs)])
+     | varType wild `eqType` intTy
+     = intCase (Set.insert unboxedV vs) (k . (\ rhs' -> Case scrut wild (exprType rhs') [(dc,[unboxedV],rhs')])) rhs
+   intCase vs k (App u v) = liftA2 App (intCase vs k u) (intCase vs k v)
+   intCase vs k e@(Var _) = dtrace "intCase" (text "-->" <+> ppr (k e)) $
+                            return (k e)
+   intCase _ _ e = return e
+#endif
    hrMeth :: Type -> Maybe (Id -> CoreExpr)
    hrMeth ty = -- dtrace "hasRepMeth:" (ppr ty) $
                hasRepMeth dflags guts inScope ty
@@ -923,12 +946,18 @@ install opts todos =
               --         | otherwise = is
               --  where
               --    is = isBuiltinRule r && ru_name r == cccRuleName
-          -- pprTrace "ccc install todos:" (ppr todos) (return ())
-          return $   CoreDoPluginPass "Ccc insert rule" addRule
-                   : CoreDoSimplify 7 mode
-                   : CoreDoPluginPass "Ccc remove rule" delRule
-                   : todos
-                   ++ [CoreDoPluginPass "Flag remaining ccc calls" (flagCcc env)]
+              (pre,post) = (todos,[])
+                           -- ([],todos)
+                           -- splitAt 6 todos  -- guess
+                           -- (swap . (reverse *** reverse) . splitAt 1 . reverse) todos
+              ours = [ CoreDoPluginPass "Ccc insert rule" addRule
+                     , CoreDoSimplify 7 mode
+                     , CoreDoPluginPass "Ccc remove rule" delRule
+                     , CoreDoPluginPass "Flag remaining ccc calls" (flagCcc env)
+                     ]
+          pprTrace "ccc pre-install todos:" (ppr todos) (return ())
+          pprTrace "ccc post-install todos:" (ppr (pre ++ ours ++ post)) (return ())
+          return $ pre ++ ours ++ post
  where
    flagCcc :: CccEnv -> PluginPass
    flagCcc (CccEnv {..}) guts
@@ -950,7 +979,7 @@ install opts todos =
       collectQ f = everything mappend (mkQ mempty f)
    -- Extra simplifier pass
    mode = SimplMode { sm_names      = ["Ccc simplifier pass"]
-                    , sm_phase      = InitialPhase
+                    , sm_phase      = Phase 1
                     , sm_rules      = True  -- important
                     , sm_inline     = True -- False -- ??
                     , sm_eta_expand = False -- ??
@@ -1122,8 +1151,10 @@ monoInfo (floatT,doubleT) =
      , ("greaterThan", compOps "gt" ">")
      , ("lessThanOrEqual", compOps "le" "<=")
      , ("greaterThanOrEqual", compOps "ge" ">=")
+#if 0
      , ("negateC",numOps "negate"), ("addC",numOps "+")
      , ("subC",numOps "-"), ("mulC",numOps "*")
+#endif
        -- powIC
      , ("recipC", fracOp "recip" <$> fd)
      , ("divideC", fracOp "/" <$> fd)
@@ -1154,6 +1185,7 @@ monoInfo (floatT,doubleT) =
             clsOp | isIntTy ty = opI ++ tyName
                   | otherwise  = "$fOrd" ++ tyName ++ "_$c" ++ opFD
             tyName = pp ty
+#if 0
       numOps op = numOp <$> ifd
        where
          numOp ty = (modu++".$fNum"++tyName++"_$c"++op,[ty])
@@ -1161,6 +1193,7 @@ monoInfo (floatT,doubleT) =
             tyName = pp ty
             modu | isIntTy ty = "GHC.Num"
                  | otherwise  = floatModule
+#endif
       fdOp cls op ty = (floatModule++".$f"++cls++pp ty++"_$c"++op,[ty])
       fracOp = fdOp "Fractional"
       floatingOp = fdOp "Floating"
