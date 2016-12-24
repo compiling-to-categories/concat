@@ -23,16 +23,13 @@ module ConCat.AltCat
   , module C)
   where
 
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
-{-# OPTIONS_GHC -Wall #-}
--- {-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
-
 import Prelude hiding (id,(.),curry,uncurry,const,Float,Double)
 import qualified Prelude as P
 import qualified Data.Tuple as P
--- import qualified Control.Category as A
--- import qualified Control.Arrow as A
+import qualified ConCat.Category as C
+import ConCat.Rep
+import ConCat.Misc ((:*),(:+),PseudoFun(..))
+import ConCat.Float
 
 import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5
@@ -51,11 +48,6 @@ import ConCat.Category
   , OpCon(..),FunctorC(..),Sat(..)
   )
 
-import qualified ConCat.Category as C
-import ConCat.Rep
-import ConCat.Misc ((:*),(:+),PseudoFun(..))
-import ConCat.Float
-
 -- | Dummy identity function set up to trigger rewriting of non-inlining
 -- operations to inling operations.
 reveal :: a -> a
@@ -67,9 +59,9 @@ reveal _f = error "reveal called"
 {-# RULES "reveal = id" [0] reveal = id #-}
 {-# ANN reveal PseudoFun #-}
 
-#define OPINLINE INLINE [3]
+-- #define OPINLINE INLINE [3]
 -- #define OPINLINE INLINE CONLIKE [3]
--- #define OPINLINE NOINLINE
+#define OPINLINE NOINLINE
 
 #define Op(nm,ty) \
 {- | C.nm without the eager inlining -}; \
@@ -161,21 +153,6 @@ Op0(andC,BoolCat k => Prod k (BoolOf k) (BoolOf k) `k` BoolOf k)
 Op0(orC,BoolCat k => Prod k (BoolOf k) (BoolOf k) `k` BoolOf k)
 Op0(xorC,BoolCat k => Prod k (BoolOf k) (BoolOf k) `k` BoolOf k)
 
-Op0(negateC,NumCat k a => a `k` a)
-Op0(addC,NumCat k a => Prod k a a `k` a)
-Op0(subC,NumCat k a => Prod k a a `k` a)
-Op0(mulC,NumCat k a => Prod k a a `k` a)
-Op0(powIC,NumCat k a => Prod k a Int `k` a)
-
-Op0(recipC,FractionalCat k a => a `k` a)
-Op0(divideC,FractionalCat k a => Prod k a a `k` a)
-
-Op0(expC,FloatingCat k a => a `k` a)
-Op0(cosC,FloatingCat k a => a `k` a)
-Op0(sinC,FloatingCat k a => a `k` a)
-
-Op0(fromIntegralC,FromIntegralCat k a b => a `k` b)
-
 Op0(equal,EqCat k a => Prod k a a `k` BoolOf k)
 Op0(notEqual,EqCat k a => Prod k a a `k` BoolOf k)
 
@@ -203,6 +180,25 @@ reprC' = reprC
 abstC' :: forall k r a. (RepCat k, HasRep a, Rep a ~ r) => r `k` a
 abstC' = abstC
 {-# OPINLINE abstC' #-}
+
+-- -- Hack to prevent inlining/rewrite loop for reboxing.
+-- #undef OPINLINE
+-- #define OPINLINE NOINLINE
+
+Op0(negateC,NumCat k a => a `k` a)
+Op0(addC,NumCat k a => Prod k a a `k` a)
+Op0(subC,NumCat k a => Prod k a a `k` a)
+Op0(mulC,NumCat k a => Prod k a a `k` a)
+Op0(powIC,NumCat k a => Prod k a Int `k` a)
+
+Op0(recipC,FractionalCat k a => a `k` a)
+Op0(divideC,FractionalCat k a => Prod k a a `k` a)
+
+Op0(expC,FloatingCat k a => a `k` a)
+Op0(cosC,FloatingCat k a => a `k` a)
+Op0(sinC,FloatingCat k a => a `k` a)
+
+Op0(fromIntegralC,FromIntegralCat k a b => a `k` b)
 
 -- Unnecessary but helpful to track NOINLINE choice
 -- Op(constFun,forall k p a b. (ClosedCat k, Ok3 k p a b) => (a `k` b) -> (p `k` Exp k a b))
