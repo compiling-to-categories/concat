@@ -17,7 +17,7 @@
 
 module ConCat.Plugin where
 
-import Control.Arrow (first,(***))
+import Control.Arrow (first,second,(***))
 import Control.Applicative (liftA2,(<|>))
 import Control.Monad (unless,guard)
 import Data.Foldable (toList)
@@ -25,13 +25,13 @@ import Data.Maybe (isNothing,isJust,fromMaybe,catMaybes)
 import Data.List (isPrefixOf,isSuffixOf,elemIndex,sort)
 import Data.Char (toLower)
 import Data.Data (Data)
-import Data.Generics (GenericQ,mkQ,everything)
+import Data.Generics (GenericQ,mkQ,everything,mkT,everywhere')
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Map (Map)
-import qualified Data.Map as M
+import qualified Data.Map as Map
 import Text.Printf (printf)
 
 import GhcPlugins hiding (substTy,cat)
@@ -76,6 +76,7 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , hasRepMeth       :: HasRepMeth
                      -- , hasRepFromAbstCo :: Coercion   -> CoreExpr
                      , prePostV         :: Id
+                     , boxIV            :: Id
                   -- , inlineV          :: Id
                      , polyOps          :: PolyOpsMap
                      , monoOps          :: MonoOpsMap
@@ -136,7 +137,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        Nothing
      Trying("top ruled var app")
      (collectArgs -> (Var (fqVarName -> nm),args))
-       | Just arity <- M.lookup nm cccRuledArities
+       | Just arity <- Map.lookup nm cccRuledArities
        , length args >= arity
        -> dtrace "top ruled var app" (text nm) $
           Nothing
@@ -334,13 +335,24 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
         zName = uqVarName x ++ "_" ++ uqVarName y
         sub = [(x,mkEx funCat exlV (Var z)),(y,mkEx funCat exrV (Var z))]
         -- TODO: consider using fst & snd instead of exl and exr here
-#if 0
-     Trying("lam Case of Int")
+     Trying("lam boxI")
      -- Experimenting
-     e@(Case _ wild _ _) | varType wild `eqType` intTy ->
+     (outerIntCon -> Just (e',rewrap)) ->
+       Doing("lam boxI")
+       return (mkCcc (Lam x (rewrap (Var boxIV `App` e'))))
+     Trying("lam Case of Int")
+     Case scrut wild _ty [(_dc,[unboxedV],rhs)] | varType wild `eqType` intTy ->
        Doing("lam Case of Int")
-       intCase mempty id e
-#endif
+       let wild' = setIdOccInfo wild NoOccInfo
+           tweak :: Unop CoreExpr
+           tweak (Var v) | v == unboxedV =
+             pprPanic "lam Case of Int. bare unboxed var" (ppr unboxedV)
+           tweak (App (Var f) (Var v)) | f == boxIV, v == unboxedV = Var wild'
+           tweak e' = e'
+       in
+         -- Note top-down (everywhere') instead of bottom-up (everywhere)
+         -- so that we can find 'boxI v' before v.
+         return (mkCcc (Lam x (Let (NonRec wild' scrut) (everywhere' (mkT tweak) rhs))))
      Trying("lam Case default")
      Case _scrut (isDeadBinder -> True) _rhsTy [(DEFAULT,[],rhs)] ->
        Doing("lam case-default")
@@ -429,15 +441,30 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
       bty = exprType body
       isConst = not (x `isFreeIn` body)
 #if 0
-   intCase :: Set Id -> Unop CoreExpr -> ReExpr
-   intCase _ _ e | dtrace "intCase" (ppr e) False = undefined
-   intCase vs k (Case scrut wild@(isDeadBinder -> True) _ty [(dc,[unboxedV],rhs)])
+   -- Transform in the context of mappings from unboxed to boxed
+   intCase :: Map Id Id -> ReExpr
+   
+   intCase _ e | dtrace "intCase" (ppr e) False = undefined
+   intCase vs (Case scrut wild _ty [(_dc,[unboxedV],rhs)])
      | varType wild `eqType` intTy
-     = intCase (Set.insert unboxedV vs) (k . (\ rhs' -> Case scrut wild (exprType rhs') [(dc,[unboxedV],rhs')])) rhs
-   intCase vs k (App u v) = liftA2 App (intCase vs k u) (intCase vs k v)
-   intCase vs k e@(Var _) = dtrace "intCase" (text "-->" <+> ppr (k e)) $
-                            return (k e)
-   intCase _ _ e = return e
+     , Just rhs' <- intCase (Map.insert unboxedV wild' vs) rhs
+     = dtrace "intCase add variable" (ppr wild' <+> "-->" <+> ppr unboxedV) $
+       return (Let (NonRec wild' scrut) rhs')
+     where
+       wild' = setIdOccInfo wild NoOccInfo
+   -- I# e'
+   intCase vs e@(App vc@(Var con) e') | isDataConId con && isIntTy (exprType e) =
+     case e' of
+       Var v -> dtrace "intCase var" (text "-->" <+> ppr (Map.lookup v vs)) $
+                return (Var (fromMaybe v (Map.lookup v vs)))
+       (collectArgs -> (Var f,args)) | ...
+         -- HERE: rebox f, wrapping I# around args.
+         
+   intCase vs (App u v) = liftA2 App (intCase vs u) (intCase vs v)
+   -- Let, etc
+   intCase e = return e
+   -- Does intCase ever fail?
+   intCase _ e = return e
 #endif
    hrMeth :: Type -> Maybe (Id -> CoreExpr)
    hrMeth ty = -- dtrace "hasRepMeth:" (ppr ty) $
@@ -747,7 +774,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
           (lintExpr dflags (varSetElems (exprFreeVars after)) after)
    catFun :: ReExpr
    -- catFun e | dtrace "catFun" (pprWithType e) False = undefined
-   catFun (Var v) | Just (op,tys) <- M.lookup fullName monoOps =
+   catFun (Var v) | Just (op,tys) <- Map.lookup fullName monoOps =
      -- Apply to types and dictionaries, and possibly curry.
      return $ (if twoArgs ty then mkCurry cat else id) (catOp cat op tys)
     where
@@ -757,7 +784,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
       twoArgs _ = False
    catFun (collectTyArgs -> (Var v, tys))
      | True || dtrace "catFun poly" (text (fqVarName v) <+> dcolon <+> ppr (varType v)) True
-     , Just op <- M.lookup (fqVarName v) polyOps
+     , Just op <- Map.lookup (fqVarName v) polyOps
      = -- dtrace "catFun poly" (ppr (v,tys,op) <+> text "-->" <+> ppr (onDictMaybe (catOp cat op tys))) $
        return (onDict (catOp cat op tys))
    -- TODO: handle Prelude.const. Or let it inline.
@@ -766,7 +793,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    -- transCatOp e | dtrace "transCatOp" (ppr e) False = undefined
    transCatOp (collectArgs -> (Var v, Type _wasCat : rest))
      | True || dtrace "transCatOp v _wasCat rest" (text (fqVarName v) <+> ppr _wasCat <+> ppr rest) True
-     , Just (catArgs,nonCatArgs) <- M.lookup (fqVarName v) catOpArities
+     , Just (catArgs,nonCatArgs) <- Map.lookup (fqVarName v) catOpArities
      -- , dtrace "transCatOp arities" (ppr (catArgs,nonCatArgs)) True
      , length (filter (not . isTyCoDictArg) rest) == catArgs + nonCatArgs
      -- , dtrace "transCatOp" (text "arity match") True
@@ -811,6 +838,14 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
       pseudoAnns = findAnns deserializeWithData annotations . NamedTarget . varName
 #endif
 
+-- Unwrap I# e' through case expressions, yielding e' and the case rewrapper.
+outerIntCon :: CoreExpr -> Maybe (CoreExpr,Unop CoreExpr)
+outerIntCon e@(App (Var con) e') | isDataConWorkId con && isIntTy (exprType e) =
+  Just (e',id)
+outerIntCon (Case scrut wild ty [(con,bs,rhs)]) =
+  (fmap.second) ((\ rhs' -> Case scrut wild ty [(con,bs,rhs')]) .) (outerIntCon rhs)
+outerIntCon _ = Nothing
+
 substFriendly :: CoreExpr -> Bool
 substFriendly rhs =
      not (liftedExpr rhs)
@@ -843,7 +878,7 @@ incompleteCatOp :: CoreExpr -> Bool
 -- incompleteCatOp e | dtrace "incompleteCatOp" (ppr e) False = undefined
 incompleteCatOp (collectArgs -> (Var v, Type _wasCat : rest))
   | True || pprTrace "incompleteCatOp v _wasCat rest" (text (fqVarName v) <+> ppr _wasCat <+> ppr rest) True
-  , Just (catArgs,_) <- M.lookup (fqVarName v) catOpArities
+  , Just (catArgs,_) <- Map.lookup (fqVarName v) catOpArities
   , let seen = length (filter (not . isTyCoDictArg) rest)
   -- , dtrace "incompleteCatOp catArgs" (ppr seen <+> text "vs" <+> ppr catArgs) True
   = seen < catArgs
@@ -862,9 +897,12 @@ catModule = "ConCat.AltCat"
 repModule :: String
 repModule = "ConCat.Rep"
 
+boxModule :: String
+boxModule = "ConCat.Rebox"
+
 -- For each categorical operation, how many non-cat args (first) and how many cat args (last)
 catOpArities :: Map String (Int,Int)
-catOpArities = M.fromList $ map (\ (nm,m,n) -> (catModule ++ '.' : nm, (m,n))) $
+catOpArities = Map.fromList $ map (\ (nm,m,n) -> (catModule ++ '.' : nm, (m,n))) $
   [ ("id",0,0), (".",2,0)
   , ("exl",0,0), ("exr",0,0), ("&&&",2,0), ("***",2,0), ("dup",0,0), ("swapP",0,0)
   , ("first",1,0), ("second",1,0), ("lassocP",0,0), ("rassocP",0,0)
@@ -946,17 +984,17 @@ install opts todos =
               --         | otherwise = is
               --  where
               --    is = isBuiltinRule r && ru_name r == cccRuleName
-              (pre,post) = (todos,[])
+              (pre,post) = -- (todos,[])
                            -- ([],todos)
-                           -- splitAt 6 todos  -- guess
+                           splitAt 5 todos  -- guess
                            -- (swap . (reverse *** reverse) . splitAt 1 . reverse) todos
               ours = [ CoreDoPluginPass "Ccc insert rule" addRule
                      , CoreDoSimplify 7 mode
                      , CoreDoPluginPass "Ccc remove rule" delRule
                      , CoreDoPluginPass "Flag remaining ccc calls" (flagCcc env)
                      ]
-          pprTrace "ccc pre-install todos:" (ppr todos) (return ())
-          pprTrace "ccc post-install todos:" (ppr (pre ++ ours ++ post)) (return ())
+          -- pprTrace "ccc pre-install todos:" (ppr todos) (return ())
+          -- pprTrace "ccc post-install todos:" (ppr (pre ++ ours ++ post)) (return ())
           return $ pre ++ ours ++ post
  where
    flagCcc :: CccEnv -> PluginPass
@@ -1008,6 +1046,7 @@ mkCccEnv opts = do
       findCatId   = findId catModule
       findRepTc   = findTc repModule
       findRepId   = findId repModule
+      findBoxId   = findId boxModule
   idV        <- findCatId "id"
   constV     <- findCatId "const"
   composeV   <- findCatId "."
@@ -1031,17 +1070,18 @@ mkCccEnv opts = do
   repTc      <- findRepTc "Rep"
   hasRepMeth <- hasRepMethodM tracing hasRepTc repTc idV
   prePostV   <- findId "ConCat.Misc" "~>"
+  boxIV      <- findBoxId "boxI"
   -- inlineV   <- findId "GHC.Exts" "inline"
   let mkPolyOp :: (String,(String,String)) -> CoreM (String,Var)
       mkPolyOp (stdName,(cmod,cop)) =
         do cv <- findId cmod cop
            return (stdName, cv)
-  polyOps <- M.fromList <$> mapM mkPolyOp polyInfo
+  polyOps <- Map.fromList <$> mapM mkPolyOp polyInfo
   let mkMonoOp :: (String,(String,String,[Type])) -> CoreM (String,(Var,[Type]))
       mkMonoOp (stdName,(cmod,cop,tyArgs)) =
         do cv <- findId cmod cop
            return (stdName, (cv,tyArgs))
-  monoOps <- M.fromList <$> mapM mkMonoOp (monoInfo (floatT,doubleT))
+  monoOps <- Map.fromList <$> mapM mkMonoOp (monoInfo (floatT,doubleT))
   ruleBase <- eps_rule_base <$> (liftIO $ hscEPS hsc_env)
   -- pprTrace "ruleBase" (ppr ruleBase) (return ())
 #if 0
@@ -1125,7 +1165,7 @@ polyInfo = [(hmod++"."++hop,(catModule,cop)) | (hmod,ops) <- info, (hop,cop) <- 
 -- Variables that have associated ccc rewrite rules in AltCat. If we have
 -- sufficient arity for the rule, including types, give it a chance to kick in.
 cccRuledArities :: Map String Int
-cccRuledArities = M.fromList
+cccRuledArities = Map.fromList
   [("Data.Tuple.curry",4),("Data.Tuple.uncurry",4)]
 
 
