@@ -59,9 +59,9 @@ reveal _f = error "reveal called"
 {-# RULES "reveal = id" [0] reveal = id #-}
 {-# ANN reveal PseudoFun #-}
 
--- #define OPINLINE INLINE [3]
+#define OPINLINE INLINE [0]
 -- #define OPINLINE INLINE CONLIKE [3]
-#define OPINLINE NOINLINE
+-- #define OPINLINE NOINLINE
 
 #define Op(nm,ty) \
 {- | C.nm without the eager inlining -}; \
