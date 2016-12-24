@@ -1,10 +1,5 @@
 # To do
 
-*   Experiment with running the plugin much later.
-    Try second to last.
-    Use `newtype`-wrapped `Int` as well as `Float` and `Double`, scheduled to inline just after the plugin, i.e., phase 0.
-    Hm.
-    Given the `deriving` specification, *can* I delay inlining?
 *   Rewrite rule loop involving "`foo2`" and "`uncurry id`" in `AltCat`.
 *   In `recast`, when handing `AxiomInstCo` and `Sym` variant, Check for HasRep instances.
 *   In `Syn`, use the pretty-printing class.
@@ -48,6 +43,15 @@ I think this algorithm is the essence of what I'm doing now.
 
 # Done
 
+*   Undo the `NOINLINE` hack for numeric category operations, which is there for reboxing.
+*   Find a way to localize the reboxing transformations (performing them only under `ccc`), so that they don't cause general slow-down.
+    Then restore late inlining to `AltCat` ops.
+*   Move my transformations earlier, before stage zero, and make `AltCat` operations inline at stage zero.
+*   Experiment with running the plugin much later.
+    Try second to last.
+    Use `newtype`-wrapped `Int` as well as `Float` and `Double`, scheduled to inline just after the plugin, i.e., phase 0.
+    Hm.
+    Given the `deriving` specification, *can* I delay inlining?
 *   In `Plugin`, try going directly from `AxiomInstCo` and `SymCo AxiomInstCo` to `reprC` and `abstC`. Failed.
 *   Handle `newtype` better, and change some `data` uses back to `newtype`.
 *   Fix `transCatOp` in `Plugin` to fail gracefully if the target category doesn't inhabit the needed `Category` subclass.
