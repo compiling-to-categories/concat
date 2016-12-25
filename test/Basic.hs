@@ -20,6 +20,7 @@
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 {-# OPTIONS_GHC -Wno-unused-binds   #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
+
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Basic
@@ -34,12 +35,12 @@
 
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin -fexpose-all-unfoldings #-}
 {-# OPTIONS_GHC -dcore-lint #-}
--- {-# OPTIONS_GHC -funfolding-keeness-factor=5 #-} -- Try. Defaults to 1.5
+{-# OPTIONS_GHC -funfolding-keeness-factor=5 #-} -- Try. Defaults to 1.5
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
@@ -47,6 +48,8 @@
 -- {-# OPTIONS_GHC -dsuppress-coercions #-}
 
 -- {-# OPTIONS_GHC -ddump-simpl #-}
+
+-- {-# OPTIONS_GHC -dshow-passes #-}
 
 {-# OPTIONS_GHC -ddump-rule-rewrites #-}
 
@@ -79,9 +82,9 @@ import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay,(:>))
-
 import ConCat.AltCat (ccc,reveal,Uncurriable(..),(:**:)(..))
 import qualified ConCat.AltCat as A
+import ConCat.Rebox () -- experiment
 
 -- -- Experiment: try to force loading of Num Float etc
 -- class Num a => Quuz a
@@ -92,10 +95,22 @@ tests :: IO [Test]
 tests = return
   [ nopTest
 
+--   , tst (\ x _y -> negate x :: Int)
+
+--   , tst (\ x -> 3 * x + x :: Int)
+
+--   , tst (\ (x,y) -> 3 * x + y + 7 :: Float)
+
+  , tst (\ x -> x * 3 :: Int)
+
+--   , tst (\ () -> (3,4) :: Double :* Float)
+
+--   , tst (\ (x,y) -> 3 * x + y + 7 :: Float)
+
 --   , test "linear-compose-r-r-r" (uncurry ((A..) :: LComp R R R))
 --   , test "linear-compose-r2-r-r" (uncurry ((A..) :: LComp R2 R R))
 --   , test "linear-compose-r-r2-r" (uncurry ((A..) :: LComp R R2 R))
-  , test "linear-compose-r2-r2-r2" (uncurry ((A..) :: LComp R2 R2 R2))
+--   , test "linear-compose-r2-r2-r2" (uncurry ((A..) :: LComp R2 R2 R2))
 
 --   , tst (Par1 @ Bool)
 --   , tst (Par1 . Par1 @ Bool)
@@ -150,7 +165,13 @@ tests = return
 
 --   , tst (A.exl :: Int :* Bool -> Int)
 
+--   , tst ((<=) :: Int -> Int -> Bool)
+
 --   , tst not
+
+--   , tst (\ (x :: Int) -> x + x)
+
+--   , tst (flip (+) :: Binop Int)
 
 --   , tst ((+) :: Binop Int)
 
@@ -287,12 +308,12 @@ runSyn syn = putStrLn ('\n' : render syn)
 runEC :: GenBuses a => String -> EC a b -> IO ()
 runEC nm (syn :**: circ) = runSyn syn >> RC.run nm [] circ
 
-#if 0
+#if 1
 -- Circuit interpretation
 test, test' :: Okay a b => String -> (a -> b) -> Test
 tst  :: Okay a b => (a -> b) -> Test
 {-# RULES "circuit" forall nm f. test nm f = mkTest nm (go nm f) #-}
-#elif 0
+#elif 1
 -- Syntactic interpretation
 test, test' :: String -> (a -> b) -> Test
 tst :: (a -> b) -> Test
@@ -749,4 +770,3 @@ addThree (a,b,c) = a+b+c
 
 -- bar :: Syn Bool (Par1 Bool)
 -- bar = ccc Par1
-

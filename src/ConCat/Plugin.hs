@@ -76,7 +76,7 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , hasRepMeth       :: HasRepMeth
                      -- , hasRepFromAbstCo :: Coercion   -> CoreExpr
                      , prePostV         :: Id
-                     , boxIV            :: Id
+                     , boxers           :: Map TyCon Id
                   -- , inlineV          :: Id
                      , polyOps          :: PolyOpsMap
                      , monoOps          :: MonoOpsMap
@@ -335,23 +335,25 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
         zName = uqVarName x ++ "_" ++ uqVarName y
         sub = [(x,mkEx funCat exlV (Var z)),(y,mkEx funCat exrV (Var z))]
         -- TODO: consider using fst & snd instead of exl and exr here
-     Trying("lam boxI")
-     (outerIntCon -> Just e') ->
-       Doing("lam boxI")
+     Trying("lam boxer")
+     (outerBoxCon -> Just e') ->
+       Doing("lam boxer")
        return (mkCcc (Lam x e'))
-     Trying("lam Case of Int")
-     Case scrut wild _ty [(_dc,[unboxedV],rhs)] | varType wild `eqType` intTy ->
-       Doing("lam Case of Int")
-       let wild' = setIdOccInfo wild NoOccInfo
-           tweak :: Unop CoreExpr
-           tweak (Var v) | v == unboxedV =
-             pprPanic "lam Case of Int. bare unboxed var" (ppr unboxedV)
-           tweak (App (Var f) (Var v)) | f == boxIV, v == unboxedV = Var wild'
-           tweak e' = e'
-       in
-         -- Note top-down (everywhere') instead of bottom-up (everywhere)
-         -- so that we can find 'boxI v' before v.
-         return (mkCcc (Lam x (Let (NonRec wild' scrut) (everywhere' (mkT tweak) rhs))))
+     Trying("lam Case of boxer")
+     Case scrut wild _ty [(_dc,[unboxedV],rhs)]
+       | Just (tc,[]) <- splitTyConApp_maybe (varType wild)
+       , Just boxV <- Map.lookup tc boxers
+       -> Doing("lam Case of boxer")
+          let wild' = setIdOccInfo wild NoOccInfo
+              tweak :: Unop CoreExpr
+              tweak (Var v) | v == unboxedV =
+                pprPanic "lam Case of boxer: bare unboxed var" (ppr unboxedV)
+              tweak (App (Var f) (Var v)) | f == boxV, v == unboxedV = Var wild'
+              tweak e' = e'
+          in
+            -- Note top-down (everywhere') instead of bottom-up (everywhere)
+            -- so that we can find 'boxI v' before v.
+            return (mkCcc (Lam x (Let (NonRec wild' scrut) (everywhere' (mkT tweak) rhs))))
      Trying("lam Case default")
      Case _scrut (isDeadBinder -> True) _rhsTy [(DEFAULT,[],rhs)] ->
        Doing("lam case-default")
@@ -439,17 +441,16 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
       xty = varType x
       bty = exprType body
       isConst = not (x `isFreeIn` body)
-      outerIntCon :: ReExpr
-      outerIntCon = fmap (\ (e',rewrap) -> rewrap (Var boxIV `App` e')) . goI
-       where
-         -- Unwrap I# e' through case expressions, yielding e' and the case rewrapper.
-         goI :: CoreExpr -> Maybe (CoreExpr,Unop CoreExpr)
-         goI e@(App (Var con) e') | isDataConWorkId con && isIntTy (exprType e) =
-           Just (e',id)
-         goI (Case scrut wild ty [(con,bs,rhs)]) =
-           (fmap.second) ((\ rhs' -> Case scrut wild ty [(con,bs,rhs')]) .) (goI rhs)
-         goI _ = Nothing
-
+   outerBoxCon :: ReExpr
+   outerBoxCon e | dtrace "outerBoxCon" (ppr e) False = undefined
+   outerBoxCon e@(App (Var con) e')
+     | isDataConWorkId con
+     , Just (tc,[]) <- splitTyConApp_maybe (exprType e)
+     , Just boxV <- Map.lookup tc boxers =
+     Just (Var boxV `App` e')
+   outerBoxCon (Case scrut wild ty [(con,bs,rhs)]) =
+     fmap (\ rhs' -> Case scrut wild ty [(con,bs,rhs')]) (outerBoxCon rhs)
+   outerBoxCon _ = Nothing
    hrMeth :: Type -> Maybe (Id -> CoreExpr)
    hrMeth ty = -- dtrace "hasRepMeth:" (ppr ty) $
                hasRepMeth dflags guts inScope ty
@@ -978,7 +979,8 @@ install opts todos =
      --  | pprTrace "ccc residuals:" (ppr (toList remaining)) False = undefined
      --  | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
      | Seq.null remaining = return guts
-     | otherwise = pprTrace "ccc residuals:" (ppr (toList remaining)) $
+     | otherwise = -- pprPanic "ccc residuals:" (ppr (toList remaining))
+                   pprTrace "ccc residuals:" (ppr (toList remaining)) $
                    return guts
     where
       remaining :: Seq CoreExpr
@@ -1047,6 +1049,8 @@ mkCccEnv opts = do
   hasRepMeth <- hasRepMethodM tracing hasRepTc repTc idV
   prePostV   <- findId "ConCat.Misc" "~>"
   boxIV      <- findBoxId "boxI"
+  boxFV      <- findBoxId "boxF"
+  boxDV      <- findBoxId "boxD"
   -- inlineV   <- findId "GHC.Exts" "inline"
   let mkPolyOp :: (String,(String,String)) -> CoreM (String,Var)
       mkPolyOp (stdName,(cmod,cop)) =
@@ -1060,6 +1064,7 @@ mkCccEnv opts = do
   monoOps <- Map.fromList <$> mapM mkMonoOp (monoInfo (floatT,doubleT))
   ruleBase <- eps_rule_base <$> (liftIO $ hscEPS hsc_env)
   -- pprTrace "ruleBase" (ppr ruleBase) (return ())
+  let boxers = Map.fromList [(intTyCon,boxIV),(doubleTyCon,boxDV),(floatTyCon,boxFV)]
 #if 0
   let idAt t = Var idV `App` Type t     -- varApps idV [t] []
       [hasRepDc] = tyConDataCons hasRepTc
