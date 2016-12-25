@@ -49,7 +49,7 @@ import Data.Constraint hiding ((&&&),(***),(:=>))
 
 import Control.Newtype (Newtype(..))
 
-import Data.MemoTrie
+-- import Data.MemoTrie
 
 import ConCat.Misc hiding ((<~),(~>),type (&&),type (&+&))
 import ConCat.Rep

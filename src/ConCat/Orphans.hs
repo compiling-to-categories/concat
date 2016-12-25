@@ -20,7 +20,7 @@ import Data.Void
 import Data.Key
 import Data.Pointed
 import Data.Copointed
-import Data.Stream (Stream(..))
+-- import Data.Stream (Stream(..))
 import Control.Newtype
 
 import ConCat.Misc ((:*),(:+),inNew,inNew2)
@@ -214,6 +214,7 @@ eitherF :: (a t -> c) -> (b t -> c) -> ((a :+: b) t -> c)
 eitherF f _ (L1 a) = f a
 eitherF _ g (R1 b) = g b
 
+#if 0
 {--------------------------------------------------------------------
     Data.Stream
 --------------------------------------------------------------------}
@@ -224,3 +225,4 @@ instance Zip     Stream where zipWith = liftA2
 
 instance Foldable Stream where
   foldMap f ~(Cons a as) = f a `mappend` foldMap f as
+#endif

@@ -40,7 +40,7 @@
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
@@ -101,7 +101,7 @@ tests = return
 
 --   , tst (\ x -> 3 * x + x :: Int)
 
---   , tst (\ (x,y) -> 3 * x + y + 7 :: Float)
+  , tst (\ (x,y) -> 3 * x + y + 7 :: Float)
 
 --   , tst (negate :: Unop Int)
 
@@ -111,7 +111,7 @@ tests = return
 
 --   , tst (\ x -> x + 3 :: Int)
 
-  , tst (\ x -> x + 3 :: Float)
+--   , tst (\ x -> x + 3 :: Float)
 
 --   , tst (\ x -> x / 3 :: Float)  -- divideFloat# problem. See todo.md
 
@@ -152,7 +152,7 @@ tests = return
 --   , test "cos"         (cos :: Unop R)
 --   , test "square"      (\ x -> x * x :: R)
 --   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
---   , test "cos-xpx"      (\ x -> cos (x + x) :: R)
+--   , test "cos-xpx"     (\ x -> cos (x + x) :: R)
 --   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
 
 --   , test "cos-xpy"      (\ (x,y) -> cos (x + y) :: R)
@@ -328,7 +328,7 @@ runCirc nm circ = RC.run nm [] circ
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst  :: GenBuses a => (a -> b) -> Test
 {-# RULES "circuit" forall nm f. test nm f = mkTest nm (runCirc nm (ccc f)) #-}
-#elif 1
+#elif 0
 -- Syntactic interpretation
 test, test' :: String -> (a -> b) -> Test
 tst :: (a -> b) -> Test
@@ -401,7 +401,7 @@ tst  :: Okay a b => (a -> b) -> Test
 {-# RULES "(->); (:>)" forall nm f.
    test nm f = mkTest nm (go nm (ccc f))
  #-}
-#elif 0
+#elif 1
 -- L, then syntactic
 test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
@@ -424,12 +424,12 @@ tst         :: GB a b =>           (a -> b) -> Test
 {-# RULES "L ; Syn+circuit" forall nm f.
    test nm f = mkTest nm (runEC (nm++"-lmap") (ccc (\ () -> repr (lmap @R f))))
  #-}
-#elif 0
+#elif 1
 -- Derivative, then syntactic
 test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "test AD" forall nm f.
-   test nm f = mkTest nm (runSyn (ccc (dfun f)))
+   test nm f = mkTest nm (runSyn (ccc (dfun @R f)))
  #-}
 #elif 0
 -- (->), then derivative, then syntactic. The first (->) gives us a chance to
