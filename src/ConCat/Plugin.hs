@@ -76,7 +76,8 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , hasRepMeth       :: HasRepMeth
                      -- , hasRepFromAbstCo :: Coercion   -> CoreExpr
                      , prePostV         :: Id
-                     , boxers           :: Map TyCon Id
+                     , boxers           :: Map TyCon Id  -- to remove
+                  -- , reboxV           :: Id
                   -- , inlineV          :: Id
                      , polyOps          :: PolyOpsMap
                      , monoOps          :: MonoOpsMap
@@ -340,6 +341,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        Doing("lam boxer")
        return (mkCcc (Lam x e'))
      Trying("lam Case of boxer")
+#if 1
      Case scrut wild _ty [(_dc,[unboxedV],rhs)]
        | Just (tc,[]) <- splitTyConApp_maybe (varType wild)
        , Just boxV <- Map.lookup tc boxers
@@ -354,6 +356,24 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
             -- Note top-down (everywhere') instead of bottom-up (everywhere)
             -- so that we can find 'boxI v' before v.
             return (mkCcc (Lam x (Let (NonRec wild' scrut) (everywhere' (mkT tweak) rhs))))
+#else
+
+     Case scrut wild _ty [(_dc,[unboxedV],rhs)]
+       | Just (tc,[]) <- splitTyConApp_maybe (varType wild)
+       , tc `elem` [intTyCon,floatTyCon,doubleTyCon]
+       -> Doing("lam Case of boxer")
+          let wild' = setIdOccInfo wild NoOccInfo
+              tweak :: Unop CoreExpr
+              tweak (Var v) | v == unboxedV =
+                pprPanic "lam Case of boxer: bare unboxed var" (ppr unboxedV)
+              tweak (collectArgs -> (Var f, [_ty, App _con (Var v)])) | f == reboxV, v == unboxedV = Var wild'
+              tweak e' = e'
+          in
+            -- Note top-down (everywhere') instead of bottom-up (everywhere)
+            -- so that we can find 'boxI v' before v.
+            return (mkCcc (Lam x (Let (NonRec wild' scrut) (everywhere' (mkT tweak) rhs))))
+
+#endif
      Trying("lam Case default")
      Case _scrut (isDeadBinder -> True) _rhsTy [(DEFAULT,[],rhs)] ->
        Doing("lam case-default")
@@ -1051,6 +1071,7 @@ mkCccEnv opts = do
   boxIV      <- findBoxId "boxI"
   boxFV      <- findBoxId "boxF"
   boxDV      <- findBoxId "boxD"
+  -- reboxV     <- findBoxId "rebox"
   -- inlineV   <- findId "GHC.Exts" "inline"
   let mkPolyOp :: (String,(String,String)) -> CoreM (String,Var)
       mkPolyOp (stdName,(cmod,cop)) =
