@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 
--- #define NoOptimizeCircuit
--- #define NoHashCons
+#define NoOptimizeCircuit
+#define NoHashCons
 
 -- #define NoIfBotOpt
 -- #define NoIdempotence
@@ -283,7 +283,7 @@ class GenBuses a where
   delay :: a -> (a :> a)
   ty :: a -> Ty                         -- dummy argument
 
-type GS a = (GenBuses a, Show a)
+type GS a = (GenBuses a, ShowZ a)
 
 genBus :: (Source -> Buses a) -> Width
        -> String -> Sources -> BusesM (Buses a)
@@ -540,8 +540,8 @@ pullZero :: (Ord a, Num a) => a -> a -> a
 pullZero delta a | abs a < delta = 0
                  | otherwise     = a
 
-constName :: (Tweakable b, Show b) => b -> String
-constName = show . tweakVal
+constName :: (Tweakable b, ShowZ b) => b -> String
+constName = showZ . tweakVal
 
 {--------------------------------------------------------------------
     Circuit category
@@ -941,7 +941,7 @@ primDelay a0 = primOpt (delayName a0s) $ \ case
                  [c@(ConstS (Eql(a0s)))] -> sourceB c
                  _ -> nothingA
  where
-   a0s = show a0
+   a0s = showZ a0
 
 -- primDelay a0 = namedC (delayName (show a0))
 
@@ -1216,11 +1216,15 @@ instance (Read a, Ord a) => OrdCat (:>) a where
 
 -- More robust (works for Double as well):
 
-#define ValT(x,ty) (Val (x :: ty))
+#define ValT(x,ty) (Val ((x) :: ty))
 
-#define   ZeroT(ty) ValT( 0,ty)
-#define    OneT(ty) ValT( 1,ty)
-#define NegOneT(ty) ValT(-1,ty)
+#define   ZeroT(ty) ValT(Eql(fromIntegerZ 0),ty)
+#define    OneT(ty) ValT(Eql(fromIntegerZ 1),ty)
+#define NegOneT(ty) ValT(Eql(fromIntegerZ (-1)),ty)
+
+-- TODO: fix the problem with finding numeric and show instances for Float &
+-- Double, and then simplify again to use 0 instead of Eql(fromIntegerZ 0),
+-- negate instead of negateZ, etc.
 
 pattern NegateS :: Source -> Source
 pattern NegateS a <- Source _ "negate" [a] 0
@@ -1228,28 +1232,28 @@ pattern NegateS a <- Source _ "negate" [a] 0
 pattern RecipS  :: Source -> Source
 pattern RecipS  a <- Source _ "recip"  [a] 0
 
-instance (NumQ a, Read a, GST a, Eq a, SourceToBuses a)
+instance (NumZ a, Read a, GST a, Eq a, SourceToBuses a)
       => NumCat (:>) a where
   negateC = primOpt "negate" $ \ case
-              [Val x]        -> newVal (negate x)
+              [Val x]        -> newVal (negateZ x)
               [NegateS x]    -> sourceB x
               _              -> nothingA
   addC    = primOptSort "+" $ \ case
-              [Val x, Val y] -> newVal (x+y)
+              [Val x, Val y] -> newVal (x `addZ` y)
               [ZeroT(a),y]   -> sourceB y
               [x,ZeroT(a)]   -> sourceB x
               [x,NegateS y]  -> newComp2 subC x y
               [NegateS x,y]  -> newComp2 subC y x
               _              -> nothingA
   subC    = primOpt     "−" $ \ case
-              [Val x, Val y] -> newVal (x-y)
+              [Val x, Val y] -> newVal (x `subZ` y)
               [ZeroT(a),y]   -> newComp1 negateC y
               [x,ZeroT(a)]   -> sourceB x
               [x,NegateS y]  -> newComp2 addC x y
               [NegateS x,y]  -> newComp2 (negateC . addC) x y
               _              -> nothingA
   mulC    = primOptSort "×" $ \ case
-              [Val x, Val y] -> newVal (x*y)
+              [Val x, Val y] -> newVal (x `mulZ` y)
               [OneT(a),y]    -> sourceB y
               [x,OneT(a)]    -> sourceB x
               [x@ZeroT(a),_] -> sourceB x
@@ -1258,30 +1262,30 @@ instance (NumQ a, Read a, GST a, Eq a, SourceToBuses a)
               [x,NegOneT(a) ] -> newComp1 negateC x
               _              -> nothingA
   powIC   = primOpt     "↑" $ \ case
-              [Val x, Val y] -> newVal (x ^ (y :: Int))
+              [Val x, Val y] -> newVal (x `powIZ` (y :: Int))
               [x@OneT(a) ,_] -> sourceB x
               [x,   OneT(a)] -> sourceB x
               [x@ZeroT(a),_] -> sourceB x
-              [_,  ZeroT(a)] -> newVal 1
+              [_,  ZeroT(a)] -> newVal (fromIntegerZ 1)
               _              -> nothingA
 
-instance (FractionalQ a, Read a, Eq a, GST a, SourceToBuses a)
+instance (FractionalZ a, Read a, Eq a, GST a, SourceToBuses a)
       => FractionalCat (:>) a where
   recipC  = primOpt "recip" $ \ case
-              [Val x]        -> newVal (recip x)
+              [Val x]        -> newVal (recipZ x)
               [RecipS x]     -> sourceB x
               [NegateS x]    -> newComp1 (negateC . recipC) x
               _              -> nothingA
   divideC = primOpt "/" $ \ case
-              [Val x, Val y] -> newVal (x/y)
+              [Val x, Val y] -> newVal (x `divideZ` y)
               [z@ZeroT(a),_] -> sourceB z
               [x,NegateS y]  -> newComp2 (negateC . divideC) x y
               _              -> nothingA
 
-instance (FloatingQ a, Read a, GST a) => FloatingCat (:>) a where
-  expC = primNoOpt1 "exp" exp
-  cosC = primNoOpt1 "cos" cos
-  sinC = primNoOpt1 "sin" sin
+instance (FloatingZ a, Read a, GST a) => FloatingCat (:>) a where
+  expC = primNoOpt1 "exp" expZ
+  cosC = primNoOpt1 "cos" cosZ
+  sinC = primNoOpt1 "sin" sinZ
 
 -- TODO: optimizations, e.g., sin & cos of negative angles.
 

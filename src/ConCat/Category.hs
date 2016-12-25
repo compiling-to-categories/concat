@@ -875,29 +875,6 @@ instance Enum a => EnumCat (->) a where
   succC = succ
   predC = pred
 
-#if 0
-
--- Hack to get numeric instances for Float & Double recognized.
--- No longer works.
-
-#define ClassIFD(cls,clsQ,super) \
-class (super a, cls a) => clsQ a ; \
-instance clsQ Int ; \
-instance clsQ Float ; \
-instance clsQ Double
-
-#define ClassFD(cls,clsQ,super) \
-class (super a, cls a) => clsQ a ; \
-instance clsQ Float ; \
-instance clsQ Double
-
-#else
-
-#define ClassIFD(cls,clsQ,super) type clsQ = cls
-#define ClassFD(cls,clsQ,super)  type clsQ = cls
-
-#endif
-
 class Ok k a => NumCat k a where
   negateC :: a `k` a
   addC, subC, mulC :: Prod k a a `k` a
@@ -905,8 +882,7 @@ class Ok k a => NumCat k a where
   default subC :: ProductCat k => Prod k a a `k` a
   subC = addC . second negateC <+ okProd @k @a @a
 
-ClassIFD(Num,NumQ,Yes1)
-instance NumQ a => NumCat (->) a where
+instance Num a => NumCat (->) a where
   negateC = negate
   addC    = uncurry (+)
   subC    = uncurry (-)
@@ -931,8 +907,7 @@ class Ok k a => FractionalCat k a where
   divideC = mulC . second recipC <+ okProd @k @a @a
   {-# MINIMAL recipC | divideC #-}
 
-ClassFD(Fractional,FractionalQ,NumQ)
-instance FractionalQ a => FractionalCat (->) a where
+instance Fractional a => FractionalCat (->) a where
   recipC = recip
   divideC = uncurry (/)
 
@@ -945,8 +920,7 @@ instance (Monad m, Fractional a) => FractionalCat (Kleisli m) a where
 class Ok k a => FloatingCat k a where
   expC, cosC, sinC :: a `k` a
 
-ClassFD(Floating,FloatingQ,FractionalQ)
-instance FloatingQ a => FloatingCat (->) a where
+instance Floating a => FloatingCat (->) a where
   expC = exp
   cosC = cos
   sinC = sin

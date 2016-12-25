@@ -1,5 +1,7 @@
 # To do
 
+
+*   Fix the problem with finding numeric and show instances for `Float` & `Double`, and then simplify `Circuit` again to use 0 instead of `Eql(fromIntegerZ 0)`, `negate` instead of `negateZ`, etc.
 *   Rewrite rule loop involving "`foo2`" and "`uncurry id`" in `AltCat`.
 *   In `recast`, when handing `AxiomInstCo` and `Sym` variant, Check for HasRep instances.
 *   In `Syn`, use the pretty-printing class.

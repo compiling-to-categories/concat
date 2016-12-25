@@ -86,6 +86,8 @@ import ConCat.AltCat (ccc,reveal,Uncurriable(..),(:**:)(..))
 import qualified ConCat.AltCat as A
 import ConCat.Rebox () -- experiment
 
+import GHC.Num () -- help the plugin find instances
+
 -- -- Experiment: try to force loading of Num Float etc
 -- class Num a => Quuz a
 -- instance Quuz Float
@@ -101,7 +103,13 @@ tests = return
 
 --   , tst (\ (x,y) -> 3 * x + y + 7 :: Float)
 
-  , tst (\ x -> x * 3 :: Int)
+--   , tst (negate :: Unop Int)
+
+  , tst ((/) :: Binop Float)
+
+--   , tst ((\ _ -> 0) :: Unop Int)
+
+--   , tst (\ x -> x / 3 :: Float)
 
 --   , tst (\ () -> (3,4) :: Double :* Float)
 
@@ -308,12 +316,15 @@ runSyn syn = putStrLn ('\n' : render syn)
 runEC :: GenBuses a => String -> EC a b -> IO ()
 runEC nm (syn :**: circ) = runSyn syn >> RC.run nm [] circ
 
-#if 1
+runCirc :: GenBuses a => String -> (a :> b) -> IO ()
+runCirc nm circ = RC.run nm [] circ
+
+#if 0
 -- Circuit interpretation
-test, test' :: Okay a b => String -> (a -> b) -> Test
-tst  :: Okay a b => (a -> b) -> Test
-{-# RULES "circuit" forall nm f. test nm f = mkTest nm (go nm f) #-}
-#elif 1
+test, test' :: GenBuses a => String -> (a -> b) -> Test
+tst  :: GenBuses a => (a -> b) -> Test
+{-# RULES "circuit" forall nm f. test nm f = mkTest nm (runCirc nm (ccc f)) #-}
+#elif 0
 -- Syntactic interpretation
 test, test' :: String -> (a -> b) -> Test
 tst :: (a -> b) -> Test

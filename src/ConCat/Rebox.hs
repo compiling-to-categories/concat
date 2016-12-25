@@ -53,3 +53,24 @@ boxD = D#
 "boxD sin" forall u. boxD (sinDouble# u) = sinC (boxD u)
 
  #-}
+
+--     RULE left-hand side too complicated to desugar
+--       Optimised lhs: case /## u v of wild_00 { __DEFAULT ->
+--                      boxD wild_00
+--                      }
+--       Orig lhs: case /## u v of wild_00 { __DEFAULT -> boxD wild_00 }
+
+-- To do:
+#if 0
+
+rebox :: a -> a
+rebox x = x
+{-# INLINE [0] rebox #-}
+
+{-# RULES
+
+"rebox /" forall u v. rebox (D# (u /## v)) = divideC (boxD u,boxD v)
+
+ #-}
+  
+#endif

@@ -442,7 +442,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
       bty = exprType body
       isConst = not (x `isFreeIn` body)
    outerBoxCon :: ReExpr
-   outerBoxCon e | dtrace "outerBoxCon" (ppr e) False = undefined
+   -- outerBoxCon e | dtrace "outerBoxCon" (ppr e) False = undefined
    outerBoxCon e@(App (Var con) e')
      | isDataConWorkId con
      , Just (tc,[]) <- splitTyConApp_maybe (exprType e)
@@ -1078,6 +1078,7 @@ mkCccEnv opts = do
       caster co@(pFst . coercionKind -> dom) =
         mkCast (idAt dom) (mkFunCo Representational (mkRepReflCo dom) co)
 #endif
+  -- _ <- findId "GHC.Num" "subtract" -- help the plugin find instances for Float and Double
   return (CccEnv { .. })
 
 type HasRepMeth = DynFlags -> ModGuts -> InScopeEnv -> Type -> Maybe (Id -> CoreExpr)
