@@ -1,6 +1,9 @@
 # To do
 
 
+*   Reboxing of `divideFloat#` and `divideDouble#`.
+    The rules in `ConCat.Rebox` (commented out) don't work, perhaps because those operations can fail.
+    Simplest solution may be to rebox those primitives programmatically in another simple `BuiltinRule`.
 *   Fix the problem with finding numeric and show instances for `Float` & `Double`, and then simplify `Circuit` again to use 0 instead of `Eql(fromIntegerZ 0)`, `negate` instead of `negateZ`, etc.
 *   Rewrite rule loop involving "`foo2`" and "`uncurry id`" in `AltCat`.
 *   In `recast`, when handing `AxiomInstCo` and `Sym` variant, Check for HasRep instances.
