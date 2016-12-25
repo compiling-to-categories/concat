@@ -24,7 +24,6 @@ library
                        ConCat.Free.Diagonal
                        ConCat.Free.LinearCol
                        ConCat.Free.LinearRow
-                       ConCat.ShowUtils
                        ConCat.Lambda
                        ConCat.Complex
                        ConCat.Rep
@@ -45,6 +44,7 @@ library
 --                        ConCat.Basis
 --                        ConCat.LMap
 --                        ConCat.FLMap
+--                        ConCat.ShowUtils
 
 
   include-dirs: src/ConCat
