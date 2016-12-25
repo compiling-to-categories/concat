@@ -105,11 +105,15 @@ tests = return
 
 --   , tst (negate :: Unop Int)
 
-  , tst ((/) :: Binop Float)
+--   , tst ((+) :: Binop Float)
 
 --   , tst ((\ _ -> 0) :: Unop Int)
 
---   , tst (\ x -> x / 3 :: Float)
+--   , tst (\ x -> x + 3 :: Int)
+
+  , tst (\ x -> x + 3 :: Float)
+
+--   , tst (\ x -> x / 3 :: Float)  -- divideFloat# problem. See todo.md
 
 --   , tst (\ () -> (3,4) :: Double :* Float)
 
@@ -324,7 +328,7 @@ runCirc nm circ = RC.run nm [] circ
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst  :: GenBuses a => (a -> b) -> Test
 {-# RULES "circuit" forall nm f. test nm f = mkTest nm (runCirc nm (ccc f)) #-}
-#elif 0
+#elif 1
 -- Syntactic interpretation
 test, test' :: String -> (a -> b) -> Test
 tst :: (a -> b) -> Test
