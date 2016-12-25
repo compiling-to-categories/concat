@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE MagicHash #-}
@@ -60,8 +61,7 @@ boxD = D#
 --                      }
 --       Orig lhs: case /## u v of wild_00 { __DEFAULT -> boxD wild_00 }
 
--- To do:
-#if 0
+#if 1
 
 rebox :: a -> a
 rebox x = x
