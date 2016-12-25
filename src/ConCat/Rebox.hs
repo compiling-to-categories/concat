@@ -39,7 +39,6 @@ boxD = D#
 "boxF +" forall u v. boxF (u `plusFloat#`  v) = addC (boxF u,boxF v)
 "boxF -" forall u v. boxF (u `minusFloat#` v) = subC (boxF u,boxF v)
 "boxF *" forall u v. boxF (u `timesFloat#` v) = mulC (boxF u,boxF v)
-"boxF /" forall u v. boxF (u `divideFloat#` v) = divideC (boxF u,boxF v)
 "boxF exp" forall u. boxF (expFloat# u) = expC (boxF u)
 "boxF cos" forall u. boxF (cosFloat# u) = cosC (boxF u)
 "boxF sin" forall u. boxF (sinFloat# u) = sinC (boxF u)
@@ -48,12 +47,14 @@ boxD = D#
 "boxD +" forall u v. boxD (u +## v) = addC (boxD u,boxD v)
 "boxD -" forall u v. boxD (u -## v) = subC (boxD u,boxD v)
 "boxD *" forall u v. boxD (u *## v) = mulC (boxD u,boxD v)
-"boxD /" forall u v. boxD (u /## v) = divideC (boxD u,boxD v)
 "boxD exp" forall u. boxD (expDouble# u) = expC (boxD u)
 "boxD cos" forall u. boxD (cosDouble# u) = cosC (boxD u)
 "boxD sin" forall u. boxD (sinDouble# u) = sinC (boxD u)
 
- #-}
+-- These two don't work:
+
+-- "boxF /" forall u v. boxF (u `divideFloat#` v) = divideC (boxF u,boxF v)
+-- "boxD /" forall u v. boxD (u /## v) = divideC (boxD u,boxD v)
 
 --     RULE left-hand side too complicated to desugar
 --       Optimised lhs: case /## u v of wild_00 { __DEFAULT ->
@@ -61,16 +62,4 @@ boxD = D#
 --                      }
 --       Orig lhs: case /## u v of wild_00 { __DEFAULT -> boxD wild_00 }
 
-#if 1
-
-rebox :: a -> a
-rebox x = x
-{-# INLINE [0] rebox #-}
-
-{-# RULES
-
-"rebox /" forall u v. rebox (D# (u /## v)) = divideC (boxD u,boxD v)
-
  #-}
-  
-#endif
