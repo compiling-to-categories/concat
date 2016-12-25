@@ -13,11 +13,12 @@
 
 module ConCat.Syntactic where
 
-import Prelude hiding (id,(.),lookup,Float,Double)
+import Prelude hiding (id,(.),lookup,const,Float,Double)
 
 import Data.Map (Map,fromList,lookup)
 import Control.Newtype
 import Text.PrettyPrint.HughesPJ hiding (render)
+import Text.PrettyPrint.HughesPJClass hiding (render)
 
 import ConCat.Category
 import ConCat.Misc (inNew,inNew2,Unop,Binop)
@@ -27,27 +28,34 @@ import ConCat.Misc (inNew,inNew2,Unop,Binop)
     Untyped S-expression
 --------------------------------------------------------------------}
 
-data SynU = SynU String [SynU] deriving Show
+data SynU = SynU PDoc [SynU]
 
-atomu :: String -> SynU
-atomu s = SynU s []
+instance Show SynU where show = showPDoc . ppretty
+
+atomu :: Pretty a => a -> SynU
+atomu a = SynU (ppretty a) []
+
+cctext :: String -> PDoc
+cctext = const . const . text
+
+atomuStr :: String -> SynU
+atomuStr s = SynU (cctext s) []
 
 app1u :: String -> Unop SynU
-app1u s p = SynU s [p]
+app1u s p = SynU (cctext s) [p]
 
 app2u :: String -> Binop SynU
-app2u s p q = SynU s [p,q]
+app2u s p q = SynU (cctext s) [p,q]
 
--- TODO: use the Pretty class from Text.PrettyPrint.HughesPJClass
-
-prettyu :: SynU -> PDoc
-prettyu (SynU f [u,v]) | Just fixity <- lookup f fixities =
-  docOp2 False f fixity (prettyu u) (prettyu v)
-prettyu (SynU f es) = \ prec ->
-  -- (if not (null es) && prec > appPrec then parens else id) $
-  maybeParens (not (null es) && prec > appPrec) $
-  -- hang (text f) 2 (sep (map (flip prettyu (appPrec+1)) es))
-  sep (text f : map (flip prettyu (appPrec+1)) es)
+instance Pretty SynU where
+  pPrintPrec l p (SynU f [u,v]) | let nm = showPDoc f
+                                , Just fixity <- lookup nm fixities =
+    docOp2 False nm fixity (ppretty u) (ppretty v) l p
+  pPrintPrec l p (SynU f es) =
+    -- (if not (null es) && p > appPrec then parens else id) $
+    maybeParens (not (null es) && p > appPrec) $
+    -- hang (text f) 2 (sep (map (flip prettyu (appPrec+1)) es))
+    sep (f l appPrec : map (pPrintPrec l (appPrec+1)) es)
 
 fixities :: Map String Fixity
 fixities = fromList
@@ -59,7 +67,7 @@ fixities = fromList
   ]
 
 renderu :: SynU -> String
-renderu = renderStyle (Style PageMode 80 1) . flip prettyu 0
+renderu syn = renderStyle (Style PageMode 80 1) (pPrintPrec prettyNormal 0 syn)
 
 -- renderu = PP.render . flip prettyu 0
 
@@ -74,8 +82,12 @@ instance Newtype (Syn a b) where
   pack s = Syn s
   unpack (Syn s) = s
 
-atom :: String -> Syn a b
-atom s = pack (SynU s [])
+atom :: Pretty a => a -> Syn a b
+atom = pack . atomu
+-- atom s = pack (atomu s)
+
+atomStr :: String -> Syn a b
+atomStr = pack . atomuStr
 
 app1 :: String -> Syn a b -> Syn c d
 app1 = inNew . app1u
@@ -83,8 +95,8 @@ app1 = inNew . app1u
 app2 :: String -> Syn a1 b1 -> Syn a2 b2 -> Syn c d
 app2 = inNew2 . app2u
 
-pretty :: Syn a b -> PDoc
-pretty = prettyu . unpack
+-- pretty :: Syn a b -> PDoc
+-- pretty = prettyu . unpack
 
 -- instance Show (Syn a b) where show = render
 
@@ -99,21 +111,21 @@ render = renderu . unpack
 -- #define INLINER(nm)
 
 instance Category Syn where
-  id  = atom "id"
+  id  = atomStr "id"
   (.) = app2 "."
   INLINER(id)
   INLINER((.))
 
 instance ProductCat Syn where
-  exl     = atom "exl"
-  exr     = atom "exr"
+  exl     = atomStr "exl"
+  exr     = atomStr "exr"
   (&&&)   = app2 "&&&"
   (***)   = app2 "***"
-  swapP   = atom "swapP"
+  swapP   = atomStr "swapP"
   first   = app1 "first"
   second  = app1 "second"
-  lassocP = atom "lassocP"
-  rassocP = atom "rassocP"
+  lassocP = atomStr "lassocP"
+  rassocP = atomStr "rassocP"
   INLINER(exl)
   INLINER(exr)
   INLINER((&&&))
@@ -125,20 +137,20 @@ instance ProductCat Syn where
   INLINER(rassocP)
 
 instance TerminalCat Syn where
-  it = atom "it"
+  it = atomStr "it"
   INLINER(it)
 
 instance CoproductCat Syn where
-  inl     = atom "inl"
-  inr     = atom "inr"
+  inl     = atomStr "inl"
+  inr     = atomStr "inr"
   (|||)   = app2 "|||"
   (+++)   = app2 "+++"
-  jam     = atom "jam"
-  swapS   = atom "swapS"
+  jam     = atomStr "jam"
+  swapS   = atomStr "swapS"
   left    = app1 "left"
   right   = app1 "right"
-  lassocS = atom "lassocS"
-  rassocS = atom "rassocS"
+  lassocS = atomStr "lassocS"
+  rassocS = atomStr "rassocS"
   INLINER(inl)
   INLINER(inr)
   INLINER((|||))
@@ -150,13 +162,13 @@ instance CoproductCat Syn where
   INLINER(rassocS)
   
 instance DistribCat Syn where
-  distl = atom "distl"
-  distr = atom "distr"
+  distl = atomStr "distl"
+  distr = atomStr "distr"
   INLINER(distl)
   INLINER(distr)
 
 instance ClosedCat Syn where
-  apply   = atom "apply"
+  apply   = atomStr "apply"
   curry   = app1 "curry"
   uncurry = app1 "uncurry"
   INLINER(apply)
@@ -182,8 +194,8 @@ instance (ConstCat Syn a, ConstCat Syn b) => ConstCat Syn (a :* b) where
 
 #else
 
-instance Show b => ConstCat Syn b where
-  const b = app1 "const" (atom (showPrec appPrec b))
+instance Pretty b => ConstCat Syn b where
+  const b = app1 "const" (atom b)
   INLINER(const)
   -- unitArrow b = app1 "unitArrow" (atom (showPrec appPrec b))
   -- INLINER(unitArrow)
@@ -193,43 +205,43 @@ instance Show b => ConstCat Syn b where
 -- Some or all of the methods below are failing to inline
 
 instance BoolCat Syn where
-  notC = atom "notC"
-  andC = atom "andC"
-  orC  = atom "orC"
-  xorC = atom "xorC"
+  notC = atomStr "notC"
+  andC = atomStr "andC"
+  orC  = atomStr "orC"
+  xorC = atomStr "xorC"
   INLINER(notC)
   INLINER(andC)
   INLINER(orC)
   INLINER(xorC)
 
 instance EqCat Syn a where
-  equal    = atom "equal"
-  notEqual = atom "notEqual"
+  equal    = atomStr "equal"
+  notEqual = atomStr "notEqual"
   INLINER(equal)
   INLINER(notEqual)
 
 instance OrdCat Syn a where
-  lessThan = atom "lessThan"
-  greaterThan = atom "greaterThan"
-  lessThanOrEqual = atom "lessThanOrEqual"
-  greaterThanOrEqual = atom "greaterThanOrEqual"
+  lessThan = atomStr "lessThan"
+  greaterThan = atomStr "greaterThan"
+  lessThanOrEqual = atomStr "lessThanOrEqual"
+  greaterThanOrEqual = atomStr "greaterThanOrEqual"
   INLINER(lessThan)
   INLINER(greaterThan)
   INLINER(lessThanOrEqual)
   INLINER(greaterThanOrEqual)
 
 instance EnumCat Syn a where
-  succC = atom "succC"
-  predC = atom "predC"
+  succC = atomStr "succC"
+  predC = atomStr "predC"
   INLINER(succC)
   INLINER(predC)
 
 instance NumCat Syn a where
-  negateC = atom "negateC"
-  addC    = atom "addC"
-  subC    = atom "subC"
-  mulC    = atom "mulC"
-  powIC   = atom "powIC"
+  negateC = atomStr "negateC"
+  addC    = atomStr "addC"
+  subC    = atomStr "subC"
+  mulC    = atomStr "mulC"
+  powIC   = atomStr "powIC"
   INLINER(negateC)
   INLINER(addC)
   INLINER(subC)
@@ -237,38 +249,38 @@ instance NumCat Syn a where
   INLINER(powIC)
 
 instance FractionalCat Syn a where
-  recipC  = atom "recipC"
-  divideC = atom "divideC"
+  recipC  = atomStr "recipC"
+  divideC = atomStr "divideC"
   INLINER(recipC)
   INLINER(divideC)
 
 instance FloatingCat Syn a where
-  expC = atom "expC"
-  cosC = atom "cosC"
-  sinC = atom "sinC"
+  expC = atomStr "expC"
+  cosC = atomStr "cosC"
+  sinC = atomStr "sinC"
   INLINER(expC)
   INLINER(cosC)
   INLINER(sinC)
 
 instance FromIntegralCat Syn a b where
-  fromIntegralC = atom "fromIntegralC"
+  fromIntegralC = atomStr "fromIntegralC"
   INLINER(fromIntegralC)
 
 instance BottomCat Syn a where
-  bottomC = atom "bottomC"
+  bottomC = atomStr "bottomC"
   INLINER(bottomC)
 
 instance IfCat Syn a where
-  ifC = atom "ifC"
+  ifC = atomStr "ifC"
   INLINER(ifC)
 
 instance UnknownCat Syn a b where
-  unknownC = atom "unknownC"
+  unknownC = atomStr "unknownC"
   INLINER(unknownC)
 
 instance RepCat Syn where
-  reprC = atom "reprC"
-  abstC = atom "abstC"
+  reprC = atomStr "reprC"
+  abstC = atomStr "abstC"
   INLINER(reprC)
   INLINER(abstC)
 
@@ -276,11 +288,17 @@ instance RepCat Syn where
     Pretty-printing utilities
 --------------------------------------------------------------------}
 
-type Prec   = Int
+type Prec   = Rational
 type Fixity = (Prec,Assoc)
 data Assoc  = AssocLeft | AssocRight | AssocNone
 
-type PDoc = Prec -> Doc
+type PDoc = PrettyLevel -> Prec -> Doc
+
+ppretty :: Pretty a => a -> PDoc
+ppretty a l p = pPrintPrec l p a
+
+showPDoc :: PDoc -> String
+showPDoc d = show (d prettyNormal 0)
 
 -- Precedence of function application.
 -- Hack: use 11 instead of 10 to avoid extraneous parens when a function
@@ -289,11 +307,11 @@ appPrec :: Prec
 appPrec = 11 -- was 10
 
 docOp2 :: Bool -> String -> Fixity -> Binop PDoc
-docOp2 extraParens sop (p,assoc) a b q =
+docOp2 extraParens sop (p,assoc) a b l q =
   maybeParens (q > p) $
-  sep [a (lf p) <+> text sop, b (rf p)]
-  -- hang (a (lf p) <+> text sop) 2 (b (rf p))
-  -- sep [a (lf p), text sop <+> b (rf p)]
+  sep [a l (lf p) <+> text sop, b l (rf p)]
+  -- hang (a l (lf p) <+> text sop) 2 (b l (l rf p))
+  -- sep [a l (lf p), text sop <+> b l (rf p)]
  where
    (lf,rf) = case assoc of
                AssocLeft  -> (incr, succ)
