@@ -30,7 +30,7 @@ import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import Data.Constraint
 
 import Data.Key (Zip(..))
-
+import Text.PrettyPrint.HughesPJClass hiding (render)
 import Control.Newtype
 
 import ConCat.Misc ((:*),PseudoFun(..))
@@ -136,8 +136,16 @@ newtype L s a b = L ((V s a :-* V s b) s)
 
 -- deriving instance Show ((V s a :-* V s b) s) => Show (L s a b)
 
+flatten :: (Foldable (V s a), Foldable (V s b)) => L s a b -> [[s]]
+flatten = fmap toList . toList . unpack
+
 instance (Foldable (V s a), Foldable (V s b), Show s) => Show (L s a b) where
-  show = show . fmap toList . toList . unpack
+  show = show . flatten
+
+instance (Foldable (V s a), Foldable (V s b), Pretty s) => Pretty (L s a b) where
+  pPrint = pPrint . flatten
+
+-- TODO: maybe 2D matrix form.
 
 -- Just for AbsTy in ConCat.Circuit
 instance Newtype (L s a b) where
