@@ -117,7 +117,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
  where
    go :: ReExpr
    go = \ case
-     e | dtrace ("go ccc "++pp cat++":") (pprWithType e) False -> undefined
+     --- e | dtrace ("go ccc "++pp cat++":") (pprWithType e) False -> undefined
      -- Temporarily make `ccc` bail on polymorphic terms. Doing so will speed up
      -- my experiments, since much time is spent optimizing rules, IIUC. It'll
      -- be important to restore polymorphic transformation later for useful
@@ -235,7 +235,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      _ -> Doing("top Unhandled")
           Nothing
           -- pprPanic "ccc go. Unhandled" (ppr e)
-   goLam x body | dtrace "goLam:" (ppr (Lam x body)) False = undefined
+   -- goLam x body | dtrace "goLam:" (ppr (Lam x body)) False = undefined
    -- go _ = Nothing
    goLam x body | Just e' <- etaReduce_maybe (Lam x body) =
     Doing("lam eta-reduce")
@@ -1194,7 +1194,7 @@ monoInfo (floatT,doubleT) =
      , ("greaterThan", compOps "gt" ">")
      , ("lessThanOrEqual", compOps "le" "<=")
      , ("greaterThanOrEqual", compOps "ge" ">=")
-#if 0
+#if 1
      , ("negateC",numOps "negate"), ("addC",numOps "+")
      , ("subC",numOps "-"), ("mulC",numOps "*")
 #endif
@@ -1228,7 +1228,7 @@ monoInfo (floatT,doubleT) =
             clsOp | isIntTy ty = opI ++ tyName
                   | otherwise  = "$fOrd" ++ tyName ++ "_$c" ++ opFD
             tyName = pp ty
-#if 0
+#if 1
       numOps op = numOp <$> ifd
        where
          numOp ty = (modu++".$fNum"++tyName++"_$c"++op,[ty])
