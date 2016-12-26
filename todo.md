@@ -1,5 +1,6 @@
 # To do
 
+*   Converting to the `Trivial` category leads to run-time error: "Impossible case alternative".
 *   Reboxing of `divideFloat#` and `divideDouble#`.
     The rules in `ConCat.Rebox` (commented out) don't work, perhaps because those operations can fail.
     Simplest solution may be to rebox those primitives programmatically in another simple `BuiltinRule`.
