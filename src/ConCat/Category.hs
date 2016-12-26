@@ -1050,6 +1050,91 @@ instance RepCat (->) where
     Category constructions
 --------------------------------------------------------------------}
 
+data Trivial a b = Trivial
+
+instance Category Trivial where
+  id = Trivial
+  Trivial . Trivial = Trivial
+
+instance ProductCat Trivial where
+  exl = Trivial
+  exr = Trivial
+  Trivial &&& Trivial = Trivial
+
+instance CoproductCat Trivial where
+  inl = Trivial
+  inr = Trivial
+  Trivial ||| Trivial = Trivial
+
+instance DistribCat Trivial where
+  distl = Trivial
+  distr = Trivial
+
+instance ClosedCat Trivial where
+  apply = Trivial
+  curry Trivial = Trivial
+  uncurry Trivial = Trivial
+
+instance TerminalCat Trivial where
+  it = Trivial
+
+instance ConstCat Trivial a where
+  const _ = Trivial
+  -- unitArrow b = unitArrow b :**: unitArrow b
+
+instance BoolCat Trivial where
+  notC = Trivial
+  andC = Trivial
+  orC  = Trivial
+  xorC = Trivial
+
+instance EqCat Trivial a where
+  equal = Trivial
+  notEqual = Trivial
+
+instance OrdCat Trivial a where
+  lessThan           = Trivial
+  greaterThan        = Trivial
+  lessThanOrEqual    = Trivial
+  greaterThanOrEqual = Trivial
+
+instance EnumCat Trivial a where
+  succC = Trivial
+  predC = Trivial
+
+instance NumCat Trivial a where
+  negateC = Trivial
+  addC    = Trivial
+  subC    = Trivial
+  mulC    = Trivial
+  powIC   = Trivial
+
+instance FractionalCat Trivial a where
+  recipC  = Trivial
+  divideC = Trivial
+
+instance FloatingCat Trivial a where
+  expC = Trivial
+  cosC = Trivial
+  sinC = Trivial
+
+instance (FromIntegralCat k a b, FromIntegralCat k' a b) => FromIntegralCat Trivial a b where
+  fromIntegralC = Trivial
+
+instance BottomCat Trivial a where
+  bottomC = Trivial
+
+instance IfCat Trivial a where
+  ifC = Trivial
+
+instance (UnknownCat k a b, UnknownCat k' a b) => UnknownCat Trivial a b where
+  unknownC = Trivial
+
+instance RepCat Trivial where
+  reprC = Trivial
+  abstC = Trivial
+
+
 infixr 6 :**:
 -- | Product of categories
 data (p :**: q) a b = p a b :**: q a b
