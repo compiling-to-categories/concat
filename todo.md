@@ -1,6 +1,5 @@
 # To do
 
-
 *   Reboxing of `divideFloat#` and `divideDouble#`.
     The rules in `ConCat.Rebox` (commented out) don't work, perhaps because those operations can fail.
     Simplest solution may be to rebox those primitives programmatically in another simple `BuiltinRule`.
@@ -48,6 +47,8 @@ I think this algorithm is the essence of what I'm doing now.
 
 # Done
 
+*   Remove HERMIT dependency!
+    I copied over `HERMIT.GHC.Typechecker`.
 *   Undo the `NOINLINE` hack for numeric category operations, which is there for reboxing.
 *   Find a way to localize the reboxing transformations (performing them only under `ccc`), so that they don't cause general slow-down.
     Then restore late inlining to `AltCat` ops.
