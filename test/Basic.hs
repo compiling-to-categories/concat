@@ -82,11 +82,11 @@ import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay,(:>))
-import ConCat.AltCat (ccc,reveal,Uncurriable(..),(:**:)(..))
+import ConCat.AltCat (ccc,reveal,Uncurriable(..),Trivial(..),(:**:)(..))
 import qualified ConCat.AltCat as A
 import ConCat.Rebox () -- experiment
 
-import GHC.Num () -- help the plugin find instances
+import GHC.Num () -- help the plugin find instances (doesn't)
 
 -- -- Experiment: try to force loading of Num Float etc
 -- class Num a => Quuz a
@@ -101,11 +101,13 @@ tests = return
 
 --   , tst (\ x -> 3 * x + x :: Int)
 
-  , tst (\ (x,y) -> 3 * x + y + 7 :: Float)
+--   , tst (\ (x,y) -> 3 * x + y + 7 :: Float)
 
 --   , tst (negate :: Unop Int)
 
---   , tst ((+) :: Binop Float)
+  , tst (uncurry ((*) :: Binop Float))
+
+--   , tst (uncurry (\ x y -> x + y :: Int))
 
 --   , tst ((\ _ -> 0) :: Unop Int)
 
@@ -314,6 +316,9 @@ tests = return
 
 type EC = Syn :**: (:>)
 
+runTrivial :: Trivial a b -> IO ()
+runTrivial = print
+
 runSyn :: Syn a b -> IO ()
 runSyn syn = putStrLn ('\n' : render syn)
 
@@ -323,11 +328,21 @@ runEC nm (syn :**: circ) = runSyn syn >> RC.run nm [] circ
 runCirc :: GenBuses a => String -> (a :> b) -> IO ()
 runCirc nm circ = RC.run nm [] circ
 
+runCirc' :: GenBuses a => String -> (Trivial :**: (:>)) a b -> IO ()
+runCirc' nm (triv :**: circ) = runTrivial triv >> RC.run nm [] circ
+
+-- When I use Trivial, I get an run-time error: "Impossible case alternative".
+
 #if 0
+-- Trivial interpretation
+test, test' :: String -> (a -> b) -> Test
+tst  :: (a -> b) -> Test
+{-# RULES "trivial" forall nm f. test nm f = mkTest nm (runTrivial (ccc f)) #-}
+#elif 0
 -- Circuit interpretation
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst  :: GenBuses a => (a -> b) -> Test
-{-# RULES "circuit" forall nm f. test nm f = mkTest nm (runCirc nm (ccc f)) #-}
+{-# RULES "circuit" forall nm f. test nm f = mkTest nm (runCirc' nm (ccc f)) #-}
 #elif 0
 -- Syntactic interpretation
 test, test' :: String -> (a -> b) -> Test
