@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -18,6 +19,42 @@ import qualified Prelude as P
 
 type Float  = P.Float
 type Double = P.Double
+
+#if 1
+
+type NumZ = Num
+fromIntegerZ :: Num a => Integer -> a
+negateZ :: Num a => a -> a
+addZ :: Num a => a -> a -> a
+subZ :: Num a => a -> a -> a
+mulZ :: Num a => a -> a -> a
+powIZ :: (Num a, Integral n) => a -> n -> a
+fromIntegerZ = fromInteger
+negateZ = negate
+addZ = (+)
+subZ = (-)
+mulZ = (*)
+powIZ = (^)
+
+type FractionalZ = Fractional
+recipZ :: Fractional a => a -> a
+divideZ :: Fractional a => a -> a -> a
+recipZ = recip
+divideZ = (/)
+
+type FloatingZ   = Floating
+expZ :: Floating a => a -> a
+cosZ :: Floating a => a -> a
+sinZ :: Floating a => a -> a
+expZ = exp
+cosZ = cos
+sinZ = sin
+
+type ShowZ = Show
+showZ :: Show a => a -> String
+showZ = show
+
+#else
 
 class NumZ a where
   fromIntegerZ :: Integer -> a
@@ -74,6 +111,8 @@ instance ShowZ Bool
 instance ShowZ Int
 instance ShowZ Float
 instance ShowZ Double
+
+#endif
 
 #else
 
