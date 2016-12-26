@@ -46,13 +46,13 @@ import ErrUtils (pprErrMsgBagWithLoc)
 import Encoding (zEncodeString)
 import Unique (mkUniqueGrimily)
 
--- import HERMIT.GHC.Typechecker (initTcFromModGuts)
 import TcRnDriver
 -- Temp
+-- import HERMIT.GHC.Typechecker (initTcFromModGuts)
 -- import ConCat.GHC
 
 runTcMUnsafe :: HscEnv -> DynFlags -> ModGuts -> TcM a -> a
-runTcMUnsafe env0 dflags guts m = unsafePerformIO $ do
+runTcMUnsafe env0 dflags _guts m = unsafePerformIO $ do
     -- What is the effect of HsSrcFile (should we be using something else?)
     -- What should the boolean flag be set to?
     (msgs, mr) <- runTcInteractive env m
