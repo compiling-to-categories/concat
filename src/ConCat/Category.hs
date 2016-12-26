@@ -1050,7 +1050,7 @@ instance RepCat (->) where
     Category constructions
 --------------------------------------------------------------------}
 
-data Trivial a b = Trivial
+data Trivial a b = Trivial deriving (Show)
 
 instance Category Trivial where
   id = Trivial
@@ -1118,7 +1118,7 @@ instance FloatingCat Trivial a where
   cosC = Trivial
   sinC = Trivial
 
-instance (FromIntegralCat k a b, FromIntegralCat k' a b) => FromIntegralCat Trivial a b where
+instance FromIntegralCat Trivial a b where
   fromIntegralC = Trivial
 
 instance BottomCat Trivial a where
@@ -1127,7 +1127,7 @@ instance BottomCat Trivial a where
 instance IfCat Trivial a where
   ifC = Trivial
 
-instance (UnknownCat k a b, UnknownCat k' a b) => UnknownCat Trivial a b where
+instance UnknownCat Trivial a b where
   unknownC = Trivial
 
 instance RepCat Trivial where
