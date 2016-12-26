@@ -105,7 +105,7 @@ tests = return
 
 --   , tst (negate :: Unop Int)
 
-  , tst (uncurry ((*) :: Binop Float))
+--   , tst (uncurry ((*) :: Binop Float))
 
 --   , tst (uncurry (\ x y -> x + y :: Int))
 
@@ -138,7 +138,6 @@ tests = return
 --   , tst ((\ (L (Par1 (Par1 s))) -> s) :: LR R R -> R)
 
 --   , test "id-r"          (id :: Unop R)
-
 --   , test "id-r2"         (id :: Unop R2)
 --   , test "id-r3"         (id :: Unop R3)
 --   , test "id-r4"         (id :: Unop R4)
@@ -378,7 +377,7 @@ tst  :: Uncurriable (->) a b => (a -> b) -> Test
 {-# RULES "(->); uncurries; Syn" forall nm f.
    test nm f = mkTest nm (runSyn (ccc (uncurries (ccc f))))
  #-}
-#elif 1
+#elif 0
 -- syntactic *and* circuit
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst  :: GenBuses a => (a -> b) -> Test
