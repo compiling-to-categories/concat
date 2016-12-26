@@ -37,8 +37,9 @@ library
                        ConCat.AD
                        ConCat.ADFun
                        ConCat.Rebox
-                       HERMIT.GHC.Typechecker
 
+--                        ConCat.GHC
+--                        HERMIT.GHC.Typechecker
 --                        ConCat.Entail
 --                        ConCat.Additive
 --                        ConCat.Semimodule
