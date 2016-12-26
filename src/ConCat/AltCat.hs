@@ -43,7 +43,7 @@ import ConCat.Category
   , BoolCat, BoolOf
   , NumCat, FractionalCat, FloatingCat, FromIntegralCat
   , EqCat, OrdCat, EnumCat, BottomCat, IfCat, UnknownCat, RepCat
-  , (:**:)(..)
+  , Trivial(..), (:**:)(..)
   , type (|-)(..), (<+), okProd
   , OpCon(..),FunctorC(..),Sat(..)
   )
