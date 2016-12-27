@@ -30,7 +30,7 @@ import Data.IORef ( newIORef, readIORef )
 import TcEnv ( tcLookupGlobal )
 import DynFlags ( getSigOf )
 #if __GLASGOW_HASKELL__ > 710
-import Module   ( moduleName )
+import Module   ( moduleName, mkModule, mkModuleName, baseUnitId )
 #else
 import Module   ( mkModuleSet, moduleName )
 #endif
@@ -137,7 +137,7 @@ initTcFromModGuts hsc_env guts hsc_src keep_rn_syntax do_this
                 tcg_fam_insts      = [],
                 tcg_rules          = [],
                 tcg_th_used        = th_var,
-                tcg_imports        = emptyImportAvails,
+                tcg_imports        = emptyImportAvails { imp_orphs = [ mkModule baseUnitId (mkModuleName "GHC.Float") ] },
                 tcg_dus            = emptyDUs,
                 tcg_ev_binds       = emptyBag,
                 tcg_fords          = [],
