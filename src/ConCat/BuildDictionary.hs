@@ -56,7 +56,7 @@ runTcMUnsafe env0 dflags _guts m = unsafePerformIO $ do
     -- What is the effect of HsSrcFile (should we be using something else?)
     -- What should the boolean flag be set to?
     (msgs, mr) <- runTcInteractive env m
-                  -- initTcFromModGuts env guts HsSrcFile False m
+                  -- initTcFromModGuts env0 _guts HsSrcFile False m
     let showMsgs (warns, errs) = showSDoc dflags $ vcat
                                                  $    text "Errors:" : pprErrMsgBagWithLoc errs
                                                    ++ text "Warnings:" : pprErrMsgBagWithLoc warns
