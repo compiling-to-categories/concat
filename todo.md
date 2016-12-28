@@ -1,5 +1,6 @@
 # To do
 
+*   Try `ADFun` again for comparison.
 *   Move bottom-hiding `unsafeCoerce` hack from `AltCat` to a more general definition in `Misc`.
     Then use in `AltCat` for `ccc`.
 *   Add functions like `sinFloat` to `monoInfo` in `Plugin`.
