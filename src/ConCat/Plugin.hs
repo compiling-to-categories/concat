@@ -470,6 +470,8 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
       xty = varType x
       bty = exprType body
       isConst = not (x `isFreeIn` body)
+   -- Set up boxing expression for rewriting via ConCat.Rebox.
+   -- Look for boxer under case and cast.
    outerBoxCon :: ReExpr
    -- outerBoxCon e | dtrace "outerBoxCon" (ppr e) False = undefined
    outerBoxCon e@(App (Var con) e')
@@ -478,7 +480,8 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      , Just boxV <- Map.lookup tc boxers =
      Just (Var boxV `App` e')
    outerBoxCon (Case scrut wild ty [(con,bs,rhs)]) =
-     fmap (\ rhs' -> Case scrut wild ty [(con,bs,rhs')]) (outerBoxCon rhs)
+     (\ rhs' -> Case scrut wild ty [(con,bs,rhs')]) <$> outerBoxCon rhs
+   outerBoxCon (e `Cast` co) = (`Cast` co) <$> outerBoxCon e
    outerBoxCon _ = Nothing
    hrMeth :: Type -> Maybe (Id -> CoreExpr)
    hrMeth ty = -- dtrace "hasRepMeth:" (ppr ty) $
