@@ -129,16 +129,16 @@ sumV = repr . fold . fmap SumV
     Conversion
 --------------------------------------------------------------------}
 
-type RepHasV s t = (HasRep t, HasV s (Rep t), V s t ~ V s (Rep t))
+type RepHasV s a = (HasRep a, HasV s (Rep a), V s a ~ V s (Rep a))
 
-class HasV s t where
-  type V s t :: * -> *
-  toV :: t -> V s t s
-  unV :: V s t s -> t
+class HasV s a where
+  type V s a :: * -> *
+  toV :: a -> V s a s
+  unV :: V s a s -> a
   -- Default via Rep.
-  type V s t = V s (Rep t)
-  default toV :: RepHasV s t => t -> V s t s
-  default unV :: RepHasV s t => V s t s -> t
+  type V s a = V s (Rep a)
+  default toV :: RepHasV s a => a -> V s a s
+  default unV :: RepHasV s a => V s a s -> a
   toV = toV . repr
   unV = abst . unV
 
