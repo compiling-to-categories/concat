@@ -26,6 +26,10 @@ module ConCat.AltCat
 import Prelude hiding (id,(.),curry,uncurry,const,Float,Double)
 import qualified Prelude as P
 import qualified Data.Tuple as P
+
+-- For ccc def trick
+import Unsafe.Coerce (unsafeCoerce)
+
 import qualified ConCat.Category as C
 import ConCat.Rep
 import ConCat.Misc ((:*),(:+),PseudoFun(..))
@@ -353,8 +357,9 @@ UncId(c :+ d)
 
 -- | Pseudo function to trigger rewriting to CCC form.
 ccc :: forall k a b. (a -> b) -> (a `k` b)
-ccc _ = error "ccc: not implemented"
+ccc _ = unsafeCoerce "Oops --- ccc called!"  -- so GHC won't notice bottom def
 {-# NOINLINE ccc #-}
+{-# RULES "ccc error" [0] forall f. ccc f = error "ccc: not implemented" #-}
 
 -- Prelude versions of categorical ops
 {-# RULES
