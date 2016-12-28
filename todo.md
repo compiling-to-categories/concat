@@ -1,5 +1,8 @@
 # To do
 
+*   Move bottom-hiding `unsafeCoerce` hack from `AltCat` to a more general definition in `Misc`.
+    Then use in `AltCat` for `ccc`.
+*   Add functions like `sinFloat` to `monoInfo` in `Plugin`.
 *   Converting to the `Trivial` category leads to run-time error: "Impossible case alternative".
 *   Reboxing of `divideFloat#` and `divideDouble#`.
     The rules in `ConCat.Rebox` (commented out) don't work, perhaps because those operations can fail.
