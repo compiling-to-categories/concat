@@ -40,18 +40,18 @@
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
 -- {-# OPTIONS_GHC -dsuppress-type-applications #-}
 -- {-# OPTIONS_GHC -dsuppress-coercions #-}
 
-{-# OPTIONS_GHC -ddump-simpl #-}
+-- {-# OPTIONS_GHC -ddump-simpl #-}
 
 -- {-# OPTIONS_GHC -dshow-passes #-}
 
-{-# OPTIONS_GHC -ddump-rule-rewrites #-}
+-- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
 
 -- Tweak simpl-tick-factor from default of 100
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=300 #-}
@@ -150,9 +150,9 @@ tests = return
 --   , test "x-plus-four" (\ x -> x + 4 :: R)
 --   , test "four-plus-x" (\ x -> 4 + x :: R)
 
-  , test "sin"         (sin :: Unop R)
+--   , test "sin"         (sin :: Unop R)
 --   , test "cos"         (cos :: Unop R)
---   , test "square"      (\ x -> x * x :: R)
+  , test "square"      (\ x -> x * x :: R)
 --   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
 --   , test "cos-xpx"     (\ x -> cos (x + x) :: R)
 --   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
@@ -439,7 +439,7 @@ tst         :: GB a b =>           (a -> b) -> Test
 {-# RULES "L ; Syn+circuit" forall nm f.
    test nm f = mkTest nm (runEC (nm++"-lmap") (ccc (\ () -> repr (lmap @R f))))
  #-}
-#elif 1
+#elif 0
 -- Derivative, then syntactic
 test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
