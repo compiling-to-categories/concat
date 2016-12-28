@@ -669,7 +669,7 @@ instance {-# OVERLAPPABLE #-}
 
 #endif
 
-repConst :: (HasRep (ConstObj k b), ConstCat k (Rep b), RepCat k, Ok k a, Ok k (ConstObj k b))
+repConst :: (HasRep (ConstObj k b), ConstCat k (Rep b), RepCat k b, Ok k a, Ok k (ConstObj k b))
          => b -> (a `k` ConstObj k b)
 repConst b = abstC . const (repr b)
 
@@ -945,8 +945,11 @@ instance (Monad m, Integral a, Num b) => FromIntegralCat (Kleisli m) a b where
   fromIntegralC = arr fromIntegral
 #endif
 
-class Ok k a => BottomCat k a where
+class (Category k, Ok2 k (Unit k) a) => BottomCat k a where
   bottomC :: Unit k `k` a
+
+bottomRep :: (RepCat k a, BottomCat k (Rep a), Ok k a) => Unit k `k` a
+bottomRep = abstC . bottomC
 
 instance BottomCat (->) a where bottomC = error "bottomC for (->) evaluated"
 
@@ -1013,7 +1016,7 @@ funIf = curry (ifC . (exl . exl &&& (apply . first (exl . exr) &&& apply . first
 
 #endif
 
-repIf :: forall k a. (RepCat k, ProductCat k, Ok k a, HasRep a, IfCat k (Rep a))
+repIf :: forall k a. (RepCat k a, ProductCat k, Ok k a, IfCat k (Rep a))
       => IfT k a
 repIf = abstC . ifC . second (twiceP reprC)
         <+ okProd @k @(BoolOf k) @(Prod k (Rep a) (Rep a))
@@ -1035,14 +1038,14 @@ class UnknownCat k a b where
 instance UnknownCat (->) a b where
   unknownC = error "unknown"
 
-class RepCat k where
-  reprC :: HasRep a => a `k` Rep a
-  abstC :: HasRep a => Rep a `k` a
+class RepCat k a where
+  reprC :: a `k` Rep a
+  abstC :: Rep a `k` a
 
 -- TODO: Maybe move a to a RepCat parameter, perhaps with HasRep a as a
 -- superclass constraint.
 
-instance RepCat (->) where
+instance HasRep a => RepCat (->) a where
   reprC = repr
   abstC = abst
 
@@ -1130,7 +1133,7 @@ instance IfCat Trivial a where
 instance UnknownCat Trivial a b where
   unknownC = Trivial
 
-instance RepCat Trivial where
+instance RepCat Trivial a where
   reprC = Trivial
   abstC = Trivial
 
@@ -1289,7 +1292,7 @@ instance (UnknownCat k a b, UnknownCat k' a b) => UnknownCat (k :**: k') a b whe
   unknownC = unknownC :**: unknownC
   PINLINER(unknownC)
 
-instance (RepCat k, RepCat k') => RepCat (k :**: k') where
+instance (RepCat k a, RepCat k' a) => RepCat (k :**: k') a where
   reprC = reprC :**: reprC
   abstC = abstC :**: abstC
   PINLINER(reprC)

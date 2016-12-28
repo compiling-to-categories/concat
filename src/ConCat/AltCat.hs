@@ -174,14 +174,14 @@ Op0(ifC,IfCat k a => Prod k (BoolOf k) (Prod k a a) `k` a)
 
 Op0(unknownC,UnknownCat k a b => a `k` b)
 
-Op0(reprC,(RepCat k, HasRep a) => a `k` Rep a)
-Op0(abstC,(RepCat k, HasRep a) => Rep a `k` a)
+Op0(reprC,(RepCat k a) => a `k` Rep a)
+Op0(abstC,(RepCat k a) => Rep a `k` a)
 
-reprC' :: forall k a r. (RepCat k, HasRep a, Rep a ~ r) => a `k` r
+reprC' :: forall k a r. (RepCat k a, Rep a ~ r) => a `k` r
 reprC' = reprC
 {-# OPINLINE reprC' #-}
 
-abstC' :: forall k r a. (RepCat k, HasRep a, Rep a ~ r) => r `k` a
+abstC' :: forall k r a. (RepCat k a, Rep a ~ r) => r `k` a
 abstC' = abstC
 {-# OPINLINE abstC' #-}
 
