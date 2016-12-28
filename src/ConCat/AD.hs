@@ -24,8 +24,10 @@ import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
 import ConCat.AltCat hiding (const)
+import ConCat.Rep
 
-newtype D s a b = D (a -> b :* L s a b)
+-- newtype D s a b = D (a -> b :* L s a b)
+data D s a b = D (a -> b :* L s a b)
 
 unD :: D s a b -> (a -> b :* L s a b)
 unD (D f) = f
@@ -41,10 +43,15 @@ linearD f f' = D (\ a -> (f a, f'))
 
 -- TODO: have linearD accept *just* the L version and convert via lapply
 
-instance Newtype (D s a b) where
-  type O (D s a b) = (a -> b :* L s a b)
-  pack f = D f
-  unpack (D f) = f
+-- instance Newtype (D s a b) where
+--   type O (D s a b) = (a -> b :* L s a b)
+--   pack f = D f
+--   unpack (D f) = f
+
+instance HasRep (D s a b) where
+  type Rep (D s a b) = (a -> b :* L s a b)
+  abst f = D f
+  repr (D f) = f
 
 instance Category (D s) where
   type Ok (D s) = OkLM s
@@ -182,20 +189,6 @@ instance (OkLM s s, Floating s) => FloatingCat (D s) s where
 dfun :: forall s a b . (a -> b) -> (a -> b :* L s a b)
 dfun _ = error "dfun called"
 {-# NOINLINE dfun #-}
-{-# RULES "dfun" forall h. dfun h = unD' (reveal (ccc h)) #-}
+{-# RULES "dfun" forall h. dfun h = unD (ccc h) #-}
 {-# ANN dfun PseudoFun #-}
-
-unD' :: D s a b -> a -> b :* L s a b
-#if 0
-unD' d = unD d
-{-# INLINE [0] unD' #-}
-#else
-unD' _ = error "unD' called"
-{-# NOINLINE unD' #-}
-{-# RULES "unD'" [0] unD' = unD #-}
-#endif
-
--- Experiment: inline on demand
-{-# RULES "ccc of unD'" forall q. ccc (unD' q) = ccc (unD q) #-}
-{-# RULES "unD' of D" forall f. unD' (D f) = f #-}
 
