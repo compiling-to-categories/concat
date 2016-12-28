@@ -55,7 +55,7 @@
 
 -- Tweak simpl-tick-factor from default of 100
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=300 #-}
--- {-# OPTIONS_GHC -fsimpl-tick-factor=20  #-}
+{-# OPTIONS_GHC -fsimpl-tick-factor=50  #-}
 
 -- When I list the plugin in the test suite's .cabal target instead of here, I get
 --
@@ -152,7 +152,7 @@ tests = return
 
 --   , test "sin"         (sin :: Unop R)
 --   , test "cos"         (cos :: Unop R)
-  , test "square"      (\ x -> x * x :: R)
+--   , test "square"      (\ x -> x * x :: R)
 --   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
 --   , test "cos-xpx"     (\ x -> cos (x + x) :: R)
 --   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
@@ -166,6 +166,12 @@ tests = return
 --   , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
 
 --   , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
+
+  , test "foo" (\ (a::R,_b::R,_c::R) -> a)
+
+--   , test "foo" (\ (a,b,c) -> a * b * c :: R)
+
+--   , test "foo" (\ ((a,b),(c,d)) -> a * b + c * d :: R)
 
 --   , test "mul" ((*) :: Binop R)
 
