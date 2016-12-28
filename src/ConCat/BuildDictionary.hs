@@ -19,7 +19,7 @@
 
 module ConCat.BuildDictionary (buildDictionary) where
 
-import Control.Monad (guard,unless)
+import Control.Monad (guard) -- ,unless
 import Data.Monoid (Any(..))
 import Data.Char (isSpace)
 import Data.Data (Data)
@@ -115,7 +115,7 @@ buildDictionary env dflags guts inScope ty =
      -- pprTrace "buildDictionary" (ppr (exprFreeVars dict)) (return ())
      -- pprTrace "buildDictionary" (ppr (bnds,freeIds)) (return ())
      let ok = notNull bnds && null freeIds && not (hasCoercionHole dict)
-#if 1
+#if 0
      unless ok $
        pprTrace "buildDictionary fail for"
          (ppr ty <> colon <+>
