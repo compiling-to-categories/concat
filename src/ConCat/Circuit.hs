@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 
-#define NoOptimizeCircuit
-#define NoHashCons
+-- #define NoOptimizeCircuit
+-- #define NoHashCons
 
 -- #define NoIfBotOpt
 -- #define NoIdempotence
