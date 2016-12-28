@@ -550,11 +550,14 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    -- Oops. Succeeds for UnivCo.
    recast co | Just _ <- setNominalRole_maybe co = -- pprTrace "recast setNominalRole" empty $
                                                    castE co
-
    recast co = pprPanic ("recast: unhandled " ++ coercionTag co ++ " coercion:")
                  (ppr co {- <+> dcolon $$ ppr (coercionType co)-})
    unfoldOkay :: CoreExpr -> Bool
-   unfoldOkay (exprHead -> Just v) = isNothing (catFun (Var v))
+   unfoldOkay (exprHead -> Just v) =
+     -- pprTrace "unfoldOkay head" (ppr v) $
+     -- Temp hack: avoid unfold/case-of-product loop.
+     notElem (fqVarName v) (((catModule ++ ".") ++) <$> ["exl","exr"]) &&
+     isNothing (catFun (Var v))
    unfoldOkay _                    = False
    unfoldMaybe :: ReExpr
    -- unfoldMaybe e | dtrace "unfoldMaybe" (ppr (e,collectArgsPred isTyCoDictArg e)) False = undefined
