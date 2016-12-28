@@ -19,7 +19,7 @@ module ConCat.Plugin where
 
 import Control.Arrow (first,second,(***))
 import Control.Applicative (liftA2,(<|>))
-import Control.Monad (unless,guard)
+import Control.Monad (unless,when,guard)
 import Data.Foldable (toList)
 import Data.Maybe (isNothing,isJust,fromMaybe,catMaybes)
 import Data.List (isPrefixOf,isSuffixOf,elemIndex,sort)
@@ -76,6 +76,7 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , hasRepMeth       :: HasRepMeth
                      -- , hasRepFromAbstCo :: Coercion   -> CoreExpr
                      , prePostV         :: Id
+                  -- , lazyV            :: Id
                      , boxers           :: Map TyCon Id  -- to remove
                   -- , reboxV           :: Id
                   -- , inlineV          :: Id
@@ -117,7 +118,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
  where
    go :: ReExpr
    go = \ case
-     --- e | dtrace ("go ccc "++pp cat++":") (pprWithType e) False -> undefined
+     e | dtrace ("go ccc "++pp cat++":") (pprWithType e) False -> undefined
      -- Temporarily make `ccc` bail on polymorphic terms. Doing so will speed up
      -- my experiments, since much time is spent optimizing rules, IIUC. It'll
      -- be important to restore polymorphic transformation later for useful
@@ -156,19 +157,21 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
          go (App (Lam v body) rhs)
      -- ccc-of-case. Maybe restrict to isTyCoDictArg for all bound variables, but
      -- perhaps I don't need to.
-     Trying("top Case of dictionary")
+     Trying("top Case unfold")  --  of dictionary
      -- For case-of dictionary, push on unfolding so that the specific methods
      -- get revealed. Otherwise, ccc residuals.
      Case scrut wild rhsTy alts
-       | isPred scrut
-       , Just scrut' <- unfoldMaybe scrut
-       -> Doing("top Case of dictionary")
+       -- | isPred scrut
+       | Just scrut' <- unfoldMaybe scrut
+       -> Doing("top Case unfold")  --  of dictionary
           return $ mkCcc (Case scrut' wild rhsTy alts)
           -- TODO: also for lam?
+#if 0
      Trying("top Case")
      Case scrut wild rhsTy alts ->
        Doing("top Case")
        return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
+#endif
 #if 1
      Trying("top nominal Cast")
      Cast e co@(setNominalRole_maybe -> Just (reCatCo -> Just co')) ->
@@ -205,6 +208,12 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
             mkAbstC funCat (exprType body) `App` (meth reprV `App` body)
             -- TODO: Try simpleE on just (meth repr'V), not body.
 #endif
+#if 0
+     Trying("top lazy")
+     (collectArgs -> (Var ((== lazyV) -> True),_ty:f:args)) ->
+       Doing("top lazy")
+       return (mkCcc (mkCoreApps f args))
+#endif
      Trying("top unfold")
      ({- traceRewrite "top unfold" -} unfoldMaybe -> Just e') ->
        Doing("top unfold")
@@ -235,7 +244,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      _ -> Doing("top Unhandled")
           Nothing
           -- pprPanic "ccc go. Unhandled" (ppr e)
-   -- goLam x body | dtrace "goLam:" (ppr (Lam x body)) False = undefined
+   goLam x body | dtrace "goLam:" (ppr (Lam x body)) False = undefined
    -- go _ = Nothing
    goLam x body | Just e' <- etaReduce_maybe (Lam x body) =
     Doing("lam eta-reduce")
@@ -1071,8 +1080,9 @@ mkCccEnv opts = do
   boxIV      <- findBoxId "boxI"
   boxFV      <- findBoxId "boxF"
   boxDV      <- findBoxId "boxD"
+  -- lazyV      <- findId "GHC.Exts" "lazy"
   -- reboxV     <- findBoxId "rebox"
-  -- inlineV   <- findId "GHC.Exts" "inline"
+  -- inlineV    <- findId "GHC.Exts" "inline"
   let mkPolyOp :: (String,(String,String)) -> CoreM (String,Var)
       mkPolyOp (stdName,(cmod,cop)) =
         do cv <- findId cmod cop
@@ -1100,6 +1110,8 @@ mkCccEnv opts = do
         mkCast (idAt dom) (mkFunCo Representational (mkRepReflCo dom) co)
 #endif
   -- _ <- findId "GHC.Num" "subtract" -- help the plugin find instances for Float and Double
+  when (isBottomingId cccV) $
+    pprPanic "isBottomingId cccV" empty
   return (CccEnv { .. })
 
 type HasRepMeth = DynFlags -> ModGuts -> InScopeEnv -> Type -> Maybe (Id -> CoreExpr)
@@ -1394,6 +1406,7 @@ coercionTag SubCo       {} = "SubCo"
 -- Try to inline an identifier.
 -- TODO: Also class ops
 inlineId :: Id -> Maybe CoreExpr
+-- inlineId v | pprTrace ("inlineId " ++ fqVarName v) (ppr (realIdUnfolding v)) False = undefined
 -- inlineId v | pprTrace ("inlineId " ++ uqVarName v) (ppr (maybeUnfoldingTemplate (realIdUnfolding v))) False = undefined
 inlineId v = maybeUnfoldingTemplate (realIdUnfolding v)  -- idUnfolding
 
