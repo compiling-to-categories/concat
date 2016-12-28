@@ -218,6 +218,10 @@ joinLM = inAbst2 joinL
 jamLM :: Ok (L s) a => L s (a :* a) a
 jamLM = id `joinLM` id
 
+instance (V s (Rep a) ~ V s a, Ok (L s) a) => RepCat (L s) a where
+  reprC = abst idL 
+  abstC = abst idL 
+
 -- We can't make a ClosedCat instance compatible with the ProductCat instance.
 -- We'd have to change the latter to use the tensor product.
 
