@@ -555,7 +555,7 @@ type a :+> b = Kleisli CircuitM (Buses a) (Buses b)
 -- | Circuit category
 newtype a :> b = C { unC :: a :+> b }
 
-instance RepCat (:>) where
+instance RepCat (:>) a where
   reprC = C (arr reprB)
   abstC = C (arr abstB)
 
@@ -2483,9 +2483,6 @@ genBusesRep' prim ins = abstB <$> genBuses' prim ins
 
 -- tweakValRep :: (HasRep a, Tweakable (Rep a)) => Unop a
 -- tweakValRep = abst . tweakVal . repr
-
-bottomRep :: (HasRep a, BottomCat (:>) (Rep a)) => () :> a
-bottomRep = abstC . bottomC
 
 tyRep :: forall a. GenBuses (Rep a) => a -> Ty
 tyRep = const (ty (undefined :: Rep a))

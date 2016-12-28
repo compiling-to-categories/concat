@@ -278,7 +278,7 @@ instance UnknownCat Syn a b where
   unknownC = atomStr "unknownC"
   INLINER(unknownC)
 
-instance RepCat Syn where
+instance RepCat Syn a where
   reprC = atomStr "reprC"
   abstC = atomStr "abstC"
   INLINER(reprC)
