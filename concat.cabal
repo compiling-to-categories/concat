@@ -38,6 +38,7 @@ library
                        ConCat.ADFun
                        ConCat.Rebox
 
+--                        ConCat.EmptyCase
 --                        ConCat.GHC
 --                        HERMIT.GHC.Typechecker
 --                        ConCat.Entail
