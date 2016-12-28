@@ -182,6 +182,10 @@ instance (OkLM s s, Floating s) => FloatingCat (D s) s where
   {-# INLINE sinC #-}
   {-# INLINE cosC #-}
 
+instance (V s (Rep a) ~ V s a, Ok (L s) a, HasRep a) => RepCat (D s) a where
+  reprC = linearD reprC reprC
+  abstC = linearD abstC abstC
+
 {--------------------------------------------------------------------
     Utilities
 --------------------------------------------------------------------}
