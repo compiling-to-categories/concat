@@ -1,13 +1,29 @@
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE CPP, TypeOperators #-}
+
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -ddump-simpl #-}
+{-# OPTIONS_GHC -ddump-simpl -Wno-unused-imports #-}
 
 -- | Tracking down an issue with GHC generating an empty case expression
 
 module ConCat.EmptyCase where
 
-infixl 7 :*
-type (:*)  = (,)
+import GHC.Exts (lazy)
+
+#if 1
+
+import ConCat.Misc ((:*))
+import ConCat.Free.LinearRow
+import ConCat.AD
+import ConCat.AltCat (ccc)
+
+type R = Float
+
+bar :: R -> R :* L R R R
+bar = lazy unD (ccc id)
+
+#elif 1
+
+type (:*) = (,)
 
 data L s a b = L b
 
@@ -22,4 +38,17 @@ ccc f = ccc f
 type R = Float
 
 bar :: R -> R :* L R R R
-bar = unD (ccc id)
+bar = lazy unD (ccc id)
+
+#else
+
+data D a b = D { unD :: a -> b }
+
+foo :: (a -> b) -> (a `k` b)
+foo f = foo f
+{-# NOINLINE foo #-}
+
+bar :: Int -> Int
+bar = lazy unD (foo id)
+
+#endif
