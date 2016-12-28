@@ -445,12 +445,15 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
                   return $ mkCompose cat (mkCcc u) (mkCcc (Lam x v))
 #endif
      Trying("lam unfold")
-     (unfoldMaybe -> Just body') ->
-       Doing("lam unfold")
-       -- dtrace "lam unfold" (ppr body <+> text "-->" <+> ppr body')
-       return (mkCcc (Lam x body'))
-       -- goLam x body'
-       -- TODO: factor out Lam x (mkCcc ...)
+     e'@(exprHead -> Just v)
+       | -- Temp hack: avoid unfold/case-of-product loop.
+         notElem (fqVarName v) (((catModule ++ ".") ++) <$> ["exl","exr"])
+       , Just body' <- unfoldMaybe e'
+       -> Doing("lam unfold")
+          -- dtrace "lam unfold" (ppr body <+> text "-->" <+> ppr body')
+          return (mkCcc (Lam x body'))
+          -- goLam x body'
+          -- TODO: factor out Lam x (mkCcc ...)
      Trying("lam App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
      u `App` v | liftedExpr v
@@ -554,9 +557,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
                  (ppr co {- <+> dcolon $$ ppr (coercionType co)-})
    unfoldOkay :: CoreExpr -> Bool
    unfoldOkay (exprHead -> Just v) =
-     -- pprTrace "unfoldOkay head" (ppr v) $
-     -- Temp hack: avoid unfold/case-of-product loop.
-     notElem (fqVarName v) (((catModule ++ ".") ++) <$> ["exl","exr"]) &&
+     -- pprTrace "unfoldOkay head" (ppr (v,isNothing (catFun (Var v)))) $
      isNothing (catFun (Var v))
    unfoldOkay _                    = False
    unfoldMaybe :: ReExpr
