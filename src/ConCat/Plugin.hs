@@ -215,10 +215,13 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        return (mkCcc (mkCoreApps f args))
 #endif
      Trying("top unfold")
-     ({- traceRewrite "top unfold" -} unfoldMaybe -> Just e') ->
-       Doing("top unfold")
-       -- dtrace "go unfold" (ppr e <+> text "-->" <+> ppr e')
-       return (mkCcc e')
+     e@(exprHead -> Just v)
+       | -- Temp hack: avoid unfold/case-of-product loop.
+         not (isSelectorId v || isAbstReprId v)
+       , Just e' <- unfoldMaybe e
+       -> Doing("top unfold")
+          -- , dtrace "top unfold" (ppr e <+> text "-->" <+> ppr e') True
+          return (mkCcc e')
      Trying("top App")
      e@(App u v)
        | liftedExpr v
@@ -429,6 +432,15 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        -> Doing("lam Case unfold")
           return $ mkCcc $ Lam x $
            Case scrut' v altsTy alts
+     Trying("lam nominal Cast")
+     Cast body' co@(setNominalRole_maybe -> Just co') ->
+       -- etaExpand turns cast lambdas into themselves
+       Doing("lam nominal cast")
+       let r  = coercionRole co
+           r' = coercionRole co'
+           co'' = downgradeRole r r' co' in
+         -- pprTrace "lam nominal Cast" (ppr co $$ text "-->" $$ ppr co'') $
+         return (mkCcc (Cast (Lam x body') (FunCo r (mkReflCo r xty) co'')))
      Trying("lam recast")
      Cast e co ->
        Doing("lam recast")
@@ -447,7 +459,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      Trying("lam unfold")
      e'@(exprHead -> Just v)
        | -- Temp hack: avoid unfold/case-of-product loop.
-         notElem (fqVarName v) (((catModule ++ ".") ++) <$> ["exl","exr"])
+         not (isSelectorId v || isAbstReprId v)
        , Just body' <- unfoldMaybe e'
        -> Doing("lam unfold")
           -- dtrace "lam unfold" (ppr body <+> text "-->" <+> ppr body')
@@ -490,10 +502,10 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    hrMeth ty = -- dtrace "hasRepMeth:" (ppr ty) $
                hasRepMeth dflags guts inScope ty
    -- Change categories
-   catTy :: Unop Type
-   catTy (tyArgs2 -> (a,b)) = mkAppTys cat [a,b]
+   -- catTy :: Unop Type
+   -- catTy (tyArgs2 -> (a,b)) = mkAppTys cat [a,b]
    reCatCo :: Rewrite Coercion
-   reCatCo co | dtrace "reCatCo" (ppr co) False = undefined
+   -- reCatCo co | dtrace "reCatCo" (ppr co) False = undefined
    reCatCo (FunCo r a b) = Just (mkAppCos (mkReflCo r cat) [a,b])
    reCatCo (splitAppCo_maybe -> Just
             (splitAppCo_maybe -> Just
@@ -722,18 +734,15 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      -- pprTrace "mkAbstC" (ppr ty) $
      -- pprTrace "mkAbstC" (pprWithType (Var abstCV)) $
      -- pprTrace "mkAbstC" (pprWithType (catOp k abstCV [ty])) $
-     -- pprTrace "mkAbstC" (pprWithType (onDict (catOp k abstCV [ty]))) $
      -- pprPanic "mkAbstC" (text "bailing")
-     onDict (catOp k abstCV [ty])
+     catOp k abstCV [ty]
    mkReprC :: Cat -> Type -> CoreExpr
    mkReprC k ty =
      -- pprTrace "mkReprC" (ppr ty) $
      -- pprTrace "mkReprC" (pprWithType (Var reprCV)) $
      -- pprTrace "mkReprC" (pprWithType (catOp k reprCV [ty])) $
-     -- pprTrace "mkReprC" (pprWithType (onDict (catOp k reprCV [ty]))) $
      -- pprPanic "mkReprC" (text "bailing")
-     onDict (catOp k reprCV [ty])
-
+     catOp k reprCV [ty]
    -- TODO: refactor mkReprC' and mkAbstC' into one function that takes an Id. p
    mkReprC', mkAbstC' :: Cat -> Pair Type -> Maybe CoreExpr
    mkReprC' k (Pair dom ran) =
@@ -820,13 +829,15 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      -- , dtrace "transCatOp" (text "arity match") True
      = let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
            addArg :: Maybe (Int,CoreExpr) -> CoreExpr -> Maybe (Int,CoreExpr)
-           addArg Nothing _ = Nothing
+           -- addArg a b | dtrace "transCatOp addArg" (ppr (a,b)) False = undefined
+           addArg Nothing _ = dtrace "transCatOp Nothing" (text "bailing") $
+                              Nothing
            addArg (Just (i,e)) arg
               | isTyCoArg arg
               = -- dtrace "addArg isTyCoArg" (ppr arg)
                 Just (i,e `App` arg)
               | isPred arg
-              = -- dtrace "addArg isPred" (ppr arg)
+              = --- dtrace "addArg isPred" (ppr arg)
                 -- onDictMaybe may fail (Nothing) in the target category.
                 (i,) <$> onDictMaybe e  --  fails gracefully
                 -- Just (i,onDict e)    -- succeed or die
@@ -872,13 +883,14 @@ isVarTyCos (collectTyCoDictArgs -> (Var _,_)) = True
 isVarTyCos _ = False
 
 -- Adapted from exprIsTrivial in CoreUtils. This version considers dictionaries
--- trivial.
+-- trivial as well as application of exl/exr.
 isTrivial :: CoreExpr -> Bool
 -- isTrivial e | pprTrace "isTrivial" (ppr e) False = undefined
 isTrivial (Var _)          = True        -- See Note [Variables are trivial]
 isTrivial (Type _)         = True
 isTrivial (Coercion _)     = True
 isTrivial (Lit lit)        = litIsTrivial lit
+isTrivial (App (isTrivialCatOp -> True) arg) = isTrivial arg
 isTrivial (App e arg)      = isTyCoDictArg arg && isTrivial e
 isTrivial (Tick _ e)       = isTrivial e
 isTrivial (Cast e _)       = isTrivial e
@@ -912,6 +924,21 @@ repModule = "ConCat.Rep"
 
 boxModule :: String
 boxModule = "ConCat.Rebox"
+
+isTrivialCatOp :: CoreExpr -> Bool
+-- isTrivialCatOp = liftA2 (||) isSelection isAbstRepr
+isTrivialCatOp (collectArgs -> (Var v,length -> n)) =
+     (isSelectorId v && n == 5)  -- exl cat tya tyb dict ok
+  || (isAbstReprId v && n == 4)  -- reprC cat ty repCat hasRep
+isTrivialCatOp _ = False
+
+isSelectorId :: Id -> Bool
+isSelectorId v = fqVarName v `elem` (((catModule ++ ".") ++) <$> ["exl","exr"])
+
+isAbstReprId :: Id -> Bool
+isAbstReprId v = fqVarName v `elem` (((catModule ++ ".") ++) <$> ["reprC","abstC"])
+
+-- TODO: refactor
 
 -- For each categorical operation, how many non-cat args (first) and how many cat args (last)
 catOpArities :: Map String (Int,Int)
