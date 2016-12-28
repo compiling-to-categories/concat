@@ -34,20 +34,20 @@
 ----------------------------------------------------------------------
 
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin -fexpose-all-unfoldings #-}
-{-# OPTIONS_GHC -dcore-lint #-}
-{-# OPTIONS_GHC -funfolding-keeness-factor=5 #-} -- Try. Defaults to 1.5
+-- {-# OPTIONS_GHC -dcore-lint #-}
+-- {-# OPTIONS_GHC -funfolding-keeness-factor=5 #-} -- Try. Defaults to 1.5
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
 -- {-# OPTIONS_GHC -dsuppress-type-applications #-}
 -- {-# OPTIONS_GHC -dsuppress-coercions #-}
 
--- {-# OPTIONS_GHC -ddump-simpl #-}
+{-# OPTIONS_GHC -ddump-simpl #-}
 
 -- {-# OPTIONS_GHC -dshow-passes #-}
 
@@ -70,7 +70,8 @@ import Prelude hiding (Float,Double)   -- ,id,(.),const
 import Control.Arrow (second)
 import Data.Tuple (swap)
 import Distribution.TestSuite
-import GHC.Generics hiding (R)
+import GHC.Generics hiding (R,D)
+import GHC.Exts (lazy)
 
 import ConCat.Misc (Unop,Binop,(:*),PseudoFun(..))
 import ConCat.Rep
@@ -149,7 +150,7 @@ tests = return
 --   , test "x-plus-four" (\ x -> x + 4 :: R)
 --   , test "four-plus-x" (\ x -> 4 + x :: R)
 
---   , test "sin"         (sin :: Unop R)
+  , test "sin"         (sin :: Unop R)
 --   , test "cos"         (cos :: Unop R)
 --   , test "square"      (\ x -> x * x :: R)
 --   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
@@ -415,7 +416,7 @@ tst  :: Okay a b => (a -> b) -> Test
 {-# RULES "(->); (:>)" forall nm f.
    test nm f = mkTest nm (go nm (ccc f))
  #-}
-#elif 1
+#elif 0
 -- L, then syntactic
 test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
@@ -451,9 +452,9 @@ tst  :: (a -> b) -> Test
 test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall nm f.
-   test nm f = mkTest nm (runSyn (ccc (dfun (ccc f))))
+   test nm f = mkTest nm (runSyn (ccc (dfun @R (ccc f))))
  #-}
-#elif 0
+#elif 1
 -- (->), then derivative, then syntactic and circuit.
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst         :: GenBuses a =>           (a -> b) -> Test
@@ -743,8 +744,26 @@ foo4 = sampleD (ccc id)
 -- bar :: EC R (R :* (R -> R))
 -- bar = reveal (ccc (dfun id))
 
+
+-- -- idArity 1 exceeds arity imposed by the strictness signature DmdType x: lvl_sgks
 -- bar :: IO ()
--- bar = runEC "bar" (ccc (dfun (id :: Unop R)))
+-- bar = runEC "bar" (ccc (dfun @R (id :: Unop R)))
+
+-- -- fine
+-- bar :: D R R R
+-- bar = ccc (id :: Unop R)
+
+-- -- case-of-empty
+-- bar :: R -> R :* L R R R
+-- bar = unD (ccc (id :: Unop R))
+
+-- -- idArity 1 exceeds arity imposed by the strictness signature DmdType x: bar
+-- bar :: R -> R :* L R R R
+-- bar x = unD' (ccc (id :: Unop R)) x
+
+-- -- idArity 1 exceeds arity imposed by the strictness signature DmdType x: bar
+-- bar :: Syn R (R :* L R R R)
+-- bar = ccc (unD' (ccc (id :: Unop R)))
 
 #endif
 
@@ -799,3 +818,27 @@ addThree (a,b,c) = a+b+c
 
 -- bar :: Syn Bool (Par1 Bool)
 -- bar = ccc Par1
+
+{--------------------------------------------------------------------
+    More testing
+--------------------------------------------------------------------}
+
+-- -- fine
+-- barD :: D R R R
+-- barD = ccc (id :: Unop R)
+
+-- bar :: R -> R :* L R R R
+-- -- bar = unD' barD
+-- -- bar = unD (ccc id)
+-- -- bar = lazy unD (ccc id)
+-- -- bar = dfun (ccc id)
+-- -- bar = dfun id
+-- bar = dfun sin  -- okay
+
+-- bar' :: Syn R (R :* L R R R)
+-- -- bar' = ccc bar
+-- -- bar' = ccc (lazy bar)
+-- bar' = ccc (dfun sin)
+
+-- foo :: Syn R R
+-- foo = ccc sin
