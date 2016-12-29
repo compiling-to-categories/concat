@@ -1,5 +1,11 @@
 # To do
 
+*   Remove the `reveal` machinery in `AltCat`.
+*   Explore eliminating `abstReprCase` (and perhaps `abstReprCon`).
+    Does unfolding suffice as an alternative?
+    Not quite, since lambda-bound variables can appear as scrutinees.
+    Maybe we could eliminate that possibility with another transformation.
+*   Remove `ConCat.Float` and supporting complexity in `ConCat.Plugin`.
 *   Try `ADFun` again for comparison.
 *   Move bottom-hiding `unsafeCoerce` hack from `AltCat` to a more general definition in `Misc`.
     Then use in `AltCat` for `ccc`.
