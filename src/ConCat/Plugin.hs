@@ -418,6 +418,10 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
               sub   = [(a,mkEx funCat exlV (Var c)),(b,mkEx funCat exrV (Var c))]
           in
             return (mkCcc (Lam x (App (Lam c (subst sub rhs)) scrut)))
+#if 1
+     -- Does unfolding suffice as an alternative? Not quite, since lambda-bound
+     -- variables can appear as scrutinees. Maybe we could eliminate that
+     -- possibility with another transformation.
      Trying("lam abstReprCase")
      -- Do I also need top abstReprCase?
      Case scrut v altsTy alts
@@ -425,6 +429,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        -> Doing("lam abstReprCase")
           return $ mkCcc $ Lam x $
            Case (meth abstV `App` (mkReprC funCat (varType v) `App` scrut)) v altsTy alts
+#endif
      Trying("lam Case unfold")
      Case scrut v altsTy alts
        | {- isPred scrut
@@ -524,8 +529,6 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    -- Refl is subsumed by setNominalRole. Handle here for simpler output.
    recast (Refl _ ty) = -- pprTrace "recast Refl -->" (pprWithType (mkId funCat ty)) $
                         mkId funCat ty
-
-   -- recast _ | pprTrace "recast setNominalRole_maybe failed" empty False = undefined
    recast (FunCo _r domCo ranCo) = -- pprTrace "recast FunCo" empty $
                                    mkPrePost (recast (mkSymCo domCo)) (recast ranCo)
    recast co
@@ -556,7 +559,8 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    recast (TransCo inner outer) =
      -- pprTrace "TransCo" empty $ -- order?
      mkCompose funCat (recast outer) (recast inner)
-
+   recast (SymCo (TransCo inner outer)) =
+     recast (mkSymCo outer `TransCo` mkSymCo inner)
    -- If we have a nominal(able) coercion, let another ccc pass handle it.
    -- Importantly, 'go' above tries this case before recast. Thus, if we see a
    -- nominal coercion here, we've already made progress.
@@ -566,7 +570,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    recast co | Just _ <- setNominalRole_maybe co = -- pprTrace "recast setNominalRole" empty $
                                                    castE co
    recast co = pprPanic ("recast: unhandled " ++ coercionTag co ++ " coercion:")
-                 (ppr co {- <+> dcolon $$ ppr (coercionType co)-})
+                 (ppr co <+> dcolon $$ ppr (coercionType co))
    unfoldOkay :: CoreExpr -> Bool
    unfoldOkay (exprHead -> Just v) =
      -- pprTrace "unfoldOkay head" (ppr (v,isNothing (catFun (Var v)))) $
@@ -748,17 +752,15 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    mkReprC' k (Pair dom ran) =
      -- pprTrace "mkReprC' 1" (ppr (dom,ran)) $
      -- pprTrace "mkReprC' 2" (pprWithType (Var reprC'V)) $
-     -- pprTrace "mkReprC' 3" (pprWithType (catOp k reprC'V [dom,ran])) $
-     -- pprTrace "mkReprC' 4" (pprMbWithType (onDictMaybe (catOp k reprC'V [dom,ran]))) $
-     -- pprTrace "mkReprC' 5" (pprMbWithType (onDictMaybe =<< onDictMaybe (catOp k reprC'V [dom,ran]))) $
-     onDictMaybe =<< onDictMaybe (catOp k reprC'V [dom,ran])
+     -- pprTrace "mkReprC' 3" (pprMbWithType (catOpMaybe k reprC'V [dom,ran])) $
+     -- pprTrace "mkReprC' 4" (pprMbWithType (onDictMaybe =<< catOpMaybe k reprC'V [dom,ran])) $
+     onDictMaybe =<< catOpMaybe k reprC'V [dom,ran]
    mkAbstC' k (Pair dom ran) =
      -- pprTrace "mkAbstC' 1" (ppr (dom,ran)) $
      -- pprTrace "mkAbstC' 2" (pprWithType (Var abstC'V)) $
-     -- pprTrace "mkAbstC' 3" (pprWithType (catOp k abstC'V [dom,ran])) $
-     -- pprTrace "mkAbstC' 4" (pprMbWithType (onDictMaybe (catOp k abstC'V [dom,ran]))) $
-     -- pprTrace "mkAbstC' 5" (pprMbWithType (onDictMaybe =<< onDictMaybe (catOp k abstC'V [dom,ran]))) $
-     onDictMaybe =<< onDictMaybe (catOp k abstC'V [dom,ran])
+     -- pprTrace "mkAbstC' 3" (pprMbWithType (catOpMaybe k abstC'V [dom,ran])) $
+     -- pprTrace "mkAbstC' 4" (pprMbWithType (onDictMaybe =<< catOpMaybe k abstC'V [dom,ran])) $
+     onDictMaybe =<< catOpMaybe k abstC'V [dom,ran]
 
    mkPrePost f g = -- dtrace "mkPrePost f" (pprWithType f) $
                    -- dtrace "mkPrePost g" (pprWithType g) $
@@ -1083,7 +1085,7 @@ mkCccEnv opts = do
       lookupTh mkOcc mk modu = lookupRdr (mkModuleName modu) mkOcc mk
       findId      = lookupTh mkVarOcc lookupId
       findTc      = lookupTh mkTcOcc  lookupTyCon
-      findFloatTy = fmap mkTyConTy . findTc floatModule
+      findFloatTy = fmap mkTyConTy . findTc floatModule -- TODO: eliminate
       findCatId   = findId catModule
       findRepTc   = findTc repModule
       findRepId   = findId repModule
@@ -1283,12 +1285,17 @@ monoInfo (floatT,doubleT) =
             modu | isIntTy ty = "GHC.Num"
                  | otherwise  = floatModule
 #endif
-      fdOp cls op ty = (floatModule++".$f"++cls++pp ty++"_$c"++op,[ty])
+      fdOp :: String -> String -> Type -> (String, [Type])
+      fdOp _cls op ty = (floatModule++"."++op++pp ty,[ty]) -- GHC.Float.sinFloat
+                       -- (floatModule++".$f"++cls++pp ty++"_$c"++op,[ty])
       fracOp = fdOp "Fractional"
       floatingOp = fdOp "Floating"
 
+-- m0 :: [(String,(String,String,[Type]))]
+-- m0 = monoInfo (floatTy,doubleTy)
+
 floatModule :: String
-floatModule = "ConCat.Float" -- "GHC.Float"
+floatModule = "GHC.Float" -- "ConCat.Float"
 
 --    fracOp op ty = ("GHC.Float.$fFractional"++pp ty++"_$c"++op,[ty])
 --    floatingOp op ty = ("GHC.Float.$fFloating"++pp ty++"_$c"++op,[ty])
