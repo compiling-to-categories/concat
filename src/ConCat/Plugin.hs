@@ -11,7 +11,8 @@
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
--- {-# OPTIONS_GHC -fno-warn-unused-binds -fno-warn-unused-matches #-} -- TEMP
+{-# OPTIONS_GHC -fno-warn-unused-binds #-} -- TEMP
+-- {-# OPTIONS_GHC -fno-warn-unused-matches #-} -- TEMP
 
 -- | GHC plugin converting to CCC form.
 
@@ -47,6 +48,8 @@ import TcType (isIntTy)
 import FamInstEnv (normaliseType)
 import TyCoRep                          -- TODO: explicit imports
 import Unique (mkBuiltinUnique)
+-- For normaliseType etc
+import FamInstEnv
 
 import ConCat.Misc (Unop,Binop,Ternop,PseudoFun(..),(~>))
 import ConCat.Simplify
@@ -79,7 +82,7 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                   -- , lazyV            :: Id
                      , boxers           :: Map TyCon Id  -- to remove
                   -- , reboxV           :: Id
-                  -- , inlineV          :: Id
+                     , inlineV          :: Id
                      , polyOps          :: PolyOpsMap
                      , monoOps          :: MonoOpsMap
                      , hsc_env          :: HscEnv
@@ -110,8 +113,9 @@ type ReExpr = Rewrite CoreExpr
 -- Category
 type Cat = Type
 
-ccc :: CccEnv -> ModGuts -> AnnEnv -> DynFlags -> InScopeEnv -> Type -> ReExpr
-ccc (CccEnv {..}) guts annotations dflags inScope cat =
+ccc :: CccEnv -> ModGuts -> AnnEnv -> DynFlags -> FamInstEnvs
+    -> InScopeEnv -> Type -> ReExpr
+ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
   traceRewrite "ccc" $
   (if lintSteps then lintReExpr else id) $
   go
@@ -157,16 +161,13 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
          go (App (Lam v body) rhs)
      -- ccc-of-case. Maybe restrict to isTyCoDictArg for all bound variables, but
      -- perhaps I don't need to.
-     Trying("top Case unfold")  --  of dictionary
-     -- For case-of dictionary, push on unfolding so that the specific methods
-     -- get revealed. Otherwise, ccc residuals.
+     Trying("top Case unfold")
      Case scrut wild rhsTy alts
-       -- | isPred scrut
        | Just scrut' <- unfoldMaybe scrut
        -> Doing("top Case unfold")  --  of dictionary
           return $ mkCcc (Case scrut' wild rhsTy alts)
           -- TODO: also for lam?
-#if 0
+#if 1
      Trying("top Case")
      Case scrut wild rhsTy alts ->
        Doing("top Case")
@@ -174,7 +175,8 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
 #endif
 #if 1
      Trying("top nominal Cast")
-     Cast e co@(setNominalRole_maybe -> Just (reCatCo -> Just co')) ->
+     Cast e co@( -- dtrace "top nominal cast co" (pprCoWithType co {-<+> (ppr (setNominalRole_maybe co))-}) id
+                setNominalRole_maybe -> Just (reCatCo -> Just co')) ->
        -- etaExpand turns cast lambdas into themselves
        Doing("top nominal cast")
        let co'' = downgradeRole (coercionRole co) (coercionRole co') co' in
@@ -183,6 +185,65 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        -- I think GHC is undoing this transformation, so continue eagerly
        -- (`Cast` co') <$> go e
 #endif
+
+#if 0
+
+     Trying("top cast unfold")
+     Cast (unfoldMaybe -> Just body') co ->
+       Doing("top cast unfoldMaybe")
+       return $ mkCcc $ mkCast body' co
+
+     -- Helpful??
+     Trying("top cast eta-reduce")
+     Cast (etaReduce_maybe -> Just body') co ->
+       Doing("top cast eta-reduce")
+       return $ mkCcc $ mkCast body' co
+
+     Trying("top cast normalize")
+     Cast e co@(coercionKind -> Pair dom cod)
+       | let norm = normaliseType famEnvs (coercionRole co)
+             (dco,dom') = norm dom
+             (cco,cod') = norm cod
+       , dom' `eqType` cod'
+       -- , not (isReflCo dco && isReflCo cco) -- mkCast will take care of it
+       -> Doing("top cast normalize")
+          -- dtrace "top cast normalize" (ppr ((dom,cod), (dco,dom'), (cco,cod')) $$ pprCoWithType (dco `mkTransCo` mkSymCo cco))
+          return $ mkCcc $
+            mkCast e (dco `mkTransCo` mkSymCo cco)
+
+     Trying("top abstC codomain")
+     e | _dom `FunTy` cod <- exprType e
+       , Just repr <- mkReprC'_maybe funCat cod
+       , Just abst <- mkAbstC'_maybe    cat cod
+       -> Doing("top abstC codomain")
+          return $
+           mkCompose cat
+             abst
+             (mkCcc (inlineE (mkCompose funCat (inlineE repr) e)))
+     Trying("top abstC domain")
+     e | dom `FunTy` _cod <- exprType e
+       , Just repr <- mkReprC'_maybe    cat dom
+       , Just abst <- mkAbstC'_maybe funCat dom
+       -> Doing("top abstC domain")
+          return $
+           mkCompose cat
+             (mkCcc (inlineE (mkCompose funCat e (inlineE abst))))
+             repr
+
+     Trying("top cast abstC codomain")
+     Cast (etaExpand 1 -> Lam x body) co
+       | Just meth <- hrMeth (exprType body)
+       -> Doing("top cast abstC codomain")
+          return $ mkCcc $
+            let a = meth abstV
+                r = meth reprV
+                FunTy _ rty = exprType r
+                idr = mkId funCat rty
+            in
+              mkCast (Lam x (a `App` (idr `App` (r `App` body)))) co
+
+#endif
+#if 0
      Trying("top recast")
      Cast e co ->
        Doing("top recast")
@@ -190,6 +251,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        let re = recast co in
          dtrace "top recaster" (ppr re) $
          return (mkCcc (re `App` e))
+#endif
 #if 0
      -- TODO: If this simplifier phase isn't eta-expanding, I'll need to handle
      -- unsaturated constructors here.
@@ -244,9 +306,9 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      --        go (etaExpand 1 e)
      --        -- return $ mkCcc (etaExpand 1 e)
      -- TODO: If I don't etaReduceN, merge goLam back into the go Lam case.
-     _ -> Doing("top Unhandled")
-          Nothing
-          -- pprPanic "ccc go. Unhandled" (ppr e)
+     _e -> Doing("top Unhandled")
+           -- Nothing
+           pprPanic "ccc go. Unhandled" (ppr _e)
    goLam x body | dtrace "goLam:" (ppr (Lam x body)) False = undefined
    -- go _ = Nothing
    goLam x body | Just e' <- etaReduce_maybe (Lam x body) =
@@ -285,7 +347,8 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
                   return (mkFork cat (mkCcc (Lam x u)) (mkCcc (Lam x v)))
          _     -> pprPanic "goLam Pair: too many arguments: " (ppr rest)
 
-#if 1
+#if 0
+     -- Revisit.
      Trying("lam abstReprCon")
      -- Constructor applied to ty/co/dict arguments
      e@(collectNonTyCoDictArgs ->
@@ -446,6 +509,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
            co'' = downgradeRole r r' co' in
          -- pprTrace "lam nominal Cast" (ppr co $$ text "-->" $$ ppr co'') $
          return (mkCcc (Cast (Lam x body') (FunCo r (mkReflCo r xty) co'')))
+#if 0
      Trying("lam recast")
      Cast e co ->
        Doing("lam recast")
@@ -453,6 +517,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
        let re = recast co in
          dtrace "lam recaster" (ppr re) $
          return (mkCcc (Lam x (re `App` e)))
+#endif
 #if 1
      Trying("lam App compose")
      -- (\ x -> U V) --> U . (\ x -> V) if x not free in U
@@ -490,6 +555,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
       xty = varType x
       bty = exprType body
       isConst = not (x `isFreeIn` body)
+   inlineE e = varApps inlineV [exprType e] [e]  -- move outward
    -- Set up boxing expression for rewriting via ConCat.Rebox.
    -- Look for boxer under case and cast.
    outerBoxCon :: ReExpr
@@ -507,15 +573,15 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    hrMeth ty = -- dtrace "hasRepMeth:" (ppr ty) $
                hasRepMeth dflags guts inScope ty
    -- Change categories
-   -- catTy :: Unop Type
-   -- catTy (tyArgs2 -> (a,b)) = mkAppTys cat [a,b]
+   catTy :: Unop Type
+   catTy (tyArgs2 -> (a,b)) = mkAppTys cat [a,b]
    reCatCo :: Rewrite Coercion
    -- reCatCo co | dtrace "reCatCo" (ppr co) False = undefined
    reCatCo (FunCo r a b) = Just (mkAppCos (mkReflCo r cat) [a,b])
    reCatCo (splitAppCo_maybe -> Just
             (splitAppCo_maybe -> Just
              (Refl r _k,a),b)) =
-     -- pprTrace "reCatCo app" (ppr (r,_k,a,b))
+     dtrace "reCatCo app" (ppr (r,_k,a,b))
      Just (mkAppCos (mkReflCo r cat) [a,b])
    reCatCo (co1 `TransCo` co2) = TransCo <$> reCatCo co1 <*> reCatCo co2
    reCatCo co = pprTrace "ccc reCatCo: unhandled coercion" (ppr co) $
@@ -524,8 +590,9 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    -- TODO: Try swapping argument order
    repTy :: Unop Type
    repTy t = mkTyConApp repTc [t]
+#if 0
    recast :: Coercion -> CoreExpr
-   -- recast co | pprTrace ("recast " ++ coercionTag co) (ppr co <+> dcolon <+> ppr (coercionType co)) False = undefined
+   -- recast co | pprTrace ("recast " ++ coercionTag co) (pprCoWithType co) False = undefined
    -- Refl is subsumed by setNominalRole. Handle here for simpler output.
    recast (Refl _ ty) = -- pprTrace "recast Refl -->" (pprWithType (mkId funCat ty)) $
                         mkId funCat ty
@@ -570,7 +637,31 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
    recast co | Just _ <- setNominalRole_maybe co = -- pprTrace "recast setNominalRole" empty $
                                                    castE co
    recast co = pprPanic ("recast: unhandled " ++ coercionTag co ++ " coercion:")
-                 (ppr co <+> dcolon $$ ppr (coercionType co))
+                 (pprCoWithType co)
+   mkPrePost f g = -- dtrace "mkPrePost f" (pprWithType f) $
+                   -- dtrace "mkPrePost g" (pprWithType g) $
+                   varApps prePostV [a,b,a',b'] [f,g]
+    where
+      -- (~>) :: forall a b a' b'. (a' -> a) -> (b -> b') -> ((a -> b) -> (a' -> b'))
+      FunTy a' a = exprType f
+      FunTy b b' = exprType g
+      -- Just (a',a) = splitFunTy_maybe (exprType f)
+      -- Just (b,b') = splitFunTy_maybe (exprType g)
+   -- TODO: refactor mkReprC' and mkAbstC' into one function that takes an Id. p
+   mkReprC', mkAbstC' :: Cat -> Pair Type -> Maybe CoreExpr
+   mkReprC' k (Pair dom ran) =
+     -- pprTrace "mkReprC' 1" (ppr (dom,ran)) $
+     -- pprTrace "mkReprC' 2" (pprWithType (Var reprC'V)) $
+     -- pprTrace "mkReprC' 3" (pprMbWithType (catOpMaybe k reprC'V [dom,ran])) $
+     -- pprTrace "mkReprC' 4" (pprMbWithType (onDictMaybe =<< catOpMaybe k reprC'V [dom,ran])) $
+     onDictMaybe =<< catOpMaybe k reprC'V [dom,ran]
+   mkAbstC' k (Pair dom ran) =
+     -- pprTrace "mkAbstC'
+     -- pprTrace "mkAbstC' 2" (pprWithType (Var abstC'V)) $
+     -- pprTrace "mkAbstC' 3" (pprMbWithType (catOpMaybe k abstC'V [dom,ran])) $
+     -- pprTrace "mkAbstC' 4" (pprMbWithType (onDictMaybe =<< catOpMaybe k abstC'V [dom,ran])) $
+     onDictMaybe =<< catOpMaybe k abstC'V [dom,ran]
+#endif
    unfoldOkay :: CoreExpr -> Bool
    unfoldOkay (exprHead -> Just v) =
      -- pprTrace "unfoldOkay head" (ppr (v,isNothing (catFun (Var v)))) $
@@ -747,30 +838,33 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      -- pprTrace "mkReprC" (pprWithType (catOp k reprCV [ty])) $
      -- pprPanic "mkReprC" (text "bailing")
      catOp k reprCV [ty]
-   -- TODO: refactor mkReprC' and mkAbstC' into one function that takes an Id. p
-   mkReprC', mkAbstC' :: Cat -> Pair Type -> Maybe CoreExpr
-   mkReprC' k (Pair dom ran) =
-     -- pprTrace "mkReprC' 1" (ppr (dom,ran)) $
-     -- pprTrace "mkReprC' 2" (pprWithType (Var reprC'V)) $
-     -- pprTrace "mkReprC' 3" (pprMbWithType (catOpMaybe k reprC'V [dom,ran])) $
-     -- pprTrace "mkReprC' 4" (pprMbWithType (onDictMaybe =<< catOpMaybe k reprC'V [dom,ran])) $
-     onDictMaybe =<< catOpMaybe k reprC'V [dom,ran]
-   mkAbstC' k (Pair dom ran) =
-     -- pprTrace "mkAbstC' 1" (ppr (dom,ran)) $
-     -- pprTrace "mkAbstC' 2" (pprWithType (Var abstC'V)) $
-     -- pprTrace "mkAbstC' 3" (pprMbWithType (catOpMaybe k abstC'V [dom,ran])) $
-     -- pprTrace "mkAbstC' 4" (pprMbWithType (onDictMaybe =<< catOpMaybe k abstC'V [dom,ran])) $
-     onDictMaybe =<< catOpMaybe k abstC'V [dom,ran]
 
-   mkPrePost f g = -- dtrace "mkPrePost f" (pprWithType f) $
-                   -- dtrace "mkPrePost g" (pprWithType g) $
-                   varApps prePostV [a,b,a',b'] [f,g]
+   mkReprC',mkAbstC' :: Cat -> Type -> CoreExpr
+   mkReprC' k ty =
+     fromMaybe (pprPanic "mkReprC' fail" (ppr (k,ty))) (mkReprC'_maybe k ty)
+   mkAbstC' k ty =
+     fromMaybe (pprPanic "mkAbstC' fail" (ppr (k,ty))) (mkAbstC'_maybe k ty)
+   -- TODO: Combine mkReprC'_maybe and mkAbstC'_maybe for efficiency.
+   -- TODO: Remove non-maybe versions, and drop "_maybe" from names.
+   mkReprC'_maybe :: Cat -> Type -> Maybe CoreExpr
+   mkReprC'_maybe k a =
+     -- pprTrace "mkReprC' 1" (ppr (a,r)) $
+     -- pprTrace "mkReprC' 2" (pprWithType (Var reprC'V)) $
+     -- pprTrace "mkReprC' 3" (pprMbWithType (catOpMaybe k reprC'V [a,r])) $
+     -- pprTrace "mkReprC' 4" (pprMbWithType (onDictMaybe =<< catOpMaybe k reprC'V [a,r])) $
+     onDictMaybe =<< catOpMaybe k reprC'V [a,r]
     where
-      -- (~>) :: forall a b a' b'. (a' -> a) -> (b -> b') -> ((a -> b) -> (a' -> b'))
-      FunTy a' a = exprType f
-      FunTy b b' = exprType g
-      -- Just (a',a) = splitFunTy_maybe (exprType f)
-      -- Just (b,b') = splitFunTy_maybe (exprType g)
+      (_co,r) = normaliseType famEnvs Nominal (repTy a)
+   mkAbstC'_maybe :: Cat -> Type -> Maybe CoreExpr
+   mkAbstC'_maybe k a =
+     -- pprTrace "mkAbstC' 1" (ppr (r,a)) $
+     -- pprTrace "mkAbstC' 2" (pprWithType (Var abstC'V)) $
+     -- pprTrace "mkAbstC' 3" (pprMbWithType (catOpMaybe k abstC'V [r,a])) $
+     -- pprTrace "mkAbstC' 4" (pprMbWithType (onDictMaybe =<< catOpMaybe k abstC'V [r,a])) $
+     onDictMaybe =<< catOpMaybe k abstC'V [r,a]
+    where
+      (_co,r) = normaliseType famEnvs Nominal (repTy a)
+
    tyArgs2_maybe :: Type -> Maybe (Type,Type)
    -- tyArgs2_maybe (splitAppTys -> (_,(a:b:_))) = Just (a,b)
    tyArgs2_maybe _ty@(splitAppTy_maybe -> Just (splitAppTy_maybe -> Just (_,a),b)) =
@@ -832,7 +926,7 @@ ccc (CccEnv {..}) guts annotations dflags inScope cat =
      = let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
            addArg :: Maybe (Int,CoreExpr) -> CoreExpr -> Maybe (Int,CoreExpr)
            -- addArg a b | dtrace "transCatOp addArg" (ppr (a,b)) False = undefined
-           addArg Nothing _ = dtrace "transCatOp Nothing" (text "bailing") $
+           addArg Nothing _ = -- dtrace "transCatOp Nothing" (text "bailing") $
                               Nothing
            addArg (Just (i,e)) arg
               | isTyCoArg arg
@@ -987,15 +1081,15 @@ pprMbWithType = maybe (text "failed") pprWithType
 cccRuleName :: FastString
 cccRuleName = fsLit "ccc"
 
-cccRule :: CccEnv -> ModGuts -> AnnEnv -> CoreRule
-cccRule env guts annotations =
+cccRule :: FamInstEnvs -> CccEnv -> ModGuts -> AnnEnv -> CoreRule
+cccRule famEnvs env guts annotations =
   BuiltinRule { ru_name  = fsLit "ccc"
               , ru_fn    = varName (cccV env)
               , ru_nargs = 4  -- including type args
               , ru_try   = \ dflags inScope _fn ->
                               \ case
                                 [Type k, Type _a,Type _b,arg] ->
-                                   ccc env guts annotations dflags inScope k arg
+                                   ccc env guts annotations dflags famEnvs inScope k arg
                                 args -> pprTrace "cccRule ru_try args" (ppr args) $
                                         Nothing
               }
@@ -1014,12 +1108,15 @@ install opts todos =
       else
        do reinitializeGlobals
           hsc_env <- getHscEnv
+          pkgFamEnv <- getPackageFamInstEnv
           env <- mkCccEnv opts
           -- Add the rule after existing ones, so that automatically generated
           -- specialized ccc rules are tried first.
           let addRule, delRule :: ModGuts -> CoreM ModGuts
-              addRule guts = do allAnns <- liftIO (prepareAnnotations hsc_env (Just guts))
-                                return (on_mg_rules (++ [cccRule env guts allAnns]) guts)
+              addRule guts =
+                do allAnns <- liftIO (prepareAnnotations hsc_env (Just guts))
+                   let famEnvs = (pkgFamEnv, mg_fam_inst_env guts)
+                   return (on_mg_rules (++ [cccRule famEnvs env guts allAnns]) guts)
               delRule guts = return (on_mg_rules (filter (not . isCCC)) guts)
               isCCC r = isBuiltinRule r && ru_name r == cccRuleName
               -- isCCC r | is = pprTrace "delRule" (ppr cccRuleName) is
@@ -1118,7 +1215,7 @@ mkCccEnv opts = do
   boxDV      <- findBoxId "boxD"
   -- lazyV      <- findId "GHC.Exts" "lazy"
   -- reboxV     <- findBoxId "rebox"
-  -- inlineV    <- findId "GHC.Exts" "inline"
+  inlineV    <- findId "GHC.Exts" "inline"
   let mkPolyOp :: (String,(String,String)) -> CoreM (String,Var)
       mkPolyOp (stdName,(cmod,cop)) =
         do cv <- findId cmod cop
@@ -1247,11 +1344,14 @@ monoInfo (floatT,doubleT) =
      , ("subC",numOps "-"), ("mulC",numOps "*")
 #endif
        -- powIC
-     , ("recipC", fracOp "recip" <$> fd)
-     , ("divideC", fracOp "/" <$> fd)
-     , ("expC", floatingOp "exp" <$> fd)
-     , ("cosC", floatingOp "cos" <$> fd)
-     , ("sinC", floatingOp "sin" <$> fd)
+
+     , ("negateC",fdOps "negate"), ("addC",fdOps "plus")
+     , ("subC",fdOps "minus"), ("mulC",fdOps "times")
+     , ("recipC", fdOps "recip"), ("divideC", fdOps "divide")
+     , ("expC", fdOps "exp")
+     , ("cosC", fdOps "cos")
+     , ("sinC", fdOps "sin")
+
      --
      , ("succC",[("GHC.Enum.$fEnumInt_$csucc",[intTy])])
      , ("predC",[("GHC.Enum.$fEnumInt_$cpred",[intTy])])
@@ -1285,14 +1385,18 @@ monoInfo (floatT,doubleT) =
             modu | isIntTy ty = "GHC.Num"
                  | otherwise  = floatModule
 #endif
-      fdOp :: String -> String -> Type -> (String, [Type])
-      fdOp _cls op ty = (floatModule++"."++op++pp ty,[ty]) -- GHC.Float.sinFloat
-                       -- (floatModule++".$f"++cls++pp ty++"_$c"++op,[ty])
-      fracOp = fdOp "Fractional"
-      floatingOp = fdOp "Floating"
+      fdOps op = fdOp <$> fd
+       where
+         fdOp :: Type -> (String, [Type])
+         fdOp ty = (floatModule++"."++op++pp ty,[ty]) -- GHC.Float.sinFloat
 
--- m0 :: [(String,(String,String,[Type]))]
--- m0 = monoInfo (floatTy,doubleTy)
+#if 0
+m0 :: [(String,(String,String,[Type]))]
+m0 = monoInfo (floatTy,doubleTy)
+
+-- An orphan instance to help me debug
+instance Show Type where show = pp
+#endif
 
 floatModule :: String
 floatModule = "GHC.Float" -- "ConCat.Float"
@@ -1303,9 +1407,6 @@ floatModule = "GHC.Float" -- "ConCat.Float"
 -- (==): eqInt, eqFloat, eqDouble
 -- (/=): neInt, $fEqFloat_$c/=, $fEqDouble_$c/=
 -- (<):  ltI, $fOrdFloat_$c<
-
--- -- An orphan instance to help me debug
--- instance Show Type where show = pp
 
 pp :: Outputable a => a -> String
 pp = showPpr unsafeGlobalDynFlags
@@ -1594,3 +1695,42 @@ castE co = Lam x (mkCast (Var x) co)
  where
    x = freshId emptyVarSet "w" dom
    Pair dom _ = coercionKind co
+
+pprCoWithType :: Coercion -> SDoc
+pprCoWithType co = ppr co <+> dcolon $$ ppr (coercionType co)
+
+#if 0
+-- | Converts a coercion to be nominal, if possible.
+-- See Note [Role twiddling functions]
+setNominalRole_maybe' :: Coercion -> Maybe Coercion
+setNominalRole_maybe' co | pprTrace ("setNominalRole_maybe "++coercionTag co) (ppr (coercionRole co) <+> pprCoWithType co) False = undefined
+setNominalRole_maybe' co
+  | Nominal <- coercionRole co = Just co
+setNominalRole_maybe' (SubCo co)  = Just co
+setNominalRole_maybe' (Refl _ ty) = Just $ Refl Nominal ty
+setNominalRole_maybe' (TyConAppCo Representational tc cs)
+  = do { cos' <- mapM setNominalRole_maybe' cs
+       ; return $ TyConAppCo Nominal tc cos' }
+setNominalRole_maybe' (SymCo co)
+  = SymCo <$> setNominalRole_maybe' co
+setNominalRole_maybe' (TransCo co1 co2)
+  = TransCo <$> setNominalRole_maybe' co1 <*> setNominalRole_maybe' co2
+setNominalRole_maybe' (AppCo co1 co2)
+  = AppCo <$> setNominalRole_maybe' co1 <*> pure co2
+setNominalRole_maybe' (ForAllCo tv kind_co co)
+  = ForAllCo tv kind_co <$> setNominalRole_maybe' co
+setNominalRole_maybe' (NthCo n co)
+  = NthCo n <$> setNominalRole_maybe' co
+setNominalRole_maybe' (InstCo co arg)
+  = InstCo <$> setNominalRole_maybe' co <*> pure arg
+setNominalRole_maybe' (CoherenceCo co1 co2)
+  = CoherenceCo <$> setNominalRole_maybe' co1 <*> pure co2
+setNominalRole_maybe' (UnivCo prov _ co1 co2)
+  | case prov of UnsafeCoerceProv -> True   -- it's always unsafe
+                 PhantomProv _    -> False  -- should always be phantom
+                 ProofIrrelProv _ -> True   -- it's always safe
+                 PluginProv _     -> False  -- who knows? This choice is conservative.
+                 HoleProv _       -> False  -- no no no.
+  = Just $ UnivCo prov Nominal co1 co2
+setNominalRole_maybe' _ = Nothing
+#endif
