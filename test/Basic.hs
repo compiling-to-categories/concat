@@ -2,6 +2,8 @@
 
 -- stack build :basic
 
+-- stack build && (date ; stack test) >& ~/Haskell/concat/out/o1
+
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE TypeApplications    #-}
@@ -40,7 +42,7 @@
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
@@ -55,7 +57,7 @@
 
 -- Tweak simpl-tick-factor from default of 100
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=300 #-}
-{-# OPTIONS_GHC -fsimpl-tick-factor=50  #-}
+{-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
 -- When I list the plugin in the test suite's .cabal target instead of here, I get
 --
@@ -98,6 +100,10 @@ tests :: IO [Test]
 tests = return
   [ nopTest
 
+--   , tst (par1 @Bool)
+
+--   , tst (scale :: R -> L R R R)
+
 --   , tst (\ x _y -> negate x :: Int)
 
 --   , tst (\ x -> 3 * x + x :: Int)
@@ -138,6 +144,8 @@ tests = return
 --   , tst ((\ (L w) -> w) :: LR R R -> (V R R :-* V R R) R)
 --   , tst ((\ (L (Par1 (Par1 s))) -> s) :: LR R R -> R)
 
+--   , tst (scale :: R -> L R R R)
+
 --   , test "id-r"          (id :: Unop R)
 --   , test "id-r2"         (id :: Unop R2)
 --   , test "id-r3"         (id :: Unop R3)
@@ -167,9 +175,23 @@ tests = return
 
 --   , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
 
-  , test "foo" (\ (a::R,_b::R,_c::R) -> a)
+--   , test "foo" (\ (a::R,_b::R,_c::R) -> a)
+
+--   , test "foo" (\ (a::R) -> a * a + a) -- fine
+
+--   , test "foo" (\ (a,b) -> b * a :: R) -- non-IsoB
+
+--   , test "foo" (\ ((a::R,b::R),c::R) -> a * b) -- non-IsoB
+
+--   , test "foo" (\ (a::R,b::R,c::R) -> a * b) -- non-IsoB
+
+--   , test "foo" (\ (a::R,b::R,c::R) -> b * c) -- non-IsoB
+
+--   , test "foo" (\ (a::R,b::R,c::R) -> a + b * c) -- non-IsoB
 
 --   , test "foo" (\ (a,b,c) -> a * b * c :: R)
+
+--   , test "foo" (\ (a,b,c,d) -> a * b + c * d :: R)
 
 --   , test "foo" (\ ((a,b),(c,d)) -> a * b + c * d :: R)
 
@@ -349,7 +371,7 @@ tst  :: (a -> b) -> Test
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst  :: GenBuses a => (a -> b) -> Test
 {-# RULES "circuit" forall nm f. test nm f = mkTest nm (runCirc' nm (ccc f)) #-}
-#elif 0
+#elif 1
 -- Syntactic interpretation
 test, test' :: String -> (a -> b) -> Test
 tst :: (a -> b) -> Test
@@ -848,3 +870,7 @@ addThree (a,b,c) = a+b+c
 
 -- foo :: Syn R R
 -- foo = ccc sin
+
+par1 :: a -> Par1 a
+par1 = Par1
+{-# INLINE [0] par1 #-}
