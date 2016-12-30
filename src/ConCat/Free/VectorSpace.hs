@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -19,7 +20,7 @@
 module ConCat.Free.VectorSpace where
 
 import Prelude hiding (zipWith,Float,Double)
-
+-- import GHC.Exts (Coercible,coerce)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 
 import Data.Foldable (fold)
@@ -230,5 +231,41 @@ instance FunctorC (VFun s) (Constrained (HasV s) (->)) (UT s) where
   type VFun s % a = V s a
   fmapC (Constrained f) = UT (inV f)
                           -- vfun f
+
+#endif
+
+#if 0
+
+{--------------------------------------------------------------------
+    Coercible
+--------------------------------------------------------------------}
+
+-- I don't think I need this stuff.
+
+-- As a second default, we can use coercible types.
+coerceToV :: forall s a b. (Coercible a b, HasV s b) => a -> V s b s
+coerceToV = toV . (coerce :: a -> b)
+
+coerceUnV :: forall s a b. (Coercible a b, HasV s b) => V s b s -> a
+coerceUnV = (coerce :: b -> a) . unV
+
+#if 0
+
+#define CoerceHasV(s,ty,rep) \
+instance HasV s (rep) => HasV s (ty) where \
+  { type V s (ty) = V s (rep) \
+  ; toV = coerceToV @ s @ (ty) @ (rep) \
+  ; unV = coerceUnV @ s @ (ty) @ (rep) }
+
+newtype Two s = Two (s :* s)
+
+-- instance HasV s s => HasV s (Two s) where
+--   type V s (Two s) = V s (s :* s)
+--   toV = coerceToV @ s @ (Two s) @ (s :* s)
+--   unV = coerceUnV @ s @ (Two s) @ (s :* s)
+
+CoerceHasV(s,Two s,s :* s)
+
+#endif
 
 #endif
