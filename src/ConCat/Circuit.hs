@@ -134,6 +134,7 @@ import Text.Printf (printf)
 #if !defined NoHashCons
 import Unsafe.Coerce -- experiment
 #endif
+import GHC.Exts (Coercible) -- ,coerce
 
 import qualified System.Info as SI
 import System.Process (system) -- ,readProcess
@@ -238,9 +239,14 @@ data Buses :: * -> * where
   DoubleB :: Source -> Buses Double
   PairB   :: Buses a -> Buses b -> Buses (a :* b)
   FunB    :: (a :> b) -> Buses (a -> b)
-  IsoB    :: Buses (Rep a) -> Buses a
+  IsoB    :: Buses (Rep b) -> Buses b
+  CoerceB :: Coercible a b => Buses a -> Buses b
 
 -- TODO: Try Buses as a type family instead of a GADT.
+-- Note that I need some operations on all buses, so I'd need a class also.
+
+-- TODO: Can I unify IsoB and CoerceB? Do those constructors really need the
+-- constraints a ~ Rep b and CoerceB a b?
 
 instance Eq (Buses a) where
   UnitB     == UnitB        = True
@@ -267,8 +273,9 @@ instance Show (Buses a) where
   show (PairB a b) = "("++show a++","++show b++")"
   show (FunB _)    = "<function>"
   show (IsoB b)    = "IsoB ("++show b++")"
+  show (CoerceB b) = "CoerceB ("++show b++")"
 
--- TODO: Improve to Show instance with showsPrec
+-- TODO: Improve to Show instance with showsPrec. Maybe Pretty instead/also.
 
 -- Component (primitive) type
 data Ty = UnitT | BoolT | IntT | FloatT | DoubleT | PairT Ty Ty deriving (Eq,Ord,Show)
@@ -354,10 +361,11 @@ flattenMb = fmap toList . flat
    flat (DoubleB b) = Just (singleton b)
    flat (PairB a b) = liftA2 (<>) (flat a) (flat b)
    flat (IsoB b)    = flat b
+   flat (CoerceB b) = flat b
    flat (FunB _)    = Nothing
 
-isoErr :: String -> x
-isoErr nm = error (nm ++ ": IsoB")
+badBuses :: String -> Buses a -> x
+badBuses nm bs = error (nm ++ "got unexpected bus " ++ show bs)
 
 pairB :: Buses a :* Buses b -> Buses (a :* b)
 pairB (a,b) = PairB a b
@@ -369,36 +377,35 @@ pairB (a,b) = PairB a b
 
 -- unUnitB :: Buses () -> ()
 -- unUnitB UnitB    = ()
--- unUnitB (IsoB _) = isoErr "unUnitB"
+-- unUnitB (IsoB _) = badBuses "unUnitB"
 -- -- BogusMatch(unUnitB)
 
 unPairB :: Buses (a :* b) -> Buses a :* Buses b
 #if 0
 unPairB (PairB a b) = (a,b)
-unPairB (IsoB _)    = isoErr "unPairB"
+unPairB (IsoB _)    = badBuses "unPairB"
 #else
 -- Lazier
 unPairB w = (a,b)
  where
    a = case w of
          PairB p _ -> p
-         IsoB _    -> isoErr "unPairB"
+         bs        -> badBuses "unPairB" bs
 --          BogusAlt
    b = case w of
          PairB _ q -> q
-         IsoB _    -> isoErr "unPairB"
+         bs        -> badBuses "unPairB" bs
 --          BogusAlt
 
 --    (a,b) = case w of
 --              PairB p q -> (p,q)
---              IsoB _    -> isoErr "unPairB"
+--              IsoB _    -> badBuses "unPairB"
 
 #endif
 
 unFunB :: Buses (a -> b) -> (a :> b)
 unFunB (FunB circ) = circ
-unFunB (IsoB _)    = isoErr "unFunB"
--- BogusMatch(unFunB)
+unFunB bs          = badBuses "unFunB" bs
 
 exlB :: Buses (a :* b) -> Buses a
 exlB = fst . unPairB
@@ -417,6 +424,9 @@ reprB b = error ("repB: non-IsoB: " ++ show b)
 -- 
 --   abstB :: Rep a ~ a' => Buses a' -> Buses a
 --   reprB :: Rep a ~ a' => Buses a -> Buses a'
+
+coerceB :: Coercible a b => Buses a -> Buses b
+coerceB = CoerceB
 
 {--------------------------------------------------------------------
     The circuit monad
@@ -558,6 +568,12 @@ newtype a :> b = C { unC :: a :+> b }
 instance RepCat (:>) a where
   reprC = C (arr reprB)
   abstC = C (arr abstB)
+
+instance Coercible a b => CoerceCat (:>) a b where
+  coerceC = C (arr coerceB)
+
+-- instance CoerceCat (:>) where
+--   coerceC = C (arr coerce)
 
 -- pattern CK bc = C (Kleisli bc)
 

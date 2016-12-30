@@ -42,6 +42,7 @@ import qualified Control.Arrow as A
 import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
 import Data.Proxy (Proxy)
+import GHC.Exts (Coercible,coerce)
 import GHC.Types (Constraint)
 import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import GHC.Types (type (*))  -- experiment with TypeInType
@@ -1048,6 +1049,12 @@ class RepCat k a where
 instance HasRep a => RepCat (->) a where
   reprC = repr
   abstC = abst
+
+class CoerceCat k a b where
+  coerceC :: a `k` b
+
+instance Coercible a b => CoerceCat (->) a b where
+  coerceC = coerce
 
 {--------------------------------------------------------------------
     Category constructions

@@ -26,6 +26,7 @@ module ConCat.AltCat
 import Prelude hiding (id,(.),curry,uncurry,const,Float,Double)
 import qualified Prelude as P
 import qualified Data.Tuple as P
+import GHC.Exts (Coercible,coerce)
 
 -- For ccc def trick
 import Unsafe.Coerce (unsafeCoerce)
@@ -46,7 +47,7 @@ import ConCat.Category
   , BiCCC
   , BoolCat, BoolOf
   , NumCat, FractionalCat, FloatingCat, FromIntegralCat
-  , EqCat, OrdCat, EnumCat, BottomCat, IfCat, UnknownCat, RepCat
+  , EqCat, OrdCat, EnumCat, BottomCat, IfCat, UnknownCat, RepCat, CoerceCat
   , Trivial(..), (:**:)(..)
   , type (|-)(..), (<+), okProd
   , OpCon(..),FunctorC(..),Sat(..)
@@ -184,6 +185,8 @@ reprC' = reprC
 abstC' :: forall k r a. (RepCat k a, Rep a ~ r) => r `k` a
 abstC' = abstC
 {-# OPINLINE abstC' #-}
+
+Op0(coerceC,(CoerceCat k a b) => a `k` b)
 
 -- -- Hack to prevent inlining/rewrite loop for reboxing.
 -- #undef OPINLINE

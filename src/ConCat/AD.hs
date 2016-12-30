@@ -15,6 +15,7 @@
 module ConCat.AD where
 
 import Prelude hiding (id,(.),curry,uncurry)
+import GHC.Exts (Coercible,coerce)
 
 import Control.Newtype
 
@@ -185,6 +186,9 @@ instance (OkLM s s, Floating s) => FloatingCat (D s) s where
 instance (V s (Rep a) ~ V s a, Ok (L s) a, HasRep a) => RepCat (D s) a where
   reprC = linearD reprC reprC
   abstC = linearD abstC abstC
+
+instance (Coercible a b, V s a ~ V s b, Ok (L s) a) => CoerceCat (D s) a b where
+  coerceC = linearD coerceC coerceC
 
 {--------------------------------------------------------------------
     Utilities
