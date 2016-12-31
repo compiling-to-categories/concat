@@ -40,7 +40,7 @@ import Class (classAllSelIds)
 import CoreArity (etaExpand)
 import CoreLint (lintExpr)
 import DynamicLoading
-import MkId (mkDictSelRhs)
+import MkId (mkDictSelRhs,coerceId)
 import Pair (Pair(..))
 import PrelNames (leftDataConName,rightDataConName)
 import Type (coreView)
@@ -83,6 +83,8 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , boxers           :: Map TyCon Id  -- to remove
                   -- , reboxV           :: Id
                      , inlineV          :: Id
+                  -- , coercibleTc      :: TyCon
+                  -- , coerceV          :: Id
                      , polyOps          :: PolyOpsMap
                      , monoOps          :: MonoOpsMap
                      , hsc_env          :: HscEnv
@@ -185,9 +187,14 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
        -- I think GHC is undoing this transformation, so continue eagerly
        -- (`Cast` co') <$> go e
 #endif
+#if 1
 
-#if 0
+     Trying("top representational cast")
+     Cast e co | coercionRole co == Representational ->
+       Doing("top representational cast")
+       return $ mkCcc $ (mkCoerceC co `App` e)
 
+#else
      Trying("top cast unfold")
      Cast (unfoldMaybe -> Just body') co ->
        Doing("top cast unfoldMaybe")
@@ -590,6 +597,8 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
    -- TODO: Try swapping argument order
    repTy :: Unop Type
    repTy t = mkTyConApp repTc [t]
+   -- coercibleTy :: Unop Type
+   -- coercibleTy t = mkTyConApp coercibleTc [t]
 #if 0
    recast :: Coercion -> CoreExpr
    -- recast co | pprTrace ("recast " ++ coercionTag co) (pprCoWithType co) False = undefined
@@ -864,7 +873,14 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
      onDictMaybe =<< catOpMaybe k abstC'V [r,a]
     where
       (_co,r) = normaliseType famEnvs Nominal (repTy a)
-
+   mkCoerceC :: Coercion -> CoreExpr
+   mkCoerceC co@(coercionKind -> Pair dom cod) =
+     pprTrace "mkCoerceC 1" (pprWithType (Var coerceId)) $
+     pprTrace "mkCoerceC 2" (pprWithType (varApps coerceId [dom,cod] [])) $
+     pprTrace "mkCoerceC 3" (pprWithType (varApps coerceId [dom,cod] [dict])) $
+     varApps coerceId [dom,cod] [dict]
+    where
+      dict = mkCoreConApps coercibleDataCon [Type starKind,Type dom,Type cod,Coercion co]
    tyArgs2_maybe :: Type -> Maybe (Type,Type)
    -- tyArgs2_maybe (splitAppTys -> (_,(a:b:_))) = Just (a,b)
    tyArgs2_maybe _ty@(splitAppTy_maybe -> Just (splitAppTy_maybe -> Just (_,a),b)) =
@@ -1020,6 +1036,9 @@ repModule = "ConCat.Rep"
 
 boxModule :: String
 boxModule = "ConCat.Rebox"
+
+extModule :: String
+extModule =  "GHC.Exts"
 
 isTrivialCatOp :: CoreExpr -> Bool
 -- isTrivialCatOp = liftA2 (||) isSelection isAbstRepr
@@ -1187,35 +1206,39 @@ mkCccEnv opts = do
       findRepTc   = findTc repModule
       findRepId   = findId repModule
       findBoxId   = findId boxModule
-  idV        <- findCatId "id"
-  constV     <- findCatId "const"
-  composeV   <- findCatId "."
-  exlV       <- findCatId "exl"
-  exrV       <- findCatId "exr"
-  forkV      <- findCatId "&&&"
-  applyV     <- findCatId "apply"
-  curryV     <- findCatId "curry"
-  uncurryV   <- findCatId "uncurry"
-  constFunV  <- findCatId "constFun"
-  abstCV     <- findCatId "abstC"
-  reprCV     <- findCatId "reprC"
-  abstC'V    <- findCatId "abstC'"
-  reprC'V    <- findCatId "reprC'"
-  cccV       <- findCatId "ccc"
-  floatT     <- findFloatTy "Float"
-  doubleT    <- findFloatTy "Double"
-  reprV      <- findRepId "repr"
-  abstV      <- findRepId "abst"
-  hasRepTc   <- findRepTc "HasRep"
-  repTc      <- findRepTc "Rep"
-  hasRepMeth <- hasRepMethodM tracing hasRepTc repTc idV
-  prePostV   <- findId "ConCat.Misc" "~>"
-  boxIV      <- findBoxId "boxI"
-  boxFV      <- findBoxId "boxF"
-  boxDV      <- findBoxId "boxD"
-  -- lazyV      <- findId "GHC.Exts" "lazy"
-  -- reboxV     <- findBoxId "rebox"
-  inlineV    <- findId "GHC.Exts" "inline"
+      findExtTc   = findTc extModule
+      findExtId   = findId extModule
+  idV         <- findCatId "id"
+  constV      <- findCatId "const"
+  composeV    <- findCatId "."
+  exlV        <- findCatId "exl"
+  exrV        <- findCatId "exr"
+  forkV       <- findCatId "&&&"
+  applyV      <- findCatId "apply"
+  curryV      <- findCatId "curry"
+  uncurryV    <- findCatId "uncurry"
+  constFunV   <- findCatId "constFun"
+  abstCV      <- findCatId "abstC"
+  reprCV      <- findCatId "reprC"
+  abstC'V     <- findCatId "abstC'"
+  reprC'V     <- findCatId "reprC'"
+  cccV        <- findCatId "ccc"
+  floatT      <- findFloatTy "Float"
+  doubleT     <- findFloatTy "Double"
+  reprV       <- findRepId "repr"
+  abstV       <- findRepId "abst"
+  hasRepTc    <- findRepTc "HasRep"
+  repTc       <- findRepTc "Rep"
+  hasRepMeth  <- hasRepMethodM tracing hasRepTc repTc idV
+  prePostV    <- findId "ConCat.Misc" "~>"
+  boxIV       <- findBoxId "boxI"
+  boxFV       <- findBoxId "boxF"
+  boxDV       <- findBoxId "boxD"
+  -- lazyV    <- findExtId "lazy"
+  -- reboxV   <- findBoxId "rebox"
+  -- coercibleTc <- findExtTc "Coercible"
+  -- coerceV     <- findExtId "coerce"
+  inlineV     <- findExtId "inline"
   let mkPolyOp :: (String,(String,String)) -> CoreM (String,Var)
       mkPolyOp (stdName,(cmod,cop)) =
         do cv <- findId cmod cop
@@ -1689,6 +1712,9 @@ isUnboxedTupleType ty = case tyConAppTyCon_maybe ty of
 splitTyConApp_maybe :: Type -> Maybe (TyCon, [Type])
 
 #endif
+
+starKind :: Kind
+starKind = mkTyConTy starKindTyCon
 
 castE :: Coercion -> CoreExpr
 castE co = Lam x (mkCast (Var x) co)
