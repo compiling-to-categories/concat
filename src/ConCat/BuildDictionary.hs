@@ -112,8 +112,9 @@ buildDictionary :: HscEnv -> DynFlags -> ModGuts -> InScopeEnv -> Type -> Maybe 
 buildDictionary env dflags guts inScope ty =
   do 
      -- pprTrace "buildDictionary" (ppr ty $$ text "-->" $$ ppr dict) (return ())
-     -- pprTrace "buildDictionary" (ppr (exprFreeVars dict)) (return ())
-     -- pprTrace "buildDictionary" (ppr (bnds,freeIds)) (return ())
+     -- pprTrace "buildDictionary free vars" (ppr (exprFreeVars dict)) (return ())
+     -- pprTrace "buildDictionary (bnds,freeIds)" (ppr (bnds,freeIds)) (return ())
+     -- pprTrace "buildDictionary (collectArgs dict)" (ppr (collectArgs dict)) (return ())
      let ok = notNull bnds && null freeIds && not (hasCoercionHole dict)
 #if 0
      unless ok $
