@@ -25,10 +25,9 @@
 module ConCat.Free.LinearRow where
 
 import Prelude hiding (id,(.),zipWith,Float,Double)
-
+import GHC.Exts (Coercible,coerce)
 import Data.Foldable (toList)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
--- import GHC.Exts (coerce) -- Coercible,
 
 import Data.Constraint
 import Data.Key (Zip(..))
@@ -224,9 +223,8 @@ instance (V s (Rep a) ~ V s a, Ok (L s) a) => RepCat (L s) a where
   reprC = abst idL 
   abstC = abst idL 
 
-instance (Ok (L s) a, V s a ~ V s b) => CoerceCat (L s) a b where
-  coerceC = L idL
-  -- coerceC = coerce (id :: L s a a)  -- works also
+instance (Ok (L s) a, Coercible (V s a) (V s b)) => CoerceCat (L s) a b where
+  coerceC = coerce (id :: L s a a)
 
 -- We can't make a ClosedCat instance compatible with the ProductCat instance.
 -- We'd have to change the latter to use the tensor product.

@@ -24,7 +24,7 @@
 module ConCat.Free.LinearCol where
 
 import Prelude hiding (id,(.),zipWith)
-
+import GHC.Exts (coerce) -- Coercible,
 import Data.Foldable (toList)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import Data.Constraint
@@ -206,9 +206,31 @@ instance (V s (Rep a) ~ V s a, Ok (L s) a) => RepCat (L s) a where
   reprC = abst idL 
   abstC = abst idL 
 
-instance (Ok (L s) a, V s a ~ V s b) => CoerceCat (L s) a b where
-  coerceC = L idL
-  -- coerceC = coerce (id :: L s a a)  -- works also
+instance (Ok (L s) a
+         -- , Coercible (V s a) (V s b)
+         , V s a ~ V s b
+         ) => CoerceCat (L s) a b where
+  coerceC = coerce (id :: L s a a)
+
+-- With Coercible instead of ~, we get a type error:
+--
+--     • Could not deduce: Coercible ((:-*) (V s b) (V s b) s)
+--                                   ((:-*) (V s b) (V s a) s)
+--         arising from a use of ‘coerce’
+--       from the context: (Ok (L s) a, Coercible (V s a) (V s b))
+--         bound by the instance declaration
+--         at /Users/conal/Haskell/concat/src/ConCat/Free/LinearCol.hs:(209,10)-(212,33)
+--       NB: We cannot know what roles the parameters to ‘V s b’ have;
+--         we must assume that the role is nominal
+--       NB: ‘V’ is a type function, and may not be injective
+--     • In the expression: coerce (id :: L s a a)
+--       In an equation for ‘coerceC’: coerceC = coerce (id :: L s a a)
+--       In the instance declaration for ‘CoerceCat (L s) a b’
+--     • Relevant bindings include
+--         coerceC :: L s a b
+--           (bound at /Users/conal/Haskell/concat/src/ConCat/Free/LinearCol.hs:213:3)
+--
+-- Why does the Coercible constraint suffice for LinearRow but not LinearCol?
 
 -- We can't make a ClosedCat instance compatible with the ProductCat instance.
 -- We'd have to change the latter to use the tensor product.
