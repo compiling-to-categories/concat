@@ -57,7 +57,7 @@
 
 -- Tweak simpl-tick-factor from default of 100
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=300 #-}
-{-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
+-- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
 -- When I list the plugin in the test suite's .cabal target instead of here, I get
 --
@@ -100,7 +100,7 @@ tests :: IO [Test]
 tests = return
   [ nopTest
 
---   , tst (par1 @Bool)
+  , tst ((:*:) :: Par1 Bool -> Par1 Bool -> (Par1 :*: Par1) Bool)
 
 --   , tst (scale :: R -> L R R R)
 
@@ -370,7 +370,7 @@ tst  :: (a -> b) -> Test
 -- Circuit interpretation
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst  :: GenBuses a => (a -> b) -> Test
-{-# RULES "circuit" forall nm f. test nm f = mkTest nm (runCirc' nm (ccc f)) #-}
+{-# RULES "circuit" forall nm f. test nm f = mkTest nm (runCirc nm (ccc f)) #-}
 #elif 1
 -- Syntactic interpretation
 test, test' :: String -> (a -> b) -> Test
@@ -481,6 +481,13 @@ test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall nm f.
    test nm f = mkTest nm (runSyn (ccc (dfun @R (ccc f))))
+ #-}
+#elif 1
+-- (->), then derivative, then circuit.
+test, test' :: GenBuses a => String -> (a -> b) -> Test
+tst         :: GenBuses a =>           (a -> b) -> Test
+{-# RULES "(->); D; (:>)" forall nm f.
+   test nm f = mkTest nm (runCirc (nm++"-ad") (ccc (dfun @R (ccc f))))
  #-}
 #elif 1
 -- (->), then derivative, then syntactic and circuit.
