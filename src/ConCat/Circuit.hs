@@ -134,7 +134,7 @@ import Text.Printf (printf)
 #if !defined NoHashCons
 import Unsafe.Coerce -- experiment
 #endif
-import GHC.Exts (Coercible) -- ,coerce
+-- import GHC.Exts (Coercible) -- ,coerce
 
 import qualified System.Info as SI
 import System.Process (system) -- ,readProcess
@@ -240,7 +240,7 @@ data Buses :: * -> * where
   PairB   :: Buses a -> Buses b -> Buses (a :* b)
   FunB    :: (a :> b) -> Buses (a -> b)
   IsoB    :: Buses (Rep b) -> Buses b
-  CoerceB :: Coercible a b => Buses a -> Buses b
+  CoerceB :: {- Coercible a b => -} Buses a -> Buses b
 
 -- TODO: Try Buses as a type family instead of a GADT.
 -- Note that I need some operations on all buses, so I'd need a class also.
@@ -425,7 +425,7 @@ reprB b = error ("repB: non-IsoB: " ++ show b)
 --   abstB :: Rep a ~ a' => Buses a' -> Buses a
 --   reprB :: Rep a ~ a' => Buses a -> Buses a'
 
-coerceB :: Coercible a b => Buses a -> Buses b
+coerceB :: {- Coercible a b => -} Buses a -> Buses b
 coerceB = CoerceB
 
 {--------------------------------------------------------------------
@@ -569,7 +569,7 @@ instance RepCat (:>) a where
   reprC = C (arr reprB)
   abstC = C (arr abstB)
 
-instance Coercible a b => CoerceCat (:>) a b where
+instance {- Coercible a b => -} CoerceCat (:>) a b where
   coerceC = C (arr coerceB)
 
 -- instance CoerceCat (:>) where

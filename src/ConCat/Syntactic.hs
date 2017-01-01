@@ -284,6 +284,10 @@ instance RepCat Syn a where
   INLINER(reprC)
   INLINER(abstC)
 
+instance CoerceCat Syn a b where
+  coerceC = atomStr "coerceC"
+  INLINER(coerceC)
+
 {--------------------------------------------------------------------
     Pretty-printing utilities
 --------------------------------------------------------------------}

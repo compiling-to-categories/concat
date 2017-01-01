@@ -1050,11 +1050,36 @@ instance HasRep a => RepCat (->) a where
   reprC = repr
   abstC = abst
 
-class CoerceCat k a b where
+#if 0
+
+class TransitiveCon con where
+  trans :: (con a b, con b c) :- con a c
+
+instance TransitiveCon Coercible where
+  trans = Sub Dict
+
+class ( Category k
+      , Ok2 k a b
+      , Coercible a b
+      , TransitiveCon (CoerceCat k)
+      ) => CoerceCat k a b where
   coerceC :: a `k` b
 
 instance Coercible a b => CoerceCat (->) a b where
   coerceC = coerce
+
+instance TransitiveCon (CoerceCat (->)) where
+  trans = Sub Dict
+
+#else
+
+class (Category k, Ok2 k a b) => CoerceCat k a b where
+  coerceC :: a `k` b
+
+instance Coercible a b => CoerceCat (->) a b where
+  coerceC = coerce
+
+#endif
 
 {--------------------------------------------------------------------
     Category constructions
@@ -1144,6 +1169,8 @@ instance RepCat Trivial a where
   reprC = Trivial
   abstC = Trivial
 
+instance CoerceCat Trivial a b where
+  coerceC = Trivial
 
 infixr 6 :**:
 -- | Product of categories
@@ -1304,6 +1331,10 @@ instance (RepCat k a, RepCat k' a) => RepCat (k :**: k') a where
   abstC = abstC :**: abstC
   PINLINER(reprC)
   PINLINER(abstC)
+
+instance (CoerceCat k a b, CoerceCat k' a b) => CoerceCat (k :**: k') a b where
+  coerceC = coerceC :**: coerceC
+  PINLINER(coerceC)
 
 {--------------------------------------------------------------------
     Functors

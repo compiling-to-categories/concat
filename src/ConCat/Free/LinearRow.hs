@@ -34,7 +34,7 @@ import Data.Key (Zip(..))
 import Text.PrettyPrint.HughesPJClass hiding (render)
 import Control.Newtype
 
-import ConCat.Misc ((:*),PseudoFun(..))
+import ConCat.Misc ((:*),PseudoFun(..),oops)
 import ConCat.Orphans ()
 import ConCat.Free.VectorSpace
 -- The following import allows the instances to type-check. Why?
@@ -223,7 +223,7 @@ instance (V s (Rep a) ~ V s a, Ok (L s) a) => RepCat (L s) a where
   reprC = abst idL 
   abstC = abst idL 
 
-instance (Ok (L s) a, Coercible (V s a) (V s b)) => CoerceCat (L s) a b where
+instance (Ok2 (L s) a b, Coercible (V s a) (V s b)) => CoerceCat (L s) a b where
   coerceC = coerce (id :: L s a a)
 
 -- We can't make a ClosedCat instance compatible with the ProductCat instance.
@@ -311,10 +311,10 @@ instance FunctorC (Linear s) (->) (L s) where fmapC = linear
 --------------------------------------------------------------------}
 
 lmap :: forall s a b. (a -> b) -> L s a b
--- lmap h = reveal (ccc h)
-lmap _ = error "lmap called"
+-- lmap _ = error "lmap called"
+lmap _ = oops "lmap"
 {-# NOINLINE lmap #-}
-{-# RULES "lmap" forall h. lmap h = reveal (ccc h) #-}
+{-# RULES "lmap" forall h. lmap h = ccc h #-}
 {-# ANN lmap PseudoFun #-}
 
 {--------------------------------------------------------------------

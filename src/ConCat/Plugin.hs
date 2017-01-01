@@ -75,6 +75,7 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , abstCV           :: Id
                      , reprC'V          :: Id
                      , abstC'V          :: Id
+                     , coerceV          :: Id
                      , repTc            :: TyCon
                      , hasRepMeth       :: HasRepMeth
                      -- , hasRepFromAbstCo :: Coercion   -> CoreExpr
@@ -190,9 +191,12 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
 #if 1
 
      Trying("top representational cast")
-     Cast e co | coercionRole co == Representational ->
+     Cast e (FunCo Representational dom cod) ->
        Doing("top representational cast")
-       return $ mkCcc $ (mkCoerceC co `App` e)
+       -- Will I get unnecessary coerceCs due to nominal-able sub-coercions?
+       return $ mkCompose cat (mkCoerceC cat cod) $
+                mkCompose cat (mkCcc e) $
+                mkCoerceC cat (mkSymCo dom)
 
 #else
      Trying("top cast unfold")
@@ -873,14 +877,13 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
      onDictMaybe =<< catOpMaybe k abstC'V [r,a]
     where
       (_co,r) = normaliseType famEnvs Nominal (repTy a)
-   mkCoerceC :: Coercion -> CoreExpr
-   mkCoerceC co@(coercionKind -> Pair dom cod) =
-     pprTrace "mkCoerceC 1" (pprWithType (Var coerceId)) $
-     pprTrace "mkCoerceC 2" (pprWithType (varApps coerceId [dom,cod] [])) $
-     pprTrace "mkCoerceC 3" (pprWithType (varApps coerceId [dom,cod] [dict])) $
-     varApps coerceId [dom,cod] [dict]
-    where
-      dict = mkCoreConApps coercibleDataCon [Type starKind,Type dom,Type cod,Coercion co]
+   mkCoerceC :: Cat -> Coercion -> CoreExpr
+   mkCoerceC k (coercionKind -> Pair dom cod) =
+     -- pprTrace "mkCoerceC 1" (pprWithType (Var coerceV)) $
+     -- pprTrace "mkCoerceC 2" (pprWithType (varApps coerceV [k,dom,cod] []))
+     -- pprTrace "mkCoerceC 3" (pprWithType (catOp k coerceV [dom,cod]))
+     -- pprPanic "mkCoerceC" (text "In progress")
+     catOp k coerceV [dom,cod]
    tyArgs2_maybe :: Type -> Maybe (Type,Type)
    -- tyArgs2_maybe (splitAppTys -> (_,(a:b:_))) = Just (a,b)
    tyArgs2_maybe _ty@(splitAppTy_maybe -> Just (splitAppTy_maybe -> Just (_,a),b)) =
@@ -1222,6 +1225,7 @@ mkCccEnv opts = do
   reprCV      <- findCatId "reprC"
   abstC'V     <- findCatId "abstC'"
   reprC'V     <- findCatId "reprC'"
+  coerceV     <- findCatId "coerceC"
   cccV        <- findCatId "ccc"
   floatT      <- findFloatTy "Float"
   doubleT     <- findFloatTy "Double"

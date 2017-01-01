@@ -206,7 +206,7 @@ instance (V s (Rep a) ~ V s a, Ok (L s) a) => RepCat (L s) a where
   reprC = abst idL 
   abstC = abst idL 
 
-instance (Ok (L s) a
+instance (Ok2 (L s) a b
          -- , Coercible (V s a) (V s b)
          , V s a ~ V s b
          ) => CoerceCat (L s) a b where
