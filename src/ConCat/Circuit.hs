@@ -112,8 +112,6 @@ import Control.Monad (unless)
 import Control.Arrow (arr,Kleisli(..))
 import Data.Foldable ({-foldMap,-}toList)
 import qualified GHC.Generics as G
--- import Data.Typeable                    -- TODO: imports
--- import Data.Tuple (swap)
 import Data.Function (on)
 import Data.Maybe (fromMaybe,isJust)
 import Data.List (intercalate,group,sort,stripPrefix)
@@ -126,8 +124,6 @@ import qualified Data.Map as M
 -- import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Sequence (Seq,singleton)
--- import Data.Typeable (Typeable)
--- import Data.Data (Data)
 import Text.Printf (printf)
 -- import Debug.Trace (trace)
 -- import Data.Coerce                      -- TODO: imports
@@ -135,7 +131,7 @@ import Text.Printf (printf)
 import Unsafe.Coerce -- experiment
 #endif
 -- import GHC.Exts (Coercible) -- ,coerce
-import Data.Typeable (Typeable,eqT)  -- ,Proxy(..),typeRep
+import Data.Typeable (Typeable,eqT,cast)  -- ,Proxy(..),typeRep
 import Data.Type.Equality ((:~:)(..))
 
 import qualified System.Info as SI
@@ -252,18 +248,21 @@ data Buses :: * -> * where
 -- TODO: Can I unify AbstB and ConvertB? Do those constructors really need the
 -- constraints a ~ Rep b and ConvertB a b?
 
-#if 0
+#if 1
 
+-- Currently unused.
 instance Eq (Buses a) where
-  UnitB     == UnitB        = True
-  BoolB s   == BoolB s'     = s == s'
-  IntB s    == IntB s'      = s == s'
-  FloatB  s == FloatB  s'   = s == s'
-  DoubleB s == DoubleB s'   = s == s'
-  PairB a b == PairB a' b'  = a == a' && b == b'
-  -- AbstB r   == AbstB r'     = r == r'
-  FunB _    == FunB _       = False             -- TODO: reconsider
-  _         == _            = False
+  UnitB      == UnitB       = True
+  BoolB s    == BoolB s'    = s == s'
+  IntB s     == IntB s'     = s == s'
+  FloatB  s  == FloatB  s'  = s == s'
+  DoubleB s  == DoubleB s'  = s == s'
+  PairB a b  == PairB a' b' = a == a' && b == b'
+  FunB _     == FunB _      = False             -- TODO: reconsider
+  ConvertB a == ConvertB b  = case cast a of
+                                Just a' -> a' == b
+                                Nothing -> False
+  _          == _           = False
 
 -- If I need Eq, handle ConvertB. I'll probably have to switch to heterogeneous
 -- equality, perhaps via `TestEquality` in `Data.Type.Equality`.
