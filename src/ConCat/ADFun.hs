@@ -13,10 +13,12 @@
 module ConCat.ADFun where
 
 import Prelude hiding (id,(.),curry,uncurry,Float,Double)
+import GHC.Exts (Coercible)
 import Control.Newtype
 
 import ConCat.Misc ((:*),inNew2,PseudoFun(..))
 import ConCat.Float
+import ConCat.Rep
 
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
@@ -160,6 +162,13 @@ instance Floating s => FloatingCat D s where
   {-# INLINE expC #-}
   {-# INLINE sinC #-}
   {-# INLINE cosC #-}
+
+instance HasRep a => RepCat D a where
+  reprC = linearD reprC
+  abstC = linearD abstC
+
+instance Coercible a b => CoerceCat D a b where
+  coerceC = linearD coerceC
 
 {--------------------------------------------------------------------
     Sampling on a basis
