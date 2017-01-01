@@ -19,7 +19,7 @@
 
 module ConCat.BuildDictionary (buildDictionary) where
 
-import Control.Monad (guard) -- ,unless
+import Control.Monad (guard,unless) -- 
 import Data.Monoid (Any(..))
 import Data.Char (isSpace)
 import Data.Data (Data)
@@ -115,7 +115,6 @@ buildDictionary env dflags guts inScope ty =
      -- pprTrace "buildDictionary free vars" (ppr (exprFreeVars dict)) (return ())
      -- pprTrace "buildDictionary (bnds,freeIds)" (ppr (bnds,freeIds)) (return ())
      -- pprTrace "buildDictionary (collectArgs dict)" (ppr (collectArgs dict)) (return ())
-     let ok = notNull bnds && null freeIds && not (hasCoercionHole dict)
 #if 0
      unless ok $
        pprTrace "buildDictionary fail for"
@@ -142,6 +141,7 @@ buildDictionary env dflags guts inScope ty =
    -- parameters. Alternatively, check that there are no free variables (val or
    -- type) in the resulting dictionary that were not in the original type.
    freeIds = filter isId (uniqSetToList (exprFreeVars dict))
+   ok = notNull bnds && null freeIds && not (hasCoercionHole dict)
 
 hasCoercionHole :: Data t => t -> Bool
 hasCoercionHole = getAny . everything mappend (mkQ mempty (Any . isHole))
@@ -161,3 +161,7 @@ stringToName str =
 
 -- When mkUniqueGrimily's argument is negative, we see something like
 -- "Exception: Prelude.chr: bad argument: (-52)". Hence the abs.
+
+-- Hack to silence warning about unused 'unless'
+_unless :: Applicative f => Bool -> f () -> f ()
+_unless = unless
