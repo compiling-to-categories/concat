@@ -234,23 +234,23 @@ newSource w prim ins o = -- trace "newSource" $
 -- 'AbstB' is for isomorphic forms. Note: b must not have one of the standard
 -- forms. If it does, we'll get a run-time error when consuming.
 data Buses :: * -> * where
-  UnitB   :: Buses ()
-  BoolB   :: Source -> Buses Bool
-  IntB    :: Source -> Buses Int
-  FloatB  :: Source -> Buses Float
-  DoubleB :: Source -> Buses Double
-  PairB   :: Buses a -> Buses b -> Buses (a :* b)
-  FunB    :: (a :> b) -> Buses (a -> b)
-  -- AbstB   :: Buses (Rep b) -> Buses b
-  CoerceB :: -- Coercible a b
+  UnitB    :: Buses ()
+  BoolB    :: Source -> Buses Bool
+  IntB     :: Source -> Buses Int
+  FloatB   :: Source -> Buses Float
+  DoubleB  :: Source -> Buses Double
+  PairB    :: Buses a -> Buses b -> Buses (a :* b)
+  FunB     :: (a :> b) -> Buses (a -> b)
+  -- AbstB :: Buses (Rep b) -> Buses b
+  ConvertB :: -- Coercible a b
              (Typeable a, Typeable b)
           => Buses a -> Buses b
 
 -- TODO: Try Buses as a type family instead of a GADT.
 -- Note that I need some operations on all buses, so I'd need a class also.
 
--- TODO: Can I unify AbstB and CoerceB? Do those constructors really need the
--- constraints a ~ Rep b and CoerceB a b?
+-- TODO: Can I unify AbstB and ConvertB? Do those constructors really need the
+-- constraints a ~ Rep b and ConvertB a b?
 
 #if 0
 
@@ -265,7 +265,7 @@ instance Eq (Buses a) where
   FunB _    == FunB _       = False             -- TODO: reconsider
   _         == _            = False
 
--- If I need Eq, handle CoerceB. I'll probably have to switch to heterogeneous
+-- If I need Eq, handle ConvertB. I'll probably have to switch to heterogeneous
 -- equality, perhaps via `TestEquality` in `Data.Type.Equality`.
 
 #endif
@@ -276,15 +276,15 @@ instance Eq (Buses a) where
 -- Deriving would need GenBuses a.
 
 instance Show (Buses a) where
-  show UnitB       = "()"
-  show (BoolB b)   = show b
-  show (IntB b)    = show b
-  show (FloatB  b) = show b
-  show (DoubleB b) = show b
-  show (PairB a b) = "("++show a++","++show b++")"
-  show (FunB _)    = "<function>"
-  show (CoerceB b) = "CoerceB ("++show b++")"
-  -- show (AbstB b)   = "AbstB ("++show b++")"
+  show UnitB        = "()"
+  show (BoolB b)    = show b
+  show (IntB b)     = show b
+  show (FloatB  b)  = show b
+  show (DoubleB b)  = show b
+  show (PairB a b)  = "("++show a++","++show b++")"
+  show (FunB _)     = "<function>"
+  show (ConvertB b) = "ConvertB ("++show b++")"
+  -- show (AbstB b) = "AbstB ("++show b++")"
 
 -- TODO: Improve to Show instance with showsPrec. Maybe Pretty instead/also.
 
@@ -365,15 +365,15 @@ flattenMb :: Buses a -> Maybe Sources
 flattenMb = fmap toList . flat
  where
    flat :: Buses a -> Maybe (Seq Source)
-   flat UnitB       = Just mempty
-   flat (BoolB b)   = Just (singleton b)
-   flat (IntB b)    = Just (singleton b)
-   flat (FloatB  b) = Just (singleton b)
-   flat (DoubleB b) = Just (singleton b)
-   flat (PairB a b) = liftA2 (<>) (flat a) (flat b)
-   flat (CoerceB b) = flat b
-   flat (FunB _)    = Nothing
-   -- flat (AbstB b)   = flat b
+   flat UnitB        = Just mempty
+   flat (BoolB b)    = Just (singleton b)
+   flat (IntB b)     = Just (singleton b)
+   flat (FloatB  b)  = Just (singleton b)
+   flat (DoubleB b)  = Just (singleton b)
+   flat (PairB a b)  = liftA2 (<>) (flat a) (flat b)
+   flat (ConvertB b) = flat b
+   flat (FunB _)     = Nothing
+   -- flat (AbstB b) = flat b
 
 badBuses :: String -> Buses a -> x
 badBuses nm bs = error (nm ++ " got unexpected bus " ++ show bs)
@@ -428,12 +428,12 @@ exrB = snd . unPairB
 
 type TypeableAR a = (Typeable a, Typeable (Rep a))
 
--- TODO: if this experiment works out, eliminate AbstB, and rename CoerceB.
+-- TODO: if this experiment works out, eliminate AbstB, and rename ConvertB.
 abstB :: TypeableAR a => Buses (Rep a) -> Buses a
-abstB = coerceB
+abstB = convertB
 
 reprB :: TypeableAR a => Buses a -> Buses (Rep a)
-reprB = coerceB
+reprB = convertB
 
 #else
 abstB :: Buses (Rep a) -> Buses a
@@ -451,24 +451,18 @@ reprB b = badBuses "reprB" b
 
 #endif
 
-coerceB :: -- Coercible a b
-           forall a b. (Typeable a, Typeable b)
-        => Buses a -> Buses b
--- coerceB a | trace ("coerceB " ++ show (typeRep (Proxy :: Proxy (a -> b))) ++ ": " ++ show a ++ "\n") False = undefined
-coerceB (CoerceB p) = mkCoerceB p  -- coalesce
-coerceB a           = mkCoerceB a
+convertB :: -- Coercible a b
+            forall a b. (Typeable a, Typeable b)
+         => Buses a -> Buses b
+-- convertB a | trace ("convertB " ++ show (typeRep (Proxy :: Proxy (a -> b))) ++ ": " ++ show a ++ "\n") False = undefined
+convertB (ConvertB p) = mkConvertB p  -- coalesce
+convertB a            = mkConvertB a
 
--- Make a CoerceB if source and target types differ; otherwise id
-mkCoerceB :: forall a b. (Typeable a, Typeable b)
-          => Buses a -> Buses b
-mkCoerceB a | Just Refl <- eqT @a @b = a
-            | otherwise              = CoerceB a
-
--- p :: Buses p
--- CoerceB p :: Buses a
-
-
--- coerceB = CoerceB
+-- Make a ConvertB if source and target types differ; otherwise id
+mkConvertB :: forall a b. (Typeable a, Typeable b)
+           => Buses a -> Buses b
+mkConvertB a | Just Refl <- eqT @a @b = a
+             | otherwise              = ConvertB a
 
 {--------------------------------------------------------------------
     The circuit monad
@@ -614,7 +608,7 @@ instance TypeableAR a => RepCat (:>) a where
 instance -- Coercible a b
          (Typeable a, Typeable b)
       => CoerceCat (:>) a b where
-  coerceC = C (arr coerceB)
+  coerceC = C (arr convertB)
 
 -- instance CoerceCat (:>) where
 --   coerceC = C (arr coerce)
