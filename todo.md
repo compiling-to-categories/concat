@@ -1,5 +1,13 @@
 # To do
 
+*   Add a test for derivatives without circuits, running the generated Haskell AD code.
+*   `Circuit`: try making nodes for `abst`, `repr`, and `coerce`.
+*   `Circuit`: perhaps add a `ReprB`, and don't worry about canceling `AbstB` and `ReprB`.
+*   `Circuit`: `Eq` and `CoerceB`.
+    I'll probably have to switch to heterogeneous equality, perhaps via `TestEquality` in `Data.Type.Equality`.
+    I'm not using `Eq` for now, so I've commented out the instance.
+*   `Circuit`: Try to unify `AbstB` and `CoerceB`.
+    Might require changing `abstC` and `reprC` to be like `abstC'` and `reprC'`, which would probably be fine.
 *   Restore the `Coercible` constraint in `ConCat.Circuit` and figure out why the `CoerceCat` constraint isn't getting satisfied.
 *   Does `coerce` work with constant propagation in `ConCat.Circuit`?
 *   In `ConCat.Category`, move `Trivial` and `(:**:)` to before Category, and move their class instances to just after each class definition, alongside `(->)`.
