@@ -28,12 +28,9 @@ import qualified Prelude as P
 import qualified Data.Tuple as P
 import GHC.Exts (Coercible,coerce)
 
--- For ccc def trick
-import Unsafe.Coerce (unsafeCoerce)
-
 import qualified ConCat.Category as C
 import ConCat.Rep
-import ConCat.Misc ((:*),(:+),PseudoFun(..))
+import ConCat.Misc ((:*),(:+),PseudoFun(..),oops)
 import ConCat.Float
 
 import ConCat.Category
@@ -360,7 +357,8 @@ UncId(c :+ d)
 
 -- | Pseudo function to trigger rewriting to CCC form.
 ccc :: forall k a b. (a -> b) -> (a `k` b)
-ccc _ = unsafeCoerce "Oops --- ccc called!"  -- so GHC won't notice bottom def
+-- ccc _ = unsafeCoerce "Oops --- ccc called!"  -- so GHC won't notice bottom def
+ccc _ = oops "ccc"
 {-# NOINLINE ccc #-}
 {-# RULES "ccc error" [0] forall f. ccc f = error "ccc: not implemented" #-}
 
@@ -433,5 +431,9 @@ ccc _ = unsafeCoerce "Oops --- ccc called!"  -- so GHC won't notice bottom def
 
 "abstC' . reprC'" abstC' . reprC' = id
 "reprC' . abstC'" reprC' . abstC' = id
+
+"coerceC = id" coerceC = id  -- when types match
+
+-- "coerceC . coerceC" coerceC . coerceC = coerceC
 
  #-}

@@ -22,6 +22,7 @@ module ConCat.Misc where
 -- import Data.Type.Equality
 
 import Data.Data (Typeable,Data)
+import Unsafe.Coerce (unsafeCoerce)  -- for oops
 
 import Control.Newtype
 
@@ -219,3 +220,13 @@ data PseudoFun = PseudoFun deriving (Typeable,Data)
 
 -- pseudoFun :: PseudoFun
 -- pseudoFun = PseudoFun
+
+{--------------------------------------------------------------------
+    Fool divergence checker
+--------------------------------------------------------------------}
+
+-- | Pseudo function to fool GHC's divergence checker
+oops :: String -> b
+oops str = unsafeCoerce ("Oops --- "++str++" called!")
+{-# NOINLINE oops #-}
+
