@@ -261,13 +261,14 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
 #if 1
 
      Trying("top abstReprCon")
-     -- Constructor applied to ty/co/dict arguments
-     e@(collectTyCoDictArgs -> (Var (isDataConId_maybe -> Just dc),_))
+     -- Constructor application
+     e@(collectArgs -> (Var (isDataConId_maybe -> Just dc),_))
        | let (binds,body) = collectBinders (etaExpand (dataConRepArity dc) e)
              bodyTy = exprType body
        , Just repr <- mkReprC'_maybe funCat bodyTy
        , Just abst <- mkAbstC'_maybe funCat bodyTy
        -> Doing("top abstReprCon")
+          dtrace "top abstReprCon repr type" (ppr (exprType repr)) $
           return $ mkCcc $
            mkLams binds $
             abst `App` (inlineE repr `App` body)
@@ -378,7 +379,7 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
         (collectTyCoDictArgs -> (Var (isDataConId_maybe -> Just dc),_), args))
        | let (binds,body') = collectBinders (etaExpand (dataConRepArity dc - length args) e)
        , Just meth <- hrMeth (exprType body')
-       -> Doing("top con")
+       -> Doing("lam abstReprCon")
           return $ mkCcc $
            Lam x $
             mkLams binds $
