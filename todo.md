@@ -1,5 +1,12 @@
 # To do
 
+*   Restore the `Coercible` constraint in `ConCat.Circuit` and figure out why the `CoerceCat` constraint isn't getting satisfied.
+*   Does `coerce` work with constant propagation in `ConCat.Circuit`?
+*   In `ConCat.Category`, move `Trivial` and `(:**:)` to before Category, and move their class instances to just after each class definition, alongside `(->)`.
+*   Try `Coercion` (from `Data.Type.Coercion`) as an example of constrained categories.
+    Note that `Coercion a b =~ Dict (Coercible a b)`.
+    Similarly for `(:~:)` in `Data.Type.Equality`.
+*   Why does the `Coercible` constraint suffice for `CoerceCat` in `LinearRow` but not in `LinearCol`?
 *   Remove the `reveal` machinery in `AltCat`.
 *   Explore eliminating `abstReprCase` (and perhaps `abstReprCon`).
     Does unfolding suffice as an alternative?
