@@ -189,7 +189,6 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
        -- (`Cast` co') <$> go e
 #endif
 #if 1
-
      Trying("top representational cast")
      Cast e (FunCo Representational dom cod) ->
        Doing("top representational cast")
@@ -197,7 +196,6 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
        return $ mkCompose cat (mkCoerceC cat cod) $
                 mkCompose cat (mkCcc e) $
                 mkCoerceC cat (mkSymCo dom)
-
 #else
      Trying("top cast unfold")
      Cast (unfoldMaybe -> Just body') co ->
@@ -221,7 +219,6 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
           -- dtrace "top cast normalize" (ppr ((dom,cod), (dco,dom'), (cco,cod')) $$ pprCoWithType (dco `mkTransCo` mkSymCo cco))
           return $ mkCcc $
             mkCast e (dco `mkTransCo` mkSymCo cco)
-
      Trying("top abstC codomain")
      e | _dom `FunTy` cod <- exprType e
        , Just repr <- mkReprC'_maybe funCat cod
@@ -240,7 +237,6 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
            mkCompose cat
              (mkCcc (inlineE (mkCompose funCat e (inlineE abst))))
              repr
-
      Trying("top cast abstC codomain")
      Cast (etaExpand 1 -> Lam x body) co
        | Just meth <- hrMeth (exprType body)
@@ -252,7 +248,6 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
                 idr = mkId funCat rty
             in
               mkCast (Lam x (a `App` (idr `App` (r `App` body)))) co
-
 #endif
 #if 0
      Trying("top recast")
@@ -263,7 +258,21 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
          dtrace "top recaster" (ppr re) $
          return (mkCcc (re `App` e))
 #endif
-#if 0
+#if 1
+
+     Trying("top abstReprCon")
+     -- Constructor applied to ty/co/dict arguments
+     e@(collectTyCoDictArgs -> (Var (isDataConId_maybe -> Just dc),_))
+       | let (binds,body) = collectBinders (etaExpand (dataConRepArity dc) e)
+             bodyTy = exprType body
+       , Just repr <- mkReprC'_maybe funCat bodyTy
+       , Just abst <- mkAbstC'_maybe funCat bodyTy
+       -> Doing("top abstReprCon")
+          return $ mkCcc $
+           mkLams binds $
+            abst `App` (inlineE repr `App` body)
+
+#else
      -- TODO: If this simplifier phase isn't eta-expanding, I'll need to handle
      -- unsaturated constructors here.
      Trying("top con")
@@ -281,6 +290,7 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
             mkAbstC funCat (exprType body) `App` (meth reprV `App` body)
             -- TODO: Try simpleE on just (meth repr'V), not body.
 #endif
+
 #if 0
      Trying("top lazy")
      (collectArgs -> (Var ((== lazyV) -> True),_ty:f:args)) ->
@@ -306,6 +316,7 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
           return (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))
       where
         Just (dom,_) = splitFunTy_maybe (exprType e)
+#if 0
      Trying("top Wait for unfolding")
      (collectArgs -> (Var v,_)) | waitForVar ->
        Doing("top Wait for unfolding of " ++ fqVarName v)
@@ -317,6 +328,7 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
      --        go (etaExpand 1 e)
      --        -- return $ mkCcc (etaExpand 1 e)
      -- TODO: If I don't etaReduceN, merge goLam back into the go Lam case.
+#endif
      _e -> Doing("top Unhandled")
            -- Nothing
            pprPanic "ccc go. Unhandled" (ppr _e)
