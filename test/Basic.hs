@@ -42,7 +42,7 @@
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
@@ -100,7 +100,11 @@ tests :: IO [Test]
 tests = return
   [ nopTest
 
-  , tst ((:*:) :: Par1 Bool -> Par1 Bool -> (Par1 :*: Par1) Bool)
+--   , tst (\ (a :: Bool) -> (a,a,a))
+
+--   , tst ((,,) @Bool @Bool @Bool)
+
+--   , tst ((:*:) :: Par1 Bool -> Par1 Bool -> (Par1 :*: Par1) Bool)
 
 --   , tst (scale :: R -> L R R R)
 
@@ -173,7 +177,7 @@ tests = return
 
 --   , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
 
---   , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
+  , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
 
 --   , test "foo" (\ (a::R,_b::R,_c::R) -> a)
 
@@ -371,7 +375,7 @@ tst  :: (a -> b) -> Test
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst  :: GenBuses a => (a -> b) -> Test
 {-# RULES "circuit" forall nm f. test nm f = mkTest nm (runCirc nm (ccc f)) #-}
-#elif 1
+#elif 0
 -- Syntactic interpretation
 test, test' :: String -> (a -> b) -> Test
 tst :: (a -> b) -> Test
@@ -482,7 +486,7 @@ tst  :: (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall nm f.
    test nm f = mkTest nm (runSyn (ccc (dfun @R (ccc f))))
  #-}
-#elif 1
+#elif 0
 -- (->), then derivative, then circuit.
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst         :: GenBuses a =>           (a -> b) -> Test
