@@ -3,13 +3,13 @@
 -- language pragmas section and AbsTyImports in your imports section.
 
 #define AbsTy(abs) \
-instance GenBuses (Rep (abs)) => GenBuses (abs) where \
+instance (TypeableAR (abs), GenBuses (Rep (abs))) => GenBuses (abs) where \
   { genBuses' = genBusesRep' ; delay = delayCRep ; ty = tyRep }; \
-instance ConstCat (:>) (Rep (abs)) => ConstCat (:>) (abs) where \
+instance (TypeableAR (abs), ConstCat (:>) (Rep (abs))) => ConstCat (:>) (abs) where \
   { const = repConst } ; \
-instance BottomCat (:>) (Rep (abs)) => BottomCat (:>) (abs) where \
+instance (TypeableAR (abs), BottomCat (:>) (Rep (abs))) => BottomCat (:>) (abs) where \
   { bottomC = bottomRep }; \
-instance IfCat (:>) (Rep (abs)) => IfCat (:>) (abs) where { ifC = repIf }; \
+instance (TypeableAR (abs), IfCat (:>) (Rep (abs))) => IfCat (:>) (abs) where { ifC = repIf }; \
 instance Uncurriable k _a_ (abs) where uncurries f = f ; {-# INLINE uncurries #-}
 
 #define AbsTyPragmas \

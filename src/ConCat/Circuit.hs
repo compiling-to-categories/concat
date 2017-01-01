@@ -135,6 +135,8 @@ import Text.Printf (printf)
 import Unsafe.Coerce -- experiment
 #endif
 -- import GHC.Exts (Coercible) -- ,coerce
+import Data.Typeable (Typeable,eqT)  -- ,Proxy(..),typeRep
+import Data.Type.Equality ((:~:)(..))
 
 import qualified System.Info as SI
 import System.Process (system) -- ,readProcess
@@ -229,7 +231,7 @@ newSource w prim ins o = -- trace "newSource" $
 --------------------------------------------------------------------}
 
 -- | Typed aggregate of buses. @'Buses' a@ carries a value of type @a@.
--- 'IsoB' is for isomorphic forms. Note: b must not have one of the standard
+-- 'AbstB' is for isomorphic forms. Note: b must not have one of the standard
 -- forms. If it does, we'll get a run-time error when consuming.
 data Buses :: * -> * where
   UnitB   :: Buses ()
@@ -239,14 +241,18 @@ data Buses :: * -> * where
   DoubleB :: Source -> Buses Double
   PairB   :: Buses a -> Buses b -> Buses (a :* b)
   FunB    :: (a :> b) -> Buses (a -> b)
-  IsoB    :: Buses (Rep b) -> Buses b
-  CoerceB :: {- Coercible a b => -} Buses a -> Buses b
+  -- AbstB   :: Buses (Rep b) -> Buses b
+  CoerceB :: -- Coercible a b
+             (Typeable a, Typeable b)
+          => Buses a -> Buses b
 
 -- TODO: Try Buses as a type family instead of a GADT.
 -- Note that I need some operations on all buses, so I'd need a class also.
 
--- TODO: Can I unify IsoB and CoerceB? Do those constructors really need the
+-- TODO: Can I unify AbstB and CoerceB? Do those constructors really need the
 -- constraints a ~ Rep b and CoerceB a b?
+
+#if 0
 
 instance Eq (Buses a) where
   UnitB     == UnitB        = True
@@ -255,9 +261,14 @@ instance Eq (Buses a) where
   FloatB  s == FloatB  s'   = s == s'
   DoubleB s == DoubleB s'   = s == s'
   PairB a b == PairB a' b'  = a == a' && b == b'
-  IsoB r    == IsoB r'      = r == r'
+  -- AbstB r   == AbstB r'     = r == r'
   FunB _    == FunB _       = False             -- TODO: reconsider
   _         == _            = False
+
+-- If I need Eq, handle CoerceB. I'll probably have to switch to heterogeneous
+-- equality, perhaps via `TestEquality` in `Data.Type.Equality`.
+
+#endif
 
 -- deriving instance Typeable Buses
 -- deriving instance Show (Buses a)
@@ -272,8 +283,8 @@ instance Show (Buses a) where
   show (DoubleB b) = show b
   show (PairB a b) = "("++show a++","++show b++")"
   show (FunB _)    = "<function>"
-  show (IsoB b)    = "IsoB ("++show b++")"
   show (CoerceB b) = "CoerceB ("++show b++")"
+  -- show (AbstB b)   = "AbstB ("++show b++")"
 
 -- TODO: Improve to Show instance with showsPrec. Maybe Pretty instead/also.
 
@@ -360,12 +371,12 @@ flattenMb = fmap toList . flat
    flat (FloatB  b) = Just (singleton b)
    flat (DoubleB b) = Just (singleton b)
    flat (PairB a b) = liftA2 (<>) (flat a) (flat b)
-   flat (IsoB b)    = flat b
    flat (CoerceB b) = flat b
    flat (FunB _)    = Nothing
+   -- flat (AbstB b)   = flat b
 
 badBuses :: String -> Buses a -> x
-badBuses nm bs = error (nm ++ "got unexpected bus " ++ show bs)
+badBuses nm bs = error (nm ++ " got unexpected bus " ++ show bs)
 
 pairB :: Buses a :* Buses b -> Buses (a :* b)
 pairB (a,b) = PairB a b
@@ -377,13 +388,13 @@ pairB (a,b) = PairB a b
 
 -- unUnitB :: Buses () -> ()
 -- unUnitB UnitB    = ()
--- unUnitB (IsoB _) = badBuses "unUnitB"
+-- unUnitB (AbstB _) = badBuses "unUnitB"
 -- -- BogusMatch(unUnitB)
 
 unPairB :: Buses (a :* b) -> Buses a :* Buses b
 #if 0
 unPairB (PairB a b) = (a,b)
-unPairB (IsoB _)    = badBuses "unPairB"
+unPairB (AbstB _)   = badBuses "unPairB"
 #else
 -- Lazier
 unPairB w = (a,b)
@@ -399,7 +410,7 @@ unPairB w = (a,b)
 
 --    (a,b) = case w of
 --              PairB p q -> (p,q)
---              IsoB _    -> badBuses "unPairB"
+--              AbstB _   -> badBuses "unPairB"
 
 #endif
 
@@ -413,20 +424,51 @@ exlB = fst . unPairB
 exrB :: Buses (a :* b) -> Buses b
 exrB = snd . unPairB
 
+#if 1
+
+type TypeableAR a = (Typeable a, Typeable (Rep a))
+
+-- TODO: if this experiment works out, eliminate AbstB, and rename CoerceB.
+abstB :: TypeableAR a => Buses (Rep a) -> Buses a
+abstB = coerceB
+
+reprB :: TypeableAR a => Buses a -> Buses (Rep a)
+reprB = coerceB
+
+#else
 abstB :: Buses (Rep a) -> Buses a
-abstB = IsoB
+abstB = AbstB
 
 reprB :: Buses a -> Buses (Rep a)
-reprB (IsoB a) = a
-reprB b = error ("repB: non-IsoB: " ++ show b)
+reprB (AbstB r) = r
+reprB b = badBuses "reprB" b
+-- reprB b = error ("reprB: non-AbstB: " ++ show b)
 
 -- Alternatively,
 -- 
 --   abstB :: Rep a ~ a' => Buses a' -> Buses a
 --   reprB :: Rep a ~ a' => Buses a -> Buses a'
 
-coerceB :: {- Coercible a b => -} Buses a -> Buses b
-coerceB = CoerceB
+#endif
+
+coerceB :: -- Coercible a b
+           forall a b. (Typeable a, Typeable b)
+        => Buses a -> Buses b
+-- coerceB a | trace ("coerceB " ++ show (typeRep (Proxy :: Proxy (a -> b))) ++ ": " ++ show a ++ "\n") False = undefined
+coerceB (CoerceB p) = mkCoerceB p  -- coalesce
+coerceB a           = mkCoerceB a
+
+-- Make a CoerceB if source and target types differ; otherwise id
+mkCoerceB :: forall a b. (Typeable a, Typeable b)
+          => Buses a -> Buses b
+mkCoerceB a | Just Refl <- eqT @a @b = a
+            | otherwise              = CoerceB a
+
+-- p :: Buses p
+-- CoerceB p :: Buses a
+
+
+-- coerceB = CoerceB
 
 {--------------------------------------------------------------------
     The circuit monad
@@ -565,11 +607,13 @@ type a :+> b = Kleisli CircuitM (Buses a) (Buses b)
 -- | Circuit category
 newtype a :> b = C { unC :: a :+> b }
 
-instance RepCat (:>) a where
+instance TypeableAR a => RepCat (:>) a where
   reprC = C (arr reprB)
   abstC = C (arr abstB)
 
-instance {- Coercible a b => -} CoerceCat (:>) a b where
+instance -- Coercible a b
+         (Typeable a, Typeable b)
+      => CoerceCat (:>) a b where
   coerceC = C (arr coerceB)
 
 -- instance CoerceCat (:>) where
@@ -2493,7 +2537,7 @@ isOuterPrim = flip S.member (S.fromList outerPrims)
 -- GenBuses needed for data types appearing the external interfaces (and hence
 -- not removed during compilation).
 
-genBusesRep' :: GenBuses (Rep a) =>
+genBusesRep' :: (TypeableAR a, GenBuses (Rep a)) =>
                 String -> Sources -> BusesM (Buses a)
 genBusesRep' prim ins = abstB <$> genBuses' prim ins
 
@@ -2503,7 +2547,7 @@ genBusesRep' prim ins = abstB <$> genBuses' prim ins
 tyRep :: forall a. GenBuses (Rep a) => a -> Ty
 tyRep = const (ty (undefined :: Rep a))
 
-delayCRep :: (HasRep a, GenBuses (Rep a)) => a -> (a :> a)
+delayCRep :: (HasRep a, TypeableAR a, GenBuses (Rep a)) => a -> (a :> a)
 delayCRep a0 = abstC . delay (repr a0) . reprC
 
 #include "AbsTy.inc"
