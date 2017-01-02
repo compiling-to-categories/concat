@@ -62,7 +62,7 @@ runTcMUnsafe env0 dflags _guts m = unsafePerformIO $ do
     maybe (fail $ showMsgs msgs) return mr
  where
    imports0 = ic_imports (hsc_IC env0)
-   orphNames = mkModuleName <$> ["GHC.Float"]
+   orphNames = mkModuleName <$> ["GHC.Float","ConCat.Orphans"]
                -- map moduleName (dep_orphs (mg_deps guts))
    env = -- pprTrace "runTcMUnsafe dep_mods" (ppr (dep_mods (mg_deps guts))) $
          -- pprTrace "runTcMUnsafe dep_orphs" (ppr (dep_orphs (mg_deps guts))) $
