@@ -22,6 +22,7 @@ import Data.Pointed
 import Data.Copointed
 -- import Data.Stream (Stream(..))
 import Control.Newtype
+import Text.PrettyPrint.HughesPJClass
 
 import ConCat.Misc ((:*),(:+),inNew,inNew2)
 
@@ -226,3 +227,29 @@ instance Zip     Stream where zipWith = liftA2
 instance Foldable Stream where
   foldMap f ~(Cons a as) = f a `mappend` foldMap f as
 #endif
+
+{--------------------------------------------------------------------
+    Pretty
+--------------------------------------------------------------------}
+
+instance Pretty (U1 a) where
+  pPrintPrec _ _ U1 = text "U1"
+
+instance Pretty a => Pretty (Par1 a) where
+  pPrintPrec l p (Par1 a) = app l p "Par1" a
+
+instance (Pretty (f a), Pretty (g a)) => Pretty ((f :*: g) a) where
+  pPrintPrec l p (fa :*: ga) =
+    maybeParens (p > 6) $
+     sep [pPrintPrec l 7 fa <+> text ":*:", pPrintPrec l 6 ga]
+
+instance Pretty (g (f a)) => Pretty ((g :.: f) a) where
+  pPrintPrec l p (Comp1 gfa) = app l p "Comp1" gfa
+
+app :: Pretty a => PrettyLevel -> Rational -> String -> a -> Doc
+app l p str a =
+  maybeParens (p > appPrec) $
+   text str <+> pPrintPrec l (appPrec+1) a
+
+appPrec :: Rational
+appPrec = 10
