@@ -56,7 +56,7 @@
 -- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
 
 -- Tweak simpl-tick-factor from default of 100
--- {-# OPTIONS_GHC -fsimpl-tick-factor=300 #-}
+{-# OPTIONS_GHC -fsimpl-tick-factor=500 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
 -- When I list the plugin in the test suite's .cabal target instead of here, I get
@@ -86,7 +86,7 @@ import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay,(:>))
-import ConCat.AltCat (ccc,reveal,Uncurriable(..),U2(..),(:**:)(..))
+import ConCat.AltCat (ccc,reveal,Uncurriable(..),U2(..),(:**:)(..),Ok2)
 import qualified ConCat.AltCat as A
 import ConCat.Rebox () -- experiment
 
@@ -171,22 +171,22 @@ tests = return
 --   , test "x-plus-four" (\ x -> x + 4 :: R)
 --   , test "four-plus-x" (\ x -> 4 + x :: R)
 
---   , test "sin"         (sin :: Unop R)
---   , test "cos"         (cos :: Unop R)
---   , test "square"      (\ x -> x * x :: R)
+  , test "sin"         (sin :: Unop R)
+  , test "cos"         (cos :: Unop R)
+  , test "square"      (\ x -> x * x :: R)
   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
---   , test "cos-xpx"     (\ x -> cos (x + x) :: R)
---   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
+  , test "cos-xpx"     (\ x -> cos (x + x) :: R)
+  , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
 
---   , test "cos-xpy"      (\ (x,y) -> cos (x + y) :: R)
+  , test "cos-xpy"      (\ (x,y) -> cos (x + y) :: R)
 
---   , test "xy" (\ (x,y) -> x * y :: R)
+  , test "xy" (\ (x,y) -> x * y :: R)
 
---   , test "cos-x"         (\ x -> cos x :: R)
+  , test "cos-x"         (\ x -> cos x :: R)
 
---   , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
+  , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
 
---   , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
+  , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
 
 --   , test "foo" (\ (a::R,_b::R,_c::R) -> a)
 
@@ -516,24 +516,24 @@ tst         :: GenBuses a =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
    test nm f = mkTest nm (runEC (nm++"-der") (ccc (deriv @R (ccc f))))
  #-}
-#elif 1
--- (->), then just val + derivative via ADFun, then syntactic and circuit.
-test, test' :: GenBuses a => String -> (a -> b) -> Test
-tst         :: GenBuses a =>           (a -> b) -> Test
+#elif 0
+-- (->), then val + derivative via ADFun, then syntactic and circuit.
+test, test' :: (Ok2 (L R) a b, GenBuses a) => String -> (a -> b) -> Test
+tst         :: (Ok2 (L R) a b, GenBuses a) =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
-   test nm f = mkTest nm (runEC (nm++"-derf") (ccc (ADFun.andDeriv @R (ccc f))))
+   test nm f = mkTest nm (runEC (nm++"-adf") (ccc (ADFun.andDeriv @R (ccc f))))
  #-}
 #elif 1
 -- (->), then just derivative via ADFun, then syntactic and circuit.
-test, test' :: GenBuses a => String -> (a -> b) -> Test
-tst         :: GenBuses a =>           (a -> b) -> Test
+test, test' :: (Ok2 (L R) a b, GenBuses a) => String -> (a -> b) -> Test
+tst         :: (Ok2 (L R) a b, GenBuses a) =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
    test nm f = mkTest nm (runEC (nm++"-derf") (ccc (ADFun.deriv @R (ccc f))))
  #-}
 #elif 1
 -- (->), then just second derivative, then syntactic and circuit.
-test, test' :: GenBuses a => String -> (a -> b) -> Test
-tst         :: GenBuses a =>           (a -> b) -> Test
+test, test' :: (Ok2 (L R) a b, GenBuses a) => String -> (a -> b) -> Test
+tst         :: (Ok2 (L R) a b, GenBuses a) =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
    test nm f = mkTest nm (runEC (nm++"-der") (ccc (deriv @R (deriv @R (ccc f)))))
  #-}
