@@ -1,11 +1,20 @@
 # To do
 
+*   Track down problem with `double` example and `deriv`.
+    Error message: "`unFunB` got unexpected bus `ConvertB (<function>)`".
+    Happens when I use `newtype` instead of `data` for `D` in `AD` *and* drop `HasL` from `OkLM` in `LinearRow`.
+*   Sort out the problem with solving `Coercible` constraints as needed for `CoerceCat (->)`.
+    Came up with second derivatives.
+    See 2017-01-01 notes, including note to Richard Eisenberg.
+*   Larger tests, using shaped-types.
+*   Reboxing of `divideFloat#` and `divideDouble#`.
+    The rules in `ConCat.Rebox` (commented out) don't work, perhaps because those operations can fail.
+    Simplest solution may be to rebox those primitives programmatically in another simple `BuiltinRule`.
+*   Remove old code from `Plugin`.
 *   Add a test for derivatives without circuits, running the generated Haskell AD code.
 *   `Circuit`: try making nodes for `abst`, `repr`, and `coerce`.
-*   `Circuit`: perhaps add a `ReprB`, and don't worry about canceling `AbstB` and `ReprB`.
 *   Restore the `Coercible` constraint in `ConCat.Circuit` and figure out why the `CoerceCat` constraint isn't getting satisfied.
-*   Does `coerce` work with constant propagation in `ConCat.Circuit`?
-*   In `ConCat.Category`, move `Trivial` and `(:**:)` to before Category, and move their class instances to just after each class definition, alongside `(->)`.
+*   Does `ConvertB` work with constant propagation in `ConCat.Circuit`?
 *   Try `Coercion` (from `Data.Type.Coercion`) as an example of constrained categories.
     Note that `Coercion a b =~ Dict (Coercible a b)`.
     Similarly for `(:~:)` in `Data.Type.Equality`.
@@ -17,26 +26,11 @@
     Maybe we could eliminate that possibility with another transformation.
 *   Remove `ConCat.Float` and supporting complexity in `ConCat.Plugin`.
 *   Try `ADFun` again for comparison.
-*   Move bottom-hiding `unsafeCoerce` hack from `AltCat` to a more general definition in `Misc`.
-    Then use in `AltCat` for `ccc`.
-*   Add functions like `sinFloat` to `monoInfo` in `Plugin`.
 *   Converting to the `Trivial` category leads to run-time error: "Impossible case alternative".
-*   Reboxing of `divideFloat#` and `divideDouble#`.
-    The rules in `ConCat.Rebox` (commented out) don't work, perhaps because those operations can fail.
-    Simplest solution may be to rebox those primitives programmatically in another simple `BuiltinRule`.
 *   Fix the problem with finding numeric and show instances for `Float` & `Double`, and then simplify `Circuit` again to use 0 instead of `Eql(fromIntegerZ 0)`, `negate` instead of `negateZ`, etc.
 *   Rewrite rule loop involving "`foo2`" and "`uncurry id`" in `AltCat`.
 *   In `recast`, when handing `AxiomInstCo` and `Sym` variant, Check for HasRep instances.
 *   In `Syn`, use the pretty-printing class.
-*   Change the `ConstCat Syn` instance to pretty-print instead of `show`ing, so that the layout logic works.
-*   Another idea about casts.
-    Maybe I can operate not on the coercions but on their domain and range types as yielded by `coercionKind`.
-    Then I wouldn't have to concoct sketchy coercions.
-    *   When domain and range agree, yield `id`.
-    *   If both are function types, use `(<~)` as now.
-    *   If the domain type has a `HasRep` instance, pre-compose `repr`, recursively "solving" for the other factor.
-    *   If the range type has a `HasRep` instance, post-compose `abst`, solving for other factor.
-I think this algorithm is the essence of what I'm doing now.
 *   In `LinearRow` and `LinearCol`, retry my old `scaleL` definition via `Keyed` and `Adjustable`, comparing for robustness and speed.
 *   `SPECIALIZE` vector space and linear map operations for some common functors, particularly `Par1`, e.g., `scaleL` as used for numeric primitives.
 *   In `Plugin`, factor out `return (mkCcc (Lam x ...))` (for lam) and maybe also `return (mkCcc ...)` (for top).
@@ -63,11 +57,25 @@ I think this algorithm is the essence of what I'm doing now.
     *   Automatic differentiation
 *   Fancier data types via `HasRep` or `Control.Newtype`.
 *   More rule-based optimization.
-*   Better solution for numeric operations on `Float` and `Double`, which don't work, perhaps due to orphan instances.
-    My temporary workaround is `Float`.
 
 # Done
 
+*   `Pretty` instances for `GHC.Generics` in `Orphans`.
+*   Have `buildDictionary` yield an error message when it fails, replacing the `Maybe` return type with a sum.
+    Then have `Plugin` display that message and terminate when appropriate.
+*   In `ConCat.Category`, move `Trivial` and `(:**:)` to before Category, and move their class instances to just after each class definition, alongside `(->)`.
+*   `Circuit`: perhaps add a `ReprB`, and don't worry about canceling `AbstB` and `ReprB`.
+*   Another idea about casts.
+    Maybe I can operate not on the coercions but on their domain and range types as yielded by `coercionKind`.
+    Then I wouldn't have to concoct sketchy coercions.
+    *   When domain and range agree, yield `id`.
+    *   If both are function types, use `(<~)` as now.
+    *   If the domain type has a `HasRep` instance, pre-compose `repr`, recursively "solving" for the other factor.
+    *   If the range type has a `HasRep` instance, post-compose `abst`, solving for other factor.
+    
+    I think this algorithm is the essence of what I'm doing now.
+*   Move bottom-hiding `unsafeCoerce` hack from `AltCat` to a more general definition in `Misc`.
+    Then use in `AltCat` for `ccc`.
 *   `Circuit`: `Eq` and `ConvertB`.
     I'll probably have to switch to heterogeneous equality, perhaps via `TestEquality` in `Data.Type.Equality`.
     I'm not using `Eq` for now, so I've commented out the instance.
@@ -79,12 +87,16 @@ I think this algorithm is the essence of what I'm doing now.
 *   Undo the `NOINLINE` hack for numeric category operations, which is there for reboxing.
 *   Find a way to localize the reboxing transformations (performing them only under `ccc`), so that they don't cause general slow-down.
     Then restore late inlining to `AltCat` ops.
+*   Change the `ConstCat Syn` instance to pretty-print instead of `show`ing, so that the layout logic works.
 *   Move my transformations earlier, before stage zero, and make `AltCat` operations inline at stage zero.
 *   Experiment with running the plugin much later.
     Try second to last.
     Use `newtype`-wrapped `Int` as well as `Float` and `Double`, scheduled to inline just after the plugin, i.e., phase 0.
     Hm.
     Given the `deriving` specification, *can* I delay inlining?
+*   Add functions like `sinFloat` to `monoInfo` in `Plugin`.
+*   Better solution for numeric operations on `Float` and `Double`, which don't work, perhaps due to orphan instances.
+    My temporary workaround is `Float`.
 *   In `Plugin`, try going directly from `AxiomInstCo` and `SymCo AxiomInstCo` to `reprC` and `abstC`. Failed.
 *   Handle `newtype` better, and change some `data` uses back to `newtype`.
 *   Fix `transCatOp` in `Plugin` to fail gracefully if the target category doesn't inhabit the needed `Category` subclass.
