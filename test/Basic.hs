@@ -85,7 +85,7 @@ import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay,(:>))
-import ConCat.AltCat (ccc,reveal,Uncurriable(..),Trivial(..),(:**:)(..))
+import ConCat.AltCat (ccc,reveal,Uncurriable(..),U2(..),(:**:)(..))
 import qualified ConCat.AltCat as A
 import ConCat.Rebox () -- experiment
 
@@ -164,7 +164,7 @@ tests = return
 
 --   , test "sin"         (sin :: Unop R)
 --   , test "cos"         (cos :: Unop R)
---   , test "square"      (\ x -> x * x :: R)
+  , test "square"      (\ x -> x * x :: R)
 --   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
 --   , test "cos-xpx"     (\ x -> cos (x + x) :: R)
 --   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
@@ -177,7 +177,7 @@ tests = return
 
 --   , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
 
-  , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
+--   , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
 
 --   , test "foo" (\ (a::R,_b::R,_c::R) -> a)
 
@@ -348,8 +348,8 @@ tests = return
 
 type EC = Syn :**: (:>)
 
-runTrivial :: Trivial a b -> IO ()
-runTrivial = print
+runU2 :: U2 a b -> IO ()
+runU2 = print
 
 runSyn :: Syn a b -> IO ()
 runSyn syn = putStrLn ('\n' : render syn)
@@ -360,16 +360,16 @@ runEC nm (syn :**: circ) = runSyn syn >> RC.run nm [] circ
 runCirc :: GenBuses a => String -> (a :> b) -> IO ()
 runCirc nm circ = RC.run nm [] circ
 
-runCirc' :: GenBuses a => String -> (Trivial :**: (:>)) a b -> IO ()
-runCirc' nm (triv :**: circ) = runTrivial triv >> RC.run nm [] circ
+runCirc' :: GenBuses a => String -> (U2 :**: (:>)) a b -> IO ()
+runCirc' nm (triv :**: circ) = runU2 triv >> RC.run nm [] circ
 
--- When I use Trivial, I get an run-time error: "Impossible case alternative".
+-- When I use U2, I get an run-time error: "Impossible case alternative".
 
 #if 0
--- Trivial interpretation
+-- U2 interpretation
 test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
-{-# RULES "trivial" forall nm f. test nm f = mkTest nm (runTrivial (ccc f)) #-}
+{-# RULES "trivial" forall nm f. test nm f = mkTest nm (runU2 (ccc f)) #-}
 #elif 0
 -- Circuit interpretation
 test, test' :: GenBuses a => String -> (a -> b) -> Test
