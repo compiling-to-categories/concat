@@ -33,7 +33,7 @@ import Data.Key (Zip(..))
 import Text.PrettyPrint.HughesPJClass hiding (render)
 import Control.Newtype
 
-import ConCat.Misc ((:*),PseudoFun(..))
+import ConCat.Misc ((:*),PseudoFun(..),oops)
 import ConCat.Orphans ()
 import ConCat.Free.VectorSpace
 -- The following import allows the instances to type-check. Why?
