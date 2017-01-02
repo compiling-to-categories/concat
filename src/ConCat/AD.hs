@@ -29,8 +29,8 @@ import qualified ConCat.Category as C
 import ConCat.AltCat hiding (const)
 import ConCat.Rep
 
--- newtype D s a b = D (a -> b :* L s a b)
-data D s a b = D (a -> b :* L s a b)
+newtype D s a b = D (a -> b :* L s a b)
+-- data D s a b = D (a -> b :* L s a b)
 
 unD :: D s a b -> (a -> b :* L s a b)
 unD (D f) = f
@@ -189,7 +189,7 @@ instance (V s (Rep a) ~ V s a, Ok (L s) a, HasRep a) => RepCat (D s) a where
   reprC = linearD reprC reprC
   abstC = linearD abstC abstC
 
-#if 1
+#if 0
 instance (Coercible a b, V s a ~ V s b, Ok2 (L s) a b) => CoerceCat (D s) a b where
   coerceC = linearD coerceC coerceC
 #else

@@ -24,7 +24,7 @@
 
 module ConCat.Free.LinearRow where
 
-import Prelude hiding (id,(.),zipWith,Float,Double)
+import Prelude hiding (id,(.),zipWith)
 import GHC.Exts (Coercible,coerce)
 import Data.Foldable (toList)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
@@ -42,8 +42,6 @@ import qualified ConCat.Category as C
 import ConCat.AltCat hiding (const)
 import ConCat.Rep
 import ConCat.Free.Diagonal
-
--- import ConCat.Float
 
 -- TODO: generalize from Num to Semiring
 
@@ -168,7 +166,11 @@ instance HasV s (L s a b) where
 
 type OkLF' f = (Foldable f, Zeroable f, Zip f, Diagonal f)
 
-type OkLM' s a = (Num s, HasV s a, HasL (V s a)) -- , OkLF' (V s a)
+#if 0
+type OkLM' s a = (Num s, HasV s a, HasL (V s a))
+#else
+type OkLM' s a = (Num s, HasV s a, OkLF' (V s a))
+#endif
 
 -- I'd like to use OkLF' in place of HasL, but the plugin isn't able to find Ok
 -- (L Float) Float. I suspect that the problem is due to orphan instances.
@@ -223,8 +225,16 @@ instance (V s (Rep a) ~ V s a, Ok (L s) a) => RepCat (L s) a where
   reprC = abst idL 
   abstC = abst idL 
 
+#if 0
 instance (Ok2 (L s) a b, Coercible (V s a) (V s b)) => CoerceCat (L s) a b where
   coerceC = coerce (id :: L s a a)
+#else
+instance (Ok2 (L s) a b
+         -- , Coercible (V s a) (V s b)
+         , Coercible (V s b (V s a s)) (V s a (V s a s))
+         ) => CoerceCat (L s) a b where
+  coerceC = coerce (id :: L s a a)
+#endif
 
 -- We can't make a ClosedCat instance compatible with the ProductCat instance.
 -- We'd have to change the latter to use the tensor product.
@@ -265,6 +275,15 @@ instance (HasL f, HasL g) => HasL (f :*: g) where
 -- linear' (q . (:*: zeroV)) :: (f :-* h) s
 
 #if 0
+instance (HasL f, HasL g) => HasL (g :.: f) where
+  linear' q = ...
+
+q :: ((g :.: f) s -> h s) -> ((g :.: f) :-* h) s
+  =~ (g (f s) -> h s) -> h ((g :.: f) s)
+  =~ (g (f s) -> h s) -> h (g (f s))
+#endif
+
+#if 0
 
 instance OpCon (->) (Sat (OkLM s)) where inOp = Entail (Sub Dict)
 
@@ -278,7 +297,7 @@ want :: ((k -> s) :-* g) s
 
 #endif
 
-linear :: (OkLM s a, OkLM s b) => (a -> b) -> L s a b
+linear :: (OkLM s a, OkLM s b, HasL (V s a)) => (a -> b) -> L s a b
 linear f = L (linear' (inV f))
 
 -- f :: a -> b
