@@ -712,21 +712,23 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
    -- onInlineFail v =
    --   pprTrace "onInlineFail idDetails" (ppr v <+> colon <+> ppr (idDetails v))
    --   Nothing
-   noDictErr :: SDoc -> Maybe a -> a
+   noDictErr :: SDoc -> Either SDoc a -> a
    noDictErr doc =
-     fromMaybe (pprPanic "ccc - couldn't build dictionary for" doc)
+     either (\ msg -> pprPanic "ccc - couldn't build dictionary for" (doc <> colon $$ msg)) id
+   onDictTry :: CoreExpr -> Either SDoc CoreExpr
+   onDictTry e | Just (ty,_) <- splitFunTy_maybe (exprType e)
+               , isPredTy' ty = App e <$> buildDictMaybe ty
+               | otherwise = pprPanic "ccc / onDictMaybe: not a function from pred"
+                               (pprWithType e)
+
    onDictMaybe :: ReExpr
-   onDictMaybe e | Just (ty,_) <- splitFunTy_maybe (exprType e)
-                 , isPredTy' ty = App e <$> buildDictMaybe ty
-                 | otherwise = pprPanic "ccc / onDictMaybe: not a function from pred"
-                                 (pprWithType e)
+   onDictMaybe e = eitherToMaybe (onDictTry e)
+
    onDict :: Unop CoreExpr
-   onDict f = noDictErr (pprWithType f) (onDictMaybe f)
-   buildDictMaybe :: Type -> Maybe CoreExpr
+   onDict f = noDictErr (pprWithType f) (onDictTry f)
+   buildDictMaybe :: Type -> Either SDoc CoreExpr
    buildDictMaybe ty = simplifyE dflags False <$>  -- remove simplifyE call later?
                        buildDictionary hsc_env dflags guts inScope ty
-   -- buildDict :: Type -> CoreExpr
-   -- buildDict ty = noDictErr (ppr ty) (buildDictMaybe ty)
    catOp :: Cat -> Var -> [Type] -> CoreExpr
    -- catOp k op tys | dtrace "catOp" (ppr (k,op,tys)) False = undefined
    catOp k op tys = onDict (Var op `mkTyApps` (k : tys))

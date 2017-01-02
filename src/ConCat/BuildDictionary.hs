@@ -19,7 +19,6 @@
 
 module ConCat.BuildDictionary (buildDictionary) where
 
-import Control.Monad (guard,unless) -- 
 import Data.Monoid (Any(..))
 import Data.Char (isSpace)
 import Data.Data (Data)
@@ -108,24 +107,17 @@ buildDictionary' env dflags guts evar =
 
 -- TODO: Try to combine the two runTcMUnsafe calls.
 
-buildDictionary :: HscEnv -> DynFlags -> ModGuts -> InScopeEnv -> Type -> Maybe CoreExpr
+buildDictionary :: HscEnv -> DynFlags -> ModGuts -> InScopeEnv -> Type -> Either SDoc CoreExpr
 buildDictionary env dflags guts inScope ty =
   do 
      -- pprTrace "buildDictionary" (ppr ty $$ text "-->" $$ ppr dict) (return ())
      -- pprTrace "buildDictionary free vars" (ppr (exprFreeVars dict)) (return ())
      -- pprTrace "buildDictionary (bnds,freeIds)" (ppr (bnds,freeIds)) (return ())
      -- pprTrace "buildDictionary (collectArgs dict)" (ppr (collectArgs dict)) (return ())
-#if 0
-     unless ok $
-       pprTrace "buildDictionary fail for"
-         (ppr ty <> colon <+>
-          if | null bnds       -> text "no bindings"
-             | notNull freeIds -> text "free ids:" <+> ppr freeIds
-             | otherwise       -> text "coercion hole")
-         (return ())
-#endif
-     guard ok
-     return dict
+     if | null bnds            -> Left (text "no bindings")
+        | notNull freeIdTys    -> Left (text "free id types:" <+> ppr freeIdTys)
+        | notNull holeyBinds   -> Left (text "coercion holes: " <+> ppr holeyBinds)
+        | otherwise            -> return dict
  where
    name     = "$d" ++ zEncodeString (filter (not . isSpace) (showPpr dflags ty))
    binder   = localId inScope name ty
@@ -140,8 +132,9 @@ buildDictionary env dflags guts inScope ty =
    -- variables, however, since there may be some in the given type as
    -- parameters. Alternatively, check that there are no free variables (val or
    -- type) in the resulting dictionary that were not in the original type.
-   freeIds = filter isId (uniqSetToList (exprFreeVars dict))
-   ok = notNull bnds && null freeIds && not (hasCoercionHole dict)
+   freeIdTys = varType <$> filter isId (uniqSetToList (exprFreeVars dict))
+   holeyBinds = filter hasCoercionHole bnds
+   -- err doc = Left (doc $$ ppr ty $$ text "-->" $$ ppr dict)
 
 hasCoercionHole :: Data t => t -> Bool
 hasCoercionHole = getAny . everything mappend (mkQ mempty (Any . isHole))
@@ -161,7 +154,3 @@ stringToName str =
 
 -- When mkUniqueGrimily's argument is negative, we see something like
 -- "Exception: Prelude.chr: bad argument: (-52)". Hence the abs.
-
--- Hack to silence warning about unused 'unless'
-_unless :: Applicative f => Bool -> f () -> f ()
-_unless = unless
