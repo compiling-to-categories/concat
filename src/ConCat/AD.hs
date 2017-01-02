@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -17,6 +18,7 @@ module ConCat.AD where
 import Prelude hiding (id,(.),curry,uncurry)
 import GHC.Exts (Coercible,coerce)
 
+import GHC.Generics (Par1(..),(:.:)(..))
 import Control.Newtype
 
 import ConCat.Misc ((:*),inNew2,PseudoFun(..))
@@ -187,8 +189,19 @@ instance (V s (Rep a) ~ V s a, Ok (L s) a, HasRep a) => RepCat (D s) a where
   reprC = linearD reprC reprC
   abstC = linearD abstC abstC
 
+#if 1
 instance (Coercible a b, V s a ~ V s b, Ok2 (L s) a b) => CoerceCat (D s) a b where
   coerceC = linearD coerceC coerceC
+#else
+instance ( Coercible a b
+         -- , V s a ~ V s b
+         -- , Coercible (V s a) (V s b)
+         , Coercible (V s b (V s a s)) (V s a (V s a s))
+         -- , Coercible (L s a a) (L s a b)
+         , Ok2 (L s) a b) => CoerceCat (D s) a b where
+  coerceC = linearD coerceC coerceC
+#endif
+
 {--------------------------------------------------------------------
     Differentiation interface
 --------------------------------------------------------------------}
