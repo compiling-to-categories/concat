@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -15,22 +16,21 @@ module ConCat.ADFun where
 
 import Prelude hiding (id,(.),curry,uncurry,Float,Double)
 import GHC.Exts (Coercible)
+
 import Control.Newtype
 
 import ConCat.Misc ((:*),inNew2,PseudoFun(..))
 import ConCat.Float
 import ConCat.Rep
+import ConCat.Free.VectorSpace (HasV(..))
+import ConCat.Free.LinearRow
 
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
 import ConCat.AltCat hiding (const)
-import ConCat.Free.LinearRow
-
--- newtype D a b = D { unD :: a -> b :* (a -> b) }
--- newtype D a b = D (a -> b :* (a -> b))
--- data D a b = D { unD :: a -> b :* (a -> b) }
 
 data D a b = D (a -> b :* (a -> b))
+-- newtype D a b = D (a -> b :* (a -> b))
 
 -- TODO: revert to newtype, and fix Plugin to handle it correctly.
 
@@ -210,13 +210,13 @@ instance (HasBasis a r, HasBasis b r) => HasBasis (a :* b) r where
     Differentiation interface
 --------------------------------------------------------------------}
 
-andDeriv :: forall s a b . Ok2 (L s) a b => (a -> b) -> (a -> b :* L s a b)
+andDeriv :: forall s a b . (Ok2 (L s) a b, HasL (V s a)) => (a -> b) -> (a -> b :* L s a b)
 andDeriv _ = error "andDeriv called"
 {-# NOINLINE andDeriv #-}
 {-# RULES "andDeriv" forall h. andDeriv h = second linear . unD (ccc h) #-}
 {-# ANN andDeriv PseudoFun #-}
 
-deriv :: forall s a b . Ok2 (L s) a b => (a -> b) -> (a -> L s a b)
+deriv :: forall s a b . (Ok2 (L s) a b, HasL (V s a)) => (a -> b) -> (a -> L s a b)
 deriv _ = error "deriv called"
 {-# NOINLINE deriv #-}
 {-# RULES "deriv" forall h. deriv h = snd . andDeriv h #-}
