@@ -81,7 +81,7 @@ import ConCat.Float
 import ConCat.Free.VectorSpace (V)
 import ConCat.Free.LinearRow
 import ConCat.AD
--- import qualified ConCat.ADFun as ADFun
+import qualified ConCat.ADFun as ADFun
 import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
@@ -515,7 +515,7 @@ tst         :: Ok2 (L R) a b =>           (a -> b) -> Test
    test nm f = mkTest nm (runSyn (ccc (ADFun.andDeriv @R (ccc f))))
  #-}
 #elif 0
--- (->), then derivative, then circuit.
+-- (->), then val + derivative, then circuit.
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst         :: GenBuses a =>           (a -> b) -> Test
 {-# RULES "(->); D; (:>)" forall nm f.
@@ -535,7 +535,7 @@ tst         :: GenBuses a =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
    test nm f = mkTest nm (runEC (nm++"-der") (ccc (deriv @R (ccc f))))
  #-}
-#elif 1
+#elif 0
 -- (->), then just second derivative, then syntactic and circuit.
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst         :: GenBuses a =>           (a -> b) -> Test
@@ -543,16 +543,16 @@ tst         :: GenBuses a =>           (a -> b) -> Test
    test nm f = mkTest nm (runEC (nm++"-der") (ccc (deriv @R (deriv @R (ccc f)))))
  #-}
 #elif 1
--- (->), then derivative via ADFun, then syntactic and circuit.
-test, test' :: (Ok2 (L R) a b, GenBuses a) => String -> (a -> b) -> Test
-tst         :: (Ok2 (L R) a b, GenBuses a) =>           (a -> b) -> Test
+-- (->), then val + derivative via ADFun, then syntactic and circuit.
+test, test' :: (Ok2 (L R) a b, HasL (V R a), GenBuses a) => String -> (a -> b) -> Test
+tst         :: (Ok2 (L R) a b, HasL (V R a), GenBuses a) =>           (a -> b) -> Test
 {-# RULES "(->); D'; EC" forall nm f.
    test nm f = mkTest nm (runEC (nm++"-adf") (ccc (ADFun.andDeriv @R (ccc f))))
  #-}
 #elif 1
 -- (->), then just derivative via ADFun, then syntactic and circuit.
-test, test' :: GenBuses a => String -> (a -> b) -> Test
-tst         :: GenBuses a =>           (a -> b) -> Test
+test, test' :: (Ok2 (L R) a b, HasL (V R a), GenBuses a) => String -> (a -> b) -> Test
+tst         :: (Ok2 (L R) a b, HasL (V R a), GenBuses a) =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
    test nm f = mkTest nm (runEC (nm++"-derf") (ccc (ADFun.deriv @R (ccc f))))
  #-}
