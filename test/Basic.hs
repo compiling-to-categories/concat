@@ -179,13 +179,9 @@ tests = return
   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
 
   , test "cos-xpy"      (\ (x,y) -> cos (x + y) :: R)
-
   , test "xy" (\ (x,y) -> x * y :: R)
-
   , test "cos-x"         (\ x -> cos x :: R)
-
   , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
-
   , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
 
 --   , test "foo" (\ (a::R,_b::R,_c::R) -> a)
@@ -502,7 +498,7 @@ tst         :: GenBuses a =>           (a -> b) -> Test
 {-# RULES "(->); D; (:>)" forall nm f.
    test nm f = mkTest nm (runCirc (nm++"-ad") (ccc (andDeriv @R (ccc f))))
  #-}
-#elif 0
+#elif 1
 -- (->), then val + derivative, then syntactic and circuit.
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst         :: GenBuses a =>           (a -> b) -> Test
