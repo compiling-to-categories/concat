@@ -81,7 +81,7 @@ import ConCat.Float
 import ConCat.Free.VectorSpace (V)
 import ConCat.Free.LinearRow
 import ConCat.AD
-import qualified ConCat.ADFun as ADFun
+-- import qualified ConCat.ADFun as ADFun
 import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC

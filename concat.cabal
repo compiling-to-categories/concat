@@ -35,7 +35,7 @@ library
                        ConCat.RunCircuit
                        ConCat.Float
                        ConCat.AD
-                       ConCat.ADFun
+--                        ConCat.ADFun
                        ConCat.Rebox
 
 --                        ConCat.EmptyCase
