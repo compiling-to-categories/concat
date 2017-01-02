@@ -720,10 +720,8 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
                , isPredTy' ty = App e <$> buildDictMaybe ty
                | otherwise = pprPanic "ccc / onDictMaybe: not a function from pred"
                                (pprWithType e)
-
    onDictMaybe :: ReExpr
    onDictMaybe e = eitherToMaybe (onDictTry e)
-
    onDict :: Unop CoreExpr
    onDict f = noDictErr (pprWithType f) (onDictTry f)
    buildDictMaybe :: Type -> Either SDoc CoreExpr
@@ -1324,7 +1322,8 @@ hasRepMethodM tracing hasRepTc _repTc _idV =
                 return (dict,(repNtIs,ty'))
 #endif
            findDict :: Maybe CoreExpr
-           findDict = buildDictionary hscEnv dflags guts inScope
+           findDict = eitherToMaybe $
+                      buildDictionary hscEnv dflags guts inScope
                          (mkTyConApp hasRepTc [ty])
            mkMethApp dict =
              dtrace "hasRepMeth" (ppr ty <+> "-->" <+> ppr dict) $
@@ -1779,3 +1778,8 @@ setNominalRole_maybe' (UnivCo prov _ co1 co2)
   = Just $ UnivCo prov Nominal co1 co2
 setNominalRole_maybe' _ = Nothing
 #endif
+
+-- Exists somewhere?
+eitherToMaybe :: Either a b -> Maybe b
+eitherToMaybe = either (const Nothing) Just
+
