@@ -73,7 +73,7 @@ import Control.Arrow (second)
 import Data.Tuple (swap)
 import Distribution.TestSuite
 import GHC.Generics hiding (R,D)
-import GHC.Exts (lazy)
+import GHC.Exts (lazy,coerce)
 
 import ConCat.Misc (Unop,Binop,(:*),PseudoFun(..))
 import ConCat.Rep
@@ -89,6 +89,7 @@ import ConCat.RunCircuit (go,Okay,(:>))
 import ConCat.AltCat (ccc,reveal,Uncurriable(..),U2(..),(:**:)(..),Ok2)
 import qualified ConCat.AltCat as A
 import ConCat.Rebox () -- experiment
+import ConCat.Orphans ()
 
 import GHC.Num () -- help the plugin find instances (doesn't)
 
@@ -101,13 +102,29 @@ tests :: IO [Test]
 tests = return
   [ nopTest
 
---   , tst (andDeriv @R (scale :: R -> L R R R)) -- hole
---   , tst (andDeriv @R (scale :: R -> L R R R)) -- hole
---   , tst (deriv @R (scale :: R -> L R R R)) -- hole
---   , tst (deriv @R (\ x -> scale x :: L R R R)) -- hole
---   , tst (deriv @R (\ x -> scale (cos x) :: L R R R)) -- hole
+  -- , tst (deriv @R (sin :: Unop R)) -- okay
+  -- , tst (snd . unD (scalarX sin cos :: D R R R)) -- okay
 
---   , tst (deriv @R (deriv @R (sin :: Unop R)))  -- hole
+  -- , tst (coerce :: Bool -> Bool) -- okay
+  -- , tst (coerce :: Bool -> Bolo) -- hole
+  -- , tst (coerce :: Bool -> Par1 Bool) -- hole
+  -- , tst (coerce :: Par1 Bool -> Bool) -- hole
+
+  -- , tst (coerce :: R -> L R R R) -- hole
+  -- , tst (A.coerceC :: R -> L R R R) -- hole
+  -- , tst (scale :: R -> L R R R) -- hole
+
+  -- , tst (andDeriv @R (scale :: R -> L R R R)) -- hole
+  -- , tst (andDeriv @R (scale :: R -> L R R R)) -- hole
+  -- , tst (deriv @R (scale :: R -> L R R R)) -- hole
+  -- , tst (deriv @R (\ x -> scale x :: L R R R)) -- hole
+  -- , tst (deriv @R (\ x -> scale (cos x) :: L R R R)) -- hole
+
+  -- , tst (deriv @R (deriv @R (sin :: Unop R)))  -- hole
+
+--   , tst ((,) @ (Par1 Float) @ (Par1 Float) (Par1 1.0))
+
+--   , tst ((,) @Bool @Bool)
 
 --   , tst (\ (a :: Bool) -> (a,a,a))
 
@@ -171,19 +188,18 @@ tests = return
 --   , test "x-plus-four" (\ x -> x + 4 :: R)
 --   , test "four-plus-x" (\ x -> 4 + x :: R)
 
-  , test "sin"         (sin :: Unop R)
-  , test "cos"         (cos :: Unop R)
-  , test "double"      (\ x -> x + x :: R)
-  , test "square"      (\ x -> x * x :: R)
-  , test "cos-2x"      (\ x -> cos (2 * x) :: R)
-  , test "cos-xpx"     (\ x -> cos (x + x) :: R)
-  , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
+--   , test "sin"         (sin :: Unop R)
+--   , test "cos"         (cos :: Unop R)
+  , test "double"      (\ x -> x + x :: R) 
+--   , test "square"      (\ x -> x * x :: R)
+--   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
+--   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
+--   , test "cos-xpy"      (\ (x,y) -> cos (x + y) :: R)
 
-  , test "cos-xpy"      (\ (x,y) -> cos (x + y) :: R)
-  , test "xy" (\ (x,y) -> x * y :: R)
-  , test "cos-x"         (\ x -> cos x :: R)
-  , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
-  , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
+--   , test "xy" (\ (x,y) -> x * y :: R)
+--   , test "cos-x"         (\ x -> cos x :: R)
+--   , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
+--   , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
 
 --   , test "foo" (\ (a::R,_b::R,_c::R) -> a)
 
@@ -389,7 +405,6 @@ tst :: (a -> b) -> Test
   test nm f = mkTest nm (runSyn (ccc f)) #-}
 #elif 0
 -- (->), then syntactic
--- With INLINE [3]: "Simplifier ticks exhausted"
 test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "(->); Syn" forall nm f.
@@ -485,7 +500,7 @@ tst  :: (a -> b) -> Test
    test nm f = mkTest nm (runSyn (ccc (andDeriv @R f)))
  #-}
 #elif 0
--- (->), then val + derivative, then syntactic. The first (->) gives us a chance to
+-- (->), then derivative, then syntactic. The first (->) gives us a chance to
 -- transform away the ClosedCat operations.
 test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
@@ -493,7 +508,14 @@ tst  :: (a -> b) -> Test
    test nm f = mkTest nm (runSyn (ccc (andDeriv @R (ccc f))))
  #-}
 #elif 0
--- (->), then val + derivative, then circuit.
+-- (->), then derivative via ADFun, then syntactic
+test, test' :: Ok2 (L R) a b => String -> (a -> b) -> Test
+tst         :: Ok2 (L R) a b =>           (a -> b) -> Test
+{-# RULES "(->); D'; EC" forall nm f.
+   test nm f = mkTest nm (runSyn (ccc (ADFun.andDeriv @R (ccc f))))
+ #-}
+#elif 0
+-- (->), then derivative, then circuit.
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst         :: GenBuses a =>           (a -> b) -> Test
 {-# RULES "(->); D; (:>)" forall nm f.
@@ -506,33 +528,33 @@ tst         :: GenBuses a =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
    test nm f = mkTest nm (runEC (nm++"-ad") (ccc (andDeriv @R (ccc f))))
  #-}
-#elif 1
+#elif 0
 -- (->), then just derivative, then syntactic and circuit.
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst         :: GenBuses a =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
    test nm f = mkTest nm (runEC (nm++"-der") (ccc (deriv @R (ccc f))))
  #-}
-#elif 0
--- (->), then val + derivative via ADFun, then syntactic and circuit.
+#elif 1
+-- (->), then just second derivative, then syntactic and circuit.
+test, test' :: GenBuses a => String -> (a -> b) -> Test
+tst         :: GenBuses a =>           (a -> b) -> Test
+{-# RULES "(->); D; EC" forall nm f.
+   test nm f = mkTest nm (runEC (nm++"-der") (ccc (deriv @R (deriv @R (ccc f)))))
+ #-}
+#elif 1
+-- (->), then derivative via ADFun, then syntactic and circuit.
 test, test' :: (Ok2 (L R) a b, GenBuses a) => String -> (a -> b) -> Test
 tst         :: (Ok2 (L R) a b, GenBuses a) =>           (a -> b) -> Test
-{-# RULES "(->); D; EC" forall nm f.
+{-# RULES "(->); D'; EC" forall nm f.
    test nm f = mkTest nm (runEC (nm++"-adf") (ccc (ADFun.andDeriv @R (ccc f))))
  #-}
 #elif 1
 -- (->), then just derivative via ADFun, then syntactic and circuit.
-test, test' :: (Ok2 (L R) a b, GenBuses a) => String -> (a -> b) -> Test
-tst         :: (Ok2 (L R) a b, GenBuses a) =>           (a -> b) -> Test
+test, test' :: GenBuses a => String -> (a -> b) -> Test
+tst         :: GenBuses a =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
    test nm f = mkTest nm (runEC (nm++"-derf") (ccc (ADFun.deriv @R (ccc f))))
- #-}
-#elif 1
--- (->), then just second derivative, then syntactic and circuit.
-test, test' :: (Ok2 (L R) a b, GenBuses a) => String -> (a -> b) -> Test
-tst         :: (Ok2 (L R) a b, GenBuses a) =>           (a -> b) -> Test
-{-# RULES "(->); D; EC" forall nm f.
-   test nm f = mkTest nm (runEC (nm++"-der") (ccc (deriv @R (deriv @R (ccc f)))))
  #-}
 #elif 0
 -- (->), then *scalar* derivative, then syntactic.
@@ -919,3 +941,5 @@ addThree (a,b,c) = a+b+c
 par1 :: a -> Par1 a
 par1 = Par1
 {-# INLINE [0] par1 #-}
+
+newtype Bolo = Bolo Bool
