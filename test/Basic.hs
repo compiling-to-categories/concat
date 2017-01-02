@@ -81,6 +81,7 @@ import ConCat.Float
 import ConCat.Free.VectorSpace (V)
 import ConCat.Free.LinearRow
 import ConCat.AD
+import qualified ConCat.ADFun as ADFun
 import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
@@ -99,6 +100,14 @@ import GHC.Num () -- help the plugin find instances (doesn't)
 tests :: IO [Test]
 tests = return
   [ nopTest
+
+--   , tst (andDeriv @R (scale :: R -> L R R R)) -- hole
+--   , tst (andDeriv @R (scale :: R -> L R R R)) -- hole
+--   , tst (deriv @R (scale :: R -> L R R R)) -- hole
+--   , tst (deriv @R (\ x -> scale x :: L R R R)) -- hole
+--   , tst (deriv @R (\ x -> scale (cos x) :: L R R R)) -- hole
+
+--   , tst (deriv @R (deriv @R (sin :: Unop R)))  -- hole
 
 --   , tst (\ (a :: Bool) -> (a,a,a))
 
@@ -164,8 +173,8 @@ tests = return
 
 --   , test "sin"         (sin :: Unop R)
 --   , test "cos"         (cos :: Unop R)
-  , test "square"      (\ x -> x * x :: R)
---   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
+--   , test "square"      (\ x -> x * x :: R)
+  , test "cos-2x"      (\ x -> cos (2 * x) :: R)
 --   , test "cos-xpx"     (\ x -> cos (x + x) :: R)
 --   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
 
@@ -476,64 +485,92 @@ tst         :: GB a b =>           (a -> b) -> Test
 test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "test AD" forall nm f.
-   test nm f = mkTest nm (runSyn (ccc (dfun @R f)))
+   test nm f = mkTest nm (runSyn (ccc (andDeriv @R f)))
  #-}
 #elif 0
--- (->), then derivative, then syntactic. The first (->) gives us a chance to
+-- (->), then val + derivative, then syntactic. The first (->) gives us a chance to
 -- transform away the ClosedCat operations.
 test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall nm f.
-   test nm f = mkTest nm (runSyn (ccc (dfun @R (ccc f))))
+   test nm f = mkTest nm (runSyn (ccc (andDeriv @R (ccc f))))
  #-}
 #elif 0
--- (->), then derivative, then circuit.
+-- (->), then val + derivative, then circuit.
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst         :: GenBuses a =>           (a -> b) -> Test
 {-# RULES "(->); D; (:>)" forall nm f.
-   test nm f = mkTest nm (runCirc (nm++"-ad") (ccc (dfun @R (ccc f))))
+   test nm f = mkTest nm (runCirc (nm++"-ad") (ccc (andDeriv @R (ccc f))))
  #-}
-#elif 1
--- (->), then derivative, then syntactic and circuit.
+#elif 0
+-- (->), then val + derivative, then syntactic and circuit.
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst         :: GenBuses a =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
-   test nm f = mkTest nm (runEC (nm++"-ad") (ccc (dfun @R (ccc f))))
+   test nm f = mkTest nm (runEC (nm++"-ad") (ccc (andDeriv @R (ccc f))))
+ #-}
+#elif 1
+-- (->), then just derivative, then syntactic and circuit.
+test, test' :: GenBuses a => String -> (a -> b) -> Test
+tst         :: GenBuses a =>           (a -> b) -> Test
+{-# RULES "(->); D; EC" forall nm f.
+   test nm f = mkTest nm (runEC (nm++"-der") (ccc (deriv @R (ccc f))))
+ #-}
+#elif 1
+-- (->), then just val + derivative via ADFun, then syntactic and circuit.
+test, test' :: GenBuses a => String -> (a -> b) -> Test
+tst         :: GenBuses a =>           (a -> b) -> Test
+{-# RULES "(->); D; EC" forall nm f.
+   test nm f = mkTest nm (runEC (nm++"-derf") (ccc (ADFun.andDeriv @R (ccc f))))
+ #-}
+#elif 1
+-- (->), then just derivative via ADFun, then syntactic and circuit.
+test, test' :: GenBuses a => String -> (a -> b) -> Test
+tst         :: GenBuses a =>           (a -> b) -> Test
+{-# RULES "(->); D; EC" forall nm f.
+   test nm f = mkTest nm (runEC (nm++"-derf") (ccc (ADFun.deriv @R (ccc f))))
+ #-}
+#elif 1
+-- (->), then just second derivative, then syntactic and circuit.
+test, test' :: GenBuses a => String -> (a -> b) -> Test
+tst         :: GenBuses a =>           (a -> b) -> Test
+{-# RULES "(->); D; EC" forall nm f.
+   test nm f = mkTest nm (runEC (nm++"-der") (ccc (deriv @R (deriv @R (ccc f)))))
  #-}
 #elif 0
 -- (->), then *scalar* derivative, then syntactic.
 test, test' :: Num a => String -> (a -> b) -> Test
 tst  :: Num a => (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall nm f.
-   test nm f = mkTest nm (runSyn (ccc (dsc (dfun (ccc f)))))
+   test nm f = mkTest nm (runSyn (ccc (dsc (andDeriv (ccc f)))))
  #-}
 #elif 0
 -- (->), scalar D, syntax+circuit.
 test, test' :: (Num a, GenBuses a) => String -> (a -> b) -> Test
 tst         :: (Num a, GenBuses a) =>           (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall nm f.
-   test nm f = mkTest nm (runEC nm (ccc (dsc (dfun (ccc f)))))
+   test nm f = mkTest nm (runEC nm (ccc (dsc (andDeriv (ccc f)))))
  #-}
 #elif 0
 -- scalar D, syntax+circuit.
 test, test' :: (Num a, GenBuses a) => String -> (a -> b) -> Test
 tst         :: (Num a, GenBuses a) =>           (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall nm f.
-   test nm f = mkTest nm (runEC nm (ccc (dsc (dfun f))))
+   test nm f = mkTest nm (runEC nm (ccc (dsc (andDeriv f))))
  #-}
 #elif 0
 -- (->), non-scalar D, syntax+circuit.
 test, test' :: GenBuses a => String -> (a -> b) -> Test
 tst         :: GenBuses a =>           (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall nm f.
-   test nm f = mkTest nm (runEC (nm++"-da2b2") (ccc (da2b2 (dfun (ccc f)))))
+   test nm f = mkTest nm (runEC (nm++"-da2b2") (ccc (da2b2 (andDeriv (ccc f)))))
  #-}
 #elif 0
 -- (->), basis D, syntax+circuit.
 test, test' :: (HasBasis a b, GenBuses a) => String -> (a -> b) -> Test
 tst         :: (HasBasis a b, GenBuses a) =>           (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall nm f.
-   test nm f = mkTest nm (runEC (nm++"-dbas") (ccc (dbas (dfun (ccc f)))))
+   test nm f = mkTest nm (runEC (nm++"-dbas") (ccc (dbas (andDeriv (ccc f)))))
  #-}
 #elif 0
 -- (->), uncurries, non-scalar D, syntax+circuit.
@@ -542,7 +579,7 @@ test, test' :: (GenBuses (UncDom a b), Uncurriable (->) a b)
 tst         :: (GenBuses (UncDom a b), Uncurriable (->) a b)
             => GenBuses a =>           (a -> b) -> Test
 {-# RULES "uncurries; (->); D; Syn" forall nm f.
-   test nm f = mkTest nm (runEC nm (ccc (da2b2 (dfun (ccc (uncurries f))))))
+   test nm f = mkTest nm (runEC nm (ccc (da2b2 (andDeriv (ccc (uncurries f))))))
  #-}
 #else
 -- NOTHING
@@ -645,17 +682,17 @@ foo4 = sampleD (ccc id)
 -- bar = unD' (reveal (ccc id))
 
 -- bar :: R -> (R :* (R -> R))
--- bar = dfun (const 4)
+-- bar = andDeriv (const 4)
 
 -- bar :: R -> (R :* (R -> R))
--- bar = -- dfun ((\ _x -> 4))
---       dfun id
+-- bar = -- andDeriv ((\ _x -> 4))
+--       andDeriv id
 
 -- bar :: Syn R (R :* (R -> R))
--- bar = ccc (dfun id)
+-- bar = ccc (andDeriv id)
 
 -- bar :: Syn R (R :* (R -> R))
--- bar = ccc (dfun id)
+-- bar = ccc (andDeriv id)
 
 -- bar :: D R R
 -- bar = ccc cos
@@ -667,10 +704,10 @@ foo4 = sampleD (ccc id)
 -- bar = reveal (reveal (ccc cos))
 
 -- bar :: R -> R :* (R -> R)
--- bar = dfun (ccc cos)
+-- bar = andDeriv (ccc cos)
 
 -- bar :: Syn R (R :* (R -> R))
--- bar = ccc (dfun (ccc cos))
+-- bar = ccc (andDeriv (ccc cos))
 
 -- bar :: R -> R :* (R -> R)
 -- bar = unD' (ccc cos)
@@ -697,19 +734,19 @@ foo4 = sampleD (ccc id)
 -- bar = dsc (unD' (reveal (ccc cos)))
 
 -- bar :: R -> R :* R
--- bar = dsc (dfun id)
+-- bar = dsc (andDeriv id)
 
 -- bar :: R -> R :* R
--- bar = ccc (dsc (dfun id))
+-- bar = ccc (dsc (andDeriv id))
 
 -- bar :: Syn R (R :* R)
--- bar = ccc (dsc (dfun id))
+-- bar = ccc (dsc (andDeriv id))
 
 -- bar :: Syn R (R :* R)
--- bar = ccc (dsc (dfun id))
+-- bar = ccc (dsc (andDeriv id))
 
 -- bar :: EC R (R :* R)
--- bar = ccc (dsc (dfun id))
+-- bar = ccc (dsc (andDeriv id))
 
 
 -- bar :: Syn R (R :* R)
@@ -720,35 +757,35 @@ foo4 = sampleD (ccc id)
 
 
 -- bar :: String
--- bar = render (ccc (dfun (ccc (cos :: Unop R))))
+-- bar = render (ccc (andDeriv (ccc (cos :: Unop R))))
 
 -- bar :: String
--- bar = render (ccc (dfun (ccc (cos :: Unop R))))
+-- bar = render (ccc (andDeriv (ccc (cos :: Unop R))))
 
--- test nm f = mkTest nm (runSyn (ccc (dfun (ccc f))))
+-- test nm f = mkTest nm (runSyn (ccc (andDeriv (ccc f))))
 
 -- bar :: Syn R (R :* (R -> R))
--- bar = ccc (dfun (ccc (\ x -> 4 + x)))
+-- bar = ccc (andDeriv (ccc (\ x -> 4 + x)))
 
--- -- dfun h = unD' (reveal (ccc h))
+-- -- andDeriv h = unD' (reveal (ccc h))
 
 -- bar :: Syn R (R :* (R -> R))
--- bar = reveal (ccc (dfun id))
+-- bar = reveal (ccc (andDeriv id))
 
 -- bar :: String
--- bar = render (reveal (ccc (dfun (id :: Unop R))))
+-- bar = render (reveal (ccc (andDeriv (id :: Unop R))))
 
 -- bar :: String
--- bar = render (ccc (dfun ((\ x_ -> 4) :: Unop R)))
+-- bar = render (ccc (andDeriv ((\ x_ -> 4) :: Unop R)))
 
 -- bar :: IO ()
--- bar = runSyn (reveal (ccc (dfun (id :: Unop R))))
+-- bar = runSyn (reveal (ccc (andDeriv (id :: Unop R))))
 
 -- boozle :: String -> (a -> b) -> Test
 -- boozle _ _ = undefined
 -- {-# NOINLINE boozle #-}
 -- {-# RULES
--- "boozle" forall nm f. boozle nm f = mkTest nm (runSyn (ccc (dfun f)))
+-- "boozle" forall nm f. boozle nm f = mkTest nm (runSyn (ccc (andDeriv f)))
 --  #-}
 
 -- bar :: Test
@@ -757,7 +794,7 @@ foo4 = sampleD (ccc id)
 -- -- Derivative, then syntactic
 -- test' :: String -> (a -> b) -> Test
 -- {-# RULES "test AD" forall nm f.
---    test' nm f = mkTest nm (runSyn (ccc (dfun f)))
+--    test' nm f = mkTest nm (runSyn (ccc (andDeriv f)))
 --  #-}
 -- test' nm _f = undefined -- mkTest nm (putStrLn ("test called on " ++ nm))
 -- {-# NOINLINE test' #-}
@@ -766,10 +803,10 @@ foo4 = sampleD (ccc id)
 -- bar = boozle "bar" (id :: Unop R)
 
 -- bar :: IO ()
--- bar = runSyn (ccc (dfun (id :: Unop R)))
+-- bar = runSyn (ccc (andDeriv (id :: Unop R)))
 
 -- bar :: IO ()
--- bar = runSyn (ccc (dfun ((\ _x -> 4) :: Unop R)))
+-- bar = runSyn (ccc (andDeriv ((\ _x -> 4) :: Unop R)))
 
 -- bar :: Test
 -- bar = mkTest "bar" (runSyn (ccc (unD' (ccc (A.id :: R -> R)))))
@@ -778,15 +815,15 @@ foo4 = sampleD (ccc id)
 -- bar = render (ccc (unD' (ccc (ccc (double :: R -> R)))))
 
 -- bar :: EC R (R :* (R -> R))
--- bar = ccc (dfun id)
+-- bar = ccc (andDeriv id)
 
 -- bar :: EC R (R :* (R -> R))
--- bar = reveal (ccc (dfun id))
+-- bar = reveal (ccc (andDeriv id))
 
 
 -- -- idArity 1 exceeds arity imposed by the strictness signature DmdType x: lvl_sgks
 -- bar :: IO ()
--- bar = runEC "bar" (ccc (dfun @R (id :: Unop R)))
+-- bar = runEC "bar" (ccc (andDeriv @R (id :: Unop R)))
 
 -- -- fine
 -- bar :: D R R R
@@ -870,14 +907,14 @@ addThree (a,b,c) = a+b+c
 -- -- bar = unD' barD
 -- -- bar = unD (ccc id)
 -- -- bar = lazy unD (ccc id)
--- -- bar = dfun (ccc id)
--- -- bar = dfun id
--- bar = dfun sin  -- okay
+-- -- bar = andDeriv (ccc id)
+-- -- bar = andDeriv id
+-- bar = andDeriv sin  -- okay
 
 -- bar' :: Syn R (R :* L R R R)
 -- -- bar' = ccc bar
 -- -- bar' = ccc (lazy bar)
--- bar' = ccc (dfun sin)
+-- bar' = ccc (andDeriv sin)
 
 -- foo :: Syn R R
 -- foo = ccc sin

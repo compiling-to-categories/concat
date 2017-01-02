@@ -189,14 +189,18 @@ instance (V s (Rep a) ~ V s a, Ok (L s) a, HasRep a) => RepCat (D s) a where
 
 instance (Coercible a b, V s a ~ V s b, Ok2 (L s) a b) => CoerceCat (D s) a b where
   coerceC = linearD coerceC coerceC
-
 {--------------------------------------------------------------------
-    Utilities
+    Differentiation interface
 --------------------------------------------------------------------}
 
-dfun :: forall s a b . (a -> b) -> (a -> b :* L s a b)
-dfun _ = error "dfun called"
-{-# NOINLINE dfun #-}
-{-# RULES "dfun" forall h. dfun h = unD (ccc h) #-}
-{-# ANN dfun PseudoFun #-}
+andDeriv :: forall s a b . (a -> b) -> (a -> b :* L s a b)
+andDeriv _ = error "andDeriv called"
+{-# NOINLINE andDeriv #-}
+{-# RULES "andDeriv" forall h. andDeriv h = unD (ccc h) #-}
+{-# ANN andDeriv PseudoFun #-}
 
+deriv :: forall s a b . (a -> b) -> (a -> L s a b)
+deriv _ = error "deriv called"
+{-# NOINLINE deriv #-}
+{-# RULES "deriv" forall h. deriv h = snd . andDeriv h #-}
+{-# ANN deriv PseudoFun #-}

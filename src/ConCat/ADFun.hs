@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
@@ -23,6 +24,7 @@ import ConCat.Rep
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
 import ConCat.AltCat hiding (const)
+import ConCat.Free.LinearRow
 
 -- newtype D a b = D { unD :: a -> b :* (a -> b) }
 -- newtype D a b = D (a -> b :* (a -> b))
@@ -205,43 +207,17 @@ instance (HasBasis a r, HasBasis b r) => HasBasis (a :* b) r where
   {-# INLINE onBasis #-}
 
 {--------------------------------------------------------------------
-    Utilities
+    Differentiation interface
 --------------------------------------------------------------------}
 
-dfun :: (a -> b) -> (a -> b :* (a -> b))
-dfun _ = error "dfun called"
-{-# NOINLINE dfun #-}
-{-# RULES "dfun" forall h. dfun h = unD' (reveal (ccc h)) #-}
-{-# ANN dfun PseudoFun #-}
+andDeriv :: forall s a b . Ok2 (L s) a b => (a -> b) -> (a -> b :* L s a b)
+andDeriv _ = error "andDeriv called"
+{-# NOINLINE andDeriv #-}
+{-# RULES "andDeriv" forall h. andDeriv h = second linear . unD (ccc h) #-}
+{-# ANN andDeriv PseudoFun #-}
 
-dsc :: Num a => (a -> b :* (a -> b)) -> (a -> b :* b)
--- dsc f a = (b,b' 1) where (b,b') = f a
--- dsc f = second (`id` 1) . f
-dsc f = \ a -> let (b,b') = f a in (b, b' 1)
-{-# INLINE dsc #-}
-
-da2b2 :: (a -> b :* (a -> b)) -> (a :* a -> b :* b)
-da2b2 f = \ (a,da) -> let (b,b') = f a in (b, b' da)
-{-# INLINE da2b2 #-}
-
-dbas :: HasBasis a b => (a -> b :* (a -> b)) -> (a -> b :* B a b)
-dbas f = \ a -> let (b,b') = f a in (b, onBasis b')
-{-# INLINE dbas #-}
-
-unD' :: D a b -> a -> b :* (a -> b)
--- unD' (D f) = f
-#if 0
-unD' d = unD d
--- {-# INLINE unD' #-}
--- {-# INLINE [2] unD' #-}
-{-# INLINE [0] unD' #-}
-#else
-unD' _ = error "unD' called"
-{-# NOINLINE unD' #-}
-{-# RULES "unD'" [0] unD' = unD #-}
-#endif
-
--- Experiment: inline on demand
-{-# RULES "ccc of unD'" forall q. ccc (unD' q) = ccc (unD q) #-}
-{-# RULES "unD' of D" forall f. unD' (D f) = f #-}
-
+deriv :: forall s a b . Ok2 (L s) a b => (a -> b) -> (a -> L s a b)
+deriv _ = error "deriv called"
+{-# NOINLINE deriv #-}
+{-# RULES "deriv" forall h. deriv h = snd . andDeriv h #-}
+{-# ANN deriv PseudoFun #-}
