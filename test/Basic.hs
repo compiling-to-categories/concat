@@ -173,6 +173,7 @@ tests = return
 
   , test "sin"         (sin :: Unop R)
   , test "cos"         (cos :: Unop R)
+  , test "double"      (\ x -> x + x :: R)
   , test "square"      (\ x -> x * x :: R)
   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
   , test "cos-xpx"     (\ x -> cos (x + x) :: R)
