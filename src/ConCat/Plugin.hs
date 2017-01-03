@@ -8,6 +8,7 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE MultiWayIf #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
@@ -387,8 +388,7 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
 #endif
      Trying("lam Let")
      -- TODO: refactor with top Let
-     Let bind@(NonRec v rhs) body' ->
-#if 1
+     _e@(Let bind@(NonRec v rhs) body') ->
        -- dtrace "lam Let subst criteria" (ppr (substFriendly rhs, not xInRhs, idOccs v body')) $
        if substFriendly rhs || not xInRhs || idOccs v body' <= 1 then
          -- TODO: decide whether to float or substitute.
@@ -404,16 +404,39 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
            Doing("lam Let float")
            return (Let bind (mkCcc (Lam x body')))
        else
-         Doing("lam Let to beta-redex")
-         goLam x (App (Lam v body') rhs)
-#else
-       if substFriendly rhs then
-         Doing("lam Let substitution")
-         goLam x (subst1 v rhs body')
-       else
-         Doing("lam Let to beta-redex")
-         goLam x (App (Lam v body') rhs)
+#if 0
+         -- See 2016-01-02 notes. These cases can help, but using reveal
+         -- in dfun nailed it without help.
+         -- TODO: extend this MultiWayIf upward
+         if | Just rhs' <- unfoldMaybe rhs ->
+              Doing("lam Let unfold")
+              return (mkCcc (Lam x (Let (NonRec v rhs') body')))
+            | Case scrut wild _ty [(con,bs,crhs)] <- rhs
+              , x `notElem` bs ->
+              Doing("lam Let Case")
+              -- (let v = (case scrut of p -> crhs) in body') -->
+              -- (case scrut of p -> let v = crhs in body')
+              return (mkCcc (Lam x (
+                Case scrut wild (exprType body')
+                     [(con,bs,Let (NonRec v crhs) body')])))
+            | (Var (isPairVar -> True),[Type tya,Type tyb, a,b])
+                 <- collectArgs rhs ->
+              Doing("lam Let pair")
+              -- let v = (A,B) in body' -->
+              -- let a = A in let b = B in let v = (a,b) in body'
+              let used = exprFreeVars _e
+                  nm = uqVarName v
+                  va = freshId               used     (nm++"_fst") tya
+                  vb = freshId (extendVarSet used va) (nm++"_snd") tyb
+              in
+                return $ mkCcc $ Lam x $
+                 Let (NonRec va a) $
+                  Let (NonRec vb b) $
+                   subst1 v (mkCoreVarTup [va,vb]) body'
+            | otherwise ->
 #endif
+              Doing("lam Let to beta-redex")
+              goLam x (App (Lam v body') rhs)
       where
         xInRhs = x `isFreeIn` rhs
      Trying("lam eta-reduce")
@@ -1003,7 +1026,8 @@ substFriendly rhs =
      not (liftedExpr rhs)
   -- || substFriendlyTy (exprType rhs)
   || incompleteCatOp rhs
-  || isTrivial rhs
+  || -- pprTrace "isTrivial" (ppr rhs <+> text "-->" <+> ppr (isTrivial rhs))
+     (isTrivial rhs)
   -- || isVarTyCos rhs
 
 isVarTyCos :: CoreExpr -> Bool
@@ -1014,18 +1038,18 @@ isVarTyCos _ = False
 -- trivial as well as application of exl/exr.
 isTrivial :: CoreExpr -> Bool
 -- isTrivial e | pprTrace "isTrivial" (ppr e) False = undefined
-isTrivial (Var _)          = True        -- See Note [Variables are trivial]
-isTrivial (Type _)         = True
-isTrivial (Coercion _)     = True
-isTrivial (Lit lit)        = litIsTrivial lit
+isTrivial (Var _) = True -- See Note [Variables are trivial]
+isTrivial (Type _) = True
+isTrivial (Coercion _) = True
+isTrivial (Lit lit) = litIsTrivial lit
 isTrivial (App (isTrivialCatOp -> True) arg) = isTrivial arg
-isTrivial (App e arg)      = isTyCoDictArg arg && isTrivial e
-isTrivial (Tick _ e)       = isTrivial e
-isTrivial (Cast e _)       = isTrivial e
-isTrivial (Lam b body)     = not (isRuntimeVar b) && isTrivial body
-isTrivial (Case e _ _ [])  = isTrivial e  -- See Note [Empty case is trivial]
+isTrivial (App e arg) = isTyCoDictArg arg && isTrivial e
+isTrivial (Tick _ e) = isTrivial e
+isTrivial (Cast e _) = isTrivial e
+isTrivial (Lam b body) = not (isRuntimeVar b) && isTrivial body
 isTrivial (Case _ _ _ [(DEFAULT,[],rhs)]) = isTrivial rhs
-isTrivial _                = False
+isTrivial (Case e _ _ alts) = isTrivial e && all (isTrivial . altRhs) alts
+isTrivial _ = False
 
 incompleteCatOp :: CoreExpr -> Bool
 -- incompleteCatOp e | dtrace "incompleteCatOp" (ppr e) False = undefined
@@ -1058,9 +1082,10 @@ extModule =  "GHC.Exts"
 
 isTrivialCatOp :: CoreExpr -> Bool
 -- isTrivialCatOp = liftA2 (||) isSelection isAbstRepr
-isTrivialCatOp (collectArgs -> (Var v,length -> n)) =
-     (isSelectorId v && n == 5)  -- exl cat tya tyb dict ok
-  || (isAbstReprId v && n == 4)  -- reprC cat ty repCat hasRep
+isTrivialCatOp (collectArgs -> (Var v,length -> n))
+  -- | pprTrace "isTrivialCatOp" (ppr (v,n,isSelectorId v,isAbstReprId v)) True
+  =    (isSelectorId v && n == 5)  -- exl cat tya tyb dict ok
+    || (isAbstReprId v && n == 3)  -- reprC cat ty repCat
 isTrivialCatOp _ = False
 
 isSelectorId :: Id -> Bool
@@ -1192,11 +1217,11 @@ install opts todos =
       collectQ f = everything mappend (mkQ mempty f)
    -- Extra simplifier pass
    mode = SimplMode { sm_names      = ["Ccc simplifier pass"]
-                    , sm_phase      = Phase 1
+                    , sm_phase      = Phase 1 -- ??
                     , sm_rules      = True  -- important
                     , sm_inline     = True -- False -- ??
                     , sm_eta_expand = False -- ??
-                    , sm_case_case  = True  -- important?
+                    , sm_case_case  = True 
                     }
 
 mkCccEnv :: [CommandLineOption] -> CoreM CccEnv
@@ -1783,3 +1808,5 @@ setNominalRole_maybe' _ = Nothing
 eitherToMaybe :: Either a b -> Maybe b
 eitherToMaybe = either (const Nothing) Just
 
+altRhs :: Alt b -> Expr b
+altRhs (_,_,rhs) = rhs
