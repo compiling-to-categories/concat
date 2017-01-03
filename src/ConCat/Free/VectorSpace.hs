@@ -179,6 +179,22 @@ instance (HasV s a, HasV s b) => HasV s (a :* b) where
 instance (HasV s a, HasV s b, HasV s c) => HasV s (a,b,c)
 instance (HasV s a, HasV s b, HasV s c, HasV s d) => HasV s (a,b,c,d)
 
+-- Sometimes it's better not to use the default. I think the following gives more reuse:
+
+-- instance HasV s a => HasV s (Pair a) where
+--   type V s (Pair a) = Pair :.: V s a
+--   toV = Comp1 . fmap toV
+--   unV = fmap unV . unComp1
+
+-- Similarly for other functors
+
+instance HasV s (U1 a)
+instance HasV s a => HasV s (Par1 a)
+instance (HasV s (f a), HasV s (g a)) => HasV s ((f :*: g) a)
+instance (HasV s (g (f a))) => HasV s ((g :.: f) a)
+
+-- Sometimes it's better not to use the default. I think the following gives more reuse:
+
 -- instance HasV s a => HasV s (Pair a) where
 --   type V s (Pair a) = Pair :.: V s a
 --   toV = Comp1 . fmap toV
