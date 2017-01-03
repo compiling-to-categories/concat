@@ -188,18 +188,18 @@ tests = return
 --   , test "x-plus-four" (\ x -> x + 4 :: R)
 --   , test "four-plus-x" (\ x -> 4 + x :: R)
 
---   , test "sin"         (sin :: Unop R)
---   , test "cos"         (cos :: Unop R)
---   , test "double"      (\ x -> x + x :: R) 
+  , test "sin"         (sin :: Unop R)
+  , test "cos"         (cos :: Unop R)
+  , test "double"      (\ x -> x + x :: R) 
   , test "square"      (\ x -> x * x :: R)
---   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
---   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
---   , test "cos-xpy"      (\ (x,y) -> cos (x + y) :: R)
+  , test "cos-2x"      (\ x -> cos (2 * x) :: R)
+  , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
+  , test "cos-xpy"      (\ (x,y) -> cos (x + y) :: R)
 
---   , test "xy" (\ (x,y) -> x * y :: R)
---   , test "cos-x"         (\ x -> cos x :: R)
---   , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
---   , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
+  , test "xy" (\ (x,y) -> x * y :: R)
+  , test "cos-x"         (\ x -> cos x :: R)
+  , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
+  , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
 
 --   , test "foo" (\ (a::R,_b::R,_c::R) -> a)
 
@@ -509,8 +509,8 @@ tst  :: (a -> b) -> Test
  #-}
 #elif 0
 -- (->), val+deriv via ADFun, syntactic
-test, test' :: Ok2 (L R) a b => String -> (a -> b) -> Test
-tst         :: Ok2 (L R) a b =>           (a -> b) -> Test
+test, test' :: (Ok2 (L R) a b, HasL (V R a)) => String -> (a -> b) -> Test
+tst         :: (Ok2 (L R) a b, HasL (V R a)) =>           (a -> b) -> Test
 {-# RULES "(->); D'; EC" forall nm f.
    test nm f = mkTest nm (runSyn (ccc (ADFun.andDeriv @R (ccc f))))
  #-}
