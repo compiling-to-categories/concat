@@ -56,7 +56,8 @@ reveal :: a -> a
 -- reveal f = f
 -- reveal f = reveal f
 -- {-# INLINE [0] reveal #-}
-reveal _f = error "reveal called"
+-- reveal _f = error "reveal called"
+reveal _f = oops "reveal"
 {-# NOINLINE reveal #-}
 {-# RULES "reveal = id" [0] reveal = id #-}
 {-# ANN reveal PseudoFun #-}
@@ -435,5 +436,12 @@ ccc _ = oops "ccc"
 "coerceC = id" coerceC = id  -- when types match
 
 -- "coerceC . coerceC" coerceC . coerceC = coerceC
+
+-- "repair" forall c. (exl c, exr c) = c
+-- GHC objects to the previous form. The next one passes, but will it fire?
+"repair" forall c. (,) (exl c) (exr c) = c
+
+-- -- Applies only to (->):
+-- "f . const x" forall f x. f . const x = const (f x)
 
  #-}
