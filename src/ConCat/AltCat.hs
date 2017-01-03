@@ -437,9 +437,10 @@ ccc _ = oops "ccc"
 
 -- "coerceC . coerceC" coerceC . coerceC = coerceC
 
--- "repair" forall c. (exl c, exr c) = c
--- GHC objects to the previous form. The next one passes, but will it fire?
-"repair" forall c. (,) (exl c) (exr c) = c
+-- -- "repair" forall c. (exl c, exr c) = c
+-- -- GHC objects to the previous form. The next one passes, but will it fire?
+-- -- Don't use. Rely on categorical rules instead.
+-- "re-pair" forall c. (,) (exl c) (exr c) = c
 
 -- -- Applies only to (->):
 -- "f . const x" forall f x. f . const x = const (f x)
