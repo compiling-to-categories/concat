@@ -1,5 +1,8 @@
 # To do
 
+*   Name possibilities:
+    *   Catskill (though [Catskell](https://wiki.haskell.org/Catskell))
+*   Maybe have `buildDictionary` accumulate error messages rather than selecting among them.
 *   Track down problem with `double` example and `deriv`.
     Error message: "`unFunB` got unexpected bus `ConvertB (<function>)`".
     Happens when I use `newtype` instead of `data` for `D` in `AD` *and* drop `HasL` from `OkLM` in `LinearRow`.
@@ -19,7 +22,6 @@
     Note that `Coercion a b =~ Dict (Coercible a b)`.
     Similarly for `(:~:)` in `Data.Type.Equality`.
 *   Why does the `Coercible` constraint suffice for `CoerceCat` in `LinearRow` but not in `LinearCol`?
-*   Remove the `reveal` machinery in `AltCat`.
 *   Explore eliminating `abstReprCase` (and perhaps `abstReprCon`).
     Does unfolding suffice as an alternative?
     Not quite, since lambda-bound variables can appear as scrutinees.
@@ -37,6 +39,8 @@
 *   Maybe switch from `INLINE` to `INLINABLE`.
 *   Now that I'm unfolding more effectively (even with value args), maybe I no longer need the `reveal` hack.
     My first test in `AD` failed, but I may need to tweak `unD'` *also*.
+    Update: I added `reveal` in `dfun` after `ccc` and before `unD`.
+    Greatly improved simplification, and sped up compilation.
 *   Eliminate the hack of first `ccc`ing to `(->)`, letting simplifications happen, and then `ccc`ing to another category, say without `Closed`.
     I think I'd have to improve my ability to do without `Closed`, including floating or substituting more `let` bindings.
 *   I think I'll want to rename `ProductCat`, `CoproductCat`, and `ClosedCat` to "`Cartesian`", "`Cocartesian`", and "`Closed`".
