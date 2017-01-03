@@ -29,8 +29,8 @@ import qualified ConCat.Category as C
 import ConCat.AltCat hiding (const)
 import ConCat.Rep
 
--- newtype D s a b = D (a -> b :* L s a b)
-data D s a b = D (a -> b :* L s a b)
+newtype D s a b = D (a -> b :* L s a b)
+-- data D s a b = D (a -> b :* L s a b)
 
 unD :: D s a b -> (a -> b :* L s a b)
 unD (D f) = f
@@ -209,8 +209,10 @@ instance ( Coercible a b
 andDeriv :: forall s a b . (a -> b) -> (a -> b :* L s a b)
 andDeriv _ = error "andDeriv called"
 {-# NOINLINE andDeriv #-}
-{-# RULES "andDeriv" forall h. andDeriv h = unD (ccc h) #-}
+{-# RULES "andDeriv" forall h. andDeriv h = unD (reveal (ccc h)) #-}
 {-# ANN andDeriv PseudoFun #-}
+
+-- The reveal greatly improves simplification and speeds up compilation.
 
 deriv :: forall s a b . (a -> b) -> (a -> L s a b)
 deriv _ = error "deriv called"
