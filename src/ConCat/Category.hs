@@ -45,6 +45,8 @@ import Control.Monad ((<=<))
 import Data.Proxy (Proxy)
 import Data.Typeable (Typeable)
 import GHC.Exts (Coercible,coerce)
+import Data.Type.Equality ((:~:)(..))
+import qualified Data.Type.Equality as Eq
 import Data.Type.Coercion (Coercion(..))
 import qualified Data.Type.Coercion as Co
 import GHC.Types (Constraint)
@@ -253,8 +255,12 @@ instance Monad m => Category (Kleisli m) where
   (.) = inNew2 (<=<)
 #endif
 
+instance Category (:~:) where
+  id  = Refl
+  (.) = flip Eq.trans
+
 instance Category Coercion where
-  id = Coercion
+  id  = Coercion
   (.) = flip Co.trans
 
 instance Category U2 where
