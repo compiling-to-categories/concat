@@ -16,9 +16,10 @@
 module ConCat.AD where
 
 import Prelude hiding (id,(.),curry,uncurry)
+import qualified Prelude as P
 import GHC.Exts (Coercible,coerce)
 
-import GHC.Generics (Par1(..),(:.:)(..))
+import GHC.Generics (Par1(..),(:.:)(..),(:*:)())
 import Control.Newtype
 
 import ConCat.Misc ((:*),inNew2,PseudoFun(..))
@@ -29,12 +30,14 @@ import qualified ConCat.Category as C
 import ConCat.AltCat hiding (const)
 import ConCat.Rep
 
-newtype D s a b = D (a -> b :* L s a b)
+newtype D s a b = D { unD :: a -> b :* L s a b }
+
+-- newtype D s a b = D (a -> b :* L s a b)
 -- data D s a b = D (a -> b :* L s a b)
 
-unD :: D s a b -> (a -> b :* L s a b)
-unD (D f) = f
-{-# INLINE unD #-}
+-- unD :: D s a b -> (a -> b :* L s a b)
+-- unD (D f) = f
+-- {-# INLINE unD #-}
 
 -- TODO: generalize from L to any cartesian category
 
@@ -193,14 +196,32 @@ instance (V s (Rep a) ~ V s a, Ok (L s) a, HasRep a) => RepCat (D s) a where
 instance (Coercible a b, V s a ~ V s b, Ok2 (L s) a b) => CoerceCat (D s) a b where
   coerceC = linearD coerceC coerceC
 #else
-instance ( Coercible a b
+instance ( CoerceCat (->) a b
+         , CoerceCat (L s) a b
          -- , V s a ~ V s b
          -- , Coercible (V s a) (V s b)
-         , Coercible (V s b (V s a s)) (V s a (V s a s))
+         -- , Coercible (V s b (V s a s)) (V s a (V s a s))
          -- , Coercible (L s a a) (L s a b)
-         , Ok2 (L s) a b) => CoerceCat (D s) a b where
+         -- , Ok2 (L s) a b
+         ) => CoerceCat (D s) a b where
   coerceC = linearD coerceC coerceC
 #endif
+
+-- foo :: D Float (L Float Float (Float, Float)) ((Par1 :*: Par1) (V Float Float Float))
+-- foo = coerceC
+-- foo = linearD coerceC coerceC
+
+-- -- Okay
+-- foo :: L Float Float (Float, Float) -> (Par1 :*: Par1) (V Float Float Float)
+-- foo = coerceC
+
+-- -- Fails
+-- foo :: L Float (L Float Float (Float, Float)) ((Par1 :*: Par1) (V Float Float Float))
+-- foo = coerceC
+
+-- -- 
+-- foo :: L Float (L Float Float (Float, Float)) ((Par1 :*: Par1) (V Float Float Float))
+-- foo = coerceC
 
 {--------------------------------------------------------------------
     Differentiation interface
@@ -218,4 +239,5 @@ deriv :: forall s a b . (a -> b) -> (a -> L s a b)
 deriv _ = error "deriv called"
 {-# NOINLINE deriv #-}
 {-# RULES "deriv" forall h. deriv h = snd . andDeriv h #-}
+-- {-# RULES "deriv" forall h. deriv h = snd P.. andDeriv h #-}
 {-# ANN deriv PseudoFun #-}

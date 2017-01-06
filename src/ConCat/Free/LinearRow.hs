@@ -159,24 +159,44 @@ instance HasRep (L s a b) where
   {-# INLINE abst #-}
   {-# INLINE repr #-}
 
-instance HasV s (L s a b) where
-  type V s (L s a b) = V s b :.: V s a
-  toV = abst . repr
-  unV = abst . repr
+-- instance HasV s (L s a b) where
+--   type V s (L s a b) = V s b :.: V s a
+--   toV = abst . repr
+--   unV = abst . repr
 
-type OkLF' f = (Foldable f, Zeroable f, Zip f, Diagonal f)
+instance HasV s (Rep (L s a b)) => HasV s (L s a b)
 
 #if 0
-type OkLM' s a = (Num s, HasV s a, HasL (V s a))
+type OkLF = (Foldable f, Zeroable f, Zip f, Diagonal f)
 #else
-type OkLM' s a = (Num s, HasV s a, OkLF' (V s a))
+-- This version is a little less convenient to define and moderately reduces
+-- compile-time work.
+class (Foldable f, Zeroable f, Zip f, Diagonal f) => OkLF f
+
+instance OkLF U1
+instance OkLF Par1
+instance (OkLF f, OkLF g) => OkLF (f :*: g)
+instance (OkLF f, OkLF g, Applicative f, Traversable g) => OkLF (g :.: f)
 #endif
 
--- I'd like to use OkLF' in place of HasL, but the plugin isn't able to find Ok
--- (L Float) Float. I suspect that the problem is due to orphan instances.
+type OkLM' s a = (Num s, HasV s a, OkLF (V s a))
+
+-- type OkLM' s a = (Num s, HasV s a, HasL (V s a))
 
 class    OkLM' s a => OkLM s a
 instance OkLM' s a => OkLM s a
+
+#if 0
+class    OkLM' s a => OkLMap s a
+-- instance OkLM' s a => OkLMap s a
+
+instance OkLMap Float Float
+instance OkLMap Double Double
+instance (OkLMap s a, OkLMap s b) => OkLMap s (a,b)
+instance Num s => OkLMap s ((f :*: g) s)
+
+-- instance (OkLMap s a, OkLMap s b) => OkLMap s (L s a b)
+#endif
 
 -- instance Zeroable (L s a) where zeroV = L zeroV
 
@@ -229,12 +249,30 @@ instance (V s (Rep a) ~ V s a, Ok (L s) a) => RepCat (L s) a where
 instance (Ok2 (L s) a b, Coercible (V s a) (V s b)) => CoerceCat (L s) a b where
   coerceC = coerce (id :: L s a a)
 #else
-instance (Ok2 (L s) a b
+instance ( -- Ok2 (L s) a b
+           Num s, Diagonal (V s a)
          -- , Coercible (V s a) (V s b)
-         , Coercible (V s b (V s a s)) (V s a (V s a s))
+         , Coercible (Rep (L s a a)) (Rep (L s a b))
+         -- , Coercible (V s a (V s a s)) (V s b (V s a s))
          ) => CoerceCat (L s) a b where
-  coerceC = coerce (id :: L s a a)
+  -- coerceC = coerce (id :: L s a a)
+  coerceC = L (coerce (idL :: Rep (L s a a)))
 #endif
+
+-- -- Okay:
+-- foo :: L Float (L Float Float Float) (Par1 (V Float Float Float))
+-- foo = coerceC
+-- -- foo = L (coerce (idL :: Rep (L Float Float Float)))
+
+-- -- -- Fail
+-- foo :: L Float (L Float Float (Float, Float)) ((Par1 :*: Par1) (V Float Float Float))
+-- foo = coerceC
+-- -- foo = L (coerce (idL :: Rep (L Float Float Float)))
+
+-- -- 
+-- foo :: Rep (L Float (L Float Float (Float, Float)) ((Par1 :*: Par1) (V Float Float Float)))
+-- foo = coerce (idL :: Rep (L Float Float Float))
+
 
 -- We can't make a ClosedCat instance compatible with the ProductCat instance.
 -- We'd have to change the latter to use the tensor product.
@@ -247,12 +285,12 @@ lapply (L gfa) = unV . lapplyL gfa . toV
 
 -- lapplyL :: ... => (a :-* b) s -> a s -> b s
 
-class OkLF' f => HasL f where
+class OkLF f => HasL f where
   -- | Law: @'linear' . 'lapply' == 'id'@ (but not the other way around)
-  linear' :: forall s g. (Num s, OkLF' g) => (f s -> g s) -> (f :-* g) s
+  linear' :: forall s g. (Num s, OkLF g) => (f s -> g s) -> (f :-* g) s
 
 instance HasL U1 where
-  -- linear' :: forall s g. (Num s, OkLF' g) => (U1 s -> g s) -> (U1 :-* g) s
+  -- linear' :: forall s g. (Num s, OkLF g) => (U1 s -> g s) -> (U1 :-* g) s
   linear' h = U1 <$ h U1
 
 --       h    :: U1 s -> g s
@@ -367,3 +405,16 @@ type LRRR = L Float Float Float
 {-# SPECIALIZE (.) :: LRRR -> LRRR -> LRRR #-}
 
 #endif
+
+-- Experiment
+
+{-# RULES
+
+-- "assoc L (.) right" forall (f :: L s a b) g h. (h . g) . f = h . (g . f)
+
+-- Alternatively (but not both!),
+
+-- "assoc L (.) left"  forall (f :: L s a b) g h. h . (g . f) = (h . g) . f
+
+ #-}
+  

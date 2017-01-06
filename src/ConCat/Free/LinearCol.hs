@@ -24,7 +24,7 @@
 module ConCat.Free.LinearCol where
 
 import Prelude hiding (id,(.),zipWith)
-import GHC.Exts (coerce) -- Coercible,
+import GHC.Exts (Coercible,coerce)
 import Data.Foldable (toList)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import Data.Constraint
@@ -206,11 +206,22 @@ instance (V s (Rep a) ~ V s a, Ok (L s) a) => RepCat (L s) a where
   reprC = abst idL 
   abstC = abst idL 
 
+#if 0
 instance (Ok2 (L s) a b
          -- , Coercible (V s a) (V s b)
          , V s a ~ V s b
          ) => CoerceCat (L s) a b where
   coerceC = coerce (id :: L s a a)
+#else
+instance ( -- Ok2 (L s) a b
+           Num s, Diagonal (V s a)
+         -- , Coercible (V s a) (V s b)
+         , Coercible (Rep (L s a a)) (Rep (L s a b))
+         -- , Coercible (V s a (V s a s)) (V s b (V s a s))
+         ) => CoerceCat (L s) a b where
+  -- coerceC = coerce (id :: L s a a)
+  coerceC = L (coerce (idL :: Rep (L s a a)))
+#endif
 
 -- With Coercible instead of ~, we get a type error:
 --
