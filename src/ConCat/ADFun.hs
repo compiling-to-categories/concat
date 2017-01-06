@@ -213,7 +213,7 @@ instance (HasBasis a r, HasBasis b r) => HasBasis (a :* b) r where
 andDeriv :: forall s a b . (Ok2 (L s) a b, HasL (V s a)) => (a -> b) -> (a -> b :* L s a b)
 andDeriv _ = error "andDeriv called"
 {-# NOINLINE andDeriv #-}
-{-# RULES "andDeriv" forall h. andDeriv h = second linear . unD (ccc h) #-}
+{-# RULES "andDeriv" forall h. andDeriv h = {-second linear-}(id *** linear) . unD (ccc h) #-}
 {-# ANN andDeriv PseudoFun #-}
 
 deriv :: forall s a b . (Ok2 (L s) a b, HasL (V s a)) => (a -> b) -> (a -> L s a b)
