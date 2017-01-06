@@ -45,6 +45,8 @@ import Control.Monad ((<=<))
 import Data.Proxy (Proxy)
 import Data.Typeable (Typeable)
 import GHC.Exts (Coercible,coerce)
+import Data.Type.Coercion (Coercion(..))
+import qualified Data.Type.Coercion as Co
 import GHC.Types (Constraint)
 import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import GHC.Types (type (*))  -- experiment with TypeInType
@@ -250,6 +252,10 @@ instance Monad m => Category (Kleisli m) where
   id  = pack return
   (.) = inNew2 (<=<)
 #endif
+
+instance Category Coercion where
+  id = Coercion
+  (.) = flip Co.trans
 
 instance Category U2 where
   id = U2
