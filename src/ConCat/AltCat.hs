@@ -53,14 +53,12 @@ import ConCat.Category
 -- | Dummy identity function set up to trigger rewriting of non-inlining
 -- operations to inling operations.
 reveal :: a -> a
--- reveal f = f
--- reveal f = reveal f
--- {-# INLINE [0] reveal #-}
--- reveal _f = error "reveal called"
-reveal _f = oops "reveal"
-{-# NOINLINE reveal #-}
-{-# RULES "reveal = id" [0] reveal = id #-}
-{-# ANN reveal PseudoFun #-}
+reveal f = f
+{-# INLINE [0] reveal #-}
+-- reveal _f = oops "reveal"
+-- {-# NOINLINE reveal #-}
+-- {-# RULES "reveal = id" [0] reveal = id #-}
+-- {-# ANN reveal PseudoFun #-}
 
 #define OPINLINE INLINE [0]
 -- #define OPINLINE INLINE CONLIKE [3]
@@ -307,6 +305,8 @@ UncId(c :+ d)
 
 "exl &&& exr" exl &&& exr = id
 
+"(h *** k) . (f &&& g)" forall f g h k. (h *** k) . (f &&& g) = h . f &&& k . g
+
 -- "(f &&& const y) . h" forall y f h. (f &&& const y) . h = f . h &&& const y
 -- "(const x &&& g) . h" forall x g h. (const x &&& g) . h = const x &&& g . h
 
@@ -433,7 +433,7 @@ ccc _ = oops "ccc"
 "abstC' . reprC'" abstC' . reprC' = id
 "reprC' . abstC'" reprC' . abstC' = id
 
-"coerceC = id" coerceC = id  -- when types match
+-- "coerceC = id" coerceC = id  -- when types match
 
 -- "coerceC . coerceC" coerceC . coerceC = coerceC
 
