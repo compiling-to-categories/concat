@@ -107,11 +107,11 @@ type Rewrite a = a -> Maybe a
 type ReExpr = Rewrite CoreExpr
 
 -- #define Trying(str) e_ | dtrace ("Trying " ++ (str)) (e_ `seq` empty) False -> undefined
-
+-- #define Trying(str) e_ | pprTrace ("Trying " ++ (str)) (e_ `seq` empty) False -> undefined
 #define Trying(str)
 
 #define Doing(str) dtrace "Doing" (text (str)) id $
-
+-- #define Doing(str) pprTrace "Doing" (text (str)) id $
 -- #define Doing(str)
 
 -- Category
@@ -127,6 +127,9 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
    go :: ReExpr
    go = \ case
      e | dtrace ("go ccc "++pp cat++":") (pprWithType e) False -> undefined
+     -- Sanity check: ccc should only take functions.
+     e@(exprType -> isFunTy -> False) ->
+       pprPanic "ccc/go: not of function type" (pprWithType e)
      -- Temporarily make `ccc` bail on polymorphic terms. Doing so will speed up
      -- my experiments, since much time is spent optimizing rules, IIUC. It'll
      -- be important to restore polymorphic transformation later for useful
@@ -154,7 +157,7 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
      Trying("top Let")
      Let bind@(NonRec v rhs) body ->
        -- Experiment: always float.
-       if {- True || -} substFriendly rhs || idOccs v body <= 1 then
+       if {- True || -} substFriendly (isClosed cat) rhs || idOccs v body <= 1 then
          Doing("top Let float")
          return (Let bind (mkCcc body))
          -- -- Experiment:
@@ -302,7 +305,7 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
      Trying("top unfold")
      e@(exprHead -> Just v)
        | -- Temp hack: avoid unfold/case-of-product loop.
-         not (isSelectorId v || isAbstReprId v)
+         isCast e || not (isSelectorId v || isAbstReprId v)
        , Just e' <- unfoldMaybe e
        -> Doing("top unfold")
           -- , dtrace "top unfold" (ppr e <+> text "-->" <+> ppr e') True
@@ -372,7 +375,7 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
                   return (mkFork cat (mkCcc (Lam x u)) (mkCcc (Lam x v)))
          _     -> pprPanic "goLam Pair: too many arguments: " (ppr rest)
 
-#if 0
+#if 1
      -- Revisit.
      Trying("lam abstReprCon")
      -- Constructor applied to ty/co/dict arguments
@@ -390,7 +393,7 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
      -- TODO: refactor with top Let
      _e@(Let bind@(NonRec v rhs) body') ->
        -- dtrace "lam Let subst criteria" (ppr (substFriendly rhs, not xInRhs, idOccs v body')) $
-       if substFriendly rhs || not xInRhs || idOccs v body' <= 1 then
+       if substFriendly (isClosed cat) rhs || not xInRhs || idOccs v body' <= 1 then
          -- TODO: decide whether to float or substitute.
          -- To float, x must not occur freely in rhs
          -- return (mkCcc (Lam x (subst1 v rhs body'))) The simplifier seems to
@@ -463,39 +466,20 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
        Doing("lam boxer")
        return (mkCcc (Lam x e'))
      Trying("lam Case of boxer")
-#if 1
-     Case scrut wild _ty [(_dc,[unboxedV],rhs)]
+     e@(Case scrut wild _ty [(_dc,[unboxedV],rhs)])
        | Just (tc,[]) <- splitTyConApp_maybe (varType wild)
        , Just boxV <- Map.lookup tc boxers
        -> Doing("lam Case of boxer")
           let wild' = setIdOccInfo wild NoOccInfo
               tweak :: Unop CoreExpr
               tweak (Var v) | v == unboxedV =
-                pprPanic "lam Case of boxer: bare unboxed var" (ppr unboxedV)
+                pprPanic "lam Case of boxer: bare unboxed var" (ppr e)
               tweak (App (Var f) (Var v)) | f == boxV, v == unboxedV = Var wild'
               tweak e' = e'
           in
             -- Note top-down (everywhere') instead of bottom-up (everywhere)
             -- so that we can find 'boxI v' before v.
             return (mkCcc (Lam x (Let (NonRec wild' scrut) (everywhere' (mkT tweak) rhs))))
-#else
-
-     Case scrut wild _ty [(_dc,[unboxedV],rhs)]
-       | Just (tc,[]) <- splitTyConApp_maybe (varType wild)
-       , tc `elem` [intTyCon,floatTyCon,doubleTyCon]
-       -> Doing("lam Case of boxer")
-          let wild' = setIdOccInfo wild NoOccInfo
-              tweak :: Unop CoreExpr
-              tweak (Var v) | v == unboxedV =
-                pprPanic "lam Case of boxer: bare unboxed var" (ppr unboxedV)
-              tweak (collectArgs -> (Var f, [_ty, App _con (Var v)])) | f == reboxV, v == unboxedV = Var wild'
-              tweak e' = e'
-          in
-            -- Note top-down (everywhere') instead of bottom-up (everywhere)
-            -- so that we can find 'boxI v' before v.
-            return (mkCcc (Lam x (Let (NonRec wild' scrut) (everywhere' (mkT tweak) rhs))))
-
-#endif
      Trying("lam Case default")
      Case _scrut (isDeadBinder -> True) _rhsTy [(DEFAULT,[],rhs)] ->
        Doing("lam case-default")
@@ -523,27 +507,28 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
           -- == \ x -> (\ c -> rhs[a/exl c, b/exr c) scrut
           -- TODO: refactor with Lam case
           -- Maybe let instead of subst
+#if 1
+          --    \ x -> case scrut of _ { (a, b) -> rhs }
+          -- == \ x -> let (a,b) = scrut in rhs
+          -- == \ x -> let c = scrut in let {a = exl c; b = exr c} in rhs
+          let cName = uqVarName a ++ "_" ++ uqVarName b
+              c     = freshId (exprFreeVars e) cName (exprType scrut)
+              sub   = [(a,mkEx funCat exlV (Var c)),(b,mkEx funCat exrV (Var c))]
+          in
+            return (mkCcc (Lam x (mkCoreLets
+                                  [ NonRec c scrut
+                                  , NonRec a (mkEx funCat exlV (Var c))
+                                  , NonRec b (mkEx funCat exrV (Var c)) ] rhs)))
+#else
           let c     = freshId (exprFreeVars e) cName (exprType scrut)  -- (pairTy (varTy a) (varTy b))
               cName = uqVarName a ++ "_" ++ uqVarName b
               sub   = [(a,mkEx funCat exlV (Var c)),(b,mkEx funCat exrV (Var c))]
           in
             return (mkCcc (Lam x (App (Lam c (subst sub rhs)) scrut)))
-#if 1
-     -- Does unfolding suffice as an alternative? Not quite, since lambda-bound
-     -- variables can appear as scrutinees. Maybe we could eliminate that
-     -- possibility with another transformation.
-     Trying("lam abstReprCase")
-     -- Do I also need top abstReprCase?
-     Case scrut v altsTy alts
-       | Just meth <- hrMeth (exprType scrut)
-       -> Doing("lam abstReprCase")
-          return $ mkCcc $ Lam x $
-           Case (meth abstV `App` (mkReprC funCat (varType v) `App` scrut)) v altsTy alts
 #endif
      Trying("lam Case unfold")
      Case scrut v altsTy alts
-       | {- isPred scrut
-       , -} Just scrut' <- unfoldMaybe scrut
+       | Just scrut' <- unfoldMaybe' scrut
        -> Doing("lam Case unfold")
           return $ mkCcc $ Lam x $
            Case scrut' v altsTy alts
@@ -556,6 +541,27 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
            co'' = downgradeRole r r' co' in
          -- pprTrace "lam nominal Cast" (ppr co $$ text "-->" $$ ppr co'') $
          return (mkCcc (Cast (Lam x body') (FunCo r (mkReflCo r xty) co'')))
+
+     Trying("lam representational cast")
+     Cast e co ->
+       Doing("lam representational cast")
+       -- Will I get unnecessary coerceCs due to nominal-able sub-coercions?
+       return $ mkCompose cat (mkCoerceC cat co) $
+                mkCcc (Lam x e)
+
+#if 1
+     -- Does unfolding suffice as an alternative? Not quite, since lambda-bound
+     -- variables can appear as scrutinees. Maybe we could eliminate that
+     -- possibility with another transformation.
+     -- 2016-01-04: I moved lam abstReprCase after unfold
+     Trying("lam abstReprCase")
+     -- Do I also need top abstReprCase?
+     Case scrut v altsTy alts
+       | Just meth <- hrMeth (exprType scrut)
+       -> Doing("lam abstReprCase")
+          return $ mkCcc $ Lam x $
+           Case (meth abstV `App` (mkReprC funCat (varType v) `App` scrut)) v altsTy alts
+#endif
 #if 0
      Trying("lam recast")
      Cast e co ->
@@ -574,10 +580,7 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
                   return $ mkCompose cat (mkCcc u) (mkCcc (Lam x v))
 #endif
      Trying("lam unfold")
-     e'@(exprHead -> Just v)
-       | -- Temp hack: avoid unfold/case-of-product loop.
-         not (isSelectorId v || isAbstReprId v)
-       , Just body' <- unfoldMaybe e'
+     e'| Just body' <- unfoldMaybe' e'
        -> Doing("lam unfold")
           -- dtrace "lam unfold" (ppr body <+> text "-->" <+> ppr body')
           return (mkCcc (Lam x body'))
@@ -612,6 +615,8 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
      , Just (tc,[]) <- splitTyConApp_maybe (exprType e)
      , Just boxV <- Map.lookup tc boxers =
      Just (Var boxV `App` e')
+   outerBoxCon (Let b rhs) =
+     Let b <$> outerBoxCon rhs
    outerBoxCon (Case scrut wild ty [(con,bs,rhs)]) =
      (\ rhs' -> Case scrut wild ty [(con,bs,rhs')]) <$> outerBoxCon rhs
    outerBoxCon (e `Cast` co) = (`Cast` co) <$> outerBoxCon e
@@ -716,6 +721,11 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
      -- pprTrace "unfoldOkay head" (ppr (v,isNothing (catFun (Var v)))) $
      isNothing (catFun (Var v))
    unfoldOkay _                    = False
+   -- Temp hack: avoid exl/exr and reprC/abstC.
+   unfoldMaybe' :: ReExpr
+   unfoldMaybe' e@(exprHead -> Just v)
+     | not (isSelectorId v || isAbstReprId v) = unfoldMaybe e
+   unfoldMaybe' _ = Nothing                                    
    unfoldMaybe :: ReExpr
    -- unfoldMaybe e | dtrace "unfoldMaybe" (ppr (e,collectArgsPred isTyCoDictArg e)) False = undefined
    unfoldMaybe e | unfoldOkay e
@@ -815,6 +825,8 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
      --       => k (Prod k (Exp k a b) a) b
      -- onDict (catOp k applyV `mkTyApps` [a,b])
      onDictMaybe =<< catOpMaybe k applyV [a,b]
+   isClosed :: Cat -> Bool
+   isClosed k = isJust (mkApplyMaybe k unitTy unitTy)
 #endif
    mkCurry :: Cat -> Unop CoreExpr
    -- mkCurry k e | dtrace "mkCurry" (ppr k <+> pprWithType e) False = undefined
@@ -914,12 +926,19 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
     where
       (_co,r) = normaliseType famEnvs Nominal (repTy a)
    mkCoerceC :: Cat -> Coercion -> CoreExpr
-   mkCoerceC k (coercionKind -> Pair dom cod) =
-     -- pprTrace "mkCoerceC 1" (pprWithType (Var coerceV)) $
-     -- pprTrace "mkCoerceC 2" (pprWithType (varApps coerceV [k,dom,cod] []))
-     -- pprTrace "mkCoerceC 3" (pprWithType (catOp k coerceV [dom,cod]))
-     -- pprPanic "mkCoerceC" (text "In progress")
-     catOp k coerceV [dom,cod]
+   mkCoerceC k co@(coercionKind -> Pair dom cod)
+     | dom `eqType` cod = mkId k dom
+     | Just _ <- setNominalRole_maybe co
+     , pprTrace "warning: mkCoerceC given nominable coercion" (ppr co) False =
+         -- If I get this warning, make an nominally cast'd identity.
+         -- Use mkCast to subsume dom=cod efficiently.
+         undefined
+     | otherwise =
+       -- pprTrace "mkCoerceC 1" (pprWithType (Var coerceV)) $
+       -- pprTrace "mkCoerceC 2" (pprWithType (varApps coerceV [k,dom,cod] []))
+       -- pprTrace "mkCoerceC 3" (pprWithType (catOp k coerceV [dom,cod]))
+       -- pprPanic "mkCoerceC" (text "In progress")
+       catOp k coerceV [dom,cod]
    tyArgs2_maybe :: Type -> Maybe (Type,Type)
    -- tyArgs2_maybe (splitAppTys -> (_,(a:b:_))) = Just (a,b)
    tyArgs2_maybe _ty@(splitAppTy_maybe -> Just (splitAppTy_maybe -> Just (_,a),b)) =
@@ -1021,13 +1040,14 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
       pseudoAnns = findAnns deserializeWithData annotations . NamedTarget . varName
 #endif
 
-substFriendly :: CoreExpr -> Bool
-substFriendly rhs =
+substFriendly :: Bool -> CoreExpr -> Bool
+substFriendly catClosed rhs =
      not (liftedExpr rhs)
   -- || substFriendlyTy (exprType rhs)
   || incompleteCatOp rhs
   || -- pprTrace "isTrivial" (ppr rhs <+> text "-->" <+> ppr (isTrivial rhs))
      (isTrivial rhs)
+  || isFunTy (exprType rhs) && not catClosed
   -- || isVarTyCos rhs
 
 isVarTyCos :: CoreExpr -> Bool
@@ -1351,7 +1371,7 @@ hasRepMethodM tracing hasRepTc _repTc _idV =
                       buildDictionary hscEnv dflags guts inScope
                          (mkTyConApp hasRepTc [ty])
            mkMethApp dict =
-             dtrace "hasRepMeth" (ppr ty <+> "-->" <+> ppr dict) $
+             -- dtrace "hasRepMeth" (ppr ty <+> "-->" <+> ppr dict) $
              \ meth -> varApps meth [ty] [dict]
        in
           -- Real dictionary or synthesize
@@ -1640,7 +1660,10 @@ onExprHead h = (fmap.fmap) simpleOptExpr $
    go cont (Cast e co)   = go (cont . (`Cast` co)) e
    go _ _                = Nothing
 
--- The simpleOptExpr here helps keep simplification going.
+-- TODO: try go using Maybe fmap instead of continuation.
+
+-- The simpleOptExpr here helped keep simplification going.
+-- TODO: try without.
 
 -- Identifier not occurring in a given variable set
 freshId :: VarSet -> String -> Type -> Id
@@ -1810,3 +1833,7 @@ eitherToMaybe = either (const Nothing) Just
 
 altRhs :: Alt b -> Expr b
 altRhs (_,_,rhs) = rhs
+
+isCast :: Expr b -> Bool
+isCast (Cast {}) = True
+isCast _         = False
