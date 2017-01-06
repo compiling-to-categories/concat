@@ -177,15 +177,7 @@ instance OpCon op Yes1' where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
 
-instance OpCon (:*) (Sat Typeable) where
-  inOp = Entail (Sub Dict)
-  {-# INLINE inOp #-}
-
-instance OpCon (:+) (Sat Typeable) where
-  inOp = Entail (Sub Dict)
-  {-# INLINE inOp #-}
-
-instance OpCon (->) (Sat Typeable) where
+instance Typeable op => OpCon op (Sat Typeable) where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
 
