@@ -51,22 +51,35 @@ import TcRnDriver
 -- import ConCat.GHC
 
 runTcMUnsafe :: HscEnv -> DynFlags -> ModGuts -> TcM a -> a
-runTcMUnsafe env0 dflags _guts m = unsafePerformIO $ do
+runTcMUnsafe env0 dflags guts m = unsafePerformIO $ do
     -- What is the effect of HsSrcFile (should we be using something else?)
     -- What should the boolean flag be set to?
     (msgs, mr) <- runTcInteractive env m
-                  -- initTcFromModGuts env0 _guts HsSrcFile False m
+                  -- initTcFromModGuts env0 guts HsSrcFile False m
     let showMsgs (warns, errs) = showSDoc dflags $ vcat
                                                  $    text "Errors:" : pprErrMsgBagWithLoc errs
                                                    ++ text "Warnings:" : pprErrMsgBagWithLoc warns
     maybe (fail $ showMsgs msgs) return mr
  where
    imports0 = ic_imports (hsc_IC env0)
-   orphNames = mkModuleName <$> ["GHC.Float","ConCat.Orphans"]
-               -- map moduleName (dep_orphs (mg_deps guts))
+   -- imports0 shows up empty for my uses. Add GHC.Float and ConCat.Orphans for
+   -- orphans, plus GHC.Generics for its newtypes (Coercible).
+   -- TODO: find a better way.
+   extraModuleNames = mkModuleName <$> ["GHC.Float","GHC.Exts","ConCat.Orphans"]
+                      -- map moduleName (dep_orphs (mg_deps guts))
    env = -- pprTrace "runTcMUnsafe dep_mods" (ppr (dep_mods (mg_deps guts))) $
          -- pprTrace "runTcMUnsafe dep_orphs" (ppr (dep_orphs (mg_deps guts))) $
-         env0 { hsc_IC = (hsc_IC env0) { ic_imports = map IIModule orphNames ++ imports0 } }
+         -- pprTrace "runTcMUnsafe dep_finsts" (ppr (dep_finsts (mg_deps guts))) $
+         -- pprTrace "runTcMUnsafe mg_insts" (ppr (mg_insts guts)) $
+         -- pprTrace "runTcMUnsafe fam_mg_insts" (ppr (mg_fam_insts guts)) $
+         -- pprTrace "runTcMUnsafe imports0" (ppr imports0) $
+         -- pprTrace "runTcMUnsafe mg_rdr_env guts" (ppr (mg_rdr_env guts)) $
+         -- pprTrace "runTcMUnsafe ic_rn_gbl_env" (ppr (ic_rn_gbl_env (hsc_IC env0))) $         
+         env0 { hsc_IC = (hsc_IC env0)
+                 { ic_imports = map IIModule extraModuleNames ++ imports0
+                 , ic_rn_gbl_env = mg_rdr_env guts
+                 , ic_instances = (mg_insts guts, mg_fam_insts guts)
+                 } }
          -- env0
 
 -- TODO: Try initTcForLookup or initTcInteractive in place of initTcFromModGuts.
