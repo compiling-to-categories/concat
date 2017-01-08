@@ -281,9 +281,17 @@ UncId(c :+ d)
 "g . id" forall g. g . id = g
 "id . f" forall f. id . f = f
 
+-- Experiment: systematically right-associate
+-- We could go either way, but this choice reduces parentheses.
+"(.) assoc right" forall f g h. (h . g) . f = h . (g . f)
+
 "exl/&&&" forall f g. exl . (f &&& g) = f
 "exr/&&&" forall f g. exr . (f &&& g) = g
 
+"exl/&&& (b)" forall f g h. exl . (f &&& g) . h = f . h
+"exr/&&& (b)" forall f g h. exr . (f &&& g) . h = g . h
+
+-- Unnecessary with right-associating composition
 "exl2/&&&" forall f g h. (h . exl) . (f &&& g) = h . f
 "exr2/&&&" forall f g h. (h . exr) . (f &&& g) = h . g
 
@@ -442,7 +450,7 @@ ccc _ = oops "ccc"
 -- -- Don't use. Rely on categorical rules instead.
 -- "re-pair" forall c. (,) (exl c) (exr c) = c
 
--- -- Applies only to (->):
--- "f . const x" forall f x. f . const x = const (f x)
+-- Applies only to (->):
+"f . const x" forall f x. f . const x = const (f x)
 
  #-}
