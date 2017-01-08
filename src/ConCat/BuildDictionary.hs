@@ -122,16 +122,17 @@ buildDictionary' env dflags guts evar =
 
 buildDictionary :: HscEnv -> DynFlags -> ModGuts -> InScopeEnv -> Type -> Either SDoc CoreExpr
 buildDictionary env dflags guts inScope ty =
-  do 
-     -- pprTrace "buildDictionary" (ppr ty $$ text "-->" $$ ppr dict) (return ())
-     -- pprTrace "buildDictionary free vars" (ppr (exprFreeVars dict)) (return ())
-     -- pprTrace "buildDictionary (bnds,freeIds)" (ppr (bnds,freeIds)) (return ())
-     -- pprTrace "buildDictionary (collectArgs dict)" (ppr (collectArgs dict)) (return ())
-     if | null bnds            -> Left (text "no bindings")
-        | notNull freeIdTys    -> Left (text "free id types:" <+> ppr freeIdTys)
-        | notNull holeyBinds   -> Left (text "coercion holes: " <+> ppr holeyBinds)
-        | otherwise            -> return dict
+  -- pprTrace "buildDictionary" (ppr ty $$ text "-->" $$ ppr dict) (return ())
+  -- pprTrace "buildDictionary free vars" (ppr (exprFreeVars dict)) (return ())
+  -- pprTrace "buildDictionary (bnds,freeIds)" (ppr (bnds,freeIds)) (return ())
+  -- pprTrace "buildDictionary (collectArgs dict)" (ppr (collectArgs dict)) (return ())
+  -- either (\ e -> pprTrace "buildDictionary fail" (ppr ty $$ text "-->" $$ e) res) (const res)
+  res
  where
+   res | null bnds          = Left (text "no bindings")
+       | notNull freeIdTys  = Left (text "free id types:" <+> ppr freeIdTys)
+       | notNull holeyBinds = Left (text "coercion holes: " <+> ppr holeyBinds)
+       | otherwise          = return dict
    name     = "$d" ++ zEncodeString (filter (not . isSpace) (showPpr dflags ty))
    binder   = localId inScope name ty
    (i,bnds) = buildDictionary' env dflags guts binder
