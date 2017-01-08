@@ -2,7 +2,7 @@
 
 -- stack build :basic
 
--- stack build && (date ; stack test) >& ~/Haskell/concat/out/o1
+-- stack build && stack test >& ~/Haskell/concat/out/o1
 
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
@@ -58,6 +58,10 @@
 -- Tweak simpl-tick-factor from default of 100
 {-# OPTIONS_GHC -fsimpl-tick-factor=500 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
+
+-- https://ghc.haskell.org/trac/ghc/wiki/RewriteRules
+-- {-# OPTIONS -fno-method-sharing #-}  -- obsolete
+-- {-# OPTIONS -fdicts-cheap #-}  -- no visible change
 
 -- When I list the plugin in the test suite's .cabal target instead of here, I get
 --
@@ -188,18 +192,20 @@ tests = return
 --   , test "x-plus-four" (\ x -> x + 4 :: R)
 --   , test "four-plus-x" (\ x -> 4 + x :: R)
 
-  , test "sin"         (sin :: Unop R)
-  , test "cos"         (cos :: Unop R)
-  , test "double"      (\ x -> x + x :: R) 
-  , test "square"      (\ x -> x * x :: R)
-  , test "cos-2x"      (\ x -> cos (2 * x) :: R)
-  , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
-  , test "cos-xpy"      (\ (x,y) -> cos (x + y) :: R)
+--   , test "sin"         (sin :: Unop R)
+--   , test "cos"         (cos :: Unop R)
+--   , test "double"      (\ x -> x + x :: R) 
 
-  , test "xy" (\ (x,y) -> x * y :: R)
-  , test "cos-x"         (\ x -> cos x :: R)
-  , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
-  , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
+  , test "mult"      (uncurry ((*) @R))
+--   , test "square"      (\ x -> x * x :: R)
+
+--   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
+--   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
+--   , test "cos-xpy"     (\ (x,y) -> cos (x + y) :: R)
+
+--   , test "xy" (\ (x,y) -> x * y :: R)
+--   , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
+--   , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
 
 --   , test "foo" (\ (a::R,_b::R,_c::R) -> a)
 
@@ -373,16 +379,18 @@ type EC = Syn :**: (:>)
 runU2 :: U2 a b -> IO ()
 runU2 = print
 
+type GO a b = (GenBuses a, Ok2 (:>) a b)
+
 runSyn :: Syn a b -> IO ()
 runSyn syn = putStrLn ('\n' : render syn)
 
-runEC :: GenBuses a => String -> EC a b -> IO ()
+runEC :: GO a b => String -> EC a b -> IO ()
 runEC nm (syn :**: circ) = runSyn syn >> RC.run nm [] circ
 
-runCirc :: GenBuses a => String -> (a :> b) -> IO ()
+runCirc :: GO a b => String -> (a :> b) -> IO ()
 runCirc nm circ = RC.run nm [] circ
 
-runCirc' :: GenBuses a => String -> (U2 :**: (:>)) a b -> IO ()
+runCirc' :: GO a b => String -> (U2 :**: (:>)) a b -> IO ()
 runCirc' nm (triv :**: circ) = runU2 triv >> RC.run nm [] circ
 
 -- When I use U2, I get an run-time error: "Impossible case alternative".
@@ -393,16 +401,16 @@ test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "trivial" forall nm f. test nm f = mkTest nm (runU2 (ccc f)) #-}
 #elif 0
--- Circuit interpretation
-test, test' :: GenBuses a => String -> (a -> b) -> Test
-tst  :: GenBuses a => (a -> b) -> Test
-{-# RULES "circuit" forall nm f. test nm f = mkTest nm (runCirc nm (ccc f)) #-}
-#elif 0
 -- Syntactic interpretation
 test, test' :: String -> (a -> b) -> Test
 tst :: (a -> b) -> Test
 {-# RULES "syntactic" forall nm f.
   test nm f = mkTest nm (runSyn (ccc f)) #-}
+#elif 0
+-- Circuit interpretation
+test, test' :: GO a b => String -> (a -> b) -> Test
+tst  :: GO a b => (a -> b) -> Test
+{-# RULES "circuit" forall nm f. test nm f = mkTest nm (runCirc nm (ccc f)) #-}
 #elif 0
 -- (->), syntactic
 test, test' :: String -> (a -> b) -> Test
@@ -433,15 +441,15 @@ tst  :: Uncurriable (->) a b => (a -> b) -> Test
  #-}
 #elif 0
 -- syntactic *and* circuit
-test, test' :: GenBuses a => String -> (a -> b) -> Test
-tst  :: GenBuses a => (a -> b) -> Test
+test, test' :: GO a b => String -> (a -> b) -> Test
+tst  :: GO a b => (a -> b) -> Test
 {-# RULES "Syn :**: (:>)" forall nm f.
    test nm f = mkTest nm (runEC nm (ccc f))
  #-}
 #elif 0
 -- (->), syntactic *and* circuit
-test, test' :: GenBuses a => String -> (a -> b) -> Test
-tst  :: GenBuses a => (a -> b) -> Test
+test, test' :: GO a b => String -> (a -> b) -> Test
+tst  :: GO a b => (a -> b) -> Test
 {-# RULES "(->); Syn :**: (:>)" forall nm f.
    test nm f = mkTest nm (runEC nm (ccc (ccc f)))
  #-}
@@ -499,7 +507,7 @@ tst  :: (a -> b) -> Test
 {-# RULES "test AD" forall nm f.
    test nm f = mkTest nm (runSyn (ccc (andDeriv @R f)))
  #-}
-#elif 1
+#elif 0
 -- (->), val+deriv, syntactic. The first (->) gives us a chance to
 -- transform away the ClosedCat operations.
 test, test' :: String -> (a -> b) -> Test
@@ -516,43 +524,43 @@ tst         :: (Ok2 (L R) a b, HasL (V R a)) =>           (a -> b) -> Test
  #-}
 #elif 0
 -- (->), val+deriv, circuit.
-test, test' :: GenBuses a => String -> (a -> b) -> Test
-tst         :: GenBuses a =>           (a -> b) -> Test
+test, test' :: GO a b => String -> (a -> b) -> Test
+tst         :: GO a b =>           (a -> b) -> Test
 {-# RULES "(->); D; (:>)" forall nm f.
    test nm f = mkTest nm (runCirc (nm++"-ad") (ccc (andDeriv @R (ccc f))))
  #-}
 #elif 0
 -- (->), val+deriv, syntactic+circuit.
-test, test' :: GenBuses a => String -> (a -> b) -> Test
-tst         :: GenBuses a =>           (a -> b) -> Test
+test, test' :: GO a b => String -> (a -> b) -> Test
+tst         :: GO a b =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
    test nm f = mkTest nm (runEC (nm++"-ad") (ccc (andDeriv @R (ccc f))))
  #-}
 #elif 0
 -- (->), deriv, syntactic+circuit.
-test, test' :: GenBuses a => String -> (a -> b) -> Test
-tst         :: GenBuses a =>           (a -> b) -> Test
+test, test' :: GO a b => String -> (a -> b) -> Test
+tst         :: GO a b =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
-   test nm f = mkTest nm (runEC (nm++"-der") (ccc (deriv @R (ccc f))))
+   test nm f = mkTest nm (runEC (nm++"-d") (ccc (deriv @R (ccc f))))
  #-}
 #elif 1
 -- (->), second deriv, syntactic+circuit.
-test, test' :: GenBuses a => String -> (a -> b) -> Test
-tst         :: GenBuses a =>           (a -> b) -> Test
+test, test' :: GO a b => String -> (a -> b) -> Test
+tst         :: GO a b =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
-   test nm f = mkTest nm (runEC (nm++"-der") (ccc (deriv @R (deriv @R (ccc f)))))
+   test nm f = mkTest nm (runEC (nm++"-d2") (ccc (deriv @R (deriv @R (ccc f)))))
  #-}
 #elif 0
 -- (->), val+deriv via ADFun, syntactic+circuit.
-test, test' :: (Ok2 (L R) a b, HasL (V R a), GenBuses a) => String -> (a -> b) -> Test
-tst         :: (Ok2 (L R) a b, HasL (V R a), GenBuses a) =>           (a -> b) -> Test
+test, test' :: (Ok2 (L R) a b, HasL (V R a), GO a b) => String -> (a -> b) -> Test
+tst         :: (Ok2 (L R) a b, HasL (V R a), GO a b) =>           (a -> b) -> Test
 {-# RULES "(->); D'; EC" forall nm f.
    test nm f = mkTest nm (runEC (nm++"-adf") (ccc (ADFun.andDeriv @R (ccc f))))
  #-}
 #elif 0
 -- (->), deriv via ADFun, syntactic+circuit.
-test, test' :: (Ok2 (L R) a b, HasL (V R a), GenBuses a) => String -> (a -> b) -> Test
-tst         :: (Ok2 (L R) a b, HasL (V R a), GenBuses a) =>           (a -> b) -> Test
+test, test' :: (Ok2 (L R) a b, HasL (V R a), GO a b) => String -> (a -> b) -> Test
+tst         :: (Ok2 (L R) a b, HasL (V R a), GO a b) =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
    test nm f = mkTest nm (runEC (nm++"-derf") (ccc (ADFun.deriv @R (ccc f))))
  #-}
