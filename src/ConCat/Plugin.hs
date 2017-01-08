@@ -194,12 +194,24 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
 #endif
 #if 1
      Trying("top representational cast")
+#if 0
      Cast e (FunCo Representational dom cod) ->
        Doing("top representational cast")
        -- Will I get unnecessary coerceCs due to nominal-able sub-coercions?
        return $ mkCompose cat (mkCoerceC cat cod) $
                 mkCompose cat (mkCcc e) $
                 mkCoerceC cat (mkSymCo dom)
+#else
+     e@(Cast e' (coercionRole -> Representational))
+       | FunTy a  b  <- exprType e
+       , FunTy a' b' <- exprType e'
+       ->
+          Doing("top representational cast")
+          -- Will I get unnecessary coerceCs due to nominal-able sub-coercions?
+          return $ mkCompose cat (mkCoerceC' cat b' b) $
+                   mkCompose cat (mkCcc e') $
+                   mkCoerceC' cat a a'
+#endif
 #else
      Trying("top cast unfold")
      Cast (unfoldMaybe -> Just body') co ->
@@ -543,12 +555,23 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
          return (mkCcc (Cast (Lam x body') (FunCo r (mkReflCo r xty) co'')))
 
      Trying("lam representational cast")
+#if 0
      Cast e co ->
        Doing("lam representational cast")
        -- Will I get unnecessary coerceCs due to nominal-able sub-coercions?
+       -- TODO: convert to mkCoerceC' also. Then eliminate mkCoerceC, and
+       -- rename mkCoerceC'.
        return $ mkCompose cat (mkCoerceC cat co) $
                 mkCcc (Lam x e)
-
+#else
+     e@(Cast e' _) ->
+       Doing("lam representational cast")
+       -- Will I get unnecessary coerceCs due to nominal-able sub-coercions?
+       -- TODO: convert to mkCoerceC' also. Then eliminate mkCoerceC, and
+       -- rename mkCoerceC'.
+       return $ mkCompose cat (mkCoerceC' cat (exprType e') (exprType e)) $
+                mkCcc (Lam x e')
+#endif
 #if 1
      -- Does unfolding suffice as an alternative? Not quite, since lambda-bound
      -- variables can appear as scrutinees. Maybe we could eliminate that
@@ -939,6 +962,10 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
        -- pprTrace "mkCoerceC 3" (pprWithType (catOp k coerceV [dom,cod]))
        -- pprPanic "mkCoerceC" (text "In progress")
        catOp k coerceV [dom,cod]
+   mkCoerceC' :: Cat -> Type -> Type -> CoreExpr
+   mkCoerceC' k dom cod
+     | dom `eqType` cod = mkId k dom
+     | otherwise = catOp k coerceV [dom,cod]
    tyArgs2_maybe :: Type -> Maybe (Type,Type)
    -- tyArgs2_maybe (splitAppTys -> (_,(a:b:_))) = Just (a,b)
    tyArgs2_maybe _ty@(splitAppTy_maybe -> Just (splitAppTy_maybe -> Just (_,a),b)) =
