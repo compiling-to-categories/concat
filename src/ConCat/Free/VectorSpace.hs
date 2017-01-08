@@ -109,8 +109,8 @@ x >.< y = (*^ y) <$> x
 -- Would I rather prefer swapping the arguments (equivalently, transposing the
 -- result)?
 
--- After transposing (:-), do I still need sumV?
-newtype SumV f a = SumV (f a)
+-- newtype SumV f a = SumV (f a)
+data SumV f a = SumV (f a)
 
 instance HasRep (SumV f a) where
   type Rep (SumV f a) = f a
@@ -192,6 +192,8 @@ instance HasV s (U1 a)
 instance HasV s a => HasV s (Par1 a)
 instance (HasV s (f a), HasV s (g a)) => HasV s ((f :*: g) a)
 instance (HasV s (g (f a))) => HasV s ((g :.: f) a)
+
+instance HasV s (f a) => HasV s (SumV f a)
 
 -- Sometimes it's better not to use the default. I think the following gives more reuse:
 
