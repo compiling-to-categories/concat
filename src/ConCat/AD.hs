@@ -129,7 +129,7 @@ instance Num s => TerminalCat (D s) where
   it = linearD (const ()) zeroLM
   {-# INLINE it #-}
 
-instance (Num s, HasV s b, HasL (V s b)) => ConstCat (D s) b where
+instance OkLM s b => ConstCat (D s) b where
   const b = D (const (b, zeroLM))
   {-# INLINE const #-}
 
@@ -207,22 +207,6 @@ instance ( CoerceCat (->) a b
   coerceC = linearD coerceC coerceC
 #endif
 
--- foo :: D Float (L Float Float (Float, Float)) ((Par1 :*: Par1) (V Float Float Float))
--- foo = coerceC
--- foo = linearD coerceC coerceC
-
--- -- Okay
--- foo :: L Float Float (Float, Float) -> (Par1 :*: Par1) (V Float Float Float)
--- foo = coerceC
-
--- -- Fails
--- foo :: L Float (L Float Float (Float, Float)) ((Par1 :*: Par1) (V Float Float Float))
--- foo = coerceC
-
--- -- 
--- foo :: L Float (L Float Float (Float, Float)) ((Par1 :*: Par1) (V Float Float Float))
--- foo = coerceC
-
 {--------------------------------------------------------------------
     Differentiation interface
 --------------------------------------------------------------------}
@@ -240,4 +224,8 @@ deriv _ = error "deriv called"
 {-# NOINLINE deriv #-}
 {-# RULES "deriv" forall h. deriv h = snd . andDeriv h #-}
 -- {-# RULES "deriv" forall h. deriv h = snd P.. andDeriv h #-}
+-- {-# RULES "deriv" forall h. deriv h = ccc (snd P.. andDeriv h) #-}
 {-# ANN deriv PseudoFun #-}
+
+-- 2016-01-07: I thought the extra ccc would help with simplification, but I get
+-- longer results rather than shorter in my limited testing.
