@@ -606,7 +606,7 @@ type a :+> b = Kleisli CircuitM (Buses a) (Buses b)
 -- | Circuit category
 newtype a :> b = C { unC :: a :+> b }
 
-instance TypeableAR a => RepCat (:>) a where
+instance (TypeableAR a, r ~ Rep a) => RepCat (:>) a r where
   reprC = C (arr reprB)
   abstC = C (arr abstB)
 

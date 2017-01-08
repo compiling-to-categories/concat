@@ -10,6 +10,7 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -21,7 +22,8 @@ module ConCat.Misc where
 -- import Unsafe.Coerce (unsafeCoerce)
 -- import Data.Type.Equality
 
-import Data.Data (Typeable,Data)
+import Data.Typeable (Typeable,TypeRep,typeRep,Proxy(..))
+import Data.Data (Data)
 import Unsafe.Coerce (unsafeCoerce)  -- for oops
 
 import Control.Newtype
@@ -221,12 +223,13 @@ data PseudoFun = PseudoFun deriving (Typeable,Data)
 -- pseudoFun :: PseudoFun
 -- pseudoFun = PseudoFun
 
-{--------------------------------------------------------------------
-    Fool divergence checker
---------------------------------------------------------------------}
-
 -- | Pseudo function to fool GHC's divergence checker
 oops :: String -> b
 oops str = unsafeCoerce ("Oops --- "++str++" called!")
 {-# NOINLINE oops #-}
 
+-- Convenient alternative to typeRep
+typeR :: forall a. Typeable a => TypeRep
+typeR = typeRep (Proxy :: Proxy a)
+
+type R = Float

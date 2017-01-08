@@ -42,7 +42,7 @@ import Control.Arrow (Kleisli(..),arr)
 import qualified Control.Arrow as A
 import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
-import Data.Proxy (Proxy)
+-- import Data.Proxy (Proxy)
 import Data.Typeable (Typeable)
 import GHC.Exts (Coercible,coerce)
 import Data.Type.Equality ((:~:)(..))
@@ -803,9 +803,15 @@ instance {-# OVERLAPPABLE #-}
 
 #endif
 
-repConst :: (HasRep (ConstObj k b), ConstCat k (Rep b), RepCat k b, Ok k a, Ok k (ConstObj k b))
+repConst :: -- (RepCat k b, HasRep (ConstObj k b), ConstCat k (Rep b), Ok k a, Ok k (ConstObj k b))
+            (HasRep b, r ~ Rep b, RepCat k b (ConstObj k r), ConstCat k r, Ok k a, Ok k (ConstObj k b))
          => b -> (a `k` ConstObj k b)
 repConst b = abstC . const (repr b)
+
+-- b :: b
+-- reprC b :: r
+-- const (reprC b) :: a `k` ConstObj k r
+-- abstC . const (reprC b) :: a `k` ConstObj k r
 
 pairConst :: (ProductCat k, ConstCat k b, ConstCat k c, Ok k a)
           => b :* c -> (a `k` (b :* c))
@@ -1192,7 +1198,7 @@ instance (FromIntegralCat k a b, FromIntegralCat k' a b) => FromIntegralCat (k :
 class (Category k, Ok2 k (Unit k) a) => BottomCat k a where
   bottomC :: Unit k `k` a
 
-bottomRep :: (RepCat k a, BottomCat k (Rep a), Ok k a) => Unit k `k` a
+bottomRep :: (RepCat k a r, BottomCat k r, Ok k a) => Unit k `k` a
 bottomRep = abstC . bottomC
 
 instance BottomCat (->) a where bottomC = error "bottomC for (->) evaluated"
@@ -1274,11 +1280,11 @@ funIf = curry (ifC . (exl . exl &&& (apply . first (exl . exr) &&& apply . first
 
 #endif
 
-repIf :: forall k a. (RepCat k a, ProductCat k, Ok k a, IfCat k (Rep a))
+repIf :: forall k a r. (RepCat k a r, ProductCat k, Ok k a, IfCat k r)
       => IfT k a
 repIf = abstC . ifC . second (twiceP reprC)
-        <+ okProd @k @(BoolOf k) @(Prod k (Rep a) (Rep a))
-        <+ okProd @k @(Rep a) @(Rep a)
+        <+ okProd @k @(BoolOf k) @(Prod k r r)
+        <+ okProd @k @r @r
         <+ okProd @k @(BoolOf k) @(Prod k a a)
         <+ okProd @k @a @a
 
@@ -1303,25 +1309,19 @@ instance (UnknownCat k a b, UnknownCat k' a b) => UnknownCat (k :**: k') a b whe
   unknownC = unknownC :**: unknownC
   PINLINER(unknownC)
 
-class RepCat k a where
-  reprC :: a `k` Rep a
-  abstC :: Rep a `k` a
+class RepCat k a r | a -> r where
+  reprC :: a `k` r
+  abstC :: r `k` a
 
-reprCp :: forall k a r. (RepCat k a, Rep a ~ r) => a `k` r
-reprCp = reprC
-
-abstCp :: forall k r a. (RepCat k a, Rep a ~ r) => r `k` a
-abstCp = abstC
-
-instance HasRep a => RepCat (->) a where
+instance (HasRep a, r ~ Rep a) => RepCat (->) a r where
   reprC = repr
   abstC = abst
 
-instance RepCat U2 a where
+instance (r ~ Rep a) => RepCat U2 a r where
   reprC = U2
   abstC = U2
 
-instance (RepCat k a, RepCat k' a) => RepCat (k :**: k') a where
+instance (RepCat k a b, RepCat k' a b) => RepCat (k :**: k') a b where
   reprC = reprC :**: reprC
   abstC = abstC :**: abstC
   PINLINER(reprC)

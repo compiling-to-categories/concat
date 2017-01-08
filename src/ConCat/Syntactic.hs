@@ -5,6 +5,9 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 {-# OPTIONS_GHC -Wall #-}
 -- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
@@ -19,9 +22,11 @@ import Data.Map (Map,fromList,lookup)
 import Control.Newtype
 import Text.PrettyPrint.HughesPJ hiding (render)
 import Text.PrettyPrint.HughesPJClass hiding (render)
+import Data.Typeable (Typeable)
 
 import ConCat.Category
-import ConCat.Misc (inNew,inNew2,Unop,Binop)
+import ConCat.Misc (inNew,inNew2,Unop,Binop,typeR)
+import ConCat.Rep (Rep)
 -- import ConCat.Float (Float,Double)
 
 {--------------------------------------------------------------------
@@ -278,14 +283,24 @@ instance UnknownCat Syn a b where
   unknownC = atomStr "unknownC"
   INLINER(unknownC)
 
-instance RepCat Syn a where
-  reprC = atomStr "reprC"
-  abstC = atomStr "abstC"
+showTypes :: Bool
+showTypes = False -- True
+
+addTy :: forall t. Typeable t => Unop String
+addTy | showTypes = flip (++) (" :: " ++ show (typeR @t))
+      | otherwise = id
+
+atomStr' :: forall a b. (Typeable a, Typeable b) => String -> Syn a b
+atomStr' = atomStr . addTy @(a -> b)
+
+instance (r ~ Rep a, Typeable a, Typeable r) => RepCat Syn a r where
+  reprC = atomStr' "reprC"
+  abstC = atomStr' "abstC"
   INLINER(reprC)
   INLINER(abstC)
 
-instance CoerceCat Syn a b where
-  coerceC = atomStr "coerceC"
+instance (Typeable a, Typeable b) => CoerceCat Syn a b where
+  coerceC = atomStr' "coerceC"
   INLINER(coerceC)
 
 {--------------------------------------------------------------------

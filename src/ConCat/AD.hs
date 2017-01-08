@@ -145,7 +145,7 @@ const' :: (a -> c) -> (a -> b -> c)
 const' = (const .)
 
 scalarD :: OkLM s s => (s -> s) -> (s -> s -> s) -> D s s s
-scalarD f der = D (\ x -> let r = f x in (r, scale (der x r)))
+scalarD f d = D (\ x -> let r = f x in (r, scale (d x r)))
 {-# INLINE scalarD #-}
 
 -- Use scalarD with const f when only r matters and with const' g when only x
@@ -182,9 +182,9 @@ instance (OkLM s s, Floating s) => FloatingCat (D s) s where
   {-# INLINE sinC #-}
   {-# INLINE cosC #-}
 
-instance (V s (Rep a) ~ V s a, Ok (L s) a, HasRep a) => RepCat (D s) a where
-  reprC = linearD reprC' reprC'
-  abstC = linearD abstC' abstC'
+instance (HasRep a, r ~ Rep a, V s r ~ V s a, Ok (L s) a) => RepCat (D s) a r where
+  reprC = linearD reprC reprC
+  abstC = linearD abstC abstC
 
 #if 0
 instance (Coercible a b, V s a ~ V s b, Ok2 (L s) a b) => CoerceCat (D s) a b where
@@ -223,3 +223,15 @@ deriv _ = error "deriv called"
 
 -- 2016-01-07: I thought the extra ccc would help with simplification, but I get
 -- longer results rather than shorter in my limited testing.
+
+andDer :: forall a b . (a -> b) -> (a -> b :* LR a b)
+andDer _ = error "andDer called"
+{-# NOINLINE andDer #-}
+{-# RULES "andDer" andDer = andDeriv #-}
+{-# ANN andDer PseudoFun #-}
+
+der :: forall a b . (a -> b) -> (a -> LR a b)
+der _ = error "der called"
+{-# NOINLINE der #-}
+{-# RULES "der" der = deriv #-}
+{-# ANN der PseudoFun #-}

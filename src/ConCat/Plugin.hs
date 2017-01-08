@@ -70,15 +70,11 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , exlV             :: Id
                      , exrV             :: Id
                      , constFunV        :: Id
-                     , reprV            :: Id
-                     , abstV            :: Id
                      , reprCV           :: Id
                      , abstCV           :: Id
-                     , reprC'V          :: Id
-                     , abstC'V          :: Id
                      , coerceV          :: Id
                      , repTc            :: TyCon
-                     , hasRepMeth       :: HasRepMeth
+                  -- , hasRepMeth       :: HasRepMeth
                      -- , hasRepFromAbstCo :: Coercion   -> CoreExpr
                      , prePostV         :: Id
                   -- , lazyV            :: Id
@@ -645,9 +641,9 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
      (\ rhs' -> Case scrut wild ty [(con,bs,rhs')]) <$> outerBoxCon rhs
    outerBoxCon (e `Cast` co) = (`Cast` co) <$> outerBoxCon e
    outerBoxCon _ = Nothing
-   hrMeth :: Type -> Maybe (Id -> CoreExpr)
-   hrMeth ty = -- dtrace "hasRepMeth:" (ppr ty) $
-               hasRepMeth dflags guts inScope ty
+   -- hrMeth :: Type -> Maybe (Id -> CoreExpr)
+   -- hrMeth ty = -- dtrace "hasRepMeth:" (ppr ty) $
+   --             hasRepMeth dflags guts inScope ty
    -- Change categories
    catTy :: Unop Type
    catTy (tyArgs2 -> (a,b)) = mkAppTys cat [a,b]
@@ -933,20 +929,18 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
    -- TODO: Remove non-maybe versions, and drop "_maybe" from names.
    mkReprC'_maybe :: Cat -> Type -> Maybe CoreExpr
    mkReprC'_maybe k a =
-     -- pprTrace "mkReprC' 1" (ppr (a,r)) $
-     -- pprTrace "mkReprC' 2" (pprWithType (Var reprC'V)) $
-     -- pprTrace "mkReprC' 3" (pprMbWithType (catOpMaybe k reprC'V [a,r])) $
-     -- pprTrace "mkReprC' 4" (pprMbWithType (onDictMaybe =<< catOpMaybe k reprC'V [a,r])) $
-     onDictMaybe =<< catOpMaybe k reprC'V [a,r]
+     -- pprTrace "mkReprC 1" (ppr (a,r)) $
+     -- pprTrace "mkReprC 2" (pprWithType (Var reprCV)) $
+     -- pprTrace "mkReprC 3" (pprMbWithType (catOpMaybe k reprCV [a,r])) $
+     catOpMaybe k reprCV [a,r]
     where
       (_co,r) = normaliseType famEnvs Nominal (repTy a)
    mkAbstC'_maybe :: Cat -> Type -> Maybe CoreExpr
    mkAbstC'_maybe k a =
-     -- pprTrace "mkAbstC' 1" (ppr (r,a)) $
-     -- pprTrace "mkAbstC' 2" (pprWithType (Var abstC'V)) $
-     -- pprTrace "mkAbstC' 3" (pprMbWithType (catOpMaybe k abstC'V [r,a])) $
-     -- pprTrace "mkAbstC' 4" (pprMbWithType (onDictMaybe =<< catOpMaybe k abstC'V [r,a])) $
-     onDictMaybe =<< catOpMaybe k abstC'V [r,a]
+     -- pprTrace "mkAbstC 1" (ppr (r,a)) $
+     -- pprTrace "mkAbstC 2" (pprWithType (Var abstCV)) $
+     -- pprTrace "mkAbstC 3" (pprMbWithType (catOpMaybe k abstCV [a,r])) $
+     catOpMaybe k abstCV [a,r]
     where
       (_co,r) = normaliseType famEnvs Nominal (repTy a)
    mkCoerceC :: Cat -> Coercion -> CoreExpr
@@ -1309,17 +1303,17 @@ mkCccEnv opts = do
   constFunV   <- findCatId "constFun"
   abstCV      <- findCatId "abstC"
   reprCV      <- findCatId "reprC"
-  abstC'V     <- findCatId "abstCp"
-  reprC'V     <- findCatId "reprCp"
+  -- abstC'V     <- findCatId "abstCp"
+  -- reprC'V     <- findCatId "reprCp"
   coerceV     <- findCatId "coerceC"
   cccV        <- findCatId "ccc"
   floatT      <- findFloatTy "Float"
   doubleT     <- findFloatTy "Double"
-  reprV       <- findRepId "repr"
-  abstV       <- findRepId "abst"
-  hasRepTc    <- findRepTc "HasRep"
+  -- reprV       <- findRepId "repr"
+  -- abstV       <- findRepId "abst"
+  -- hasRepTc    <- findRepTc "HasRep"
   repTc       <- findRepTc "Rep"
-  hasRepMeth  <- hasRepMethodM tracing hasRepTc repTc idV
+  -- hasRepMeth  <- hasRepMethodM tracing hasRepTc repTc idV
   prePostV    <- findId "ConCat.Misc" "~>"
   boxIV       <- findBoxId "boxI"
   boxFV       <- findBoxId "boxF"
@@ -1360,6 +1354,7 @@ mkCccEnv opts = do
     pprPanic "isBottomingId cccV" empty
   return (CccEnv { .. })
 
+#if 0
 type HasRepMeth = DynFlags -> ModGuts -> InScopeEnv -> Type -> Maybe (Id -> CoreExpr)
 
 hasRepMethodM :: Bool -> TyCon -> TyCon -> Id -> CoreM HasRepMeth
@@ -1404,6 +1399,8 @@ hasRepMethodM tracing hasRepTc _repTc _idV =
        in
           -- Real dictionary or synthesize
           mkMethApp <$> (findDict <|> newtypeDict)
+
+#endif
 
 -- TODO: perhaps consolidate poly & mono.
 

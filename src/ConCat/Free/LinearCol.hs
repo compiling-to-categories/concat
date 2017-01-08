@@ -33,7 +33,7 @@ import Data.Key (Zip(..))
 import Text.PrettyPrint.HughesPJClass hiding (render)
 import Control.Newtype
 
-import ConCat.Misc ((:*),PseudoFun(..),oops)
+import ConCat.Misc ((:*),PseudoFun(..),oops,R)
 import ConCat.Orphans ()
 import ConCat.Free.VectorSpace
 -- The following import allows the instances to type-check. Why?
@@ -120,6 +120,8 @@ joinL = (:*:)
 
 newtype L s a b = L ((V s a :-* V s b) s)
 
+type LR = L R
+
 -- deriving instance Show ((V s a :-* V s b) s) => Show (L s a b)
 
 flatten :: (Foldable (V s a), Foldable (V s b)) => L s a b -> [[s]]
@@ -202,9 +204,14 @@ joinLM = inAbst2 joinL
 jamLM :: Ok (L s) a => L s (a :* a) a
 jamLM = id `joinLM` id
 
-instance (V s (Rep a) ~ V s a, Ok (L s) a) => RepCat (L s) a where
-  reprC = abst idL 
-  abstC = abst idL 
+instance (r ~ Rep a, V s r ~ V s a, Ok (L s) a) => RepCat (L s) a r where
+  reprC = L idL
+  abstC = L idL
+
+-- idL :: (a :-* a) s
+--     ~  V s (V s a s)
+-- L id  :: V s (V s a s)
+--       ~  V s (V s r s)
 
 #if 0
 instance (Ok2 (L s) a b

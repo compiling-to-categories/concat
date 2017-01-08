@@ -6,6 +6,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
@@ -19,7 +20,7 @@ import GHC.Exts (Coercible)
 
 import Control.Newtype
 
-import ConCat.Misc ((:*),inNew2,PseudoFun(..))
+import ConCat.Misc ((:*),inNew2,PseudoFun(..),R)
 import ConCat.Float
 import ConCat.Rep
 import ConCat.Free.VectorSpace (HasV(..))
@@ -134,7 +135,7 @@ const' f a _b = f a
 {-# INLINE const' #-}
 
 scalarD :: Num s => (s -> s) -> (s -> s -> s) -> D s s
-scalarD f der = D (\ x -> let r = f x in (r, (der x r *)))
+scalarD f d = D (\ x -> let r = f x in (r, (d x r *)))
 {-# INLINE scalarD #-}
 
 -- Use scalarD with const f when only r matters and with const' g when only x
@@ -165,9 +166,18 @@ instance Floating s => FloatingCat D s where
   {-# INLINE sinC #-}
   {-# INLINE cosC #-}
 
-instance HasRep a => RepCat D a where
+instance (HasRep a, r ~ Rep a) => RepCat D a r where
   reprC = linearD reprC
   abstC = linearD abstC
+
+--     • Illegal instance declaration for ‘RepCat D a r’
+--         The coverage condition fails in class ‘RepCat’
+--           for functional dependency: ‘a -> r’
+--         Reason: lhs type ‘a’ does not determine rhs type ‘r’
+--         Un-determined variable: r
+--         Using UndecidableInstances might help
+
+-- I don't understand this failure.
 
 instance Coercible a b => CoerceCat D a b where
   coerceC = linearD coerceC
@@ -221,3 +231,15 @@ deriv _ = error "deriv called"
 {-# NOINLINE deriv #-}
 {-# RULES "deriv" forall h. deriv h = snd . andDeriv h #-}
 {-# ANN deriv PseudoFun #-}
+
+andDer :: forall a b . (Ok2 LR a b, HasL (V R a)) => (a -> b) -> (a -> b :* LR a b)
+andDer _ = error "andDer called"
+{-# NOINLINE andDer #-}
+{-# RULES "andDer" andDer = andDeriv #-}
+{-# ANN andDer PseudoFun #-}
+
+der :: forall a b . (Ok2 LR a b, HasL (V R a)) => (a -> b) -> (a -> LR a b)
+der _ = error "der called"
+{-# NOINLINE der #-}
+{-# RULES "der" der = deriv #-}
+{-# ANN der PseudoFun #-}

@@ -1,5 +1,7 @@
 # To do
 
+*   Comment out `PseudoFun` annotations to see if anything breaks.
+*   Use `typeR` from `Misc` to replace uses of `typeRep`.
 *   In `Plugin`, refactor common functionality between "top" & "lam" transformations.
 *   Name possibilities:
     *   Catskill (though [Catskell](https://wiki.haskell.org/Catskell))

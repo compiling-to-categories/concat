@@ -42,8 +42,8 @@
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
-{-# OPTIONS_GHC -dverbose-core2core #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
 -- {-# OPTIONS_GHC -dsuppress-type-applications #-}
@@ -79,7 +79,7 @@ import Distribution.TestSuite
 import GHC.Generics hiding (R,D)
 import GHC.Exts (lazy,coerce)
 
-import ConCat.Misc (Unop,Binop,(:*),PseudoFun(..))
+import ConCat.Misc (Unop,Binop,(:*),PseudoFun(..),R)
 import ConCat.Rep
 import ConCat.Float
 import ConCat.Free.VectorSpace (V)
@@ -90,7 +90,7 @@ import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay,(:>))
-import ConCat.AltCat (ccc,reveal,Uncurriable(..),U2(..),(:**:)(..),Ok2,abstC,abstC',abstCp)
+import ConCat.AltCat (ccc,reveal,Uncurriable(..),U2(..),(:**:)(..),Ok2,abstC)
 import qualified ConCat.AltCat as A
 import ConCat.Rebox () -- experiment
 import ConCat.Orphans ()
@@ -192,10 +192,14 @@ tests = return
 --   , test "x-plus-four" (\ x -> x + 4 :: R)
 --   , test "four-plus-x" (\ x -> 4 + x :: R)
 
---   , test "sin"         (sin :: Unop R)
---   , test "cos"         (cos :: Unop R)
+--   , test "sin"         (sin @R)
+--   , test "cos"         (cos @R)
 --   , test "double"      (\ x -> x + x :: R) 
 
+    -- , test "dsin"         (der (sin @R))
+    -- , test "ddsin"         (der (der (sin @R)))
+    -- , test "dddsin"         (der (der (der (sin @R))))
+  , test "ddddsin"         (der (der (der (der (sin @R)))))
 
 --   , tst (\ (p :: R2) -> (snd p, fst p))
 --   , tst (\ ((x,y) :: R2) -> (y,x))
@@ -204,7 +208,7 @@ tests = return
 
 --   , tst (\ (p :: Par1 R, q :: Par1 R) -> p :*: q)  -- complex
 
---   , tst (abstC' :: Par1 R :* Par1 R -> (Par1 :*: Par1) R)
+--   , tst (abstC :: Par1 R :* Par1 R -> (Par1 :*: Par1) R)
 
 --   , test "mult"      (uncurry ((*) @R))
 --   , test "square"      (\ x -> x * x :: R)
@@ -457,7 +461,7 @@ tst  :: Uncurriable (->) a b => (a -> b) -> Test
 {-# RULES "(->); uncurries; Syn" forall nm f.
    test nm f = mkTest nm (runSyn (ccc (uncurries (ccc f))))
  #-}
-#elif 0
+#elif 1
 -- syntactic *and* circuit
 test, test' :: GO a b => String -> (a -> b) -> Test
 tst  :: GO a b => (a -> b) -> Test
@@ -523,7 +527,7 @@ tst         :: GB a b =>           (a -> b) -> Test
 test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "test AD" forall nm f.
-   test nm f = mkTest nm (runSyn (ccc (andDeriv @R f)))
+   test nm f = mkTest nm (runSyn (ccc (andDer f)))
  #-}
 #elif 0
 -- (->), val+deriv, syntactic. The first (->) gives us a chance to
@@ -531,56 +535,56 @@ tst  :: (a -> b) -> Test
 test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
 {-# RULES "(->); D; Syn" forall nm f.
-   test nm f = mkTest nm (runSyn (ccc (andDeriv @R (ccc f))))
+   test nm f = mkTest nm (runSyn (ccc (andDer (ccc f))))
  #-}
 #elif 0
 -- (->), val+deriv via ADFun, syntactic
 test, test' :: (Ok2 (L R) a b, HasL (V R a)) => String -> (a -> b) -> Test
 tst         :: (Ok2 (L R) a b, HasL (V R a)) =>           (a -> b) -> Test
 {-# RULES "(->); D'; EC" forall nm f.
-   test nm f = mkTest nm (runSyn (ccc (ADFun.andDeriv @R (ccc f))))
+   test nm f = mkTest nm (runSyn (ccc (ADFun.andDer (ccc f))))
  #-}
 #elif 0
 -- (->), val+deriv, circuit.
 test, test' :: GO a b => String -> (a -> b) -> Test
 tst         :: GO a b =>           (a -> b) -> Test
 {-# RULES "(->); D; (:>)" forall nm f.
-   test nm f = mkTest nm (runCirc (nm++"-ad") (ccc (andDeriv @R (ccc f))))
+   test nm f = mkTest nm (runCirc (nm++"-ad") (ccc (andDer (ccc f))))
  #-}
 #elif 0
 -- (->), val+deriv, syntactic+circuit.
 test, test' :: GO a b => String -> (a -> b) -> Test
 tst         :: GO a b =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
-   test nm f = mkTest nm (runEC (nm++"-ad") (ccc (andDeriv @R (ccc f))))
+   test nm f = mkTest nm (runEC (nm++"-ad") (ccc (andDer (ccc f))))
  #-}
-#elif 1
+#elif 0
 -- (->), deriv, syntactic+circuit.
 test, test' :: GO a b => String -> (a -> b) -> Test
 tst         :: GO a b =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
-   test nm f = mkTest nm (runEC (nm++"-d") (ccc (deriv @R (ccc f))))
+   test nm f = mkTest nm (runEC (nm++"-d") (ccc (der (ccc f))))
  #-}
 #elif 1
 -- (->), second deriv, syntactic+circuit.
 test, test' :: GO a b => String -> (a -> b) -> Test
 tst         :: GO a b =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
-   test nm f = mkTest nm (runEC (nm++"-d2") (ccc (deriv @R (deriv @R (ccc f)))))
+   test nm f = mkTest nm (runEC (nm++"-d2") (ccc (der (der (ccc f)))))
  #-}
 #elif 0
 -- (->), val+deriv via ADFun, syntactic+circuit.
 test, test' :: (Ok2 (L R) a b, HasL (V R a), GO a b) => String -> (a -> b) -> Test
 tst         :: (Ok2 (L R) a b, HasL (V R a), GO a b) =>           (a -> b) -> Test
 {-# RULES "(->); D'; EC" forall nm f.
-   test nm f = mkTest nm (runEC (nm++"-adf") (ccc (ADFun.andDeriv @R (ccc f))))
+   test nm f = mkTest nm (runEC (nm++"-adf") (ccc (ADFun.andDer (ccc f))))
  #-}
 #elif 0
 -- (->), deriv via ADFun, syntactic+circuit.
 test, test' :: (Ok2 (L R) a b, HasL (V R a), GO a b) => String -> (a -> b) -> Test
 tst         :: (Ok2 (L R) a b, HasL (V R a), GO a b) =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
-   test nm f = mkTest nm (runEC (nm++"-derf") (ccc (ADFun.deriv @R (ccc f))))
+   test nm f = mkTest nm (runEC (nm++"-derf") (ccc (ADFun.der (ccc f))))
  #-}
 #else
 -- NOTHING
@@ -648,10 +652,7 @@ cosSin :: Floating a => a -> a :* a
 cosSin a = (cos a, sin a)
 {-# INLINE cosSin #-}
 
-type R = Float
 type R2 = R :* R
-
-type LR = L R
 
 type R3 = (R,R,R)
 
@@ -689,9 +690,3 @@ newtype Bolo = Bolo Bool
 
 -- dbar :: Par1 R :* Par1 R -> L R (Par1 R :* Par1 R) ((Par1 :*: Par1) R)
 -- dbar = deriv abstC
-
--- bar' :: Par1 R :* Par1 R -> (Par1 :*: Par1) R
--- bar' = abstCp
-
-dbar' :: Par1 R :* Par1 R -> L R (Par1 R :* Par1 R) ((Par1 :*: Par1) R)
-dbar' = deriv abstCp

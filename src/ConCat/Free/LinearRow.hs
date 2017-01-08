@@ -34,7 +34,7 @@ import Data.Key (Zip(..))
 import Text.PrettyPrint.HughesPJClass hiding (render)
 import Control.Newtype
 
-import ConCat.Misc ((:*),PseudoFun(..),oops)
+import ConCat.Misc ((:*),PseudoFun(..),oops,R)
 import ConCat.Orphans ()
 import ConCat.Free.VectorSpace
 -- The following import allows the instances to type-check. Why?
@@ -131,8 +131,10 @@ joinL = zipWith (:*:)
     Category
 --------------------------------------------------------------------}
 
--- newtype L s a b = L ((V s a :-* V s b) s)
-data L s a b = L ((V s a :-* V s b) s)
+newtype L s a b = L ((V s a :-* V s b) s)
+-- data L s a b = L ((V s a :-* V s b) s)
+
+type LR = L R
 
 -- Using data is a workaround for
 -- <https://ghc.haskell.org/trac/ghc/ticket/13083#ticket> when I need it. See
@@ -248,9 +250,14 @@ joinLM = inAbst2 joinL
 jamLM :: Ok (L s) a => L s (a :* a) a
 jamLM = id `joinLM` id
 
-instance (V s (Rep a) ~ V s a, Ok (L s) a) => RepCat (L s) a where
-  reprC = abst idL 
-  abstC = abst idL 
+instance (r ~ Rep a, V s r ~ V s a, Ok (L s) a) => RepCat (L s) a r where
+  reprC = L idL
+  abstC = L idL
+
+-- idL :: (a :-* a) s
+--     ~  V s (V s a s)
+-- L id  :: V s (V s a s)
+--       ~  V s (V s r s)
 
 #if 0
 instance (Ok2 (L s) a b, Coercible (V s a) (V s b)) => CoerceCat (L s) a b where

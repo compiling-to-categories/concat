@@ -171,30 +171,8 @@ Op0(ifC,IfCat k a => Prod k (BoolOf k) (Prod k a a) `k` a)
 
 Op0(unknownC,UnknownCat k a b => a `k` b)
 
-Op0(reprC,RepCat k a => a `k` Rep a)
-Op0(abstC,RepCat k a => Rep a `k` a)
-
-#if 1
-Op0(reprCp,forall k a r. (RepCat k a, Rep a ~ r) => a `k` r)
-Op0(abstCp,forall k r a. (RepCat k a, Rep a ~ r) => r `k` a)
-
--- Awkward workaround for CPP's treatment of single quote marks
-reprC' :: forall k a r. (RepCat k a, Rep a ~ r) => a `k` r
-reprC' = reprCp
-
-abstC' :: forall k r a. (RepCat k a, Rep a ~ r) => r `k` a
-abstC' = abstCp
-#else
-
-reprC' :: forall k a r. (RepCat k a, Rep a ~ r) => a `k` r
-reprC' = reprC
-{-# OPINLINE reprC' #-}
-
-abstC' :: forall k r a. (RepCat k a, Rep a ~ r) => r `k` a
-abstC' = abstC
-{-# OPINLINE abstC' #-}
-
-#endif
+Op0(reprC,RepCat k a r => a `k` r)
+Op0(abstC,RepCat k a r => r `k` a)
 
 Op0(coerceC,(CoerceCat k a b) => a `k` b)
 
@@ -451,9 +429,6 @@ ccc _ = oops "ccc"
 
 "abstC . reprC" abstC . reprC = id
 "reprC . abstC" reprC . abstC = id
-
-"abstC' . reprC'" abstC' . reprC' = id
-"reprC' . abstC'" reprC' . abstC' = id
 
 -- "coerceC = id" coerceC = id  -- when types match
 
