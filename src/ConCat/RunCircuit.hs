@@ -32,7 +32,7 @@ import Prelude
 
 import Control.Monad (when)
 
-import ConCat.AltCat (ccc,Uncurriable(..)) -- Ok,unitArrow
+import ConCat.AltCat (ccc,Uncurriable(..),Ok) -- unitArrow
 import ConCat.Circuit (Attr,mkGraph,UU,writeDot,displayDot,unitize,(:>),GenBuses)
 
 -- import ConCat.Netlist (saveAsVerilog)
@@ -45,7 +45,7 @@ ranksep n = ("ranksep",show n)
 
 -- type Okay = Yes2
 -- type Okay a b = GenBuses a
-type Okay a b = (Uncurriable (:>) a b, GenBuses (UncDom a b))
+type Okay a b = (Uncurriable (:>) a b, GenBuses (UncDom a b), Ok (:>) (UncRan a b))
 
 go :: Okay a b => String -> (a -> b) -> IO ()
 -- go name = go' name []
@@ -91,12 +91,12 @@ showGraph :: Bool
 showGraph = False -- True
 
 -- Run an example: reify, CCC, circuit.
-run :: GenBuses a => String -> [Attr] -> (a :> b) -> IO ()
+run :: (GenBuses a, Ok (:>) b) => String -> [Attr] -> (a :> b) -> IO ()
 run name attrs circ = do -- when showPretty $ putStrLn (name ++ " = " ++ show e)
                          outGV name attrs (unitize circ)
 {-# NOINLINE run #-}
 
-runSep :: GenBuses a => String -> Double -> (a :> b) -> IO ()
+runSep :: (GenBuses a, Ok (:>) b) => String -> Double -> (a :> b) -> IO ()
 runSep name s = run name [ranksep s]
 
 -- Diagram and Verilog
