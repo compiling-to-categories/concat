@@ -1,11 +1,9 @@
 # To do
 
+*   In `Plugin`, refactor common functionality between "top" & "lam" transformations.
 *   Name possibilities:
     *   Catskill (though [Catskell](https://wiki.haskell.org/Catskell))
 *   Maybe have `buildDictionary` accumulate error messages rather than selecting among them.
-*   Track down problem with `double` example and `deriv`.
-    Error message: "`unFunB` got unexpected bus `ConvertB (<function>)`".
-    Happens when I use `newtype` instead of `data` for `D` in `AD` *and* drop `HasL` from `OkLM` in `LinearRow`.
 *   Sort out the problem with solving `Coercible` constraints as needed for `CoerceCat (->)`.
     Came up with second derivatives.
     See 2017-01-01 notes, including note to Richard Eisenberg.
@@ -16,31 +14,22 @@
 *   Remove old code from `Plugin`.
 *   Add a test for derivatives without circuits, running the generated Haskell AD code.
 *   `Circuit`: try making nodes for `abst`, `repr`, and `coerce`.
-*   Restore the `Coercible` constraint in `ConCat.Circuit` and figure out why the `CoerceCat` constraint isn't getting satisfied.
+*   Restore the `Coercible` constraint in `ConCat.Circuit`, and figure out why the `CoerceCat` constraint isn't getting satisfied.
 *   Does `ConvertB` work with constant propagation in `ConCat.Circuit`?
-*   Try `Coercion` (from `Data.Type.Coercion`) as an example of constrained categories.
-    Note that `Coercion a b =~ Dict (Coercible a b)`.
-    Similarly for `(:~:)` in `Data.Type.Equality`.
 *   Why does the `Coercible` constraint suffice for `CoerceCat` in `LinearRow` but not in `LinearCol`?
 *   Explore eliminating `abstReprCase` (and perhaps `abstReprCon`).
     Does unfolding suffice as an alternative?
     Not quite, since lambda-bound variables can appear as scrutinees.
     Maybe we could eliminate that possibility with another transformation.
 *   Remove `ConCat.Float` and supporting complexity in `ConCat.Plugin`.
-*   Try `ADFun` again for comparison.
+*   After various optimizations, retry `ADFun` again for comparison.
 *   Converting to the `Trivial` category leads to run-time error: "Impossible case alternative".
 *   Fix the problem with finding numeric and show instances for `Float` & `Double`, and then simplify `Circuit` again to use 0 instead of `Eql(fromIntegerZ 0)`, `negate` instead of `negateZ`, etc.
 *   Rewrite rule loop involving "`foo2`" and "`uncurry id`" in `AltCat`.
-*   In `recast`, when handing `AxiomInstCo` and `Sym` variant, Check for HasRep instances.
-*   In `Syn`, use the pretty-printing class.
 *   In `LinearRow` and `LinearCol`, retry my old `scaleL` definition via `Keyed` and `Adjustable`, comparing for robustness and speed.
 *   `SPECIALIZE` vector space and linear map operations for some common functors, particularly `Par1`, e.g., `scaleL` as used for numeric primitives.
 *   In `Plugin`, factor out `return (mkCcc (Lam x ...))` (for lam) and maybe also `return (mkCcc ...)` (for top).
 *   Maybe switch from `INLINE` to `INLINABLE`.
-*   Now that I'm unfolding more effectively (even with value args), maybe I no longer need the `reveal` hack.
-    My first test in `AD` failed, but I may need to tweak `unD'` *also*.
-    Update: I added `reveal` in `dfun` after `ccc` and before `unD`.
-    Greatly improved simplification, and sped up compilation.
 *   Eliminate the hack of first `ccc`ing to `(->)`, letting simplifications happen, and then `ccc`ing to another category, say without `Closed`.
     I think I'd have to improve my ability to do without `Closed`, including floating or substituting more `let` bindings.
 *   I think I'll want to rename `ProductCat`, `CoproductCat`, and `ClosedCat` to "`Cartesian`", "`Cocartesian`", and "`Closed`".
@@ -64,6 +53,17 @@
 
 # Done
 
+*   Try `Coercion` (from `Data.Type.Coercion`) as an example of constrained categories.
+    Note that `Coercion a b =~ Dict (Coercible a b)`.
+    Similarly for `(:~:)` in `Data.Type.Equality`.
+*   Track down problem with `double` example and `deriv`.
+    Error message: "`unFunB` got unexpected bus `ConvertB (<function>)`".
+    Happens when I use `newtype` instead of `data` for `D` in `AD` *and* drop `HasL` from `OkLM` in `LinearRow`.
+    Fixed with a `reveal` added to `dfun` in `AD`.
+*   Now that I'm unfolding more effectively (even with value args), maybe I no longer need the `reveal` hack.
+    My first test in `AD` failed, but I may need to tweak `unD'` *also*.
+    Update: I added `reveal` in `dfun` after `ccc` and before `unD`.
+    Greatly improved simplification, and sped up compilation.
 *   `Pretty` instances for `GHC.Generics` in `Orphans`.
 *   Have `buildDictionary` yield an error message when it fails, replacing the `Maybe` return type with a sum.
     Then have `Plugin` display that message and terminate when appropriate.
@@ -88,6 +88,8 @@
     Might require changing `abstC` and `reprC` to be like `abstC'` and `reprC'`, which would probably be fine.
 *   Remove HERMIT dependency!
     I copied over `HERMIT.GHC.Typechecker`.
+*   In `recast`, when handing `AxiomInstCo` and `Sym` variant, check for `HasRep` instances.
+*   In `Syn`, use the pretty-printing class.
 *   Undo the `NOINLINE` hack for numeric category operations, which is there for reboxing.
 *   Find a way to localize the reboxing transformations (performing them only under `ccc`), so that they don't cause general slow-down.
     Then restore late inlining to `AltCat` ops.
