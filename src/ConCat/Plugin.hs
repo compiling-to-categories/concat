@@ -281,10 +281,10 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
      e@(collectArgs -> (Var (isDataConId_maybe -> Just dc),_))
        | let (binds,body) = collectBinders (etaExpand (dataConRepArity dc) e)
              bodyTy = exprType body
+       -- , dtrace "top abstReprCon abst type" (ppr bodyTy) True
        , Just repr <- mkReprC'_maybe funCat bodyTy
        , Just abst <- mkAbstC'_maybe funCat bodyTy
        -> Doing("top abstReprCon")
-          dtrace "top abstReprCon repr type" (ppr (exprType repr)) $
           return $ mkCcc $
            mkLams binds $
             abst `App` (inlineE repr `App` body)
@@ -394,12 +394,12 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
      e@(collectNonTyCoDictArgs ->
         (collectTyCoDictArgs -> (Var (isDataConId_maybe -> Just dc),_), args))
        | let (binds,body') = collectBinders (etaExpand (dataConRepArity dc - length args) e)
-       , Just meth <- hrMeth (exprType body')
+             bodyTy = exprType body'
+       , Just repr <- mkReprC'_maybe funCat bodyTy
+       , Just abst <- mkAbstC'_maybe funCat bodyTy
        -> Doing("lam abstReprCon")
-          return $ mkCcc $
-           Lam x $
-            mkLams binds $
-             mkAbstC funCat (exprType body') `App` (meth reprV `App` body')
+          return $ mkCcc $ Lam x $
+            mkLams binds $ abst `App` (inlineE repr `App` body')
 #endif
      Trying("lam Let")
      -- TODO: refactor with top Let
@@ -579,11 +579,12 @@ ccc (CccEnv {..}) guts annotations dflags famEnvs inScope cat =
      -- 2016-01-04: I moved lam abstReprCase after unfold
      Trying("lam abstReprCase")
      -- Do I also need top abstReprCase?
-     Case scrut v altsTy alts
-       | Just meth <- hrMeth (exprType scrut)
+     Case scrut v@(varType -> vty) altsTy alts
+       | Just repr <- mkReprC'_maybe funCat vty
+       , Just abst <- mkAbstC'_maybe funCat vty
        -> Doing("lam abstReprCase")
           return $ mkCcc $ Lam x $
-           Case (meth abstV `App` (mkReprC funCat (varType v) `App` scrut)) v altsTy alts
+           Case (inlineE abst `App` (repr `App` scrut)) v altsTy alts
 #endif
 #if 0
      Trying("lam recast")
@@ -1165,7 +1166,7 @@ catOpArities = Map.fromList $ map (\ (nm,m,n) -> (catModule ++ '.' : nm, (m,n)))
   , ("ifC",0,0)
   , ("unknownC",0,0)
   , ("reprC",0,0), ("abstC",0,0)
-  , ("reprC'",0,0), ("abstC'",0,0)
+  , ("reprCp",0,0), ("abstCp",0,0)
   , ("constFun",1,0)
   ]
 
@@ -1308,8 +1309,8 @@ mkCccEnv opts = do
   constFunV   <- findCatId "constFun"
   abstCV      <- findCatId "abstC"
   reprCV      <- findCatId "reprC"
-  abstC'V     <- findCatId "abstC'"
-  reprC'V     <- findCatId "reprC'"
+  abstC'V     <- findCatId "abstCp"
+  reprC'V     <- findCatId "reprCp"
   coerceV     <- findCatId "coerceC"
   cccV        <- findCatId "ccc"
   floatT      <- findFloatTy "Float"

@@ -131,8 +131,8 @@ joinL = zipWith (:*:)
     Category
 --------------------------------------------------------------------}
 
-newtype L s a b = L ((V s a :-* V s b) s)
--- data L s a b = L ((V s a :-* V s b) s)
+-- newtype L s a b = L ((V s a :-* V s b) s)
+data L s a b = L ((V s a :-* V s b) s)
 
 -- Using data is a workaround for
 -- <https://ghc.haskell.org/trac/ghc/ticket/13083#ticket> when I need it. See

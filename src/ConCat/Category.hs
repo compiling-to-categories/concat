@@ -1307,8 +1307,11 @@ class RepCat k a where
   reprC :: a `k` Rep a
   abstC :: Rep a `k` a
 
--- TODO: Maybe move a to a RepCat parameter, perhaps with HasRep a as a
--- superclass constraint.
+reprCp :: forall k a r. (RepCat k a, Rep a ~ r) => a `k` r
+reprCp = reprC
+
+abstCp :: forall k r a. (RepCat k a, Rep a ~ r) => r `k` a
+abstCp = abstC
 
 instance HasRep a => RepCat (->) a where
   reprC = repr

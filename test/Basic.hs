@@ -42,8 +42,8 @@
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
--- {-# OPTIONS_GHC -dverbose-core2core #-}
+{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+{-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
 -- {-# OPTIONS_GHC -dsuppress-type-applications #-}
@@ -90,7 +90,7 @@ import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay,(:>))
-import ConCat.AltCat (ccc,reveal,Uncurriable(..),U2(..),(:**:)(..),Ok2)
+import ConCat.AltCat (ccc,reveal,Uncurriable(..),U2(..),(:**:)(..),Ok2,abstC,abstC',abstCp)
 import qualified ConCat.AltCat as A
 import ConCat.Rebox () -- experiment
 import ConCat.Orphans ()
@@ -196,7 +196,17 @@ tests = return
 --   , test "cos"         (cos :: Unop R)
 --   , test "double"      (\ x -> x + x :: R) 
 
-  , test "mult"      (uncurry ((*) @R))
+
+--   , tst (\ (p :: R2) -> (snd p, fst p))
+--   , tst (\ ((x,y) :: R2) -> (y,x))
+--   , tst (\ ((x,y) :: R2) -> (Par1 y,Par1 x))
+--   , tst (\ ((x,y) :: R2) -> Par1 y :*: Par1 x) -- simple
+
+--   , tst (\ (p :: Par1 R, q :: Par1 R) -> p :*: q)  -- complex
+
+--   , tst (abstC' :: Par1 R :* Par1 R -> (Par1 :*: Par1) R)
+
+--   , test "mult"      (uncurry ((*) @R))
 --   , test "square"      (\ x -> x * x :: R)
 
 --   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
@@ -381,6 +391,9 @@ runU2 = print
 
 type GO a b = (GenBuses a, Ok2 (:>) a b)
 
+runF :: (a -> b) -> IO ()
+runF f = f `seq` return ()
+
 runSyn :: Syn a b -> IO ()
 runSyn syn = putStrLn ('\n' : render syn)
 
@@ -396,6 +409,11 @@ runCirc' nm (triv :**: circ) = runU2 triv >> RC.run nm [] circ
 -- When I use U2, I get an run-time error: "Impossible case alternative".
 
 #if 0
+-- (->) interpretation
+test, test' :: String -> (a -> b) -> Test
+tst  :: (a -> b) -> Test
+{-# RULES "ccc (->)" forall nm f. test nm f = mkTest nm (runF (ccc f)) #-}
+#elif 0
 -- U2 interpretation
 test, test' :: String -> (a -> b) -> Test
 tst  :: (a -> b) -> Test
@@ -536,7 +554,7 @@ tst         :: GO a b =>           (a -> b) -> Test
 {-# RULES "(->); D; EC" forall nm f.
    test nm f = mkTest nm (runEC (nm++"-ad") (ccc (andDeriv @R (ccc f))))
  #-}
-#elif 0
+#elif 1
 -- (->), deriv, syntactic+circuit.
 test, test' :: GO a b => String -> (a -> b) -> Test
 tst         :: GO a b =>           (a -> b) -> Test
@@ -661,3 +679,19 @@ par1 = Par1
 {-# INLINE [0] par1 #-}
 
 newtype Bolo = Bolo Bool
+
+{--------------------------------------------------------------------
+    Tests
+--------------------------------------------------------------------}
+
+-- bar :: Par1 R :* Par1 R -> (Par1 :*: Par1) R
+-- bar = abstC
+
+-- dbar :: Par1 R :* Par1 R -> L R (Par1 R :* Par1 R) ((Par1 :*: Par1) R)
+-- dbar = deriv abstC
+
+-- bar' :: Par1 R :* Par1 R -> (Par1 :*: Par1) R
+-- bar' = abstCp
+
+dbar' :: Par1 R :* Par1 R -> L R (Par1 R :* Par1 R) ((Par1 :*: Par1) R)
+dbar' = deriv abstCp

@@ -31,13 +31,7 @@ import ConCat.AltCat hiding (const)
 import ConCat.Rep
 
 newtype D s a b = D { unD :: a -> b :* L s a b }
-
--- newtype D s a b = D (a -> b :* L s a b)
--- data D s a b = D (a -> b :* L s a b)
-
--- unD :: D s a b -> (a -> b :* L s a b)
--- unD (D f) = f
--- {-# INLINE unD #-}
+-- data D s a b = D { unD :: a -> b :* L s a b }
 
 -- TODO: generalize from L to any cartesian category
 
@@ -189,8 +183,8 @@ instance (OkLM s s, Floating s) => FloatingCat (D s) s where
   {-# INLINE cosC #-}
 
 instance (V s (Rep a) ~ V s a, Ok (L s) a, HasRep a) => RepCat (D s) a where
-  reprC = linearD reprC reprC
-  abstC = linearD abstC abstC
+  reprC = linearD reprC' reprC'
+  abstC = linearD abstC' abstC'
 
 #if 0
 instance (Coercible a b, V s a ~ V s b, Ok2 (L s) a b) => CoerceCat (D s) a b where
@@ -222,9 +216,9 @@ andDeriv _ = error "andDeriv called"
 deriv :: forall s a b . (a -> b) -> (a -> L s a b)
 deriv _ = error "deriv called"
 {-# NOINLINE deriv #-}
-{-# RULES "deriv" forall h. deriv h = snd . andDeriv h #-}
+-- {-# RULES "deriv" forall h. deriv h = snd . andDeriv h #-}
 -- {-# RULES "deriv" forall h. deriv h = snd P.. andDeriv h #-}
--- {-# RULES "deriv" forall h. deriv h = ccc (snd P.. andDeriv h) #-}
+{-# RULES "deriv" forall h. deriv h = ccc (snd . andDeriv h) #-}
 {-# ANN deriv PseudoFun #-}
 
 -- 2016-01-07: I thought the extra ccc would help with simplification, but I get
