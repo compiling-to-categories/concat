@@ -132,6 +132,11 @@ joinL = zipWith (:*:)
 --------------------------------------------------------------------}
 
 newtype L s a b = L ((V s a :-* V s b) s)
+-- data L s a b = L ((V s a :-* V s b) s)
+
+-- Using data is a workaround for
+-- <https://ghc.haskell.org/trac/ghc/ticket/13083#ticket> when I need it. See
+-- notes from 2016-01-07.
 
 -- deriving instance Show ((V s a :-* V s b) s) => Show (L s a b)
 
@@ -167,10 +172,10 @@ instance HasRep (L s a b) where
 instance HasV s (Rep (L s a b)) => HasV s (L s a b)
 
 #if 0
-type OkLF = (Foldable f, Zeroable f, Zip f, Diagonal f)
+-- Convenient but lots of constraint solving work & volume
+type OkLF f = (Foldable f, Zeroable f, Zip f, Diagonal f)
 #else
--- This version is a little less convenient to define and moderately reduces
--- compile-time work.
+-- Less convenient but perhaps easier on the compiler
 class (Foldable f, Zeroable f, Zip f, Diagonal f) => OkLF f
 
 instance OkLF U1
@@ -184,18 +189,20 @@ type OkLM' s a = (Num s, HasV s a, OkLF (V s a))
 -- type OkLM' s a = (Num s, HasV s a, HasL (V s a))
 
 class    OkLM' s a => OkLM s a
+#if 1
+-- Convenient but lots of constraint solving work & volume
 instance OkLM' s a => OkLM s a
-
-#if 0
-class    OkLM' s a => OkLMap s a
--- instance OkLM' s a => OkLMap s a
-
-instance OkLMap Float Float
-instance OkLMap Double Double
-instance (OkLMap s a, OkLMap s b) => OkLMap s (a,b)
-instance Num s => OkLMap s ((f :*: g) s)
-
--- instance (OkLMap s a, OkLMap s b) => OkLMap s (L s a b)
+#else
+-- Less convenient and perhaps less work for the compiler
+instance OkLM Float Float
+instance OkLM Double Double
+instance (Num s) => OkLM s ()
+instance (OkLM s a, OkLM s b) => OkLM s (a,b)
+instance (Num s) => OkLM s (U1 a)
+instance (Num s, HasV s a, OkLF (V s a)) => OkLM s (Par1 a)
+instance (Num s, OkLM s (f a), OkLM s (g a)) => OkLM s ((f :*: g) a)
+instance (Num s, OkLM s (g (f a))) => OkLM s ((g :.: f) a)
+instance (Num s, OkLM s ((V s a :-* V s b) s)) => OkLM s (L s a b)
 #endif
 
 -- instance Zeroable (L s a) where zeroV = L zeroV
@@ -417,4 +424,3 @@ type LRRR = L Float Float Float
 -- "assoc L (.) left"  forall (f :: L s a b) g h. h . (g . f) = (h . g) . f
 
  #-}
-  
