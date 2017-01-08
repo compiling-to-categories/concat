@@ -39,6 +39,7 @@
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE DeriveFunctor, DeriveDataTypeable #-}
 {-# LANGUAGE TypeApplications, AllowAmbiguousTypes #-}
+{-# LANGUAGE UndecidableSuperClasses #-}  -- GenBuses
 
 -- TODO: trim language extensions
 
@@ -65,7 +66,7 @@
 
 {-# OPTIONS_GHC -fmax-pmcheck-iterations=1000000 #-}
 
--- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 -- {-# OPTIONS_GHC -fno-warn-unused-binds   #-} -- TEMP
 
 ----------------------------------------------------------------------
@@ -131,7 +132,7 @@ import Text.Printf (printf)
 import Unsafe.Coerce -- experiment
 #endif
 -- import GHC.Exts (Coercible) -- ,coerce
-import Data.Typeable (Typeable,eqT,cast)  -- ,Proxy(..),typeRep
+import Data.Typeable (Typeable,eqT,cast) -- ,Proxy(..),typeRep
 import Data.Type.Equality ((:~:)(..))
 
 import qualified System.Info as SI
@@ -151,10 +152,11 @@ import qualified Control.Monad.State as M
 -- import TypeUnary.Vec hiding (get)
 
 -- TODO: Eliminate most of the following, as I move data types out of circat
-import ConCat.Misc ((:*),Unop,Binop)
+import ConCat.Misc ((:*),Unop,Binop,Yes1) -- 
 import ConCat.Complex
 import ConCat.Rep
 import ConCat.Category
+import qualified ConCat.AltCat as A
 import ConCat.AltCat (Uncurriable(..))
 import ConCat.Float
 
@@ -236,11 +238,9 @@ data Buses :: * -> * where
   FloatB   :: Source -> Buses Float
   DoubleB  :: Source -> Buses Double
   PairB    :: Buses a -> Buses b -> Buses (a :* b)
-  FunB     :: (a :> b) -> Buses (a -> b)
+  FunB     :: Ok2 (:>) a b => (a :> b) -> Buses (a -> b)
+  ConvertB :: (T a, T b) => Buses a -> Buses b
   -- AbstB :: Buses (Rep b) -> Buses b
-  ConvertB :: -- Coercible a b
-             (Typeable a, Typeable b)
-          => Buses a -> Buses b
 
 -- TODO: Try Buses as a type family instead of a GADT.
 -- Note that I need some operations on all buses, so I'd need a class also.
@@ -248,7 +248,7 @@ data Buses :: * -> * where
 -- TODO: Can I unify AbstB and ConvertB? Do those constructors really need the
 -- constraints a ~ Rep b and ConvertB a b?
 
-#if 1
+#if 0
 
 -- Currently unused.
 instance Eq (Buses a) where
@@ -282,6 +282,7 @@ instance Show (Buses a) where
   show (DoubleB b)  = show b
   show (PairB a b)  = "("++show a++","++show b++")"
   show (FunB _)     = "<function>"
+                      -- "<"++show (typeRep (Proxy :: Proxy a))++">"
   show (ConvertB b) = "ConvertB ("++show b++")"
   -- show (AbstB b) = "AbstB ("++show b++")"
 
@@ -295,7 +296,7 @@ genBuses prim ins = M.evalStateT (genBuses' (primName prim) ins) 0
 
 type BusesM = StateT Int CircuitM
 
-class GenBuses a where
+class Ok (:>) a => GenBuses a where
   genBuses' :: String -> Sources -> BusesM (Buses a)
   delay :: a -> (a :> a)
   ty :: a -> Ty                         -- dummy argument
@@ -374,11 +375,11 @@ flattenMb = fmap toList . flat
    flat (FunB _)     = Nothing
    -- flat (AbstB b) = flat b
 
-badBuses :: String -> Buses a -> x
-badBuses nm bs = error (nm ++ " got unexpected bus " ++ show bs)
-
-pairB :: Buses a :* Buses b -> Buses (a :* b)
-pairB (a,b) = PairB a b
+badBuses :: forall a x. Ok (:>) a => String -> Buses a -> x
+badBuses nm bs =
+  error (nm ++ " got unexpected bus " ++ show bs
+        -- ++ " to make bus type "++show (typeRep (Proxy :: Proxy a))
+        )
 
 -- -- Workaround for "spurious non-exhaustive warning with GADT and newtypes"
 -- -- <https://ghc.haskell.org/trac/ghc/ticket/6124>.
@@ -390,10 +391,11 @@ pairB (a,b) = PairB a b
 -- unUnitB (AbstB _) = badBuses "unUnitB"
 -- -- BogusMatch(unUnitB)
 
-unPairB :: Buses (a :* b) -> Buses a :* Buses b
-#if 0
-unPairB (PairB a b) = (a,b)
-unPairB (AbstB _)   = badBuses "unPairB"
+unPairB :: Ok2 (:>) a b => Buses (a :* b) -> Buses a :* Buses b
+#if 1
+unPairB (PairB a b)            = (a,b)
+unPairB (ConvertB (PairB c d)) = (convertB c, convertB d)
+unPairB b                      = badBuses "unPairB" b
 #else
 -- Lazier
 unPairB w = (a,b)
@@ -413,19 +415,21 @@ unPairB w = (a,b)
 
 #endif
 
-unFunB :: Buses (a -> b) -> (a :> b)
-unFunB (FunB circ) = circ
-unFunB bs          = badBuses "unFunB" bs
-
-exlB :: Buses (a :* b) -> Buses a
+exlB :: Ok2 (:>) a b => Buses (a :* b) -> Buses a
 exlB = fst . unPairB
 
-exrB :: Buses (a :* b) -> Buses b
+exrB :: Ok2 (:>) a b => Buses (a :* b) -> Buses b
 exrB = snd . unPairB
+
+-- Trying to eliminate Typeable from Ok (:>), since having it leads to lots of
+-- large Typeable dictionary constructions.
+-- My last dependency is unFunB's use of convertC.
+-- type T = Typeable
+type T = Yes1
 
 #if 1
 
-type TypeableAR a = (Typeable a, Typeable (Rep a))
+type TypeableAR a = (T a, T (Rep a))
 
 -- TODO: if this experiment works out, eliminate AbstB, and rename ConvertB.
 abstB :: TypeableAR a => Buses (Rep a) -> Buses a
@@ -450,17 +454,19 @@ reprB b = badBuses "reprB" b
 
 #endif
 
-convertB :: -- Coercible a b
-            forall a b. (Typeable a, Typeable b)
+convertC :: forall a b. (T a, T b) => a :> b
+convertC = C (arr convertB)
+
+convertB :: forall a b. (T a, T b)
          => Buses a -> Buses b
 -- convertB a | trace ("convertB " ++ show (typeRep (Proxy :: Proxy (a -> b))) ++ ": " ++ show a ++ "\n") False = undefined
 convertB (ConvertB p) = mkConvertB p  -- coalesce
 convertB a            = mkConvertB a
 
 -- Make a ConvertB if source and target types differ; otherwise id
-mkConvertB :: forall a b. (Typeable a, Typeable b)
+mkConvertB :: forall a b. (T a, T b)
            => Buses a -> Buses b
-mkConvertB a | Just Refl <- eqT @a @b = a
+mkConvertB a -- | Just Refl <- eqT @a @b = a
              | otherwise              = ConvertB a
 
 {--------------------------------------------------------------------
@@ -605,9 +611,9 @@ instance TypeableAR a => RepCat (:>) a where
   abstC = C (arr abstB)
 
 instance -- Coercible a b
-         (Typeable a, Typeable b)
+         (T a, T b)
       => CoerceCat (:>) a b where
-  coerceC = C (arr convertB)
+  coerceC = convertC
 
 -- instance CoerceCat (:>) where
 --   coerceC = C (arr coerce)
@@ -675,7 +681,8 @@ orOpt f g a = do mb <- f a
                    Nothing -> g a
                    Just _  -> return mb
 
-primOpt, primOptSort :: GenBuses b => String -> Opt b -> a :> b
+primOpt :: GenBuses b => String -> Opt b -> a :> b
+primOptSort :: (Ok (:>) a, GenBuses b) => String -> Opt b -> a :> b
 #if !defined NoOptimizeCircuit
 
 -- primOpt name _ = mkCK (genComp (Prim name))
@@ -745,6 +752,7 @@ inC2 :: (a :+> b -> a' :+> b' -> a'' :+> b'')
 inC2 = inC <~ unC
 
 instance Category (:>) where
+  type Ok (:>) = T
   id  = C id
   (.) = inC2 (.)
 
@@ -753,8 +761,8 @@ instance Category (:>) where
 --          -> (Buses (a :* b) -> m (Buses (a' :* b')))
 -- onPairBM f = fmap pairB . f . unPairB
 
-crossB :: Applicative m =>
-          (Buses a -> m (Buses c)) -> (Buses b -> m (Buses d))
+crossB :: (Applicative m, Ok2 (:>) a b)
+       => (Buses a -> m (Buses c)) -> (Buses b -> m (Buses d))
        -> (Buses (a :* b) -> m (Buses (c :* d)))
 crossB f g = (\ ~(a,b) -> liftA2 PairB (f a) (g b)) . unPairB
 
@@ -779,11 +787,29 @@ instance ProductCat (:>) where
   (***) = inCK2 crossB  -- or default
   (&&&) = inCK2 forkB   -- or default
 
+-- Experiment: remove ClosedCat instance
+#if 1
+
+instance (Ok (:>) a, BottomCat (:>) b) => BottomCat (:>) (a -> b) where
+  bottomC = curry (bottomC . exl)
+
+instance (Ok (:>) a, IfCat (:>) b) => IfCat (:>) (a -> b) where
+  ifC = funIf
+
+unFunB :: Ok2 (:>) a b => Buses (a -> b) -> (a :> b)
+unFunB (FunB ab)            = ab
+unFunB (ConvertB (FunB cd)) = convertC A.. cd A.. convertC
+unFunB bs                   = badBuses "unFunB" bs
+
+pairB :: Buses a :* Buses b -> Buses (a :* b)
+pairB (a,b) = PairB a b
+
 instance ClosedCat (:>) where
   -- type Exp (:>) = (->)
   apply   = C (applyK . first (arr (unC . unFunB)) . arr unPairB)
   curry   = inC $ \ h -> arr (FunB . C) . curryK (h . arr pairB)
   uncurry = inC $ \ f -> uncurryK (arr (unC . unFunB) . f) . arr unPairB 
+#endif
 
 #if defined TypeDerivation
 
@@ -894,9 +920,6 @@ instance BottomCat (:>) () where
 
 instance (BottomCat (:>) a, BottomCat (:>) b) => BottomCat (:>) (a :* b) where
   bottomC = bottomC &&& bottomC
-
-instance BottomCat (:>) b => BottomCat (:>) (a -> b) where
-  bottomC = curry (bottomC . exl)
 
 #if defined TypeDerivation
 bottomC :: () :> b
@@ -1342,7 +1365,7 @@ instance (FloatingZ a, Read a, GST a) => FloatingCat (:>) a where
 
 -- TODO: optimizations, e.g., sin & cos of negative angles.
 
-instance (Integral a, Num b, Read a, GST b)
+instance ({-Ok (:>) a, -}Integral a, Num b, Read a, GST b)
       => FromIntegralCat (:>) a b where
   fromIntegralC = primNoOpt1 "fromIntegral" fromIntegral
 
@@ -1462,10 +1485,7 @@ instance IfCat (:>) () where ifC = unitIf
 instance (IfCat (:>) a, IfCat (:>) b) => IfCat (:>) (a :* b) where
   ifC = prodIf
 
-instance IfCat (:>) b => IfCat (:>) (a -> b) where
-  ifC = funIf
-
-instance GenBuses a => Show (a :> b) where
+instance (GenBuses a, Ok2 (:>) a b) => Show (a :> b) where
   show = show . runC
 
 --     Application is no smaller than the instance head
@@ -1473,7 +1493,7 @@ instance GenBuses a => Show (a :> b) where
 --     (Use -XUndecidableInstances to permit this)
 
 -- Turn a circuit into a list of components, including fake In & Out.
-runC :: GenBuses a => (a :> b) -> [(Comp,Reuses)]
+runC :: (GenBuses a, Ok (:>) b) => (a :> b) -> [(Comp,Reuses)]
 runC = runU . unitize
 
 type UU = () :> ()
@@ -1490,7 +1510,7 @@ runU cir = getComps compInfo
 #endif
 
 -- Wrap a circuit with fake input and output
-unitize :: GenBuses a => (a :> b) -> UU
+unitize :: (GenBuses a, Ok (:>) b) => (a :> b) -> UU
 unitize = namedC "Out" <~ namedC "In"
 
 -- type instance OkayArr (:>) a b = GenBuses a
@@ -1660,7 +1680,7 @@ uuGraph = trimDGraph
         . runU
         -- . trace "uuGraph" id
 
-circuitGraph :: GenBuses a => (a :> b) -> DGraph
+circuitGraph :: (GenBuses a, Ok2 (:>) a b) => (a :> b) -> DGraph
 circuitGraph = uuGraph . unitize
 
 type CompDepths = Map CompS Depth
