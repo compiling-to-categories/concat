@@ -11,11 +11,11 @@
 %.see: %
 	open $<
 
-FigSuperDir=/Users/conal/Journals/Current/wikidata/2016/Figures
+FigSuperDir=/Users/conal/Journals/Current/wikidata/$(shell date "+%Y")/Figures
 FigDir=$(FigSuperDir)/$(shell date "+%m-%d")
 
 $(FigDir):
-	mkdir $@
+	mkdir -p $@
 
 $(FigDir)/%.svg: %.dot Makefile $(FigDir)
 	dot -Tsvg $< -o $@
