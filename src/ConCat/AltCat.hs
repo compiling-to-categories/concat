@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
 
 -- For Uncurriable:
 {-# LANGUAGE TypeFamilies          #-}
@@ -27,6 +28,7 @@ import Prelude hiding (id,(.),curry,uncurry,const,Float,Double)
 import qualified Prelude as P
 import qualified Data.Tuple as P
 import GHC.Exts (Coercible,coerce)
+import Data.Constraint ((\\))
 
 import qualified ConCat.Category as C
 import ConCat.Rep
@@ -45,6 +47,7 @@ import ConCat.Category
   , BoolCat, BoolOf
   , NumCat, FractionalCat, FloatingCat, FromIntegralCat
   , EqCat, OrdCat, EnumCat, BottomCat, IfCat, UnknownCat, RepCat, CoerceCat
+  , TransitiveCon(..)
   , U2(..), (:**:)(..)
   , type (|-)(..), (<+), okProd
   , OpCon(..),FunctorC(..),Sat(..)
@@ -430,10 +433,6 @@ ccc _ = oops "ccc"
 "abstC . reprC" abstC . reprC = id
 "reprC . abstC" reprC . abstC = id
 
--- "coerceC = id" coerceC = id  -- when types match
-
--- "coerceC . coerceC" coerceC . coerceC = coerceC
-
 -- -- "repair" forall c. (exl c, exr c) = c
 -- -- GHC objects to the previous form. The next one passes, but will it fire?
 -- -- Don't use. Rely on categorical rules instead.
@@ -442,4 +441,20 @@ ccc _ = oops "ccc"
 -- Applies only to (->):
 "f . const x" forall f x. f . const x = const (f x)
 
+-- "coerceC = id" coerceC = id  -- when types match
+
+-- "coerceC . coerceC" coerceC . coerceC = coco
+
+-- "coerceC . coerceC" coerceC . coerceC = snd coco'
+
  #-}
+
+coco :: forall k a b c. (CoerceCat k a b, CoerceCat k b c, TransitiveCon (CoerceCat k))
+     => (a `k` c)
+coco = coerceC \\ trans @(CoerceCat k) @a @b @c
+
+-- The problem is that coco gives no way to relate b.
+
+coco' :: forall k a b c. (CoerceCat k a b, CoerceCat k b c, TransitiveCon (CoerceCat k))
+      => b :* (a `k` c)
+coco' = (undefined, (coerceC \\ trans @(CoerceCat k) @a @b @c))
