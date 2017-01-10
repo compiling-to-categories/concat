@@ -422,9 +422,12 @@ instance Monad m => ProductCat (Kleisli m) where
   exl   = arr exl
   exr   = arr exr
   dup   = arr dup
-  (&&&) = inNew2 forkK
-  (***) = inNew2 crossK
+  (&&&) = (A.&&&)
+          -- inNew2 forkK
+  (***) = (A.***)
+          -- inNew2 crossK
 
+#if 0
 -- Underlies '(&&&)' on Kleisli arrows
 forkK :: Applicative m => (a -> m c) -> (a -> m d) -> (a -> m (c :* d))
 (f `forkK` g) a = liftA2 (,) (f a) (g a)
@@ -432,6 +435,7 @@ forkK :: Applicative m => (a -> m c) -> (a -> m d) -> (a -> m (c :* d))
 -- Underlies '(***)' on Kleisli arrows
 crossK :: Applicative m => (a -> m c) -> (b -> m d) -> (a :* b -> m (c :* d))
 (f `crossK` g) (a,b) = liftA2 (,) (f a) (g b)
+#endif
 
 {--------------------------------------------------------------------
     Coproducts
@@ -507,6 +511,17 @@ instance CoproductCat (->) where
   left  = A.left
   right = A.right
 #endif
+
+instance Monad m => CoproductCat (Kleisli m) where
+  inl = arr inl
+  inr = arr inr
+  (|||) = inNew2 (|||)
+
+-- f :: a -> m c
+-- g :: b -> m c
+-- h :: a :+ b -> m c
+
+--   want :: a -> m (a :+ b)
 
 instance CoproductCat U2 where
   inl = U2
@@ -1327,36 +1342,22 @@ instance (RepCat k a b, RepCat k' a b) => RepCat (k :**: k') a b where
   PINLINER(reprC)
   PINLINER(abstC)
 
-#if 0
-
 class TransitiveCon con where
   trans :: (con a b, con b c) :- con a c
 
 instance TransitiveCon Coercible where
   trans = Sub Dict
 
-class ( Category k
-      , Ok2 k a b
-      , Coercible a b
-      , TransitiveCon (CoerceCat k)
+-- instance TransitiveCon (CoerceCat (->)) where
+--   trans = Sub Dict
+
+class (
+      -- TransitiveCon (CoerceCat k)
       ) => CoerceCat k a b where
   coerceC :: a `k` b
 
 instance Coercible a b => CoerceCat (->) a b where
   coerceC = coerce
-
-instance TransitiveCon (CoerceCat (->)) where
-  trans = Sub Dict
-
-#else
-
-class ({-Category k-}{-, Ok2 k a b-}) => CoerceCat k a b where
-  coerceC :: a `k` b
-
-instance Coercible a b => CoerceCat (->) a b where
-  coerceC = coerce
-
-#endif
 
 instance CoerceCat U2 a b where
   coerceC = U2
