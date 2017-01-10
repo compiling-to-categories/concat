@@ -20,7 +20,9 @@ module ConCat.Incremental where
 import Prelude hiding (id,(.))
 import qualified Prelude as P
 import Control.Applicative (liftA2)
+import Control.Arrow (Kleisli)
 
+import Data.Void
 import Data.Constraint ((:-)(..),Dict(..))
 import Control.Newtype
 
@@ -73,6 +75,7 @@ splitS IdD                 = (IdD,IdD)
 -- splitS (ConstD (Right db)) = Right (ConstD db)
 -- -- splitS IdD                 = (IdD,IdD)
 
+infixr 1 +->
 newtype a +-> b = DX (Delta a -> Delta b)
 
 instance Newtype (a +-> b) where
@@ -177,16 +180,13 @@ instance Newtype (Delta (a :+ b)) where
 class HasDelta a where
   type Del a
   appD :: Del a -> Unop a
-  type Del a = Maybe a
-  default appD :: Del a ~ Maybe a => Del a -> Unop a
-  appD = maybe id const
-
--- I could move the Maybe to appD, so that Nothing always means id.
--- If so, make the default Del a = a
+  type Del a = a
+  default appD :: Del a ~ a => Del a -> Unop a
+  appD = const
 
 instance HasDelta () where
-  type Del () = ()
-  appD () = id
+  type Del () = Void
+  appD = absurd
 
 instance HasDelta Bool
 instance HasDelta Int
@@ -207,10 +207,13 @@ instance (HasDelta a, HasDelta b) => HasDelta (a :+ b) where
   appD (Right db) (Right b) = Right (appD db b)
   appD _ _ = error "appD on sum type: Left/Right mismatch"
 
-newtype a -+> b = XD (Del a -> Del b)
+type XD' a b = Kleisli Maybe (Del a) (Del b)
+
+infixr 1 -+>
+newtype a -+> b = XD (XD' a b)
 
 instance Newtype (a -+> b) where
-  type O (a -+> b) = Del a -> Del b
+  type O (a -+> b) = XD' a b
   pack f = XD f
   unpack (XD f) = f
 
@@ -264,14 +267,15 @@ If it blows up, switch to Y above, and inquire.
 -}
 
 instance ProductCat (-+>) where
-  exl = pack exl
-  exr = pack exr
+  exl   = pack exl
+  exr   = pack exr
   (&&&) = inNew2 (&&&)
 
 instance CoproductCat (-+>) where
-  inl = pack inl
-  inr = pack inr
+  inl   = pack inl
+  inr   = pack inr
   (|||) = inNew2 (|||)
 
-
+-- volatile :: a -+> a
+-- volatile = D (const (
 
