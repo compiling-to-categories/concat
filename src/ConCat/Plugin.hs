@@ -19,6 +19,7 @@
 
 module ConCat.Plugin where
 
+import Data.Monoid (Any(..))
 import Control.Arrow (first,second,(***))
 import Control.Applicative (liftA2,(<|>))
 import Control.Monad (unless,when,guard,(<=<))
@@ -27,7 +28,7 @@ import Data.Maybe (isNothing,isJust,fromMaybe,catMaybes)
 import Data.List (isPrefixOf,isSuffixOf,elemIndex,sort,stripPrefix)
 import Data.Char (toLower)
 import Data.Data (Data)
-import Data.Generics (GenericQ,GenericM,gmapM,mkQ,everything,mkT,everywhere')
+import Data.Generics (GenericQ,GenericM,gmapM,mkQ,mkT,mkM,everything,everywhere',everywhereM)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Data.Set (Set)
@@ -80,6 +81,8 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , prePostV         :: Id
                   -- , lazyV            :: Id
                      , boxers           :: Map TyCon Id  -- to remove
+                     , tagToEnumV       :: Id
+                     , boxIBV           :: Id
                   -- , reboxV           :: Id
                      , inlineV          :: Id
                   -- , coercibleTc      :: TyCon
@@ -470,7 +473,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
         sub = [(x,mkEx funCat exlV (Var z)),(y,mkEx funCat exrV (Var z))]
         -- TODO: consider using fst & snd instead of exl and exr here
      Trying("lam boxer")
-     (outerBoxCon -> Just e') ->
+     (boxCon -> Just e') ->
        Doing("lam boxer")
        return (mkCcc (Lam x e'))
      Trying("lam Case of boxer")
@@ -504,7 +507,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        return (mkCcc (Lam x (Let (NonRec v scrut) rhs)))
 
      Trying("lam Case of Bool")
-     e@(Case scrut wild _rhsTy [(DataAlt false, [], rhsF),(DataAlt true, [], rhsT)])
+     e@(Case scrut wild rhsTy [(DataAlt false, [], rhsF),(DataAlt true, [], rhsT)])
          | false == falseDataCon && true == trueDataCon ->
        -- To start, require v to be unused. Later, extend.
        if not (isDeadBinder wild) && wild `isFreeIns` [rhsF,rhsT] then
@@ -512,7 +515,8 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        else
           Doing("lam Case of Bool")
           return $
-            mkIfC cat (mkCcc (Lam x scrut)) (mkCcc (Lam x rhsF)) (mkCcc (Lam x rhsT))
+            mkIfC cat rhsTy (mkCcc (Lam x scrut))
+              (mkCcc (Lam x rhsF)) (mkCcc (Lam x rhsT))
 
      Trying("lam Case of product")
      e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
@@ -682,7 +686,7 @@ isComposeV _ = False
 
 data Ops = Ops
  { inlineE        :: Unop CoreExpr
- , outerBoxCon    :: ReExpr
+ , boxCon         :: ReExpr
  , catTy          :: Unop Type
  , reCatCo        :: Rewrite Coercion
  , repTy          :: Unop Type
@@ -706,7 +710,7 @@ data Ops = Ops
  , isClosed       :: Cat -> Bool
  , mkCurry        :: Cat -> Unop CoreExpr
  , mkUncurryMaybe :: Cat -> ReExpr
- , mkIfC          :: Cat -> Ternop CoreExpr
+ , mkIfC          :: Cat -> Type -> Ternop CoreExpr
  , mkConst        :: Cat -> Type -> ReExpr
  , mkConstFun     :: Cat -> Type -> ReExpr
  , mkConst'       :: Cat -> Type -> ReExpr
@@ -735,33 +739,21 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
  where
    inlineE :: Unop CoreExpr
    inlineE e = varApps inlineV [exprType e] [e]  -- move outward
-   -- Set up boxing expression for rewriting via ConCat.Rebox.
-   -- Look for boxer under case and cast.
-   outerBoxCon :: ReExpr
-   -- outerBoxCon e | dtrace "outerBoxCon" (ppr e) False = undefined
-   outerBoxCon e@(App (Var con) e')
-     | isDataConWorkId con
-     , Just (tc,[]) <- splitTyConApp_maybe (exprType e)
-     , Just boxV <- Map.lookup tc boxers
-     = Just (Var boxV `App` e')
-   outerBoxCon (Let b rhs) =
-     Let b <$> outerBoxCon rhs
-#if 0
-   outerBoxCon (Case scrut wild ty [(con,bs,rhs)]) =
-     (\ rhs' -> Case scrut wild ty [(con,bs,rhs')]) <$> outerBoxCon rhs
-#else
-   outerBoxCon (Case scrut wild ty alts) =
-     Case scrut wild ty <$> alt1 alts
+   boxCon :: ReExpr
+   boxCon e0 | tweaked   = Just e1
+             | otherwise = Nothing
     where
-      -- Fix at least one alt
-      alt1 [] = Nothing
-      alt1 (alt@(con,bs,rhs) : alts')
-        | Just alt' <- outerBoxCon rhs =
-          return ((con,bs,alt') : fromMaybe alts' (alt1 alts'))
-        | otherwise                    = (alt :) <$> alt1 alts'
-#endif
-   outerBoxCon (e `Cast` co) = (`Cast` co) <$> outerBoxCon e
-   outerBoxCon _ = Nothing
+      (Any tweaked,e1) = everywhereM (mkM tweak) e0
+      tweak :: CoreExpr -> (Any,CoreExpr)
+      tweak e@(App (Var con) e')
+        | isDataConWorkId con
+        , Just (tc,[]) <- splitTyConApp_maybe (exprType e)
+        , Just boxV <- Map.lookup tc boxers
+        = (Any True, Var boxV `App` e')
+      tweak ((Var v `App` Type ty) `App` e')
+        | v == tagToEnumV && ty `eqType` boolTy
+        = (Any True, Var boxIBV `App` e')
+      tweak e = (Any False, e)
    -- hrMeth :: Type -> Maybe (Id -> CoreExpr)
    -- hrMeth ty = -- dtrace "hasRepMeth:" (ppr ty) $
    --             hasRepMeth dflags guts inScope ty
@@ -908,9 +900,9 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      (`App` e) <$> (onDictMaybe =<< catOpMaybe k uncurryV [a,b,c] )
     where
       (tyArgs2 -> (a, tyArgs2 -> (b,c))) = exprType e
-   mkIfC :: Cat -> Ternop CoreExpr
-   mkIfC k cond true false =
-     mkCompose cat (catOp k ifV [exprType true])
+   mkIfC :: Cat -> Type -> Ternop CoreExpr
+   mkIfC k ty cond true false =
+     mkCompose cat (catOp k ifV [ty])
        (mkFork cat cond (mkFork cat true false))
    mkConst :: Cat -> Type -> ReExpr
    mkConst k dom e =
@@ -1348,6 +1340,8 @@ mkCccEnv opts = do
   boxIV       <- findBoxId "boxI"
   boxFV       <- findBoxId "boxF"
   boxDV       <- findBoxId "boxD"
+  boxIBV      <- findBoxId "boxIB"
+  tagToEnumV  <- findId "GHC.Prim" "tagToEnum#"
   -- lazyV    <- findExtId "lazy"
   -- reboxV   <- findBoxId "rebox"
   -- coercibleTc <- findExtTc "Coercible"
