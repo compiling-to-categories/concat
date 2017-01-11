@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -19,6 +20,7 @@ module ConCat.Incremental where
 
 import Prelude hiding (id,(.))
 import qualified Prelude as P
+import Data.Monoid (Any(..))
 import Control.Applicative (liftA2)
 import Control.Arrow (Kleisli)
 
@@ -26,7 +28,7 @@ import Data.Void
 import Data.Constraint ((:-)(..),Dict(..))
 import Control.Newtype
 
-import ConCat.Misc ((:*),(:+),Unop,inNew,inNew2,Yes1)
+import ConCat.Misc ((:*),(:+),Unop,Binop,inNew,inNew2,Yes1)
 import qualified ConCat.Category
 import ConCat.AltCat hiding (const,curry,uncurry)
 
@@ -141,10 +143,10 @@ instance CoproductCat (+->) where
 -- instance ConstCat (+->) b where
 --   const b = DX (const (ConstD b))
 
--- Use AD after generalizing.
-der :: (a -> b) -> (a +-> b)
-der _ = error "der called"
-{-# NOINLINE der #-}
+-- -- Use AD after generalizing.
+-- der :: (a -> b) -> (a +-> b)
+-- der _ = error "der called"
+-- {-# NOINLINE der #-}
 
 #define Atomic(ty) \
 instance Newtype (Delta (ty)) where \
@@ -177,17 +179,26 @@ instance Newtype (Delta (a :+ b)) where
     Another experiment: represent Delta via associated type
 --------------------------------------------------------------------}
 
+type Changed = Any  -- maybe absorb def into AtomDel
+
+type AtomDel a = Changed :* a
+
+type Atomic a = Del a ~ AtomDel a
+
 class HasDelta a where
   type Del a
   appD :: Del a -> Unop a
-  type Del a = a
-  default appD :: Del a ~ a => Del a -> Unop a
-  appD = const
+  type Del a = AtomDel a
+  default appD :: Atomic a => Del a -> Unop a
+  appD (Any changed,new) old = if changed then new else old -- or just new?
+  constantD :: a -> Del a
+  default constantD :: Atomic a => a -> Del a
+  constantD = (Any False, )
 
-instance HasDelta () where
-  type Del () = Void
-  appD = absurd
+constantXD :: HasDelta b => b -> (a -+> b)
+constantXD b = XD (const (constantD b))
 
+instance HasDelta ()
 instance HasDelta Bool
 instance HasDelta Int
 instance HasDelta Float
@@ -196,75 +207,26 @@ instance HasDelta Double
 instance (HasDelta a, HasDelta b) => HasDelta (a :* b) where
   type Del (a :* b) = Del a :* Del b
   appD (da,db) = appD da *** appD db
-
--- instance (HasDelta a, HasDelta b) => HasDelta (a :+ b) where
---   type Del (a :+ b) = Del a :* Del b
---   appD (da,db) = appD da +++ appD db
+  constantD = constantD *** constantD
 
 instance (HasDelta a, HasDelta b) => HasDelta (a :+ b) where
   type Del (a :+ b) = Del a :+ Del b
   appD (Left  da) (Left  a) = Left  (appD da a)
   appD (Right db) (Right b) = Right (appD db b)
   appD _ _ = error "appD on sum type: Left/Right mismatch"
-
-type XD' a b = Kleisli Maybe (Del a) (Del b)
+  constantD = constantD +++ constantD
 
 infixr 1 -+>
-newtype a -+> b = XD (XD' a b)
+newtype a -+> b = XD (Del a -> Del b)
 
 instance Newtype (a -+> b) where
-  type O (a -+> b) = XD' a b
+  type O (a -+> b) = Del a -> Del b
   pack f = XD f
   unpack (XD f) = f
 
 instance Category (-+>) where
-  -- type Ok (-+>) = Y
-  id = pack id
+  id  = pack id
   (.) = inNew2 (.)
-
-#if 0
-class    Y a
-instance Y a
-
-instance OpCon op (Sat Y) where
-  inOp = Entail (Sub Dict)
-  {-# INLINE inOp #-}
-#endif
-
-{-
-
-If I use the default Ok (-+>) = Yes1, I get some errors I don't understand:
-
-    • Overlapping instances for Yes1 (Del a) arising from a use of ‘id’
-      Matching instances:
-        instance forall k (a :: k). Yes1 a
-          -- Defined at /Users/conal/Haskell/concat/src/ConCat/Misc.hs:98:10
-      There exists a (perhaps superclass) match:
-        from the context: Ok (-+>) a
-          bound by the type signature for:
-                     id :: Ok (-+>) a => a -+> a
-          at /Users/conal/Haskell/concat/src/ConCat/Incremental.hs:210:3-4
-      (The choice depends on the instantiation of ‘a’
-       To pick the first instance above, use IncoherentInstances
-       when compiling the other instance declarations)
-    • In the first argument of ‘XD’, namely ‘id’
-      In the expression: XD id
-      In an equation for ‘id’: id = XD id
-
-    • Could not deduce (Yes1 (Del a), Yes1 (Del b), Yes1 (Del c))
-        arising from a use of ‘.’
-      from the context: Ok3 (-+>) a b c
-        bound by the type signature for:
-                   (.) :: Ok3 (-+>) a b c => b -+> c -> a -+> b -> a -+> c
-        at /Users/conal/Haskell/concat/src/ConCat/Incremental.hs:211:8
-    • In the first argument of ‘XD’, namely ‘(g . f)’
-      In the expression: XD (g . f)
-      In an equation for ‘.’: (XD g) . (XD f) = XD (g . f)
-
-I'm using IncoherentInstances, but I don't know what will happen.
-If it blows up, switch to Y above, and inquire.
-
--}
 
 instance ProductCat (-+>) where
   exl   = pack exl
@@ -276,6 +238,15 @@ instance CoproductCat (-+>) where
   inr   = pack inr
   (|||) = inNew2 (|||)
 
--- volatile :: a -+> a
--- volatile = D (const (
+op1 :: (Atomic a, Atomic b) => (a -> b) -> (a -+> b)
+op1 f = XD (fmap f)
 
+op2 :: (Atomic a, Atomic b, Atomic c) => (a -> b -> c) -> (a :* b -+> c)
+op2 f = XD (uncurry (liftA2 f))
+
+instance (Atomic a, Num a) => NumCat (-+>) a where
+  negateC = op1 negate
+  addC    = op2 (+)
+  subC    = op2 (-)
+  mulC    = op2 (*)
+  powIC   = op2 (^)
