@@ -219,6 +219,9 @@ instance (HasDelta a, HasDelta b) => HasDelta (a :+ b) where
 infixr 1 -+>
 newtype a -+> b = XD (Del a -> Del b)
 
+unXD :: (a -+> b) -> (Del a -> Del b)
+unXD (XD f) = f
+
 instance Newtype (a -+> b) where
   type O (a -+> b) = Del a -> Del b
   pack f = XD f
