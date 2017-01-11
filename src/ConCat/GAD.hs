@@ -25,6 +25,7 @@ import Control.Newtype
 import ConCat.Misc ((:*),inNew2,PseudoFun(..))
 import ConCat.Free.VectorSpace
 import ConCat.Free.LinearRow
+import ConCat.Incremental
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
 import ConCat.AltCat hiding (const)
@@ -121,6 +122,8 @@ notDef meth = error (meth ++ " on D not defined")
 
 type D s = GD (L s)
 
+type Inc = GD (-+>)
+
 instance Num s => TerminalCat (D s) where
   it = linearD (const ()) zeroLM
   {-# INLINE it #-}
@@ -129,11 +132,33 @@ instance Ok (L s) b => ConstCat (D s) b where
   const b = D (const (b, zeroLM))
   {-# INLINE const #-}
 
+instance TerminalCat Inc where
+  it = D (const ((),constantXD ()))
+  -- it = const ()
+  {-# INLINE it #-}
+
+instance HasDelta b => ConstCat Inc b where
+  const b = D (const (b, constantXD b))
+  {-# INLINE const #-}
+
+-- TODO: Work on unifying more instances between D s and Inc.
+
 instance Ok (L s) s => NumCat (D s) s where
   negateC = linearD negateC (scale (-1))
   addC    = linearD addC    jamLM
   mulC    = D (mulC &&& (\ (a,b) -> scale b `joinLM` scale a))
   powIC   = notDef "powC"
+  {-# INLINE negateC #-}
+  {-# INLINE addC    #-}
+  {-# INLINE mulC    #-}
+  {-# INLINE powIC   #-}
+
+instance (Atomic s, Num s, Ok (-+>) s) => NumCat Inc s where
+  negateC = linearD negateC negateC
+  addC    = linearD addC    addC
+  subC    = linearD subC    subC
+  mulC    = linearD mulC    mulC
+  powIC   = linearD powIC   powIC
   {-# INLINE negateC #-}
   {-# INLINE addC    #-}
   {-# INLINE mulC    #-}
@@ -180,7 +205,7 @@ instance (Ok (L s) s, Floating s) => FloatingCat (D s) s where
   {-# INLINE sinC #-}
   {-# INLINE cosC #-}
 
-instance (RepCat (->) a r, RepCat k a r, Ok k a) => RepCat (GD k) a r where
+instance (RepCat (->) a r, RepCat k a r) => RepCat (GD k) a r where
   reprC = linearD reprC reprC
   abstC = linearD abstC abstC
 
@@ -229,3 +254,15 @@ der = deriv
 {-# NOINLINE der #-}
 {-# RULES "der" der = deriv #-}
 -- {-# ANN der PseudoFun #-}
+
+andInc :: forall a b . (a -> b) -> (a -> b :* (a -+> b))
+andInc = andDeriv
+{-# NOINLINE andInc #-}
+{-# RULES "andInc" andInc = andDeriv #-}
+-- {-# ANN andInc PseudoFun #-}
+
+inc :: forall a b . (a -> b) -> (a -> (a -+> b))
+inc = deriv
+{-# NOINLINE inc #-}
+{-# RULES "inc" inc = deriv #-}
+-- {-# ANN inc PseudoFun #-}
