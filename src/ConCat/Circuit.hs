@@ -126,7 +126,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Sequence (Seq,singleton)
 import Text.Printf (printf)
--- import Debug.Trace (trace)
+import Debug.Trace (trace)
 -- import Data.Coerce                      -- TODO: imports
 #if !defined NoHashCons
 import Unsafe.Coerce -- experiment
@@ -787,11 +787,7 @@ instance ProductCat (:>) where
   (***) = inCK2 crossB  -- or default
   (&&&) = inCK2 forkB   -- or default
 
--- Experiment: remove ClosedCat instance
 #if 1
-
-instance (Ok (:>) a, BottomCat (:>) b) => BottomCat (:>) (a -> b) where
-  bottomC = curry (bottomC . exl)
 
 instance (Ok (:>) a, IfCat (:>) b) => IfCat (:>) (a -> b) where
   ifC = funIf
@@ -903,23 +899,24 @@ constM' :: GS b => b -> CircuitM (Buses b)
 
 #define UNDEFINED "⊥"
 
-bottomScalar :: GenBuses b => () :> b
-bottomScalar = mkCK (constComp UNDEFINED)
+bottomScalar :: GenBuses b => z :> b
+bottomScalar = -- trace "bottomScalar called" $
+               mkCK (constComp UNDEFINED)
 
 #define BottomPrim(ty) \
- instance BottomCat (:>) (ty) where { bottomC = bottomScalar }
+ instance BottomCat (:>) z (ty) where { bottomC = bottomScalar }
 
 BottomPrim(Bool)
 BottomPrim(Int)
 BottomPrim(Float)
 BottomPrim(Double)
 
-instance BottomCat (:>) () where
+instance BottomCat (:>) z () where
 --   bottomC = mkCK (const (return UnitB))
   bottomC = C (arr (const UnitB))
 
-instance (BottomCat (:>) a, BottomCat (:>) b) => BottomCat (:>) (a :* b) where
-  bottomC = bottomC &&& bottomC
+-- instance (BottomCat (:>) a, BottomCat (:>) b) => BottomCat (:>) (a :* b) where
+--   bottomC = bottomC &&& bottomC
 
 #if defined TypeDerivation
 bottomC :: () :> b
@@ -1768,7 +1765,7 @@ graphDot name attrs depths =
              , "bgcolor=transparent"
              , "nslimit=20"  -- helps with very large rank graphs
              -- , "ratio=1"
-             --, "ranksep=1"
+             , "ranksep=1.0"
              -- , fixedsize=true
              ] ++ [a ++ "=" ++ show v | (a,v) <- attrs]
    wrap  = ("  " ++) . (++ ";\n")
