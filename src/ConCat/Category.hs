@@ -549,6 +549,11 @@ instance (CoproductCat k, CoproductCat k') => CoproductCat (k :**: k') where
   PINLINER(lassocS)
   PINLINER(rassocS)
 
+-- | Apply to both parts of a coproduct
+twiceS :: (CoproductCat k, Oks k [a,c]) 
+       => (a `k` c) -> Coprod k a a `k` (Coprod k c c)
+twiceS f = f +++ f
+
 -- | Operate on left-associated form
 inLassocS :: forall k a b c a' b' c'.
              -- (CoproductCat k, Ok6 k a b c a' b' c') 
@@ -1210,18 +1215,24 @@ instance (FromIntegralCat k a b, FromIntegralCat k' a b) => FromIntegralCat (k :
   fromIntegralC = fromIntegralC :**: fromIntegralC
   PINLINER(fromIntegralC)
 
-class (Category k, Ok2 k (Unit k) a) => BottomCat k a where
-  bottomC :: Unit k `k` a
+class BottomCat k a b where
+  bottomC :: a `k` b
 
-bottomRep :: (RepCat k a r, BottomCat k r, Ok k a) => Unit k `k` a
+bottomRep :: (Category k, RepCat k b r, BottomCat k a r, Ok3 k a b r) => a `k` b
 bottomRep = abstC . bottomC
 
-instance BottomCat (->) a where bottomC = error "bottomC for (->) evaluated"
+-- instance (BottomCat k a b, BottomCat k a c, ProductCat k, Ok3 k a b c) => BottomCat k a (b :* c) where
+--   bottomC = bottomC &&& bottomC
 
-instance BottomCat U2 a where
+instance (BottomCat k a b, ClosedCat k, Ok4 k z b a (z -> b)) => BottomCat k a (z -> b) where
+  bottomC = curry (bottomC . exl) <+ okProd @k @a @ z
+
+instance BottomCat (->) a b where bottomC = error "bottomC for (->) evaluated"
+
+instance BottomCat U2 a b where
   bottomC = U2
 
-instance (BottomCat k a, BottomCat k' a) => BottomCat (k :**: k') a where
+instance (BottomCat k a b, BottomCat k' a b) => BottomCat (k :**: k') a b where
   bottomC = bottomC :**: bottomC
   PINLINER(bottomC)
 
