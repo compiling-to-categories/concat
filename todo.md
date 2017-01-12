@@ -1,5 +1,8 @@
 # To do
 
+
+*   Maybe I don't need `ConstCat (:>)` for anything but scalars, since the compiler will keep breaking down constant terms until it gets to a type for which the target category has a `ConstCat` instance.
+*   Demand analysis at category.
 *   Comment out `PseudoFun` annotations to see if anything breaks.
 *   Use `typeR` from `Misc` to replace uses of `typeRep`.
 *   In `Plugin`, refactor common functionality between "top" & "lam" transformations.
