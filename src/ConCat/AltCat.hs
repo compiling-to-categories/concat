@@ -168,7 +168,7 @@ Op0(greaterThanOrEqual,OrdCat k a => Prod k a a `k` BoolOf k)
 Op0(succC,EnumCat k a => a `k` a)
 Op0(predC,EnumCat k a => a `k` a)
 
-Op0(bottomC,BottomCat k a => Unit k `k` a)
+Op0(bottomC,BottomCat k a b => a `k` b)
 
 Op0(ifC,IfCat k a => Prod k (BoolOf k) (Prod k a a) `k` a)
 
@@ -204,8 +204,9 @@ Op0(fromIntegralC,FromIntegralCat k a b => a `k` b)
 constFun :: forall k p a b. (ClosedCat k, Ok3 k p a b)
          => (a `k` b) -> (p `k` Exp k a b)
 constFun f = curry (f . exr) <+ okProd @k @p @a
-{-# OPINLINE constFun #-}
-OpRule1(constFun)
+{-# INLINE constFun #-}
+-- {-# OPINLINE constFun #-}
+-- OpRule1(constFun)
 
 -- TODO: Consider moving all of the auxiliary functions (like constFun) here.
 -- Rename "ConCat.Category" to something like "ConCat.Category.Class" and
@@ -343,6 +344,7 @@ UncId(c :+ d)
 "foo2" forall (g :: a `k` d) h.
   apply . (h &&& g) = uncurry h . (id &&& g) <+ okProd @k @a @d
 
+-- "uncurry . constFun" forall (f :: p -> q). uncurry (constFun f) = f . exr
 
 -- -- experiment
 -- "constFun id" constFun id = curry exr
