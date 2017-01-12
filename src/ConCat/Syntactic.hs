@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeOperators #-}
@@ -10,7 +11,10 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 {-# OPTIONS_GHC -Wall #-}
--- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+
+-- {-# LANGUAGE DataKinds #-}  -- TEMP
+{-# OPTIONS_GHC -Wno-unused-foralls -Wno-redundant-constraints #-} -- TEMP
 
 -- | Syntactic CCC
 
@@ -20,14 +24,14 @@ import Prelude hiding (id,(.),lookup,const,Float,Double)
 
 import Data.Map (Map,fromList,lookup)
 import Control.Newtype
-import Text.PrettyPrint.HughesPJ hiding (render)
-import Text.PrettyPrint.HughesPJClass hiding (render)
+import Text.PrettyPrint.HughesPJClass hiding (render,first)
 import Data.Typeable (Typeable)
+import Data.Constraint (Dict(..),(:-)(..))  -- temp
 
 import ConCat.Category
-import ConCat.Misc (inNew,inNew2,Unop,Binop,typeR)
+import ConCat.Misc (inNew,inNew2,Unop,Binop,typeR,Yes1,(:*))
 import ConCat.Rep (Rep)
--- import ConCat.Float (Float,Double)
+import ConCat.Float (Float,Double)
 
 {--------------------------------------------------------------------
     Untyped S-expression
@@ -35,7 +39,7 @@ import ConCat.Rep (Rep)
 
 data SynU = SynU PDoc [SynU]
 
-instance Show SynU where show = showPDoc . ppretty
+instance Show SynU where showsPrec p syn = (showPDoc p (ppretty syn) ++)
 
 atomu :: Pretty a => a -> SynU
 atomu a = SynU (ppretty a) []
@@ -53,7 +57,7 @@ app2u :: String -> Binop SynU
 app2u s p q = SynU (cctext s) [p,q]
 
 instance Pretty SynU where
-  pPrintPrec l p (SynU f [u,v]) | let nm = showPDoc f
+  pPrintPrec l p (SynU f [u,v]) | let nm = showPDoc 0 f
                                 , Just fixity <- lookup nm fixities =
     docOp2 False nm fixity (ppretty u) (ppretty v) l p
   pPrintPrec l p (SynU f es) =
@@ -180,13 +184,13 @@ instance ClosedCat Syn where
   INLINER(curry)
   INLINER(uncurry)
 
-#if 0
+#if 1
 
-litConst :: Show b => b -> Syn a b
-litConst b = app1 "const" (atom (showPrec appPrec b))
+atomicConst :: Show b => b -> Syn a b
+atomicConst b = app1 "const" (atomStr (show b))
 
 #define LitConst(ty) \
-instance ConstCat Syn (ty) where { const = litConst ; INLINER(const) }
+instance ConstCat Syn (ty) where { const = atomicConst ; INLINER(const) }
 
 LitConst(())
 LitConst(Bool)
@@ -194,8 +198,8 @@ LitConst(Int)
 LitConst(Float)
 LitConst(Double)
 
-instance (ConstCat Syn a, ConstCat Syn b) => ConstCat Syn (a :* b) where
-  const = pairConst
+-- instance (ConstCat Syn a, ConstCat Syn b) => ConstCat Syn (a :* b) where
+--   const = pairConst
 
 #else
 
@@ -271,29 +275,64 @@ instance FromIntegralCat Syn a b where
   fromIntegralC = atomStr "fromIntegralC"
   INLINER(fromIntegralC)
 
-instance BottomCat Syn a where
+instance BottomCat Syn a b where
   bottomC = atomStr "bottomC"
   INLINER(bottomC)
 
+#if 1
 instance IfCat Syn a where
   ifC = atomStr "ifC"
   INLINER(ifC)
+#else
+
+atomicIf :: Syn a b
+atomicIf = atomStr "ifC"
+
+#define LitIf(ty) \
+instance IfCat Syn (ty) where { ifC = atomicIf ; INLINER(ifC) }
+
+-- LitIf(())
+LitIf(Bool)
+LitIf(Int)
+LitIf(Float)
+LitIf(Double)
+
+instance IfCat Syn () where ifC = unitIf
+
+instance (IfCat Syn a, IfCat Syn b) => IfCat Syn (a :* b) where
+  ifC = prodIf
+
+#define AbstIf(abs) \
+instance (IfCat Syn (Rep (abs)), T (abs), T (Rep (abs))) => IfCat Syn (abs) where { ifC = repIf }
+
+AbstIf(Maybe a)
+AbstIf((a,b,c))
+...
+
+#endif
 
 instance UnknownCat Syn a b where
   unknownC = atomStr "unknownC"
   INLINER(unknownC)
 
-showTypes :: Bool
-showTypes = False -- True
+#define ShowTypes
+
+#ifdef ShowTypes
+type T a = Typeable a
 
 addTy :: forall t. Typeable t => Unop String
-addTy | showTypes = flip (++) (" :: " ++ show (typeR @t))
-      | otherwise = id
+addTy = flip (++) (" :: " ++ show (typeR @t))
 
-atomStr' :: forall a b. (Typeable a, Typeable b) => String -> Syn a b
+#else
+type T = Yes1
+addTy :: forall t. Unop String
+addTy = id
+#endif
+
+atomStr' :: forall a b. (T a, T b) => String -> Syn a b
 atomStr' = atomStr . addTy @(a -> b)
 
-instance (r ~ Rep a, Typeable a, Typeable r) => RepCat Syn a r where
+instance (r ~ Rep a, T a, T r) => RepCat Syn a r where
   reprC = atomStr' "reprC"
   abstC = atomStr' "abstC"
   INLINER(reprC)
@@ -316,8 +355,8 @@ type PDoc = PrettyLevel -> Prec -> Doc
 ppretty :: Pretty a => a -> PDoc
 ppretty a l p = pPrintPrec l p a
 
-showPDoc :: PDoc -> String
-showPDoc d = show (d prettyNormal 0)
+showPDoc :: Int -> PDoc -> String
+showPDoc p d = show (d prettyNormal (fromIntegral p))
 
 -- Precedence of function application.
 -- Hack: use 11 instead of 10 to avoid extraneous parens when a function
