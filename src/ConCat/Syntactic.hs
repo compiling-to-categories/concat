@@ -315,7 +315,7 @@ instance UnknownCat Syn a b where
   unknownC = atomStr "unknownC"
   INLINER(unknownC)
 
-#define ShowTypes
+-- #define ShowTypes
 
 #ifdef ShowTypes
 type T a = Typeable a
