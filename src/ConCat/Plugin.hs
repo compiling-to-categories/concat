@@ -75,6 +75,7 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , reprCV           :: Id
                      , abstCV           :: Id
                      , coerceV          :: Id
+                     , bottomCV         :: Id
                      , repTc            :: TyCon
                   -- , hasRepMeth       :: HasRepMeth
                      -- , hasRepFromAbstCo :: Coercion   -> CoreExpr
@@ -82,6 +83,7 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                   -- , lazyV            :: Id
                      , boxers           :: Map TyCon Id  -- to remove
                      , tagToEnumV       :: Id
+                     , bottomV          :: Id
                      , boxIBV           :: Id
                   -- , reboxV           :: Id
                      , inlineV          :: Id
@@ -211,7 +213,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        | FunTy a  b  <- exprType e
        , FunTy a' b' <- exprType e'
        ->
-          Doing("top representational cast 3")
+          Doing("top representational cast")
           -- Will I get unnecessary coerceCs due to nominal-able sub-coercions?
           return $ mkCompose cat (mkCoerceC cat b' b) $
                    mkCompose cat (mkCcc e') $
@@ -363,6 +365,11 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -> Doing("lam Poly const bail")
           -- dtrace("lam Poly const: bty & isMonoTy") (ppr (bty, isMonoTy bty)) $
           Nothing
+     Trying("lam bottom") -- must come before "lam Const" and "lam App"
+     (collectArgs -> (Var ((== bottomV) -> True),[Type ty]))
+       | Just e' <- mkBottomC cat xty ty
+       -> Doing("lam bottom")
+          return e'
      Trying("lam Const")
      -- _ | isConst, dtrace "goLam mkConst'" (ppr (exprType body,mkConst' cat xty body)) False -> undefined
      _ | isConst, Just body' <- mkConst' cat xty body
@@ -516,7 +523,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           Doing("lam Case of Bool")
           return $
             mkIfC cat rhsTy (mkCcc (Lam x scrut))
-              (mkCcc (Lam x rhsF)) (mkCcc (Lam x rhsT))
+              (mkCcc (Lam x rhsT)) (mkCcc (Lam x rhsF))
 
      Trying("lam Case of product")
      e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
@@ -561,8 +568,9 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -- etaExpand turns cast lambdas into themselves
        Doing("lam nominal cast")
        let r  = coercionRole co
-           r' = coercionRole co'
-           co'' = downgradeRole r r' co' in
+           r' = coercionRole co'         -- always Nominal, isn't it?
+           co'' = downgradeRole r r' co' -- same as co?
+       in
          -- pprTrace "lam nominal Cast" (ppr co $$ text "-->" $$ ppr co'') $
          return (mkCcc (Cast (Lam x body') (FunCo r (mkReflCo r xty) co'')))
      Trying("lam representational cast")
@@ -614,13 +622,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
                -> Doing("lam App compose")
                   return $ mkCompose cat (mkCcc u) (mkCcc (Lam x v))
 #endif
-     Trying("lam unfold")
-     e'| Just body' <- unfoldMaybe' e'
-       -> Doing("lam unfold")
-          -- dtrace "lam unfold" (ppr body <+> text "-->" <+> ppr body')
-          return (mkCcc (Lam x body'))
-          -- goLam x body'
-          -- TODO: factor out Lam x (mkCcc ...)
      Trying("lam App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
      u `App` v | liftedExpr v
@@ -633,6 +634,13 @@ ccc (CccEnv {..}) (Ops {..}) cat =
                   (mkFork cat (mkCcc (Lam x u)) (mkCcc (Lam x v)))
       where
         vty = exprType v
+     Trying("lam unfold")
+     e'| Just body' <- unfoldMaybe e'
+       -> Doing("lam unfold")
+          -- dtrace "lam unfold" (ppr body <+> text "-->" <+> ppr body')
+          return (mkCcc (Lam x body'))
+          -- goLam x body'
+          -- TODO: factor out Lam x (mkCcc ...)
      -- Give up
      _e -> pprPanic "ccc" ("lam Unhandled" <+> ppr _e)
            -- pprTrace "goLam" ("Unhandled" <+> ppr _e) $ Nothing
@@ -654,18 +662,23 @@ pattern Compose k a b c g f <-
   -- (collectArgs -> (Var (CatVar "."), [Type k,Type b,Type c, Type a,_catDict,_ok,g,f]))
 
 -- TODO: when the nested-pattern definition bug
--- (https://ghc.haskell.org/trac/ghc/ticket/12007) gets fixed (GHC 8.0.1), use
+-- (https://ghc.haskell.org/trac/ghc/ticket/12007) gets fixed (GHC 8.0.2), use
 -- the CatVar version of Compose and Coerce.
 
 -- For the composition BuiltinRule
-compose :: CccEnv -> Ops -> CoreExpr -> CoreExpr -> Maybe CoreExpr
-compose (CccEnv {..}) (Ops {..}) _g@(Coerce k _b c) _f@(Coerce _k a _b')
-  = -- dtrace "compose coerce" (ppr (_g,_f)) $
+composeR :: CccEnv -> Ops -> CoreExpr -> CoreExpr -> Maybe CoreExpr
+-- composeR _ _ g f | pprTrace "composeR try" (ppr (g,f)) False = undefined
+composeR (CccEnv {..}) (Ops {..}) _g@(Coerce k _b c) _f@(Coerce _k a _b')
+  = -- pprTrace "composeR coerce" (ppr _g $$ ppr _f) $
     Just (mkCoerceC k a c)
-compose (CccEnv {..}) (Ops {..}) _h@(Coerce k _b c) (Compose _k _ a _b' _g@(Coerce _k' _z _a') f)
-  = -- dtrace "compose coerce re-assoc" (ppr (_h,_g,f)) $
+
+-- composeR (CccEnv {..}) (Ops {..}) h (Compose _k _ _a _b' g f)
+--   | pprTrace "composeR try re-assoc" (ppr h $$ ppr g $$ ppr f) False = undefined
+
+composeR (CccEnv {..}) (Ops {..}) _h@(Coerce k _b c) (Compose _k _ a _b' _g@(Coerce _k' _z _a') f)
+  = -- pprTrace "composeR coerce re-assoc" (ppr _h $$ ppr _g $$ ppr f) $
     Just (mkCompose k (mkCoerceC k a c) f)
-compose _ _ _ _ = Nothing
+composeR _ _ _ _ = Nothing
 
 pattern CatVar :: String -> Id
 pattern CatVar str <- (fqVarName -> stripPrefix (catModule ++ ".") -> Just str)
@@ -711,6 +724,7 @@ data Ops = Ops
  , mkCurry        :: Cat -> Unop CoreExpr
  , mkUncurryMaybe :: Cat -> ReExpr
  , mkIfC          :: Cat -> Type -> Ternop CoreExpr
+ , mkBottomC      :: Cat -> Type -> Type -> Maybe CoreExpr
  , mkConst        :: Cat -> Type -> ReExpr
  , mkConstFun     :: Cat -> Type -> ReExpr
  , mkConst'       :: Cat -> Type -> ReExpr
@@ -904,6 +918,8 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    mkIfC k ty cond true false =
      mkCompose cat (catOp k ifV [ty])
        (mkFork cat cond (mkFork cat true false))
+   mkBottomC :: Cat -> Type -> Type -> Maybe CoreExpr
+   mkBottomC k dom cod = catOpMaybe k bottomCV [dom,cod]
    mkConst :: Cat -> Type -> ReExpr
    mkConst k dom e =
      -- const :: forall (k :: * -> * -> *) b. ConstCat k b => forall dom.
@@ -1157,7 +1173,8 @@ catOpArities = Map.fromList $ map (\ (nm,m,n) -> (catModule ++ '.' : nm, (m,n)))
   , ("recipC",0,0), ("divideC",0,0)
   , ("expC",0,0), ("cosC",0,0), ("sinC",0,0)
   , ("fromIntegralC",0,0)
-  , ("equal",0,0), ("notEqual",0,0), ("greaterThan",0,0), ("lessThanOrEqual",0,0), ("greaterThanOrEqual",0,0)
+  , ("equal",0,0), ("notEqual",0,0)
+  , ("lessThan",0,0), ("greaterThan",0,0), ("lessThanOrEqual",0,0), ("greaterThanOrEqual",0,0)
   , ("succC",0,0), ("predC",0,0)
   , ("bottomC",0,0)
   , ("ifC",0,0)
@@ -1198,8 +1215,8 @@ cccRules famEnvs env@(CccEnv {..}) guts annotations =
                                 \ case
                                   [Type k, Type _a,Type _b,arg] ->
                                        ccc env (ops dflags inScope k) k arg
-                                  args -> pprTrace "ccc ru_try args" (ppr args) $
-                                          Nothing
+                                  _args -> -- pprTrace "ccc ru_try args" (ppr _args) $
+                                           Nothing
                 }
 #if 1
   , BuiltinRule { ru_name  = composeRuleName
@@ -1208,7 +1225,7 @@ cccRules famEnvs env@(CccEnv {..}) guts annotations =
                 , ru_try   = \ dflags inScope _fn ->
                                 \ case
                                   [Type k, Type _b,Type _c, Type _a,_catDict,_ok,g,f] ->
-                                       compose env (ops dflags inScope k) g f
+                                       composeR env (ops dflags inScope k) g f
                                   _args -> -- pprTrace "compose/coerce ru_try args" (ppr _args) $
                                            Nothing
                 }
@@ -1328,6 +1345,7 @@ mkCccEnv opts = do
   -- abstC'V     <- findCatId "abstCp"
   -- reprC'V     <- findCatId "reprCp"
   coerceV     <- findCatId "coerceC"
+  bottomCV    <- findCatId "bottomC"
   cccV        <- findCatId "ccc"
   floatT      <- findFloatTy "Float"
   doubleT     <- findFloatTy "Double"
@@ -1342,6 +1360,7 @@ mkCccEnv opts = do
   boxDV       <- findBoxId "boxD"
   boxIBV      <- findBoxId "boxIB"
   tagToEnumV  <- findId "GHC.Prim" "tagToEnum#"
+  bottomV     <- findId "ConCat.Misc" "bottom"
   -- lazyV    <- findExtId "lazy"
   -- reboxV   <- findBoxId "rebox"
   -- coercibleTc <- findExtTc "Coercible"
