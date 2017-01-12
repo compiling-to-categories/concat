@@ -46,7 +46,7 @@ import ConCat.Complex
 -- import GHC.Exts (Int(..),Int#)
 
 -- TODO: Eliminate most of the following when I drop these types.
-import ConCat.Misc ((:*),(:+),Parity(..),(<~))
+import ConCat.Misc ((:*),(:+),Parity(..),(<~),bottom)
 
 -- import TypeUnary.TyNat (Z,S)
 -- import TypeUnary.Nat (Nat(..),IsNat(..))
@@ -138,7 +138,7 @@ WrapRep(Parity,Bool,Parity)
 instance HasRep (Maybe a) where
   type Rep (Maybe a) = Bool :* a
   repr (Just a) = (True,a)
-  repr Nothing  = (False,undefined)
+  repr Nothing  = (False, bottom)
   abst (True,a ) = Just a
   abst (False,_) = Nothing 
   INLINES
