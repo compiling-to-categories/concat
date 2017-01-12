@@ -105,7 +105,7 @@ module ConCat.Circuit
 
 import Prelude hiding (id,(.),curry,uncurry,const,sequence,Float,Double)
 
-import Data.Monoid ({-mempty,-}(<>),Sum,Product)
+import Data.Monoid ({-mempty,-}(<>),Sum,Product,All,Any)
 -- import Data.Newtypes.PrettyDouble
 -- import Data.Functor ((<$>))
 import Control.Applicative ({-Applicative(..),-}liftA2)
@@ -2586,8 +2586,9 @@ AbsTy(Complex a)
 -- Newtypes. Alternatively, don't use them in external interfaces.
 
 AbsTy(Sum a)
--- AbsTy(PrettyDouble)
 AbsTy(Product a)
+AbsTy(All)
+AbsTy(Any)
 
 -- TODO: Rework instances for Vec n as well, since it has the same redundancy
 -- issue as Pair, in a subtler form. Probably also Ragged.
