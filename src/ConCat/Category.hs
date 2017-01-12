@@ -161,7 +161,8 @@ inOpR = inOp . second inOp
 
 inOpL' :: OpCon op con 
        => (con a && con b) && con c |- con (a `op` b) && con ((a `op` b) `op` c)
-inOpL' = second inOp . rassocP . first (dup . inOp)
+inOpL' = inOp . exl &&& inOpL
+-- inOpL' = second inOp . rassocP . first (dup . inOp)
 
 -- (con a && con b) && con c
 -- con (a `op` b) && con c
@@ -170,7 +171,10 @@ inOpL' = second inOp . rassocP . first (dup . inOp)
 -- con (a `op` b) && con ((a `op` b) `op` c)
 
 inOpR' :: OpCon op con => con a && (con b && con c) |- con (a `op` (b `op` c)) &&  con (b `op` c)
-inOpR' = first inOp . lassocP . second (dup . inOp)
+inOpR' = inOpR &&& inOp . exr
+-- inOpR' = first inOp . lassocP . second (dup . inOp)
+
+-- There were mutual recursions between (a) inOpL' & rassocP, and (b) inOpR' & lassocP
 
 inOpLR :: forall op con a b c. OpCon op con =>
   ((con a && con b) && con c) && (con a && (con b && con c))
