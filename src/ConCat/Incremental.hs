@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE TupleSections #-}
@@ -10,6 +12,9 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
@@ -23,6 +28,7 @@ import qualified Prelude as P
 import Data.Monoid (Any(..))
 import Control.Applicative (liftA2)
 import Control.Arrow (Kleisli)
+import Data.Maybe (fromMaybe)
 
 import Data.Void
 import Data.Constraint ((:-)(..),Dict(..))
@@ -31,6 +37,8 @@ import Control.Newtype
 import ConCat.Misc ((:*),(:+),Unop,Binop,inNew,inNew2,Yes1)
 import qualified ConCat.Category
 import ConCat.AltCat hiding (const,curry,uncurry)
+
+#if 0
 
 data Delta :: * -> * where
   ConstD :: a -> Delta a
@@ -175,6 +183,10 @@ instance Newtype (Delta (a :+ b)) where
 --   unpack = splitS
 --   pack = LeftD ||| RightD
 
+#endif
+
+#if 0
+
 {--------------------------------------------------------------------
     Another experiment: represent Delta via associated type
 --------------------------------------------------------------------}
@@ -253,3 +265,95 @@ instance (Atomic a, Num a) => NumCat (-+>) a where
   subC    = op2 (-)
   mulC    = op2 (*)
   powIC   = op2 (^)
+
+#endif
+
+{--------------------------------------------------------------------
+    Yet another try
+--------------------------------------------------------------------}
+
+type AtomDel a = Maybe a
+
+type Atomic a = (HasDelta a, Del a ~ AtomDel a)
+
+class HasDelta a where
+  type Del a
+  type Del a = AtomDel a
+  appD :: Del a -> Unop a
+  default appD :: Atomic a => Del a -> Unop a
+  appD del old = fromMaybe old del
+  zeroD :: Del a
+  default zeroD :: Atomic a => Del a
+  zeroD = Nothing
+
+instance HasDelta () where
+  type Del () = ()
+  appD () () = ()
+  zeroD = ()
+
+-- instance HasDelta ()
+
+instance HasDelta Bool
+instance HasDelta Int
+instance HasDelta Float
+instance HasDelta Double
+
+instance (HasDelta a, HasDelta b) => HasDelta (a :* b) where
+  type Del (a :* b) = Del a :* Del b
+  appD (da,db) = appD da *** appD db
+  zeroD = (zeroD @a, zeroD @b)
+
+-- Possible sum changes: left-to-right, right-to-left, left change, right change, no change.
+-- We can consolidate left-to-right and right-to-left.
+-- If 
+
+instance (HasDelta a, HasDelta b) => HasDelta (a :+ b) where
+  type Del (a :+ b) = Del a :* Del b
+  appD (da,db) = appD da +++ appD db
+  zeroD = (zeroD @a, zeroD @b)
+
+infixr 1 -+>
+newtype a -+> b = XD { unXD :: Del a -> Del b }
+
+zeroXD :: forall a b. HasDelta b => a -+> b
+zeroXD = XD (const (zeroD @b))
+
+instance Newtype (a -+> b) where
+  type O (a -+> b) = Del a -> Del b
+  pack f = XD f
+  unpack (XD f) = f
+
+-- type OkXD = HasDelta
+
+instance Category (-+>) where
+  -- type Ok (-+>) = OkXD
+  id  = pack id
+  (.) = inNew2 (.)
+
+-- instance OpCon (:*) (Sat OkXD) where inOp = Entail (Sub Dict)
+
+instance ProductCat (-+>) where
+  exl   = pack exl
+  exr   = pack exr
+  (&&&) = inNew2 (&&&)
+
+-- instance CoproductCat (-+>) where
+--   inl :: forall a b. Ok2 (-+>) a b => a -+> a :+ b
+--   inl = pack (\ da -> (da,zeroD @b))
+-- --   inl   = pack (inl,)
+-- --   inr   = pack (,inr)
+-- --   (|||) = inNew2 (|||)
+
+
+-- atomic1 :: (Atomic a, Atomic b) => (a -> b) -> (a -+> b)
+-- atomic1 f = XD (fmap f)
+
+atomic1 :: (Atomic a, Atomic b) => (a -> b) -> a -> (a -+> b)
+atomic1 f a = XD $ \ case
+  Nothing -> Nothing
+  d       -> Just (f (appD d a))
+
+atomic2 :: (Atomic a, Atomic b, Atomic c) => (a :* b -> c) -> a :* b -> (a :* b -+> c)
+atomic2 f ab = XD $ \ case
+  (Nothing, Nothing) -> Nothing
+  d                  -> Just (f (appD d ab))

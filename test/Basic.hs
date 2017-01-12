@@ -1,6 +1,6 @@
 -- -*- flycheck-disabled-checkers: '(haskell-ghc haskell-stack-ghc); -*-
 
--- stack build :basic
+-- stack test (or stack build :basic)
 
 -- stack build && stack test >& ~/Haskell/concat/out/o1
 
@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeOperators       #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE LambdaCase          #-}
 
 -- -- TEMP for Pair
 -- {-# LANGUAGE DeriveFunctor #-}
@@ -75,22 +76,24 @@ import Prelude hiding (Float,Double)   -- ,id,(.),const
 
 import Control.Arrow (second)
 import Data.Tuple (swap)
+import Data.Maybe
 import Distribution.TestSuite
 import GHC.Generics hiding (R,D)
 import GHC.Exts (lazy,coerce)
 
-import ConCat.Misc (Unop,Binop,(:*),PseudoFun(..),R)
+import ConCat.Misc (Unop,Binop,(:*),PseudoFun(..),R,bottom)
 import ConCat.Rep
 import ConCat.Float
 import ConCat.Free.VectorSpace (V)
 import ConCat.Free.LinearRow
-import ConCat.AD
+import ConCat.Incremental
+import ConCat.GAD  -- AD
 import qualified ConCat.ADFun as ADFun
 import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay,(:>))
-import ConCat.AltCat (ccc,reveal,Uncurriable(..),U2(..),(:**:)(..),Ok2,abstC)
+import ConCat.AltCat (ccc,reveal,Uncurriable(..),U2(..),(:**:)(..),Ok2,reprC,abstC,mulC)
 import qualified ConCat.AltCat as A
 import ConCat.Rebox () -- experiment
 import ConCat.Orphans ()
@@ -105,6 +108,31 @@ import GHC.Num () -- help the plugin find instances (doesn't)
 tests :: IO [Test]
 tests = return
   [ nopTest
+
+--   , test "negate-ai" (andInc (negate :: Unop Int))
+
+--   , test "xy" (\ (x,y) -> x * y :: R)
+
+--   , test "xy-i" (inc (\ (x,y) -> x * y :: R))
+
+--   , test "xy-ai" (andInc (\ (x,y) -> x * y :: R))
+
+--   , test "cond" (\ x -> if x > 0 then x else negate x :: Int)
+
+--   , test "cond-fun" (\ x -> (if x > 0 then id else negate) x :: Int)
+
+--   , test "sop1" (\ ((x,y),z) -> x * y + y * z + x * z :: R)
+
+  , test "magSqr"            (magSqr @R)
+  , test "magSqr-ai" (andInc (magSqr @R))
+  , test "magSqr-i"     (inc (magSqr @R))
+
+--   , test "p1-ai" (andInc (\ ((x,y) :: R2) -> (x + 1, y)))
+--   , test "p2-ai" (andInc (second succ :: Unop R2))
+--   , test "p3-ai" (andInc (\ ((x,y) :: R2) -> (x + 1, x * y)))
+--   , test "p3-i" (inc (\ ((x,y) :: R2) -> (x + 1, x * y)))
+
+--   , test "sop1-ai" (andInc (\ ((x,y),z) -> x * y + y * z + x * z :: R))
 
   -- , tst (deriv @R (sin :: Unop R)) -- okay
   -- , tst (snd . unD (scalarX sin cos :: D R R R)) -- okay
@@ -196,10 +224,10 @@ tests = return
 --   , test "cos"         (cos @R)
 --   , test "double"      (\ x -> x + x :: R) 
 
-    -- , test "dsin"         (der (sin @R))
-    -- , test "ddsin"         (der (der (sin @R)))
-    -- , test "dddsin"         (der (der (der (sin @R))))
-  , test "ddddsin"         (der (der (der (der (sin @R)))))
+--   , test "sin-d1" (der (sin @R))
+--   , test "sin-d2" (der (der (sin @R)))
+--   , test "sin-d3" (der (der (der (sin @R))))
+--   , test "sin-d4" (der (der (der (der (sin @R)))))
 
 --   , tst (\ (p :: R2) -> (snd p, fst p))
 --   , tst (\ ((x,y) :: R2) -> (y,x))
@@ -210,16 +238,26 @@ tests = return
 
 --   , tst (abstC :: Par1 R :* Par1 R -> (Par1 :*: Par1) R)
 
---   , test "mult"      (uncurry ((*) @R))
+--   , test "mult"                     (uncurry ((*) @R))
+--   , test "mult-d1"             (der (uncurry ((*) @R)))
+--   , test "mult-d2"        (der (der (uncurry ((*) @R))))
+--   , test "mult-d3"   (der (der (der (uncurry ((*) @R)))))
+
 --   , test "square"      (\ x -> x * x :: R)
 
 --   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
 --   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
 --   , test "cos-xpy"     (\ (x,y) -> cos (x + y) :: R)
 
---   , test "xy" (\ (x,y) -> x * y :: R)
 --   , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
+--   , test "cos-xy-d1" (der (\ (x,y) -> cos (x * y) :: R))
+--   , test "cos-xy-d2" (der (der (\ (x,y) -> cos (x * y) :: R)))
+
 --   , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
+--   , test "cosSin-xy-d1" (der (\ (x,y) -> cosSin (x * y) :: R2))
+
+--   , test "cosSin-xyz" (\ (x,y,z) -> cosSin (x * y + x * z + y * z) :: R2)
+--   , test "cosSin-xyz-d1" (der (\ (x,y,z) -> cosSin (x * y + x * z + y * z) :: R2))
 
 --   , test "foo" (\ (a::R,_b::R,_c::R) -> a)
 
@@ -660,6 +698,12 @@ type R4 = (R2,R2)
 
 type LComp a b c = LR b c -> LR a b -> LR a c
 
+sqr :: Num a => a -> a
+sqr a = a * a
+
+magSqr :: Num a => a :* a -> a
+magSqr (a,b) = sqr a + sqr b
+
 {--------------------------------------------------------------------
     More examples
 --------------------------------------------------------------------}
@@ -690,3 +734,9 @@ newtype Bolo = Bolo Bool
 
 -- dbar :: Par1 R :* Par1 R -> L R (Par1 R :* Par1 R) ((Par1 :*: Par1) R)
 -- dbar = deriv abstC
+
+-- bar :: R -> (R -+> R)
+-- bar = inc negate
+
+-- bar :: R2 -> (Del R2 -> Del R)
+-- bar = inc mulC

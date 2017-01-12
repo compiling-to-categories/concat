@@ -133,12 +133,13 @@ instance Ok (L s) b => ConstCat (D s) b where
   {-# INLINE const #-}
 
 instance TerminalCat Inc where
-  it = D (const ((),constantXD ()))
+  it = linearD (const ()) zeroXD
+  -- it = D (const ((),constantXD ()))
   -- it = const ()
   {-# INLINE it #-}
 
 instance HasDelta b => ConstCat Inc b where
-  const b = D (const (b, constantXD b))
+  const b = D (const (b, zeroXD))
   {-# INLINE const #-}
 
 -- TODO: Work on unifying more instances between D s and Inc.
@@ -153,12 +154,18 @@ instance Ok (L s) s => NumCat (D s) s where
   {-# INLINE mulC    #-}
   {-# INLINE powIC   #-}
 
+fullI1 :: (Atomic a, Atomic b) => (a -> b) -> Inc a b
+fullI1 f = D (\ a -> (f a, atomic1 f a))
+
+fullI2 :: (Atomic a, Atomic b, Atomic c) => (a :* b -> c) -> Inc (a :* b) c
+fullI2 f = D (\ ab -> (f ab, atomic2 f ab))
+
 instance (Atomic s, Num s, Ok (-+>) s) => NumCat Inc s where
-  negateC = linearD negateC negateC
-  addC    = linearD addC    addC
-  subC    = linearD subC    subC
-  mulC    = linearD mulC    mulC
-  powIC   = linearD powIC   powIC
+  negateC = fullI1 negateC
+  addC    = fullI2 addC
+  subC    = fullI2 subC
+  mulC    = fullI2 mulC
+  powIC   = fullI2 powIC
   {-# INLINE negateC #-}
   {-# INLINE addC    #-}
   {-# INLINE mulC    #-}
@@ -255,14 +262,18 @@ der = deriv
 {-# RULES "der" der = deriv #-}
 -- {-# ANN der PseudoFun #-}
 
-andInc :: forall a b . (a -> b) -> (a -> b :* (a -+> b))
-andInc = andDeriv
+andInc :: forall a b . (a -> b) -> (a :* Del a -> b :* Del b)
+andInc _ = error "andInc called"
 {-# NOINLINE andInc #-}
-{-# RULES "andInc" andInc = andDeriv #-}
+{-# RULES "andInc" forall f. andInc f = flatInc (andDeriv f) #-}
 -- {-# ANN andInc PseudoFun #-}
 
-inc :: forall a b . (a -> b) -> (a -> (a -+> b))
-inc = deriv
+flatInc :: (a -> b :* (a -+> b)) -> (a :* Del a -> b :* Del b)
+flatInc f (a,da) = (b, d da) where (b,XD d) = f a
+
+inc :: forall a b . (a -> b) -> (a :* Del a -> Del b)
+inc _ = error "inc called"
 {-# NOINLINE inc #-}
-{-# RULES "inc" inc = deriv #-}
+{-# RULES "inc" forall f. inc f = snd P.. andInc f #-}
+-- {-# RULES "inc" forall f. inc f = uncurry (unXD P.. snd P.. andInc f) #-}
 -- {-# ANN inc PseudoFun #-}
