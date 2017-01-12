@@ -210,10 +210,6 @@ type family CrossWith f as bs where
 
 type AllC2 f as bs = AndC (CrossWith f as bs)
 
-{--------------------------------------------------------------------
-    Source annotations
---------------------------------------------------------------------}
-
 -- | Annotation for pseudo-function, i.e., defined by rules. During ccc
 -- generation, don't split applications. TODO: maybe add an arity.
 data PseudoFun = PseudoFun deriving (Typeable,Data)
@@ -228,8 +224,13 @@ oops :: String -> b
 oops str = unsafeCoerce ("Oops --- "++str++" called!")
 {-# NOINLINE oops #-}
 
+bottom :: a
+bottom = error "bottom evaluated"
+{-# NOINLINE bottom #-}
+
 -- Convenient alternative to typeRep
 typeR :: forall a. Typeable a => TypeRep
 typeR = typeRep (Proxy :: Proxy a)
 
 type R = Float
+
