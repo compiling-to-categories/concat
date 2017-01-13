@@ -122,10 +122,15 @@ tests = return
 --   , test "cond-fun" (\ x -> (if x > 0 then id else negate) x :: Int)
 
 --   , test "sop1" (\ ((x,y),z) -> x * y + y * z + x * z :: R)
+  , test "sop1-ai" (andInc (\ ((x,y),z) -> x * y + y * z + x * z :: R))
 
-  , test "magSqr"            (magSqr @R)
-  , test "magSqr-ai" (andInc (magSqr @R))
-  , test "magSqr-i"     (inc (magSqr @R))
+--   , test "magSqr"            (magSqr @R)
+--   , test "magSqr-ai" (andInc (magSqr @R))
+--   , test "magSqr-i"     (inc (magSqr @R))
+
+--   , test "magSqr-ad1" (andDer (magSqr @R))
+
+--   , test "magSqr-ad1-inc" (inc (andDer (magSqr @R)))
 
 --   , test "p1-ai" (andInc (\ ((x,y) :: R2) -> (x + 1, y)))
 --   , test "p2-ai" (andInc (second succ :: Unop R2))
@@ -255,6 +260,11 @@ tests = return
 
 --   , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
 --   , test "cosSin-xy-d1" (der (\ (x,y) -> cosSin (x * y) :: R2))
+
+--   , test "cosSin-xy-ad1" (andDer (\ (x,y) -> cosSin (x * y) :: R2))
+
+--   , test "cosSin-xy-ad1-i" (inc (andDer (\ (x,y) -> cosSin (x * y) :: R2)))
+
 
 --   , test "cosSin-xyz" (\ (x,y,z) -> cosSin (x * y + x * z + y * z) :: R2)
 --   , test "cosSin-xyz-d1" (der (\ (x,y,z) -> cosSin (x * y + x * z + y * z) :: R2))
