@@ -96,7 +96,11 @@ instance (HasDelta a, HasDelta b) => HasDelta (a :+ b) where
   zeroD = Nothing
 
 #define DelRep(ty) \
-  instance (HasRep (ty), HasDelta (Rep (ty))) => HasDelta (ty)
+  instance (HasRep (ty), HasDelta (Rep (ty))) => HasDelta (ty) where { \
+  ; type Delta (ty) = Delta (Rep (ty)) \
+  ; appD del = inAbst (appD del) \
+  ; zeroD = zeroD @(Rep (ty)) \
+  }
 
 DelRep((a,b,c))
 DelRep((a,b,c,d))
@@ -177,3 +181,9 @@ atomic2 :: (Atomic a, Atomic b, Atomic c) => (a :* b -> c) -> a :* b -> (a :* b 
 atomic2 f ab = DelX $ \ case
   (Nothing, Nothing) -> Nothing
   d                  -> Just (f (appD d ab))
+
+-- instance RepCat (->) a r => RepCat (-+>) a r
+--   reprC :: a -+> r
+--   reprC = DelX ()
+
+-- foo = reprC :: (Int,Int,Int,Int) -+> ((Int :* Int) :* (Int :* Int))
