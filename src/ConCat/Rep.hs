@@ -212,8 +212,8 @@ instance HasRep ((f G.:*: g) p) where
   abst (x,y) = (x G.:*: y)
   INLINES
 
-instance HasRep ((G.:.:) f g p) where
-  type Rep ((G.:.:) f g p) = f (g p)
+instance HasRep ((g G.:.: f) p) where
+  type Rep ((g G.:.: f) p) = g (f p)
   repr = G.unComp1
   abst = G.Comp1
   INLINES
