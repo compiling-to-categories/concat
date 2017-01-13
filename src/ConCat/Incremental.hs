@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ConstraintKinds #-}
@@ -30,9 +32,24 @@ import Data.Void (Void,absurd)
 import Control.Newtype
 import Data.Constraint ((:-)(..),Dict(..))
 
-import ConCat.Misc ((:*),(:+),Unop,inNew2)
+import ConCat.Misc ((:*),(:+),Unop,inNew2,Parity)
+import ConCat.Rep
 import qualified ConCat.Category
 import ConCat.AltCat hiding (const,curry,uncurry)
+
+-- For DelRep:
+import ConCat.Complex
+import Data.Monoid
+import Control.Applicative (WrappedMonad(..))
+import qualified GHC.Generics as G
+import Data.Functor.Identity (Identity(..))
+import Control.Monad.Trans.Reader (ReaderT(..))
+import Control.Monad.Trans.Writer (WriterT(..))
+import Control.Monad.Trans.State (StateT(..))
+
+{--------------------------------------------------------------------
+    Changes
+--------------------------------------------------------------------}
 
 -- Delta for "Atomic" (all-or-nothing) values.
 -- Nothing for no change, and Just a for new value a.
@@ -78,26 +95,67 @@ instance (HasDelta a, HasDelta b) => HasDelta (a :+ b) where
   appD _ _ = error "appD: left/right mismatch"
   zeroD = Nothing
 
-infixr 1 -+>
-newtype a -+> b = XD { unXD :: Delta a -> Delta b }
+#define DelRep(ty) \
+  instance (HasRep (ty), HasDelta (Rep (ty))) => HasDelta (ty)
 
-zeroXD :: forall a b. HasDelta b => a -+> b
-zeroXD = XD (const (zeroD @b))
+DelRep((a,b,c))
+DelRep((a,b,c,d))
+DelRep((a,b,c,d,e))
+DelRep((a,b,c,d,e,f))
+DelRep((a,b,c,d,e,f,g))
+DelRep((a,b,c,d,e,f,g,h))
+
+DelRep(Complex a)
+DelRep(Maybe a)
+DelRep(Sum a)
+DelRep(Product a)
+DelRep(All)
+DelRep(Any)
+DelRep(Dual a)
+DelRep(Endo a)
+DelRep(WrappedMonad m a)
+DelRep(Identity a)
+DelRep(ReaderT e m a)
+DelRep(WriterT w m a)
+DelRep(StateT s m a)
+
+DelRep(G.U1 p)
+DelRep(G.Par1 p)
+DelRep(G.K1 i c p)
+DelRep(G.M1 i c f p)
+DelRep((f G.:+: g) p)
+DelRep((f G.:*: g) p)
+DelRep((g G.:.: f) p)
+
+DelRep(Parity)
+
+--     • The constraint ‘HasRep t’ is no smaller than the instance head
+--       (Use UndecidableInstances to permit this)
+
+{--------------------------------------------------------------------
+    Change transformations
+--------------------------------------------------------------------}
+
+infixr 1 -+>
+newtype a -+> b = DelX { unDelX :: Delta a -> Delta b }
+
+zeroDelX :: forall a b. HasDelta b => a -+> b
+zeroDelX = DelX (const (zeroD @b))
 
 instance Newtype (a -+> b) where
   type O (a -+> b) = Delta a -> Delta b
-  pack f = XD f
-  unpack (XD f) = f
+  pack f = DelX f
+  unpack (DelX f) = f
 
-type OkXD = HasDelta
+type OkDelX = HasDelta
 
 instance Category (-+>) where
-  type Ok (-+>) = OkXD
+  type Ok (-+>) = OkDelX
   id  = pack id
   (.) = inNew2 (.)
 
-instance OpCon (:*) (Sat OkXD) where inOp = Entail (Sub Dict)
-instance OpCon (:+) (Sat OkXD) where inOp = Entail (Sub Dict)
+instance OpCon (:*) (Sat OkDelX) where inOp = Entail (Sub Dict)
+instance OpCon (:+) (Sat OkDelX) where inOp = Entail (Sub Dict)
 
 instance ProductCat (-+>) where
   exl   = pack exl
@@ -108,14 +166,14 @@ instance CoproductCat (-+>) where
   inl = pack (Just . Left )
   inr = pack (Just . Right)
   (|||) :: forall a b c. Ok3 (-+>) a b c => (a -+> c) -> (b -+> c) -> (a :+ b -+> c)
-  XD f ||| XD g = XD (maybe (zeroD @c) (f ||| g))
+  DelX f ||| DelX g = DelX (maybe (zeroD @c) (f ||| g))
 
 atomic1 :: (Atomic a, Atomic b) => (a -> b) -> a -> (a -+> b)
-atomic1 f a = XD $ \ case
+atomic1 f a = DelX $ \ case
   Nothing -> Nothing
   d       -> Just (f (appD d a))
 
 atomic2 :: (Atomic a, Atomic b, Atomic c) => (a :* b -> c) -> a :* b -> (a :* b -+> c)
-atomic2 f ab = XD $ \ case
+atomic2 f ab = DelX $ \ case
   (Nothing, Nothing) -> Nothing
   d                  -> Just (f (appD d ab))

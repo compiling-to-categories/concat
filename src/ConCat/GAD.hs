@@ -15,7 +15,7 @@
 
 module ConCat.GAD where
 
-import Prelude hiding (id,(.),curry,uncurry)
+import Prelude hiding (id,(.),curry,uncurry,const)
 import qualified Prelude as P
 import GHC.Exts (Coercible,coerce)
 
@@ -28,7 +28,7 @@ import ConCat.Free.LinearRow
 import ConCat.Incremental
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
-import ConCat.AltCat hiding (const)
+import ConCat.AltCat
 import ConCat.Rep
 
 newtype GD k a b = D { unD :: a -> b :* (a `k` b) }
@@ -133,13 +133,13 @@ instance Ok (L s) b => ConstCat (D s) b where
   {-# INLINE const #-}
 
 instance TerminalCat Inc where
-  it = linearD (const ()) zeroXD
-  -- it = D (const ((),constantXD ()))
-  -- it = const ()
+  -- it = linearD (const ()) zeroDelX
+  -- it = D (const ((),constantDelX ()))
+  it = const ()
   {-# INLINE it #-}
 
 instance HasDelta b => ConstCat Inc b where
-  const b = D (const (b, zeroXD))
+  const b = D (const (b, zeroDelX))
   {-# INLINE const #-}
 
 -- TODO: Work on unifying more instances between D s and Inc.
@@ -160,7 +160,7 @@ fullI1 f = D (\ a -> (f a, atomic1 f a))
 fullI2 :: (Atomic a, Atomic b, Atomic c) => (a :* b -> c) -> Inc (a :* b) c
 fullI2 f = D (\ ab -> (f ab, atomic2 f ab))
 
-instance (Atomic s, Num s, Ok (-+>) s) => NumCat Inc s where
+instance (Atomic s, Num s) => NumCat Inc s where
   negateC = fullI1 negateC
   addC    = fullI2 addC
   subC    = fullI2 subC
@@ -262,18 +262,18 @@ der = deriv
 {-# RULES "der" der = deriv #-}
 -- {-# ANN der PseudoFun #-}
 
-andInc :: forall a b . (a -> b) -> (a :* Del a -> b :* Del b)
+andInc :: forall a b . (a -> b) -> (a :* Delta a -> b :* Delta b)
 andInc _ = error "andInc called"
 {-# NOINLINE andInc #-}
 {-# RULES "andInc" forall f. andInc f = flatInc (andDeriv f) #-}
 -- {-# ANN andInc PseudoFun #-}
 
-flatInc :: (a -> b :* (a -+> b)) -> (a :* Del a -> b :* Del b)
-flatInc f (a,da) = (b, d da) where (b,XD d) = f a
+flatInc :: (a -> b :* (a -+> b)) -> (a :* Delta a -> b :* Delta b)
+flatInc f (a,da) = (b, d da) where (b,DelX d) = f a
 
-inc :: forall a b . (a -> b) -> (a :* Del a -> Del b)
+inc :: forall a b . (a -> b) -> (a :* Delta a -> Delta b)
 inc _ = error "inc called"
 {-# NOINLINE inc #-}
 {-# RULES "inc" forall f. inc f = snd P.. andInc f #-}
--- {-# RULES "inc" forall f. inc f = uncurry (unXD P.. snd P.. andInc f) #-}
+-- {-# RULES "inc" forall f. inc f = uncurry (unDelX P.. snd P.. andInc f) #-}
 -- {-# ANN inc PseudoFun #-}
