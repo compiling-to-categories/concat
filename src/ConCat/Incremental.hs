@@ -26,7 +26,7 @@
 module ConCat.Incremental where
 
 import Prelude hiding (id,(.))
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe,isNothing)
 
 import Data.Void (Void,absurd)
 import Control.Newtype
@@ -63,15 +63,22 @@ class HasDelta a where
   appD :: Delta a -> Unop a
   default appD :: Atomic a => Delta a -> Unop a
   appD del old = fromMaybe old del
-  zeroD :: Delta a
+  zeroD :: Delta a              -- needs an explicit type application
   default zeroD :: Atomic a => Delta a
   zeroD = Nothing
+  isZeroD :: Delta a -> Bool
+  default isZeroD :: Atomic a => Delta a -> Bool
+  isZeroD = isNothing
+
+-- TODO: Try using HasRep instead of Atomic for default, since there are
+-- more of them.
 
 -- Unit can't change.
 instance HasDelta () where
   type Delta () = Maybe Void
   appD d () = maybe () absurd d
   zeroD = Nothing
+  isZeroD = const True
 
 -- instance HasDelta ()
 
@@ -84,6 +91,7 @@ instance (HasDelta a, HasDelta b) => HasDelta (a :* b) where
   type Delta (a :* b) = Delta a :* Delta b
   appD (da,db) = appD da *** appD db
   zeroD = (zeroD @a, zeroD @b)
+  isZeroD (da,db) = isZeroD @a da && isZeroD @b db
 
 instance (HasDelta a, HasDelta b) => HasDelta (a :+ b) where
   -- No change, left, right
@@ -94,47 +102,9 @@ instance (HasDelta a, HasDelta b) => HasDelta (a :+ b) where
   appD (Just (Right da)) (Right a) = Right (appD da a)
   appD _ _ = error "appD: left/right mismatch"
   zeroD = Nothing
-
-#define DelRep(ty) \
-  instance (HasRep (ty), HasDelta (Rep (ty))) => HasDelta (ty) where { \
-  ; type Delta (ty) = Delta (Rep (ty)) \
-  ; appD del = inAbst (appD del) \
-  ; zeroD = zeroD @(Rep (ty)) \
-  }
-
-DelRep((a,b,c))
-DelRep((a,b,c,d))
-DelRep((a,b,c,d,e))
-DelRep((a,b,c,d,e,f))
-DelRep((a,b,c,d,e,f,g))
-DelRep((a,b,c,d,e,f,g,h))
-
-DelRep(Complex a)
-DelRep(Maybe a)
-DelRep(Sum a)
-DelRep(Product a)
-DelRep(All)
-DelRep(Any)
-DelRep(Dual a)
-DelRep(Endo a)
-DelRep(WrappedMonad m a)
-DelRep(Identity a)
-DelRep(ReaderT e m a)
-DelRep(WriterT w m a)
-DelRep(StateT s m a)
-
-DelRep(G.U1 p)
-DelRep(G.Par1 p)
-DelRep(G.K1 i c p)
-DelRep(G.M1 i c f p)
-DelRep((f G.:+: g) p)
-DelRep((f G.:*: g) p)
-DelRep((g G.:.: f) p)
-
-DelRep(Parity)
-
---     • The constraint ‘HasRep t’ is no smaller than the instance head
---       (Use UndecidableInstances to permit this)
+  isZeroD :: Delta (a :+ b) -> Bool
+  isZeroD = maybe True (isZeroD @a ||| isZeroD @b)
+            -- maybe True (either isZeroD isZeroD)
 
 {--------------------------------------------------------------------
     Change transformations
@@ -172,6 +142,7 @@ instance CoproductCat (-+>) where
   (|||) :: forall a b c. Ok3 (-+>) a b c => (a -+> c) -> (b -+> c) -> (a :+ b -+> c)
   DelX f ||| DelX g = DelX (maybe (zeroD @c) (f ||| g))
 
+#if 1
 atomic1 :: (Atomic a, Atomic b) => (a -> b) -> a -> (a -+> b)
 atomic1 f a = DelX $ \ case
   Nothing -> Nothing
@@ -181,9 +152,68 @@ atomic2 :: (Atomic a, Atomic b, Atomic c) => (a :* b -> c) -> a :* b -> (a :* b 
 atomic2 f ab = DelX $ \ case
   (Nothing, Nothing) -> Nothing
   d                  -> Just (f (appD d ab))
+#else
+-- These definitions are somewhat more general but generate more complex
+-- circuits. It might be that we just lose some optimizations specific to
+-- circuits and the Maybe encoding.
+atomic1 :: forall a b. (HasDelta a, Atomic b)
+        => (a -> b) -> a -> (a -+> b)
+atomic1 f a = DelX $ \ d -> if isZeroD @a d then zeroD @b else Just (f (appD d a))
 
--- instance RepCat (->) a r => RepCat (-+>) a r
---   reprC :: a -+> r
---   reprC = DelX ()
+atomic2 :: forall a b c. (HasDelta a, HasDelta b, Atomic c)
+        => (a :* b -> c) -> a :* b -> (a :* b -+> c)
+atomic2 f ab = DelX $ \ d -> if isZeroD @(a :* b) d then zeroD @c else Just (f (appD d ab))
+#endif
 
+instance (r ~ Rep a, Delta a ~ Delta r) => RepCat (-+>) a r where
+  reprC = DelX id
+  abstC = DelX id
+
+{--------------------------------------------------------------------
+    HasRep
+--------------------------------------------------------------------}
+
+#define DelRep(ty) \
+  instance (HasRep (ty), HasDelta (Rep (ty))) => HasDelta (ty) where { \
+  ; type Delta (ty) = Delta (Rep (ty)) \
+  ; appD del = inAbst (appD del) \
+  ; zeroD = zeroD @(Rep (ty)) \
+  ; isZeroD = isZeroD @(Rep (ty)) \
+  }; \
+
+DelRep((a,b,c))
+DelRep((a,b,c,d))
+DelRep((a,b,c,d,e))
+DelRep((a,b,c,d,e,f))
+DelRep((a,b,c,d,e,f,g))
+DelRep((a,b,c,d,e,f,g,h))
+
+DelRep(Complex a)
+DelRep(Maybe a)
+DelRep(Sum a)
+DelRep(Product a)
+DelRep(All)
+DelRep(Any)
+DelRep(Dual a)
+DelRep(Endo a)
+DelRep(WrappedMonad m a)
+DelRep(Identity a)
+DelRep(ReaderT e m a)
+DelRep(WriterT w m a)
+DelRep(StateT s m a)
+
+DelRep(G.U1 p)
+DelRep(G.Par1 p)
+DelRep(G.K1 i c p)
+DelRep(G.M1 i c f p)
+DelRep((f G.:+: g) p)
+DelRep((f G.:*: g) p)
+DelRep((g G.:.: f) p)
+
+DelRep(Parity)
+
+--     • The constraint ‘HasRep t’ is no smaller than the instance head
+--       (Use UndecidableInstances to permit this)
+
+-- foo :: (Int, Int, Int, Int) -+> ((Int :* Int) :* (Int :* Int))
 -- foo = reprC :: (Int,Int,Int,Int) -+> ((Int :* Int) :* (Int :* Int))
