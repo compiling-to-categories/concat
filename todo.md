@@ -1,6 +1,9 @@
 # To do
 
-
+*   Re-organize `GAD` and `Incremental`.
+    Leave only general support in `GAD`, and move specific to `AD` and `Incremental`.
+*   General `TerminalCat` default via `ConstCat` in `Category`.
+    Revisit all `TerminalCat` instances.
 *   Maybe I don't need `ConstCat (:>)` for anything but scalars, since the compiler will keep breaking down constant terms until it gets to a type for which the target category has a `ConstCat` instance.
 *   Demand analysis at category.
 *   Comment out `PseudoFun` annotations to see if anything breaks.
