@@ -870,8 +870,10 @@ LitConst(Int)
 LitConst(Float)
 LitConst(Double)
 
-instance (ConstCat (:>) a, ConstCat (:>) b) => ConstCat (:>) (a :* b) where
-  const = pairConst
+-- -- This instance is problematic with Maybe / sums, since it leads to evaluating bottom.
+-- -- See notes from 2016-01-13.
+-- instance (ConstCat (:>) a, ConstCat (:>) b) => ConstCat (:>) (a :* b) where
+--   const = pairConst
 
 #endif
 
@@ -2564,7 +2566,7 @@ delayCRep a0 = abstC . delay (repr a0) . reprC
 
 AbsTy((a,b,c))
 AbsTy((a,b,c,d))
-AbsTy(Maybe a)
+-- AbsTy(Maybe a)  -- Problematic ConstCat. See 2016-01-13 notes.
 -- AbsTy(Either a b)
 AbsTy(Complex a)
 
