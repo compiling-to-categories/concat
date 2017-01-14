@@ -827,14 +827,13 @@ instance {-# OVERLAPPABLE #-}
 
 #endif
 
-repConst :: -- (RepCat k b, HasRep (ConstObj k b), ConstCat k (Rep b), Ok k a, Ok k (ConstObj k b))
-            (HasRep b, r ~ Rep b, RepCat k b (ConstObj k r), ConstCat k r, Ok k a, Ok k (ConstObj k b))
+repConst :: (HasRep b, r ~ Rep b, RepCat k b (ConstObj k r), ConstCat k r, Ok k a, Ok k (ConstObj k b))
          => b -> (a `k` ConstObj k b)
 repConst b = abstC . const (repr b)
 
--- b :: b
--- reprC b :: r
--- const (reprC b) :: a `k` ConstObj k r
+--                      b  :: b
+--                reprC b  :: r
+--         const (reprC b) :: a `k` ConstObj k r
 -- abstC . const (reprC b) :: a `k` ConstObj k r
 
 pairConst :: (ProductCat k, ConstCat k b, ConstCat k c, Ok k a)
