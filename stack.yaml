@@ -1,21 +1,7 @@
 flags: {}
 packages:
 - '.'
-
-# Since I switched to a GHC 8.0.2 release candidate, I get failures about
-# cabal version. Using Cabal-1.24.2.0 in extra-deps below works but yields
-# warnings about conflicting versions of various packages. Experimenting here
-# with pointing to github version. I want to point directly there, but I don't
-# know how, because cabal.cabal isn't in the repo's main directory. I haven't
-# yet found a doc describing the options for location. Dang. When I point to
-# a git version, "stack test" tries to test Cabal itself. Sigh.
-
-# - ../../git-repos/cabal/cabal
-# - location:
-#     git: https://github.com/haskell/cabal
-#     commit: 2a8e8535571ca246b760a0ddaa75f0eeb39a401e
-#   extra-dep: true
-
 extra-deps:
 - newtype-generics-0.4
 resolver: lts-7.15
+compiler: ghc-8.0.2
