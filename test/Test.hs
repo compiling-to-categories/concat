@@ -54,7 +54,6 @@ import ConCat.Float
 import ConCat.Free.VectorSpace (V)
 import ConCat.Free.LinearRow
 import ConCat.Incremental
-import ConCat.GAD
 import ConCat.AD
 import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
@@ -69,6 +68,8 @@ main :: IO ()
 main = sequence_
   [ return ()
 
+  , test "nothing" (\ () -> Nothing :: Maybe Int)
+
 --   , test "magSqr-ad1" (andDer (magSqr @R))
 --   , test "magSqr-ad1-inc" (inc (andDer (magSqr @R)))
 
@@ -80,7 +81,7 @@ main = sequence_
 
 --   , test "xy-i" (inc (\ (x,y) -> x * y :: R))
 
-  , test "xy-ai" (andInc (\ (x,y) -> x * y :: R))
+--   , test "xy-ai" (andInc (\ (x,y) -> x * y :: R))
 
 --   , test "cond" (\ x -> if x > 0 then x else negate x :: Int)
 
@@ -197,15 +198,10 @@ runSyn :: Syn a b -> IO ()
 runSyn syn = putStrLn ('\n' : render syn)
 
 runEC :: GO a b => String -> EC a b -> IO ()
-runEC nm (syn :**: circ) = runSyn syn >> RC.run nm [] circ
+runEC nm (syn :**: circ) = runSyn syn >> runCirc nm circ
 
 runCirc :: GO a b => String -> (a :> b) -> IO ()
 runCirc nm circ = RC.run nm [] circ
-
-runCirc' :: GO a b => String -> (U2 :**: (:>)) a b -> IO ()
-runCirc' nm (triv :**: circ) = runU2 triv >> RC.run nm [] circ
-
--- When I use U2, I get an run-time error: "Impossible case alternative".
 
 test :: Con a b => String -> (a -> b) -> IO ()
 test nm _f = oops ("test called on " ++ nm)
@@ -215,15 +211,13 @@ tst :: Con a b => (a -> b) -> IO ()
 tst = test "tst"
 {-# NOINLINE tst #-}
 
--- TODO: maybe a rewrite rule for tst.
-
 #if 0
 type Con = Yes2
 {-# RULES "ccc (->)" forall nm f. test nm f = runF (ccc f) #-}
 #elif 0
 type Con = Yes2
 {-# RULES "U2" forall nm f. test nm f = runU2 (ccc f) #-}
-#elif 0
+#elif 1
 type Con = Yes2
 {-# RULES "Syn" forall nm f. test nm f = runSyn (ccc f) #-}
 #elif 0
