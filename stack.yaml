@@ -1,6 +1,4 @@
 flags: {}
-packages:
-- '.'
 extra-deps:
 - newtype-generics-0.4
 resolver: lts-7.15
