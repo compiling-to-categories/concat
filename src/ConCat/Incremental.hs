@@ -19,7 +19,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 {-# OPTIONS_GHC -Wall #-}
--- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
 -- | Experimenting with incremental computation
 
@@ -28,6 +28,7 @@ module ConCat.Incremental where
 import Prelude hiding (id,(.),const)
 -- import qualified Prelude as P
 import Data.Maybe (fromMaybe,isNothing)
+import Control.Applicative (liftA2)
 
 import Data.Void (Void,absurd)
 import Control.Newtype
@@ -66,11 +67,20 @@ class HasDelta a where
   default appD :: Atomic a => Delta a -> Unop a
   appD del old = fromMaybe old del
   zeroD :: Delta a              -- needs an explicit type application
+  infixl 6 ^-^
+  (^-^) :: a -> a -> Delta a
+  default (^-^) :: (Eq a, Atomic a) => a -> a -> Delta a
+  new ^-^ old | new == old = Nothing
+              | otherwise  = Just new
   default zeroD :: Atomic a => Delta a
   zeroD = Nothing
   isZeroD :: Delta a -> Bool
   default isZeroD :: Atomic a => Delta a -> Bool
   isZeroD = isNothing
+
+infixl 6 ^+
+(^+) :: HasDelta a => a -> Delta a -> a
+(^+) = flip appD
 
 -- TODO: Try using HasRep instead of Atomic for default, since there are
 -- more of them.
@@ -79,6 +89,7 @@ class HasDelta a where
 instance HasDelta () where
   type Delta () = Maybe Void
   appD d () = maybe () absurd d
+  () ^-^ () = Nothing
   zeroD = Nothing
   isZeroD = const True
 
@@ -92,6 +103,7 @@ instance HasDelta Double
 instance (HasDelta a, HasDelta b) => HasDelta (a :* b) where
   type Delta (a :* b) = Delta a :* Delta b
   appD (da,db) = appD da *** appD db
+  (a',b') ^-^ (a,b) = (a' ^-^ a, b' ^-^ b)
   zeroD = (zeroD @a, zeroD @b)
   isZeroD (da,db) = isZeroD @a da && isZeroD @b db
 
@@ -99,14 +111,27 @@ instance (HasDelta a, HasDelta b) => HasDelta (a :+ b) where
   -- No change, left, right
   type Delta (a :+ b) = Maybe (Delta a :+ Delta b)
   appD :: Maybe (Delta a :+ Delta b) -> Unop (a :+ b)
-  appD Nothing           e = e
+  appD Nothing           e         = e
   appD (Just (Left  da)) (Left  a) = Left  (appD da a)
   appD (Just (Right da)) (Right a) = Right (appD da a)
   appD _ _ = error "appD: left/right mismatch"
+  Left  a' ^-^ Left  a = Just (Left  (a' ^-^ a))
+  Right b' ^-^ Right b = Just (Right (b' ^-^ b))
+  _        ^-^ _       = Nothing
   zeroD = Nothing
   isZeroD :: Delta (a :+ b) -> Bool
   isZeroD = maybe True (isZeroD @a ||| isZeroD @b)
-            -- maybe True (either isZeroD isZeroD)
+
+instance HasDelta b => HasDelta (a -> b) where
+  type Delta (a -> b) = a -> Delta b
+  appD df f = \ a -> appD (df a) (f a)
+  (^-^) = liftA2 (^-^)
+  zeroD = \ _ -> zeroD @b
+  isZeroD = error "isZeroD for (a -> b): undefined"
+
+  -- (f' ^-^ f) a = f' a ^-^ f a
+
+-- I don't think I really need isZeroD.
 
 {--------------------------------------------------------------------
     Change transformations
@@ -144,6 +169,18 @@ instance CoproductCat (-+>) where
   (|||) :: forall a b c. Ok3 (-+>) a b c => (a -+> c) -> (b -+> c) -> (a :+ b -+> c)
   DelX f ||| DelX g = DelX (maybe (zeroD @c) (f ||| g))
 
+-- instance ClosedCat (-+>) where
+--   apply
+
+-- apply :: (a -> b) :* a -+> b
+--       =~ Delta ((a -> b) :* a) -> Delta b
+--       =~ Delta (a -> b) :* Delta a -> Delta b
+--       =~ (a -> Delta b) :* Delta a -> Delta b
+
+-- appD (apply (f',a')) :: b -> b
+-- appD (apply (f',a')) b = ... no a
+
+
 #if 1
 atomic1 :: (Atomic a, Atomic b) => (a -> b) -> a -> (a -+> b)
 atomic1 f a = DelX $ \ case
@@ -179,6 +216,7 @@ instance (r ~ Rep a, Delta a ~ Delta r) => RepCat (-+>) a r where
   instance (HasRep (ty), HasDelta (Rep (ty))) => HasDelta (ty) where { \
   ; type Delta (ty) = Delta (Rep (ty)) \
   ; appD del = inAbst (appD del) \
+  ; a' ^-^ a = repr a' ^-^ repr a \
   ; zeroD = zeroD @(Rep (ty)) \
   ; isZeroD = isZeroD @(Rep (ty)) \
   }; \
@@ -224,7 +262,6 @@ DelRep(Parity)
     Use with generalized automatic differentiation
 --------------------------------------------------------------------}
 
-
 type Inc = GD (-+>)
 
 instance TerminalCat Inc where
@@ -236,6 +273,9 @@ instance TerminalCat Inc where
 instance HasDelta b => ConstCat Inc b where
   const b = D (const (b, zeroDelX))
   {-# INLINE const #-}
+
+-- instance ClosedCat Inc where
+--   apply
 
 -- TODO: Work on unifying more instances between D s and Inc.
 
