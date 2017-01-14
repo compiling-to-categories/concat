@@ -184,7 +184,7 @@ instance ClosedCat Syn where
   INLINER(curry)
   INLINER(uncurry)
 
-#if 1
+#if 0
 
 atomicConst :: Show b => b -> Syn a b
 atomicConst b = app1 "const" (atomStr (show b))
