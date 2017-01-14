@@ -25,7 +25,7 @@
 
 module ConCat.Incremental where
 
-import Prelude hiding (id,(.),const)
+import Prelude hiding (id,(.),const,curry)
 -- import qualified Prelude as P
 import Data.Maybe (fromMaybe,isNothing)
 import Control.Applicative (liftA2)
@@ -60,17 +60,18 @@ type AtomDel a = Maybe a
 
 type Atomic a = (HasDelta a, Delta a ~ AtomDel a)
 
+infixl 6 .-., .+^
+
 class HasDelta a where
   type Delta a
   type Delta a = AtomDel a
-  appD :: Delta a -> Unop a
-  default appD :: Atomic a => Delta a -> Unop a
-  appD del old = fromMaybe old del
+  (.+^) :: HasDelta a => a -> Delta a -> a
+  default (.+^) :: Atomic a => a -> Delta a -> a
+  (.+^) = fromMaybe
   zeroD :: Delta a              -- needs an explicit type application
-  infixl 6 ^-^
-  (^-^) :: a -> a -> Delta a
-  default (^-^) :: (Eq a, Atomic a) => a -> a -> Delta a
-  new ^-^ old | new == old = Nothing
+  (.-.) :: a -> a -> Delta a
+  default (.-.) :: (Eq a, Atomic a) => a -> a -> Delta a
+  new .-. old | new == old = Nothing
               | otherwise  = Just new
   default zeroD :: Atomic a => Delta a
   zeroD = Nothing
@@ -78,9 +79,9 @@ class HasDelta a where
   default isZeroD :: Atomic a => Delta a -> Bool
   isZeroD = isNothing
 
-infixl 6 ^+
-(^+) :: HasDelta a => a -> Delta a -> a
-(^+) = flip appD
+-- Semantic function
+appD :: HasDelta a => Delta a -> Unop a
+appD = flip (.+^)
 
 -- TODO: Try using HasRep instead of Atomic for default, since there are
 -- more of them.
@@ -88,8 +89,8 @@ infixl 6 ^+
 -- Unit can't change.
 instance HasDelta () where
   type Delta () = Maybe Void
-  appD d () = maybe () absurd d
-  () ^-^ () = Nothing
+  () .+^ d = maybe () absurd d
+  () .-. () = Nothing
   zeroD = Nothing
   isZeroD = const True
 
@@ -102,34 +103,35 @@ instance HasDelta Double
 
 instance (HasDelta a, HasDelta b) => HasDelta (a :* b) where
   type Delta (a :* b) = Delta a :* Delta b
-  appD (da,db) = appD da *** appD db
-  (a',b') ^-^ (a,b) = (a' ^-^ a, b' ^-^ b)
+  (a,b) .+^ (da,db) = (a .+^ da, b .+^ db)
+  (a',b') .-. (a,b) = (a' .-. a, b' .-. b)
   zeroD = (zeroD @a, zeroD @b)
   isZeroD (da,db) = isZeroD @a da && isZeroD @b db
 
 instance (HasDelta a, HasDelta b) => HasDelta (a :+ b) where
   -- No change, left, right
   type Delta (a :+ b) = Maybe (Delta a :+ Delta b)
-  appD :: Maybe (Delta a :+ Delta b) -> Unop (a :+ b)
-  appD Nothing           e         = e
-  appD (Just (Left  da)) (Left  a) = Left  (appD da a)
-  appD (Just (Right da)) (Right a) = Right (appD da a)
-  appD _ _ = error "appD: left/right mismatch"
-  Left  a' ^-^ Left  a = Just (Left  (a' ^-^ a))
-  Right b' ^-^ Right b = Just (Right (b' ^-^ b))
-  _        ^-^ _       = Nothing
+  (.+^) :: (a :+ b) ->Maybe (Delta a :+ Delta b) -> (a :+ b)
+  e .+^ Nothing         = e
+  Left  a .+^ Just (Left  da) = Left  (appD da a)
+  Right a .+^ Just (Right da) = Right (appD da a)
+  _ .+^ _                     = error "appD: left/right mismatch"
+  Left  a' .-. Left  a = Just (Left  (a' .-. a))
+  Right b' .-. Right b = Just (Right (b' .-. b))
+  _        .-. _       = Nothing
   zeroD = Nothing
   isZeroD :: Delta (a :+ b) -> Bool
   isZeroD = maybe True (isZeroD @a ||| isZeroD @b)
 
 instance HasDelta b => HasDelta (a -> b) where
   type Delta (a -> b) = a -> Delta b
-  appD df f = \ a -> appD (df a) (f a)
-  (^-^) = liftA2 (^-^)
+  (.+^) = liftA2 (.+^)
+  (.-.) = liftA2 (.-.)
   zeroD = \ _ -> zeroD @b
   isZeroD = error "isZeroD for (a -> b): undefined"
 
-  -- (f' ^-^ f) a = f' a ^-^ f a
+  -- (f .+^ df) a = f a .+^ df a
+  -- (f' .-. f) a = f' a .-. f a
 
 -- I don't think I really need isZeroD.
 
@@ -157,6 +159,7 @@ instance Category (-+>) where
 
 instance OpCon (:*) (Sat OkDelX) where inOp = Entail (Sub Dict)
 instance OpCon (:+) (Sat OkDelX) where inOp = Entail (Sub Dict)
+instance OpCon (->) (Sat OkDelX) where inOp = Entail (Sub Dict)
 
 instance ProductCat (-+>) where
   exl   = pack exl
@@ -166,20 +169,33 @@ instance ProductCat (-+>) where
 instance CoproductCat (-+>) where
   inl = pack (Just . Left )
   inr = pack (Just . Right)
-  (|||) :: forall a b c. Ok3 (-+>) a b c => (a -+> c) -> (b -+> c) -> (a :+ b -+> c)
+  (|||) :: forall a b c. Ok3 (-+>) a b c
+        => (a -+> c) -> (b -+> c) -> (a :+ b -+> c)
   DelX f ||| DelX g = DelX (maybe (zeroD @c) (f ||| g))
 
--- instance ClosedCat (-+>) where
---   apply
+-- I think that there is no ClosedCat (-+>) instance, but there *is* a ClosedCat
+-- (GAD (-+>)) instance, since we get an a to use.
 
--- apply :: (a -> b) :* a -+> b
---       =~ Delta ((a -> b) :* a) -> Delta b
---       =~ Delta (a -> b) :* Delta a -> Delta b
---       =~ (a -> Delta b) :* Delta a -> Delta b
+applyDX :: HasDelta a => a -> ((a -> b) :* a -+> b)
+applyDX a = DelX (\ (df,da) -> df (a .+^ da))
 
--- appD (apply (f',a')) :: b -> b
--- appD (apply (f',a')) b = ... no a
+--     a         :: a
+-- df            :: Delta (a -> b)
+-- df            ~  a -> Delta b
+--           da  :: Delta  a
+--     a .+^ da  :: a
+-- df (a .+^ da) :: Delta b
 
+curryDX :: HasDelta b => b -> (a :* b -+> c) -> (a -+> (b -> c))
+curryDX b (DelX f) = DelX (\ da b' -> f (da,b' .-. b))
+
+-- xf                 :: Delta (a :* b) -> Delta c
+--                    ~  Delta a :* Delta b -> Delta c
+--      da            :: a
+--          b'        ::    b
+-- b                  :: b
+--          b' .-. b  :: Delta b
+-- xf ( da, b' .-. b) :: Delta c
 
 #if 1
 atomic1 :: (Atomic a, Atomic b) => (a -> b) -> a -> (a -+> b)
@@ -215,11 +231,16 @@ instance (r ~ Rep a, Delta a ~ Delta r) => RepCat (-+>) a r where
 #define DelRep(ty) \
   instance (HasRep (ty), HasDelta (Rep (ty))) => HasDelta (ty) where { \
   ; type Delta (ty) = Delta (Rep (ty)) \
-  ; appD del = inAbst (appD del) \
-  ; a' ^-^ a = repr a' ^-^ repr a \
+  ; a .+^ da = abst (repr a .+^ da) \
+  ; a' .-. a = repr a' .-. repr a \
   ; zeroD = zeroD @(Rep (ty)) \
   ; isZeroD = isZeroD @(Rep (ty)) \
   }; \
+
+-- a :: a
+-- da :: Delta (Rep a)
+-- repr a :: Rep a
+-- repr 
 
 DelRep((a,b,c))
 DelRep((a,b,c,d))
@@ -275,7 +296,70 @@ instance HasDelta b => ConstCat Inc b where
   {-# INLINE const #-}
 
 -- instance ClosedCat Inc where
---   apply
+--   apply = D (\ (f,a) -> (f a, applyDX a))
+--   curry :: forall a b c. Inc (a :* b) c -> Inc a (b -> c)
+--   curry (D (f :: a :* b -> c :* (a :* b -+> c))) = D $ \ (a :: a) ->
+--     let g  :: b -> c
+--         -- g' :: b -> Delta a :* Delta b -> Delta c
+--         g' :: b -> (a :* b -+> c)
+--         (g,g') = unfork (curry f a)
+--         g'' :: b -> Delta a :* Delta b -> Delta c
+--         g'' = unpack . g'
+--     in
+--       (g,DelX (\ (da :: Delta a) (b :: b) -> 
+--       -- (g,DelX (\ (da :: Delta a) (b :: b) -> g'' b (da,_)))
+--       -- (g, DelX (\ (da :: Delta a) (b' :: b) -> _))
+
+-- unpack . g' :: b -> Delta a :* Delta b -> Delta c
+
+--                           (curry f a, DelX undefined))
+                -- D (\ a -> let b = f a in (b, undefined))
+
+-- curryDX :: HasDelta b => b -> (a :* b -+> c) -> (a -+> (b -> c))
+
+
+#if 0
+D f :: Inc (a :* b)  c
+f :: a :* b -> c :* (a :* b -+> c)
+
+curry f :: a -> b -> c :* (a :* b -+> c)
+curry f a :: b -> c :* (a :* b -+> c)
+g :: b -> c
+g' :: b -> (a :* b -+> c)
+g'' :: b -> Delta a :* Delta b -> Delta c
+
+a :: a
+b :: b
+
+a .+^ da :: a
+
+
+curry (D f) :: Inc a (b -> c)
+            =~ a -> (b -> c) :* (a -+> (b -> c))
+            =~ a -> (b -> c) :* (Delta a -> Delta (b -> c))
+            ~  a -> (b -> c) :* (Delta a -> b -> Delta c)
+            =~ a -> (b -> c :* (Delta a -> Delta c))
+            =~ a :* b -> c :* (Delta a -> Delta c)
+
+
+curry (D f) :: Inc a (b -> c)
+unpack (curry (D f)) :: a -> (b -> c) :* (a -+> (b -> c))
+second unpack . unpack (curry (D f))
+            :: a -> (b -> c) :* (Delta a -> Delta (b -> c))
+            ~  a -> (b -> c) :* (Delta a -> b -> Delta c)
+            =~ a -> (b -> c :* (Delta a -> Delta c))
+            =~ a :* b -> c :* (Delta a -> Delta c)
+
+_want :: Delta c
+
+f :: a -> b :* (a -+> b)
+                  Delta (a :* b) -> Delta c
+  :: Delta a :* Delta b -> Delta c
+
+h :: a -> b :* (Delta a -> Delta (b -> c))
+  :: a -> b :* (Delta a -> b -> Delta c)
+#endif
+
 
 -- TODO: Work on unifying more instances between D s and Inc.
 
