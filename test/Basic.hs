@@ -98,7 +98,9 @@ import qualified ConCat.AltCat as A
 import ConCat.Rebox () -- experiment
 import ConCat.Orphans ()
 
-import GHC.Num () -- help the plugin find instances (doesn't)
+-- import GHC.Num () -- help the plugin find instances (doesn't)
+
+-- import ShapedTypes.Fams
 
 -- -- Experiment: try to force loading of Num Float etc
 -- class Num a => Quuz a
@@ -121,8 +123,14 @@ tests = return
 
 --   , test "cond-fun" (\ x -> (if x > 0 then id else negate) x :: Int)
 
---   , test "sop1" (\ ((x,y),z) -> x * y + y * z + x * z :: R)
-  , test "sop1-ai" (andInc (\ ((x,y),z) -> x * y + y * z + x * z :: R))
+--   , test "sop1" (\ (x,y,z) -> x * y + y * z + x * z :: R)
+--   , test "sop1-ai" (andInc (\ (x,y,z) -> x * y + y * z + x * z :: R))
+
+  , test "sum4" (\ (a,b,c,d) -> (a+b)+(c+d) :: R)
+--   , test "sum4-ai" (andInc (\ (a,b,c,d) -> (a+b)+(c+d) :: Int))
+
+--   , test "sum8" (\ ((a,b,c,d),(e,f,g,h)) -> ((a+b)+(c+d))+((e+f)+(g+h)) :: R)
+--   , test "sum8-ai" (andInc (\ ((a,b,c,d),(e,f,g,h)) -> ((a+b)+(c+d))+((e+f)+(g+h)) :: R))
 
 --   , test "magSqr"            (magSqr @R)
 --   , test "magSqr-ai" (andInc (magSqr @R))
@@ -735,6 +743,8 @@ par1 = Par1
 
 newtype Bolo = Bolo Bool
 
+
+
 {--------------------------------------------------------------------
     Tests
 --------------------------------------------------------------------}
@@ -750,3 +760,4 @@ newtype Bolo = Bolo Bool
 
 -- bar :: R2 -> (Del R2 -> Del R)
 -- bar = inc mulC
+
