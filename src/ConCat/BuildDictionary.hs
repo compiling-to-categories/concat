@@ -22,6 +22,7 @@ module ConCat.BuildDictionary (buildDictionary) where
 import Data.Monoid (Any(..))
 import Data.Char (isSpace)
 import Data.Data (Data)
+import Data.Set (Set,fromList,member)
 import Data.Generics (mkQ,everything)
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -65,9 +66,14 @@ runTcMUnsafe env0 dflags guts m = unsafePerformIO $ do
    -- imports0 shows up empty for my uses. Add GHC.Float and ConCat.Orphans for
    -- orphans, plus GHC.Generics for its newtypes (Coercible).
    -- TODO: find a better way.
-   extraModuleNames = mkModuleName <$> ["GHC.Float","GHC.Exts","ConCat.Orphans"]
+   orphans = filter (not . (`member` excludeMods))
+                    (moduleName <$> dep_orphs (mg_deps guts))
+   -- Hack: these ones lead to "Failed to load interface for ..."
+   extraModuleNames = orphans
+                      -- mkModuleName <$> ["GHC.Float"","GHC.Exts","ConCat.Orphans","ConCat.AD"]
                       -- map moduleName (dep_orphs (mg_deps guts))
    env = -- pprTrace "runTcMUnsafe dep_mods" (ppr (dep_mods (mg_deps guts))) $
+         -- pprTrace "runTcMUnsafe dep_orphs" (ppr orphans) $
          -- pprTrace "runTcMUnsafe dep_orphs" (ppr (dep_orphs (mg_deps guts))) $
          -- pprTrace "runTcMUnsafe dep_finsts" (ppr (dep_finsts (mg_deps guts))) $
          -- pprTrace "runTcMUnsafe mg_insts" (ppr (mg_insts guts)) $
@@ -81,6 +87,16 @@ runTcMUnsafe env0 dflags guts m = unsafePerformIO $ do
                  , ic_instances = (mg_insts guts, mg_fam_insts guts)
                  } }
          -- env0
+
+-- Lousy hack. If I leave these modules in the orphans list, I get a failure due
+-- to hidden packages. Instead I'd like to learn which ones to exclude on the fly.
+excludeMods :: Set ModuleName
+excludeMods = fromList $ map mkModuleName $
+  [ "Data.Binary.Generic","Data.ByteString.Builder","Data.Hashable.Generic"
+  , "Control.Monad.STM", "Data.Text", "Data.Text.Lazy", "Data.Text.Show"
+  , "Data.Time.Calendar.Gregorian", "Data.Time.Format.Parse"
+  , "Data.Time.LocalTime.LocalTime", "Control.Monad.Trans.Error"
+  ]
 
 -- TODO: Try initTcForLookup or initTcInteractive in place of initTcFromModGuts.
 -- If successful, drop dflags and guts arguments.
