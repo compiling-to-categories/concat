@@ -317,10 +317,10 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        return (mkCcc (mkCoreApps f args))
 #endif
      Trying("top unfold")
-     e@(exprHead -> Just v)
+     e@(exprHead -> Just _v)
        | -- Temp hack: avoid unfold/case-of-product loop.
-         isCast e || not (isSelectorId v || isAbstReprId v)
-       , Just e' <- unfoldMaybe e
+         {- isCast e || not (isSelectorId _v || isAbstReprId _v)
+       , -} Just e' <- unfoldMaybe e
        -> Doing("top unfold")
           -- , dtrace "top unfold" (ppr e <+> text "-->" <+> ppr e') True
           return (mkCcc e')
@@ -349,9 +349,9 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      -- TODO: If I don't etaReduceN, merge goLam back into the go Lam case.
 #endif
      _e -> Doing("top Unhandled")
-           -- Nothing
+           -- pprTrace "ccc go. Unhandled" (ppr _e) $ Nothing
            pprPanic "ccc go. Unhandled" (ppr _e)
-   goLam x body | dtrace "goLam:" (ppr (Lam x body)) False = undefined
+   -- goLam x body | dtrace "goLam:" (ppr (Lam x body)) False = undefined
    -- go _ = Nothing
    goLam x body | Just e' <- etaReduce_maybe (Lam x body) =
     Doing("lam eta-reduce")
@@ -410,7 +410,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam Let")
      -- TODO: refactor with top Let
      _e@(Let bind@(NonRec v rhs) body') ->
-       -- dtrace "lam Let subst criteria" (ppr (substFriendly rhs, not xInRhs, idOccs v body')) $
+       -- dtrace "lam Let subst criteria" (ppr (substFriendly (isClosed cat) rhs, not xInRhs, idOccs v body')) $
        if substFriendly (isClosed cat) rhs || not xInRhs || idOccs v body' <= 1 then
          -- TODO: decide whether to float or substitute.
          -- To float, x must not occur freely in rhs
@@ -1146,7 +1146,7 @@ isTrivialCatOp :: CoreExpr -> Bool
 isTrivialCatOp (collectArgs -> (Var v,length -> n))
   -- | pprTrace "isTrivialCatOp" (ppr (v,n,isSelectorId v,isAbstReprId v)) True
   =    (isSelectorId v && n == 5)  -- exl cat tya tyb dict ok
-    || (isAbstReprId v && n == 3)  -- reprC cat ty repCat
+    || (isAbstReprId v && n == 4)  -- reprCf cat a r repCat
 isTrivialCatOp _ = False
 
 isSelectorId :: Id -> Bool
