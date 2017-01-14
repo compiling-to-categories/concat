@@ -1,12 +1,8 @@
 -- -*- flycheck-disabled-checkers: '(haskell-ghc haskell-stack-ghc); -*-
 
--- To run:
--- 
---   stack build && stack exec test
--- 
--- With output (including tracing) to a file
--- 
---   stack build && stack exec test >& ~/Haskell/concat/out/o1
+-- stack test (or stack build :basic)
+
+-- stack build && stack test >& ~/Haskell/concat/out/o1
 
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
@@ -25,6 +21,9 @@
 
 -- To keep ghci happy, it appears that the plugin flag must be in the test module.
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
+
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -dverbose-core2core #-}
 
 ----------------------------------------------------------------------
 -- |
@@ -55,8 +54,8 @@ import ConCat.Float
 import ConCat.Free.VectorSpace (V)
 import ConCat.Free.LinearRow
 import ConCat.Incremental
-import ConCat.GAD  -- AD
-import qualified ConCat.ADFun as ADFun
+import ConCat.GAD
+import ConCat.AD
 import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
@@ -70,15 +69,18 @@ main :: IO ()
 main = sequence_
   [ return ()
 
-  , test "foo" ((+) :: Binop Int)
+--   , test "magSqr-ad1" (andDer (magSqr @R))
+--   , test "magSqr-ad1-inc" (inc (andDer (magSqr @R)))
 
 --   , test "negate-ai" (andInc (negate :: Unop Int))
 
 --   , test "xy" (\ (x,y) -> x * y :: R)
 
+--   , test "xy-ad" (andDer (\ (x,y) -> x * y :: R))
+
 --   , test "xy-i" (inc (\ (x,y) -> x * y :: R))
 
---   , test "xy-ai" (andInc (\ (x,y) -> x * y :: R))
+  , test "xy-ai" (andInc (\ (x,y) -> x * y :: R))
 
 --   , test "cond" (\ x -> if x > 0 then x else negate x :: Int)
 
@@ -97,10 +99,6 @@ main = sequence_
 --   , test "magSqr"            (magSqr @R)
 --   , test "magSqr-ai" (andInc (magSqr @R))
 --   , test "magSqr-i"     (inc (magSqr @R))
-
---   , test "magSqr-ad1" (andDer (magSqr @R))
-
---   , test "magSqr-ad1-inc" (inc (andDer (magSqr @R)))
 
 --   , test "linear-compose-r-r-r" (uncurry ((A..) :: LComp R R R))
 --   , test "linear-compose-r2-r-r" (uncurry ((A..) :: LComp R2 R R))
@@ -225,7 +223,7 @@ type Con = Yes2
 #elif 0
 type Con = Yes2
 {-# RULES "U2" forall nm f. test nm f = runU2 (ccc f) #-}
-#elif 1
+#elif 0
 type Con = Yes2
 {-# RULES "Syn" forall nm f. test nm f = runSyn (ccc f) #-}
 #elif 0

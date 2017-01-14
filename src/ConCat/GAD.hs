@@ -9,6 +9,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -Wall #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-} -- TEMP
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
 -- | Generalized automatic differentiation
@@ -25,7 +26,6 @@ import Control.Newtype
 import ConCat.Misc ((:*),inNew2,PseudoFun(..))
 import ConCat.Free.VectorSpace
 import ConCat.Free.LinearRow
-import ConCat.Incremental
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
 import ConCat.AltCat
@@ -118,98 +118,6 @@ instance ProductCat k => ProductCat (GD k) where
 notDef :: String -> a
 notDef meth = error (meth ++ " on D not defined")
 
-type D s = GD (L s)
-
-type Inc = GD (-+>)
-
-instance Num s => TerminalCat (D s) where
-  it = linearD (const ()) zeroLM
-  {-# INLINE it #-}
-
-instance Ok (L s) b => ConstCat (D s) b where
-  const b = D (const (b, zeroLM))
-  {-# INLINE const #-}
-
-instance TerminalCat Inc where
-  -- it = linearD (const ()) zeroDelX
-  -- it = D (const ((),constantDelX ()))
-  it = const ()
-  {-# INLINE it #-}
-
-instance HasDelta b => ConstCat Inc b where
-  const b = D (const (b, zeroDelX))
-  {-# INLINE const #-}
-
--- TODO: Work on unifying more instances between D s and Inc.
-
-instance Ok (L s) s => NumCat (D s) s where
-  negateC = linearD negateC (scale (-1))
-  addC    = linearD addC    jamLM
-  mulC    = D (mulC &&& (\ (a,b) -> scale b `joinLM` scale a))
-  powIC   = notDef "powC"
-  {-# INLINE negateC #-}
-  {-# INLINE addC    #-}
-  {-# INLINE mulC    #-}
-  {-# INLINE powIC   #-}
-
-fullI1 :: (Atomic a, Atomic b) => (a -> b) -> Inc a b
-fullI1 f = D (\ a -> (f a, atomic1 f a))
-
-fullI2 :: (Atomic a, Atomic b, Atomic c) => (a :* b -> c) -> Inc (a :* b) c
-fullI2 f = D (\ ab -> (f ab, atomic2 f ab))
-
-instance (Atomic s, Num s) => NumCat Inc s where
-  negateC = fullI1 negateC
-  addC    = fullI2 addC
-  subC    = fullI2 subC
-  mulC    = fullI2 mulC
-  powIC   = fullI2 powIC
-  {-# INLINE negateC #-}
-  {-# INLINE addC    #-}
-  {-# INLINE mulC    #-}
-  {-# INLINE powIC   #-}
-
-const' :: (a -> c) -> (a -> b -> c)
-const' = (const .)
-
-scalarD :: Ok (L s) s => (s -> s) -> (s -> s -> s) -> D s s s
-scalarD f d = D (\ x -> let r = f x in (r, scale (d x r)))
-{-# INLINE scalarD #-}
-
--- Use scalarD with const f when only r matters and with const' g when only x
--- matters.
-
-scalarR :: Ok (L s) s => (s -> s) -> (s -> s) -> D s s s
-scalarR f f' = scalarD f (\ _ -> f')
--- scalarR f x = scalarD f (const x)
--- scalarR f = scalarD f . const
-{-# INLINE scalarR #-}
-
-scalarX :: Ok (L s) s => (s -> s) -> (s -> s) -> D s s s
-scalarX f f' = scalarD f (\ x _ -> f' x)
--- scalarX f f' = scalarD f (\ x y -> const (f' x) y)
--- scalarX f f' = scalarD f (\ x -> const (f' x))
--- scalarX f f' = scalarD f (const . f')
--- scalarX f f' = scalarD f (const' f')
--- scalarX f = scalarD f . const'
-{-# INLINE scalarX #-}
-
-square :: Num a => a -> a
-square a = a * a
-{-# INLINE square #-}
-
-instance (Ok (L s) s, Fractional s) => FractionalCat (D s) s where
-  recipC = scalarR recip (negate . square)
-  {-# INLINE recipC #-}
-
-instance (Ok (L s) s, Floating s) => FloatingCat (D s) s where
-  expC = scalarR exp id
-  sinC = scalarX sin cos
-  cosC = scalarX cos (negate . sin)
-  {-# INLINE expC #-}
-  {-# INLINE sinC #-}
-  {-# INLINE cosC #-}
-
 instance (RepCat (->) a r, RepCat k a r) => RepCat (GD k) a r where
   reprC = linearD reprC reprC
   abstC = linearD abstC abstC
@@ -247,31 +155,3 @@ deriv _ = error "deriv called"
 
 -- 2016-01-07: The extra ccc helped with simplification.
 -- Occassionally try without, and compare results.
-
-andDer :: forall a b . (a -> b) -> (a -> b :* LR a b)
-andDer = andDeriv
-{-# NOINLINE andDer #-}
-{-# RULES "andDer" andDer = andDeriv #-}
--- {-# ANN andDer PseudoFun #-}
-
-der :: forall a b . (a -> b) -> (a -> LR a b)
-der = deriv
-{-# NOINLINE der #-}
-{-# RULES "der" der = deriv #-}
--- {-# ANN der PseudoFun #-}
-
-andInc :: forall a b . (a -> b) -> (a :* Delta a -> b :* Delta b)
-andInc _ = error "andInc called"
-{-# NOINLINE andInc #-}
-{-# RULES "andInc" forall f. andInc f = flatInc (andDeriv f) #-}
--- {-# ANN andInc PseudoFun #-}
-
-flatInc :: (a -> b :* (a -+> b)) -> (a :* Delta a -> b :* Delta b)
-flatInc f (a,da) = (b, d da) where (b,DelX d) = f a
-
-inc :: forall a b . (a -> b) -> (a :* Delta a -> Delta b)
-inc _ = error "inc called"
-{-# NOINLINE inc #-}
-{-# RULES "inc" forall f. inc f = snd P.. andInc f #-}
--- {-# RULES "inc" forall f. inc f = uncurry (unDelX P.. snd P.. andInc f) #-}
--- {-# ANN inc PseudoFun #-}

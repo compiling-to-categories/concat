@@ -34,12 +34,12 @@ library
                        ConCat.Circuit
                        ConCat.RunCircuit
                        ConCat.Float
-                       ConCat.Incremental
-                       ConCat.AD
                        ConCat.GAD
-                       ConCat.ADFun
+                       ConCat.AD
+                       ConCat.Incremental
                        ConCat.Rebox
 
+--                        ConCat.ADFun
 --                        ConCat.EmptyCase
 --                        ConCat.GHC
 --                        HERMIT.GHC.Typechecker
@@ -86,7 +86,7 @@ library
   -- other-modules:       
   -- other-extensions:    
 
--- Test-Suite test
+-- Test-Suite basic
 --   type:             detailed-0.9
 --   default-language: Haskell98
 --   hs-Source-Dirs:   test
@@ -98,6 +98,30 @@ library
 --                   , ghc-prim
 --                   , pretty >= 1.1.3.3
 --   ghc-options:      -O2 -fforce-recomp
+
+-- Test-Suite basic
+--   type:             detailed-0.9
+--   default-language: Haskell98
+--   hs-Source-Dirs:   test
+--   test-module:      Tryit
+--   Build-Depends:    Cabal >= 1.24.2.0
+--                   , base<5
+--                   , concat
+--                   , ghc-prim
+--                   , pretty >= 1.1.3.3
+--   ghc-options:      -O2 -fforce-recomp
+
+Test-Suite test
+  type:             exitcode-stdio-1.0
+  default-language: Haskell98
+  hs-Source-Dirs:   test
+  main-is:          Test.hs
+  Build-Depends:    Cabal >= 1.24.2.0
+                  , base<5
+                  , concat
+                  , ghc-prim
+                  , pretty >= 1.1.3.3
+  ghc-options:      -O2 -fforce-recomp
 
 -- ghc-prim is for the reboxing experiment
 
@@ -124,15 +148,15 @@ library
 -- "stack test" builds and runs both/all test suites.
 -- "stack build :opt-rules" or "stack build :basic" builds and runs just one suite.
 
-executable test
-  default-language: Haskell98
-  hs-Source-Dirs:   test
-  main-is:      Test.hs
-  Build-Depends:    base<5, ghc-prim, Cabal >= 1.24.2.0
-                  , concat
-  ghc-options:    -O2 -fforce-recomp
-                  -fexpose-all-unfoldings
-                  -dsuppress-idinfo -dsuppress-uniques -dsuppress-module-prefixes
+-- executable test
+--   default-language: Haskell98
+--   hs-Source-Dirs:   test
+--   main-is:      Test.hs
+--   Build-Depends:    base<5, ghc-prim, Cabal >= 1.24.2.0
+--                   , concat
+--   ghc-options:    -O2 -fforce-recomp
+--                   -fexpose-all-unfoldings
+--                   -dsuppress-idinfo -dsuppress-uniques -dsuppress-module-prefixes
 
 --                  -fplugin=ConCat.Plugin
 

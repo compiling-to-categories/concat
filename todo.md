@@ -1,7 +1,8 @@
 # To do
 
-*   Re-organize `GAD` and `Incremental`.
-    Leave only general support in `GAD`, and move specific to `AD` and `Incremental`.
+*   Figure out how not to need orphan instances in `AD` and `Incremental`.
+*   Remove `ConCat.Float`.
+*   Better way to select orphan modules in `runTcMUnsafe` in `BuildDictionary`.
 *   General `TerminalCat` default via `ConstCat` in `Category`.
     Revisit all `TerminalCat` instances.
 *   Maybe I don't need `ConstCat (:>)` for anything but scalars, since the compiler will keep breaking down constant terms until it gets to a type for which the target category has a `ConstCat` instance.
@@ -61,6 +62,8 @@
 
 # Done
 
+*   Re-organize `GAD` and `Incremental`.
+    Leave only general support in `GAD`, and move specific to `AD` and `Incremental`.
 *   Try `Coercion` (from `Data.Type.Coercion`) as an example of constrained categories.
     Note that `Coercion a b =~ Dict (Coercible a b)`.
     Similarly for `(:~:)` in `Data.Type.Equality`.

@@ -25,7 +25,8 @@
 
 module ConCat.Incremental where
 
-import Prelude hiding (id,(.))
+import Prelude hiding (id,(.),const)
+-- import qualified Prelude as P
 import Data.Maybe (fromMaybe,isNothing)
 
 import Data.Void (Void,absurd)
@@ -35,7 +36,8 @@ import Data.Constraint ((:-)(..),Dict(..))
 import ConCat.Misc ((:*),(:+),Unop,inNew2,Parity)
 import ConCat.Rep
 import qualified ConCat.Category
-import ConCat.AltCat hiding (const,curry,uncurry)
+import ConCat.AltCat
+import ConCat.GAD
 
 -- For DelRep:
 import ConCat.Complex
@@ -217,3 +219,59 @@ DelRep(Parity)
 
 -- foo :: (Int, Int, Int, Int) -+> ((Int :* Int) :* (Int :* Int))
 -- foo = reprC :: (Int,Int,Int,Int) -+> ((Int :* Int) :* (Int :* Int))
+
+{--------------------------------------------------------------------
+    Use with generalized automatic differentiation
+--------------------------------------------------------------------}
+
+
+type Inc = GD (-+>)
+
+instance TerminalCat Inc where
+  -- it = linearD (const ()) zeroDelX
+  -- it = D (const ((),constantDelX ()))
+  it = const ()
+  {-# INLINE it #-}
+
+instance HasDelta b => ConstCat Inc b where
+  const b = D (const (b, zeroDelX))
+  {-# INLINE const #-}
+
+-- TODO: Work on unifying more instances between D s and Inc.
+
+fullI1 :: (Atomic a, Atomic b) => (a -> b) -> Inc a b
+fullI1 f = D (\ a -> (f a, atomic1 f a))
+
+fullI2 :: (Atomic a, Atomic b, Atomic c) => (a :* b -> c) -> Inc (a :* b) c
+fullI2 f = D (\ ab -> (f ab, atomic2 f ab))
+
+instance (Atomic s, Num s) => NumCat Inc s where
+  negateC = fullI1 negateC
+  addC    = fullI2 addC
+  subC    = fullI2 subC
+  mulC    = fullI2 mulC
+  powIC   = fullI2 powIC
+  {-# INLINE negateC #-}
+  {-# INLINE addC    #-}
+  {-# INLINE mulC    #-}
+  {-# INLINE powIC   #-}
+
+{--------------------------------------------------------------------
+    Differentiation interface
+--------------------------------------------------------------------}
+
+andInc :: forall a b . (a -> b) -> (a :* Delta a -> b :* Delta b)
+andInc _ = error "andInc called"
+{-# NOINLINE andInc #-}
+{-# RULES "andInc" forall f. andInc f = flatInc (andDeriv f) #-}
+-- {-# ANN andInc PseudoFun #-}
+
+flatInc :: (a -> b :* (a -+> b)) -> (a :* Delta a -> b :* Delta b)
+flatInc f (a,da) = (b, d da) where (b,DelX d) = f a
+
+inc :: forall a b . (a -> b) -> (a :* Delta a -> Delta b)
+inc _ = error "inc called"
+{-# NOINLINE inc #-}
+{-# RULES "inc" forall f. inc f = snd . andInc f #-}
+-- {-# RULES "inc" forall f. inc f = P.uncurry (unDelX P.. snd P.. andInc f) #-}
+-- {-# ANN inc PseudoFun #-}
