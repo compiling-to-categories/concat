@@ -139,10 +139,15 @@ instance ( CoerceCat (->) a b
 andDeriv :: forall k a b . (a -> b) -> (a -> b :* (a `k` b))
 andDeriv _ = error "andDeriv called"
 {-# NOINLINE andDeriv #-}
-{-# RULES "andDeriv" forall h. andDeriv h = unD (reveal (ccc h)) #-}
+-- {-# RULES "andDeriv" forall h. andDeriv h = unD (reveal (ccc h)) #-}
+-- {-# RULES "andDeriv" forall h. andDeriv h = unD (ccc h) #-}
+{-# RULES "andDeriv" forall h. andDeriv h = unD (ccc (ccc h)) #-}
 {-# ANN andDeriv PseudoFun #-}
 
--- The reveal greatly improved simplification and speeds up compilation.
+-- The extra ccc allows us to use ClosedCat (->) and then apply rewrite rules to
+-- eliminate the closed operations.
+
+-- The reveal greatly improved simplification and sped up compilation.
 -- Try removing, and retest.
 
 deriv :: forall k a b . (a -> b) -> (a -> (a `k` b))
