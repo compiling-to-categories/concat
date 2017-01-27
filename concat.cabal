@@ -38,6 +38,7 @@ library
                        ConCat.AD
                        ConCat.Incremental
                        ConCat.Rebox
+                       ConCat.GradientDescent
 
 --                        ConCat.ADFun
 --                        ConCat.EmptyCase
