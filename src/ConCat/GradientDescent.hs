@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE BangPatterns #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
@@ -9,7 +10,7 @@
 
 module ConCat.GradientDescent where
 
-import Data.List (unfoldr)
+import Data.List (iterate)
 
 import GHC.Generics (Par1(..))
 
@@ -26,13 +27,37 @@ import ConCat.Category (dup)
 
 gradientDescent :: forall a. (HasV R a, Zip (V R a))
                 => R -> (a -> R) -> a -> [a]
-gradientDescent epsilon f = unfoldr (Just . dup . next)
+gradientDescent gamma f = iterate (\ a -> a ^-^ gamma *^ f' a)
  where
    f' = gradient f
-   next a = a ^-^ epsilon *^ f' a
+{-# INLINE gradientDescent #-}
 
-gd1 :: [R]
-gd1 = gradientDescent 0.1 (\ x -> x^2) 0.5
+minimize :: forall a. (HasV R a, Zip (V R a), Eq a)
+         => R -> (a -> R) -> a -> a
+minimize gamma f a = firstEq (gradientDescent gamma f a)
+{-# INLINE minimize #-}
+
+firstEq :: Eq a => [a] -> a
+firstEq (a:a':as) | a == a'   = a
+                  | otherwise = firstEq (a':as)
+firstEq _                     = error "firstEq: finite"
+
+-- Experiment: track number of steps
+minimize' :: forall a. (HasV R a, Zip (V R a), Eq a)
+          => R -> (a -> R) -> a -> (a,Int)
+minimize' gamma f a = firstEq' (gradientDescent gamma f a)
+{-# INLINE minimize' #-}
+
+firstEq' :: Eq a => [a] -> (a,Int)
+firstEq' = go 1
+ where
+   go !n (a:a':as) | a == a'   = (a,n)
+                   | otherwise = go (n+1) (a':as)
+   go  _ _                     = error "firstEq': finite"
+
+-- gd1 :: [R]
+-- gd1 = gradientDescent 0.1 (\ x -> x*x) 0.5
+-- {-# INLINE gd1 #-}
 
 {--------------------------------------------------------------------
     Misc
