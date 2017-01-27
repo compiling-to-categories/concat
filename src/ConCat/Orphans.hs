@@ -196,6 +196,11 @@ instance (Copointed f, Copointed g) => Copointed (g :.: f) where
     Control.Newtype and keys
 --------------------------------------------------------------------}
 
+instance Newtype (Par1 t) where
+  type O (Par1 t) = t
+  pack = Par1
+  unpack = unPar1
+
 instance Newtype ((a :*: b) t) where
   type O ((a :*: b) t) = a t :* b t
   pack (a,b) = a :*: b
