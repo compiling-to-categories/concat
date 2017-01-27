@@ -350,7 +350,8 @@ ccc (CccEnv {..}) (Ops {..}) cat =
 #endif
      _e -> Doing("top Unhandled")
            -- pprTrace "ccc go. Unhandled" (ppr _e) $ Nothing
-           pprPanic "ccc go. Unhandled" (ppr _e)
+           -- pprPanic "ccc go. Unhandled" (ppr _e)
+           Nothing
    -- goLam x body | dtrace "goLam:" (ppr (Lam x body)) False = undefined
    -- go _ = Nothing
    goLam x body | Just e' <- etaReduce_maybe (Lam x body) =
@@ -625,8 +626,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
      u `App` v | liftedExpr v
-               -- , dtrace "lam App mkApplyMaybe -->"
-               --     (ppr (mkApplyMaybe cat vty bty)) True
+               -- , pprTrace "lam App mkApplyMaybe -->" (ppr (mkApplyMaybe cat vty bty, cat)) True
                , Just app <- mkApplyMaybe cat vty bty ->
        Doing("lam App")
        return $ mkCompose cat
@@ -1022,6 +1022,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    -- catFun e | dtrace "catFun" (pprWithType e) False = undefined
    catFun (Var v) | Just (op,tys) <- Map.lookup fullName monoOps =
      -- Apply to types and dictionaries, and possibly curry.
+     -- dtrace "catFun: found" (ppr (op,tys)) $
      return $ (if twoArgs ty then mkCurry cat else id) (catOp cat op tys)
     where
       ty = varType v
@@ -1068,8 +1069,8 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                   Nothing
    reCat :: ReExpr
    reCat = {- traceFail "reCat" <+ -} transCatOp <+ catFun
-   -- traceFail :: String -> ReExpr
-   -- traceFail str a = dtrace str (pprWithType a) Nothing
+   traceFail :: String -> ReExpr
+   traceFail str a = dtrace str (pprWithType a) Nothing
    -- TODO: refactor transCatOp & isPartialCatOp
    -- TODO: phase out hasRules, since I'm using annotations instead
    isPseudoApp :: CoreExpr -> Bool
