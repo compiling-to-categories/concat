@@ -431,3 +431,4 @@ type LRRR = L Float Float Float
 -- "assoc L (.) left"  forall (f :: L s a b) g h. h . (g . f) = (h . g) . f
 
  #-}
+
