@@ -232,5 +232,6 @@ bottom = error "bottom evaluated"
 typeR :: forall a. Typeable a => TypeRep
 typeR = typeRep (Proxy :: Proxy a)
 
-type R = Float
+-- type R = Float
+type R = Double
 
