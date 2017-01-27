@@ -1,6 +1,6 @@
 -- -*- flycheck-disabled-checkers: '(haskell-ghc haskell-stack-ghc); -*-
 
--- stack test (or stack build :basic)
+-- stack test (or stack build :test)
 
 -- stack build && stack test >& ~/Haskell/concat/out/o1
 
@@ -22,8 +22,19 @@
 -- To keep ghci happy, it appears that the plugin flag must be in the test module.
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
 
+-- Does this flag make any difference?
+{-# OPTIONS_GHC -fexpose-all-unfoldings #-}
+
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
+
+-- Tweak simpl-tick-factor from default of 100
+{-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
+-- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
+
+{-# OPTIONS_GHC -dsuppress-idinfo #-}
+{-# OPTIONS_GHC -dsuppress-uniques #-}
+{-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
 ----------------------------------------------------------------------
 -- |
@@ -63,21 +74,48 @@ import ConCat.AltCat (ccc,reveal,Uncurriable(..),U2(..),(:**:)(..),Ok2,reprC,abs
 import qualified ConCat.AltCat as A
 import ConCat.Rebox () -- experiment
 import ConCat.Orphans ()
+import ConCat.GradientDescent
 
 main :: IO ()
 main = sequence_
   [ return ()
 
-  , test "nothing" (\ () -> Nothing :: Maybe Int)
+--   , print (take 10 gd1)
+
+--   , test "sqr-ad" (andDer (ccc (\ x -> x*x :: R)))
+
+--   , print (take 20 (gradientDescent 0.2 (\ x -> x*x) 0.5))
+
+--   , print (minimize 0.001 (\ x -> x*x) 0.5)
+
+--   , print (minimize' 0.1 (\ x -> x*x) 0.5)
+
+--   , print (minimize' 1 cos 3) -- four steps
+
+  , print (minimize' 1 cos 5)  -- six steps
+
+--   , print (minimize' 1 (\ (a,b) -> cos (a*b)) (1,1))
+
+--   , print (take 1000 (gradientDescent 1 (\ (a,b) -> cos (a*b)) (1,3)))
+
+  
+--   , test "cos-xy-d" (gradient (\ (x,y) -> cos (x*y) :: R))
+
+
+--   , test "nothing" (\ () -> Nothing :: Maybe Int)
 
 --   , test "magSqr-ad1" (andDer (magSqr @R))
 --   , test "magSqr-ad1-inc" (inc (andDer (magSqr @R)))
 
 --   , test "negate-ai" (andInc (negate :: Unop Int))
 
+--   , test "xx" (\ x -> x * x :: R)
+
 --   , test "xy" (\ (x,y) -> x * y :: R)
 
 --   , test "xy-ad" (andDer (\ (x,y) -> x * y :: R))
+
+--   , test "xy-ad-inc" (inc (andDer (\ (x,y) -> x * y :: R)))
 
 --   , test "xy-i" (inc (\ (x,y) -> x * y :: R))
 
@@ -87,8 +125,17 @@ main = sequence_
 
 --   , test "cond-fun" (\ x -> (if x > 0 then id else negate) x :: Int)
 
+
 --   , test "sop1" (\ (x,y,z) -> x * y + y * z + x * z :: R)
 --   , test "sop1-ai" (andInc (\ (x,y,z) -> x * y + y * z + x * z :: R))
+--   , test "sop1-ad" (andDer (\ (x,y,z) -> x * y + y * z + x * z :: R))
+--   , test "sop1-ad-ai" (andInc (andDer (\ (x,y,z) -> x * y + y * z + x * z :: R)))
+
+--   , test "sop2-ad-ai" (andInc (andDer (\ (x,y,z) -> x * y + z :: R)))
+
+--   , test "sop3-ad-ai" (andInc (andDer (\ (x::R,_y::R,_z::R) -> x)))
+
+--   , test "sop4-d-ai" (andInc (der (\ (x::R,_y::R,_z::R) -> x)))
 
 --   , test "sum4" (\ (a,b,c,d) -> (a+b)+(c+d) :: R)
 
@@ -217,7 +264,7 @@ type Con = Yes2
 #elif 0
 type Con = Yes2
 {-# RULES "U2" forall nm f. test nm f = runU2 (ccc f) #-}
-#elif 1
+#elif 0
 type Con = Yes2
 {-# RULES "Syn" forall nm f. test nm f = runSyn (ccc f) #-}
 #elif 0
@@ -234,16 +281,16 @@ type Con = Uncurriable (->)
 {-# RULES "(->); uncurries; Syn" forall nm f. test nm f = runSyn (ccc (uncurries (ccc f))) #-}
 #elif 1
 type Con a b = GO a b
-{-# RULES "Syn :**: (:>)" forall nm f. test nm f = runEC nm (ccc f) #-}
+{-# RULES "EC" forall nm f. test nm f = runEC nm (ccc f) #-}
 #elif 0
 type Con a b = GO a b
-{-# RULES "(->); Syn :**: (:>)" forall nm f. test nm f = runEC nm (ccc (ccc f)) #-}
+{-# RULES "(->); EC" forall nm f. test nm f = runEC nm (ccc (ccc f)) #-}
 #elif 0
-type Con a b = (GenBuses (UncDom a b), Uncurriable (Syn :**: (:>)) a b)
-{-# RULES "uncurries ; Syn :**: (:>)" forall nm f. test nm f = runEC nm (uncurries (ccc f)) #-}
+type Con a b = (GenBuses (UncDom a b), Uncurriable EC a b)
+{-# RULES "uncurries ; EC" forall nm f. test nm f = runEC nm (uncurries (ccc f)) #-}
 #elif 0
 type Con a b = (GenBuses (UncDom a b), Uncurriable (->) a b)
-{-# RULES "uncurries ; Syn :**: (:>)" forall nm f. test nm f = runEC nm (ccc (uncurries f)) #-}
+{-# RULES "uncurries ; EC" forall nm f. test nm f = runEC nm (ccc (uncurries f)) #-}
 #elif 0
 type Con = Okay  -- rename
 {-# RULES "(->); (:>)" forall nm f. test nm f = go nm (ccc f) #-}
