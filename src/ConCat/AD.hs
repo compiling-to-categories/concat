@@ -18,7 +18,10 @@ module ConCat.AD where
 
 import Prelude hiding (id,(.),curry,uncurry,const)
 
-import ConCat.Misc ((:*))
+import Control.Newtype (unpack)
+
+import ConCat.Misc ((:*),R)
+import ConCat.Free.VectorSpace (HasV(..))
 import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
@@ -103,3 +106,17 @@ der = deriv
 {-# NOINLINE der #-}
 {-# RULES "der" der = deriv #-}
 -- {-# ANN der PseudoFun #-}
+
+gradient :: HasV R a => (a -> R) -> a -> a
+gradient f = unV . unpack . unpack . der f
+{-# INLINE gradient #-}  -- experiment
+-- {-# NOINLINE gradient #-}
+-- {-# RULES "gradient" forall f. gradient f = unV . unpack . unpack . der f #-}
+
+--                             f :: a -> R
+--                         der f :: a -> L R a R
+--                unpack . der f :: a -> V R R (V R a R)
+--                               :: a -> Par1 (V R a R)
+--       unpack . unpack . der f :: a -> V R a R
+-- unV . unpack . unpack . der f :: a -> a
+
