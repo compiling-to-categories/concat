@@ -41,7 +41,7 @@ import ConCat.Float
 --------------------------------------------------------------------}
 
 infixl 7 *^, <.>, >.<
-infixl 6 ^+^
+infixl 6 ^+^, ^-^
 
 #if 0
 type Zeroable = Pointed
@@ -94,13 +94,25 @@ instance (Zeroable f, Zeroable g) => Zeroable (g :.: f) where
 (*^) :: (Functor f, Num s) => s -> f s -> f s
 s *^ v = (s *) <$> v
 
+-- Negate a vector
+negateV :: (Functor f, Num s) => f s -> f s
+negateV = ((-1) *^)
+
 -- Add vectors
 (^+^) :: (Zip f, Num s) => f s -> f s -> f s
 (^+^) = zipWith (+)
 
+-- Subtract vectors
+(^-^) :: (Zip f, Num s) => f s -> f s -> f s
+(^-^) = zipWith (-)
+
 -- Inner product
 (<.>) :: (Zip f, Foldable f, Num s) => f s -> f s -> s
 x <.> y = sum (zipWith (*) x y)
+
+-- Norm squared
+normSqr :: (Zip f, Foldable f, Num s) => f s -> s
+normSqr u = u <.> u
 
 -- Outer product
 (>.<) :: (Num s, Functor f, Functor g) => g s -> f s -> g (f s)
@@ -145,6 +157,12 @@ class HasV s a where
 
 inV :: (HasV s a, HasV s b) => (a -> b) -> (V s a s -> V s b s)
 inV = toV <~ unV
+
+onV :: (HasV s a, HasV s b) => (V s a s -> V s b s) -> (a -> b)
+onV = unV <~ toV
+
+onV2 :: (HasV s a, HasV s b, HasV s c) => (V s a s -> V s b s -> V s c s) -> (a -> b -> c)
+onV2 = onV <~ toV
 
 -- Can I replace my HasRep class with Newtype?
 
@@ -287,3 +305,7 @@ CoerceHasV(s,Two s,s :* s)
 #endif
 
 #endif
+
+{--------------------------------------------------------------------
+    Utilities
+--------------------------------------------------------------------}
