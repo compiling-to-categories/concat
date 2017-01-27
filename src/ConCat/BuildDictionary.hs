@@ -146,8 +146,8 @@ buildDictionary env dflags guts inScope ty =
   res
  where
    res | null bnds          = Left (text "no bindings")
-       | notNull freeIdTys  = Left (text "free id types:" <+> ppr freeIdTys)
        | notNull holeyBinds = Left (text "coercion holes: " <+> ppr holeyBinds)
+       | notNull freeIdTys  = Left (text "free id types:" <+> ppr freeIdTys)
        | otherwise          = return dict
    name     = "$d" ++ zEncodeString (filter (not . isSpace) (showPpr dflags ty))
    binder   = localId inScope name ty
