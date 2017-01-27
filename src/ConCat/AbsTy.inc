@@ -5,12 +5,14 @@
 #define AbsTy(abs) \
 instance (TypeableAR (abs), GenBuses (Rep (abs))) => GenBuses (abs) where \
   { genBuses' = genBusesRep' ; delay = delayCRep ; ty = tyRep }; \
-instance (TypeableAR (abs), ConstCat (:>) (Rep (abs))) => ConstCat (:>) (abs) where \
-  { const = repConst } ; \
 instance (TypeableAR (abs), BottomCat (:>) z (Rep (abs))) => BottomCat (:>) z (abs) where \
   { bottomC = bottomRep }; \
 instance (TypeableAR (abs), IfCat (:>) (Rep (abs))) => IfCat (:>) (abs) where { ifC = repIf }; \
 instance Uncurriable k _a_ (abs) where uncurries f = f ; {-# INLINE uncurries #-}
+
+-- See 2016-01-13 notes on "bottom evaluated"
+-- instance (TypeableAR (abs), ConstCat (:>) (Rep (abs))) => ConstCat (:>) (abs) where \
+--   { const = repConst } ; \
 
 #define AbsTyPragmas \
 {-# LANGUAGE MultiParamTypeClasses, UndecidableInstances, FlexibleInstances #-}
