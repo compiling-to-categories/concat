@@ -30,12 +30,13 @@ import Prelude hiding (id,(.))
 import Data.Maybe (fromMaybe,isNothing)
 import Control.Applicative (liftA2)
 import Control.Monad ((>=>))
+import GHC.Exts (Coercible,coerce)
 
 import Data.Void (Void,absurd)
 import Control.Newtype
 import Data.Constraint ((:-)(..),Dict(..))
 
-import ConCat.Misc ((:*),(:+),Unop,Binop, inNew2,Parity)
+import ConCat.Misc ((:*),(:+),Unop,Binop, inNew2,Parity,R)
 import ConCat.Rep
 import qualified ConCat.Category
 import ConCat.AltCat hiding (const,curry,uncurry)
@@ -43,14 +44,20 @@ import qualified ConCat.AltCat as A
 import ConCat.GAD
 
 -- For DelRep:
+
 import ConCat.Complex
 import Data.Monoid
 import Control.Applicative (WrappedMonad(..))
-import qualified GHC.Generics as G
+import GHC.Generics (Par1(..),U1(..),K1(..),M1(..),(:+:)(..),(:*:)(..),(:.:)(..))
 import Data.Functor.Identity (Identity(..))
 import Control.Monad.Trans.Reader (ReaderT(..))
 import Control.Monad.Trans.Writer (WriterT(..))
 import Control.Monad.Trans.State (StateT(..))
+
+import ConCat.Free.LinearRow (L)
+-- Tests:
+import ConCat.Free.VectorSpace (V)
+import GHC.Generics ((:*:))
 
 {--------------------------------------------------------------------
     Changes
@@ -64,24 +71,34 @@ type Atomic a = (HasDelta a, Delta a ~ AtomDel a)
 
 infixl 6 .-., .+^, ^+^
 
+type RepDel a = (HasRep a, HasDelta (Rep a), Delta a ~ Delta (Rep a))
+
 class HasDelta a where
   type Delta a
-  type Delta a = AtomDel a
+  type Delta a = Delta (Rep a)
   (^+^) :: HasDelta a => Binop (Delta a)
-  default (^+^) :: Atomic a => Binop (Delta a)
-  da ^+^ Nothing = da
-  _  ^+^ Just a = Just a
-  -- da ^+^ da' = fromMaybe da da'
-  (.+^) :: HasDelta a => a -> Delta a -> a
-  default (.+^) :: Atomic a => a -> Delta a -> a
-  (.+^) = fromMaybe
-  zeroD :: Delta a              -- needs an explicit type application
+  default (^+^) :: RepDel a => Binop (Delta a)
+  (^+^) = (^+^) @(Rep a)
+  (.+^) :: a -> Delta a -> a
+  default (.+^) :: RepDel a => a -> Delta a -> a
+  a .+^ da = abst (repr a .+^ da)
   (.-.) :: a -> a -> Delta a
-  default (.-.) :: (Eq a, Atomic a) => a -> a -> Delta a
-  new .-. old | new == old = Nothing
-              | otherwise  = Just new
-  default zeroD :: Atomic a => Delta a
-  zeroD = Nothing
+  default (.-.) :: ({-Eq a,-} RepDel a) => a -> a -> Delta a
+  a' .-. a = repr a' .-. repr a
+  zeroD :: Delta a              -- needs an explicit type application
+  default zeroD :: RepDel a => Delta a
+  zeroD = zeroD @(Rep a)  
+
+#define DelAtom(ty) \
+  instance HasDelta (ty) where { \
+  ; type Delta (ty) = Maybe (ty) \
+  ; da ^+^ Nothing = da \
+  ; _  ^+^ Just a  = Just a \
+  ; (.+^) = fromMaybe \
+  ; new .-. old = if new == old then Nothing else Just new \
+  ; zeroD = Nothing \
+  }
+
 
 -- TODO: Use HasRep instead of Atomic for default, since there are
 -- more of them.
@@ -99,11 +116,15 @@ instance HasDelta () where
   zeroD = ()
 
 -- instance HasDelta ()
+-- instance HasDelta Bool
+-- instance HasDelta Int
+-- instance HasDelta Float
+-- instance HasDelta Double
 
-instance HasDelta Bool
-instance HasDelta Int
-instance HasDelta Float
-instance HasDelta Double
+DelAtom(Bool)
+DelAtom(Int)
+DelAtom(Float)
+DelAtom(Double)
 
 instance (HasDelta a, HasDelta b) => HasDelta (a :* b) where
   type Delta (a :* b) = Delta a :* Delta b
@@ -225,54 +246,61 @@ instance (r ~ Rep a, Delta a ~ Delta r) => RepCat (-+>) a r where
   reprC = DelX id
   abstC = DelX id
 
+instance Coercible (Delta a) (Delta b) => CoerceCat (-+>) a b where
+  coerceC = DelX coerce
+
+-- foo :: (V R R (V R (R, R) R) -> (:*:) (V R R) (V R R) (V R (R, R) R))
+--     -+> (L R (R, R) R -> L R (R, R) (R, R))
+-- foo = coerceC
+
+-- instance ( Num s, Diagonal (V s a)
+--          , Coercible (Rep (L s a a)) (Rep (L s a b))
+--          ) => CoerceCat (L s) a b where
+--   coerceC = L (coerce (idL :: Rep (L s a a)))
+
 {--------------------------------------------------------------------
     HasRep
 --------------------------------------------------------------------}
 
-#define DelRep(ty) \
-  instance (HasRep (ty), HasDelta (Rep (ty))) => HasDelta (ty) where { \
-  ; type Delta (ty) = Delta (Rep (ty)) \
-  ; (^+^) = (^+^) @(Rep (ty)) \
-  ; a .+^ da = abst (repr a .+^ da) \
-  ; a' .-. a = repr a' .-. repr a \
-  ; zeroD = zeroD @(Rep (ty)) \
-  }; \
+#define DelRep(ty) instance RepDel (ty) => HasDelta (ty)
 
 -- a :: a
 -- da :: Delta (Rep a)
 -- repr a :: Rep a
 -- repr 
 
--- DelRep((a,b,c))
--- DelRep((a,b,c,d))
--- DelRep((a,b,c,d,e))
--- DelRep((a,b,c,d,e,f))
--- DelRep((a,b,c,d,e,f,g))
--- DelRep((a,b,c,d,e,f,g,h))
+DelRep((a,b,c))
+DelRep((a,b,c,d))
+DelRep((a,b,c,d,e))
+DelRep((a,b,c,d,e,f))
+DelRep((a,b,c,d,e,f,g))
+DelRep((a,b,c,d,e,f,g,h))
 
--- DelRep(Complex a)
--- DelRep(Maybe a)
--- DelRep(Sum a)
--- DelRep(Product a)
--- DelRep(All)
--- DelRep(Any)
--- DelRep(Dual a)
--- DelRep(Endo a)
--- DelRep(WrappedMonad m a)
--- DelRep(Identity a)
--- DelRep(ReaderT e m a)
--- DelRep(WriterT w m a)
--- DelRep(StateT s m a)
+DelRep(Complex a)
+DelRep(Maybe a)
+DelRep(Sum a)
+DelRep(Product a)
+DelRep(All)
+DelRep(Any)
+DelRep(Dual a)
+DelRep(Endo a)
+DelRep(WrappedMonad m a)
+DelRep(Identity a)
+DelRep(ReaderT e m a)
+DelRep(WriterT w m a)
+DelRep(StateT s m a)
 
--- DelRep(G.U1 p)
--- DelRep(G.Par1 p)
--- DelRep(G.K1 i c p)
--- DelRep(G.M1 i c f p)
--- DelRep((f G.:+: g) p)
--- DelRep((f G.:*: g) p)
--- DelRep((g G.:.: f) p)
+DelRep(U1 p)
+DelRep(Par1 p)
+DelRep(K1 i c p)
+DelRep(M1 i c f p)
+DelRep((f :+: g) p)
+DelRep((f :*: g) p)
+DelRep((g :.: f) p)
 
 DelRep(Parity)
+
+DelRep(L s a b)
 
 --     • The constraint ‘HasRep t’ is no smaller than the instance head
 --       (Use UndecidableInstances to permit this)
@@ -395,7 +423,6 @@ f :: a -> b :* (a -+> b)
 h :: a -> b :* (Delta a -> Delta (b -> c))
   :: a -> b :* (Delta a -> b -> Delta c)
 #endif
-
 
 -- TODO: Work on unifying more instances between D s and Inc.
 
