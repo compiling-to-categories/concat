@@ -1767,7 +1767,7 @@ graphDot name attrs depths =
              , "bgcolor=transparent"
              , "nslimit=20"  -- helps with very large rank graphs
              -- , "ratio=1"
-             , "ranksep=1.0"
+             -- , "ranksep=1.0"
              -- , fixedsize=true
              ] ++ [a ++ "=" ++ show v | (a,v) <- attrs]
    wrap  = ("  " ++) . (++ ";\n")
@@ -2566,7 +2566,7 @@ delayCRep a0 = abstC . delay (repr a0) . reprC
 
 AbsTy((a,b,c))
 AbsTy((a,b,c,d))
--- AbsTy(Maybe a)  -- Problematic ConstCat. See 2016-01-13 notes.
+AbsTy(Maybe a)  -- Problematic ConstCat. See 2016-01-13 notes.
 -- AbsTy(Either a b)
 AbsTy(Complex a)
 
