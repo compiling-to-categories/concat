@@ -46,7 +46,7 @@ import ConCat.Category
   , BiCCC
   , BoolCat, BoolOf
   , NumCat, FractionalCat, FloatingCat, FromIntegralCat
-  , EqCat, OrdCat, EnumCat, BottomCat, IfCat, UnknownCat, RepCat, CoerceCat
+  , EqCat, OrdCat, EnumCat, BottomCat, IfCat, IfT, UnknownCat, RepCat, CoerceCat
   , TransitiveCon(..)
   , U2(..), (:**:)(..)
   , type (|-)(..), (<+), okProd
