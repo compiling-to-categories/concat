@@ -6,7 +6,7 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
--- | 
+-- | Experimenting with formulations of gradient descent minimization
 
 module ConCat.GradientDescent where
 
@@ -50,7 +50,7 @@ limit = go 1
  where
    go !n (a:a':as) | a == a'   = (a,n)
                    | otherwise = go (n+1) (a':as)
-   go  _ _                     = error "limit: finite"
+   go _ _                      = error "limit: finite"
 
 -- gd1 :: [R]
 -- gd1 = gradientDescent 0.1 (\ x -> x*x) 0.5
@@ -80,7 +80,11 @@ fixByN eq next a0 = fixBy (eq `on` fst) next' (a0,0)
 follow' :: (HasV R a, Zip (V R a)) => R -> (a -> a) -> a -> [(a,a)]
 follow' gamma f' = unfoldr (Just . g)
  where
-   g a = ((a ^+^ gamma *^ a',a'), a') where a' = f' a
+   g a = ((a,da),a ^+^ gamma *^ da) where da = f' a
+
+gradientDescent' :: (HasV R a, Zip (V R a)) => R -> (a -> R) -> a -> [(a,a)]
+gradientDescent' gamma f = follow' gamma (negateV . gradient f)
+{-# INLINE gradientDescent' #-}
 
 -- -- With gradient and steps
 -- minimize'' :: (HasV R a, Zip (V R a), Eq a) => R -> (a -> R) -> a -> ((a,a),Int)
