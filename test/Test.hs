@@ -92,12 +92,21 @@ main = sequence_
 
 --   , print (minimize' 1 cos 3) -- four steps
 
-  , print (minimize' 1 cos 5)  -- six steps
+--   , print (minimize' 1 cos 5)  -- six steps
 
---   , print (minimize' 1 (\ (a,b) -> cos (a*b)) (1,1))
+--   , print (take 30 (gradientDescent 1 cos 5))
 
---   , print (take 1000 (gradientDescent 1 (\ (a,b) -> cos (a*b)) (1,3)))
+--   , print (take 30 (gradientDescent' 1 cos 5))
 
+--   , print (minimize' 0.2 (\ (a,b) -> cos (a*b)) (1,3))
+
+  , print (take 1000 (gradientDescent' 0.2 (\ (a,b) -> cos (a*b)) (1,3)))
+
+--   , print (take 100 (gradientDescent' 0.3 (\ (a,b) -> sqr a + sqr b) (1,3)))
+
+--   , print (take 100 (gradientDescent' 0.3 (\ (a,b) -> cos a + sin b) (1,3)))
+
+--   , print (minimize' 0.3 (\ (a,b) -> cos a + sin b) (1,3))
   
 --   , test "cos-xy-d" (gradient (\ (x,y) -> cos (x*y) :: R))
 
