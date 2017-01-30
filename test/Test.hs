@@ -78,7 +78,7 @@ import ConCat.GradientDescent
 
 main :: IO ()
 main = sequence_
-  [ return ()
+  [ putChar '\n' -- return ()
 
 --   , print (take 10 gd1)
 
@@ -91,8 +91,7 @@ main = sequence_
 --   , test "foo" (gradient (negateV . cos) :: R -> R)
 
   , print (minimize 1 cos 5)  -- (3.141592653589793,6)
-
---   , print (maximize 1 cos 5)  -- (6.283185307179586,5)
+  , print (maximize 1 cos 5)  -- (6.283185307179586,5)
 
 --   -- 0.2: ((5.0e-324,5.0e-324),1460)
 --   -- 0.4: ((0.0,0.0),2)
