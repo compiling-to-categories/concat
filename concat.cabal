@@ -23,6 +23,7 @@ library
   default-language:    Haskell2010
   hs-source-dirs:      src
   include-dirs:        src
+  install-includes:    ConCat/AbsTy.inc
   build-depends:       QuickCheck >= 2.8.2
                      , base >=4.9 && <4.10
                      , constraints >= 0.8
@@ -76,89 +77,19 @@ library
 --                        ConCat.FLMap
 --                        ConCat.ShowUtils
 
-  install-includes:    ConCat/AbsTy.inc
 
---                      , shaped-types
+Test-Suite test
+  type:             exitcode-stdio-1.0
+  default-language: Haskell98
+  hs-Source-Dirs:   test
+  main-is:          Test.hs
+  Build-Depends:    Cabal >= 1.24.0.0
+                  , base<5
+                  , concat
+                  , ghc-prim
+                  , pretty >= 1.1.3.3
+  ghc-options:      -O2
 
---                      , vector-space >= 0.10.4
---                      , MemoTrie >= 0.6.5
---                      , Stream
-
-  -- other-modules:       
-  -- other-extensions:    
-
--- Test-Suite basic
---   type:             detailed-0.9
---   default-language: Haskell98
---   hs-Source-Dirs:   test
---   test-module:      Basic
---   Build-Depends:    Cabal >= 1.24.2.0
---                   , Cabal >= 1.24.2.0
---                   , base<5
---                   , concat
---                   , ghc-prim
---                   , pretty >= 1.1.3.3
---   ghc-options:      -O2 -fforce-recomp
-
--- Test-Suite basic
---   type:             detailed-0.9
---   default-language: Haskell98
---   hs-Source-Dirs:   test
---   test-module:      Tryit
---   Build-Depends:    Cabal >= 1.24.2.0
---                   , base<5
---                   , concat
---                   , ghc-prim
---                   , pretty >= 1.1.3.3
---   ghc-options:      -O2 -fforce-recomp
-
--- Test-Suite test
---   type:             exitcode-stdio-1.0
---   default-language: Haskell98
---   hs-Source-Dirs:   test
---   main-is:          Test.hs
---   Build-Depends:    Cabal >= 1.24.2.0
---                   , base<5
---                   , concat
---                   , ghc-prim
---                   , pretty >= 1.1.3.3
---   ghc-options:      -O2 -fforce-recomp
-
--- ghc-prim is for the reboxing experiment
-
---                     -ddump-simpl
---                     -ddump-rule-rewrites
---                     -ddump-rule-firings
-
---                     -dverbose-core2core
---                     -ddump-simpl-iterations
---                     -dshow-passes
-
-
--- Test-Suite opt-rules
---   type:             detailed-0.9
---   default-language: Haskell98
---   hs-Source-Dirs:   test
---   test-module:      OptRules
---   Build-Depends:    Cabal >= 1.24.0.0
---                   , base<5
---                   , concat
---                   , pretty >= 1.1.3.3
---   ghc-options:      -O2 -fforce-recomp
-
--- "stack test" builds and runs both/all test suites.
--- "stack build :opt-rules" or "stack build :basic" builds and runs just one suite.
-
--- executable test
---   default-language: Haskell98
---   hs-Source-Dirs:   test
---   main-is:      Test.hs
---   Build-Depends:    base<5, ghc-prim, Cabal >= 1.24.2.0
---                   , concat
---   ghc-options:    -O2 -fforce-recomp
---                   -fexpose-all-unfoldings
---                   -dsuppress-idinfo -dsuppress-uniques -dsuppress-module-prefixes
-
---                  -fplugin=ConCat.Plugin
+-- "stack test"
 
 -- To keep ghci happy, it appears that the plugin flag must be in the test module.
