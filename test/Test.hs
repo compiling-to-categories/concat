@@ -1,7 +1,7 @@
 -- -*- flycheck-disabled-checkers: '(haskell-ghc haskell-stack-ghc); -*-
 
--- stack test (or stack build :test)
-
+-- stack test
+--
 -- stack build && stack test >& ~/Haskell/concat/out/o1
 
 {-# LANGUAGE CPP                 #-}
@@ -84,32 +84,23 @@ main = sequence_
 
 --   , test "sqr-ad" (andDer (ccc (\ x -> x*x :: R)))
 
---   , print (take 20 (gradientDescent 0.2 (\ x -> x*x) 0.5))
+--   , print (minimize 1 cos 3)   -- (3.141592653589793,4)
 
---   , print (minimize 0.001 (\ x -> x*x) 0.5)
+--   , test "foo" (gradient cos :: R -> R)
 
---   , print (minimize' 0.1 (\ x -> x*x) 0.5)
+--   , test "foo" (gradient (negateV . cos) :: R -> R)
 
---   , print (minimize' 1 cos 3) -- four steps
+  , print (minimize 1 cos 5)  -- (3.141592653589793,6)
 
---   , print (minimize' 1 cos 5)  -- six steps
+--   , print (maximize 1 cos 5)  -- (6.283185307179586,5)
 
---   , print (take 30 (gradientDescent 1 cos 5))
-
---   , print (take 30 (gradientDescent' 1 cos 5))
-
---   , print (minimize' 0.2 (\ (a,b) -> cos (a*b)) (1,3))
-
-  , print (take 1000 (gradientDescent' 0.2 (\ (a,b) -> cos (a*b)) (1,3)))
-
---   , print (take 100 (gradientDescent' 0.3 (\ (a,b) -> sqr a + sqr b) (1,3)))
-
---   , print (take 100 (gradientDescent' 0.3 (\ (a,b) -> cos a + sin b) (1,3)))
-
---   , print (minimize' 0.3 (\ (a,b) -> cos a + sin b) (1,3))
-  
---   , test "cos-xy-d" (gradient (\ (x,y) -> cos (x*y) :: R))
-
+--   -- 0.2: ((5.0e-324,5.0e-324),1460)
+--   -- 0.4: ((0.0,0.0),2)
+--   -- 0.5: ((0.0,0.0),2)
+--   -- 0.6: ((0.0,0.0),465)
+--   -- 0.7: ((0.0,0.0),816)
+--   -- 0.8: ...
+--   , print (minimize 0.5 (\ (a,b) -> sqr a + sqr b) (1,3))
 
 --   , test "nothing" (\ () -> Nothing :: Maybe Int)
 
