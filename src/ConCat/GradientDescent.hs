@@ -31,14 +31,11 @@ import ConCat.Category (dup)
     Minimization via gradient descent
 --------------------------------------------------------------------}
 
--- | Maximize a function using gradient ascent, with step count.
-maximize :: (HasV R a, Zip (V R a), Eq a) => R -> (a -> R) -> a -> (a,Int)
-maximize gamma f = fixN (\ a -> a ^+^ gamma *^ f' a) where f' = gradient f
-{-# INLINE maximize #-}
-
--- | Minimize a function using gradient descent, with step count.
-minimize :: (HasV R a, Zip (V R a), Eq a) => R -> (a -> R) -> a -> (a,Int)
+-- | Optimize a function using gradient ascent, with step count.
+maximize, minimize :: (HasV R a, Zip (V R a), Eq a) => R -> (a -> R) -> a -> (a,Int)
+maximize gamma f = fixN (\ a -> a ^+^ gamma *^ gradient f a)
 minimize = maximize . negate
+{-# INLINE maximize #-}
 {-# INLINE minimize #-}
 
 -- minimize gamma f = first negateV . maximize gamma (negateV . f)
