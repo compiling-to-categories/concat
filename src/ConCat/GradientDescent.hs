@@ -31,17 +31,21 @@ import ConCat.Category (dup)
     Minimization via gradient descent
 --------------------------------------------------------------------}
 
-maximize :: forall a. (HasV R a, Zip (V R a), Eq a) => R -> (a -> R) -> a -> (a,Int)
-maximize gamma f = fixN (\ a -> a ^+^ gamma *^ f' a)
- where f' = gradient f
+maximize :: (HasV R a, Zip (V R a), Eq a) => R -> (a -> R) -> a -> (a,Int)
+maximize gamma f = fixN (\ a -> a ^+^ gamma *^ f' a) where f' = gradient f
 {-# INLINE maximize #-}
 
-minimize :: forall a. (HasV R a, Zip (V R a), Eq a) => R -> (a -> R) -> a -> (a,Int)
+minimize :: (HasV R a, Zip (V R a), Eq a) => R -> (a -> R) -> a -> (a,Int)
 minimize = maximize . negate
--- minimize gamma f = first negateV . maximize gamma (negateV . f)
--- minimize gamma f = fixN (\ a -> a ^-^ gamma *^ f' a)
---  where f' = gradient f
 {-# INLINE minimize #-}
+
+-- minimize gamma f = first negateV . maximize gamma (negateV . f)
+-- minimize gamma f = fixN (\ a -> a ^-^ gamma *^ f' a) where f' = gradient f
+
+-- The INLINE pragmas here are necessary so that the CCC plugin can inline
+-- 'gradient', finding the ccc call.
+
+-- TODO: adaptive step sizes
 
 {--------------------------------------------------------------------
     Fixed points
