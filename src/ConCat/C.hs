@@ -83,20 +83,20 @@ instance FunctorC (HFunctor t) (->) (->) where
   (%) HFunctor = fmap
 #endif
 
-newtype Foo s f g = Foo (f s -> g s)
+newtype UT s f g = UT (f s -> g s)
 
-toFoo :: (HasV s a, HasV s b) => (a -> b) -> Foo s (V s a) (V s b)
-toFoo f = Foo (toV . f . unV)
+toUT :: (HasV s a, HasV s b) => (a -> b) -> UT s (V s a) (V s b)
+toUT f = UT (toV . f . unV)
 
--- unFoo :: (HasV s a, HasV s b) => Foo s (V s a) (V s b) -> (a -> b)
--- unFoo (Foo g) = unV . g . toV
+-- unUT :: (HasV s a, HasV s b) => UT s (V s a) (V s b) -> (a -> b)
+-- unUT (UT g) = unV . g . toV
 
-data ToFoo (s :: Type) = ToFoo
+data ToUT (s :: Type) = ToUT
 
-instance FunctorC (ToFoo s) (->) (Foo s) where
-  type ToFoo s %% a = V s a
-  type OkF (ToFoo s) a b = (HasV s a, HasV s b)
-  (%) ToFoo = toFoo
+instance FunctorC (ToUT s) (->) (UT s) where
+  type ToUT s %% a = V s a
+  type OkF (ToUT s) a b = (HasV s a, HasV s b)
+  (%) ToUT = toUT
 
 -- | Category with product.
 class ({-OpCon (Prod k) (Ok k), -}Category k) => Cartesian k where
