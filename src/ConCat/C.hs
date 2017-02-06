@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ConstraintKinds #-}
@@ -38,6 +39,7 @@ import Data.Key
 
 import ConCat.Misc (Yes1,inNew,inNew2)
 import ConCat.Free.VectorSpace
+import ConCat.Free.LinearRow (OkLF,idL,(@.),exlL,exrL,forkL,inlL,inrL,joinL,HasL(..))
 import ConCat.Orphans
 
 type C1 (con :: u -> Constraint) a = con a
@@ -81,9 +83,6 @@ instance Cartesian (->) where
   exr = snd
   (f &&& g) x = (f x, g x)
 
-class FunctorC f src trg => CartesianFunctor f src trg where
-  prodToProd :: Dict ((f %% Prod src a b) ~ Prod trg (f %% a) (f %% b))
-
 -- | Category with coproduct.
 class ({-OpCon (Coprod k) (Ok' k), -}Category k) => Cocartesian k where
   type Coprod k :: u -> u -> u
@@ -92,9 +91,6 @@ class ({-OpCon (Coprod k) (Ok' k), -}Category k) => Cocartesian k where
   infixr 2 |||
   (|||) :: forall a c d. Ok3 k a c d
         => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a)
-
-class FunctorC f src trg => CocartesianFunctor f src trg where
-  coprodToCoprod :: Dict ((f %% Coprod src a b) ~ Coprod trg (f %% a) (f %% b))
 
 class (Category k, Ok k (Unit k)) => Terminal k where
   type Unit k :: u
@@ -115,6 +111,30 @@ class (Category src, Category trg) =>
   type f %% (a :: u) :: v
   type OkF f (a :: u) (b :: u) :: Constraint
   (%) :: forall a b. OkF f a b => f -> src a b -> trg (f %% a) (f %% b)
+
+class FunctorC f src trg => CartesianFunctor f src trg where
+  prodToProd :: Dict ((f %% Prod src a b) ~ Prod trg (f %% a) (f %% b))
+
+class FunctorC f src trg => CocartesianFunctor f src trg where
+  coprodToCoprod :: Dict ((f %% Coprod src a b) ~ Coprod trg (f %% a) (f %% b))
+
+#if 0
+-- Functor composition. I haven't been able to get a declared type to pass.
+
+data (g #. f) = g :#. f
+
+-- compF :: forall u v w (p :: u -> u -> Type) (q :: v -> v -> Type) (r :: w -> w -> Type) f g (a :: u) (b :: u).
+--          (FunctorC f p q, FunctorC g q r)
+--       => g -> f -> (a `p` b) -> ((g %% f %% a) `r` (g %% f %% b))
+
+(g `compF` f) pab = g % f % pab
+
+-- instance (FunctorC f u v, FunctorC g v w) => FunctorC (g #. f) u w where
+--   type (g #. f) %% a = g %% (f %% a)
+--   type OkF (g #. f) a b = OkF f a b
+--   -- (%) (g :#. f) = (g %) . (f %)
+--   (g :#. f) % a = g % (f % a)
+#endif
 
 #if 1
 data HFunctor (t :: * -> *) = HFunctor
@@ -220,31 +240,67 @@ instance FunctorC MapDict (|-) (->) where
 
 
 -- Linear map in row-major form
-data LM s f g = LM (g (f s))
+data LMap s a b = LMap (b (a s))
 
-class    (Num s, Pointed a, Zip a) => OkLM s a
-instance (Num s, Pointed a, Zip a) => OkLM s a
+instance Newtype (LMap s a b) where
+  type O (LMap s a b) = b (a s)
+  pack h = LMap h
+  unpack (LMap h) = h
 
-instance Category (LM s) where
-  type Ok (LM s) = OkLM s
+class    (Num s, OkLF a) => OkLMap s a
+instance (Num s, OkLF a) => OkLMap s a
 
-instance Cartesian (LM s) where
-  type Prod (LM s) = (:*:)
+instance Category (LMap s) where
+  type Ok (LMap s) = OkLMap s
+  id = pack idL
+  (.) = inNew2 (@.)
+
+instance Cartesian (LMap s) where
+  type Prod (LMap s) = (:*:)
+  exl = pack exlL
+  exr = pack exrL
+  (&&&) = inNew2 forkL
   
-instance Cocartesian (LM s) where
-  type Coprod (LM s) = (:*:)
+instance Cocartesian (LMap s) where
+  type Coprod (LMap s) = (:*:)
+  inl = pack inlL
+  inr = pack inrL
+  (|||) = inNew2 joinL
+
+toLMap :: (OkLF b, HasL a, Num s) => UT s a b -> LMap s a b
+toLMap (UT h) = LMap (linear' h)
+
+-- We needn't use OkLMap for toLMap
+
+data ToLMap s = ToLMap
+instance FunctorC (ToLMap s) (UT s) (LMap s) where
+  type ToLMap s %% a = a
+  type OkF (ToLMap s) a b = (OkLF b, HasL a, Num s)
+  (%) ToLMap = toLMap
 
 -- Differentiable function on vector space with field s
-data D (s :: Type) a b = D (a s -> (b s, a s -> b s))
+data D (s :: Type) a b = D (a s -> (b s, LMap s a b))
 
 -- TODO: try a more functorish representation: (a :->: b :*: (a :->: b))
 
-linearD :: (a s -> b s) -> D s a b
-linearD h = D (h &&& const h)
+-- linear :: OkLMap s a b => (a s -> b s) -> LMap 
+
+-- linearD :: Ok2 (LMap s) a b => (a s -> b s) -> D s a b
+-- linearD h = D (h &&& const (toLMap (UT h)))
+
+linearD :: Ok2 (LMap s) a b => (a s -> b s) -> LMap s a b -> D s a b
+linearD h h' = D (h &&& const h')
+
+zero :: (Pointed f, Num s) => f s
+zero = point 0
+
+-- infixl 6 ^+^
+-- (^+^) :: (Zip f, Num s) => f s -> f s -> f s
+-- (^+^) = zipWith (+)
 
 instance Category (D s) where
-  type Ok (D s) = OkLM s
-  id = linearD id
+  type Ok (D s) = OkLMap s
+  id = linearD id id
   D g . D f = D (\ a ->
     let (b,f') = f a
         (c,g') = g b
@@ -255,29 +311,29 @@ instance Category (D s) where
 
 instance Cartesian (D s) where
   type Prod (D s) = (:*:)
-  exl = linearD exlF
-  exr = linearD exrF
+  exl = linearD exlF exl
+  exr = linearD exrF exr
   D f &&& D g = D (\ a ->
     let (b,f') = f a
         (c,g') = g a
     in
-      ((b :*: c), f' `forkF` g'))
+      ((b :*: c), f' &&& g'))
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
 
--- instance Cocartesian (D s) where
---   type Coprod (D s) = (:*:)
---   inl = linearD (:*: point 0)
---   inr = linearD (point 0 :*:)
---   D f ||| D g = D (\ (a :*: b) ->
---     let (c,f') = f a
---         (d,g') = g b
---     in
---       (zipWith (+) c d, f' `forkF` g'))
---   {-# INLINE inl #-}
---   {-# INLINE inr #-}
---   {-# INLINE (|||) #-}
+instance Cocartesian (D s) where
+  type Coprod (D s) = (:*:)
+  inl = linearD (:*: zero) inl
+  inr = linearD (zero :*:) inr
+  D f ||| D g = D (\ (a :*: b) ->
+    let (c,f') = f a
+        (d,g') = g b
+    in
+      (c ^+^ d, f' ||| g'))
+  {-# INLINE inl #-}
+  {-# INLINE inr #-}
+  {-# INLINE (|||) #-}
 
 #if 0
 
