@@ -1,3 +1,4 @@
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -37,7 +38,7 @@ import Control.Newtype
 import Data.Pointed
 import Data.Key
 
-import ConCat.Misc (Yes1,inNew,inNew2)
+import ConCat.Misc (Yes1,inNew,inNew2,oops)
 import ConCat.Free.VectorSpace
 import ConCat.Free.LinearRow (OkLF,idL,(@.),exlL,exrL,forkL,inlL,inrL,joinL,HasL(..))
 import ConCat.Orphans
@@ -77,12 +78,6 @@ class ({-OpCon (Prod k) (Ok k), -}Category k) => Cartesian k where
   exr :: Ok2 k a b => Prod k a b `k` b
   (&&&) :: forall a c d. Ok3 k a c d => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d)
 
-instance Cartesian (->) where
-  type Prod (->) = (,)
-  exl = fst
-  exr = snd
-  (f &&& g) x = (f x, g x)
-
 -- | Category with coproduct.
 class ({-OpCon (Coprod k) (Ok' k), -}Category k) => Cocartesian k where
   type Coprod k :: u -> u -> u
@@ -99,6 +94,18 @@ class (Category k, Ok k (Unit k)) => Terminal k where
 --     • Illegal constraint ‘Ok k (Unit k)’ in a superclass context
 --         (Use UndecidableInstances to permit this)
 
+instance Cartesian (->) where
+  type Prod (->) = (,)
+  exl = fst
+  exr = snd
+  (f &&& g) x = (f x, g x)
+
+instance Cocartesian (->) where
+  type Coprod (->) = Either
+  inl = Left
+  inr = Right
+  (|||) = either
+
 {--------------------------------------------------------------------
     Functors
 --------------------------------------------------------------------}
@@ -114,6 +121,11 @@ class (Category src, Category trg) =>
 
 class FunctorC f src trg => CartesianFunctor f src trg where
   prodToProd :: Dict ((f %% Prod src a b) ~ Prod trg (f %% a) (f %% b))
+  default prodToProd :: (f %% Prod src a b) ~ Prod trg (f %% a) (f %% b)
+               => Dict ((f %% Prod src a b) ~ Prod trg (f %% a) (f %% b))
+  prodToProd = Dict
+
+-- This prodToProd default doesn't work in instances. Probably a GHC bug.
 
 class FunctorC f src trg => CocartesianFunctor f src trg where
   coprodToCoprod :: Dict ((f %% Coprod src a b) ~ Coprod trg (f %% a) (f %% b))
@@ -196,6 +208,9 @@ instance FunctorC (ToUT s) (->) (UT s) where
   type OkF (ToUT s) a b = (HasV s a, HasV s b)
   (%) ToUT = toUT
 
+instance   CartesianFunctor (ToUT s) (->) (UT s) where   prodToProd   = Dict
+instance CocartesianFunctor (ToUT s) (->) (UT s) where coprodToCoprod = Dict
+
 infixr 1 |-
 type (|-) = (:-)
 
@@ -238,6 +253,8 @@ instance FunctorC MapDict (|-) (->) where
   type OkF MapDict a b = ()
   (%) MapDict = mapDict
 
+-- -- Couldn't match type ‘Dict (a && b)’ with ‘(Dict a, Dict b)’
+-- instance CartesianFunctor MapDict (|-) (->) where prodToProd = Dict
 
 -- Linear map in row-major form
 data LMap s a b = LMap (b (a s))
@@ -278,25 +295,18 @@ instance FunctorC (ToLMap s) (UT s) (LMap s) where
   type OkF (ToLMap s) a b = (OkLF b, HasL a, Num s)
   (%) ToLMap = toLMap
 
+instance CartesianFunctor (ToLMap s) (UT s) (LMap s) where prodToProd = Dict
+
 -- Differentiable function on vector space with field s
 data D (s :: Type) a b = D (a s -> (b s, LMap s a b))
 
 -- TODO: try a more functorish representation: (a :->: b :*: (a :->: b))
-
--- linear :: OkLMap s a b => (a s -> b s) -> LMap 
 
 -- linearD :: Ok2 (LMap s) a b => (a s -> b s) -> D s a b
 -- linearD h = D (h &&& const (toLMap (UT h)))
 
 linearD :: Ok2 (LMap s) a b => (a s -> b s) -> LMap s a b -> D s a b
 linearD h h' = D (h &&& const h')
-
-zero :: (Pointed f, Num s) => f s
-zero = point 0
-
--- infixl 6 ^+^
--- (^+^) :: (Zip f, Num s) => f s -> f s -> f s
--- (^+^) = zipWith (+)
 
 instance Category (D s) where
   type Ok (D s) = OkLMap s
@@ -324,8 +334,8 @@ instance Cartesian (D s) where
 
 instance Cocartesian (D s) where
   type Coprod (D s) = (:*:)
-  inl = linearD (:*: zero) inl
-  inr = linearD (zero :*:) inr
+  inl = linearD (:*: zeroV) inl
+  inr = linearD (zeroV :*:) inr
   D f ||| D g = D (\ (a :*: b) ->
     let (c,f') = f a
         (d,g') = g b
@@ -348,3 +358,12 @@ f' :: a s -> c s
 g' :: b s -> c s
 
 #endif
+
+data Deriv s = Deriv
+
+instance FunctorC (Deriv s) (UT s) (D s) where
+  type Deriv s %% a = a
+  type OkF (Deriv s) a b = OkF (ToLMap s) a b
+  (%) Deriv = oops "Deriv % not implemented"
+
+instance CartesianFunctor (Deriv s) (UT s) (D s) where prodToProd = Dict
