@@ -61,33 +61,26 @@ instance Category (->) where
 infixr 9 %
 infixr 9 %%
 
-class FunctorC f u v | f -> u v where
-  type SrcC f :: u -> u -> Type
-  type TrgC f :: v -> v -> Type
+class FunctorC f (src :: u -> u -> Type) (trg :: v -> v -> Type) | f -> src trg where
   type f %% (a :: u) :: v
   type OkF f (a :: u) (b :: u) :: Constraint
-  (%) :: forall (a :: u) (b :: u). OkF f a b
-      => f -> SrcC f a b -> TrgC f (f %% a :: v) (f %% b :: v)
+  (%) :: forall a b. OkF f a b => f -> src a b -> trg (f %% a) (f %% b)
 
 #if 1
 data HFunctor (t :: * -> *) = HFunctor
 
-instance Functor t => FunctorC (HFunctor t) Type Type where
-  type SrcC (HFunctor t) = (->)
-  type TrgC (HFunctor t) = (->)
+instance Functor t => FunctorC (HFunctor t) (->) (->) where
   type HFunctor t %% a = t a
   type OkF (HFunctor t) a b = ()
-  HFunctor % f = fmap f
+  (%) HFunctor = fmap
 #else
 -- Alternatively, put the `FunctorC` constraint into `HFunctor`:
 data HFunctor (t :: * -> *) = Functor t => HFunctor
 
-instance FunctorC (HFunctor t) Type Type where
-  type SrcC (HFunctor t) = (->)
-  type TrgC (HFunctor t) = (->)
+instance FunctorC (HFunctor t) (->) (->) where
   type HFunctor t %% a = t a
   type OkF (HFunctor t) a b = ()
-  HFunctor % f = fmap f
+  (%) HFunctor = fmap
 #endif
 
 newtype Foo s f g = Foo (f s -> g s)
@@ -100,12 +93,10 @@ toFoo f = Foo (toV . f . unV)
 
 data ToFoo (s :: Type) = ToFoo
 
-instance FunctorC (ToFoo s) Type (Type -> Type) where
-  type SrcC (ToFoo s) = (->)
-  type TrgC (ToFoo s) = Foo s
+instance FunctorC (ToFoo s) (->) (Foo s) where
   type ToFoo s %% a = V s a
   type OkF (ToFoo s) a b = (HasV s a, HasV s b)
-  ToFoo % f = toFoo f
+  (%) ToFoo = toFoo
 
 -- | Category with product.
 class ({-OpCon (Prod k) (Ok k), -}Category k) => Cartesian k where
@@ -114,8 +105,8 @@ class ({-OpCon (Prod k) (Ok k), -}Category k) => Cartesian k where
   exr :: Ok2 k a b => Prod k a b `k` b
   (&&&) :: forall a c d. Ok3 k a c d => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d)
 
-class FunctorC f u v => CartesianFunctor f u v where
-  prodToProd :: Dict ((f %% Prod (SrcC f) a b) ~ Prod (TrgC f) (f %% a) (f %% b))
+class FunctorC f src trg => CartesianFunctor f src trg where
+  prodToProd :: Dict ((f %% Prod src a b) ~ Prod trg (f %% a) (f %% b))
 
 -- | Category with coproduct.
 class ({-OpCon (Coprod k) (Ok' k), -}Category k) => Cocartesian k where
@@ -126,8 +117,8 @@ class ({-OpCon (Coprod k) (Ok' k), -}Category k) => Cocartesian k where
   (|||) :: forall a c d. Ok3 k a c d
         => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a)
 
-class FunctorC f u v => CocartesianFunctor f u v where
-  coprodToCoprod :: Dict ((f %% Coprod (SrcC f) a b) ~ Coprod (TrgC f) (f %% a) (f %% b))
+class FunctorC f src trg => CocartesianFunctor f src trg where
+  coprodToCoprod :: Dict ((f %% Coprod src a b) ~ Coprod trg (f %% a) (f %% b))
 
 class (Category k, Ok k (Unit k)) => Terminal k where
   type Unit k :: u
@@ -173,9 +164,7 @@ mapDict (Sub q) Dict = q
 
 data MapDict = MapDict
 
-instance FunctorC MapDict Constraint Type where
-  type SrcC MapDict = (:-)
-  type TrgC MapDict = (->)
+instance FunctorC MapDict (|-) (->) where
   type MapDict %% a = Dict a
   type OkF MapDict a b = ()
-  MapDict % f = mapDict f
+  (%) MapDict = mapDict
