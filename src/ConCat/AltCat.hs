@@ -36,7 +36,7 @@ import ConCat.Misc ((:*),(:+),PseudoFun(..),oops)
 import ConCat.Float
 
 import ConCat.Category
-  ( Category, Ok,Ok2,Ok3,Ok4,Ok5
+  ( Category, Ok,Ok2,Ok3,Ok4,Ok5,type (&+&)
   , ProductCat, Prod, twiceP, inLassocP, inRassocP, transposeP, unfork
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
   , DistribCat, undistl, undistr
@@ -431,6 +431,8 @@ ccc _ = oops "ccc"
 
 "ccc P.curry" forall f. ccc (P.curry f) = ccc (curry f)
 "ccc P.uncurry" forall f. ccc (P.uncurry f) = ccc (uncurry f)
+
+-- "uncurry pair" uncurry pair = id
 
 "abstC . reprC" abstC . reprC = id
 "reprC . abstC" reprC . abstC = id
