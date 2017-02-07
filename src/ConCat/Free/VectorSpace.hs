@@ -21,7 +21,7 @@ module ConCat.Free.VectorSpace where
 
 import Prelude hiding (zipWith,Float,Double)
 -- import GHC.Exts (Coercible,coerce)
-import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
+import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:+:)(..),(:.:)(..))
 
 import Data.Foldable (fold)
 import Data.Pointed
@@ -31,7 +31,7 @@ import Data.Map (Map)
 -- import Control.Newtype
 
 import ConCat.Orphans ()
-import ConCat.Misc ((:*),(<~))
+import ConCat.Misc ((:*),(:+),(<~))
 import ConCat.Rep
 import ConCat.Float
 -- import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
@@ -193,6 +193,20 @@ instance (HasV s a, HasV s b) => HasV s (a :* b) where
   type V s (a :* b) = V s a :*: V s b
   toV (a,b) = toV a :*: toV b
   unV (f :*: g) = (unV f,unV g)
+
+instance (HasV s a, HasV s b) => HasV s (a :+ b) where
+  type V s (a :+ b) = V s a :+: V s b
+  toV (Left  a) = L1 (toV a)
+  toV (Right b) = R1 (toV b)
+  unV (L1 fs) = Left  (unV fs)
+  unV (R1 gs) = Right (unV gs)
+
+-- instance (HasV s a, HasV s b, Zeroable (V s a), Zeroable (V s b), Num s)
+--       => HasV s (a :+ b) where
+--   type V s (a :+ b) = V s a :*: V s b
+--   toV (Left  a) = toV a :*: zeroV
+--   toV (Right b) = zeroV :*: toV b
+--   unV (f :*: g) = error "unV on a :+ b undefined" f g
 
 instance (HasV s a, HasV s b, HasV s c) => HasV s (a,b,c)
 instance (HasV s a, HasV s b, HasV s c, HasV s d) => HasV s (a,b,c,d)
