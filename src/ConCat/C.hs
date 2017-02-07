@@ -28,17 +28,17 @@
 
 module ConCat.C where
 
-import Prelude hiding (id,(.),zipWith)
+import Prelude hiding (id,(.),zipWith,curry,uncurry)
 import qualified Prelude as P
 import Data.Kind
-import GHC.Generics (U1(..),(:*:)(..),(:+:)(..))
+import GHC.Generics (U1(..),(:*:)(..),(:+:)(..),(:.:)(..))
 
 import Data.Constraint (Dict(..),(:-)(..),refl,trans,(\\))
 import Control.Newtype
 import Data.Pointed
 import Data.Key
 
-import ConCat.Misc (Yes1,inNew,inNew2,oops)
+import ConCat.Misc (Yes1,inNew,inNew2,oops,type (+->)(..))
 import ConCat.Free.VectorSpace
 import ConCat.Free.LinearRow (OkLF,idL,(@.),exlL,exrL,forkL,inlL,inrL,joinL,HasL(..))
 import ConCat.Orphans
@@ -67,10 +67,6 @@ class Category k where
   infixr 9 .
   (.) :: forall b c a. Ok3 k a b c => (b `k` c) -> (a `k` b) -> (a `k` c)
 
-instance Category (->) where
-  id  = P.id
-  (.) = (P..)
-
 -- | Category with product.
 class ({-OpCon (Prod k) (Ok k), -}Category k) => Cartesian k where
   type Prod k :: u -> u -> u
@@ -94,6 +90,23 @@ class (Category k, Ok k (Unit k)) => Terminal k where
 --     • Illegal constraint ‘Ok k (Unit k)’ in a superclass context
 --         (Use UndecidableInstances to permit this)
 
+class ({-OpCon (Exp k) (Ok' k), -}Cartesian k) => CartesianClosed k where
+  type Exp k :: u -> u -> u
+  apply   :: forall a b. Ok2 k a b => Prod k (Exp k a b) a `k` b
+  -- apply = uncurry id
+  --         <+ okExp @k @a @b
+  curry   :: Ok3 k a b c => (Prod k a b `k` c) -> (a `k` Exp k b c)
+  uncurry :: forall a b c. Ok3 k a b c
+          => (a `k` Exp k b c)  -> (Prod k a b `k` c)
+  -- uncurry g = apply . first g
+  --             <+ okProd @k @(Exp k b c) @b
+  --             <+ okProd @k @a @b
+  --             <+ okExp @k @b @c
+
+instance Category (->) where
+  id  = P.id
+  (.) = (P..)
+
 instance Cartesian (->) where
   type Prod (->) = (,)
   exl = fst
@@ -105,6 +118,16 @@ instance Cocartesian (->) where
   inl = Left
   inr = Right
   (|||) = either
+
+instance Terminal (->) where
+  type Unit (->) = ()
+  it = const ()
+
+instance CartesianClosed (->) where
+  type Exp (->) = (->)
+  apply (f,x) = f x
+  curry = P.curry
+  uncurry = P.uncurry
 
 {--------------------------------------------------------------------
     Functors
@@ -121,14 +144,17 @@ class (Category src, Category trg) =>
 
 class FunctorC f src trg => CartesianFunctor f src trg where
   prodToProd :: Dict ((f %% Prod src a b) ~ Prod trg (f %% a) (f %% b))
-  default prodToProd :: (f %% Prod src a b) ~ Prod trg (f %% a) (f %% b)
-               => Dict ((f %% Prod src a b) ~ Prod trg (f %% a) (f %% b))
-  prodToProd = Dict
+  -- default prodToProd :: (f %% Prod src a b) ~ Prod trg (f %% a) (f %% b)
+  --              => Dict ((f %% Prod src a b) ~ Prod trg (f %% a) (f %% b))
+  -- prodToProd = Dict
 
 -- This prodToProd default doesn't work in instances. Probably a GHC bug.
 
 class FunctorC f src trg => CocartesianFunctor f src trg where
   coprodToCoprod :: Dict ((f %% Coprod src a b) ~ Coprod trg (f %% a) (f %% b))
+
+class FunctorC f src trg => CartesianClosedFunctor f src trg where
+  expToExp :: Dict ((f %% Exp src a b) ~ Exp trg (f %% a) (f %% b))
 
 #if 0
 -- Functor composition. I haven't been able to get a declared type to pass.
@@ -195,6 +221,30 @@ instance Cocartesian (UT s) where
   inr = pack R1
   (|||) = inNew2 eitherF
 
+instance Terminal (UT s) where
+  type Unit (UT s) = U1
+  it = UT (const U1)
+
+instance CartesianClosed (UT s) where
+  type Exp (UT s) = (+->) -- from ConCat.Misc
+  apply = pack (\ (Fun1 f :*: a) -> f a)
+  -- curry (UT f) = UT (pack . curry (f . pack))
+  curry = inNew (\ f -> pack . curry (f . pack))
+  uncurry = inNew (\ g -> uncurry (unpack . g) . unpack)
+
+-- curry :: UT s (a :*: b) c -> UT s a (b +-> c)
+
+-- UT f :: UT s (a :*: b) c
+-- f :: (a :*: b) s -> c s
+-- f . pack :: (a s,b s) -> c s
+-- curry (f . pack) :: a s -> b s -> c s
+-- pack . curry (f . pack) :: a s -> (b +-> c) s
+
+--   apply   :: forall a b. Ok2 k a b => Prod k (Exp k a b) a `k` b
+--   curry   :: Ok3 k a b c => (Prod k a b `k` c) -> (a `k` Exp k b c)
+--   uncurry :: forall a b c. Ok3 k a b c
+--           => (a `k` Exp k b c)  -> (Prod k a b `k` c)
+
 toUT :: (HasV s a, HasV s b) => (a -> b) -> UT s (V s a) (V s b)
 toUT f = UT (toV . f . unV)
 
@@ -210,6 +260,9 @@ instance FunctorC (ToUT s) (->) (UT s) where
 
 instance   CartesianFunctor (ToUT s) (->) (UT s) where   prodToProd   = Dict
 instance CocartesianFunctor (ToUT s) (->) (UT s) where coprodToCoprod = Dict
+
+-- -- Couldn't match type ‘(->) a :.: V s b’ with ‘V s a +-> V s b’
+-- instance CartesianClosedFunctor (ToUT s) (->) (UT s) where expToExp = Dict
 
 infixr 1 |-
 type (|-) = (:-)
@@ -287,8 +340,6 @@ instance Cocartesian (LMap s) where
 toLMap :: (OkLF b, HasL a, Num s) => UT s a b -> LMap s a b
 toLMap (UT h) = LMap (linear' h)
 
--- We needn't use OkLMap for toLMap
-
 data ToLMap s = ToLMap
 instance FunctorC (ToLMap s) (UT s) (LMap s) where
   type ToLMap s %% a = a
@@ -297,7 +348,8 @@ instance FunctorC (ToLMap s) (UT s) (LMap s) where
 
 instance CartesianFunctor (ToLMap s) (UT s) (LMap s) where prodToProd = Dict
 
--- Differentiable function on vector space with field s
+
+-- | Differentiable function on vector space with field s
 data D (s :: Type) a b = D (a s -> (b s, LMap s a b))
 
 -- TODO: try a more functorish representation: (a :->: b :*: (a :->: b))
