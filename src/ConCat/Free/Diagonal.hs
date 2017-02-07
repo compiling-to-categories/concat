@@ -27,6 +27,9 @@ instance Diagonal Par1 where
   diag _ o = Par1 (Par1 o)
   {-# INLINABLE diag #-}
 
+instance Eq k => Diagonal ((->) k) where
+  diag z o k k' = if k == k' then o else z
+
 instance (Diagonal f, Diagonal g) => Diagonal (f :*: g) where
   diag z o = ((:*: point z) <$> diag z o) :*: ((point z :*:) <$> diag z o)
   {-# INLINABLE diag #-}
