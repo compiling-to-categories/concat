@@ -43,6 +43,10 @@ import ConCat.Free.VectorSpace
 import ConCat.Free.LinearRow (OkLF,idL,(@.),exlL,exrL,forkL,inlL,inrL,joinL,HasL(..))
 import ConCat.Orphans
 
+{--------------------------------------------------------------------
+    Constraints
+--------------------------------------------------------------------}
+
 type C1 (con :: u -> Constraint) a = con a
 type C2 (con :: u -> Constraint) a b = (con a, con b)
 type C3 (con :: u -> Constraint) a b c = (con a, con b, con c)
@@ -56,6 +60,9 @@ type Ok4 k a b c d     = C4 (Ok k) a b c d
 type Ok5 k a b c d e   = C5 (Ok k) a b c d e
 type Ok6 k a b c d e f = C6 (Ok k) a b c d e f
 
+class OpCon op con where
+  inOp :: con a && con b |- con (a `op` b)
+
 {--------------------------------------------------------------------
     Categories
 --------------------------------------------------------------------}
@@ -68,14 +75,14 @@ class Category k where
   (.) :: forall b c a. Ok3 k a b c => (b `k` c) -> (a `k` b) -> (a `k` c)
 
 -- | Category with product.
-class ({-OpCon (Prod k) (Ok k), -}Category k) => Cartesian k where
+class (OpCon (Prod k) (Ok k), Category k) => Cartesian k where
   type Prod k :: u -> u -> u
   exl :: Ok2 k a b => Prod k a b `k` a
   exr :: Ok2 k a b => Prod k a b `k` b
   (&&&) :: forall a c d. Ok3 k a c d => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d)
 
 -- | Category with coproduct.
-class ({-OpCon (Coprod k) (Ok' k), -}Category k) => Cocartesian k where
+class (OpCon (Coprod k) (Ok k),Category k) => Cocartesian k where
   type Coprod k :: u -> u -> u
   inl :: Ok2 k a b => a `k` Coprod k a b
   inr :: Ok2 k a b => b `k` Coprod k a b
@@ -90,7 +97,7 @@ class (Category k, Ok k (Unit k)) => Terminal k where
 --     • Illegal constraint ‘Ok k (Unit k)’ in a superclass context
 --         (Use UndecidableInstances to permit this)
 
-class ({-OpCon (Exp k) (Ok' k), -}Cartesian k) => CartesianClosed k where
+class (OpCon (Exp k) (Ok k), Cartesian k) => CartesianClosed k where
   type Exp k :: u -> u -> u
   apply   :: forall a b. Ok2 k a b => Prod k (Exp k a b) a `k` b
   -- apply = uncurry id
@@ -106,6 +113,9 @@ class ({-OpCon (Exp k) (Ok' k), -}Cartesian k) => CartesianClosed k where
 instance Category (->) where
   id  = P.id
   (.) = (P..)
+
+instance OpCon op Yes1 where
+  inOp = Sub Dict
 
 instance Cartesian (->) where
   type Prod (->) = (,)
@@ -133,11 +143,10 @@ instance CartesianClosed (->) where
     Functors
 --------------------------------------------------------------------}
 
-infixr 9 %
-infixr 9 %%
+infixr 9 %, %%
 
 class (Category src, Category trg) =>
-      FunctorC f (src :: u -> u -> Type) (trg :: v -> v -> Type) | f -> src trg where
+      FunctorC f (src :: u -> u -> *) (trg :: v -> v -> *) | f -> src trg where
   type f %% (a :: u) :: v
   type OkF f (a :: u) (b :: u) :: Constraint
   (%) :: forall a b. OkF f a b => f -> src a b -> trg (f %% a) (f %% b)
@@ -324,6 +333,9 @@ instance Category (LMap s) where
   type Ok (LMap s) = OkLMap s
   id = pack idL
   (.) = inNew2 (@.)
+
+instance OpCon (:*:) (OkLMap s) where
+  inOp = Sub Dict
 
 instance Cartesian (LMap s) where
   type Prod (LMap s) = (:*:)
