@@ -10,22 +10,24 @@
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-} -- TEMP
-{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+-- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
 -- | Generalized automatic differentiation
 
 module ConCat.GAD where
 
 import Prelude hiding (id,(.),curry,uncurry,const)
-import qualified Prelude as P
-import GHC.Exts (Coercible,coerce)
+-- import qualified Prelude as P
+-- import GHC.Exts (Coercible,coerce)
 
-import GHC.Generics (Par1(..),(:.:)(..),(:*:)())
-import Control.Newtype
+import GHC.Exts (Constraint)
 
-import ConCat.Misc ((:*),inNew2,PseudoFun(..))
-import ConCat.Free.VectorSpace
-import ConCat.Free.LinearRow
+-- import GHC.Generics (Par1(..),(:.:)(..),(:*:)())
+-- import Control.Newtype
+
+import ConCat.Misc ((:*),PseudoFun(..))
+-- import ConCat.Free.VectorSpace
+-- import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
 import ConCat.AltCat
@@ -52,8 +54,10 @@ instance HasRep (GD k a b) where
   abst f = D f
   repr (D f) = f
 
+type family GDOk (k :: * -> * -> *) :: * -> Constraint
+
 instance Category k => Category (GD k) where
-  type Ok (GD k) = Ok k
+  type Ok (GD k) = Ok k &+& GDOk k
   id = linearD id id
   D g . D f = D (\ a ->
     let (b,f') = f a
@@ -77,7 +81,7 @@ instance Category k => Category (GD k) where
 --     in
 --       (c, g' . f')
 
-instance ProductCat k => ProductCat (GD k) where
+instance (OpCon (Prod k) (Sat (GDOk k)), ProductCat k) => ProductCat (GD k) where
   exl = linearD exl exl
   exr = linearD exr exr
   D f &&& D g = D (\ a ->
