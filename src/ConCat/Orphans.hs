@@ -14,6 +14,7 @@ module ConCat.Orphans where
 
 import Prelude hiding (zipWith)
 import Control.Applicative (liftA2)
+-- import Control.Arrow ((&&&))
 import GHC.Generics (U1(..),Par1(..),(:+:)(..),(:*:)(..),(:.:)(..))
 
 import Data.Void
@@ -215,6 +216,12 @@ instance Newtype ((a :.: b) t) where
   type O ((a :.: b) t) = a (b t)
   pack = Comp1
   unpack = unComp1
+
+exlF :: (a :*: b) t -> a t
+exlF (a :*: _) = a
+
+exrF :: (a :*: b) t -> b t
+exrF (_ :*: b) = b
 
 eitherF :: (a t -> c) -> (b t -> c) -> ((a :+: b) t -> c)
 eitherF f _ (L1 a) = f a
