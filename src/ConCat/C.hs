@@ -124,35 +124,6 @@ class (OpCon (Exp k) (Ok k), Cartesian k) => CartesianClosed k where
   --             <+ okProd @k @a @b
   --             <+ okExp @k @b @c
 
-instance Category (->) where
-  id  = P.id
-  (.) = (P..)
-
-instance OpCon op Yes1 where
-  inOp = Sub Dict
-
-instance Cartesian (->) where
-  type Prod (->) = (,)
-  exl = fst
-  exr = snd
-  (f &&& g) x = (f x, g x)
-
-instance Cocartesian (->) where
-  type Coprod (->) = Either
-  inl = Left
-  inr = Right
-  (|||) = either
-
-instance Terminal (->) where
-  type Unit (->) = ()
-  it = const ()
-
-instance CartesianClosed (->) where
-  type Exp (->) = (->)
-  apply (f,x) = f x
-  curry = P.curry
-  uncurry = P.uncurry
-
 {--------------------------------------------------------------------
     Functors
 --------------------------------------------------------------------}
@@ -196,6 +167,39 @@ data (g #. f) = g :#. f
 --   (g :#. f) % a = g % (f % a)
 #endif
 
+{--------------------------------------------------------------------
+    Haskell types and functions ("Hask")
+--------------------------------------------------------------------}
+
+instance Category (->) where
+  id  = P.id
+  (.) = (P..)
+
+instance OpCon op Yes1 where
+  inOp = Sub Dict
+
+instance Cartesian (->) where
+  type Prod (->) = (,)
+  exl = fst
+  exr = snd
+  (f &&& g) x = (f x, g x)
+
+instance Cocartesian (->) where
+  type Coprod (->) = Either
+  inl = Left
+  inr = Right
+  (|||) = either
+
+instance Terminal (->) where
+  type Unit (->) = ()
+  it = const ()
+
+instance CartesianClosed (->) where
+  type Exp (->) = (->)
+  apply (f,x) = f x
+  curry = P.curry
+  uncurry = P.uncurry
+
 #if 1
 data HFunctor (t :: * -> *) = HFunctor
 
@@ -212,6 +216,59 @@ instance FunctorC (HFunctor t) (->) (->) where
   type OkF (HFunctor t) a b = ()
   (%) HFunctor = fmap
 #endif
+
+{--------------------------------------------------------------------
+    Constraint entailment
+--------------------------------------------------------------------}
+
+infixr 1 |-
+type (|-) = (:-)
+
+infixl 1 <+
+(<+) :: (b => r) -> (a |- b) -> (a => r)
+r <+ Sub Dict = r
+{-# INLINE (<+) #-}
+-- (<+) = (\\)
+
+instance Category (|-) where
+  id  = refl
+  (.) = trans
+
+infixr 3 &&
+class    (a,b) => a && b
+instance (a,b) => a && b
+
+--     • Potential superclass cycle for ‘&&’
+--         one of whose superclass constraints is headed by a type variable:
+--           ‘a’
+--       Use UndecidableSuperClasses to accept this
+
+instance Cartesian (|-) where
+  type Prod (|-) = (&&)
+  exl = Sub Dict
+  exr = Sub Dict
+  f &&& g = Sub (Dict <+ f <+ g)
+
+instance Terminal (|-) where
+  type Unit (|-) = ()
+  it = Sub Dict
+
+mapDict :: (a :- b) -> Dict a -> Dict b
+mapDict (Sub q) Dict = q
+
+data MapDict = MapDict
+
+instance FunctorC MapDict (|-) (->) where
+  type MapDict %% a = Dict a
+  type OkF MapDict a b = ()
+  (%) MapDict = mapDict
+
+-- -- Couldn't match type ‘Dict (a && b)’ with ‘(Dict a, Dict b)’
+-- instance CartesianFunctor MapDict (|-) (->) where prodToProd = Dict
+
+{--------------------------------------------------------------------
+    Functors applied to given type argument
+--------------------------------------------------------------------}
 
 newtype UT (s :: Type) f g = UT (f s -> g s)
 
@@ -286,50 +343,9 @@ instance CocartesianFunctor (ToUT s) (->) (UT s) where coprodToCoprod = Dict
 -- -- Couldn't match type ‘(->) a :.: V s b’ with ‘V s a +-> V s b’
 -- instance CartesianClosedFunctor (ToUT s) (->) (UT s) where expToExp = Dict
 
-infixr 1 |-
-type (|-) = (:-)
-
-infixl 1 <+
-(<+) :: (b => r) -> (a |- b) -> (a => r)
-r <+ Sub Dict = r
-{-# INLINE (<+) #-}
--- (<+) = (\\)
-
-instance Category (|-) where
-  id  = refl
-  (.) = trans
-
-infixr 3 &&
-class    (a,b) => a && b
-instance (a,b) => a && b
-
---     • Potential superclass cycle for ‘&&’
---         one of whose superclass constraints is headed by a type variable:
---           ‘a’
---       Use UndecidableSuperClasses to accept this
-
-instance Cartesian (|-) where
-  type Prod (|-) = (&&)
-  exl = Sub Dict
-  exr = Sub Dict
-  f &&& g = Sub (Dict <+ f <+ g)
-
-instance Terminal (|-) where
-  type Unit (|-) = ()
-  it = Sub Dict
-
-mapDict :: (a :- b) -> Dict a -> Dict b
-mapDict (Sub q) Dict = q
-
-data MapDict = MapDict
-
-instance FunctorC MapDict (|-) (->) where
-  type MapDict %% a = Dict a
-  type OkF MapDict a b = ()
-  (%) MapDict = mapDict
-
--- -- Couldn't match type ‘Dict (a && b)’ with ‘(Dict a, Dict b)’
--- instance CartesianFunctor MapDict (|-) (->) where prodToProd = Dict
+{--------------------------------------------------------------------
+    Linear maps
+--------------------------------------------------------------------}
 
 -- Linear map in row-major form
 data LMap s a b = LMap (b (a s))
@@ -373,6 +389,9 @@ instance FunctorC (ToLMap s) (UT s) (LMap s) where
 
 instance CartesianFunctor (ToLMap s) (UT s) (LMap s) where prodToProd = Dict
 
+{--------------------------------------------------------------------
+    Differentiable functions
+--------------------------------------------------------------------}
 
 -- | Differentiable function on vector space with field s
 data D (s :: Type) a b = D (a s -> (b s, LMap s a b))
