@@ -1,3 +1,5 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE TypeApplications #-}
@@ -33,6 +35,11 @@ import Prelude hiding (id,(.),zipWith,curry,uncurry)
 import qualified Prelude as P
 import Data.Kind
 import GHC.Generics (U1(..),(:*:)(..),(:+:)(..),(:.:)(..))
+import Control.Applicative (liftA2)
+import Control.Monad ((<=<))
+import Control.Arrow (arr,Kleisli(..))
+import qualified Control.Arrow as A
+import Control.Monad.State (State,modify,put,get,execState,StateT,evalStateT)
 
 import Data.Constraint (Dict(..),(:-)(..),refl,trans,(\\))
 import Control.Newtype
@@ -61,13 +68,12 @@ type Ok4 k a b c d     = C4 (Ok k) a b c d
 type Ok5 k a b c d e   = C5 (Ok k) a b c d e
 type Ok6 k a b c d e f = C6 (Ok k) a b c d e f
 
+infixr 3 &&
+class    (a,b) => a && b
+instance (a,b) => a && b
+
 class OpCon op con where
   inOp :: forall a b. con a && con b |- con (a `op` b)
-
-okProd :: forall k a b. OpCon (Prod k) (Ok k)
-       => Ok k a && Ok k b |- Ok k (Prod k a b)
-okProd = inOp
-{-# INLINE okProd #-}
 
 {--------------------------------------------------------------------
     Categories
@@ -82,11 +88,18 @@ class Category k where
 
 infixr 3 &&&
 -- | Category with product.
-class (OpCon (Prod k) (Ok k), Category k) => Cartesian k where
+class (OkProd k, Category k) => Cartesian k where
   type Prod k :: u -> u -> u
   exl :: Ok2 k a b => Prod k a b `k` a
   exr :: Ok2 k a b => Prod k a b `k` b
   (&&&) :: forall a c d. Ok3 k a c d => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d)
+
+type OkProd k = OpCon (Prod k) (Ok k)
+
+okProd :: forall k a b. OpCon (Prod k) (Ok k)
+       => Ok k a && Ok k b |- Ok k (Prod k a b)
+okProd = inOp
+{-# INLINE okProd #-}
 
 infixr 3 ***
 (***) :: forall k a b c d. (Cartesian k, Ok4 k a b c d)
@@ -95,14 +108,48 @@ f *** g = f . exl &&& g . exr
           -- <+ inOp @(Prod k) @(Ok k) @a @b
           <+ okProd @k @a @b
 
+dup :: (Cartesian k, Ok k a) => a `k` Prod k a a
+dup = id &&& id
+
+swapP :: forall k a b. (Cartesian k, Ok2 k a b) => Prod k a b `k` Prod k b a
+swapP = exr &&& exl  <+ okProd @k @a @b
+
+first :: forall k a a' b. (Cartesian k, Ok3 k a b a')
+      => (a `k` a') -> (Prod k a b `k` Prod k a' b)
+first = (*** id)
+second :: forall k a b b'. (Cartesian k, Ok3 k a b b')
+       => (b `k` b') -> (Prod k a b `k` Prod k a b')
+second = (id ***)
+
+lassocP :: forall k a b c. (Cartesian k, Ok3 k a b c)
+        => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
+lassocP = second exl &&& (exr . exr)
+          <+ okProd @k @a @(Prod k b c)
+          <+ okProd @k @b @c
+          <+ okProd @k @a @b
+
+rassocP :: forall k a b c. (Cartesian k, Ok3 k a b c)
+        => Prod k (Prod k a b) c `k` Prod k a (Prod k b c)
+rassocP = (exl . exl) &&& first  exr
+          <+ okProd @k @(Prod k a b) @c
+          <+ okProd @k @b @c
+          <+ okProd @k @a @b
+
+infixr 2 |||
 -- | Category with coproduct.
 class (OpCon (Coprod k) (Ok k),Category k) => Cocartesian k where
   type Coprod k :: u -> u -> u
   inl :: Ok2 k a b => a `k` Coprod k a b
   inr :: Ok2 k a b => b `k` Coprod k a b
-  infixr 2 |||
   (|||) :: forall a c d. Ok3 k a c d
         => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a)
+
+type OkCoprod k = OpCon (Coprod k) (Ok k)
+
+okCoprod :: forall k a b. OpCon (Coprod k) (Ok k)
+         => Ok k a && Ok k b |- Ok k (Coprod k a b)
+okCoprod = inOp
+{-# INLINE okCoprod #-}
 
 class (Category k, Ok k (Unit k)) => Terminal k where
   type Unit k :: u
@@ -114,15 +161,45 @@ class (Category k, Ok k (Unit k)) => Terminal k where
 class (OpCon (Exp k) (Ok k), Cartesian k) => CartesianClosed k where
   type Exp k :: u -> u -> u
   apply   :: forall a b. Ok2 k a b => Prod k (Exp k a b) a `k` b
-  -- apply = uncurry id
-  --         <+ okExp @k @a @b
+  apply = uncurry id
+          <+ okExp @k @a @b
   curry   :: Ok3 k a b c => (Prod k a b `k` c) -> (a `k` Exp k b c)
   uncurry :: forall a b c. Ok3 k a b c
           => (a `k` Exp k b c)  -> (Prod k a b `k` c)
-  -- uncurry g = apply . first g
-  --             <+ okProd @k @(Exp k b c) @b
-  --             <+ okProd @k @a @b
-  --             <+ okExp @k @b @c
+  uncurry g = apply . first g
+              <+ okProd @k @(Exp k b c) @b
+              <+ okProd @k @a @b
+              <+ okExp @k @b @c
+
+type OkExp k = OpCon (Exp k) (Ok k)
+
+okExp :: forall k a b. OpCon (Exp k) (Ok k)
+       => Ok k a && Ok k b |- Ok k (Exp k a b)
+okExp = inOp
+{-# INLINE okExp #-}
+
+-- Misc type-specific classes
+
+class (Cartesian k, Ok k (BoolOf k)) => BoolCat k where
+  type BoolOf k
+  notC :: BoolOf k `k` BoolOf k
+  andC, orC, xorC :: Prod k (BoolOf k) (BoolOf k) `k` BoolOf k
+
+okDup :: forall k a. OkProd k => Ok k a :- Ok k (Prod k a a)
+okDup = okProd @k @a @a . dup
+
+class (BoolCat k, Ok k a) => EqCat k a where
+  equal, notEqual :: Prod k a a `k` BoolOf k
+  notEqual = notC . equal    <+ okDup @k @a
+  equal    = notC . notEqual <+ okDup @k @a
+
+class Ok k a => NumCat k a where
+  negateC :: a `k` a
+  addC, subC, mulC :: Prod k a a `k` a
+  default subC :: Cartesian k => Prod k a a `k` a
+  subC = addC . second negateC <+ okProd @k @a @a
+  type IntOf k
+  powIC :: Prod k a (IntOf k) `k` a
 
 {--------------------------------------------------------------------
     Functors
@@ -200,6 +277,13 @@ instance CartesianClosed (->) where
   curry = P.curry
   uncurry = P.uncurry
 
+instance BoolCat (->) where
+  type BoolOf (->) = Bool
+  notC = not
+  andC = uncurry (&&)
+  orC  = uncurry (||)
+  xorC = uncurry (/=)
+
 #if 1
 data HFunctor (t :: * -> *) = HFunctor
 
@@ -218,6 +302,54 @@ instance FunctorC (HFunctor t) (->) (->) where
 #endif
 
 {--------------------------------------------------------------------
+    Kleisli
+--------------------------------------------------------------------}
+
+instance Monad m => Category (Kleisli m) where
+  id = pack return
+  (.) = inNew2 (<=<)
+
+instance Monad m => Cartesian (Kleisli m) where
+  type Prod (Kleisli m) = (,)
+  exl = arr exl
+  exr = arr exr
+  -- Kleisli f &&& Kleisli g = Kleisli ((liftA2.liftA2) (,) f g)
+  -- (&&&) = (inNew2.liftA2.liftA2) (,)
+  -- Kleisli f &&& Kleisli g = Kleisli (uncurry (liftA2 (,)) . (f &&& g))
+  (&&&) = (A.&&&)
+
+-- f :: a -> m b
+-- g :: a -> m c
+-- f &&& g :: a -> m b :* m c
+-- uncurry (liftA2 (,)) . (f &&& g) :: a -> m (b :* c)
+
+instance Monad m => Cocartesian (Kleisli m) where
+  type Coprod (Kleisli m) = Either
+  inl = arr inl
+  inr = arr inr
+  (|||) = (A.|||)
+
+instance Monad m => Terminal (Kleisli m) where
+  type Unit (Kleisli m) = ()
+  it = arr it
+
+instance Monad m => CartesianClosed (Kleisli m) where
+  type Exp (Kleisli m) = Kleisli m
+  apply   = pack (apply . first unpack)
+  curry   = inNew (\ f -> return . pack . curry f)
+  uncurry = inNew (\ g -> \ (a,b) -> g a >>= ($ b) . unpack)
+
+-- We could handle Kleisli categories as follows, but we'll want specialized
+-- versions for specific monads m.
+
+-- instance Monad m => BoolCat (Kleisli m) where
+--   type BoolOf (Kleisli m) = Bool
+--   notC = arr notC
+--   andC = arr andC
+--   orC  = arr orC
+--   xorC = arr xorC
+
+{--------------------------------------------------------------------
     Constraint entailment
 --------------------------------------------------------------------}
 
@@ -233,10 +365,6 @@ r <+ Sub Dict = r
 instance Category (|-) where
   id  = refl
   (.) = trans
-
-infixr 3 &&
-class    (a,b) => a && b
-instance (a,b) => a && b
 
 --     • Potential superclass cycle for ‘&&’
 --         one of whose superclass constraints is headed by a type variable:
@@ -463,3 +591,81 @@ instance FunctorC (Deriv s) (UT s) (D s) where
   (%) Deriv = oops "Deriv % not implemented"
 
 instance CartesianFunctor (Deriv s) (UT s) (D s) where prodToProd = Dict
+
+{--------------------------------------------------------------------
+    Circuits
+--------------------------------------------------------------------}
+
+newtype Prim a b = Prim String
+
+instance Show (Prim a b) where show (Prim name) = name
+
+newtype PinId  = PinId  Int deriving (Eq,Ord,Show,Enum) -- TODO: rename to "BusId"
+newtype CompId = CompId Int deriving (Eq,Ord,Show,Enum)
+
+-- Component: primitive instance with inputs & outputs
+data Comp = forall a b. Comp (Prim a b) (Buses a) (Buses b)
+
+newtype Source = Source PinId
+
+data Buses :: * -> * where
+  UnitB   :: Buses ()
+  BoolB   :: Source  -> Buses Bool
+  IntB    :: Source  -> Buses Int
+  DoubleB :: Source  -> Buses Double
+  PairB   :: Buses a -> Buses b -> Buses (a,b)
+
+pairB :: (Buses a, Buses b) :> Buses (a,b)
+pairB = arr (uncurry PairB)
+
+-- unPairB :: Ok2 (:>) a b => Buses (a,b) -> (Buses a, Buses b)
+-- unPairB (PairB a b) = (a,b)
+
+type CircuitM = State (PinId,[Comp])
+
+genSource :: CircuitM Source
+genSource = do (o,comps) <- get
+               put (succ o,comps)
+               return (Source o)
+
+infixl 1 :>
+type (:>) = Kleisli CircuitM
+
+class GenBuses a where genBuses :: CircuitM (Buses a)
+
+instance GenBuses ()     where genBuses = return UnitB 
+instance GenBuses Bool   where genBuses = BoolB   <$> genSource
+instance GenBuses Int    where genBuses = IntB    <$> genSource
+instance GenBuses Double where genBuses = DoubleB <$> genSource
+
+instance (GenBuses a, GenBuses b) => GenBuses (a,b) where
+  genBuses = liftA2 PairB genBuses genBuses
+
+-- Instantiate a 'Prim'
+genComp1 :: forall a b. GenBuses b => String -> Buses a :> Buses b
+genComp1 p = Kleisli $ \ a ->
+             do b <- genBuses
+                modify (second (Comp (Prim p) a b :))
+                return b
+
+genComp2 :: forall a b c. GenBuses c => String -> (Buses a, Buses b) :> Buses c
+genComp2 p = genComp1 p . pairB
+
+instance BoolCat (:>) where
+  type BoolOf (:>) = Buses Bool
+  notC = genComp1 "¬"
+  andC = genComp2 "∧"
+  orC  = genComp2 "∨"
+  xorC = genComp2 "⊕"
+
+instance EqCat (:>) (Buses a) where
+  equal    = genComp2 "≡"
+  notEqual = genComp2 "⊕"
+
+instance GenBuses a => NumCat (:>) (Buses a) where
+  type IntOf (:>) = Buses Int
+  negateC = genComp1 "negate"
+  addC    = genComp2 "+"
+  subC    = genComp2 "-"
+  mulC    = genComp2 "×"
+  powIC   = genComp2 "↑"
