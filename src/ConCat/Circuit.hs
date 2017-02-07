@@ -184,12 +184,11 @@ data Bus = Bus PinId Width
 -- undefinedBus :: Width -> Bus
 -- undefinedBus = Bus undefinedPinId
 
+type Sources = [Source]
+
 -- | An information source: its bus and a description of its construction, which
 -- contains the primitive, argument sources, and which output of that
 -- application (usually 0th).
-
-type Sources = [Source]
-
 data Source = Source Bus PrimName Sources Int
 
 sourceBus :: Source -> Bus
