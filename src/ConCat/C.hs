@@ -373,8 +373,8 @@ instance Category (D s) where
 
 instance Cartesian (D s) where
   type Prod (D s) = (:*:)
-  exl = linearD exlF exl
-  exr = linearD exrF exr
+  exl = linearD fstF exl
+  exr = linearD sndF exr
   D f &&& D g = D (\ a ->
     let (b,f') = f a
         (c,g') = g a
