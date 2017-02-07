@@ -311,7 +311,7 @@ class (OpCon (Prod k) (Ok' k), Category k) => ProductCat k where
   swapP :: forall a b. Oks k [a,b] => Prod k a b `k` Prod k b a
   swapP = exr &&& exl
           <+ okProd @k @a @b
-  (***) :: forall a b c d. Oks k [a,b,c,d] 
+  (***) :: forall a b c d. Ok4 k a b c d
         => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d)
   f *** g = f . exl &&& g . exr
             <+ okProd @k @a @b
