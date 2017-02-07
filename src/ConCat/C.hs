@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE RankNTypes #-}
@@ -61,25 +62,38 @@ type Ok5 k a b c d e   = C5 (Ok k) a b c d e
 type Ok6 k a b c d e f = C6 (Ok k) a b c d e f
 
 class OpCon op con where
-  inOp :: con a && con b |- con (a `op` b)
+  inOp :: forall a b. con a && con b |- con (a `op` b)
+
+okProd :: forall k a b. OpCon (Prod k) (Ok k)
+       => Ok k a && Ok k b |- Ok k (Prod k a b)
+okProd = inOp
+{-# INLINE okProd #-}
 
 {--------------------------------------------------------------------
     Categories
 --------------------------------------------------------------------}
 
+infixr 9 .
 class Category k where
   type Ok k :: u -> Constraint
   type Ok k = Yes1
   id  :: Ok k a => a `k` a
-  infixr 9 .
   (.) :: forall b c a. Ok3 k a b c => (b `k` c) -> (a `k` b) -> (a `k` c)
 
+infixr 3 &&&
 -- | Category with product.
 class (OpCon (Prod k) (Ok k), Category k) => Cartesian k where
   type Prod k :: u -> u -> u
   exl :: Ok2 k a b => Prod k a b `k` a
   exr :: Ok2 k a b => Prod k a b `k` b
   (&&&) :: forall a c d. Ok3 k a c d => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d)
+
+infixr 3 ***
+(***) :: forall k a b c d. (Cartesian k, Ok4 k a b c d)
+      => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d)
+f *** g = f . exl &&& g . exr
+          -- <+ inOp @(Prod k) @(Ok k) @a @b
+          <+ okProd @k @a @b
 
 -- | Category with coproduct.
 class (OpCon (Coprod k) (Ok k),Category k) => Cocartesian k where
@@ -145,8 +159,7 @@ instance CartesianClosed (->) where
 
 infixr 9 %, %%
 
-class (Category src, Category trg) =>
-      FunctorC f (src :: u -> u -> *) (trg :: v -> v -> *) | f -> src trg where
+class (Category src, Category trg) => FunctorC f src trg | f -> src trg where
   type f %% (a :: u) :: v
   type OkF f (a :: u) (b :: u) :: Constraint
   (%) :: forall a b. OkF f a b => f -> src a b -> trg (f %% a) (f %% b)
