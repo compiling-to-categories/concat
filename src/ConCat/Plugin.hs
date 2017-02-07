@@ -149,12 +149,14 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      (isPseudoApp -> True) ->
        Doing("top Avoid pseudo-app")
        Nothing
+#if 0
      Trying("top ruled var app")
      (collectArgs -> (Var (fqVarName -> nm),args))
        | Just arity <- Map.lookup nm cccRuledArities
        , length args >= arity
        -> dtrace "top ruled var app" (text nm) $
           Nothing
+#endif
      Trying("top Let")
      Let bind@(NonRec v rhs) body ->
        -- Experiment: always float.
