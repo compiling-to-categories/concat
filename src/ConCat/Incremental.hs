@@ -36,7 +36,7 @@ import Data.Void (Void,absurd)
 import Control.Newtype
 import Data.Constraint ((:-)(..),Dict(..))
 
-import ConCat.Misc ((:*),(:+),Unop,Binop, inNew2,Parity,R)
+import ConCat.Misc ((:*),(:+),Unop,Binop, inNew2,Parity,R,Yes1)
 import ConCat.Rep
 import qualified ConCat.Category
 import ConCat.AltCat hiding (const,curry,uncurry)
@@ -173,6 +173,8 @@ instance HasDelta b => HasDelta (a -> b) where
 
 infixr 1 -+>
 newtype a -+> b = DelX { unDelX :: Delta a -> Delta b }
+
+type instance GDOk (-+>) = Yes1
 
 zeroDelX :: forall a b. HasDelta b => a -+> b
 zeroDelX = DelX (const (zeroD @b))
