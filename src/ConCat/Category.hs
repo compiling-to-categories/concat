@@ -62,6 +62,7 @@ import ConCat.Misc hiding ((<~),(~>),type (&&),type (&+&))
 import ConCat.Rep
 import ConCat.Orphans ()
 import ConCat.Float
+import ConCat.Additive (Additive)
 
 {--------------------------------------------------------------------
     Unit and pairing for binary type constructors
@@ -186,6 +187,14 @@ instance OpCon op Yes1' where
   {-# INLINE inOp #-}
 
 instance Typeable op => OpCon op (Sat Typeable) where
+  inOp = Entail (Sub Dict)
+  {-# INLINE inOp #-}
+
+instance OpCon (:*) (Sat Additive) where
+  inOp = Entail (Sub Dict)
+  {-# INLINE inOp #-}
+
+instance OpCon (->) (Sat Additive) where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
 
@@ -341,6 +350,37 @@ class (OpCon (Prod k) (Ok' k), Category k) => ProductCat k where
   (&&&) = (A.&&&)
 #endif
   {-# MINIMAL exl, exr, ((&&&) | ((***), dup)) #-}
+
+#if 0
+
+-- -- TEMP
+-- fork :: forall k a b c d. (ProductCat k, Oks k [a,b,c,d])
+--      => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d)
+-- f `fork` g = f . exl &&& g . exr
+--             -- <+ okProd @k @a @b
+
+lassocP' :: forall k a b c. (ProductCat k, Ok3 k a b c, Ok3 k (Prod k b c) (Prod k a (Prod k b c)) (Prod k a b))
+         => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
+lassocP' = second exl &&& (exr . exr)
+--            <+ okProd @k @a @b
+--            <+ inOpR' @(Prod k) @(Ok' k) @a @b @c
+
+rassocP' :: forall k a b c. (ProductCat k, Oks k [a,b,c], Oks k [Prod k a b, Prod k b c, Prod k (Prod k a b) c])
+        => Prod k (Prod k a b) c `k` Prod k a (Prod k b c)
+rassocP' = (exl . exl) &&& first  exr
+
+
+inLassocP' :: forall k a b c a' b' c'.
+             -- (ProductCat k, Ok6 k a b c a' b' c') 
+             -- Needs :set -fconstraint-solver-iterations=5 or greater:
+             (ProductCat k, Oks k [a,b,c,a',b',c'])
+          => Prod k (Prod k a b) c `k` Prod k (Prod k a' b') c'
+          -> Prod k a (Prod k b c) `k` (Prod k a' (Prod k b' c'))
+
+--               <+ (inOpLR @(Prod k) @(Ok' k) @a  @b  @c ***
+--                   inOpLR @(Prod k) @(Ok' k) @a' @b' @c')
+
+#endif
 
 instance ProductCat (->) where
 #ifndef DefaultCat
@@ -665,6 +705,7 @@ okExp = inOp
 {-# INLINE okExp #-}
 
 type Exp k = (->)
+-- type Exp k = k
 
 class (OpCon (Exp k) (Ok' k), ProductCat k) => ClosedCat k where
   -- type Exp k :: u -> u -> u
@@ -711,6 +752,10 @@ instance ClosedCat U2 where
 
 instance (ClosedCat k, ClosedCat k') => ClosedCat (k :**: k') where
   apply = apply :**: apply
+  -- apply = (apply . exl) :**: (apply . exr)
+  -- apply :: forall a b. (Ok2 k a b, Ok2 k' a b)
+  --       => (k :**: k') ((k :**: k') a b :* a) b
+  -- apply = undefined -- (apply . exl) :**: _
   curry (f :**: f') = curry f :**: curry f'
   uncurry (g :**: g') = uncurry g :**: uncurry g'
   PINLINER(apply)
