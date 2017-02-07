@@ -217,11 +217,11 @@ instance Newtype ((a :.: b) t) where
   pack = Comp1
   unpack = unComp1
 
-exlF :: (a :*: b) t -> a t
-exlF (a :*: _) = a
+fstF :: (a :*: b) t -> a t
+fstF (a :*: _) = a
 
-exrF :: (a :*: b) t -> b t
-exrF (_ :*: b) = b
+sndF :: (a :*: b) t -> b t
+sndF (_ :*: b) = b
 
 eitherF :: (a t -> c) -> (b t -> c) -> ((a :+: b) t -> c)
 eitherF f _ (L1 a) = f a
