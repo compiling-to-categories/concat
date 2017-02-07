@@ -182,6 +182,7 @@ class (Foldable f, Zeroable f, Zip f, Diagonal f) => OkLF f
 
 instance OkLF U1
 instance OkLF Par1
+-- instance Eq k => OkLF ((->) k)
 instance (OkLF f, OkLF g) => OkLF (f :*: g)
 instance (OkLF f, OkLF g, Applicative f, Traversable g) => OkLF (g :.: f)
 #endif
@@ -220,6 +221,7 @@ instance Category (L s) where
   {-# INLINE (.) #-}
 
 instance OpCon (:*) (Sat (OkLM s)) where inOp = Entail (Sub Dict)
+-- instance OpCon (->) (Sat (OkLM s)) where inOp = Entail (Sub Dict)
 
 instance ProductCat (L s) where
   -- type Prod (L s) = (,)
@@ -336,8 +338,6 @@ q :: ((g :.: f) s -> h s) -> ((g :.: f) :-* h) s
 #endif
 
 #if 0
-
-instance OpCon (->) (Sat (OkLM s)) where inOp = Entail (Sub Dict)
 
 instance HasL ((->) k) where
   linear' h = ...
