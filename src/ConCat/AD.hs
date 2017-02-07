@@ -32,6 +32,14 @@ import ConCat.GAD
 -- Differentiable functions
 type D s = GD (L s)
 
+-- instance ClosedCat (D s) where
+--   apply = applyD
+-- --   curry = curryD
+
+-- applyD :: forall s a b. Ok2 (D s) a b => D s ((a -> b) :* a) b
+-- applyD = D (\ (f,a) -> let (b,f') = andDeriv f a in
+--               (b, _))
+
 instance Num s => TerminalCat (D s) where
   it = linearD (const ()) zeroLM
   {-# INLINE it #-}
@@ -44,7 +52,7 @@ instance Ok (L s) s => NumCat (D s) s where
   negateC = linearD negateC (scale (-1))
   addC    = linearD addC    jamLM
   mulC    = D (mulC &&& (\ (a,b) -> scale b `joinLM` scale a))
-  powIC   = notDef "powC"
+  powIC   = notDef "powC"       -- TODO
   {-# INLINE negateC #-}
   {-# INLINE addC    #-}
   {-# INLINE mulC    #-}
