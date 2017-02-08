@@ -32,7 +32,7 @@ import Data.Constraint (Dict(..),(:-)(..))  -- temp
 
 import ConCat.Category
 import ConCat.Misc (inNew,inNew2,Unop,Binop,typeR,Yes1,(:*))
-import ConCat.Rep (Rep)
+import ConCat.Rep
 
 {--------------------------------------------------------------------
     Untyped S-expression
@@ -42,10 +42,14 @@ type DocTree = Tree PDoc
 
 -- Using PDoc instead of String allows for complex values that can be
 -- pretty-printed and parenthesized in context.
-
 prettyTree :: DocTree -> PDoc
-prettyTree (Node (showPDoc 0 -> nm) [u,v]) p | Just fixity <- lookup nm fixities =
-  docOp2 False nm fixity (prettyTree u) (prettyTree v) p
+prettyTree (Node (showPDoc 0 -> nm) [u,v]) p | Just (q,assoc) <- lookup nm fixities =
+  let (lp,rp) = case assoc of
+                  AssocLeft   -> (q,q+1)
+                  AssocRight  -> (q+1,q)
+                  AssocNone   -> (q+1,q+1)
+  in
+    maybeParens (p > q) $ sep [prettyTree u lp <+> text nm, (prettyTree v) rp]
 prettyTree (Node f es) p =
   maybeParens (not (null es) && p > appPrec) $
   sep (f appPrec : map (\ e -> prettyTree e (appPrec+1)) es)
@@ -69,22 +73,43 @@ appt = Node . const . text
 
 newtype Syn a b = Syn DocTree
 
-instance Newtype (Syn a b) where
-  type O (Syn a b) = DocTree
-  pack s = Syn s
-  unpack (Syn s) = s
+#if 0
+-- instance Newtype (Syn a b) where
+--   type O (Syn a b) = DocTree
+--   pack s = Syn s
+--   unpack (Syn s) = s
+
+instance HasRep (Syn a b) where
+  type Rep (Syn a b) = DocTree
+  abst s = Syn s
+  repr (Syn s) = s
 
 atom :: Pretty a => a -> Syn a b
-atom a = pack (Node (ppretty a) [])
+atom a = abst (Node (ppretty a) [])
 
 app0 :: String -> Syn a b
-app0 s = pack (appt s [])
+app0 s = abst (appt s [])
 
 app1 :: String -> Syn a b -> Syn c d
-app1 s = inNew (\ p -> appt s [p])
+app1 s = inAbst (\ p -> appt s [p])
 
 app2 :: String -> Syn a b -> Syn c d -> Syn e f
-app2 s = inNew2 (\ p q -> appt s [p,q])
+app2 s = inAbst2 (\ p q -> appt s [p,q])
+#else
+
+atom :: Pretty a => a -> Syn a b
+atom a = Syn (Node (ppretty a) [])
+
+app0 :: String -> Syn a b
+app0 s = Syn (appt s [])
+
+app1 :: String -> Syn a b -> Syn c d
+app1 s (Syn p) = Syn (appt s [p])
+
+app2 :: String -> Syn a b -> Syn c d -> Syn e f
+app2 s (Syn p) (Syn q) = Syn (appt s [p,q])
+
+#endif
 
 -- instance Show (Syn a b) where show = render
 
@@ -348,15 +373,4 @@ showPDoc p d = show (d (fromIntegral p))
 -- application is the left argument of a function composition.
 appPrec :: Prec
 appPrec = 11 -- was 10
-
-docOp2 :: Bool -> String -> Fixity -> Binop PDoc
-docOp2 extraParens sop (p,assoc) a b q =
-  maybeParens (q > p) $
-  sep [a (lf p) <+> text sop, b (rf p)]
- where
-   (lf,rf) = case assoc of
-               AssocLeft  -> (incr, succ)
-               AssocRight -> (succ, incr)
-               AssocNone  -> (succ, succ)
-   incr | extraParens = succ
-        | otherwise   = id
+-- Revisit
