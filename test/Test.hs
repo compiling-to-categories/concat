@@ -22,11 +22,13 @@
 -- To keep ghci happy, it appears that the plugin flag must be in the test module.
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
 
--- Does this flag make any difference?
-{-# OPTIONS_GHC -fexpose-all-unfoldings #-}
-
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
+
+-- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
+
+-- Does this flag make any difference?
+{-# OPTIONS_GHC -fexpose-all-unfoldings #-}
 
 -- Tweak simpl-tick-factor from default of 100
 {-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
@@ -82,7 +84,14 @@ main = sequence_
 
 --   , print (take 10 gd1)
 
---   , test "sqr-ad" (andDer (ccc (\ x -> x*x :: R)))
+  , test "sqr" (sqr @R)
+  , test "magSqr" (magSqr @R)
+
+--   , test "sum-pp" (\ ((a,b),(c,d)) -> (a+c)+(b+d) :: R)
+
+--   , test "magSqr3" (\ (a,b,c) -> sqr a + sqr b + sqr c :: R)
+
+--   , test "sqr-ad" (andDer (\ x -> x * x :: R))
 
 --   , print (minimize 1 cos 3)   -- (3.141592653589793,4)
 
@@ -90,8 +99,8 @@ main = sequence_
 
 --   , test "foo" (gradient (negateV . cos) :: R -> R)
 
-  , print (minimize 1 cos 5)  -- (3.141592653589793,6)
-  , print (maximize 1 cos 5)  -- (6.283185307179586,5)
+--   , print (minimize 1 cos 5)  -- (3.141592653589793,6)
+--   , print (maximize 1 cos 5)  -- (6.283185307179586,5)
 
 --   -- 0.2: ((5.0e-324,5.0e-324),1460)
 --   -- 0.4: ((0.0,0.0),2)
@@ -263,7 +272,7 @@ type Con = Yes2
 #elif 0
 type Con = Yes2
 {-# RULES "U2" forall nm f. test nm f = runU2 (ccc f) #-}
-#elif 0
+#elif 1
 type Con = Yes2
 {-# RULES "Syn" forall nm f. test nm f = runSyn (ccc f) #-}
 #elif 0
