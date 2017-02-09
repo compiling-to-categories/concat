@@ -1,3 +1,4 @@
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -72,6 +73,11 @@ type Ok6 k a b c d e f = C6 (Ok k) a b c d e f
 infixr 3 &&
 class    (a,b) => a && b
 instance (a,b) => a && b
+
+--     • Potential superclass cycle for ‘&&’
+--         one of whose superclass constraints is headed by a type variable:
+--           ‘a’
+--       Use UndecidableSuperClasses to accept this
 
 class OpCon op con where
   inOp :: forall a b. con a && con b |- con (a `op` b)
@@ -270,8 +276,7 @@ instance Category (->) where
   id  = P.id
   (.) = (P..)
 
-instance OpCon op Yes1 where
-  inOp = Sub Dict
+instance OpCon op Yes1 where inOp = Sub Dict
 
 instance Cartesian (->) where
   type Prod (->) = (,)
@@ -381,13 +386,12 @@ r <+ Sub Dict = r
 -- (<+) = (\\)
 
 instance Category (|-) where
-  id  = refl
-  (.) = trans
+  id  = Sub Dict
+  g . f = Sub (Dict <+ g <+ f)
 
---     • Potential superclass cycle for ‘&&’
---         one of whose superclass constraints is headed by a type variable:
---           ‘a’
---       Use UndecidableSuperClasses to accept this
+-- instance Category (|-) where
+--   id  = refl
+--   (.) = trans
 
 instance Cartesian (|-) where
   type Prod (|-) = (&&)
@@ -399,8 +403,12 @@ instance Terminal (|-) where
   type Unit (|-) = ()
   it = Sub Dict
 
-mapDict :: (a :- b) -> Dict a -> Dict b
+-- Tweaked from Data.Constraint
+mapDict :: (a |- b) -> Dict a -> Dict b
 mapDict (Sub q) Dict = q
+
+unmapDict :: (Dict a -> Dict b) -> (a |- b)
+unmapDict f = Sub (f Dict)
 
 data MapDict = MapDict
 
@@ -411,6 +419,38 @@ instance FunctorC MapDict (|-) (->) where
 
 -- -- Couldn't match type ‘Dict (a && b)’ with ‘(Dict a, Dict b)’
 -- instance CartesianFunctor MapDict (|-) (->) where preserveProd = Dict
+
+class HasCon a where
+  type Con a :: Constraint
+  toDict :: a -> Dict (Con a)
+  unDict :: Dict (Con a) -> a
+
+instance HasCon (Dict con) where
+  type Con (Dict con) = con
+  toDict = id
+  unDict = id
+
+instance (HasCon a, HasCon b) => HasCon (a,b) where
+  type Con (a,b) = (Con a,Con b)
+  toDict (toDict -> Dict, toDict -> Dict) = Dict
+  unDict Dict = (unDict Dict,unDict Dict)
+
+entail :: (HasCon a, HasCon b) => (a -> b) -> (Con a |- Con b)
+entail f = unmapDict (toDict . f . unDict)
+
+data Entail = Entail
+
+instance FunctorC Entail (->) (|-) where
+  type Entail %% a = Con a
+  type OkF Entail a b = (HasCon a, HasCon b)
+  (%) Entail = entail
+
+-- -- Couldn't match type ‘(Con a, Con b)’ with ‘Con a && Con b’.
+-- instance CartesianFunctor Entail (->) (|-) where preserveProd = Dict
+-- -- Fails:
+-- preserveProd :: Dict (MapDict %% (a && b)) ~ (MapDict %% a, MapDict %% b)
+
+-- Isomorphic but not equal.
 
 {--------------------------------------------------------------------
     Functors applied to given type argument
@@ -509,8 +549,7 @@ instance Category (LMap s) where
   id = pack idL
   (.) = inNew2 (@.)
 
-instance OpCon (:*:) (OkLMap s) where
-  inOp = Sub Dict
+instance OpCon (:*:) (OkLMap s) where inOp = Sub Dict
 
 instance Cartesian (LMap s) where
   type Prod (LMap s) = (:*:)
