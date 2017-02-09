@@ -614,15 +614,11 @@ instance CartesianFunctor (Deriv s) (UT s) (D s) where preserveProd = Dict
     Circuits
 --------------------------------------------------------------------}
 
-newtype Prim a b = Prim String
-
-instance Show (Prim a b) where show (Prim name) = name
-
 newtype PinId  = PinId  Int deriving (Eq,Ord,Show,Enum) -- TODO: rename to "BusId"
 newtype CompId = CompId Int deriving (Eq,Ord,Show,Enum)
 
 -- Component: primitive instance with inputs & outputs
-data Comp = forall a b. Comp (Prim a b) (Buses a) (Buses b)
+data Comp = forall a b. Comp String (Buses a) (Buses b)
 
 newtype Source = Source PinId
 
@@ -659,12 +655,12 @@ instance GenBuses Double where genBuses = DoubleB <$> genSource
 instance (GenBuses a, GenBuses b) => GenBuses (a,b) where
   genBuses = liftA2 PairB genBuses genBuses
 
--- Instantiate a 'Prim'
+-- Instantiate a primitive component
 genComp1 :: forall a b. GenBuses b => String -> Buses a :> Buses b
-genComp1 p = Kleisli $ \ a ->
-             do b <- genBuses
-                modify (second (Comp (Prim p) a b :))
-                return b
+genComp1 nm = Kleisli $ \ a ->
+              do b <- genBuses
+                 modify (second (Comp nm a b :))
+                 return b
 
 genComp2 :: forall a b c. GenBuses c => String -> (Buses a, Buses b) :> Buses c
 genComp2 p = genComp1 p . pairB
