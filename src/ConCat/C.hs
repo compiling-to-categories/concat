@@ -49,6 +49,7 @@ import Data.Key
 import ConCat.Misc (Yes1,inNew,inNew2,oops,type (+->)(..))
 import ConCat.Free.VectorSpace
 import ConCat.Free.LinearRow (OkLF,idL,(@.),exlL,exrL,forkL,inlL,inrL,joinL,HasL(..))
+import ConCat.Rep
 import ConCat.Orphans
 
 {--------------------------------------------------------------------
@@ -85,6 +86,18 @@ class Category k where
   type Ok k = Yes1
   id  :: Ok k a => a `k` a
   (.) :: forall b c a. Ok3 k a b c => (b `k` c) -> (a `k` b) -> (a `k` c)
+
+infixl 1 <~
+infixr 1 ~>
+-- | Add post- and pre-processing
+(<~) :: (Category k, Ok4 k a b a' b') 
+     => (b `k` b') -> (a' `k` a) -> ((a `k` b) -> (a' `k` b'))
+(h <~ f) g = h . g . f
+
+-- | Add pre- and post-processing
+(~>) :: (Category k, Ok4 k a b a' b') 
+     => (a' `k` a) -> (b `k` b') -> ((a `k` b) -> (a' `k` b'))
+f ~> h = h <~ f
 
 infixr 3 &&&
 -- | Category with product.
@@ -135,7 +148,7 @@ rassocP = (exl . exl) &&& first  exr
           <+ okProd @k @b @c
           <+ okProd @k @a @b
 
-infixr 2 |||
+infixr 2 +++, |||
 -- | Category with coproduct.
 class (OpCon (Coprod k) (Ok k),Category k) => Cocartesian k where
   type Coprod k :: u -> u -> u
@@ -143,6 +156,11 @@ class (OpCon (Coprod k) (Ok k),Category k) => Cocartesian k where
   inr :: Ok2 k a b => b `k` Coprod k a b
   (|||) :: forall a c d. Ok3 k a c d
         => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a)
+
+(+++) :: forall k a b c d. (Cocartesian k, Ok4 k a b c d)
+      => (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b)
+f +++ g = inl . f ||| inr . g
+          <+ okCoprod @k @a @b
 
 type OkCoprod k = OpCon (Coprod k) (Ok k)
 
@@ -213,18 +231,18 @@ class (Category src, Category trg) => FunctorC f src trg | f -> src trg where
   (%) :: forall a b. OkF f a b => f -> src a b -> trg (f %% a) (f %% b)
 
 class FunctorC f src trg => CartesianFunctor f src trg where
-  prodToProd :: Dict ((f %% Prod src a b) ~ Prod trg (f %% a) (f %% b))
-  -- default prodToProd :: (f %% Prod src a b) ~ Prod trg (f %% a) (f %% b)
+  preserveProd :: Dict ((f %% Prod src a b) ~ Prod trg (f %% a) (f %% b))
+  -- default preserveProd :: (f %% Prod src a b) ~ Prod trg (f %% a) (f %% b)
   --              => Dict ((f %% Prod src a b) ~ Prod trg (f %% a) (f %% b))
-  -- prodToProd = Dict
+  -- preserveProd = Dict
 
--- This prodToProd default doesn't work in instances. Probably a GHC bug.
+-- This preserveProd default doesn't work in instances. Probably a GHC bug.
 
 class FunctorC f src trg => CocartesianFunctor f src trg where
-  coprodToCoprod :: Dict ((f %% Coprod src a b) ~ Coprod trg (f %% a) (f %% b))
+  preserveCoprod :: Dict ((f %% Coprod src a b) ~ Coprod trg (f %% a) (f %% b))
 
 class FunctorC f src trg => CartesianClosedFunctor f src trg where
-  expToExp :: Dict ((f %% Exp src a b) ~ Exp trg (f %% a) (f %% b))
+  preserveExp :: Dict ((f %% Exp src a b) ~ Exp trg (f %% a) (f %% b))
 
 #if 0
 -- Functor composition. I haven't been able to get a declared type to pass.
@@ -392,7 +410,7 @@ instance FunctorC MapDict (|-) (->) where
   (%) MapDict = mapDict
 
 -- -- Couldn't match type ‘Dict (a && b)’ with ‘(Dict a, Dict b)’
--- instance CartesianFunctor MapDict (|-) (->) where prodToProd = Dict
+-- instance CartesianFunctor MapDict (|-) (->) where preserveProd = Dict
 
 {--------------------------------------------------------------------
     Functors applied to given type argument
@@ -465,11 +483,11 @@ instance FunctorC (ToUT s) (->) (UT s) where
   type OkF (ToUT s) a b = (HasV s a, HasV s b)
   (%) ToUT = toUT
 
-instance   CartesianFunctor (ToUT s) (->) (UT s) where   prodToProd   = Dict
-instance CocartesianFunctor (ToUT s) (->) (UT s) where coprodToCoprod = Dict
+instance   CartesianFunctor (ToUT s) (->) (UT s) where   preserveProd = Dict
+instance CocartesianFunctor (ToUT s) (->) (UT s) where preserveCoprod = Dict
 
 -- -- Couldn't match type ‘(->) a :.: V s b’ with ‘V s a +-> V s b’
--- instance CartesianClosedFunctor (ToUT s) (->) (UT s) where expToExp = Dict
+-- instance CartesianClosedFunctor (ToUT s) (->) (UT s) where preserveExp = Dict
 
 {--------------------------------------------------------------------
     Linear maps
@@ -515,7 +533,7 @@ instance FunctorC (ToLMap s) (UT s) (LMap s) where
   type OkF (ToLMap s) a b = (OkLF b, HasL a, Num s)
   (%) ToLMap = toLMap
 
-instance CartesianFunctor (ToLMap s) (UT s) (LMap s) where prodToProd = Dict
+instance CartesianFunctor (ToLMap s) (UT s) (LMap s) where preserveProd = Dict
 
 {--------------------------------------------------------------------
     Differentiable functions
@@ -590,7 +608,7 @@ instance FunctorC (Deriv s) (UT s) (D s) where
   type OkF (Deriv s) a b = OkF (ToLMap s) a b
   (%) Deriv = oops "Deriv % not implemented"
 
-instance CartesianFunctor (Deriv s) (UT s) (D s) where prodToProd = Dict
+instance CartesianFunctor (Deriv s) (UT s) (D s) where preserveProd = Dict
 
 {--------------------------------------------------------------------
     Circuits
@@ -669,3 +687,60 @@ instance GenBuses a => NumCat (:>) (Buses a) where
   subC    = genComp2 "-"
   mulC    = genComp2 "×"
   powIC   = genComp2 "↑"
+
+{--------------------------------------------------------------------
+    Standardize types
+--------------------------------------------------------------------}
+
+class HasStd a where
+  type Standard a
+  toStd :: a -> Standard a
+  unStd :: Standard a -> a
+  -- defaults via Rep
+  type Standard a = Rep a
+  default toStd :: HasRep a => a -> Rep a
+  default unStd :: HasRep a => Rep a -> a
+  toStd = repr
+  unStd = abst
+
+standardize :: (HasStd a, HasStd b) => (a -> b) -> (Standard a -> Standard b)
+standardize = toStd <~ unStd
+
+instance (HasStd a, HasStd b) => HasStd (a,b) where
+  type Standard (a,b) = (Standard a, Standard b)
+  toStd = toStd *** toStd
+  unStd = unStd *** unStd
+
+instance (HasStd a, HasStd b) => HasStd (Either a b) where
+  type Standard (Either a b) = Either (Standard a) (Standard b)
+  toStd = toStd +++ toStd
+  unStd = unStd +++ unStd
+
+instance (HasStd a, HasStd b) => HasStd (a -> b) where
+  type Standard (a -> b) = Standard a -> Standard b
+  toStd = toStd <~ unStd
+  unStd = unStd <~ toStd
+
+#define StdPrim(ty) \
+instance HasStd (ty) where { type Standard (ty) = (ty) ; toStd = id ; unStd = id }
+
+StdPrim(())
+StdPrim(Bool)
+StdPrim(Int)
+StdPrim(Float)
+StdPrim(Double)
+
+instance (HasStd a, HasStd b, HasStd c) => HasStd (a,b,c)
+
+-- If this experiment works out, move HasStd to ConCat.Rep and add instances there.
+
+data Standardize s = Standardize
+
+instance FunctorC (Standardize s) (->) (->) where
+  type Standardize s %% a = Standard a
+  type OkF (Standardize s) a b = (HasStd a, HasStd b)
+  (%) Standardize = standardize
+
+instance CartesianFunctor       (Standardize s) (->) (->) where preserveProd   = Dict
+instance CocartesianFunctor     (Standardize s) (->) (->) where preserveCoprod = Dict
+instance CartesianClosedFunctor (Standardize s) (->) (->) where preserveExp    = Dict
