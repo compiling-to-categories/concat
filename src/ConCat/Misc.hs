@@ -156,7 +156,6 @@ instance (a,b) => a && b
 -- TODO: investigate.
 
 infixr 3 &+&
-
 class    (a t, b t) => (a &+& b) t
 instance (a t, b t) => (a &+& b) t
 
