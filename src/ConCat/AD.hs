@@ -20,7 +20,7 @@ import Prelude hiding (id,(.),curry,uncurry,const)
 
 import Control.Newtype (unpack)
 
-import ConCat.Misc ((:*),R)
+import ConCat.Misc ((:*),R,Yes1)
 import ConCat.Free.VectorSpace (HasV(..))
 import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
@@ -31,6 +31,8 @@ import ConCat.GAD
 
 -- Differentiable functions
 type D s = GD (L s)
+
+type instance GDOk (L s) = Yes1
 
 -- instance ClosedCat (D s) where
 --   apply = applyD
