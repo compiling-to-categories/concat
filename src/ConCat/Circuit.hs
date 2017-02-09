@@ -991,7 +991,7 @@ pattern EqS :: Source -> Source -> Source
 pattern EqS a b <- Source _ "≡" [a,b] 0
 
 -- pattern NeS :: Source -> Source -> Source
--- pattern NeS a b <- Source _ "≠" [a,b] 0
+-- pattern NeS a b <- Source _ "≢" [a,b] 0
 
 #else
 
@@ -1006,7 +1006,7 @@ pattern EqS a b <- Source _ "≡" [a,b] 0
 #define EqS(a,b) <- (Source _ "≡" [a,b] 0)
 
 -- pattern NeS :: Source -> Source -> Source
--- pattern NeS a b <- Source _ "≠" [a,b] 0
+-- pattern NeS a b <- Source _ "≢" [a,b] 0
 
 #endif
 
@@ -1117,7 +1117,7 @@ neOpt = \ case
 #define EqPrim(ty) \
  instance EqCat (:>) (ty) where { \
     equal    = primOptSort "≡" (eqOpt @(ty)) ;\
-    notEqual = primOptSort "≠" (neOpt @(ty))  \
+    notEqual = primOptSort "≢" (neOpt @(ty))  \
   }
 
 iffC :: EqCat k (BoolOf k) => Prod k (BoolOf k) (BoolOf k) `k` BoolOf k
@@ -1258,7 +1258,7 @@ instance (Read a, Eq a) => EqCat (:>) a where
                  [Val (x :: a), Val y] -> newVal (x == y)
                  [a,b] | a == b -> newVal True
                  _              -> nothingA
-    notEqual = primOptSort "≠" $ \ case
+    notEqual = primOptSort "≢" $ \ case
                  [Val (x :: a), Val y] -> newVal (x /= y)
                  [a,b] | a == b -> newVal False
                  _              -> nothingA
