@@ -268,10 +268,16 @@ UncId(Double)
 UncId(c :* d)
 UncId(c :+ d)
 
+-- | Pseudo function to trigger rewriting to CCC form.
+ccc :: forall k a b. (a -> b) -> (a `k` b)
+ccc _ = oops "ccc"
+{-# NOINLINE ccc #-}
+
 {--------------------------------------------------------------------
     Rewrite rules
 --------------------------------------------------------------------}
 
+#if 0
 {-# RULES
 
 "g . id" forall g. g . id = g
@@ -349,8 +355,6 @@ UncId(c :+ d)
 -- -- experiment
 -- "constFun id" constFun id = curry exr
 
- #-}
-
 -- -- This rule helps expose some product rewrites.
 -- -- Will we want the opposite for coproducts?
 -- "(h . g) . f" forall f g h. (h . g) . f = h . (g . f)
@@ -361,17 +365,8 @@ UncId(c :+ d)
 
 -- "constFun 3" forall x. apply . (curry (const x) &&& id) = const x
 
--- | Pseudo function to trigger rewriting to CCC form.
-ccc :: forall k a b. (a -> b) -> (a `k` b)
--- ccc _ = unsafeCoerce "Oops --- ccc called!"  -- so GHC won't notice bottom def
-ccc _ = oops "ccc"
-{-# NOINLINE ccc #-}
-{-# RULES "ccc error" [0] forall f. ccc f = error "ccc: not implemented" #-}
-
--- Prelude versions of categorical ops
-{-# RULES
-
 #if 0
+-- Prelude versions of categorical ops
 
 "ccc Prelude id" ccc P.id = ccc id
 "ccc Prelude (.)" forall g f. ccc (g P.. f) = ccc (g . f)
@@ -452,6 +447,7 @@ ccc _ = oops "ccc"
 -- "coerceC . coerceC" coerceC . coerceC = snd coco'
 
  #-}
+#endif
 
 coco :: forall k a b c. (CoerceCat k a b, CoerceCat k b c, TransitiveCon (CoerceCat k))
      => (a `k` c)
