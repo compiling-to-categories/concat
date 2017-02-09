@@ -64,13 +64,14 @@ library
                        ConCat.Incremental
                        ConCat.Rebox
                        ConCat.GradientDescent
+                       ConCat.Additive
+                       ConCat.ADFun2
 
 --                        ConCat.ADFun
 --                        ConCat.EmptyCase
 --                        ConCat.GHC
 --                        HERMIT.GHC.Typechecker
 --                        ConCat.Entail
---                        ConCat.Additive
 --                        ConCat.Semimodule
 --                        ConCat.Basis
 --                        ConCat.LMap
