@@ -611,78 +611,69 @@ instance FunctorC (Deriv s) (UT s) (D s) where
 instance CartesianFunctor (Deriv s) (UT s) (D s) where preserveProd = Dict
 
 {--------------------------------------------------------------------
-    Circuits
+    Graphs / circuits
 --------------------------------------------------------------------}
 
-newtype PinId  = PinId  Int deriving (Eq,Ord,Show,Enum) -- TODO: rename to "BusId"
-newtype CompId = CompId Int deriving (Eq,Ord,Show,Enum)
+-- newtype Port = Port  Int deriving (Eq,Ord,Show,Enum)
+type Port = Int
+
+data Ports :: * -> * where
+  UnitP   :: Ports ()
+  BoolP   :: Port -> Ports Bool
+  IntP    :: Port -> Ports Int
+  DoubleP :: Port -> Ports Double
+  PairP   :: Ports a -> Ports b -> Ports (a,b)
 
 -- Component: primitive instance with inputs & outputs
-data Comp = forall a b. Comp String (Buses a) (Buses b)
+data Comp = forall a b. Comp String (Ports a) (Ports b)
 
-newtype Source = Source PinId
+type GraphM = State (Port,[Comp])
+type Graph  = Kleisli GraphM
 
-data Buses :: * -> * where
-  UnitB   :: Buses ()
-  BoolB   :: Source  -> Buses Bool
-  IntB    :: Source  -> Buses Int
-  DoubleB :: Source  -> Buses Double
-  PairB   :: Buses a -> Buses b -> Buses (a,b)
+genPort :: GraphM Port
+genPort = do { (o,comps) <- get ; put (o+1,comps) ; return o }
 
-pairB :: (Buses a, Buses b) :> Buses (a,b)
-pairB = arr (uncurry PairB)
+class GenPorts a where genPorts :: GraphM (Ports a)
 
--- unPairB :: Ok2 (:>) a b => Buses (a,b) -> (Buses a, Buses b)
--- unPairB (PairB a b) = (a,b)
+instance GenPorts ()     where genPorts = return UnitP 
+instance GenPorts Bool   where genPorts = BoolP   <$> genPort
+instance GenPorts Int    where genPorts = IntP    <$> genPort
+instance GenPorts Double where genPorts = DoubleP <$> genPort
 
-type CircuitM = State (PinId,[Comp])
-
-genSource :: CircuitM Source
-genSource = do (o,comps) <- get
-               put (succ o,comps)
-               return (Source o)
-
-infixl 1 :>
-type (:>) = Kleisli CircuitM
-
-class GenBuses a where genBuses :: CircuitM (Buses a)
-
-instance GenBuses ()     where genBuses = return UnitB 
-instance GenBuses Bool   where genBuses = BoolB   <$> genSource
-instance GenBuses Int    where genBuses = IntB    <$> genSource
-instance GenBuses Double where genBuses = DoubleB <$> genSource
-
-instance (GenBuses a, GenBuses b) => GenBuses (a,b) where
-  genBuses = liftA2 PairB genBuses genBuses
+instance (GenPorts a, GenPorts b) => GenPorts (a,b) where
+  genPorts = liftA2 PairP genPorts genPorts
 
 -- Instantiate a primitive component
-genComp1 :: forall a b. GenBuses b => String -> Buses a :> Buses b
-genComp1 nm = Kleisli $ \ a ->
-              do b <- genBuses
+genComp1 :: GenPorts b => String -> Graph (Ports a) (Ports b)
+genComp1 nm = Kleisli (\ a ->
+              do b <- genPorts
                  modify (second (Comp nm a b :))
-                 return b
+                 return b)
 
-genComp2 :: forall a b c. GenBuses c => String -> (Buses a, Buses b) :> Buses c
-genComp2 p = genComp1 p . pairB
+genComp2 :: GenPorts c => String -> Graph (Ports a, Ports b) (Ports c)
+genComp2 nm = genComp1 nm . arr (uncurry PairP)
 
-instance BoolCat (:>) where
-  type BoolOf (:>) = Buses Bool
+instance BoolCat Graph where
+  type BoolOf Graph = Ports Bool
   notC = genComp1 "¬"
   andC = genComp2 "∧"
   orC  = genComp2 "∨"
   xorC = genComp2 "⊕"
 
-instance EqCat (:>) (Buses a) where
+instance Eq a => EqCat Graph (Ports a) where
   equal    = genComp2 "≡"
-  notEqual = genComp2 "⊕"
+  notEqual = genComp2 "≠"
 
-instance GenBuses a => NumCat (:>) (Buses a) where
-  type IntOf (:>) = Buses Int
+instance (Num a, GenPorts a) => NumCat Graph (Ports a) where
+  type IntOf Graph = Ports Int
   negateC = genComp1 "negate"
   addC    = genComp2 "+"
   subC    = genComp2 "-"
   mulC    = genComp2 "×"
   powIC   = genComp2 "↑"
+
+-- The Eq and Num constraints aren't strictly necessary, but they serve to
+-- remind us of the expected translation from Eq and Num methods.
 
 {--------------------------------------------------------------------
     Standardize types
