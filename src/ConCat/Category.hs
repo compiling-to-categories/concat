@@ -64,6 +64,9 @@ import ConCat.Orphans ()
 import ConCat.Float
 import ConCat.Additive (Additive)
 
+#define PINLINER(nm) {-# INLINE nm #-}
+-- #define PINLINER(nm)
+
 {--------------------------------------------------------------------
     Unit and pairing for binary type constructors
 --------------------------------------------------------------------}
@@ -74,9 +77,6 @@ data U2 a b = U2 deriving (Show)
 infixr 6 :**:
 -- | Product for binary type constructors
 data (p :**: q) a b = p a b :**: q a b
-
-#define PINLINER(nm) {-# INLINE nm #-}
--- #define PINLINER(nm)
 
 {--------------------------------------------------------------------
     Constraints
