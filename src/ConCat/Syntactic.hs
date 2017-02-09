@@ -43,24 +43,19 @@ type DocTree = Tree PDoc
 -- Using PDoc instead of String allows for complex values that can be
 -- pretty-printed and parenthesized in context.
 prettyTree :: DocTree -> PDoc
-prettyTree (Node (showPDoc 0 -> nm) [u,v]) p | Just (q,assoc) <- lookup nm fixities =
-  let (lp,rp) = case assoc of
-                  AssocLeft   -> (q,q+1)
-                  AssocRight  -> (q+1,q)
-                  AssocNone   -> (q+1,q+1)
-  in
-    maybeParens (p > q) $ sep [prettyTree u lp <+> text nm, (prettyTree v) rp]
+prettyTree (Node (showPDoc 0 -> nm) [u,v]) p | Just (q,(lf,rf)) <- lookup nm fixities =
+  maybeParens (p > q) $ sep [prettyTree u (lf q) <+> text nm, (prettyTree v) (rf q)]
 prettyTree (Node f es) p =
   maybeParens (not (null es) && p > appPrec) $
   sep (f appPrec : map (\ e -> prettyTree e (appPrec+1)) es)
 
 fixities :: Map String Fixity
 fixities = fromList
-  [ ("."  , (9,AssocRight))
-  , ("&&&", (3,AssocRight))
-  , ("***", (3,AssocRight))
-  , ("|||", (2,AssocRight))
-  , ("+++", (2,AssocRight))
+  [ ("."  , (9,assocRight))
+  , ("&&&", (3,assocRight))
+  , ("***", (3,assocRight))
+  , ("|||", (2,assocRight))
+  , ("+++", (2,assocRight))
   ]
 
 appt :: String -> [DocTree] -> DocTree
@@ -355,7 +350,12 @@ instance (Typeable a, Typeable b) => CoerceCat Syn a b where
 
 type Prec   = Rational
 type Fixity = (Prec,Assoc)
-data Assoc  = AssocLeft | AssocRight | AssocNone
+type Assoc = (Prec -> Prec, Prec -> Prec)
+
+assocLeft, assocRight, assocNone :: Assoc
+assocLeft  = (id,succ)
+assocRight = (succ,id)
+assocNone  = (succ,succ)
 
 -- Doc in a binding precedence context.
 type PDoc = Prec -> Doc
