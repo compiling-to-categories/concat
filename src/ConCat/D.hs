@@ -366,8 +366,8 @@ instance Monad m => CartesianClosed (Kleisli m) where
 --------------------------------------------------------------------}
 
 instance Category (:-) where
-  id  = refl
-  (.) = trans
+  id  = Sub Dict
+  g . f = Sub (Dict <+ g <+ f)
 
 instance OkProd (:-) where okProd = Sub Dict
 
@@ -377,23 +377,7 @@ instance Cartesian (:-) where
   exr = Sub Dict
   f &&& g = Sub (Dict <+ f <+ g)
 
-instance Terminal (:-) where
-  type Unit (:-) = ()
-  it = Sub Dict
-
-mapDict :: (a :- b) -> Dict a -> Dict b
-mapDict (Sub q) Dict = q
-
-data MapDict = MapDict
-
-instance FunctorC MapDict (:-) (->) where
-  type MapDict %% a = Dict a
-  type OkF MapDict a b = ()
-  (%) MapDict = mapDict
-
--- -- Couldn't match type ‘Dict (a && b)’ with ‘(Dict a, Dict b)’
--- instance CartesianFunctor MapDict (:-) (->) where preserveProd = Dict
--- Try again, since these two Dict types are inter-convertible.
+-- See C.hs for the rest
 
 {--------------------------------------------------------------------
     Functors applied to given type argument
