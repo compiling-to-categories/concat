@@ -493,7 +493,6 @@ instance Terminal (Arg s) where
 instance CartesianClosed (Arg s) where
   type Exp (Arg s) = (+->) -- from ConCat.Misc
   apply = pack (\ (Fun1 f :*: a) -> f a)
-  -- curry (Arg f) = Arg (pack . curry (f . pack))
   curry = inNew (\ f -> pack . curry (f . pack))
   uncurry = inNew (\ g -> uncurry (unpack . g) . unpack)
 
@@ -631,7 +630,7 @@ instance Num s => Cartesian (DF s) where
   type Prod (DF s) = (:*:)
   exl = linearD exl
   exr = linearD exr
-  D f &&& D g = D (\ a -> let { (b,f') = f a ; (c,g') = g a } in ((b :*: c), f' &&& g'))
+  D f &&& D g = D (\ a -> let { (b,f') = f a ; (c,g') = g a } in (b :*: c, f' &&& g'))
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
@@ -660,11 +659,11 @@ g' :: b s -> c s
 #endif
 
 data Deriv s = Deriv
-
 instance Num s => FunctorC (Deriv s) (Arg s) (DF s) where
   type Deriv s %% a = a
   type OkF (Deriv s) a b = OkF (ToLMap s) a b
-  (%) Deriv = oops "Deriv % not implemented"
+  (%) Deriv = andDeriv
+              -- oops "Deriv % not implemented"
 
 instance Num s => CartesianFunctor (Deriv s) (Arg s) (DF s) where preserveProd = Dict
 
