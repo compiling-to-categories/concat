@@ -59,7 +59,6 @@ type (a :-* b) s = b (a s)
 -- 
 -- so that Linear itself forms a vector space.
 
--- Apply a linear map
 infixr 9 $*
 -- Apply a linear map
 ($*), lapplyL :: (Zip a, Foldable a, Zip b, Num s)
@@ -295,42 +294,42 @@ instance ( -- Ok2 (L s) a b
 
 -- type instance Exp (L s) = (:.:)
 
--- Conversion to linear map
+-- Conversion to linear function
 lapply :: (Num s, Ok2 (L s) a b) => L s a b -> (a -> b)
 lapply (L gfa) = unV . lapplyL gfa . toV
 
 -- lapplyL :: ... => (a :-* b) s -> a s -> b s
 
 class OkLF f => HasL f where
-  -- | Law: @'linear' . 'lapply' == 'id'@ (but not the other way around)
-  linear' :: forall s g. (Num s, OkLF g) => (f s -> g s) -> (f :-* g) s
+  -- | Law: @'linearL . 'lapply' == 'id'@ (but not the other way around)
+  linearL :: forall s g. (Num s, OkLF g) => (f s -> g s) -> (f :-* g) s
 
 instance HasL U1 where
-  -- linear' :: forall s g. (Num s, OkLF g) => (U1 s -> g s) -> (U1 :-* g) s
-  linear' h = U1 <$ h U1
+  -- linearL :: forall s g. (Num s, OkLF g) => (U1 s -> g s) -> (U1 :-* g) s
+  linearL h = U1 <$ h U1
 
 --       h    :: U1 s -> g s
 --       h U1 :: g s
 -- U1 <$ h U1 :: g (U1 s)
 
 instance HasL Par1 where
-  linear' f = Par1 <$> f (Par1 1)
+  linearL f = Par1 <$> f (Par1 1)
 
 --          f          :: Par1 s -> b s
 --          f (Par1 1) :: b s
 -- Par1 <$> f (Par1 1) :: b (Par1 s)
 
 instance (HasL f, HasL g) => HasL (f :*: g) where
-  linear' q = linear' (q . (:*: zeroV)) `joinL` linear' (q . (zeroV :*:))
+  linearL q = linearL (q . (:*: zeroV)) `joinL` linearL (q . (zeroV :*:))
 
 --          q                :: (f :*: g) s -> h s
 --              (:*: zeroV)  :: f s -> (f :*: g) s
 --          q . (:*: zeroV)  :: f s -> h s
--- linear' (q . (:*: zeroV)) :: (f :-* h) s
+-- linearL (q . (:*: zeroV)) :: (f :-* h) s
 
 #if 0
 instance (HasL f, HasL g) => HasL (g :.: f) where
-  linear' q = ...
+  linearL q = ...
 
 q :: ((g :.: f) s -> h s) -> ((g :.: f) :-* h) s
   =~ (g (f s) -> h s) -> h ((g :.: f) s)
@@ -340,7 +339,7 @@ q :: ((g :.: f) s -> h s) -> ((g :.: f) :-* h) s
 #if 0
 
 instance HasL ((->) k) where
-  linear' h = ...
+  linearL h = ...
 
 h :: (k -> s) -> g s
 
@@ -350,7 +349,7 @@ want :: ((k -> s) :-* g) s
 #endif
 
 linear :: (OkLM s a, OkLM s b, HasL (V s a)) => (a -> b) -> L s a b
-linear f = L (linear' (inV f))
+linear f = L (linearL (inV f))
 
 -- f :: a -> b
 -- inV f :: V s a s -> V s b s

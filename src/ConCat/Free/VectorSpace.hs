@@ -26,7 +26,7 @@ import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:+:)(..),(:.:)(..))
 import Data.Foldable (fold)
 import Data.Pointed
 import Data.Key (Zip(..))
-import Data.Map (Map)
+-- import Data.Map (Map)
 
 -- import Control.Newtype
 
@@ -43,7 +43,7 @@ import ConCat.Float
 infixl 7 *^, <.>, >.<
 infixl 6 ^+^, ^-^
 
-#if 0
+#if 1
 type Zeroable = Pointed
 
 -- Zero vector
