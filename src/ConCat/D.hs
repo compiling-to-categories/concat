@@ -1,3 +1,4 @@
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE GADTs #-}
@@ -47,7 +48,7 @@ import Data.Key
 
 import ConCat.Misc (Yes1,inNew,inNew2,oops,type (+->)(..))
 import ConCat.Free.VectorSpace
-import ConCat.Free.LinearRow (OkLF,idL,(@.),exlL,exrL,forkL,inlL,inrL,joinL,HasL(..))
+import ConCat.Free.LinearRow (lapplyL,OkLF,idL,(@.),exlL,exrL,forkL,inlL,inrL,joinL,HasL(..))
 import ConCat.Rep
 import ConCat.Orphans
 
@@ -68,17 +69,9 @@ type Ok4 k a b c d     = C4 (Ok k) a b c d
 type Ok5 k a b c d e   = C5 (Ok k) a b c d e
 type Ok6 k a b c d e f = C6 (Ok k) a b c d e f
 
--- infixr 3 &&
--- class    (a,b) => a && b
--- instance (a,b) => a && b
-
---     • Potential superclass cycle for ‘&&’
---         one of whose superclass constraints is headed by a type variable:
---           ‘a’
---       Use UndecidableSuperClasses to accept this
-
--- infixr 1 |-
--- type (|-) = (:-)
+-- Phasing out
+infixr 1 |-
+type (|-) = (:-)
 
 infixl 1 <+
 (<+) :: (b => r) -> (a :- b) -> (a => r)
@@ -377,18 +370,71 @@ instance Cartesian (:-) where
   exr = Sub Dict
   f &&& g = Sub (Dict <+ f <+ g)
 
--- See C.hs for the rest
+-- instance Category (|-) where
+--   id  = refl
+--   (.) = trans
+
+instance Terminal (|-) where
+  type Unit (|-) = ()
+  it = Sub Dict
+
+-- Tweaked from Data.Constraint
+mapDict :: (a |- b) -> Dict a -> Dict b
+mapDict (Sub q) Dict = q
+
+unmapDict :: (Dict a -> Dict b) -> (a |- b)
+unmapDict f = Sub (f Dict)
+
+data MapDict = MapDict
+
+instance FunctorC MapDict (|-) (->) where
+  type MapDict %% a = Dict a
+  type OkF MapDict a b = ()
+  (%) MapDict = mapDict
+
+-- -- Couldn't match type ‘Dict (a && b)’ with ‘(Dict a, Dict b)’
+-- instance CartesianFunctor MapDict (|-) (->) where preserveProd = Dict
+
+class HasCon a where
+  type Con a :: Constraint
+  toDict :: a -> Dict (Con a)
+  unDict :: Dict (Con a) -> a
+
+instance HasCon (Dict con) where
+  type Con (Dict con) = con
+  toDict = id
+  unDict = id
+
+instance (HasCon a, HasCon b) => HasCon (a,b) where
+  type Con (a,b) = (Con a,Con b)
+  toDict (toDict -> Dict, toDict -> Dict) = Dict
+  unDict Dict = (unDict Dict,unDict Dict)
+
+entail :: (HasCon a, HasCon b) => (a -> b) -> (Con a |- Con b)
+entail f = unmapDict (toDict . f . unDict)
+
+data Entail = Entail
+
+instance FunctorC Entail (->) (:-) where
+  type Entail %% a = Con a
+  type OkF Entail a b = (HasCon a, HasCon b)
+  (%) Entail = entail
+
+-- -- Couldn't match type ‘(Con a, Con b)’ with ‘Con a && Con b’.
+-- instance CartesianFunctor Entail (->) (|-) where preserveProd = Dict
+-- -- Fails:
+-- preserveProd :: Dict (MapDict %% (a && b)) ~ (MapDict %% a, MapDict %% b)
+
+-- Isomorphic but not equal.
 
 {--------------------------------------------------------------------
     Functors applied to given type argument
 --------------------------------------------------------------------}
 
-newtype Arg (s :: Type) f g = Arg (f s -> g s)
+newtype Arg (s :: Type) a b = Arg { unArg :: a s -> b s }
 
-instance Newtype (Arg s f g) where
-  type O (Arg s f g) = f s -> g s
-  pack h = Arg h
-  unpack (Arg h) = h
+instance Newtype (Arg s a b) where
+  { type O (Arg s a b) = a s -> b s ; pack = Arg ; unpack = unArg }
 
 instance Category (Arg s) where
   id = pack id
@@ -426,7 +472,6 @@ instance OkExp (Arg s) where okExp = Sub Dict
 instance CartesianClosed (Arg s) where
   type Exp (Arg s) a b = a +-> b -- from ConCat.Misc
   apply = pack (\ (Fun1 f :*: a) -> f a)
-  -- curry (Arg f) = Arg (pack . curry (f . pack))
   curry = inNew (\ f -> pack . curry (f . pack))
   uncurry = inNew (\ g -> uncurry (unpack . g) . unpack)
 
@@ -466,103 +511,120 @@ instance CocartesianFunctor (ToArg s) (->) (Arg s) where preserveCoprod = Dict
     Linear maps
 --------------------------------------------------------------------}
 
--- TODO: Change to match C
-
 -- Linear map in row-major form
-data LMap s a b = LMap (b (a s))
+newtype LM s a b = LMap (b (a s))
 
-instance Newtype (LMap s a b) where
-  type O (LMap s a b) = b (a s)
-  pack h = LMap h
-  unpack (LMap h) = h
+instance Num s => Category (LM s) where
+  type Ok (LM s) = OkLF
+  id = LMap idL
+  LMap g . LMap f = LMap (g @. f)
 
-class    (Num s, OkLF a) => OkLMap s a
-instance (Num s, OkLF a) => OkLMap s a
+instance OkProd (LM s) where okProd = Sub Dict
 
-instance Category (LMap s) where
-  type Ok (LMap s) = OkLMap s
-  id = pack idL
-  (.) = inNew2 (@.)
+instance Num s => Cartesian (LM s) where
+  type Prod (LM s) a b = a :*: b
+  exl = LMap exlL
+  exr = LMap exrL
+  LMap g &&& LMap f = LMap (g `forkL` f)
 
-instance OkProd (LMap s) where okProd = Sub Dict
-
-instance Cartesian (LMap s) where
-  type Prod (LMap s) a b = a :*: b
-  exl = pack exlL
-  exr = pack exrL
-  (&&&) = inNew2 forkL
-
-instance OkCoprod (LMap s) where okCoprod = Sub Dict
+instance OkCoprod (LM s) where okCoprod = Sub Dict
   
-instance Cocartesian (LMap s) where
-  type Coprod (LMap s) a b = a :*: b
-  inl = pack inlL
-  inr = pack inrL
-  (|||) = inNew2 joinL
+instance Num s => Cocartesian (LM s) where
+  type Coprod (LM s) a b = a :*: b
+  inl = LMap inlL
+  inr = LMap inrL
+  LMap f ||| LMap g = LMap (f `joinL` g)
 
-toLMap :: (OkLF b, HasL a, Num s) => Arg s a b -> LMap s a b
+toLMap :: (OkLF b, HasL a, Num s) => Arg s a b -> LM s a b
 toLMap (Arg h) = LMap (linearL h)
 
 data ToLMap s = ToLMap
-instance FunctorC (ToLMap s) (Arg s) (LMap s) where
+instance Num s => FunctorC (ToLMap s) (Arg s) (LM s) where
   type ToLMap s %% a = a
-  type OkF (ToLMap s) a b = (OkLF b, HasL a, Num s)
+  type OkF (ToLMap s) a b = (OkLF b, HasL a)
   (%) ToLMap = toLMap
 
-instance CartesianFunctor (ToLMap s) (Arg s) (LMap s) where preserveProd = Dict
+instance Num s => CartesianFunctor (ToLMap s) (Arg s) (LM s) where preserveProd = Dict
+
+#if 0
+
+-- Apply a linear map
+lapply :: (Zip a, Foldable a, Zip b, Num s) => LM s a b -> Arg s a b
+lapply (LMap ba) = Arg (lapplyL ba)
+
+data Lapply s = Lapply
+instance Num s => FunctorC (Lapply s) (LM s) (Arg s) where
+  type Lapply s %% a = a
+  type OkF (Lapply s) a b = (Zip a, Foldable a, Zip b)
+  (%) Lapply = lapply
+
+#else
+
+-- Apply a linear map
+lapply :: (Zip a, Foldable a, Zip b, Num s) => LM s a b -> (a s -> b s)
+lapply (LMap ba) = lapplyL ba
+
+data Lapply s = Lapply
+instance Num s => FunctorC (Lapply s) (LM s) (->) where
+  type Lapply s %% a = a s
+  type OkF (Lapply s) a b = (Zip a, Foldable a, Zip b)
+  (%) Lapply = lapply
+
+#endif
+
+linear :: (Num s, HasL a, OkLF b) => Arg s a b -> LM s a b
+linear (Arg h) = LMap (linearL h)
+
+data Linear s = Linear
+instance Num s => FunctorC (Linear s) (Arg s) (LM s) where
+  type Linear s %% a = a
+  type OkF (Linear s) a b = (HasL a, OkLF b)
+  (%) Linear = linear
 
 {--------------------------------------------------------------------
     Differentiable functions
 --------------------------------------------------------------------}
 
 -- | Differentiable function on vector space with field s
-data D s a b = D (a s -> (b s, LMap s a b))
+data DF s a b = D { unD :: a s -> (b s, LM s a b) }
 
 -- TODO: try a more functorish representation: (a :->: b :*: (a :->: b))
 
--- linearD :: Ok2 (LMap s) a b => (a s -> b s) -> D s a b
--- linearD h = D (h &&& const (toLMap (Arg h)))
+deriv :: (a s -> b s) -> (a s -> LM s a b)
+deriv f = snd . unD (andDeriv (Arg f))
+-- deriv f = snd . h where D h = andDeriv (Arg f)
 
-linearD :: Ok2 (LMap s) a b => (a s -> b s) -> LMap s a b -> D s a b
-linearD h h' = D (h &&& const h')
+andDeriv :: Arg s a b -> DF s a b
+andDeriv (Arg f) = D (f &&& deriv f)  -- specification
 
-instance Category (D s) where
-  type Ok (D s) = OkLMap s
-  id = linearD id id
-  D g . D f = D (\ a ->
-    let (b,f') = f a
-        (c,g') = g b
-    in
-      (c, g' . f'))
+linearD :: (Num s, Ok2 (LM s) a b) => LM s a b -> DF s a b
+linearD m = D (lapply m &&& const m)
+
+instance Num s => Category (DF s) where
+  type Ok (DF s) = OkLF
+  id = linearD id
+  D g . D f = D (\ a -> let { (b,f') = f a; (c,g') = g b } in (c, g' . f'))
   {-# INLINE id #-}
   {-# INLINE (.) #-}
 
-instance OkProd (D s) where okProd = Sub Dict
+instance OkProd (DF s) where okProd = Sub Dict
 
-instance Cartesian (D s) where
-  type Prod (D s) a b = a :*: b
-  exl = linearD fstF exl
-  exr = linearD sndF exr
-  D f &&& D g = D (\ a ->
-    let (b,f') = f a
-        (c,g') = g a
-    in
-      ((b :*: c), f' &&& g'))
+instance Num s => Cartesian (DF s) where
+  type Prod (DF s) a b = a :*: b
+  exl = linearD exl
+  exr = linearD exr
+  D f &&& D g = D (\ a -> let { (b,f') = f a ; (c,g') = g a } in (b :*: c, f' &&& g'))
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
 
-instance OkCoprod (D s) where okCoprod = Sub Dict
+instance OkCoprod (DF s) where okCoprod = Sub Dict
 
-instance Cocartesian (D s) where
-  type Coprod (D s) a b = a :*: b
-  inl = linearD (:*: zeroV) inl
-  inr = linearD (zeroV :*:) inr
-  D f ||| D g = D (\ (a :*: b) ->
-    let (c,f') = f a
-        (d,g') = g b
-    in
-      (c ^+^ d, f' ||| g'))
+instance Num s => Cocartesian (DF s) where
+  type Coprod (DF s) a b = a :*: b
+  inl = linearD inl
+  inr = linearD inr
+  D f ||| D g = D (\ (a :*: b) -> let { (c,f') = f a ; (d,g') = g b } in (c ^+^ d, f' ||| g'))
   {-# INLINE inl #-}
   {-# INLINE inr #-}
   {-# INLINE (|||) #-}
@@ -582,13 +644,13 @@ g' :: b s -> c s
 #endif
 
 data Deriv s = Deriv
-
-instance FunctorC (Deriv s) (Arg s) (D s) where
+instance Num s => FunctorC (Deriv s) (Arg s) (DF s) where
   type Deriv s %% a = a
   type OkF (Deriv s) a b = OkF (ToLMap s) a b
-  (%) Deriv = oops "Deriv % not implemented"
+  (%) Deriv = andDeriv
+              -- oops "Deriv % not implemented"
 
-instance CartesianFunctor (Deriv s) (Arg s) (D s) where preserveProd = Dict
+instance Num s => CartesianFunctor (Deriv s) (Arg s) (DF s) where preserveProd = Dict
 
 {--------------------------------------------------------------------
     Circuits
