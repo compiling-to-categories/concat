@@ -1,3 +1,7 @@
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -35,7 +39,7 @@ import Prelude hiding (id,(.),zipWith,curry,uncurry)
 import qualified Prelude as P
 import Data.Kind
 import GHC.Generics (U1(..),(:*:)(..),(:+:)(..),(:.:)(..))
-import Control.Applicative (liftA2)
+import Control.Applicative (liftA2,liftA3)
 import Control.Monad ((<=<))
 import Control.Arrow (arr,Kleisli(..))
 import qualified Control.Arrow as A
@@ -656,7 +660,66 @@ instance Num s => CartesianFunctor (Deriv s) (Arg s) (DF s) where preserveProd =
     Circuits
 --------------------------------------------------------------------}
 
--- Copy from C.hs after tweaking
+-- newtype Port = Port  Int deriving (Eq,Ord,Show,Enum)
+type Port = Int
+
+data Ports :: * -> * where
+  UnitP   :: Ports ()
+  BoolP   :: Port -> Ports Bool
+  IntP    :: Port -> Ports Int
+  DoubleP :: Port -> Ports Double
+  PairP   :: Ports a -> Ports b -> Ports (a,b)
+
+-- Component: primitive instance with inputs & outputs
+data Comp = forall a b. Comp String (Ports a) (Ports b)
+
+type GraphM = State (Port,[Comp])
+type Graph  = Kleisli GraphM
+
+genPort :: GraphM Port
+genPort = do { (o,comps) <- get ; put (o+1,comps) ; return o }
+
+class GenPorts a where genPorts :: GraphM (Ports a)
+
+instance GenPorts ()     where genPorts = return UnitP 
+instance GenPorts Bool   where genPorts = BoolP   <$> genPort
+instance GenPorts Int    where genPorts = IntP    <$> genPort
+instance GenPorts Double where genPorts = DoubleP <$> genPort
+
+instance (GenPorts a, GenPorts b) => GenPorts (a,b) where
+  genPorts = liftA2 PairP genPorts genPorts
+
+-- Instantiate a primitive component
+genComp1 :: GenPorts b => String -> Graph (Ports a) (Ports b)
+genComp1 nm = Kleisli (\ a ->
+              do b <- genPorts
+                 modify (second (Comp nm a b :))
+                 return b)
+
+genComp2 :: GenPorts c => String -> Graph (Ports a, Ports b) (Ports c)
+genComp2 nm = genComp1 nm . arr (uncurry PairP)
+
+instance BoolCat Graph where
+  type BoolOf Graph = Ports Bool
+  notC = genComp1 "¬"
+  andC = genComp2 "∧"
+  orC  = genComp2 "∨"
+  xorC = genComp2 "⊕"
+
+instance Eq a => EqCat Graph (Ports a) where
+  equal    = genComp2 "≡"
+  notEqual = genComp2 "≠"
+
+instance (Num a, GenPorts a) => NumCat Graph (Ports a) where
+  type IntOf Graph = Ports Int
+  negateC = genComp1 "negate"
+  addC    = genComp2 "+"
+  subC    = genComp2 "-"
+  mulC    = genComp2 "×"
+  powIC   = genComp2 "↑"
+
+-- The Eq and Num constraints aren't strictly necessary, but they serve to
+-- remind us of the expected translation from Eq and Num methods.
 
 {--------------------------------------------------------------------
     Standardize types
@@ -718,5 +781,127 @@ instance CartesianClosedFunctor (Standardize s) (->) (->) where preserveExp    =
 {--------------------------------------------------------------------
     Memoization
 --------------------------------------------------------------------}
+class HasTrie a where
+  type Trie a :: * -> *
+  toTrie :: (a -> b) -> Trie a b
+  unTrie :: Trie a b -> (a -> b)
 
--- Copy & tweak from C.hs
+data Pair a = a :# a deriving (Functor,Foldable,Traversable)
+
+instance HasTrie Bool where
+  type Trie Bool = Pair
+  toTrie f = f False :# f True
+  unTrie (f :# _) False = f
+  unTrie (_ :# t) True  = t
+
+-- instance HasTrie Int where ...
+
+instance (HasTrie a, HasTrie b) => HasTrie (Either a b) where
+  type Trie (Either a b) = Trie a :*: Trie b
+  toTrie f = toTrie (f . Left) :*: toTrie (f . Right)
+  unTrie (s :*: t) = either (unTrie s) (unTrie t)
+
+instance (HasTrie a, HasTrie b) => HasTrie (a,b) where
+  type Trie (a,b) = Trie a :.: Trie b
+  toTrie f = Comp1 (toTrie (toTrie . curry f))
+  unTrie (Comp1 t) = uncurry (unTrie .  unTrie t)
+
+-- f :: (a,b) -> c
+-- curry f :: a -> b -> c
+-- toTrie . curry f :: a -> Trie b c
+-- toTrie (toTrie . curry f) :: Trie a (Trie b c)
+-- Comp1 (toTrie (toTrie . curry f)) :: (Trie a :.: Trie b) c
+
+-- Memoized functions
+infixr 0 :->:
+newtype a :->: b = MF { unMF :: Trie a b }
+
+toMemo :: HasTrie a => (a -> b) -> (a :->: b)
+toMemo = MF . toTrie
+
+unMemo :: HasTrie a => (a :->: b) -> (a -> b)
+unMemo = unTrie . unMF
+
+-- | Apply a unary function inside of a memo function
+inMemo :: (HasTrie a, HasTrie c) =>
+          ((a  ->  b) -> (c  ->  d))
+       -> ((a :->: b) -> (c :->: d))
+inMemo = toMemo <~ unMemo
+
+-- | Apply a binary function inside of a trie
+inMemo2 :: (HasTrie a, HasTrie c, HasTrie e) =>
+           ((a  ->  b) -> (c  ->  d) -> (e  ->  f))
+        -> ((a :->: b) -> (c :->: d) -> (e :->: f))
+inMemo2 = inMemo <~ unMemo
+
+instance Category (:->:) where
+  type Ok (:->:) = HasTrie
+  id  = toMemo id
+  (.) = inMemo2 (.)
+
+instance OkProd (:->:) where okProd = Sub Dict
+
+instance Cartesian (:->:) where
+  type Prod (:->:) a b = (a,b)
+  exl :: forall a b. Ok2 (:->:) a b => (a,b) :->: a
+  exl = toMemo exl <+ okProd @(:->:) @a @b
+  exr :: forall a b. Ok2 (:->:) a b => (a,b) :->: b
+  exr = toMemo exr <+ okProd @(:->:) @a @b
+  (&&&) = inMemo2 (&&&)
+
+instance OkCoprod (:->:) where okCoprod = Sub Dict
+
+instance Cocartesian (:->:) where
+  type Coprod (:->:) a b = Either a b
+  inl :: forall a b. Ok2 (:->:) a b => a :->: Either a b
+  inl = toMemo inl <+ okCoprod @(:->:) @a @b
+  inr :: forall a b. Ok2 (:->:) a b => b :->: Either a b
+  inr = toMemo inr <+ okCoprod @(:->:) @a @b
+  (|||) = inMemo2 (|||)
+
+data ToMemo = ToMemo
+instance FunctorC ToMemo (->) (:->:) where
+  type ToMemo %% a = a
+  type OkF ToMemo a b = HasTrie a
+  (%) ToMemo = toMemo
+
+data UnMemo = UnMemo
+instance FunctorC UnMemo (:->:) (->) where
+  type UnMemo %% a = a
+  type OkF UnMemo a b = HasTrie a
+  (%) UnMemo = unMemo
+
+{--------------------------------------------------------------------
+    Free vector spaces
+--------------------------------------------------------------------}
+
+class Enumerable a where enumerate :: [a]
+
+instance Enumerable () where enumerate = [()]
+
+instance Enumerable Bool where enumerate = [False,True]
+
+instance (Enumerable a, Enumerable b) => Enumerable (Either a b) where
+  enumerate = map Left enumerate ++ map Right enumerate
+
+instance (Enumerable a, Enumerable b) => Enumerable (a,b) where
+  enumerate = liftA2 (,) enumerate enumerate
+instance (Enumerable a, Enumerable b, Enumerable c) => Enumerable (a,b,c) where
+  enumerate = liftA3 (,,) enumerate enumerate enumerate
+
+type Vec s a = a -> s
+
+-- Linear map from (a -> s) to (b -> s)
+newtype FL s a b = FL ((a,b) -> s)
+
+class    (Eq a, Enumerable a) => OkFL a
+instance (Eq a, Enumerable a) => OkFL a
+
+instance Num s => Category (FL s) where
+  type Ok (FL s) = OkFL
+  id = FL (\ (a,a') -> if a == a' then 1 else 0)
+  FL g . FL f = FL (\ (a,c) -> sum [g (b,c) * f (a,b) | b <- enumerate])
+
+-- instance Num s => Cartesian (FL s) where
+--   type Prod (FL s) = (,)
+--   exl = FL _
