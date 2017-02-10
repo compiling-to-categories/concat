@@ -383,21 +383,21 @@ instance Cartesian (:-) where
     Functors applied to given type argument
 --------------------------------------------------------------------}
 
-newtype UT (s :: Type) f g = UT (f s -> g s)
+newtype Arg (s :: Type) f g = Arg (f s -> g s)
 
-instance Newtype (UT s f g) where
-  type O (UT s f g) = f s -> g s
-  pack h = UT h
-  unpack (UT h) = h
+instance Newtype (Arg s f g) where
+  type O (Arg s f g) = f s -> g s
+  pack h = Arg h
+  unpack (Arg h) = h
 
-instance Category (UT s) where
+instance Category (Arg s) where
   id = pack id
   (.) = inNew2 (.)
 
-instance OkProd (UT s) where okProd = Sub Dict
+instance OkProd (Arg s) where okProd = Sub Dict
 
-instance Cartesian (UT s) where
-  type Prod (UT s) a b = a :*: b
+instance Cartesian (Arg s) where
+  type Prod (Arg s) a b = a :*: b
   exl = pack (\ (a :*: _) -> a)
   exr = pack (\ (_ :*: b) -> b)
   (&&&) = inNew2 forkF
@@ -409,30 +409,30 @@ forkF = ((fmap.fmap.fmap) pack (&&&))
 -- forkF ac ad = \ a -> pack (ac a,ad a)
 -- forkF ac ad = pack . (ac &&& ad)
 
-instance OkCoprod (UT s) where okCoprod = Sub Dict
+instance OkCoprod (Arg s) where okCoprod = Sub Dict
 
-instance Cocartesian (UT s) where
-  type Coprod (UT s) a b = a :+: b
+instance Cocartesian (Arg s) where
+  type Coprod (Arg s) a b = a :+: b
   inl = pack L1
   inr = pack R1
   (|||) = inNew2 eitherF
 
-instance Terminal (UT s) where
-  type Unit (UT s) = U1
-  it = UT (const U1)
+instance Terminal (Arg s) where
+  type Unit (Arg s) = U1
+  it = Arg (const U1)
 
-instance OkExp (UT s) where okExp = Sub Dict
+instance OkExp (Arg s) where okExp = Sub Dict
 
-instance CartesianClosed (UT s) where
-  type Exp (UT s) a b = a +-> b -- from ConCat.Misc
+instance CartesianClosed (Arg s) where
+  type Exp (Arg s) a b = a +-> b -- from ConCat.Misc
   apply = pack (\ (Fun1 f :*: a) -> f a)
-  -- curry (UT f) = UT (pack . curry (f . pack))
+  -- curry (Arg f) = Arg (pack . curry (f . pack))
   curry = inNew (\ f -> pack . curry (f . pack))
   uncurry = inNew (\ g -> uncurry (unpack . g) . unpack)
 
--- curry :: UT s (a :*: b) c -> UT s a (b +-> c)
+-- curry :: Arg s (a :*: b) c -> Arg s a (b +-> c)
 
--- UT f :: UT s (a :*: b) c
+-- Arg f :: Arg s (a :*: b) c
 -- f :: (a :*: b) s -> c s
 -- f . pack :: (a s,b s) -> c s
 -- curry (f . pack) :: a s -> b s -> c s
@@ -443,28 +443,30 @@ instance CartesianClosed (UT s) where
 --   uncurry :: forall a b c. Ok3 k a b c
 --           => (a `k` Exp k b c)  -> (Prod k a b `k` c)
 
-toUT :: (HasV s a, HasV s b) => (a -> b) -> UT s (V s a) (V s b)
-toUT f = UT (toV . f . unV)
+toArg :: (HasV s a, HasV s b) => (a -> b) -> Arg s (V s a) (V s b)
+toArg f = Arg (toV . f . unV)
 
--- unUT :: (HasV s a, HasV s b) => UT s (V s a) (V s b) -> (a -> b)
--- unUT (UT g) = unV . g . toV
+-- unArg :: (HasV s a, HasV s b) => Arg s (V s a) (V s b) -> (a -> b)
+-- unArg (Arg g) = unV . g . toV
 
-data ToUT (s :: Type) = ToUT
+data ToArg (s :: Type) = ToArg
 
-instance FunctorC (ToUT s) (->) (UT s) where
-  type ToUT s %% a = V s a
-  type OkF (ToUT s) a b = (HasV s a, HasV s b)
-  (%) ToUT = toUT
+instance FunctorC (ToArg s) (->) (Arg s) where
+  type ToArg s %% a = V s a
+  type OkF (ToArg s) a b = (HasV s a, HasV s b)
+  (%) ToArg = toArg
 
-instance   CartesianFunctor (ToUT s) (->) (UT s) where   preserveProd = Dict
-instance CocartesianFunctor (ToUT s) (->) (UT s) where preserveCoprod = Dict
+instance   CartesianFunctor (ToArg s) (->) (Arg s) where   preserveProd = Dict
+instance CocartesianFunctor (ToArg s) (->) (Arg s) where preserveCoprod = Dict
 
 -- -- Couldn't match type ‘(->) a :.: V s b’ with ‘V s a +-> V s b’
--- instance CartesianClosedFunctor (ToUT s) (->) (UT s) where preserveExp = Dict
+-- instance CartesianClosedFunctor (ToArg s) (->) (Arg s) where preserveExp = Dict
 
 {--------------------------------------------------------------------
     Linear maps
 --------------------------------------------------------------------}
+
+-- TODO: Move Num s to class instances as in C
 
 -- Linear map in row-major form
 data LMap s a b = LMap (b (a s))
@@ -498,16 +500,16 @@ instance Cocartesian (LMap s) where
   inr = pack inrL
   (|||) = inNew2 joinL
 
-toLMap :: (OkLF b, HasL a, Num s) => UT s a b -> LMap s a b
-toLMap (UT h) = LMap (linear' h)
+toLMap :: (OkLF b, HasL a, Num s) => Arg s a b -> LMap s a b
+toLMap (Arg h) = LMap (linear' h)
 
 data ToLMap s = ToLMap
-instance FunctorC (ToLMap s) (UT s) (LMap s) where
+instance FunctorC (ToLMap s) (Arg s) (LMap s) where
   type ToLMap s %% a = a
   type OkF (ToLMap s) a b = (OkLF b, HasL a, Num s)
   (%) ToLMap = toLMap
 
-instance CartesianFunctor (ToLMap s) (UT s) (LMap s) where preserveProd = Dict
+instance CartesianFunctor (ToLMap s) (Arg s) (LMap s) where preserveProd = Dict
 
 {--------------------------------------------------------------------
     Differentiable functions
@@ -519,7 +521,7 @@ data D (s :: Type) a b = D (a s -> (b s, LMap s a b))
 -- TODO: try a more functorish representation: (a :->: b :*: (a :->: b))
 
 -- linearD :: Ok2 (LMap s) a b => (a s -> b s) -> D s a b
--- linearD h = D (h &&& const (toLMap (UT h)))
+-- linearD h = D (h &&& const (toLMap (Arg h)))
 
 linearD :: Ok2 (LMap s) a b => (a s -> b s) -> LMap s a b -> D s a b
 linearD h h' = D (h &&& const h')
@@ -581,12 +583,12 @@ g' :: b s -> c s
 
 data Deriv s = Deriv
 
-instance FunctorC (Deriv s) (UT s) (D s) where
+instance FunctorC (Deriv s) (Arg s) (D s) where
   type Deriv s %% a = a
   type OkF (Deriv s) a b = OkF (ToLMap s) a b
   (%) Deriv = oops "Deriv % not implemented"
 
-instance CartesianFunctor (Deriv s) (UT s) (D s) where preserveProd = Dict
+instance CartesianFunctor (Deriv s) (Arg s) (D s) where preserveProd = Dict
 
 {--------------------------------------------------------------------
     Circuits
@@ -650,3 +652,9 @@ instance FunctorC (Standardize s) (->) (->) where
 instance CartesianFunctor       (Standardize s) (->) (->) where preserveProd   = Dict
 instance CocartesianFunctor     (Standardize s) (->) (->) where preserveCoprod = Dict
 instance CartesianClosedFunctor (Standardize s) (->) (->) where preserveExp    = Dict
+
+{--------------------------------------------------------------------
+    Memoization
+--------------------------------------------------------------------}
+
+-- Copy & tweak from C.hs
