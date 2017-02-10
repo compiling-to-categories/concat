@@ -1,3 +1,7 @@
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE GADTs #-}
@@ -36,7 +40,7 @@ import Prelude hiding (id,(.),zipWith,curry,uncurry)
 import qualified Prelude as P
 import Data.Kind
 import GHC.Generics (U1(..),(:*:)(..),(:+:)(..),(:.:)(..))
-import Control.Applicative (liftA2)
+import Control.Applicative (liftA2,liftA3)
 import Control.Monad ((<=<))
 import Control.Arrow (arr,Kleisli(..))
 import qualified Control.Arrow as A
@@ -46,10 +50,11 @@ import Data.Constraint (Dict(..),(:-)(..),refl,trans,(\\))
 import Control.Newtype
 import Data.Pointed
 import Data.Key
+import Data.IntMap ()
 
 import ConCat.Misc (Yes1,inNew,inNew2,oops,type (+->)(..))
 import ConCat.Free.VectorSpace
-import ConCat.Free.LinearRow (OkLF,idL,(@.),exlL,exrL,forkL,inlL,inrL,joinL,HasL(..))
+import ConCat.Free.LinearRow (lapplyL,OkLF,idL,(@.),exlL,exrL,forkL,inlL,inrL,joinL,HasL(..))
 import ConCat.Rep
 import ConCat.Orphans
 
@@ -209,13 +214,10 @@ class (Cartesian k, Ok k (BoolOf k)) => BoolCat k where
   notC :: BoolOf k `k` BoolOf k
   andC, orC, xorC :: Prod k (BoolOf k) (BoolOf k) `k` BoolOf k
 
-okDup :: forall k a. OkProd k => Ok k a :- Ok k (Prod k a a)
-okDup = okProd @k @a @a . dup
-
 class (BoolCat k, Ok k a) => EqCat k a where
   equal, notEqual :: Prod k a a `k` BoolOf k
-  notEqual = notC . equal    <+ okDup @k @a
-  equal    = notC . notEqual <+ okDup @k @a
+  notEqual = notC . equal    <+ okProd @k @a @a
+  equal    = notC . notEqual <+ okProd @k @a @a
 
 class Ok k a => NumCat k a where
   negateC :: a `k` a
@@ -456,21 +458,19 @@ instance FunctorC Entail (->) (|-) where
     Functors applied to given type argument
 --------------------------------------------------------------------}
 
-newtype UT (s :: Type) f g = UT (f s -> g s)
+newtype Arg (s :: Type) a b = Arg { unArg :: a s -> b s }
 
-instance Newtype (UT s f g) where
-  type O (UT s f g) = f s -> g s
-  pack h = UT h
-  unpack (UT h) = h
+instance Newtype (Arg s a b) where
+  { type O (Arg s a b) = a s -> b s ; pack = Arg ; unpack = unArg }
 
-instance Category (UT s) where
+instance Category (Arg s) where
   id = pack id
   (.) = inNew2 (.)
 
-instance Cartesian (UT s) where
-  type Prod (UT s) = (:*:)
-  exl = pack (\ (fs :*: _ ) -> fs)
-  exr = pack (\ (_  :*: gs) -> gs)
+instance Cartesian (Arg s) where
+  type Prod (Arg s) = (:*:)
+  exl = pack (\ (a :*: _) -> a)
+  exr = pack (\ (_ :*: b) -> b)
   (&&&) = inNew2 forkF
 
 forkF :: (a t -> c t) -> (a t -> d t) -> a t -> (c :*: d) t
@@ -480,26 +480,26 @@ forkF = ((fmap.fmap.fmap) pack (&&&))
 -- forkF ac ad = \ a -> pack (ac a,ad a)
 -- forkF ac ad = pack . (ac &&& ad)
 
-instance Cocartesian (UT s) where
-  type Coprod (UT s) = (:+:)
+instance Cocartesian (Arg s) where
+  type Coprod (Arg s) = (:+:)
   inl = pack L1
   inr = pack R1
   (|||) = inNew2 eitherF
 
-instance Terminal (UT s) where
-  type Unit (UT s) = U1
-  it = UT (const U1)
+instance Terminal (Arg s) where
+  type Unit (Arg s) = U1
+  it = Arg (const U1)
 
-instance CartesianClosed (UT s) where
-  type Exp (UT s) = (+->) -- from ConCat.Misc
+instance CartesianClosed (Arg s) where
+  type Exp (Arg s) = (+->) -- from ConCat.Misc
   apply = pack (\ (Fun1 f :*: a) -> f a)
-  -- curry (UT f) = UT (pack . curry (f . pack))
+  -- curry (Arg f) = Arg (pack . curry (f . pack))
   curry = inNew (\ f -> pack . curry (f . pack))
   uncurry = inNew (\ g -> uncurry (unpack . g) . unpack)
 
--- curry :: UT s (a :*: b) c -> UT s a (b +-> c)
+-- curry :: Arg s (a :*: b) c -> Arg s a (b +-> c)
 
--- UT f :: UT s (a :*: b) c
+-- Arg f :: Arg s (a :*: b) c
 -- f :: (a :*: b) s -> c s
 -- f . pack :: (a s,b s) -> c s
 -- curry (f . pack) :: a s -> b s -> c s
@@ -510,69 +510,96 @@ instance CartesianClosed (UT s) where
 --   uncurry :: forall a b c. Ok3 k a b c
 --           => (a `k` Exp k b c)  -> (Prod k a b `k` c)
 
-toUT :: (HasV s a, HasV s b) => (a -> b) -> UT s (V s a) (V s b)
-toUT f = UT (toV . f . unV)
+toArg :: (HasV s a, HasV s b) => (a -> b) -> Arg s (V s a) (V s b)
+toArg f = Arg (toV . f . unV)
 
--- unUT :: (HasV s a, HasV s b) => UT s (V s a) (V s b) -> (a -> b)
--- unUT (UT g) = unV . g . toV
+-- unArg :: (HasV s a, HasV s b) => Arg s (V s a) (V s b) -> (a -> b)
+-- unArg (Arg g) = unV . g . toV
 
-data ToUT (s :: Type) = ToUT
+data ToArg (s :: Type) = ToArg
 
-instance FunctorC (ToUT s) (->) (UT s) where
-  type ToUT s %% a = V s a
-  type OkF (ToUT s) a b = (HasV s a, HasV s b)
-  (%) ToUT = toUT
+instance FunctorC (ToArg s) (->) (Arg s) where
+  type ToArg s %% a = V s a
+  type OkF (ToArg s) a b = (HasV s a, HasV s b)
+  (%) ToArg = toArg
 
-instance   CartesianFunctor (ToUT s) (->) (UT s) where   preserveProd = Dict
-instance CocartesianFunctor (ToUT s) (->) (UT s) where preserveCoprod = Dict
+instance   CartesianFunctor (ToArg s) (->) (Arg s) where   preserveProd = Dict
+instance CocartesianFunctor (ToArg s) (->) (Arg s) where preserveCoprod = Dict
 
 -- -- Couldn't match type ‘(->) a :.: V s b’ with ‘V s a +-> V s b’
--- instance CartesianClosedFunctor (ToUT s) (->) (UT s) where preserveExp = Dict
+-- instance CartesianClosedFunctor (ToArg s) (->) (Arg s) where preserveExp = Dict
 
 {--------------------------------------------------------------------
     Linear maps
 --------------------------------------------------------------------}
 
 -- Linear map in row-major form
-data LMap s a b = LMap (b (a s))
+newtype LMap s a b = LMap (b (a s))
 
-instance Newtype (LMap s a b) where
-  type O (LMap s a b) = b (a s)
-  pack h = LMap h
-  unpack (LMap h) = h
+instance Num s => Category (LMap s) where
+  type Ok (LMap s) = OkLF
+  id = LMap idL
+  LMap g . LMap f = LMap (g @. f)
 
-class    (Num s, OkLF a) => OkLMap s a
-instance (Num s, OkLF a) => OkLMap s a
+instance OpCon (:*:) OkLF where inOp = Sub Dict
 
-instance Category (LMap s) where
-  type Ok (LMap s) = OkLMap s
-  id = pack idL
-  (.) = inNew2 (@.)
-
-instance OpCon (:*:) (OkLMap s) where inOp = Sub Dict
-
-instance Cartesian (LMap s) where
+instance Num s => Cartesian (LMap s) where
   type Prod (LMap s) = (:*:)
-  exl = pack exlL
-  exr = pack exrL
-  (&&&) = inNew2 forkL
+  exl = LMap exlL
+  exr = LMap exrL
+  LMap g &&& LMap f = LMap (g `forkL` f)
   
-instance Cocartesian (LMap s) where
+instance Num s => Cocartesian (LMap s) where
   type Coprod (LMap s) = (:*:)
-  inl = pack inlL
-  inr = pack inrL
-  (|||) = inNew2 joinL
+  inl = LMap inlL
+  inr = LMap inrL
+  LMap f ||| LMap g = LMap (f `joinL` g)
 
-toLMap :: (OkLF b, HasL a, Num s) => UT s a b -> LMap s a b
-toLMap (UT h) = LMap (linear' h)
+toLMap :: (OkLF b, HasL a, Num s) => Arg s a b -> LMap s a b
+toLMap (Arg h) = LMap (linearL h)
 
 data ToLMap s = ToLMap
-instance FunctorC (ToLMap s) (UT s) (LMap s) where
+instance Num s => FunctorC (ToLMap s) (Arg s) (LMap s) where
   type ToLMap s %% a = a
-  type OkF (ToLMap s) a b = (OkLF b, HasL a, Num s)
+  type OkF (ToLMap s) a b = (OkLF b, HasL a)
   (%) ToLMap = toLMap
 
-instance CartesianFunctor (ToLMap s) (UT s) (LMap s) where preserveProd = Dict
+instance Num s => CartesianFunctor (ToLMap s) (Arg s) (LMap s) where preserveProd = Dict
+
+#if 0
+
+-- Apply a linear map
+lapply :: (Zip a, Foldable a, Zip b, Num s) => LMap s a b -> Arg s a b
+lapply (LMap ba) = Arg (lapplyL ba)
+
+data Lapply s = Lapply
+instance Num s => FunctorC (Lapply s) (LMap s) (Arg s) where
+  type Lapply s %% a = a
+  type OkF (Lapply s) a b = (Zip a, Foldable a, Zip b)
+  (%) Lapply = lapply
+
+#else
+
+-- Apply a linear map
+lapply :: (Zip a, Foldable a, Zip b, Num s) => LMap s a b -> (a s -> b s)
+lapply (LMap ba) = lapplyL ba
+
+data Lapply s = Lapply
+instance Num s => FunctorC (Lapply s) (LMap s) (->) where
+  type Lapply s %% a = a s
+  type OkF (Lapply s) a b = (Zip a, Foldable a, Zip b)
+  (%) Lapply = lapply
+
+#endif
+
+linear :: (Num s, HasL a, OkLF b) => Arg s a b -> LMap s a b
+linear (Arg h) = LMap (linearL h)
+
+data Linear s = Linear
+instance Num s => FunctorC (Linear s) (Arg s) (LMap s) where
+  type Linear s %% a = a
+  type OkF (Linear s) a b = (HasL a, OkLF b)
+  (%) Linear = linear
 
 {--------------------------------------------------------------------
     Differentiable functions
@@ -584,13 +611,13 @@ data D (s :: Type) a b = D (a s -> (b s, LMap s a b))
 -- TODO: try a more functorish representation: (a :->: b :*: (a :->: b))
 
 -- linearD :: Ok2 (LMap s) a b => (a s -> b s) -> D s a b
--- linearD h = D (h &&& const (toLMap (UT h)))
+-- linearD h = D (h &&& const (toLMap (Arg h)))
 
 linearD :: Ok2 (LMap s) a b => (a s -> b s) -> LMap s a b -> D s a b
 linearD h h' = D (h &&& const h')
 
-instance Category (D s) where
-  type Ok (D s) = OkLMap s
+instance Num s => Category (D s) where
+  type Ok (D s) = OkLF
   id = linearD id id
   D g . D f = D (\ a ->
     let (b,f') = f a
@@ -600,7 +627,7 @@ instance Category (D s) where
   {-# INLINE id #-}
   {-# INLINE (.) #-}
 
-instance Cartesian (D s) where
+instance Num s => Cartesian (D s) where
   type Prod (D s) = (:*:)
   exl = linearD fstF exl
   exr = linearD sndF exr
@@ -613,7 +640,7 @@ instance Cartesian (D s) where
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
 
-instance Cocartesian (D s) where
+instance Num s => Cocartesian (D s) where
   type Coprod (D s) = (:*:)
   inl = linearD (:*: zeroV) inl
   inr = linearD (zeroV :*:) inr
@@ -642,12 +669,12 @@ g' :: b s -> c s
 
 data Deriv s = Deriv
 
-instance FunctorC (Deriv s) (UT s) (D s) where
+instance Num s => FunctorC (Deriv s) (Arg s) (D s) where
   type Deriv s %% a = a
   type OkF (Deriv s) a b = OkF (ToLMap s) a b
   (%) Deriv = oops "Deriv % not implemented"
 
-instance CartesianFunctor (Deriv s) (UT s) (D s) where preserveProd = Dict
+instance Num s => CartesianFunctor (Deriv s) (Arg s) (D s) where preserveProd = Dict
 
 {--------------------------------------------------------------------
     Graphs / circuits
@@ -770,3 +797,132 @@ instance FunctorC (Standardize s) (->) (->) where
 instance CartesianFunctor       (Standardize s) (->) (->) where preserveProd   = Dict
 instance CocartesianFunctor     (Standardize s) (->) (->) where preserveCoprod = Dict
 instance CartesianClosedFunctor (Standardize s) (->) (->) where preserveExp    = Dict
+
+{--------------------------------------------------------------------
+    Memoization
+--------------------------------------------------------------------}
+
+class HasTrie a where
+  type Trie a :: * -> *
+  toTrie :: (a -> b) -> Trie a b
+  unTrie :: Trie a b -> (a -> b)
+
+data Pair a = a :# a deriving (Functor,Foldable,Traversable)
+
+instance HasTrie Bool where
+  type Trie Bool = Pair
+  toTrie f = f False :# f True
+  unTrie (f :# _) False = f
+  unTrie (_ :# t) True  = t
+
+-- instance HasTrie Int where ...
+
+instance (HasTrie a, HasTrie b) => HasTrie (Either a b) where
+  type Trie (Either a b) = Trie a :*: Trie b
+  toTrie f = toTrie (f . Left) :*: toTrie (f . Right)
+  unTrie (s :*: t) = either (unTrie s) (unTrie t)
+
+instance (HasTrie a, HasTrie b) => HasTrie (a,b) where
+  type Trie (a,b) = Trie a :.: Trie b
+  toTrie f = Comp1 (toTrie (toTrie . curry f))
+  unTrie (Comp1 t) = uncurry (unTrie .  unTrie t)
+
+-- f :: (a,b) -> c
+-- curry f :: a -> b -> c
+-- toTrie . curry f :: a -> Trie b c
+-- toTrie (toTrie . curry f) :: Trie a (Trie b c)
+-- Comp1 (toTrie (toTrie . curry f)) :: (Trie a :.: Trie b) c
+
+-- Memoized functions
+infixr 0 :->:
+newtype a :->: b = MF { unMF :: Trie a b }
+
+toMemo :: HasTrie a => (a -> b) -> (a :->: b)
+toMemo = MF . toTrie
+
+unMemo :: HasTrie a => (a :->: b) -> (a -> b)
+unMemo = unTrie . unMF
+
+-- | Apply a unary function inside of a memo function
+inMemo :: (HasTrie a, HasTrie c) =>
+          ((a  ->  b) -> (c  ->  d))
+       -> ((a :->: b) -> (c :->: d))
+inMemo = toMemo <~ unMemo
+
+-- | Apply a binary function inside of a trie
+inMemo2 :: (HasTrie a, HasTrie c, HasTrie e) =>
+           ((a  ->  b) -> (c  ->  d) -> (e  ->  f))
+        -> ((a :->: b) -> (c :->: d) -> (e :->: f))
+inMemo2 = inMemo <~ unMemo
+
+instance Category (:->:) where
+  type Ok (:->:) = HasTrie
+  id  = toMemo id
+  (.) = inMemo2 (.)
+
+instance OpCon (,) HasTrie where inOp = Sub Dict
+
+instance Cartesian (:->:) where
+  type Prod (:->:) = (,)
+  exl :: forall a b. Ok2 (:->:) a b => (a,b) :->: a
+  exl = toMemo exl <+ okProd @(:->:) @a @b
+  exr :: forall a b. Ok2 (:->:) a b => (a,b) :->: b
+  exr = toMemo exr <+ okProd @(:->:) @a @b
+  (&&&) = inMemo2 (&&&)
+
+instance OpCon Either HasTrie where inOp = Sub Dict
+
+instance Cocartesian (:->:) where
+  type Coprod (:->:) = Either
+  inl :: forall a b. Ok2 (:->:) a b => a :->: Either a b
+  inl = toMemo inl <+ okCoprod @(:->:) @a @b
+  inr :: forall a b. Ok2 (:->:) a b => b :->: Either a b
+  inr = toMemo inr <+ okCoprod @(:->:) @a @b
+  (|||) = inMemo2 (|||)
+
+data ToMemo = ToMemo
+instance FunctorC ToMemo (->) (:->:) where
+  type ToMemo %% a = a
+  type OkF ToMemo a b = HasTrie a
+  (%) ToMemo = toMemo
+
+data UnMemo = UnMemo
+instance FunctorC UnMemo (:->:) (->) where
+  type UnMemo %% a = a
+  type OkF UnMemo a b = HasTrie a
+  (%) UnMemo = unMemo
+
+{--------------------------------------------------------------------
+    Free vector spaces
+--------------------------------------------------------------------}
+
+class Enumerable a where enumerate :: [a]
+
+instance Enumerable () where enumerate = [()]
+
+instance Enumerable Bool where enumerate = [False,True]
+
+instance (Enumerable a, Enumerable b) => Enumerable (Either a b) where
+  enumerate = map Left enumerate ++ map Right enumerate
+
+instance (Enumerable a, Enumerable b) => Enumerable (a,b) where
+  enumerate = liftA2 (,) enumerate enumerate
+instance (Enumerable a, Enumerable b, Enumerable c) => Enumerable (a,b,c) where
+  enumerate = liftA3 (,,) enumerate enumerate enumerate
+
+type Vec s a = a -> s
+
+-- Linear map from (a -> s) to (b -> s)
+newtype FL s a b = FL ((a,b) -> s)
+
+class    (Eq a, Enumerable a) => OkFL a
+instance (Eq a, Enumerable a) => OkFL a
+
+instance Num s => Category (FL s) where
+  type Ok (FL s) = OkFL
+  id = FL (\ (a,a') -> if a == a' then 1 else 0)
+  FL g . FL f = FL (\ (a,c) -> sum [g (b,c) * f (a,b) | b <- enumerate])
+
+-- instance Num s => Cartesian (FL s) where
+--   type Prod (FL s) = (,)
+--   exl = FL _
