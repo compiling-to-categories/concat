@@ -466,7 +466,7 @@ instance CocartesianFunctor (ToArg s) (->) (Arg s) where preserveCoprod = Dict
     Linear maps
 --------------------------------------------------------------------}
 
--- TODO: Move Num s to class instances as in C
+-- TODO: Change to match C
 
 -- Linear map in row-major form
 data LMap s a b = LMap (b (a s))
@@ -501,7 +501,7 @@ instance Cocartesian (LMap s) where
   (|||) = inNew2 joinL
 
 toLMap :: (OkLF b, HasL a, Num s) => Arg s a b -> LMap s a b
-toLMap (Arg h) = LMap (linear' h)
+toLMap (Arg h) = LMap (linearL h)
 
 data ToLMap s = ToLMap
 instance FunctorC (ToLMap s) (Arg s) (LMap s) where
@@ -516,7 +516,7 @@ instance CartesianFunctor (ToLMap s) (Arg s) (LMap s) where preserveProd = Dict
 --------------------------------------------------------------------}
 
 -- | Differentiable function on vector space with field s
-data D (s :: Type) a b = D (a s -> (b s, LMap s a b))
+data D s a b = D (a s -> (b s, LMap s a b))
 
 -- TODO: try a more functorish representation: (a :->: b :*: (a :->: b))
 
