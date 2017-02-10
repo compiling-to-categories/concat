@@ -263,30 +263,30 @@ lapply (L gfa) = unV . lapplyL gfa . toV
 -- lapplyL :: ... => (a :-* b) s -> a s -> b s
 
 class OkLF' f => HasL f where
-  -- | Law: @'linear' . 'lapply' == 'id'@ (but not the other way around)
-  linear' :: forall s g. (Num s, OkLF' g) => (f s -> g s) -> (f :-* g) s
+  -- | Law: @'linearL . 'lapply' == 'id'@ (but not the other way around)
+  linearL :: forall s g. (Num s, OkLF' g) => (f s -> g s) -> (f :-* g) s
 
 instance HasL U1 where
-  -- linear' :: forall s g. (Num s, OkLF' g) => (U1 s -> g s) -> (U1 :-* g) s
-  linear' _ = U1
+  -- linearL :: forall s g. (Num s, OkLF' g) => (U1 s -> g s) -> (U1 :-* g) s
+  linearL _ = U1
 
 instance HasL Par1 where
-  linear' f = Par1 (f (Par1 1))
+  linearL f = Par1 (f (Par1 1))
 
 --       f           :: Par1 s -> b s
 --       f (Par1 1)  :: b s
 -- Par1 (f (Par1 1)) :: Par1 (b s)
 
 instance (HasL f, HasL g) => HasL (f :*: g) where
-  linear' q = linear' (q . (:*: zeroV)) `joinL` linear' (q . (zeroV :*:))
+  linearL q = linearL (q . (:*: zeroV)) `joinL` linearL (q . (zeroV :*:))
 
 --          q                :: (f :*: g) s -> h s
 --              (:*: zeroV)  :: f s -> (f :*: g) s
 --          q . (:*: zeroV)  :: f s -> h s
--- linear' (q . (:*: zeroV)) :: (f :-* h) s
+-- linearL (q . (:*: zeroV)) :: (f :-* h) s
 
 linear :: (OkLM s a, OkLM s b) => (a -> b) -> L s a b
-linear f = L (linear' (inV f))
+linear f = L (linearL (inV f))
 
 -- f :: a -> b
 -- inV f :: V s a s -> V s b s
