@@ -20,7 +20,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE PolyKinds #-}
+-- {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ExplicitForAll #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -52,7 +52,7 @@ import Data.Key
 
 import ConCat.Misc (Yes1,inNew,inNew2,oops,type (+->)(..))
 import ConCat.Free.VectorSpace
-import ConCat.Free.LinearRow (lapplyL,OkLF,idL,(@.),exlL,exrL,forkL,inlL,inrL,joinL,HasL(..))
+import ConCat.Free.LinearRow (lapplyL,OkLF,idL,compL,exlL,exrL,forkL,inlL,inrL,joinL,HasL(..))
 import ConCat.Rep
 import ConCat.Orphans
 
@@ -73,10 +73,6 @@ type Ok4 k a b c d     = C4 (Ok k) a b c d
 type Ok5 k a b c d e   = C5 (Ok k) a b c d e
 type Ok6 k a b c d e f = C6 (Ok k) a b c d e f
 
--- Phasing out
-infixr 1 |-
-type (|-) = (:-)
-
 infixl 1 <+
 (<+) :: (b => r) -> (a :- b) -> (a => r)
 r <+ Sub Dict = r
@@ -88,7 +84,7 @@ r <+ Sub Dict = r
 --------------------------------------------------------------------}
 
 infixr 9 .
-class Category k where
+class Category (k :: u -> u -> *) where
   type Ok k :: u -> Constraint
   type Ok k = Yes1
   id  :: Ok k a => a `k` a
@@ -106,15 +102,14 @@ infixr 1 ~>
      => (a' `k` a) -> (b `k` b') -> ((a `k` b) -> (a' `k` b'))
 f ~> h = h <~ f
 
-class OkProd k where
-  okProd :: (Ok k a, Ok k b) :- Ok k (Prod k a b)
-
 infixr 3 &&&, ***
 class (OkProd k, Category k) => Cartesian k where
   type Prod k (a :: u) (b :: u) = (ab :: u) | ab -> a b
   exl :: Ok2 k a b => Prod k a b `k` a
   exr :: Ok2 k a b => Prod k a b `k` b
   (&&&) :: forall a c d. Ok3 k a c d => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d)
+
+class OkProd k where okProd :: Ok2 k a b :- Ok k (Prod k a b)
 
 (***) :: forall k a b c d. (Cartesian k, Ok4 k a b c d)
       => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d)
@@ -147,8 +142,6 @@ rassocP = (exl . exl) &&& first  exr
           <+ okProd @k @b @c
           <+ okProd @k @a @b
 
-class OkCoprod k where okCoprod :: (Ok k a, Ok k b) :- Ok k (Coprod k a b)
-
 infixr 2 +++, |||
 -- | Category with coproduct.
 class (OkCoprod k,Category k) => Cocartesian k where
@@ -158,6 +151,8 @@ class (OkCoprod k,Category k) => Cocartesian k where
   (|||) :: forall a c d. Ok3 k a c d
         => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a)
 
+class OkCoprod k where okCoprod :: Ok2 k a b :- Ok k (Coprod k a b)
+
 (+++) :: forall k a b c d. (Cocartesian k, Ok4 k a b c d)
       => (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b)
 f +++ g = inl . f ||| inr . g  <+ okCoprod @k @a @b
@@ -165,8 +160,6 @@ f +++ g = inl . f ||| inr . g  <+ okCoprod @k @a @b
 class (Category k, Ok k (Unit k)) => Terminal k where
   type Unit k :: u
   it :: Ok k a => a `k` Unit k
-
-class OkExp k where okExp :: (Ok k a, Ok k b) :- Ok k (Exp k a b)
 
 class (OkExp k, Cartesian k) => CartesianClosed k where
   type Exp k (a :: u) (b :: u) = (ab :: u) | ab -> a b
@@ -181,6 +174,8 @@ class (OkExp k, Cartesian k) => CartesianClosed k where
               <+ okProd @k @a @b
               <+ okExp  @k @b @c
   {-# MINIMAL curry, (apply | uncurry) #-}
+
+class OkExp k where okExp :: Ok2 k a b :- Ok k (Exp k a b)
 
 class (Cartesian k, Ok k (BoolOf k)) => BoolCat k where
   type BoolOf k
@@ -254,15 +249,13 @@ instance Category (->) where
   id  = P.id
   (.) = (P..)
 
-instance OkProd (->) where okProd = Sub Dict
-
 instance Cartesian (->) where
   type Prod (->) a b = (a,b)
   exl = fst
   exr = snd
   (f &&& g) x = (f x, g x)
 
-instance OkCoprod (->) where okCoprod = Sub Dict
+instance OkProd (->) where okProd = Sub Dict
 
 instance Cocartesian (->) where
   type Coprod (->) a b = Either a b
@@ -270,17 +263,19 @@ instance Cocartesian (->) where
   inr = Right
   (|||) = either
 
+instance OkCoprod (->) where okCoprod = Sub Dict
+
 instance Terminal (->) where
   type Unit (->) = ()
   it = const ()
-
-instance OkExp (->) where okExp = Sub Dict
 
 instance CartesianClosed (->) where
   type Exp (->) a b = a -> b
   apply (f,x) = f x
   curry = P.curry
   uncurry = P.uncurry
+
+instance OkExp (->) where okExp = Sub Dict
 
 instance BoolCat (->) where
   type BoolOf (->) = Bool
@@ -366,38 +361,38 @@ instance Category (:-) where
   id  = Sub Dict
   g . f = Sub (Dict <+ g <+ f)
 
-instance OkProd (:-) where okProd = Sub Dict
-
 instance Cartesian (:-) where
   type Prod (:-) a b = (a,b)
   exl = Sub Dict
   exr = Sub Dict
   f &&& g = Sub (Dict <+ f <+ g)
 
--- instance Category (|-) where
+instance OkProd (:-) where okProd = Sub Dict
+
+-- instance Category (:-) where
 --   id  = refl
 --   (.) = trans
 
-instance Terminal (|-) where
-  type Unit (|-) = ()
+instance Terminal (:-) where
+  type Unit (:-) = ()
   it = Sub Dict
 
 -- Tweaked from Data.Constraint
-mapDict :: (a |- b) -> Dict a -> Dict b
+mapDict :: (a :- b) -> Dict a -> Dict b
 mapDict (Sub q) Dict = q
 
-unmapDict :: (Dict a -> Dict b) -> (a |- b)
+unmapDict :: (Dict a -> Dict b) -> (a :- b)
 unmapDict f = Sub (f Dict)
 
 data MapDict = MapDict
 
-instance FunctorC MapDict (|-) (->) where
+instance FunctorC MapDict (:-) (->) where
   type MapDict %% a = Dict a
   type OkF MapDict a b = ()
   (%) MapDict = mapDict
 
 -- -- Couldn't match type ‘Dict (a && b)’ with ‘(Dict a, Dict b)’
--- instance CartesianFunctor MapDict (|-) (->) where preserveProd = Dict
+-- instance CartesianFunctor MapDict (:-) (->) where preserveProd = Dict
 
 class HasCon a where
   type Con a :: Constraint
@@ -414,7 +409,7 @@ instance (HasCon a, HasCon b) => HasCon (a,b) where
   toDict (toDict -> Dict, toDict -> Dict) = Dict
   unDict Dict = (unDict Dict,unDict Dict)
 
-entail :: (HasCon a, HasCon b) => (a -> b) -> (Con a |- Con b)
+entail :: (HasCon a, HasCon b) => (a -> b) -> (Con a :- Con b)
 entail f = unmapDict (toDict . f . unDict)
 
 data Entail = Entail
@@ -425,7 +420,7 @@ instance FunctorC Entail (->) (:-) where
   (%) Entail = entail
 
 -- -- Couldn't match type ‘(Con a, Con b)’ with ‘Con a && Con b’.
--- instance CartesianFunctor Entail (->) (|-) where preserveProd = Dict
+-- instance CartesianFunctor Entail (->) (:-) where preserveProd = Dict
 -- -- Fails:
 -- preserveProd :: Dict (MapDict %% (a && b)) ~ (MapDict %% a, MapDict %% b)
 
@@ -521,7 +516,7 @@ newtype LM s a b = LMap (b (a s))
 instance Num s => Category (LM s) where
   type Ok (LM s) = OkLF
   id = LMap idL
-  LMap g . LMap f = LMap (g @. f)
+  LMap g . LMap f = LMap (g `compL` f)
 
 instance OkProd (LM s) where okProd = Sub Dict
 
@@ -538,6 +533,10 @@ instance Num s => Cocartesian (LM s) where
   inl = LMap inlL
   inr = LMap inrL
   LMap f ||| LMap g = LMap (f `joinL` g)
+
+instance Num s => Terminal (LM s) where
+  type Unit (LM s) = U1
+  it = LMap U1
 
 toLMap :: (OkLF b, HasL a, Num s) => Arg s a b -> LM s a b
 toLMap (Arg h) = LMap (linearL h)
