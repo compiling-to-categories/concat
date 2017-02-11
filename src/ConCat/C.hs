@@ -54,7 +54,7 @@ import Data.IntMap ()
 
 import ConCat.Misc (Yes1,inNew,inNew2,oops,type (+->)(..))
 import ConCat.Free.VectorSpace
-import ConCat.Free.LinearRow (lapplyL,OkLF,idL,(@.),exlL,exrL,forkL,inlL,inrL,joinL,HasL(..))
+import ConCat.Free.LinearRow (lapplyL,OkLF,idL,compL,exlL,exrL,forkL,inlL,inrL,joinL,HasL(..))
 import ConCat.Rep
 import ConCat.Orphans
 
@@ -538,7 +538,7 @@ newtype LM s a b = LMap (b (a s))
 instance Num s => Category (LM s) where
   type Ok (LM s) = OkLF
   id = LMap idL
-  LMap g . LMap f = LMap (g @. f)
+  LMap g . LMap f = LMap (g `compL` f)
 
 instance OpCon (:*:) OkLF where inOp = Sub Dict
 
