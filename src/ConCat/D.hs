@@ -31,7 +31,7 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
--- | Experiment with injective associated type synonyms.
+-- | Experiment with injective associated type synonyms, and Ok k a.
 
 module ConCat.D where
 
@@ -50,7 +50,7 @@ import Control.Newtype
 import Data.Pointed
 import Data.Key
 
-import ConCat.Misc (Yes1,inNew,inNew2,oops,type (+->)(..))
+import ConCat.Misc (inNew,inNew2,oops,type (+->)(..))
 import ConCat.Free.VectorSpace
 import ConCat.Free.LinearRow (lapplyL,OkLF,idL,compL,exlL,exrL,forkL,inlL,inrL,joinL,HasL(..))
 import ConCat.Rep
@@ -60,18 +60,11 @@ import ConCat.Orphans
     Constraints
 --------------------------------------------------------------------}
 
-type C1 (con :: u -> Constraint) a = con a
-type C2 (con :: u -> Constraint) a b = (con a, con b)
-type C3 (con :: u -> Constraint) a b c = (con a, con b, con c)
-type C4 (con :: u -> Constraint) a b c d = (con a, con b, con c, con d)
-type C5 (con :: u -> Constraint) a b c d e = (con a, con b, con c, con d, con e)
-type C6 (con :: u -> Constraint) a b c d e f = (con a, con b, con c, con d, con e, con f)
-
-type Ok2 k a b         = C2 (Ok k) a b
-type Ok3 k a b c       = C3 (Ok k) a b c
-type Ok4 k a b c d     = C4 (Ok k) a b c d
-type Ok5 k a b c d e   = C5 (Ok k) a b c d e
-type Ok6 k a b c d e f = C6 (Ok k) a b c d e f
+type Ok2 k a b         = (Ok k a, Ok k b)
+type Ok3 k a b c       = (Ok2 k a b, Ok k c)
+type Ok4 k a b c d     = (Ok3 k a b c, Ok k d)
+type Ok5 k a b c d e   = (Ok4 k a b c d, Ok k e)
+type Ok6 k a b c d e f = (Ok5 k a b c d e, Ok k f)
 
 infixl 1 <+
 (<+) :: (b => r) -> (a :- b) -> (a => r)
@@ -85,8 +78,8 @@ r <+ Sub Dict = r
 
 infixr 9 .
 class Category (k :: u -> u -> *) where
-  type Ok k :: u -> Constraint
-  type Ok k = Yes1
+  type Ok k (a :: u) :: Constraint
+  type Ok k a = ()
   id  :: Ok k a => a `k` a
   (.) :: forall b c a. Ok3 k a b c => (b `k` c) -> (a `k` b) -> (a `k` c)
 
@@ -514,7 +507,7 @@ instance CocartesianFunctor (ToArg s) (->) (Arg s) where preserveCoprod = Dict
 newtype LM s a b = LMap (b (a s))
 
 instance Num s => Category (LM s) where
-  type Ok (LM s) = OkLF
+  type Ok (LM s) a = OkLF a
   id = LMap idL
   LMap g . LMap f = LMap (g `compL` f)
 
@@ -604,7 +597,7 @@ linearD :: (Num s, Ok2 (LM s) a b) => LM s a b -> DF s a b
 linearD m = D (lapply m &&& const m)
 
 instance Num s => Category (DF s) where
-  type Ok (DF s) = OkLF
+  type Ok (DF s) a = OkLF a
   id = linearD id
   D g . D f = D (\ a -> let { (b,f') = f a; (c,g') = g b } in (c, g' . f'))
   {-# INLINE id #-}
@@ -834,7 +827,7 @@ inMemo2 :: (HasTrie a, HasTrie c, HasTrie e) =>
 inMemo2 = inMemo <~ unMemo
 
 instance Category (:->:) where
-  type Ok (:->:) = HasTrie
+  type Ok (:->:) a = HasTrie a
   id  = toMemo id
   (.) = inMemo2 (.)
 
@@ -897,7 +890,7 @@ class    (Eq a, Enumerable a) => OkFL a
 instance (Eq a, Enumerable a) => OkFL a
 
 instance Num s => Category (FL s) where
-  type Ok (FL s) = OkFL
+  type Ok (FL s) a = OkFL a
   id = FL (\ (a,a') -> if a == a' then 1 else 0)
   FL g . FL f = FL (\ (a,c) -> sum [g (b,c) * f (a,b) | b <- enumerate])
 
