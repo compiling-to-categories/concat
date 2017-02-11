@@ -83,10 +83,10 @@ idL :: (Diagonal a, Num s)
 idL = scaleL 1
 
 -- Compose linear transformations
-(@.) :: (Functor a, Foldable b, Zip b, Zeroable c, Zip c, Num s)
-     => (b :-* c) s -> (a :-* b) s -> (a :-* c) s
-bc @. ab = (bc $*) <$> ab
--- (@.) = fmap . ($*)
+compL :: (Functor a, Foldable b, Zip b, Zeroable c, Zip c, Num s)
+      => (b :-* c) s -> (a :-* b) s -> (a :-* c) s
+bc `compL` ab = (bc $*) <$> ab
+-- compL = fmap . ($*)
 
 ---- Product
 
@@ -169,7 +169,7 @@ zeroLM = L zeroL
 instance Category (L s) where
   type Ok (L s) = OkLM s
   id = abst idL
-  (.) = inAbst2 (@.)
+  (.) = inAbst2 compL
   {-# INLINE id #-}
   {-# INLINE (.) #-}
 

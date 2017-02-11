@@ -86,9 +86,9 @@ idL :: (Diagonal a, Num s)
 idL = scaleL 1
 
 -- Compose linear transformations
-(@.) :: (Zip a, Zip b, Zeroable a, Foldable b, Functor c, Num s)
+compL :: (Zip a, Zip b, Zeroable a, Foldable b, Functor c, Num s)
      => (b :-* c) s -> (a :-* b) s -> (a :-* c) s
-bc @. ab = (\ b -> sumV (zipWith (*^) b ab)) <$> bc
+bc `compL` ab = (\ b -> sumV (zipWith (*^) b ab)) <$> bc
 
 #if 0
 bc :: c (b s)
@@ -215,7 +215,7 @@ zeroLM = L zeroL
 instance Category (L s) where
   type Ok (L s) = OkLM s
   id = abst idL
-  (.) = inAbst2 (@.)
+  (.) = inAbst2 compL
   {-# INLINE id #-}
   {-# INLINE (.) #-}
 
@@ -397,19 +397,19 @@ type One = Par1
 type Two = One :*: One
 
 -- Becomes (*) (and casts)
-{-# SPECIALIZE (@.) :: Num s =>
+{-# SPECIALIZE compL :: Num s =>
   (One :-* One) s -> (One :-* One) s -> (One :-* One) s #-}
 
 -- Becomes timesFloat
-{-# SPECIALIZE (@.) ::
+{-# SPECIALIZE compL ::
   (One :-* One) Float -> (One :-* One) Float -> (One :-* One) Float #-}
 
 -- Becomes + (* ww1 ww4) (* ww2 ww5)
-{-# SPECIALIZE (@.) :: Num s =>
+{-# SPECIALIZE compL :: Num s =>
   (Two :-* One) s -> (One :-* Two) s -> (One :-* One) s #-}
 
 -- Becomes plusFloat# (timesFloat# x y) (timesFloat# x1 y1)
-{-# SPECIALIZE (@.) ::
+{-# SPECIALIZE compL ::
   (Two :-* One) Float -> (One :-* Two) Float -> (One :-* One) Float #-}
 
 type LRRR = L Float Float Float
