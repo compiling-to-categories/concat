@@ -74,7 +74,7 @@ import ConCat.Additive (Additive)
 -- Unit for binary type constructors
 data U2 a b = U2 deriving (Show)
 
-infixr 6 :**:
+infixr 7 :**:
 -- | Product for binary type constructors
 data (p :**: q) a b = p a b :**: q a b
 
