@@ -67,6 +67,9 @@ library
                        ConCat.Additive
                        ConCat.ADFun2
 
+                       ConCat.C
+                       ConCat.D
+
 --                        ConCat.ADFun
 --                        ConCat.EmptyCase
 --                        ConCat.GHC
