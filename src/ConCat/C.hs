@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
@@ -52,7 +53,7 @@ import Data.Pointed
 import Data.Key
 import Data.IntMap ()
 
-import ConCat.Misc (Yes1,inNew,inNew2,oops,type (+->)(..))
+import ConCat.Misc (Yes1,type (&+&),inNew,inNew2,oops,type (+->)(..))
 import ConCat.Free.VectorSpace
 import ConCat.Free.LinearRow (lapplyL,OkLF,idL,compL,exlL,exrL,forkL,inlL,inrL,joinL,HasL(..))
 import ConCat.Rep
@@ -187,6 +188,10 @@ class (Category k, Ok k (Unit k)) => Terminal k where
 --     • Illegal constraint ‘Ok k (Unit k)’ in a superclass context
 --         (Use UndecidableInstances to permit this)
 
+class (Cartesian k, Cocartesian k) => Distributive k where
+  distl :: Prod k a (Coprod k u v) `k` Coprod k (Prod k a u) (Prod k a v)
+  distr :: Prod k (Coprod k u v) b `k` Coprod k (Prod k u b) (Prod k v b)
+
 class (OpCon (Exp k) (Ok k), Cartesian k) => CartesianClosed k where
   type Exp k :: u -> u -> u
   apply   :: forall a b. Ok2 k a b => Prod k (Exp k a b) a `k` b
@@ -296,6 +301,10 @@ instance Terminal (->) where
   type Unit (->) = ()
   it = const ()
 
+instance Distributive (->) where
+  distl (a,uv) = ((a,) +++ (a,)) uv
+  distr (uv,b) = ((,b) +++ (,b)) uv
+
 instance CartesianClosed (->) where
   type Exp (->) = (->)
   apply (f,x) = f x
@@ -358,6 +367,10 @@ instance Monad m => Terminal (Kleisli m) where
   type Unit (Kleisli m) = ()
   it = arr it
 
+instance Monad m => Distributive (Kleisli m) where
+  distl = arr distl
+  distr = arr distr
+
 instance Monad m => CartesianClosed (Kleisli m) where
   type Exp (Kleisli m) = Kleisli m
   apply   = pack (apply . first unpack)
@@ -373,6 +386,149 @@ instance Monad m => CartesianClosed (Kleisli m) where
 --   andC = arr andC
 --   orC  = arr orC
 --   xorC = arr xorC
+
+{--------------------------------------------------------------------
+    Product of categories
+--------------------------------------------------------------------}
+
+infixr 7 :**:
+-- | Product for binary type constructors
+-- data (k :**: k') (a :: u) (b :: u) = k a b :**: k' a b
+data (k :**: k') a b = k a b :**: k' a b
+
+instance (Category k, Category k') => Category (k :**: k') where
+  type Ok (k :**: k') = Ok k &+& Ok k'
+  id = id :**: id
+  (g :**: g') . (f :**: f') = (g.f) :**: (g'.f')
+
+#if 0
+
+instance (Cartesian k, Cartesian k') => Cartesian (k :**: k') where
+  type Prod (k :**: k') = Prod k :**: Prod k'
+  exl = exl :**: exl
+  exr = exr :**: exr
+  (f :**: f') &&& (g :**: g') = (f &&& g) :**: (f' &&& g')
+#if 0
+  (f :**: f') *** (g :**: g') = (f *** g) :**: (f' *** g')
+  dup   = dup   :**: dup
+  swapP = swapP :**: swapP
+  first (f :**: f') = first f :**: first f'
+  second (f :**: f') = second f :**: second f'
+  lassocP = lassocP :**: lassocP
+  rassocP = rassocP :**: rassocP
+#endif
+
+instance (OkProd k, OkProd k') => OkProd (k :**: k') where okProd = Sub Dict
+
+instance (Cocartesian k, Cocartesian k') => Cocartesian (k :**: k') where
+  inl = inl :**: inl
+  inr = inr :**: inr
+  (f :**: f') ||| (g :**: g') = (f ||| g) :**: (f' ||| g')
+#if 0
+  (f :**: f') +++ (g :**: g') = (f +++ g) :**: (f' +++ g')
+  jam = jam :**: jam
+  swapS = swapS :**: swapS
+  left (f :**: f') = left f :**: left f'
+  right (f :**: f') = right f :**: right f'
+  lassocS = lassocS :**: lassocS
+  rassocS = rassocS :**: rassocS
+#endif
+
+-- working on these ones
+
+instance (Terminal k, Terminal k') => Terminal (k :**: k') where
+  -- type Unit (k :**: k) = Prod k (Unit k
+  it = it :**: it
+
+instance (CartesianClosed k, CartesianClosed k') => CartesianClosed (k :**: k') where
+  apply = apply :**: apply
+  -- apply = (apply . exl) :**: (apply . exr)
+  -- apply :: forall a b. (Ok2 k a b, Ok2 k' a b)
+  --       => (k :**: k') ((k :**: k') a b :* a) b
+  -- apply = undefined -- (apply . exl) :**: _
+  curry (f :**: f') = curry f :**: curry f'
+  uncurry (g :**: g') = uncurry g :**: uncurry g'
+
+instance (BoolCat k, BoolCat k') => BoolCat (k :**: k') where
+  notC = notC :**: notC
+  andC = andC :**: andC
+  orC  = orC  :**: orC
+  xorC = xorC :**: xorC
+
+instance (EqCat k a, EqCat k' a) => EqCat (k :**: k') a where
+  equal = equal :**: equal
+  notEqual = notEqual :**: notEqual
+
+instance (NumCat k a, NumCat k' a) => NumCat (k :**: k') a where
+  negateC = negateC :**: negateC
+  addC    = addC    :**: addC
+  subC    = subC    :**: subC
+  mulC    = mulC    :**: mulC
+  powIC   = powIC   :**: powIC
+
+#endif
+
+-- Unit for binary type constructors
+data U2 (a :: u) (b :: u) = U2 deriving (Show)
+
+instance Category U2 where
+  id = U2
+  U2 . U2 = U2
+
+#if 0
+
+type family P (a :: u) (b :: u) = (ab :: u) | ab -> a b
+
+instance Cartesian U2 where
+  -- type Prod U2 a b = Any -- violates injectivity
+  -- type Prod U2 a b = P a b  -- This definition breaks Prod (:-) ?!
+  exl = U2
+  exr = U2
+  U2 &&& U2 = U2
+
+instance OkProd U2 where okProd = Sub Dict
+
+instance Cocartesian U2 where
+  inl = U2
+  inr = U2
+  U2 ||| U2 = U2
+
+instance OkCoprod U2 where okCoprod = Sub Dict
+
+instance Terminal U2 where
+  -- type Unit (U2 :: u -> u -> *) = ??
+  it = U2
+
+instance Distributive U2 where
+  distl = U2
+  distr = U2
+
+instance CartesianClosed U2 where
+  apply = U2
+  curry U2 = U2
+  uncurry U2 = U2
+
+instance OkExp U2 where okExp = Sub Dict
+
+instance BoolCat U2 where
+  type BoolOf U2 = ()  -- arbitrary
+  notC = U2
+  andC = U2
+  orC  = U2
+  xorC = U2
+
+instance EqCat U2 a where
+  equal = U2
+  notEqual = U2
+
+instance NumCat U2 a where
+  negateC = U2
+  addC    = U2
+  subC    = U2
+  mulC    = U2
+  powIC   = U2
+
+#endif
 
 {--------------------------------------------------------------------
     Constraint entailment
