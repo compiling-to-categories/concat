@@ -458,3 +458,9 @@ coco = coerceC \\ trans @(CoerceCat k) @a @b @c
 coco' :: forall k a b c. (CoerceCat k a b, CoerceCat k b c, TransitiveCon (CoerceCat k))
       => b :* (a `k` c)
 coco' = (undefined, (coerceC \\ trans @(CoerceCat k) @a @b @c))
+
+-- Experiment
+
+-- lassocP' :: Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
+lassocP' :: (a,(b,c)) `k` ((a,b),c)
+lassocP' = ccc (\ (a,(b,c)) -> ((a,b),c))
