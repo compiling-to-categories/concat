@@ -22,7 +22,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
--- {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ExplicitForAll #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -200,12 +200,12 @@ class (BoolCat k, Ok k a) => EqCat k a where
   notEqual = notC . equal    <+ okDup @k @a
   equal    = notC . notEqual <+ okDup @k @a
 
-class Ok k a => NumCat k a where
+class (Category k, Ok k a) => NumCat k a where
   negateC :: a `k` a
   addC, subC, mulC :: Prod k a a `k` a
-  default subC :: Cartesian k => Prod k a a `k` a
-  subC = addC . second negateC <+ okProd @k @a @a
-  type IntOf k
+  -- default subC :: Cartesian k => Prod k a a `k` a
+  -- subC = addC . second negateC <+ okProd @k @a @a
+  type IntOf k :: u
   powIC :: Prod k a (IntOf k) `k` a
 
 {--------------------------------------------------------------------
@@ -675,6 +675,9 @@ instance CocartesianFunctor (ToArg s) (->) (Arg s) where preserveCoprod = Dict
 -- Linear map in row-major form
 newtype LM s a b = LMap (b (a s))
 
+scale :: s -> LM s Par1 Par1
+scale s = LMap (Par1 (Par1 s))
+
 instance Num s => Category (LM s) where
   type Ok (LM s) a = OkLF a
   id = LMap idL
@@ -753,8 +756,6 @@ instance Num s => FunctorC (Linear s) (Arg s) (LM s) where
 -- | Differentiable function on vector space with field s
 data DF s a b = D { unD :: a s -> b s :* LM s a b }
 
--- TODO: try a more functorish representation: (a :->: b :*: (a :->: b))
-
 deriv :: (a s -> b s) -> (a s -> LM s a b)
 deriv f = snd . unD (andDeriv (Arg f))
 -- deriv f = snd . h where D h = andDeriv (Arg f)
@@ -807,6 +808,31 @@ f' :: a s -> c s
 g' :: b s -> c s
 
 #endif
+
+-- class (Category k, Ok k a) => NumCat (k :: u -> u -> *) (a :: u) where
+
+-- data DF s (a :: * -> *) (b :: * -> *) 
+
+-- instance Num s => NumCat (DF s) Par1 where
+--   negateC = linearD (scale (-1))
+--   addC = linearD (id ||| id)
+--   subC = linearD (id ||| scale (-1))
+--   mulC = D (\ (Par1 a :*: Par1 b) -> (Par1 (a * b), scale b ||| scale a))
+--   powIC = undefined
+
+-- foo1 :: Num s => (Par1 :*: Par1) s -> Par1 s
+-- foo1 (Par1 a :*: Par1 b) = Par1 (a * b)
+
+-- foo2 :: Num s => (Par1 :*: Par1) s -> LM s (Par1 :*: Par1) Par1
+-- foo2 (Par1 a :*: Par1 b) = scale b ||| scale a
+
+-- foo3 :: Num s => (Par1 :*: Par1) s -> Par1 s :* LM s (Par1 :*: Par1) Par1
+-- -- foo3 = foo1 &&& foo2
+-- foo3 (Par1 a :*: Par1 b) = (Par1 (a * b), scale b ||| scale a)
+
+-- (Par1 :* Par1) s -> Par1 s
+
+-- (\ (Par1 x :*: Par1 y) -> Par1 (x*y))
 
 data Deriv s = Deriv
 instance Num s => FunctorC (Deriv s) (Arg s) (DF s) where
