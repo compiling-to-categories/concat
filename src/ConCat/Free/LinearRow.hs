@@ -113,6 +113,9 @@ exrL = (zeroV :*:) <$> idL
 forkL :: (a :-* b) s -> (a :-* c) s -> (a :-* b :*: c) s
 forkL = (:*:)
 
+itL :: (a :-* U1) s
+itL = U1
+
 ---- Coproduct as direct sum (represented as Cartesian product)
 
 inlL :: (Zeroable a, Diagonal a, Zeroable b, Num s)

@@ -101,6 +101,9 @@ exrL = zeroL :*: idL
 forkL :: Zip a => (a :-* b) s -> (a :-* c) s -> (a :-* b :*: c) s
 forkL = zipWith (:*:)
 
+-- itL :: (a :-* U1) s
+-- itL = point U1
+
 ---- Coproduct as direct sum (represented as Cartesian product)
 
 inlL :: (Zeroable a, Diagonal a, Zeroable b, Num s)
