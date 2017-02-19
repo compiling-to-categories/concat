@@ -1,8 +1,11 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DefaultSignatures #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
@@ -24,6 +27,16 @@ class HasStandard a where
   type Standard a
   toStd :: a -> Standard a
   unStd :: Standard a -> a
+  -- defaults
+  type Standard a = Standard (Rep a)
+  default toStd :: (HasRep a, HasStandard (Rep a)) => a -> Standard (Rep a)
+  toStd = toStd . repr
+  default unStd :: (HasRep a, HasStandard (Rep a)) => Standard (Rep a) -> a
+  unStd = abst . unStd
+
+--     • The type family application ‘Rep a’
+--         is no smaller than the instance head
+--       (Use UndecidableInstances to permit this)
 
 instance HasStandard Int where { type Standard Int = Int ; toStd = id ; unStd = id }
 
