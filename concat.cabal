@@ -52,6 +52,7 @@ library
                        ConCat.Lambda
                        ConCat.Complex
                        ConCat.Rep
+                       ConCat.Standardize
                        ConCat.Simplify
                        ConCat.BuildDictionary
                        ConCat.Plugin
@@ -59,10 +60,11 @@ library
                        ConCat.Circuit
                        ConCat.RunCircuit
                        ConCat.Float
+                       ConCat.Rebox
                        ConCat.GAD
                        ConCat.AD
                        ConCat.Incremental
-                       ConCat.Rebox
+                       ConCat.Interval
                        ConCat.GradientDescent
                        ConCat.Additive
                        ConCat.ADFun2
@@ -97,3 +99,15 @@ Test-Suite test
 -- "stack test"
 
 -- To keep ghci happy, it appears that the plugin flag must be in the test module.
+
+-- -- Experimental
+-- Test-Suite gtest
+--   type:             exitcode-stdio-1.0
+--   default-language: Haskell98
+--   hs-Source-Dirs:   test
+--   main-is:          GTest.hs
+--   Build-Depends:    Cabal >= 1.24.0.0
+--                   , base<5
+--                   , concat
+--                   , ghc-prim
+--   ghc-options:      -O2
