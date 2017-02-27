@@ -16,16 +16,13 @@ import Prelude hiding (id,(.),curry,uncurry,const)
 
 import Control.Newtype
 
-import ConCat.Misc ((:*),R,Yes1)
+import ConCat.Misc ((:*),R,inNew,inNew2)
 import ConCat.Category
 
 type family Iv a
 
 type instance Iv R = R :* R
 type instance Iv Int = Int :* Int
-
-type instance Iv (a :* b) = Iv a :* Iv b
-type instance Iv (a -> b) = Iv a -> Iv b  -- ?
 
 data IF a b = IF { unIF :: Iv a -> Iv b }
 
@@ -34,12 +31,11 @@ instance Newtype (IF a b) where
   pack = IF
   unpack = unIF
 
--- TODO: use Newtype
-
 instance Category IF where
   -- type Ok IF = Yes1
-  id = IF id
-  IF g . IF f = IF (g . f)
+  id = pack id
+  -- IF g . IF f = IF (g . f)
+  (.) = inNew2 (.)
 
 {-
     • Overlapping instances for Yes1 (Iv a) arising from a use of ‘id’
@@ -56,32 +52,37 @@ instance Category IF where
        when compiling the other instance declarations)
 -}
 
+type instance Iv (a :* b) = Iv a :* Iv b
+
 instance ProductCat IF where
-  exl = IF exl
-  exr = IF exr
-  IF f &&& IF g = IF (f &&& g)
+  exl = pack exl
+  exr = pack exr
+  -- IF f &&& IF g = IF (f &&& g)
+  (&&&) = inNew2 (&&&)
+
+type instance Iv (a -> b) = Iv a -> Iv b
 
 instance ClosedCat IF where
-  apply = IF apply
-  curry (IF f) = IF (curry f)
-  uncurry (IF g) = IF (uncurry g)
+  apply = pack apply
+  -- curry (IF f) = IF (curry f)
+  -- uncurry (IF g) = IF (uncurry g)
+  curry = inNew curry
+  uncurry = inNew uncurry
+
 
 -- TODO: Generalize via constIv method for HasIv
 instance Iv b ~ (b :* b) => ConstCat IF b where
   const b = IF (const (b,b))
 
 instance (Iv a ~ (a :* a), Num a, Ord a) => NumCat IF a where
-  negateC = IF (\ (al,ah) -> (-ah, -al))
-  addC = IF (\ ((al,ah),(bl,bh)) -> (al+bl,ah+bh))
+  negateC = pack (\ (al,ah) -> (-ah, -al))
+  addC = pack (\ ((al,ah),(bl,bh)) -> (al+bl,ah+bh))
   subC = addC . second negateC
-  mulC = IF (\ ((al,ah),(bl,bh)) ->
+  mulC = pack (\ ((al,ah),(bl,bh)) ->
                let cs = ((al*bl,al*bh),(ah*bl,ah*bh)) in
                  (min4 cs, max4 cs))
   powIC = error "powIC: not yet defined on IF"
 
-type Two a = a :* a
-type Four a = Two (Two a)
-
-min4,max4 :: Ord a => Four a -> a
+min4,max4 :: Ord a => ((a :* a) :* (a :* a)) -> a
 min4 ((a,b),(c,d)) = min (min a b) (min c d)
 max4 ((a,b),(c,d)) = max (max a b) (max c d)
