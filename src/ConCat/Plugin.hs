@@ -281,7 +281,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
          dtrace "top recaster" (ppr re) $
          return (mkCcc (re `App` e))
 #endif
-#if 1
      Trying("top abstReprCon")
      -- Constructor application
      e@(collectArgs -> (Var (isDataConId_maybe -> Just dc),_))
@@ -294,24 +293,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           return $ mkCcc $
            mkLams binds $
             abst `App` (inlineE repr `App` body)
-#else
-     -- TODO: If this simplifier phase isn't eta-expanding, I'll need to handle
-     -- unsaturated constructors here.
-     Trying("top con")
-     -- Constructor applied to ty/co/dict arguments
-     e@(collectTyCoDictArgs -> (Var (isDataConId_maybe -> Just dc),_))
-       | let (binds,body) = collectBinders (etaExpand (dataConRepArity dc) e)
-       , Just meth <- hrMeth (exprType body)
-       -> Doing("top abstReprCon")
-          return $ mkCcc $
-           mkLams binds $
-            -- meth abstV `App` simplifyE dflags True (meth reprV `App` body)
-            -- TODO: try without simplify
-            -- meth abstV `App` (meth reprV `App` body)
-            -- mkAbstC funCat (exprType body) `App` simplifyE dflags True (meth reprV `App` body)
-            mkAbstC funCat (exprType body) `App` (meth reprV `App` body)
-            -- TODO: Try simpleE on just (meth repr'V), not body.
-#endif
 #if 0
      Trying("top lazy")
      (collectArgs -> (Var ((== lazyV) -> True),_ty:f:args)) ->
@@ -755,6 +736,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
  where
    inlineE :: Unop CoreExpr
    inlineE e = varApps inlineV [exprType e] [e]  -- move outward
+   -- Replace boxing constructors by their boxing function synonyms (boxI etc)
    boxCon :: ReExpr
    boxCon e0 | tweaked   = Just e1
              | otherwise = Nothing
