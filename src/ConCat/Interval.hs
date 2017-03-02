@@ -21,7 +21,8 @@ import ConCat.Category
 
 type family Iv a
 
-type instance Iv R = R :* R
+type instance Iv ()  = ()
+type instance Iv R   = R   :* R
 type instance Iv Int = Int :* Int
 
 data IF a b = IF { unIF :: Iv a -> Iv b }
@@ -32,7 +33,6 @@ instance Newtype (IF a b) where
   unpack = unIF
 
 instance Category IF where
-  -- type Ok IF = Yes1
   id = pack id
   -- IF g . IF f = IF (g . f)
   (.) = inNew2 (.)
@@ -69,10 +69,11 @@ instance ClosedCat IF where
   curry = inNew curry
   uncurry = inNew uncurry
 
-
--- TODO: Generalize via constIv method for HasIv
 instance Iv b ~ (b :* b) => ConstCat IF b where
-  const b = IF (const (b,b))
+    const b = IF (const (b,b))
+    unitArrow b = IF (unitArrow (b,b))
+
+-- instance RepCat (->) a r => RepCat IF a r where
 
 instance (Iv a ~ (a :* a), Num a, Ord a) => NumCat IF a where
   negateC = pack (\ (al,ah) -> (-ah, -al))
