@@ -43,8 +43,9 @@ type DocTree = Tree PDoc
 -- Using PDoc instead of String allows for complex values that can be
 -- pretty-printed and parenthesized in context.
 prettyTree :: DocTree -> PDoc
-prettyTree (Node (showPDoc 0 -> nm) [u,v]) p | Just (q,(lf,rf)) <- lookup nm fixities =
+prettyTree (Node d [u,v]) p | Just (q,(lf,rf)) <- lookup nm fixities =
   maybeParens (p > q) $ sep [prettyTree u (lf q) <+> text nm, (prettyTree v) (rf q)]
+ where nm = show (d 0)
 prettyTree (Node f es) p =
   maybeParens (not (null es) && p > appPrec) $
   sep (f appPrec : map (\ e -> prettyTree e (appPrec+1)) es)
@@ -365,8 +366,8 @@ type PDoc = Prec -> Doc
 ppretty :: Pretty a => a -> PDoc
 ppretty a p = pPrintPrec prettyNormal p a
 
-showPDoc :: Int -> PDoc -> String
-showPDoc p d = show (d (fromIntegral p))
+-- showPDoc :: Rational -> PDoc -> String
+-- showPDoc p d = show (d p)
 
 -- Precedence of function application.
 -- Hack: use 11 instead of 10 to avoid extraneous parens when a function
