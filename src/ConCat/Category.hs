@@ -663,9 +663,15 @@ class (ProductCat k, CoproductCat k) => DistribCat k where
     <+ okCoprod @k @u @v
   {-# MINIMAL distl | distr #-}
 
+-- instance DistribCat (->) where
+--   distl (a,uv) = ((a,) +++ (a,)) uv
+--   distr (uv,b) = ((,b) +++ (,b)) uv
+
 instance DistribCat (->) where
-  distl (a,uv) = ((a,) +++ (a,)) uv
-  distr (uv,b) = ((,b) +++ (,b)) uv
+  distl (a,Left  u) = Left  (a,u)
+  distl (a,Right v) = Right (a,v)
+  distr (Left  u,b) = Left  (u,b)
+  distr (Right v,b) = Right (v,b)
 
 instance DistribCat U2 where
   distl = U2
@@ -856,6 +862,11 @@ class (Category k, Ok k (ConstObj k b)) => ConstCat k b where
   -- default const :: (HasRep (ConstObj k b), ConstCat k (Rep b), RepCat k, Ok k a)
   --               => b -> (a `k` ConstObj k b)
   -- const = repConst
+  unitArrow :: Ok k (Unit k) => b -> (Unit k `k` ConstObj k b)
+  unitArrow = const
+  default const :: (TerminalCat k, Ok k (Unit k))
+                => b -> (Unit k `k` ConstObj k b)
+  const b = unitArrow b . it
 
 #endif
 
