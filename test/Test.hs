@@ -31,7 +31,8 @@
 {-# OPTIONS_GHC -fexpose-all-unfoldings #-}
 
 -- Tweak simpl-tick-factor from default of 100
-{-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
+{-# OPTIONS_GHC -fsimpl-tick-factor=800 #-}
+-- {-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
@@ -63,11 +64,13 @@ import GHC.Exts (lazy,coerce)
 
 import ConCat.Misc (Unop,Binop,(:*),PseudoFun(..),R,bottom,oops,Yes2)
 import ConCat.Rep
+import ConCat.Standardize
 import ConCat.Float
 import ConCat.Free.VectorSpace (V)
 import ConCat.Free.LinearRow
 import ConCat.Incremental
 import ConCat.AD
+import ConCat.Interval
 import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
@@ -82,16 +85,44 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
+--   , test "min" (uncurry (min @Int))
+
+--   , test "minmax" (\ (x :: Int, y :: Int) -> (min x y, max x y))
+
+--   , test "minmax4" (\ w -> (min4 w :: Int, max4 w))
+
+  , print (unIF (ccc (sqr @Int)) (2,5))
+
+--   , test "sqr-iv" (unIF (ccc (sqr @Int)))
+
+--   , test "magSqr-iv" (unIF (ccc (magSqr @Int)))
+
+--   , test "a3b" (\ (a,b) -> a + 3 * b :: Int)
+
+--   , test "abc" (\ ((a,b),c) -> a + b * c :: Int)
+
+--   , test "sqr-d" (der (\ x -> x * x :: R))
+
+--   -- [[Oops --- ccc called!
+--   , print (der (\ x -> x * x :: R) 1.0)
+
+--   -- 2.0
+--   , print (gradient (\ x -> x * x :: R) 1.0)
+
 --   , print (take 10 gd1)
 
-  , test "sqr" (sqr @R)
-  , test "magSqr" (magSqr @R)
+--   , test "sqr" (sqr @R)
+--   , test "magSqr" (magSqr @R)
 
 --   , test "sum-pp" (\ ((a,b),(c,d)) -> (a+c)+(b+d) :: R)
 
 --   , test "magSqr3" (\ (a,b,c) -> sqr a + sqr b + sqr c :: R)
 
---   , test "sqr-ad" (andDer (\ x -> x * x :: R))
+--   , test "sqr-ad" (andDer (ccc (sqr @R)))
+
+--   , test "magSqr-d" (der (magSqr @R))
+
+--   , test "magSqr-ad" (andDer (magSqr @R))
 
 --   , print (minimize 1 cos 3)   -- (3.141592653589793,4)
 
@@ -112,8 +143,7 @@ main = sequence_
 
 --   , test "nothing" (\ () -> Nothing :: Maybe Int)
 
---   , test "magSqr-ad1" (andDer (magSqr @R))
---   , test "magSqr-ad1-inc" (inc (andDer (magSqr @R)))
+--   , test "magSqr-ad-inc" (inc (andDer (magSqr @R)))
 
 --   , test "negate-ai" (andInc (negate :: Unop Int))
 
@@ -133,8 +163,10 @@ main = sequence_
 
 --   , test "cond-fun" (\ x -> (if x > 0 then id else negate) x :: Int)
 
+--   , test "sop1-ai" (andInc (\ (x,y,z) -> x * y + y * z + x * z :: R))
 
 --   , test "sop1" (\ (x,y,z) -> x * y + y * z + x * z :: R)
+
 --   , test "sop1-ai" (andInc (\ (x,y,z) -> x * y + y * z + x * z :: R))
 --   , test "sop1-ad" (andDer (\ (x,y,z) -> x * y + y * z + x * z :: R))
 --   , test "sop1-ad-ai" (andInc (andDer (\ (x,y,z) -> x * y + y * z + x * z :: R)))
@@ -148,6 +180,8 @@ main = sequence_
 --   , test "sum4" (\ (a,b,c,d) -> (a+b)+(c+d) :: R)
 
 --   , test "sum4-ai" (andInc (\ (a,b,c,d) -> (a+b)+(c+d) :: Int))
+
+--   , test "sum4p-ai" (andInc (\ ((a,b),(c,d)) -> (a+b)+(c+d) :: Int))
 
 --   , test "sum8" (\ ((a,b,c,d),(e,f,g,h)) -> ((a+b)+(c+d))+((e+f)+(g+h)) :: R)
 --   , test "sum8-ai" (andInc (\ ((a,b,c,d),(e,f,g,h)) -> ((a+b)+(c+d))+((e+f)+(g+h)) :: R))
@@ -219,8 +253,8 @@ main = sequence_
 --   , test "cos-xy-d1" (der (\ (x,y) -> cos (x * y) :: R))
 --   , test "cos-xy-d2" (der (der (\ (x,y) -> cos (x * y) :: R)))
 
---   , test "cosSin-xy" (\ (x,y) -> cosSin (x * y) :: R2)
---   , test "cosSin-xy-d1" (der (\ (x,y) -> cosSin (x * y) :: R2))
+--   , test "cosSin-xy" (cosSinProd @R)
+--   , test "cosSin-xy-d1" (der (cosSinProd @R))
 
 --   , test "cosSin-xy-ad1" (andDer (\ (x,y) -> cosSin (x * y) :: R2))
 
@@ -246,6 +280,8 @@ runU2 = print
 
 type GO a b = (GenBuses a, Ok2 (:>) a b)
 
+type GO' a b = (HasStandard a, HasStandard b, GO (Standard a) (Standard b))
+
 runF :: (a -> b) -> IO ()
 runF f = f `seq` return ()
 
@@ -266,13 +302,16 @@ tst :: Con a b => (a -> b) -> IO ()
 tst = test "tst"
 {-# NOINLINE tst #-}
 
+-- ccc' :: (HasStandard a, HasStandard b) => (a -> b) -> (Standard a `k` Standard b)
+-- ccc' = ccc . standardize
+
 #if 0
 type Con = Yes2
 {-# RULES "ccc (->)" forall nm f. test nm f = runF (ccc f) #-}
 #elif 0
 type Con = Yes2
 {-# RULES "U2" forall nm f. test nm f = runU2 (ccc f) #-}
-#elif 1
+#elif 0
 type Con = Yes2
 {-# RULES "Syn" forall nm f. test nm f = runSyn (ccc f) #-}
 #elif 0
@@ -290,6 +329,9 @@ type Con = Uncurriable (->)
 #elif 1
 type Con a b = GO a b
 {-# RULES "EC" forall nm f. test nm f = runEC nm (ccc f) #-}
+#elif 1
+type Con a b = GO' a b
+{-# RULES "EC" forall nm f. test nm f = runEC nm (ccc' f) #-}
 #elif 0
 type Con a b = GO a b
 {-# RULES "(->); EC" forall nm f. test nm f = runEC nm (ccc (ccc f)) #-}
@@ -372,6 +414,9 @@ double a = a + a
 cosSin :: Floating a => a -> a :* a
 cosSin a = (cos a, sin a)
 {-# INLINE cosSin #-}
+
+cosSinProd :: Floating a => a :* a -> a :* a
+cosSinProd (x,y) = (cos z, sin z) where z = (x * y)
 
 type R2 = R :* R
 
