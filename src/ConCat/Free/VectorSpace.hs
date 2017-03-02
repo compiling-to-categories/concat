@@ -91,32 +91,37 @@ instance (Zeroable f, Zeroable g) => Zeroable (g :.: f) where
 -- TODO: Replace Num constraints with Ring or SemiRing
 
 -- Scale a vector
-(*^) :: (Functor f, Num s) => s -> f s -> f s
+scaleV, (*^) :: (Functor f, Num s) => s -> f s -> f s
 s *^ v = (s *) <$> v
+scaleV = (*^)
 
 -- Negate a vector
 negateV :: (Functor f, Num s) => f s -> f s
 negateV = ((-1) *^)
 
 -- Add vectors
-(^+^) :: (Zip f, Num s) => f s -> f s -> f s
+addV, (^+^) :: (Zip f, Num s) => f s -> f s -> f s
 (^+^) = zipWith (+)
+addV = (^+^)
 
 -- Subtract vectors
-(^-^) :: (Zip f, Num s) => f s -> f s -> f s
+subV, (^-^) :: (Zip f, Num s) => f s -> f s -> f s
 (^-^) = zipWith (-)
+subV = (^-^)
 
 -- Inner product
-(<.>) :: (Zip f, Foldable f, Num s) => f s -> f s -> s
+dotV, (<.>) :: (Zip f, Foldable f, Num s) => f s -> f s -> s
 x <.> y = sum (zipWith (*) x y)
+dotV = (<.>)
 
 -- Norm squared
 normSqr :: (Zip f, Foldable f, Num s) => f s -> s
 normSqr u = u <.> u
 
 -- Outer product
-(>.<) :: (Num s, Functor f, Functor g) => g s -> f s -> g (f s)
+outerV, (>.<) :: (Num s, Functor f, Functor g) => g s -> f s -> g (f s)
 x >.< y = (*^ y) <$> x
+outerV = (>.<)
 
 -- Would I rather prefer swapping the arguments (equivalently, transposing the
 -- result)?
