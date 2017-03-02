@@ -237,7 +237,7 @@ data Buses :: * -> * where
   FloatB   :: Source -> Buses Float
   DoubleB  :: Source -> Buses Double
   PairB    :: Buses a -> Buses b -> Buses (a :* b)
-  FunB     :: Ok2 (:>) a b => (a :> b) -> Buses (a -> b)
+  FunB     :: {-Ok2 (:>) a b => -} (a :> b) -> Buses (a -> b)
   ConvertB :: (T a, T b) => Buses a -> Buses b
   -- AbstB :: Buses (Rep b) -> Buses b
 
@@ -791,7 +791,7 @@ instance ProductCat (:>) where
 instance (Ok (:>) a, IfCat (:>) b) => IfCat (:>) (a -> b) where
   ifC = funIf
 
-unFunB :: Ok2 (:>) a b => Buses (a -> b) -> (a :> b)
+unFunB :: {- Ok2 (:>) a b => -} Buses (a -> b) -> (a :> b)
 unFunB (FunB ab)            = ab
 unFunB (ConvertB (FunB cd)) = convertC A.. cd A.. convertC
 unFunB bs                   = badBuses "unFunB" bs
