@@ -2,8 +2,9 @@
 %.pdf: %.dot Makefile
 	dot -Tpdf -Gmargin=0 -Gsize=10,10 $< -o $@
 
-%.svg: %.dot Makefile
-	dot -Tsvg $< -o $@
+# Remove page dimensions to make the results self-scaling
+%.svg: %.dot # Makefile
+	dot -Tsvg $< | sed -e 's/<svg width.*/<svg/'> $@
 
 %.png: %.dot
 	dot -Gdpi=200 -Tpng $< -o $@
@@ -18,7 +19,7 @@ $(FigDir):
 	mkdir -p $@
 
 $(FigDir)/%.svg: %.dot Makefile $(FigDir)
-	dot -Tsvg $< -o $@
+	dot -Tsvg $< | sed -e 's/<svg width.*/<svg/'> $@
 
 %.fig: $(FigDir)/%.svg
 	@
