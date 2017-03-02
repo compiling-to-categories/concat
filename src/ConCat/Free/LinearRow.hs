@@ -309,21 +309,23 @@ class OkLF f => HasL f where
 
 instance HasL U1 where
   -- linearL :: forall s g. (Num s, OkLF g) => (U1 s -> g s) -> (U1 :-* g) s
-  linearL h = U1 <$ h U1
+  -- linearL h = U1 <$ h U1
+  linearL h = const U1 <$> h U1
 
 --       h    :: U1 s -> g s
 --       h U1 :: g s
 -- U1 <$ h U1 :: g (U1 s)
 
 instance HasL Par1 where
-  linearL f = Par1 <$> f (Par1 1)
+  linearL h = Par1 <$> h (Par1 1)
 
---          f          :: Par1 s -> b s
---          f (Par1 1) :: b s
--- Par1 <$> f (Par1 1) :: b (Par1 s)
+--          h          :: Par1 s -> b s
+--          h (Par1 1) :: b s
+-- Par1 <$> h (Par1 1) :: b (Par1 s)
 
 instance (HasL f, HasL g) => HasL (f :*: g) where
-  linearL q = linearL (q . (:*: zeroV)) `joinL` linearL (q . (zeroV :*:))
+  -- linearL h = linearL (h . (:*: zeroV)) `joinL` linearL (h . (zeroV :*:))
+  linearL h = zipWith (:*:) (linearL (h . (:*: zeroV))) (linearL (h . (zeroV :*:)))
 
 --          q                :: (f :*: g) s -> h s
 --              (:*: zeroV)  :: f s -> (f :*: g) s
