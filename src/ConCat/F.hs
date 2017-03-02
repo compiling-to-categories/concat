@@ -123,6 +123,10 @@ class (Category k, Ok k a) => NumCat k a where
   negateC :: a `k` a
   addC, subC, mulC :: (a :* a) `k` a
 
+class HasRep a => RepCat k a where
+  reprC :: a `k` Rep a
+  abstC :: Rep a `k` a
+
 {--------------------------------------------------------------------
     Haskell types and functions ("Hask")
 --------------------------------------------------------------------}
@@ -430,10 +434,8 @@ newtype LM s a b = LMap (V s b (V s a s))
 scale :: V s s ~ Par1 => s -> LM s s s
 scale s = LMap (Par1 (Par1 s))
 
-type OkLM s a = (HasV s a, OkLF (V s a))
-
 instance Num s => Category (LM s) where
-  type Ok (LM s) a = OkLM s a
+  type Ok (LM s) a = (HasV s a, OkLF (V s a))
   id = LMap idL
   LMap g . LMap f = LMap (g `compL` f)
 
@@ -496,43 +498,10 @@ instance Num s => Cartesian (DF s) where
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
 
-#if 0
-addV :: forall s a. (HasV s a, Zip (V s a), Num s) => a -> a -> a
-addV = onV2 (^+^)
-
-instance OkCoprod (DF s) where okCoprod = Sub Dict
-
-instance Num s => Cocartesian (DF s) where
-  type Coprod (DF s) a b = a :* b
-  inl = linearD inl inl
-  inr = linearD inr inr
-  D f ||| D g = D (\ (a,b) -> let { (c,f') = f a ; (d,g') = g b } in (addV @s c d, f' ||| g'))
-  {-# INLINE inl #-}
-  {-# INLINE inr #-}
-  {-# INLINE (|||) #-}
-#endif
-
-#if 0
-
-f :: a s -> (c s, a s -> c s)
-g :: b s -> (c s, b s -> c s)
-
-a :: a s
-b :: b s
-c, d :: c s
-
-f' :: a s -> c s
-g' :: b s -> c s
-
-#endif
-
--- class (Category k, Ok k a) => NumCat (k :: u -> u -> *) (a :: u) where
-
--- data DF s (a :: * -> *) (b :: * -> *) 
-
 instance (Num s, V s s ~ Par1, Ok (LM s) s) => NumCat (DF s) s where
   negateC = linearD negateC (linear negateC) -- (scale (-1))
   addC    = linearD addC    (linear addC)    -- (id ||| id)
+  subC    = linearD subC    (linear subC)
   mulC    = D (mulC &&& \ (a,b) -> linear (\ (da,db) -> da * b + db * a))
             -- D (mulC &&& (\ (a,b) -> scale b ||| scale a))
 
@@ -561,21 +530,19 @@ data Ports :: * -> * where
   IntP    :: Port -> Ports Int
   DoubleP :: Port -> Ports Double
   PairP   :: Ports a -> Ports b -> Ports (a :* b)
-  FunP    :: Ok2 Graph a b => Graph a b -> Ports (a :=> b)
-
--- TODO: maybe replace Graph a b by (Ports a -> GraphM b) in FunP
+  FunP    :: Graph a b -> Ports (a :=> b)
+  AbstP   :: Ports (Rep a) -> Ports a
 
 badPorts :: String -> Ports a -> x
-badPorts nm p = error (nm ++ " got unexpected port " {- ++ show p -})
+badPorts nm _p = error (nm ++ " got unexpected port " {- ++ show _p -})
 
 instance Cartesian Graph where
   exl = Graph (\ (PairP a _) -> return a)
   exr = Graph (\ (PairP _ b) -> return b)
-  Graph f &&& Graph g = Graph ((liftA2.liftA2) PairP f g)
+  Graph f &&& Graph g = Graph (liftA2 (liftA2 PairP) f g)
 
-unFunP :: Ok2 Graph a b => Ports (a :=> b) -> Graph a b
-unFunP (FunP g) = g
-unFunP b = badPorts "unFunP" b
+instance Terminal Graph where
+  it = Graph (const (return UnitP))
 
 instance Closed Graph where
   apply :: Graph ((a :=> b) :* a) b
@@ -600,15 +567,13 @@ instance (GenPorts a, GenPorts b) => GenPorts (a,b) where
 
 -- Instantiate a primitive component
 genComp :: GenPorts b => String -> Graph a b
-genComp nm = Graph (\ a ->
-             do b <- genPorts
-                modify (second (Comp nm a b :))
-                return b)
+genComp name = Graph (\ pa ->
+               do pb <- genPorts
+                  modify (second (Comp name pa pb :))
+                  return pb)
 
 -- genComp2 :: GenPorts c => String -> Graph (a :* b) c
 -- genComp2 nm = genComp1 nm . Graph (\ ab -> return (PairP a b))
-
-#if 0
 
 instance BoolCat Graph where
   notC = genComp "¬"
@@ -616,17 +581,36 @@ instance BoolCat Graph where
   orC  = genComp "∨"
   xorC = genComp "⊕"
 
-instance Eq a => EqCat Graph (Ports a) where
-  equal    = genComp2 "≡"
-  notEqual = genComp2 "≠"
+instance (Eq a, GenPorts a) => EqCat Graph a where
+  equal    = genComp "≡"
+  notEqual = genComp "≠"
 
-instance (Num a, GenPorts a) => NumCat Graph (Ports a) where
-  type IntOf Graph = Ports Int
-  negateC = genComp1 "negate"
-  addC    = genComp2 "+"
-  subC    = genComp2 "-"
-  mulC    = genComp2 "×"
-  powIC   = genComp2 "↑"
+instance (Num a, GenPorts a) => NumCat Graph a where
+  negateC = genComp "negate"
+  addC    = genComp "+"
+  subC    = genComp "-"
+  mulC    = genComp "×"
+
+instance HasRep a => RepCat Graph a where
+  abstC = Graph (\ r -> return (AbstP r))
+  reprC = Graph (\ (AbstP r) -> return r)
+
+mkCircuit :: Ok2 Graph a b => String -> Graph a b -> IO ()
+mkCircuit = undefined
+
+ccc :: (a -> b) -> (a `k` b)
+ccc = undefined
+
+mainCirc :: IO ()
+mainCirc = mkCircuit "magSqr" (ccc (magSqr @Double))
+
+sqr :: Num a => a -> a
+sqr a = a * a
+
+magSqr :: Num a => a :* a -> a
+magSqr (a,b) = sqr a + sqr b
+
+#if 0
 
 -- The Eq and Num constraints aren't strictly necessary, but they serve to
 -- remind us of the expected translation from Eq and Num methods.
@@ -759,6 +743,8 @@ instance Cartesian (:->:) where
   exr :: forall a b. Ok2 (:->:) a b => (a,b) :->: b
   exr = toMemo exr <+ okProd @(:->:) @a @b
   (&&&) = inMemo2 (&&&)
+
+-- Memoizing exl and exr seems a pretty poor choice.
 
 instance OkCoprod (:->:) where okCoprod = Sub Dict
 
@@ -1130,3 +1116,39 @@ evalPoly (Poly p) = onV (evalPolyF p)
 
 #endif
 
+{--------------------------------------------------------------------
+    Interval analysis
+--------------------------------------------------------------------}
+
+type family Iv a
+
+type instance Iv R = R :* R
+type instance Iv (a :* b) = Iv a :* Iv b
+type instance Iv (a -> b) = Iv a -> Iv b  -- ?
+
+data IF a b = IF (Iv a -> Iv b)
+
+instance Category IF where
+  id = IF id
+  IF g . IF f = IF (g . f)
+
+instance Cartesian IF where
+  exl = IF exl
+  exr = IF exr
+  IF f &&& IF g = IF (f &&& g)
+
+instance Closed IF where
+  apply = IF apply
+  curry (IF f) = IF (curry f)
+  uncurry (IF g) = IF (uncurry g)
+
+-- TODO: Generalize via constIv method for HasIv
+instance Iv b ~ (b :* b) => ConstCat IF b where
+  const b = IF (const (b,b))
+
+instance (Iv a ~ (a :* a), Num a, Ord a) => NumCat IF a where
+  negateC = IF (\ (al,ah) -> (-ah, -al))
+  addC = IF (\ ((al,ah),(bl,bh)) -> (al+bl,ah+bh))
+  mulC = IF (\ ((al,ah),(bl,bh)) ->
+               let cs = [al*bl,al*bh,ah*bl,ah*bh] in
+                 (minimum cs, maximum cs))
