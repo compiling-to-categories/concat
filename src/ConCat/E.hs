@@ -208,30 +208,38 @@ class (Category k, Ok k a) => NumCat k a where
   type IntOf k :: u
   powIC :: Prod k a (IntOf k) `k` a
 
+instance Num a => NumCat (->) a where
+  negateC = negate
+  addC = uncurry (+)
+  subC = uncurry (-)
+  mulC = uncurry (*)
+  type IntOf (->) = Int
+  powIC = uncurry (^)
+
 {--------------------------------------------------------------------
     Functors
 --------------------------------------------------------------------}
 
-infixr 9 %, %%
+infixr 9 #, ##
 
 class (Category src, Category trg) => FunctorC f src trg | f -> src trg where
-  type f %% (a :: u) :: v
+  type f ## (a :: u) :: v
   type OkF f (a :: u) (b :: u) :: Constraint
-  (%) :: forall a b. OkF f a b => f -> src a b -> trg (f %% a) (f %% b)
+  (#) :: forall a b. OkF f a b => f -> src a b -> trg (f ## a) (f ## b)
 
 class FunctorC f src trg => CartesianFunctor f src trg where
-  preserveProd :: Dict ((f %% Prod src a b) ~ Prod trg (f %% a) (f %% b))
-  -- default preserveProd :: (f %% Prod src a b) ~ Prod trg (f %% a) (f %% b)
-  --              => Dict ((f %% Prod src a b) ~ Prod trg (f %% a) (f %% b))
+  preserveProd :: Dict ((f ## Prod src a b) ~ Prod trg (f ## a) (f ## b))
+  -- default preserveProd :: (f ## Prod src a b) ~ Prod trg (f ## a) (f ## b)
+  --              => Dict ((f ## Prod src a b) ~ Prod trg (f ## a) (f ## b))
   -- preserveProd = Dict
 
 -- This preserveProd default doesn't work in instances. Probably a GHC bug.
 
 class FunctorC f src trg => CocartesianFunctor f src trg where
-  preserveCoprod :: Dict ((f %% Coprod src a b) ~ Coprod trg (f %% a) (f %% b))
+  preserveCoprod :: Dict ((f ## Coprod src a b) ~ Coprod trg (f ## a) (f ## b))
 
 class FunctorC f src trg => CartesianClosedFunctor f src trg where
-  preserveExp :: Dict ((f %% Exp src a b) ~ Exp trg (f %% a) (f %% b))
+  preserveExp :: Dict ((f ## Exp src a b) ~ Exp trg (f ## a) (f ## b))
 
 #if 0
 -- Functor composition. I haven't been able to get a declared type to pass.
@@ -240,15 +248,15 @@ data (g #. f) = g :#. f
 
 -- compF :: forall u v w (p :: u -> u -> Type) (q :: v -> v -> Type) (r :: w -> w -> Type) f g (a :: u) (b :: u).
 --          (FunctorC f p q, FunctorC g q r)
---       => g -> f -> (a `p` b) -> ((g %% f %% a) `r` (g %% f %% b))
+--       => g -> f -> (a `p` b) -> ((g ## f ## a) `r` (g ## f ## b))
 
-(g `compF` f) pab = g % f % pab
+(g `compF` f) pab = g # f # pab
 
 -- instance (FunctorC f u v, FunctorC g v w) => FunctorC (g #. f) u w where
---   type (g #. f) %% a = g %% (f %% a)
+--   type (g #. f) ## a = g ## (f ## a)
 --   type OkF (g #. f) a b = OkF f a b
---   -- (%) (g :#. f) = (g %) . (f %)
---   (g :#. f) % a = g % (f % a)
+--   -- (#) (g :#. f) = (g #) . (f #)
+--   (g :#. f) # a = g # (f # a)
 #endif
 
 {--------------------------------------------------------------------
@@ -304,17 +312,17 @@ instance BoolCat (->) where
 data HFunctor (t :: * -> *) = HFunctor
 
 instance Functor t => FunctorC (HFunctor t) (->) (->) where
-  type HFunctor t %% a = t a
+  type HFunctor t ## a = t a
   type OkF (HFunctor t) a b = ()
-  (%) HFunctor = fmap
+  (#) HFunctor = fmap
 #else
 -- Alternatively, put the `FunctorC` constraint into `HFunctor`:
 data HFunctor (t :: * -> *) = Functor t => HFunctor
 
 instance FunctorC (HFunctor t) (->) (->) where
-  type HFunctor t %% a = t a
+  type HFunctor t ## a = t a
   type OkF (HFunctor t) a b = ()
-  (%) HFunctor = fmap
+  (#) HFunctor = fmap
 #endif
 
 {--------------------------------------------------------------------
@@ -549,9 +557,9 @@ unmapDict f = Sub (f Dict)
 data MapDict = MapDict
 
 instance FunctorC MapDict (:-) (->) where
-  type MapDict %% a = Dict a
+  type MapDict ## a = Dict a
   type OkF MapDict a b = ()
-  (%) MapDict = mapDict
+  (#) MapDict = mapDict
 
 -- -- Couldn't match type ‘Dict (a && b)’ with ‘(Dict a, Dict b)’
 -- instance CartesianFunctor MapDict (:-) (->) where preserveProd = Dict
@@ -577,14 +585,14 @@ entail f = unmapDict (toDict . f . unDict)
 data Entail = Entail
 
 instance FunctorC Entail (->) (:-) where
-  type Entail %% a = Con a
+  type Entail ## a = Con a
   type OkF Entail a b = (HasCon a, HasCon b)
-  (%) Entail = entail
+  (#) Entail = entail
 
 -- -- Couldn't match type ‘(Con a, Con b)’ with ‘Con a && Con b’.
 -- instance CartesianFunctor Entail (->) (:-) where preserveProd = Dict
 -- -- Fails:
--- preserveProd :: Dict (MapDict %% (a && b)) ~ (MapDict %% a, MapDict %% b)
+-- preserveProd :: Dict (MapDict ## (a && b)) ~ (MapDict ## a, MapDict ## b)
 
 -- Isomorphic but not equal.
 
@@ -658,9 +666,9 @@ toArg f = Arg (toV . f . unV)
 data ToArg (s :: Type) = ToArg
 
 instance FunctorC (ToArg s) (->) (Arg s) where
-  type ToArg s %% a = V s a
+  type ToArg s ## a = V s a
   type OkF (ToArg s) a b = (HasV s a, HasV s b)
-  (%) ToArg = toArg
+  (#) ToArg = toArg
 
 instance   CartesianFunctor (ToArg s) (->) (Arg s) where   preserveProd = Dict
 instance CocartesianFunctor (ToArg s) (->) (Arg s) where preserveCoprod = Dict
@@ -678,8 +686,10 @@ newtype LM s a b = LMap (V s b (V s a s))
 scale :: V s s ~ Par1 => s -> LM s s s
 scale s = LMap (Par1 (Par1 s))
 
-class    (HasV s a, OkLF (V s a)) => OkLM s a
-instance (HasV s a, OkLF (V s a)) => OkLM s a
+-- class    (HasV s a, OkLF (V s a)) => OkLM s a
+-- instance (HasV s a, OkLF (V s a)) => OkLM s a
+
+type OkLM s a = (HasV s a, OkLF (V s a))
 
 instance Num s => Category (LM s) where
   type Ok (LM s) a = OkLM s a
@@ -706,35 +716,28 @@ instance Num s => Terminal (LM s) where
   type Unit (LM s) = ()
   it = LMap itL
 
-toLMap :: (Ok2 (LM s) a b, HasL (V s a), Num s) => (a -> b) -> LM s a b
-toLMap h = LMap (linearL (inV h))
-
-data ToLMap s = ToLMap
-instance Num s => FunctorC (ToLMap s) (->) (LM s) where
-  type ToLMap s %% a = a
-  type OkF (ToLMap s) a b = (Ok2 (LM s) a b, HasL (V s a))
-  (%) ToLMap = toLMap
-
-instance Num s => CartesianFunctor (ToLMap s) (->) (LM s) where preserveProd = Dict
-
 -- Apply a linear map
 lapply :: (Ok2 (LM s) a b, Num s) => LM s a b -> (a -> b)
-lapply (LMap ba) = onV (lapplyL ba)
+lapply (LMap ba) = unV . lapplyL ba . toV
+-- lapply (LMap ba) = onV (lapplyL ba)
 
 data Lapply s = Lapply
 instance Num s => FunctorC (Lapply s) (LM s) (->) where
-  type Lapply s %% a = a
+  type Lapply s ## a = a
   type OkF (Lapply s) a b = Ok2 (LM s) a b
-  (%) Lapply = lapply
+  (#) Lapply = lapply
 
 linear :: (Ok2 (LM s) a b, HasL (V s a), Num s) => (a -> b) -> LM s a b
-linear h = LMap (linearL (inV h))
+linear h = LMap (linearL (toV . h . unV))
+-- linear h = LMap (linearL (inV h))
 
 data Linear s = Linear
 instance Num s => FunctorC (Linear s) (->) (LM s) where
-  type Linear s %% a = a
+  type Linear s ## a = a
   type OkF (Linear s) a b = (Ok2 (LM s) a b, HasL (V s a))
-  (%) Linear = linear
+  (#) Linear = linear
+
+instance Num s => CartesianFunctor (Linear s) (->) (LM s) where preserveProd = Dict
 
 {--------------------------------------------------------------------
     Differentiable functions
@@ -750,15 +753,15 @@ deriv f = snd . unD (andDeriv f)
 andDeriv :: (a -> b) -> DF s a b
 andDeriv f = D (f &&& deriv f)  -- specification
 
-linearD :: (Num s, Ok2 (LM s) a b) => LM s a b -> DF s a b
-linearD m = D (lapply m &&& const m)
+-- linearD :: (Num s, Ok2 (LM s) a b) => LM s a b -> DF s a b
+-- linearD m = D (lapply m &&& const m)
 
--- linearD :: (Num s, Ok2 (LM s) a b) => (a -> b) -> LM s a b -> DF s a b
--- linearD f f' = D (f &&& const f')
+linearD :: (Num s, Ok2 (LM s) a b) => (a -> b) -> LM s a b -> DF s a b
+linearD f f' = D (f &&& const f')
 
 instance Num s => Category (DF s) where
   type Ok (DF s) a = Ok (LM s) a
-  id = linearD id
+  id = linearD id id
   D g . D f = D (\ a -> let { (b,f') = f a; (c,g') = g b } in (c, g' . f'))
   {-# INLINE id #-}
   {-# INLINE (.) #-}
@@ -767,8 +770,8 @@ instance OkProd (DF s) where okProd = Sub Dict
 
 instance Num s => Cartesian (DF s) where
   type Prod (DF s) a b = a :* b
-  exl = linearD exl
-  exr = linearD exr
+  exl = linearD exl exl
+  exr = linearD exr exr
   D f &&& D g = D (\ a -> let { (b,f') = f a ; (c,g') = g a } in ((b,c), f' &&& g'))
   {-# INLINE exl #-}
   {-# INLINE exr #-}
@@ -782,8 +785,8 @@ instance OkCoprod (DF s) where okCoprod = Sub Dict
 
 instance Num s => Cocartesian (DF s) where
   type Coprod (DF s) a b = a :* b
-  inl = linearD inl
-  inr = linearD inr
+  inl = linearD inl inl
+  inr = linearD inr inr
   D f ||| D g = D (\ (a,b) -> let { (c,f') = f a ; (d,g') = g b } in (addV @s c d, f' ||| g'))
   {-# INLINE inl #-}
   {-# INLINE inr #-}
@@ -808,33 +811,21 @@ g' :: b s -> c s
 
 -- data DF s (a :: * -> *) (b :: * -> *) 
 
--- instance Num s => NumCat (DF s) Par1 where
---   negateC = linearD (scale (-1))
---   addC = linearD (id ||| id)
---   subC = linearD (id ||| scale (-1))
---   mulC = D (\ (Par1 a :*: Par1 b) -> (Par1 (a * b), scale b ||| scale a))
---   powIC = undefined
-
--- foo1 :: Num s => (Par1 :*: Par1) s -> Par1 s
--- foo1 (Par1 a :*: Par1 b) = Par1 (a * b)
-
--- foo2 :: Num s => (Par1 :*: Par1) s -> LM s (Par1 :*: Par1) Par1
--- foo2 (Par1 a :*: Par1 b) = scale b ||| scale a
-
--- foo3 :: Num s => (Par1 :*: Par1) s -> Par1 s :* LM s (Par1 :*: Par1) Par1
--- -- foo3 = foo1 &&& foo2
--- foo3 (Par1 a :*: Par1 b) = (Par1 (a * b), scale b ||| scale a)
-
--- (Par1 :* Par1) s -> Par1 s
-
--- (\ (Par1 x :*: Par1 y) -> Par1 (x*y))
+instance (Num s, V s s ~ Par1, Ok (LM s) s) => NumCat (DF s) s where
+  negateC = linearD negateC (linear negateC) -- (scale (-1))
+  addC    = linearD addC    (linear addC)    -- (id ||| id)
+  mulC    = D (mulC &&& \ (a,b) -> linear (\ (da,db) -> da * b + db * a))
+            -- D (mulC &&& (\ (a,b) -> scale b ||| scale a))
+  subC = addC . second negateC
+  type IntOf (DF s) = Int
+  powIC   = D (powIC &&& undefined)
 
 data Deriv s = Deriv
 instance Num s => FunctorC (Deriv s) (->) (DF s) where
-  type Deriv s %% a = a
-  type OkF (Deriv s) a b = OkF (ToLMap s) a b
-  (%) Deriv = andDeriv
-              -- oops "Deriv % not implemented"
+  type Deriv s ## a = a
+  type OkF (Deriv s) a b = OkF (Linear s) a b
+  (#) Deriv = andDeriv
+              -- oops "Deriv # not implemented"
 
 instance Num s => CartesianFunctor (Deriv s) (->) (DF s) where preserveProd = Dict
 
@@ -952,9 +943,9 @@ instance (HasStd a, HasStd b, HasStd c) => HasStd (a,b,c)
 data Standardize s = Standardize
 
 instance FunctorC (Standardize s) (->) (->) where
-  type Standardize s %% a = Standard a
+  type Standardize s ## a = Standard a
   type OkF (Standardize s) a b = (HasStd a, HasStd b)
-  (%) Standardize = standardize
+  (#) Standardize = standardize
 
 instance CartesianFunctor       (Standardize s) (->) (->) where preserveProd   = Dict
 instance CocartesianFunctor     (Standardize s) (->) (->) where preserveCoprod = Dict
@@ -1044,15 +1035,15 @@ instance Cocartesian (:->:) where
 
 data ToMemo = ToMemo
 instance FunctorC ToMemo (->) (:->:) where
-  type ToMemo %% a = a
+  type ToMemo ## a = a
   type OkF ToMemo a b = HasTrie a
-  (%) ToMemo = toMemo
+  (#) ToMemo = toMemo
 
 data UnMemo = UnMemo
 instance FunctorC UnMemo (:->:) (->) where
-  type UnMemo %% a = a
+  type UnMemo ## a = a
   type OkF UnMemo a b = HasTrie a
-  (%) UnMemo = unMemo
+  (#) UnMemo = unMemo
 
 {--------------------------------------------------------------------
     Free vector spaces as functions
@@ -1352,29 +1343,31 @@ instance OkProd Funky where okProd = Sub Dict
     Polynomials
 --------------------------------------------------------------------}
 
-type OkPoly b = (Pointed b, Functor b, Zip b)  -- OkLF b ?
+type OkPoly b = (Pointed b, Zip b)
 
 -- Poly R = []
 -- Poly (a,b) = Poly a :.: Poly b
 
 class Functor (PolyF a) => HasPoly a where
   type PolyF (a :: * -> *) :: * -> *
-  evalPoly :: (OkPoly c, Num s) => PolyF a (c s) -> a s -> c s
+  evalPolyF :: (OkPoly c, Num s) => PolyF a (c s) -> a s -> c s
+
+-- TODO: generalize from Num to Semiring
 
 instance HasPoly U1 where
   type PolyF U1 = U1
-  evalPoly :: (OkPoly c, Num s) => U1 (c s) -> U1 s -> c s
-  evalPoly U1 U1 = zeroV
+  evalPolyF :: (OkPoly c, Num s) => U1 (c s) -> U1 s -> c s
+  evalPolyF U1 U1 = zeroV
 
 instance HasPoly Par1 where
-  type PolyF Par1 = []
-  evalPoly :: (OkPoly c, Num s) => [c s] -> Par1 s -> c s
-  evalPoly c (Par1 s) = foldr (\ w z -> w ^+^ s *^ z) zeroV c
+  type PolyF Par1 = []  -- Could be any foldable
+  evalPolyF :: (OkPoly c, Num s) => [c s] -> Par1 s -> c s
+  evalPolyF c (Par1 s) = foldr (\ w z -> w ^+^ s *^ z) zeroV c
 
 instance (HasPoly a, HasPoly b) => HasPoly (a :*: b) where
   type PolyF (a :*: b) = PolyF a :.: PolyF b
-  evalPoly :: (OkPoly c, Num s) => (PolyF a :.: PolyF b) (c s) -> (a :*: b) s -> c s
-  evalPoly (Comp1 w) (a :*: b) = evalPoly (flip evalPoly b <$> w) a
+  evalPolyF :: (OkPoly c, Num s) => (PolyF a :.: PolyF b) (c s) -> (a :*: b) s -> c s
+  evalPolyF (Comp1 w) (a :*: b) = evalPolyF (flip evalPolyF b <$> w) a
 
 #if 0
   
@@ -1382,13 +1375,18 @@ w ::: PolyF a (PolyF b (c s))
 a :: a s
 b :: b s
 
-flip evalPoly b :: PolyF b (c s) -> c s
-flip evalPoly b <$> w :: PolyF a (c s)
-evalPoly (flip evalPoly b <$> w) a :: c s
+flip evalPolyF b :: PolyF b (c s) -> c s
+flip evalPolyF b <$> w :: PolyF a (c s)
+evalPolyF (flip evalPolyF b <$> w) a :: c s
 
 #endif
 
-data Poly a b = forall s. Num s => Poly (PolyF a (b s))
+-- Polynomials on structures of s values
+data Poly s a b = Poly (PolyF (V s a) (V s b s))
 
--- instance Category Poly where
---   id = ...
+-- The semantic functor
+evalPoly :: (HasV s a, HasV s b, Pointed (V s b), HasPoly (V s a),Zip (V s b), Num s)
+         => Poly s a b -> (a -> b)
+evalPoly (Poly p) = onV (evalPolyF p)
+
+-- Define the instances of Category etc so that evalPoly is a homomorphism.
