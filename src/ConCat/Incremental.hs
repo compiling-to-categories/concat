@@ -234,15 +234,15 @@ f ( da, b' .-. b) :: Delta c
 
 #endif
 
-atomic1 :: (Atomic a, Atomic b) => (a -> b) -> a -> (a -+> b)
-atomic1 f a = DelX $ \ case
+atomicD1 :: (Atomic a, Atomic b) => (a -> b) -> a -> (a -+> b)
+atomicD1 f a = DelX $ \ case
   Nothing -> Nothing
-  d       -> Just (f (appD d a))
+  d       -> Just (f (a .+^ d))
 
-atomic2 :: (Atomic a, Atomic b, Atomic c) => (a :* b -> c) -> a :* b -> (a :* b -+> c)
-atomic2 f ab = DelX $ \ case
+atomicD2 :: (Atomic a, Atomic b, Atomic c) => (a :* b -> c) -> a :* b -> (a :* b -+> c)
+atomicD2 f ab = DelX $ \ case
   (Nothing, Nothing) -> Nothing
-  d                  -> Just (f (appD d ab))
+  d                  -> Just (f (ab .+^ d))
 
 instance (r ~ Rep a, Delta a ~ Delta r) => RepCat (-+>) a r where
   reprC = DelX id
@@ -428,18 +428,26 @@ h :: a -> b :* (Delta a -> Delta (b -> c))
 
 -- TODO: Work on unifying more instances between D s and Inc.
 
-fullI1 :: (Atomic a, Atomic b) => (a -> b) -> Inc a b
-fullI1 f = D (\ a -> (f a, atomic1 f a))
+atomicI1 :: (Atomic a, Atomic b) => (a -> b) -> Inc a b
+atomicI1 f = D (\ a -> (f a, atomicD1 f a))
 
-fullI2 :: (Atomic a, Atomic b, Atomic c) => (a :* b -> c) -> Inc (a :* b) c
-fullI2 f = D (\ ab -> (f ab, atomic2 f ab))
+atomicI2 :: (Atomic a, Atomic b, Atomic c) => (a :* b -> c) -> Inc (a :* b) c
+atomicI2 f = D (\ ab -> (f ab, atomicD2 f ab))
+
+-- atomicI1' :: (Atomic a, Atomic b) => (a -> b) -> Inc a b
+-- atomicI1' f = D (\ a -> (f a, DelX (\ case  Nothing -> Nothing
+--                                             d       -> Just (f (a .+^ d)))))
+
+-- atomicI2' :: (Atomic a, Atomic b, Atomic c) => (a :* b -> c) -> Inc (a :* b) c
+-- atomicI2' f = D (\ ab -> (f ab, DelX (\ case  (Nothing, Nothing) -> Nothing
+--                                               d                  -> Just (f (ab .+^ d)))))
 
 instance (Atomic s, Num s) => NumCat Inc s where
-  negateC = fullI1 negateC
-  addC    = fullI2 addC
-  subC    = fullI2 subC
-  mulC    = fullI2 mulC
-  powIC   = fullI2 powIC
+  negateC = atomicI1 negateC
+  addC    = atomicI2 addC
+  subC    = atomicI2 subC
+  mulC    = atomicI2 mulC
+  powIC   = atomicI2 powIC
   {-# INLINE negateC #-}
   {-# INLINE addC    #-}
   {-# INLINE mulC    #-}
