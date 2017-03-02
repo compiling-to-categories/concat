@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -14,7 +16,7 @@
 
 module ConCat.Standardize where
 
-import Prelude hiding (id,(.),curry,uncurry)
+import Prelude hiding (id,(.),curry,uncurry,const)
 
 import Data.Constraint (Dict(..),(:-)(..))
 
@@ -38,7 +40,14 @@ class HasStandard a where
 --         is no smaller than the instance head
 --       (Use UndecidableInstances to permit this)
 
-instance HasStandard Int where { type Standard Int = Int ; toStd = id ; unStd = id }
+#define StdPrim(ty) \
+instance HasStandard (ty) where { type Standard (ty) = (ty) ; toStd = id ; unStd = id }
+
+StdPrim(())
+StdPrim(Bool)
+StdPrim(Int)
+StdPrim(Float)
+StdPrim(Double)
 
 instance (HasStandard a, HasStandard b) => HasStandard (a :* b) where
   type Standard (a :* b) = Standard a :* Standard b
@@ -78,11 +87,69 @@ instance CoproductCat StdFun where
 
 instance OpCon (:=>) (Sat HasStandard) where inOp = Entail (Sub Dict)
 
+instance DistribCat StdFun where
+  distl = StdFun distl
+  distr = StdFun distr
+
+instance TerminalCat StdFun where it = StdFun it
+
 instance ClosedCat StdFun where
   apply = StdFun apply
   curry (StdFun f) = StdFun (curry f)
   uncurry (StdFun f) = StdFun (uncurry f)
 
-standardize :: (a -> b) -> (Standard a -> Standard b)
-standardize f = f' where StdFun f' = ccc f
 
+instance HasStandard b => ConstCat StdFun b where
+  const b = StdFun (const (toStd b))
+
+instance BoolCat StdFun where
+  notC = StdFun notC
+  andC = StdFun andC
+  orC  = StdFun orC
+  xorC = StdFun xorC
+
+instance (HasStandard a, Eq (Standard a)) => EqCat StdFun a where
+  equal = StdFun equal
+  notEqual = StdFun notEqual
+
+instance (HasStandard a, Ord (Standard a)) => OrdCat StdFun a where
+  lessThan           = StdFun lessThan
+  greaterThan        = StdFun greaterThan
+  lessThanOrEqual    = StdFun lessThanOrEqual
+  greaterThanOrEqual = StdFun greaterThanOrEqual
+
+instance (HasStandard a, Num (Standard a)) => NumCat StdFun a where
+  negateC = StdFun negateC
+  addC    = StdFun addC
+  subC    = StdFun subC
+  mulC    = StdFun mulC
+  powIC   = StdFun powIC
+
+instance (HasStandard a, Fractional (Standard a)) =>  FractionalCat StdFun a where
+  recipC  = StdFun recipC
+  divideC = StdFun divideC
+
+instance (HasStandard a, Floating (Standard a)) =>  FloatingCat StdFun a where
+  expC = StdFun expC
+  cosC = StdFun cosC
+  sinC = StdFun sinC
+
+{--------------------------------------------------------------------
+    CCC interface
+--------------------------------------------------------------------}
+
+standardize :: (HasStandard a, HasStandard b) => (a -> b) -> (Standard a -> Standard b)
+standardize = toStd <~ unStd
+-- standardize = toStd
+-- standardize (ccc -> StdFun f') = f'
+-- standardize f = f' where StdFun f' = ccc f
+
+{--------------------------------------------------------------------
+    Instances
+--------------------------------------------------------------------}
+
+-- TODO: merge into Rep
+
+instance (HasStandard a,HasStandard b,HasStandard c) => HasStandard (a,b,c)
+
+-- ...
