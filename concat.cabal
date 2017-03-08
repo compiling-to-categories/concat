@@ -66,8 +66,10 @@ library
                        ConCat.Incremental
                        ConCat.Interval
                        ConCat.GradientDescent
+                       ConCat.Synchronous
                        ConCat.Additive
                        ConCat.ADFun2
+                       ConCat.Polynomial
 
                        ConCat.C
                        ConCat.D
