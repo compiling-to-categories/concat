@@ -1167,6 +1167,7 @@ catOpArities = Map.fromList $ map (\ (nm,m,n) -> (catModule ++ '.' : nm, (m,n)))
   , ("reprC",0,0), ("abstC",0,0)
   , ("reprCp",0,0), ("abstCp",0,0)
   , ("constFun",1,0)
+  , ("ambC",0,0)  -- experiment. How to factor out?
   ]
 
 -- TODO: also handle non-categorical arguments, as in unitArrow and const. Maybe
