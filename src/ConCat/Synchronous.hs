@@ -7,19 +7,17 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+-- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
 -- | Synchronous stream transformers as Mealy machines
 
-module ConCat.Mealy where
+module ConCat.Synchronous where
 
 import Prelude hiding (id,(.),curry,uncurry,const,scanl)
+import Data.Function (fix)
 import Data.Tuple (swap)
 
-import Control.Newtype (Newtype(..))
-
 import ConCat.Misc ((:*))
-import ConCat.Rep
 import ConCat.Category
 
 -- | Mealy stream transformer represented as Mealy machine.
@@ -31,6 +29,7 @@ data Mealy a b = forall s. Mealy (a :* s -> b :* s) s
 sapply :: Mealy a b -> [a] -> [b]
 sapply (Mealy h s0) = go s0
   where
+    go _ []     = []
     go s (a:as) = b:bs
       where (b,s') = h (a,s)
             bs     = go s' as
@@ -145,3 +144,38 @@ scanl op = Mealy (\ (a,b) -> dup (b `op` a))
 
 scan :: Monoid m => Mealy m m
 scan = scanl mappend mempty
+
+{--------------------------------------------------------------------
+    
+--------------------------------------------------------------------}
+
+type Stream = []  -- infinite-only. To do: use real streams.
+
+newtype StreamX a b = StreamX (Stream a -> Stream b)
+
+fixSX :: StreamX (a :* b) b -> StreamX a b
+fixSX (StreamX h) = StreamX (\ as -> fix (\ bs -> h (as `zip` bs)))
+-- fixSX (StreamX h) = StreamX (\ as -> let bs = h (as `zip` bs) in bs)
+
+-- fixMealy :: forall a b. Mealy (a :* b) b -> Mealy a b
+-- fixMealy (Mealy h s0) = Mealy (k t0)
+--  where
+--    ...
+
+-- h :: (a :* b) :* s -> b :* s
+--   =~ a -> (b :* s -> b :* s)
+
+-- k :: a :* s -> b :* s
+   
+
+
+
+{--------------------------------------------------------------------
+    Examples
+--------------------------------------------------------------------}
+
+fibL2 :: Num a => [a]
+fibL2 = 0 : 1 : zipWith (+) fibL2 (tail fibL2)
+
+fibL3 :: Num a => [a]
+fibL3 = 0 : zipWith (+) (1 : fibL3) fibL3
