@@ -55,7 +55,7 @@ module Main where
 
 import Prelude hiding (Float,Double)   -- ,id,(.),const
 
-import Control.Arrow (second)
+import Control.Arrow (second,runKleisli)
 import Data.Tuple (swap)
 import Data.Maybe
 import Distribution.TestSuite
@@ -75,15 +75,46 @@ import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay,(:>))
-import ConCat.AltCat (ccc,reveal,Uncurriable(..),U2(..),(:**:)(..),Ok2,reprC,abstC,mulC)
+import ConCat.AltCat
+  ( ccc,reveal,Uncurriable(..),U2(..),(:**:)(..),Ok2
+  , reprC,abstC,mulC,amb,ambC,asKleisli )
 import qualified ConCat.AltCat as A
 import ConCat.Rebox () -- experiment
 import ConCat.Orphans ()
 import ConCat.GradientDescent
 
+amb1 :: Int -> Int
+amb1 x = x `amb` x+1
+-- amb1 x = ambC (x,x+1)
+{-# INLINE amb1 #-}
+
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
+
+--   , print (runKleisli (ccc amb1) 5 :: [Int])
+
+--   , print (asKleisli (\ x -> x `amb` x+1) 5 :: [Int])
+
+--   , print (runKleisli (ccc (\ x -> x `amb` x+1)) 5 :: [Int])
+
+--   , print (runKleisli (ccc (ccc (\ x -> curry ambC x (x+1)))) 5 :: [Int])
+
+--   , print (runKleisli (ccc (ccc (\ x -> x `amb` x+1))) 5 :: [Int])
+
+--   , print (runKleisli (ccc (ccc amb1)) 5 :: [Int])
+
+--   , print (runKleisli (ccc (\ x -> ambC (x,x+1))) 5 :: [Int])
+
+--   , print (runKleisli (ccc (ccc (\ x -> let z = ambC (x,x+1) in z*z))) 5 :: [Int])
+
+--   , print (runKleisli (ccc (ccc (\ x -> ambC (x,x+1) * ambC (x,x+1)))) 5 :: [Int])
+
+--   , print (asKleisli (\ x -> ambC (x,x+1) * ambC (x,x+1)) 5 :: [Int])
+
+  , print (asKleisli (\ x -> let z = x `amb` x+1 in z*z) 5 :: [Int])
+
+  , print (asKleisli (\ x -> (x `amb` x+1) * (x `amb` x+1)) 5 :: [Int])
 
 --   , test "min" (uncurry (min @Int))
 
@@ -91,7 +122,7 @@ main = sequence_
 
 --   , test "minmax4" (\ w -> (min4 w :: Int, max4 w))
 
-  , print (unIF (ccc (sqr @Int)) (2,5))
+--   , print (unIF (ccc (sqr @Int)) (2,5))
 
 --   , test "sqr-iv" (unIF (ccc (sqr @Int)))
 
