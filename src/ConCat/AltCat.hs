@@ -26,6 +26,7 @@ module ConCat.AltCat
 
 import Prelude hiding (id,(.),curry,uncurry,const,Float,Double)
 import qualified Prelude as P
+import Control.Arrow (runKleisli)
 import qualified Data.Tuple as P
 import GHC.Exts (Coercible,coerce)
 import Data.Constraint ((\\))
@@ -51,6 +52,7 @@ import ConCat.Category
   , U2(..), (:**:)(..)
   , type (|-)(..), (<+), okProd
   , OpCon(..),FunctorC(..),Sat(..)
+  , AmbCat
   )
 
 -- | Dummy identity function set up to trigger rewriting of non-inlining
@@ -217,6 +219,23 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 
 pair :: forall k a b. (ClosedCat k, Ok2 k a b) => a `k` Exp k b (Prod k a b)
 pair = curry id <+ okProd @k @a @b
+
+Op0(ambC,AmbCat k => Prod k a a `k` a)
+
+infixl 1 `amb`
+amb :: a -> a -> a
+-- amb = curry ambC
+-- {-# INLINE amb #-}
+amb = oops "amb called"
+{-# NOINLINE amb #-}
+{-# RULES "amb" amb = curry ambC #-}
+
+asKleisli :: forall m a b . (a -> b) -> (a -> m b)
+asKleisli _ = oops "asKleisli called"
+{-# NOINLINE asKleisli #-}
+{-# RULES "asKleisli" forall h. asKleisli h = runKleisli (ccc (ccc h)) #-}
+
+-- TODO: maybe a second ccc (for simplification)
 
 {--------------------------------------------------------------------
     Automatic uncurrying

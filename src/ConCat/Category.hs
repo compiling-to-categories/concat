@@ -1018,7 +1018,7 @@ instance (ClosedCat k, OpSat (Prod k) con, OpSat (Exp k) con) => ClosedCat (Cons
 -- I don't think I want the general Kleisli instances for the rest.
 -- For instance, for circuits, type BoolOf (:>) = Source Bool.
 
--- #define KleisliInstances
+#define KleisliInstances
 
 -- Adapted from Circat.Classes
 
@@ -1080,7 +1080,7 @@ instance Eq a => EqCat (->) a where
   equal    = uncurry (==)
   notEqual = uncurry (/=)
 
-#ifdef Kleisli
+#ifdef KleisliInstances
 instance (Monad m, Eq a) => EqCat (Kleisli m) a where
   equal    = arr equal
   notEqual = arr notEqual
@@ -1110,7 +1110,7 @@ instance Ord a => OrdCat (->) a where
   lessThanOrEqual    = uncurry (<=)
   greaterThanOrEqual = uncurry (>=)
 
-#ifdef Kleisli
+#ifdef KleisliInstances
 instance (Monad m, Ord a) => OrdCat (Kleisli m) a where
   lessThan           = arr lessThan
   greaterThan        = arr greaterThan
@@ -1169,7 +1169,7 @@ instance Num a => NumCat (->) a where
   mulC    = uncurry (*)
   powIC   = uncurry (^)
 
-#ifdef Kleisli
+#ifdef KleisliInstances
 instance (Monad m, Num a) => NumCat (Kleisli m) a where
   negateC = arr negateC
   addC    = arr addC
@@ -1210,7 +1210,7 @@ instance Fractional a => FractionalCat (->) a where
   recipC = recip
   divideC = uncurry (/)
 
-#ifdef Kleisli
+#ifdef KleisliInstances
 instance (Monad m, Fractional a) => FractionalCat (Kleisli m) a where
   recipC  = arr recipC
   divideC = arr divideC
@@ -1234,7 +1234,7 @@ instance Floating a => FloatingCat (->) a where
   cosC = cos
   sinC = sin
 
-#ifdef Kleisli
+#ifdef KleisliInstances
 instance (Monad m, Floating a) => FloatingCat (Kleisli m) a where
   expC = arr expC
   cosC = arr cosC
@@ -1262,7 +1262,7 @@ class FromIntegralCat k a b where
 instance (Integral a, Num b) => FromIntegralCat (->) a b where
   fromIntegralC = fromIntegral
 
-#ifdef Kleisli
+#ifdef KleisliInstances
 instance (Monad m, Integral a, Num b) => FromIntegralCat (Kleisli m) a b where
   fromIntegralC = arr fromIntegral
 #endif
@@ -1303,7 +1303,7 @@ class (BoolCat k, Ok k a) => IfCat k a where
 instance IfCat (->) a where
   ifC (i,(t,e)) = if i then t else e
 
-#ifdef Kleisli
+#ifdef KleisliInstances
 instance Monad m => IfCat (Kleisli m) a where
   ifC = arr ifC
 #endif
@@ -1450,3 +1450,16 @@ class (Category k, Category k'{-, OkTarget f k k'-})
   -- Laws:
   -- fmapC id == id
   -- fmapC (q . p) == fmapC q . fmapC p
+
+{--------------------------------------------------------------------
+    Experiments
+--------------------------------------------------------------------}
+
+class AmbCat k where ambC :: (a :* a) `k` a
+
+instance AmbCat (->) where
+  ambC _ = error "ambC: not defined on (->)"
+  PINLINER(ambC)
+
+instance AmbCat (Kleisli []) where ambC = Kleisli (\ (a,b) -> [a,b])
+
