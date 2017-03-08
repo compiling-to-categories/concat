@@ -222,6 +222,7 @@ data PseudoFun = PseudoFun deriving (Typeable,Data)
 oops :: String -> b
 oops str = unsafeCoerce ("Oops --- "++str++" called!")
 {-# NOINLINE oops #-}
+-- {-# RULES "oops" [0] forall str. oops str = error ("Oops --- "++str++" called!") #-}
 
 bottom :: a
 bottom = error "bottom evaluated"
