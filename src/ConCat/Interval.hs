@@ -16,7 +16,7 @@ import Prelude hiding (id,(.),curry,uncurry,const)
 
 import Control.Newtype
 
-import ConCat.Misc ((:*),R,inNew,inNew2)
+import ConCat.Misc ((:*),(:+),R,inNew,inNew2)
 import ConCat.Category
 
 type family Iv a
@@ -59,6 +59,17 @@ instance ProductCat IF where
   exr = pack exr
   -- IF f &&& IF g = IF (f &&& g)
   (&&&) = inNew2 (&&&)
+
+type instance Iv (a :+ b) = Iv a :+ Iv b
+
+instance CoproductCat IF where
+  inl = pack inl
+  inr = pack inr
+  (|||) = inNew2 (|||)
+
+instance DistribCat IF where
+  distl = pack distl
+  distr = pack distr
 
 type instance Iv (a -> b) = Iv a -> Iv b
 
