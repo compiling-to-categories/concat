@@ -25,7 +25,7 @@ import GHC.Generics ((:*:)(..),(:.:)(..),Par1(..),U1(..))
 
 import Data.Pointed (Pointed(..))
 import Data.Key (Zip(..))
-import Control.Newtype
+import Control.Newtype (Newtype(..))
 import Data.Constraint (Constraint,Dict(..),(:-)(..))
 
 import ConCat.Misc ((:*),Binop,inNew,inNew2)
@@ -43,8 +43,13 @@ class Functor (PolyF a) => HasPoly a where
   type PolyF (a :: * -> *) :: * -> *
   evalP :: Num s => a s -> PolyF a s -> s
   constP :: w -> PolyF a w
-  zeroP :: PolyF a w            -- maybe drop for constP
+  zeroP :: PolyF a w
   idP :: Num s => a (PolyF a s)
+  zipWithP :: Binop w -> Binop (PolyF a w)
+
+-- Addition of polynomial representations
+addP :: forall a s. (HasPoly a, Num s) => Binop (PolyF a s)
+addP = zipWithP @a (+)
 
 -- TODO: generalize from Num to Semiring
 
@@ -74,6 +79,7 @@ instance HasPoly U1 where
   constP _ = U1
   zeroP = U1
   idP = U1
+  zipWithP _ U1 U1 = U1
 
 instance HasPoly Par1 where
   type PolyF Par1 = []  -- Could be any foldable
@@ -82,6 +88,13 @@ instance HasPoly Par1 where
   constP w = [w]
   zeroP = []
   idP = Par1 [0,1]
+  zipWithP :: Binop w -> Binop [w]
+  zipWithP op = go
+   where
+     go [] [] = []
+     go as [] = as
+     go [] bs = bs
+     go (a:as) (b:bs) = (a `op` b) : go as bs
 
 instance (HasPoly a, HasPoly b, Functor a, Functor b) => HasPoly (a :*: b) where
   type PolyF (a :*: b) = PolyF a :.: PolyF b
@@ -93,8 +106,16 @@ instance (HasPoly a, HasPoly b, Functor a, Functor b) => HasPoly (a :*: b) where
   zeroP = Comp1 (zeroP @a @(PolyF b w))
   idP :: Num s => (a :*: b) (PolyF (a :*: b) s)
   idP = Comp1 <$> ((fmap.fmap) (constP @b) (idP @a) :*: fmap (constP @a) (idP @b))
+  zipWithP :: Binop w -> Binop ((PolyF a :.: PolyF b) w)
+  zipWithP = inNew2 . zipWithP @a . zipWithP @b
 
 #if 0
+
+ab  :: PolyF a (PolyF b w)
+ab' :: PolyF a (PolyF b w)
+
+
+
 
 idP @a :: a (PolyF a s)
 idP @b :: b (PolyF b s)
