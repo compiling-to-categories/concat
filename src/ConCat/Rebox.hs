@@ -41,6 +41,20 @@ boxIB i = tagToEnum# i
 "boxI <"  forall u v   . boxIB (u <#  v)          = lessThan           (boxI u,boxI v)
 "boxI <=" forall u v   . boxIB (u <=# v)          = lessThanOrEqual    (boxI u,boxI v)
 
+"boxF ==" forall u v   . boxIB (u `eqFloat#` v)   = equal              (boxF u,boxF v)
+"boxF /=" forall u v   . boxIB (u `neFloat#` v)   = notEqual           (boxF u,boxF v)
+"boxF >"  forall u v   . boxIB (u `gtFloat#` v)   = greaterThan        (boxF u,boxF v)
+"boxF >=" forall u v   . boxIB (u `geFloat#` v)   = greaterThanOrEqual (boxF u,boxF v)
+"boxF <"  forall u v   . boxIB (u `ltFloat#` v)   = lessThan           (boxF u,boxF v)
+"boxF <=" forall u v   . boxIB (u `leFloat#` v)   = lessThanOrEqual    (boxF u,boxF v)
+
+"boxD ==" forall u v   . boxIB (u ==## v)         = equal              (boxD u,boxD v)
+"boxD /=" forall u v   . boxIB (u /=## v)         = notEqual           (boxD u,boxD v)
+"boxD >"  forall u v   . boxIB (u >##  v)         = greaterThan        (boxD u,boxD v)
+"boxD >=" forall u v   . boxIB (u >=## v)         = greaterThanOrEqual (boxD u,boxD v)
+"boxD <"  forall u v   . boxIB (u <##  v)         = lessThan           (boxD u,boxD v)
+"boxD <=" forall u v   . boxIB (u <=## v)         = lessThanOrEqual    (boxD u,boxD v)
+
 -- TODO: shorten the OrdCat names
 
 "boxI negate" forall u . boxI (negateInt# u)      = negateC (boxI u)
