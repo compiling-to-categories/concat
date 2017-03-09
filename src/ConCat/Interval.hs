@@ -36,6 +36,8 @@ instance Category IF where
   id = pack id
   -- IF g . IF f = IF (g . f)
   (.) = inNew2 (.)
+  {-# INLINE id #-}
+  {-# INLINE (.) #-}
 
 {-
     • Overlapping instances for Yes1 (Iv a) arising from a use of ‘id’
@@ -59,6 +61,9 @@ instance ProductCat IF where
   exr = pack exr
   -- IF f &&& IF g = IF (f &&& g)
   (&&&) = inNew2 (&&&)
+  {-# INLINE exl #-}
+  {-# INLINE exr #-}
+  {-# INLINE (&&&) #-}
 
 type instance Iv (a :+ b) = Iv a :+ Iv b
 
@@ -66,10 +71,15 @@ instance CoproductCat IF where
   inl = pack inl
   inr = pack inr
   (|||) = inNew2 (|||)
+  {-# INLINE inl #-}
+  {-# INLINE inr #-}
+  {-# INLINE (|||) #-}
 
 instance DistribCat IF where
   distl = pack distl
   distr = pack distr
+  {-# INLINE distl #-}
+  {-# INLINE distr #-}
 
 type instance Iv (a -> b) = Iv a -> Iv b
 
@@ -79,10 +89,15 @@ instance ClosedCat IF where
   -- uncurry (IF g) = IF (uncurry g)
   curry = inNew curry
   uncurry = inNew uncurry
+  {-# INLINE apply #-}
+  {-# INLINE curry #-}
+  {-# INLINE uncurry #-}
 
 instance Iv b ~ (b :* b) => ConstCat IF b where
-    const b = IF (const (b,b))
-    unitArrow b = IF (unitArrow (b,b))
+  const b = IF (const (b,b))
+  unitArrow b = IF (unitArrow (b,b))
+  {-# INLINE const #-}
+  {-# INLINE unitArrow #-}
 
 -- instance RepCat (->) a r => RepCat IF a r where
 
@@ -94,6 +109,10 @@ instance (Iv a ~ (a :* a), Num a, Ord a) => NumCat IF a where
                let cs = ((al*bl,al*bh),(ah*bl,ah*bh)) in
                  (min4 cs, max4 cs))
   powIC = error "powIC: not yet defined on IF"
+  {-# INLINE negateC #-}
+  {-# INLINE addC #-}
+  {-# INLINE subC #-}
+  {-# INLINE mulC #-}
 
 min4,max4 :: Ord a => ((a :* a) :* (a :* a)) -> a
 min4 ((a,b),(c,d)) = min (min a b) (min c d)
