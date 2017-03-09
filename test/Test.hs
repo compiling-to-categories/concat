@@ -14,6 +14,8 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
+{-# OPTIONS -Wno-type-defaults #-}
+
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 -- {-# OPTIONS_GHC -Wno-unused-binds   #-}
@@ -31,7 +33,7 @@
 {-# OPTIONS_GHC -fexpose-all-unfoldings #-}
 
 -- Tweak simpl-tick-factor from default of 100
-{-# OPTIONS_GHC -fsimpl-tick-factor=800 #-}
+{-# OPTIONS_GHC -fsimpl-tick-factor=2800 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
@@ -82,6 +84,21 @@ import ConCat.Rebox () -- experiment
 import ConCat.Orphans ()
 import ConCat.GradientDescent
 
+default (Int, Double)
+
+horner :: Num a => [a] -> a -> a
+
+-- horner coeffs a = foldr (\ w z -> w + a * z) 0 coeffs
+
+-- horner coeffs0 a = go coeffs0
+--  where
+--    go [] = a
+--    go (c:cs) = c + a * go cs
+
+-- This version inlines
+horner []     _ = 0
+horner (c:cs) a = c + a * horner cs a
+
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
@@ -104,11 +121,21 @@ main = sequence_
 
 --   , test "magSqr-iv" (unIF (ccc (magSqr @Int)))
 
---   , test "poly1" (\ x -> x + 3*x + sqr x :: Double)
+--   , test "poly1" (\ x -> 1 + 3 * x + 5 * x^2 :: Double)
 
-  -- TODO: Float
+--   , test "poly1-iv" (unIF (ccc (\ x -> 1 + 3 * x + 5 * x^2 :: Double)))
 
-  , test "poly1-iv-f" (unIF (ccc (\ x -> x + 3*x + sqr x :: Float)))
+--   , test "horner" (horner @Double [1,3,5])
+
+--   , test "horner-iv" (ivFun (horner @Double [1,3,5]))
+
+  , test "poly1-der" (der (\ x -> 1 + 3 * x + 5 * x^2 :: Double))
+
+--   , test "poly1-der-iv" (unIF (ccc (der (\ x -> 1 + 3 * x + 5 * x^2 :: Double))))
+
+--   , test "horner-der" (der (horner @Double [1,3,5])) -- times out
+
+--   , test "horner-der-iv" (ivFun (der (horner @Double [1,3,5])))
 
 --   , test "a3b" (\ (a,b) -> a + 3 * b :: Int)
 
