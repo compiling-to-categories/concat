@@ -16,14 +16,15 @@ import Prelude hiding (id,(.),curry,uncurry,const)
 
 import Control.Newtype
 
-import ConCat.Misc ((:*),(:+),R,inNew,inNew2)
+import ConCat.Misc ((:*),(:+),inNew,inNew2)
 import ConCat.Category
 
 type family Iv a
 
-type instance Iv ()  = ()
-type instance Iv R   = R   :* R
-type instance Iv Int = Int :* Int
+type instance Iv ()     = ()
+type instance Iv Float  = Float  :* Float
+type instance Iv Double = Double :* Double
+type instance Iv Int    = Int    :* Int
 
 data IF a b = IF { unIF :: Iv a -> Iv b }
 
