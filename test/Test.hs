@@ -99,9 +99,15 @@ horner :: Num a => [a] -> a -> a
 horner []     _ = 0
 horner (c:cs) a = c + a * horner cs a
 
+
+
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
+
+--   , test "const2-0-der" (der (\ (_::R,_::R) -> 0 :: R))
+
+  , test "const2-0-uncurry-der" (der (uncurry (\ (_::R) (_::R) -> 0 :: R)))
 
 --   , print (asKleisli (\ x -> let z = x `amb` x+1 in z*z) 5 :: [Int])
 
@@ -123,15 +129,15 @@ main = sequence_
 
 --   , test "poly1" (\ x -> 1 + 3 * x + 5 * x^2 :: Double)
 
---   , test "poly1-iv" (unIF (ccc (\ x -> 1 + 3 * x + 5 * x^2 :: Double)))
+--   , test "poly1-iv" (ivFun (\ x -> 1 + 3 * x + 5 * x^2 :: Double))
 
 --   , test "horner" (horner @Double [1,3,5])
 
 --   , test "horner-iv" (ivFun (horner @Double [1,3,5]))
 
-  , test "poly1-der" (der (\ x -> 1 + 3 * x + 5 * x^2 :: Double))
+--   , test "poly1-der" (der (\ x -> 1 + 3 * x + 5 * x^2 :: Double))
 
---   , test "poly1-der-iv" (unIF (ccc (der (\ x -> 1 + 3 * x + 5 * x^2 :: Double))))
+--   , test "poly1-der-iv" (ivFun (der (\ x -> 1 + 3 * x + 5 * x^2 :: Double)))
 
 --   , test "horner-der" (der (horner @Double [1,3,5])) -- times out
 
