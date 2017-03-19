@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -13,11 +15,18 @@
 module ConCat.Interval where
 
 import Prelude hiding (id,(.),curry,uncurry,const)
+import GHC.Exts (Coercible,coerce)
 
 import Control.Newtype
 
 import ConCat.Misc ((:*),(:+),inNew,inNew2)
 import ConCat.Category
+import ConCat.AltCat (ccc)
+
+-- For Iv instances:
+import GHC.Generics (U1(..),(:*:)(..),Par1(..),(:.:)(..))
+import ConCat.Free.VectorSpace (V)
+import ConCat.Free.LinearRow (L)
 
 type family Iv a
 
@@ -25,6 +34,15 @@ type instance Iv ()     = ()
 type instance Iv Float  = Float  :* Float
 type instance Iv Double = Double :* Double
 type instance Iv Int    = Int    :* Int
+
+#define NewtypeIv(ty) type instance Iv (ty) = Iv (O (ty))
+
+NewtypeIv(Par1 a)
+NewtypeIv(L s a b)
+-- TODO: more NewtypeIv
+
+--     • Illegal nested type family application ‘Iv (O (L s a b))’
+--       (Use UndecidableInstances to permit this)
 
 data IF a b = IF { unIF :: Iv a -> Iv b }
 
@@ -118,3 +136,18 @@ instance (Iv a ~ (a :* a), Num a, Ord a) => NumCat IF a where
 min4,max4 :: Ord a => ((a :* a) :* (a :* a)) -> a
 min4 ((a,b),(c,d)) = min (min a b) (min c d)
 max4 ((a,b),(c,d)) = max (max a b) (max c d)
+
+-- class CoerceCat k a b where coerceC :: a `k` b
+
+instance (Coercible (Iv a) (Iv b)) => CoerceCat IF a b where
+  coerceC = IF coerceC
+
+{--------------------------------------------------------------------
+    ccc driver
+--------------------------------------------------------------------}
+
+ivFun :: (a -> b) -> (Iv a -> Iv b)
+ivFun _ = error "ivFun called"
+{-# NOINLINE ivFun #-}
+{-# RULES "ivFun" forall h. ivFun h = unIF (ccc h) #-}
+
