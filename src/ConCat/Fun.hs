@@ -9,6 +9,8 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
 
+{-# LANGUAGE UndecidableInstances #-}  -- TEMP
+
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
@@ -19,6 +21,8 @@
 module ConCat.Fun where
 
 import Data.Monoid ((<>))
+import Data.Foldable
+import Control.Applicative (liftA2)
 import Control.Arrow ((***),(|||))
 
 import ConCat.Misc ((:+),(:*),(<~),Unop,Binop)
@@ -36,6 +40,7 @@ f (h ()) :: m
 
 instance Foldable ((->) Bool) where
   foldMap f h = f (h False) <> f (h True)
+  fold h = h False <> h True
 
 #if 0
 
@@ -48,6 +53,7 @@ f (h True ) :: m
 
 instance (Foldable ((->) a), Foldable ((->) b)) => Foldable ((->) (a :+ b)) where
   foldMap f h = foldMap f (h . Left) <> foldMap f (h . Right)
+  fold h = fold (h . Left) <> fold (h . Right)
 
 #if 0
 
@@ -62,6 +68,8 @@ foldMap f (h . Right) :: m
 
 instance (Foldable ((->) a), Foldable ((->) b)) => Foldable ((->) (a :* b)) where
   foldMap f h = (foldMap . foldMap) f (curry h)
+  -- fold h = fold (fmap fold (curry h))
+  fold h = fold (fold . curry h)
 
 #if 0
 
@@ -173,7 +181,8 @@ instance Ordable () where
   unOrd i = error ("unOrd @(): bad index: " ++ show i)
 
 instance Ordable Bool where
-  toOrd b = if b then 1 else 0
+  -- toOrd b = if b then 1 else 0
+  toOrd = bool 0 1
   unOrd 0 = False
   unOrd 1 = True
   unOrd i = error ("unOrd @Bool: bad index: " ++ show i)
@@ -193,8 +202,9 @@ instance (Ordable a, HasCard b, Ordable b) => Ordable (a :* b) where
 -- Maybe use `Enum` instead:
 
 instance (Enum a, HasCard a, Enum b) => Enum (a :+ b) where
-  fromEnum (Left  a) = fromEnum a
-  fromEnum (Right b) = card @a + fromEnum b
+  -- fromEnum (Left  a) = fromEnum a
+  -- fromEnum (Right b) = card @a + fromEnum b
+  fromEnum = fromEnum ||| (card @a +) . fromEnum
   toEnum i | i < card @a = Left  (toEnum i)
            | otherwise   = Right (toEnum (i - card @a))
 
@@ -207,23 +217,143 @@ instance (Enum a, HasCard b, Enum b) => Enum (a :* b) where
 -- I like Enum here, despite orphan instances.
 
 
-type Arr a = Int -> a
+newtype Arr a = Arr (Int -> a) deriving (Monoid,Functor,Applicative,Monad)
 
-unFun :: Enum k => (k -> a) -> Arr a
-unFun f = f . toEnum
+unFun :: Enum k => Fun k a -> Arr a
+unFun (Fun f) = Arr (f . toEnum)
 
-toFun :: Enum k => Arr a -> (k -> a)
-toFun f = f . fromEnum
+toFun :: Enum k => Arr a -> Fun k a
+toFun (Arr h) = Fun (h . fromEnum)
 
-onFun :: Enum k => ((k -> a) -> (k -> b)) -> (Arr a -> Arr b)
+onFun :: Enum k => (Fun k a -> Fun k b) -> (Arr a -> Arr b)
 onFun = unFun <~ toFun
 -- onFun h = unFun . h . toFun
 -- onFun h f = unFun (h (toFun f))
+
+onFun2 :: Enum k => (Fun k a -> Fun k b -> Fun k c) -> (Arr a -> Arr b -> Arr c)
+onFun2 = onFun <~ toFun
+
 
 type R = Double
 
 sqr :: Num a => Unop a
 sqr a = a * a
 
-t1 :: forall k. Enum k => Unop (Arr R)
+t1 :: forall k a. (Enum k, Num a) => Unop (Arr a)
 t1 = onFun @k (fmap sqr)
+
+t2 :: forall k a. (Enum k, Num a) => Binop (Arr a)
+t2 = onFun2 @k (liftA2 (+))
+
+t3 :: forall k a. (Foldable (Fun k), Enum k, Num a) => Arr a -> a
+t3 = sum . toFun @k
+
+
+-- Function from k to v, represented as an "array"
+newtype TArr k v = TArr (Int -> v) deriving (Monoid,Functor,Applicative,Monad)
+
+unTArr :: Enum k => TArr k v -> (k -> v)
+unTArr (TArr h) = h . fromEnum
+
+toTArr :: Enum k => (k -> v) -> TArr k v   -- inverse of unTArr
+toTArr h = TArr (h . toEnum)
+
+-- -- Specification: unTarr is a `Foldable` homomorphism.
+-- instance (Foldable ((->) k), Enum k) => Foldable (TArr k) where
+--   fold = fold . unTArr
+--   -- foldMap f = fold . fmap f
+--   -- foldMap f = fold . unTArr . fmap f
+--   -- foldMap f = fold . fmap f . unTArr
+--   foldMap f = foldMap f . unTArr
+
+#if 0
+  foldMap f (TArr h)
+== fold (fmap f (TArr h))
+== fold (TArr (fmap f h))
+== fold (TArr (f . h))
+#endif
+
+instance Foldable (TArr ()) where
+  fold (TArr h) = h 0
+  foldMap f (TArr h) = f (h 0)
+
+#if 0
+  fold (TArr h)
+== fold (unTArr (TArr h))
+== fold (h . fromEnum @())
+== fold (\ () -> h (fromEnum ()))
+== fold (\ () -> h 0)
+== (\ () -> h 0) ()
+== h 0
+
+  foldMap f (TArr h)
+== foldMap f (unTArr (TArr h))
+== foldMap f (h . fromEnum @())
+== foldMap f (\ () -> h (fromEnum ()))
+== foldMap f (\ () -> h 0)
+== f ((\ () -> h 0) ())
+== f (h 0)
+#endif
+
+instance Foldable (TArr Bool) where
+  foldMap f (TArr h) = f (h 0) <> f (h 1)
+
+#if 0
+  fold (TArr h)
+== fold (unTArr (TArr h))
+== fold (h . fromEnum @Bool)
+== h (fromEnum False) <> h (fromEnum True)
+== h 0 <> h 1
+
+  foldMap f (TArr h)
+== foldMap f (h . fromEnum @Bool)
+== f (h 0) <> f (h 1)
+
+  foldMap f (TArr h)
+== fold (TArr (f . h))
+== f (h 0) <> f (h 1)
+#endif
+
+instance (Foldable (TArr a), HasCard a, Foldable (TArr b))
+      => Foldable (TArr (a :+ b)) where
+  foldMap f (TArr h) = fold (TArr @(a :+ b) (f . h))
+  fold (TArr h) = fold (TArr @a h) <> fold (TArr @b (h . (card @a +)))
+
+#if 0
+
+  fold (TArr @(a :+ b) h)
+== fold (unTArr (TArr h))
+== fold (h . fromEnum @(a :+ b))
+== fold (h . (fromEnum @a ||| (card @a +) . fromEnum @b))
+== fold (h . (fromEnum @a ||| (card @a +) . fromEnum @b) . Left ) <>
+   fold (h . (fromEnum @a ||| (card @a +) . fromEnum @b) . Right)
+== fold (h . fromEnum @a) <> fold (h . (card @a +) . fromEnum @b)
+== fold (TArr @a h) <> fold (TArr @b (h . (card @a +)))
+
+#endif
+
+instance (Foldable (TArr a), Foldable (TArr b), HasCard b)
+      => Foldable (TArr (a :* b)) where
+  foldMap f (TArr h) = fold (TArr @(a :* b) (f . h))
+  fold (TArr h) = 
+    fold (TArr @a (\ ia -> let n = ia * card @b in
+                             fold (TArr @b (\ ib -> h (n + ib)))))
+
+
+#if 0
+
+  fold (TArr @(a :* b) h)
+== fold (unTArr (TArr h))
+== fold (h . fromEnum @(a :* b))
+== fold (fold . curry (h . (\ (a,b) -> fromEnum a * card @b + fromEnum b)))
+== fold (fold . curry (\ (a,b) -> h (fromEnum a * card @b + fromEnum b)))
+== fold (fold . \ a b -> h (fromEnum a * card @b + fromEnum b))
+== fold (\ a -> let n = fromEnum a * card @b in fold (\ b -> h (n + fromEnum b)))
+== fold ((\ ia -> let n = ia * card @b in
+             fold ((\ ib -> h (n + ib)) . fromEnum @b) . fromEnum @a)
+== fold (unTarr (TArr @a (\ ia -> let n = ia * card @b in
+                            fold (unTarr (TArr @b (\ ib -> h (n + ib)))))))
+== fold (TArr @a (\ ia -> let n = ia * card @b in
+                            fold (TArr @b (\ ib -> h (n + ib)))))
+
+#endif
