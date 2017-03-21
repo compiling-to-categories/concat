@@ -119,7 +119,7 @@ unpairD (ra :*** rb) = (ra   ,rb   )
 unpairD AllD         = (AllD ,AllD )
 
 inUnpairD :: (Demand a' :* Demand b' -> Demand a :* Demand b)
-          -> (a :* b :+? a' :* b')
+          -> Demand (a' :* b') -> Demand (a :* b)
 inUnpairD = unpairD ~> pairD
 
 
@@ -143,7 +143,7 @@ inUnfunD :: ((Demand a, Demand b) -> (Demand a', Demand b'))
          -> (Demand (a -> b) -> Demand (a' -> b'))
 inUnfunD = unfunD ~> funD
 
-mergeD :: a :+? a :* a
+mergeD :: Demand (a :* a) -> Demand a
 mergeD = uncurry lubD . unpairD
 
 -- mergeD NoneD        = NoneD
@@ -187,16 +187,13 @@ a          `glbD` AllD         = a
     Demand flow arrow
 --------------------------------------------------------------------}
 
-infixr 1 :-?, :+?
+infixr 1 :-?
 
--- | Map consumer demand to producer demand
-type a :+? b = Demand b -> Demand a
-
--- | Arrow of demand flow, running counter to value flow
-newtype a :-? b = RX { unRX :: a :+? b }
+-- | Demand flow category, running counter to value flow
+newtype a :-? b = RX (Demand b -> Demand a)
 
 instance Newtype (a :-? b) where
-  type O (a :-? b) = a :+? b
+  type O (a :-? b) = Demand b -> Demand a
   pack = RX
   unpack (RX f) = f
 
@@ -218,45 +215,3 @@ instance CoproductCat (:-?) where
 
 instance ConstCat (:-?) a where
   const _ = pack (const NoneD)
-
--- instance ClosedCat (:-?) where
-  -- uncurry = pack (funD . first pairD . lassocP . second unfunD . unfunD)
-  -- uncurry = RX $ funD . second funD . rassocP . first unpairD . unfunD
-
-foo1 :: (a :* b -> c) :+? (a -> b -> c)
-foo1 d = funD (first pairD (lassocP (second unfunD (unfunD d))))
-
-foo2 :: (a :* b -> c) :+? (a -> b -> c)
-foo2 = funD . first pairD . lassocP . second unfunD . unfunD
-
-foo3 :: (a :* b -> c) :-? (a -> b -> c)
-foo3 = pack (funD . first pairD . lassocP . second unfunD . unfunD)
-
-#if 0
-
-apply' :: (a -> b) :* a :+? b
-       :: Demand b -> Demand ((a -> b) :* a)
-
-curry' :: (a :* b -> c) :+? (a -> b -> c)
-       :: Demand (a -> b -> c) :+? Demand (a :* b -> c)
-
-d :: Demand (a -> b -> c)
-unfunD d :: Demand a :* Demand (b -> c)
-second unfunD (unfunD d) :: Demand a :* (Demand b :* Demand c)
-lassocP (second unfunD (unfunD d)) :: (Demand a :* Demand b) :* Demand c
-first pairD (lassocP (second unfunD (unfunD d))) :: Demand (a :* b) :* Demand c
-funD (first pairD (lassocP (second unfunD (unfunD d)))) :: Demand (a :* b -> c)
-
--- Nope!
-
-curry' :: (a :* b :+? c) -> (a :+? (b -> c))
-
-f :: a :* b :+? c
-  :: Demand c -> Demand (a :* b)
-unpairD . f :: Demand c -> Demand a :* Demand b
-
-
-need :: a :+? (b -> c)
-     :: Demand (b -> c) -> Demand a
-
-#endif
