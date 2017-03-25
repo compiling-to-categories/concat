@@ -101,6 +101,8 @@ module ConCat.Circuit
 --   , Complex(..),cis
   -- For AbsTy
   , BusesM, abstB,abstC,reprC,Buses(..),Ty(..)
+  , notName, andName, orName, xorName
+  , mulName, powIName, divideName
   ) where
 
 import Prelude hiding (id,(.),curry,uncurry,const,sequence,Float,Double)
@@ -1020,10 +1022,15 @@ primDelay a0 = primOpt (delayName a0s) $ \ case
 
 -- primDelay a0 = namedC (delayName (show a0))
 
+notName, andName, orName, xorName :: String
+notName = "¬"
+andName = "∧"
+orName  = "∨"
+xorName = "⊕"
 
 instance BoolCat (:>) where
   -- type BoolOf (:>) = Bool
-  notC = primOpt "¬" $ \ case
+  notC = primOpt notName $ \ case
            [NotS a]  -> sourceB a
            [Val x]   -> newVal (not x)
            _         -> nothingA
@@ -1039,7 +1046,7 @@ instance BoolCat (:>) where
   -- Optimizations are limited by not having static access to source types. I
   -- think I can fix it by adding a `Ty` (statically typed type GADT) to
   -- `Source`. Or maybe a simpler version for primitive types only.
-  andC = primOptSort "∧" $ \ case
+  andC = primOptSort andName $ \ case
            [TrueS ,y]            -> sourceB y
            [x,TrueS ]            -> sourceB x
            [x@FalseS,_]          -> sourceB x
@@ -1050,7 +1057,7 @@ instance BoolCat (:>) where
            [x,NotS x'] | x' == x -> newVal False
            [NotS x,x'] | x' == x -> newVal False
            _                     -> nothingA
-  orC  = primOptSort "∨" $ \ case
+  orC  = primOptSort orName $ \ case
            [FalseS,y]            -> sourceB y
            [x,FalseS]            -> sourceB x
            [x@TrueS ,_]          -> sourceB x
@@ -1066,7 +1073,7 @@ instance BoolCat (:>) where
              do o <- unmkCK andC (PairB (BoolB x) (BoolB y))
                 newComp notC o
            _                     -> nothingA
-  xorC = primOptSort "⊕" $ \ case
+  xorC = primOptSort xorName $ \ case
            [FalseS,y]            -> sourceB y
            [x,FalseS]            -> sourceB x
            [TrueS,y ]            -> newComp1 notC y
@@ -1307,6 +1314,12 @@ pattern NegateS a <- Source _ "negate" [a] 0
 pattern RecipS  :: Source -> Source
 pattern RecipS  a <- Source _ "recip"  [a] 0
 
+mulName, powIName, divideName :: String
+mulName = "×"
+powIName = "↑"
+divideName = "÷"
+
+
 instance (NumZ a, Read a, GST a, Eq a, SourceToBuses a)
       => NumCat (:>) a where
   negateC = primOpt "negate" $ \ case
@@ -1327,7 +1340,7 @@ instance (NumZ a, Read a, GST a, Eq a, SourceToBuses a)
               [x,NegateS y]  -> newComp2 addC x y
               [NegateS x,y]  -> newComp2 (negateC . addC) x y
               _              -> nothingA
-  mulC    = primOptSort "×" $ \ case
+  mulC    = primOptSort mulName $ \ case
               [Val x, Val y] -> newVal (x `mulZ` y)
               [OneT(a),y]    -> sourceB y
               [x,OneT(a)]    -> sourceB x
@@ -1336,7 +1349,7 @@ instance (NumZ a, Read a, GST a, Eq a, SourceToBuses a)
               [NegOneT(a) ,y] -> newComp1 negateC y
               [x,NegOneT(a) ] -> newComp1 negateC x
               _              -> nothingA
-  powIC   = primOpt     "↑" $ \ case
+  powIC   = primOpt     powIName $ \ case
               [Val x, Val y] -> newVal (x `powIZ` (y :: Int))
               [x@OneT(a) ,_] -> sourceB x
               [x,   OneT(a)] -> sourceB x
@@ -1351,7 +1364,7 @@ instance (FractionalZ a, Read a, Eq a, GST a, SourceToBuses a)
               [RecipS x]     -> sourceB x
               [NegateS x]    -> newComp1 (negateC . recipC) x
               _              -> nothingA
-  divideC = primOpt "/" $ \ case
+  divideC = primOpt "÷" $ \ case
               [Val x, Val y] -> newVal (x `divideZ` y)
               [z@ZeroT(a),_] -> sourceB z
               [x,NegateS y]  -> newComp2 (negateC . divideC) x y
@@ -1873,15 +1886,12 @@ recordDots depths = nodes ++ edges
       compEdges _c@(CompS cnum _ ins _ _) = edge <$> tagged ins
        where
          edge (ni, Bus i t) =
-#if 0
-           printf "edge [%s] %s -> %s"
-             (intercalate "," attrs)
-             (port Out (ocnum,opnum)) (port In (cnum,ni))
-#else
+           -- Show the type per edge. I think I'd rather show in the output
+           -- ports, but I don't know how to use a small font for those port
+           -- labels but not for the operation label.
            printf "%s -> %s [%s]"
              (port Out (ocnum,opnum)) (port In (cnum,ni))
              (intercalate "," attrs)
-#endif
           where
             (_w,ocnum,opnum,_d) = srcMap M.! i
             attrs = label ++ constraint
