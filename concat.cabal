@@ -72,7 +72,7 @@ library
                        ConCat.Additive
                        ConCat.ADFun2
                        ConCat.Polynomial
-                       ConCat.GenGLSL
+                       ConCat.GLSL
 
                        ConCat.C
                        ConCat.D
