@@ -26,26 +26,29 @@ import ConCat.Circuit
   (CompS(..),PinId,Bus(..),GenBuses,(:>), GraphInfo, mkGraph, unitize)
 import qualified ConCat.Circuit as C
 
+genGlsl :: GenBuses a => String -> (a :> b) -> IO ()
+genGlsl name0 circ =
+  do createDirectoryIfMissing False outDir
+     writeFile (outDir++"/"++name++".frag") (prettyShow decl)
+ where
+   (name,decl) = fromCirc name0 circ
+   outDir = "out"
+
 -- TEMP hack: wire in parameters
 prelude :: [ExternalDeclaration]
-prelude = []
+prelude = rights $ map (parse externalDeclaration) $
+  [ "uniform float _uniform;"
+  , "varying vec2  _varying;"
+  ]
 
 parse :: P a -> String -> Either ParseError a
 parse p = runParser p S "GLSL"
 
-foo :: Either ParseError TranslationUnit
-foo = parse translationUnit
-  "uniform   float _uniform; varying   vec2 _varying;"
-
-foo2 :: Either ParseError Declaration
-foo2 = parse declaration
-  "uniform   float _uniform;"
-
-foo3 :: [Declaration]
-foo3 = rights $ map (parse declaration) $
-  [ "uniform float _uniform;"
-  , "varying vec2  _varying;"
-  ]
+-- Oh! Instead of parsing and later pretty-printing, I could instead emit the
+-- prelude as strings preceding the pretty-printed (and shown) GLSL code. I
+-- could simply generate a statement for each CompS, wrap in Compound,
+-- pretty-print, and precede by the prelude strings. If so, drop parsec from
+-- concat.cabal.
 
 fromCirc :: GenBuses a => String -> (a :> b) -> (String,TranslationUnit)
 fromCirc name0 circ =
@@ -63,14 +66,6 @@ fromCirc name0 circ =
    (name,compDepths,_report) = mkGraph name0 (unitize circ)
    comps :: [CompS]
    comps = sortBy (comparing C.compNum) (M.keys compDepths )
-
-genGlsl :: GenBuses a => String -> (a :> b) -> IO ()
-genGlsl name0 circ =
-  do createDirectoryIfMissing False outDir
-     writeFile (outDir++"/"++name++".frag") (prettyShow decl)
- where
-   (name,decl) = fromCirc name0 circ
-   outDir = "out"
 
 #if 0
 
