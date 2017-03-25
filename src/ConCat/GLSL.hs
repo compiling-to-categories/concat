@@ -1,8 +1,14 @@
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ParallelListComp #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -fdefer-typed-holes #-} -- TEMP
 
 -- | 
 
@@ -23,49 +29,38 @@ import Language.GLSL.Pretty
 import Language.GLSL.Parser hiding (parse)
 
 import ConCat.Circuit
-  (CompS(..),PinId,Bus(..),GenBuses,(:>), GraphInfo, mkGraph, unitize)
+  ( CompS(..),compName,PinId,Bus(..),GenBuses,(:>)
+  , GraphInfo, mkGraph, unitize)
 import qualified ConCat.Circuit as C
+import ConCat.Misc ((:*))
 
-genGlsl :: GenBuses a => String -> (a :> b) -> IO ()
+type Im = Float :* Float :> Bool
+
+type OkIm a b = (a ~ (Float :* Float), b ~ Bool)
+
+genGlsl :: String -> Im -> IO ()
 genGlsl name0 circ =
   do createDirectoryIfMissing False outDir
-     writeFile (outDir++"/"++name++".frag") (prettyShow decl)
+     writeFile (outDir++"/"++name++".frag")
+       (unlines (prelude ++ map prettyShow statements))
  where
-   (name,decl) = fromCirc name0 circ
+   (name,statements) = fromCirc name0 circ
    outDir = "out"
 
 -- TEMP hack: wire in parameters
-prelude :: [ExternalDeclaration]
-prelude = rights $ map (parse externalDeclaration) $
-  [ "uniform float _uniform;"
-  , "varying vec2  _varying;"
+prelude :: [String]
+prelude =
+  [ "uniform float _time;"
+  , "varying vec2  _xy;"
+  , "main () "
   ]
 
-parse :: P a -> String -> Either ParseError a
-parse p = runParser p S "GLSL"
-
--- Oh! Instead of parsing and later pretty-printing, I could instead emit the
--- prelude as strings preceding the pretty-printed (and shown) GLSL code. I
--- could simply generate a statement for each CompS, wrap in Compound,
--- pretty-print, and precede by the prelude strings. If so, drop parsec from
--- concat.cabal.
-
-fromCirc :: GenBuses a => String -> (a :> b) -> (String,TranslationUnit)
-fromCirc name0 circ =
-  ( name
-  , TranslationUnit
-    ( prelude ++
-      [ FunctionDefinition
-          (FuncProt (FullType Nothing
-                     (TypeSpec Nothing 
-                      (TypeSpecNoPrecision Void Nothing)))
-           "main" []) 
-          (Compound (fromCompS <$> comps))
-      ]))
+fromCirc :: String -> Im -> (String,[Statement])
+fromCirc name0 circ = (name, concat (fromCompS . unCompS <$> (i : mid ++ [o])))
  where
    (name,compDepths,_report) = mkGraph name0 (unitize circ)
-   comps :: [CompS]
-   comps = sortBy (comparing C.compNum) (M.keys compDepths )
+   (i,mid,o) = splitComps (sortBy (comparing C.compNum) (M.keys compDepths))
+   unCompS (CompS _ fun ins outs _) = (fun,ins,outs)
 
 #if 0
 
@@ -92,16 +87,19 @@ data TypeSpecifier = TypeSpec (Maybe PrecisionQualifier) TypeSpecifierNoPrecisio
 data TypeSpecifierNoPrecision = TypeSpecNoPrecision TypeSpecifierNonArray (Maybe (Maybe Expr)) -- constant expression
 #endif
 
-fromCompS :: CompS -> Statement
-fromCompS (CompS _n prim ins [Bus pid ty] _) =
-  DeclarationStatement (
-   InitDeclaration (TypeDeclarator
-                    (FullType Nothing
-                     (TypeSpec Nothing
-                      (TypeSpecNoPrecision (glslTy ty) Nothing))))
-     [InitDecl (varName pid) Nothing (Just (prim `app` ins))])
+fromCompS :: (String,[Bus],[Bus]) -> [Statement]
+fromCompS ("In",[],[x,y]) = defXY x y
+fromCompS ("Out",[b],[]) = _
+fromCompS (prim,ins,[Bus pid ty]) =
+  [DeclarationStatement (
+    InitDeclaration (TypeDeclarator
+                     (FullType Nothing
+                      (TypeSpec Nothing
+                       (TypeSpecNoPrecision (glslTy ty) Nothing))))
+      [InitDecl (varName pid) Nothing (Just (prim `app` ins))])]
 fromCompS comp =
   error ("ConCat.GLSL.fromCompS: not supported: " ++ show comp)
+
 
 glslTy :: C.Ty -> TypeSpecifierNonArray
 glslTy C.Int   = Int
@@ -112,10 +110,48 @@ glslTy ty = error ("ConCat.GLSL.glslTy: unsupported type: " ++ show ty)
 varName :: PinId -> String
 varName pid = "x" ++ show pid
 
+pattern BE :: Expr -> Bus
+pattern BE e <- (bToE -> e)
+
+pattern BEs :: [Expr] -> [Bus]
+pattern BEs es <- (map bToE -> es)
+
 app :: String -> [Bus] -> Expr
-app "+" [b1,b2] = Add (bToE b1) (bToE b2)
+app "+" (BEs [e1,e2]) = Add e1 e2
+app ">" (BEs [e1,e2]) = Gt  e1 e2
 app fun args =
   error ("ConCat.GLSL.app: not supported: " ++ show (fun,args))
   
 bToE :: Bus -> Expr
-bToE (Bus pid _width) = Variable (varName pid)
+bToE (Bus pid _ty) = Variable (varName pid)
+
+-- Extract input, middle, output components
+splitComps :: [CompS] -> (CompS,[CompS],CompS)
+splitComps comps | compName i == "In" && compName o == "Out"
+                 = (i,mid,o)
+ where
+   -- In and Out are added last.
+   -- TODO: more robust implementation, say via partition.
+   (mid,[i,o]) = splitAt (length comps - 2) comps
+splitComps comps = error ("ConCat.GLSL.splitComps: Oops: " ++ show comps)
+
+-- For experiments
+parse :: P a -> String -> Either ParseError a
+parse p = runParser p S "GLSL"
+
+selectField :: String -> String -> Expr
+selectField var field = FieldSelection (Variable var) field
+
+initDecl :: TypeSpecifierNonArray -> String -> Expr -> Statement
+initDecl ty var e =
+ DeclarationStatement (
+  InitDeclaration (
+      TypeDeclarator (
+          FullType Nothing (TypeSpec Nothing (TypeSpecNoPrecision ty Nothing))))
+  [InitDecl var Nothing (Just e)])
+
+defXY :: Bus -> Bus -> [Statement]
+defXY (Bus x C.Float) (Bus y C.Float) =
+  [ initDecl Float (varName v) (selectField "_xy" field)
+  | v <- [x,y] | field <- ["x","y"]]
+defXY bx by = error ("ConCat.GLSL.defXY: oops: " ++ show (bx,by))
