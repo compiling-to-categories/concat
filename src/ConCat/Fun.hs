@@ -69,7 +69,8 @@ foldMap f (h . Right) :: m
 instance (Foldable ((->) a), Foldable ((->) b)) => Foldable ((->) (a :* b)) where
   foldMap f h = (foldMap . foldMap) f (curry h)
   -- fold h = fold (fmap fold (curry h))
-  fold h = fold (fold . curry h)
+  fold = fold . fmap fold . curry
+  -- fold h = fold (fold . curry h)
 
 #if 0
 
@@ -336,9 +337,7 @@ instance (Foldable (TArr a), Foldable (TArr b), HasCard b)
       => Foldable (TArr (a :* b)) where
   foldMap f (TArr h) = fold (TArr @(a :* b) (f . h))
   fold (TArr h) = 
-    fold (TArr @a (\ ia -> let n = ia * card @b in
-                             fold (TArr @b (\ ib -> h (n + ib)))))
-
+    fold (TArr @a (\ ia -> let n = ia * card @b in fold (TArr @b (h . (n +)))))
 
 #if 0
 
