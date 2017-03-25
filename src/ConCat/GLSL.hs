@@ -8,33 +8,64 @@
 
 module ConCat.GLSL where
 
+import Data.Ord (comparing)
+import Data.List (sortBy)
+import Data.Either (rights)
 import qualified Data.Map as M
 import System.Directory (createDirectoryIfMissing)
+
+import Text.ParserCombinators.Parsec (runParser,ParseError,GenParser)
 
 import Text.PrettyPrint.HughesPJClass -- (Pretty,prettyShow)
 import Language.GLSL.Syntax
 import Language.GLSL.Pretty
 
+import Language.GLSL.Parser hiding (parse)
+
 import ConCat.Circuit
   (CompS(..),PinId,Bus(..),GenBuses,(:>), GraphInfo, mkGraph, unitize)
 import qualified ConCat.Circuit as C
 
-fromCirc :: GenBuses a => String -> (a :> b) -> (String,ExternalDeclaration)
+-- TEMP hack: wire in parameters
+prelude :: [ExternalDeclaration]
+prelude = []
+
+parse :: P a -> String -> Either ParseError a
+parse p = runParser p S "GLSL"
+
+foo :: Either ParseError TranslationUnit
+foo = parse translationUnit
+  "uniform   float _uniform; varying   vec2 _varying;"
+
+foo2 :: Either ParseError Declaration
+foo2 = parse declaration
+  "uniform   float _uniform;"
+
+foo3 :: [Declaration]
+foo3 = rights $ map (parse declaration) $
+  [ "uniform float _uniform;"
+  , "varying vec2  _varying;"
+  ]
+
+fromCirc :: GenBuses a => String -> (a :> b) -> (String,TranslationUnit)
 fromCirc name0 circ =
   ( name
-  , FunctionDefinition
-      (FuncProt (FullType Nothing
-                 (TypeSpec Nothing 
-                  (TypeSpecNoPrecision Void Nothing)))
-       "main" []) 
-      (Compound (fromCompS <$> comps)))
+  , TranslationUnit
+    ( prelude ++
+      [ FunctionDefinition
+          (FuncProt (FullType Nothing
+                     (TypeSpec Nothing 
+                      (TypeSpecNoPrecision Void Nothing)))
+           "main" []) 
+          (Compound (fromCompS <$> comps))
+      ]))
  where
    (name,compDepths,_report) = mkGraph name0 (unitize circ)
    comps :: [CompS]
-   comps = M.keys compDepths 
+   comps = sortBy (comparing C.compNum) (M.keys compDepths )
 
-runCirc :: GenBuses a => String -> (a :> b) -> IO ()
-runCirc name0 circ =
+genGlsl :: GenBuses a => String -> (a :> b) -> IO ()
+genGlsl name0 circ =
   do createDirectoryIfMissing False outDir
      writeFile (outDir++"/"++name++".frag") (prettyShow decl)
  where
