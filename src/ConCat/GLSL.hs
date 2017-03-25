@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE CPP #-}
 
 {-# OPTIONS_GHC -Wall #-}
@@ -7,10 +8,63 @@
 
 module ConCat.GLSL where
 
-import Language.GLSL.Syntax
+import qualified Data.Map as M
+import System.Directory (createDirectoryIfMissing)
 
-import ConCat.Circuit (CompS(..),PinId,Bus(..))
+import Text.PrettyPrint.HughesPJClass -- (Pretty,prettyShow)
+import Language.GLSL.Syntax
+import Language.GLSL.Pretty
+
+import ConCat.Circuit
+  (CompS(..),PinId,Bus(..),GenBuses,(:>), GraphInfo, mkGraph, unitize)
 import qualified ConCat.Circuit as C
+
+fromCirc :: GenBuses a => String -> (a :> b) -> (String,ExternalDeclaration)
+fromCirc name0 circ =
+  ( name
+  , FunctionDefinition
+      (FuncProt (FullType Nothing
+                 (TypeSpec Nothing 
+                  (TypeSpecNoPrecision Void Nothing)))
+       "main" []) 
+      (Compound (fromCompS <$> comps)))
+ where
+   (name,compDepths,_report) = mkGraph name0 (unitize circ)
+   comps :: [CompS]
+   comps = M.keys compDepths 
+
+runCirc :: GenBuses a => String -> (a :> b) -> IO ()
+runCirc name0 circ =
+  do createDirectoryIfMissing False outDir
+     writeFile (outDir++"/"++name++".frag") (prettyShow decl)
+ where
+   (name,decl) = fromCirc name0 circ
+   outDir = "out"
+
+#if 0
+
+mkGraph :: Name -> UU -> GraphInfo
+type GraphInfo = (Name,CompDepths,Report)
+type CompDepths = Map CompS Depth
+
+#endif
+
+#if 0
+data ExternalDeclaration =
+    -- function declarations should be at top level (page 28)
+    FunctionDeclaration FunctionPrototype
+  | FunctionDefinition FunctionPrototype Compound
+  | Declaration Declaration
+  deriving (Show, Eq)
+
+data FunctionPrototype = FuncProt FullType String [ParameterDeclaration]
+
+data FullType = FullType (Maybe TypeQualifier) TypeSpecifier
+
+data TypeSpecifier = TypeSpec (Maybe PrecisionQualifier) TypeSpecifierNoPrecision
+
+data TypeSpecifierNoPrecision = TypeSpecNoPrecision TypeSpecifierNonArray (Maybe (Maybe Expr)) -- constant expression
+#endif
 
 fromCompS :: CompS -> Statement
 fromCompS (CompS _n prim ins [Bus pid ty] _) =
