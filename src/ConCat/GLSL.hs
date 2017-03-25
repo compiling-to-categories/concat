@@ -29,7 +29,7 @@ import Language.GLSL.Pretty
 import Language.GLSL.Parser hiding (parse)
 
 import ConCat.Circuit
-  ( CompS(..),compName,PinId,Bus(..),GenBuses,(:>)
+  ( CompS(..),compName,PinId(..),Bus(..),GenBuses,(:>)
   , GraphInfo, mkGraph, unitize)
 import qualified ConCat.Circuit as C
 import ConCat.Misc ((:*))
@@ -42,7 +42,7 @@ genGlsl :: String -> Im -> IO ()
 genGlsl name0 circ =
   do createDirectoryIfMissing False outDir
      writeFile (outDir++"/"++name++".frag")
-       (unlines (prelude ++ map prettyShow statements))
+       (unlines prelude ++ prettyShow statements)
  where
    (name,statements) = fromCirc name0 circ
    outDir = "out"
@@ -51,12 +51,14 @@ genGlsl name0 circ =
 prelude :: [String]
 prelude =
   [ "uniform float _time;"
-  , "varying vec2  _xy;"
-  , "main () "
+  , "varying vec2  _point;"
+  , "main () { gl_FragColor = effect(_point.x,_point.y)}"
+  , "effect (float x, float y)"
   ]
 
-fromCirc :: String -> Im -> (String,[Statement])
-fromCirc name0 circ = (name, concat (fromCompS . unCompS <$> (i : mid ++ [o])))
+fromCirc :: String -> Im -> (String,Compound)
+fromCirc name0 circ =
+  (name, Compound (concat (fromCompS . unCompS <$> (i : mid ++ [o]))))
  where
    (name,compDepths,_report) = mkGraph name0 (unitize circ)
    (i,mid,o) = splitComps (sortBy (comparing C.compNum) (M.keys compDepths))
@@ -89,7 +91,7 @@ data TypeSpecifierNoPrecision = TypeSpecNoPrecision TypeSpecifierNonArray (Maybe
 
 fromCompS :: (String,[Bus],[Bus]) -> [Statement]
 fromCompS ("In",[],[x,y]) = defXY x y
-fromCompS ("Out",[b],[]) = _
+fromCompS ("Out",[b],[]) = [Return (Just (bToE b))]
 fromCompS (prim,ins,[Bus pid ty]) =
   [DeclarationStatement (
     InitDeclaration (TypeDeclarator
@@ -108,7 +110,7 @@ glslTy C.Float = Float
 glslTy ty = error ("ConCat.GLSL.glslTy: unsupported type: " ++ show ty)
 
 varName :: PinId -> String
-varName pid = "x" ++ show pid
+varName (PinId n) = "v" ++ show n
 
 pattern BE :: Expr -> Bus
 pattern BE e <- (bToE -> e)
@@ -152,6 +154,6 @@ initDecl ty var e =
 
 defXY :: Bus -> Bus -> [Statement]
 defXY (Bus x C.Float) (Bus y C.Float) =
-  [ initDecl Float (varName v) (selectField "_xy" field)
+  [ initDecl Float (varName v) (selectField "_point" field)
   | v <- [x,y] | field <- ["x","y"]]
 defXY bx by = error ("ConCat.GLSL.defXY: oops: " ++ show (bx,by))
