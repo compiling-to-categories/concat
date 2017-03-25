@@ -9,7 +9,7 @@
 -- -- Improves hash consing, but can obscure equivalent circuits
 -- #define NoCommute
 
-#define NoBusSize
+-- #define NoBusLabel
 
 #define MealyToArrow
 
@@ -178,8 +178,8 @@ type PinSupply = [PinId]
 -- | Bus width
 type Width = Int
 
--- Data bus: Id, bit width, prim name, arguments, output index
-data Bus = Bus PinId Width
+-- Data bus: Id, type
+data Bus = Bus PinId Ty
 
 -- undefinedBus :: Width -> Bus
 -- undefinedBus = Bus undefinedPinId
@@ -207,7 +207,8 @@ instance Eq  Source where (==) = (==) `on` sourceId
 instance Ord Source where compare = compare `on` sourceId
 
 instance Show Bus where
-  show (Bus (PinId i) w) = "B" ++ show i ++ (if w /= 1 then ":" ++ show w else "")
+  show (Bus (PinId i) w) =
+    "B" ++ show i ++ (if w /= Bool then ":" ++ show w else "")
 
 instance Show Source where
   show (Source b prim ins o) = printf "Source %s %s %s %d" (show b) (show prim) (show ins) o
@@ -215,13 +216,13 @@ instance Show Source where
 newPinId :: CircuitM PinId
 newPinId = do { (p:ps',comps) <- M.get ; M.put (ps',comps) ; return p }
 
-newBus :: Width -> CircuitM Bus
-newBus w = -- trace "newBus" $
-           flip Bus w <$> newPinId
+newBus :: Ty -> CircuitM Bus
+newBus t = -- trace "newBus" $
+           flip Bus t <$> newPinId
 
-newSource ::  Width -> String -> Sources -> Int -> CircuitM Source
-newSource w prim ins o = -- trace "newSource" $
-                         (\ b -> Source b prim ins o) <$> newBus w
+newSource ::  Ty -> String -> Sources -> Int -> CircuitM Source
+newSource t prim ins o = -- trace "newSource" $
+                         (\ b -> Source b prim ins o) <$> newBus t
 
 {--------------------------------------------------------------------
     Buses representing a given type
@@ -288,7 +289,7 @@ instance Show (Buses a) where
 -- TODO: Improve to Show instance with showsPrec. Maybe Pretty instead/also.
 
 -- Component (primitive) type
-data Ty = UnitT | BoolT | IntT | FloatT | DoubleT | PairT Ty Ty deriving (Eq,Ord,Show)
+data Ty = Unit | Bool | Int | Float | Double | Pair Ty Ty deriving (Eq,Ord,Show)
 
 genBuses :: GenBuses b => Prim a b -> Sources -> CircuitM (Buses b)
 genBuses prim ins = M.evalStateT (genBuses' (primName prim) ins) 0
@@ -302,17 +303,17 @@ class Ok (:>) a => GenBuses a where
 
 type GS a = (GenBuses a, ShowZ a)
 
-genBus :: (Source -> Buses a) -> Width
+genBus :: (Source -> Buses a) -> Ty
        -> String -> Sources -> BusesM (Buses a)
-genBus wrap w prim ins = do o <- M.get
-                            src <- M.lift (newSource w prim ins o)
+genBus wrap t prim ins = do o <- M.get
+                            src <- M.lift (newSource t prim ins o)
                             M.put (o+1)
                             return (wrap src)
 
 instance GenBuses () where
   genBuses' _ _ = return UnitB
   delay () = id
-  ty = const UnitT
+  ty = const Unit
 
 delayPrefix :: String
 delayPrefix = "Cons "
@@ -329,31 +330,31 @@ unDelayName = stripPrefix delayPrefix
 
 instance GenBuses Bool where
   genBuses' = -- trace "genBuses' @ Bool" $
-              genBus BoolB 1
+              genBus BoolB Bool
   delay = primDelay
-  ty = const BoolT
+  ty = const Bool
 
 instance GenBuses Int  where
-  genBuses' = genBus IntB 32
+  genBuses' = genBus IntB Int
   delay = primDelay
-  ty = const IntT
+  ty = const Int
 
 instance GenBuses Float  where
-  genBuses' = genBus FloatB 32
+  genBuses' = genBus FloatB Float
   delay = primDelay
-  ty = const FloatT
+  ty = const Float
 
 instance GenBuses Double  where
-  genBuses' = genBus DoubleB 64
+  genBuses' = genBus DoubleB Double
   delay = primDelay
-  ty = const DoubleT
+  ty = const Double
 
 instance (GenBuses a, GenBuses b) => GenBuses (a :* b) where
   genBuses' prim ins =
     -- trace ("genBuses' @ " ++ show (ty (undefined :: a :* b))) $
     PairB <$> genBuses' prim ins <*> genBuses' prim ins
   delay (a,b) = delay a *** delay b
-  ty ~(a,b) = PairT (ty a) (ty b)
+  ty ~(a,b) = Pair (ty a) (ty b)
 
 flattenB :: String -> Buses a -> Sources
 flattenB name b = fromMaybe err (flattenMb b)
@@ -1085,10 +1086,10 @@ instance BoolCat (:>) where
 #endif
            _                          -> nothingA
 
-#define BoolToInt "Bool→Int"
+#define BooloInt "Bool→Int"
 
 boolToIntC :: Bool :> Int
-boolToIntC = namedC BoolToInt
+boolToIntC = namedC BooloInt
 
 -- instance BoolCat (:>) where
 --   notC = namedC "¬"
@@ -1436,7 +1437,7 @@ readBit "1" = Just True
 readBit _   = Nothing
 
 pattern BToIS :: Source -> Source
-pattern BToIS a <- Source _ BoolToInt [a] 0
+pattern BToIS a <- Source _ BooloInt [a] 0
 
 -- if c then 0 else b == if c then boolToInt False else b
 -- if c then 1 else b == if c then boolToInt True  else b
@@ -1814,7 +1815,7 @@ tagged = taggedFrom 0
 hideNoPorts :: Bool
 hideNoPorts = False
 
-type SourceInfo = (Width,CompNum,PortNum,Depth)
+type SourceInfo = (Ty,CompNum,PortNum,Depth)
 
 -- Map each pin to its info about it
 type SourceMap = Map PinId SourceInfo
@@ -1871,30 +1872,30 @@ recordDots depths = nodes ++ edges
     where
       compEdges _c@(CompS cnum _ ins _ _) = edge <$> tagged ins
        where
-         edge (ni, Bus i width) =
+         edge (ni, Bus i t) =
 #if 0
            printf "edge [%s] %s -> %s"
-             (intercalate "," (attrs width))
+             (intercalate "," attrs)
              (port Out (ocnum,opnum)) (port In (cnum,ni))
 #else
            printf "%s -> %s [%s]"
              (port Out (ocnum,opnum)) (port In (cnum,ni))
-             (intercalate "," (attrs width))
+             (intercalate "," attrs)
 #endif
           where
             (_w,ocnum,opnum,_d) = srcMap M.! i
-            attrs w = label w ++ constraint
+            attrs = label ++ constraint
 #ifdef ShallowDelay
             constraint | isDelay _c = ["constraint=false" ]
                        | otherwise  = []
 #else
             constraint = []
 #endif
-#ifdef NoBusSize
-            label _ = []
+#ifdef NoBusLabel
+            label = []
 #else
-            label 1 = []
-            label w = [printf "label=%d,fontsize=10" w]
+            -- label | t == Bool = []
+            label = [printf "label=%s,fontsize=8" (show t)]
 #endif
    port :: Dir -> (CompNum,PortNum) -> String
    port dir (cnum,np) =
@@ -1912,7 +1913,6 @@ segmentedDotString = intercalate "\"+\"" . divvy
 -- showBool False = "F"
 -- showBool True  = "T"
 
--- TODO: Try removing width.
 
 sourceMap :: [(CompS,Depth)] -> SourceMap
 sourceMap = foldMap $ \ (comp,depth) ->
