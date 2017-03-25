@@ -1,6 +1,6 @@
 ## Constrained categories
 
-Experimenting (again) with constrained categories, as well as Haskell to hardware and automatic differentiation.
+Experimenting (again) with constrained categories, as well as Haskell to hardware, automatic differentiation, interval analysis, and other interpretations. See the paper [*Compiling to categories*](http://conal.net/papers/compiling-to-categories).
 
 To run:
 
