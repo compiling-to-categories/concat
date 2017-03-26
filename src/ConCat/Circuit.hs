@@ -172,6 +172,8 @@ import qualified ConCat.Free.LinearCol as LC
 newtype PinId = PinId Int deriving (Eq,Ord,Show,Enum)
 type PinSupply = [PinId]
 
+-- TODO: Phase out PinSupply and CompSupply in favor of simple ints.
+
 -- TODO: Maybe stop using the name "pin", since it's a bus.
 
 -- undefinedPinId :: PinId
@@ -482,8 +484,13 @@ newtype Prim a b = Prim { primName :: PrimName }
 
 instance Show (Prim a b) where show = primName
 
--- Component: primitive instance with inputs & outputs
-data Comp = forall a b. Comp (Prim a b) (Buses a) (Buses b)
+type CompNum = Int
+
+type CompNums = [CompNum]
+
+-- Component: primitive instance with inputs & outputs. Numbered consistently
+-- with dependency partial ordering.
+data Comp = forall a b. Comp CompNum (Prim a b) (Buses a) (Buses b)
 
 deriving instance Show Comp
 
@@ -496,7 +503,7 @@ type CompInfo = [Comp]
 #endif
 
 -- The circuit monad.
-type CircuitM = State (PinSupply,CompInfo)
+type CircuitM = State (PinSupply,(CompNums,CompInfo))
 
 type BCirc a b = Buses a -> CircuitM (Buses b)
 
@@ -505,15 +512,16 @@ genComp :: forall a b. GenBuses b => Prim a b -> BCirc a b
 #if !defined NoHashCons
 genComp prim a =
   do 
-     mb <- M.gets (M.lookup key . snd)
+     mb <- M.gets (M.lookup key . snd . snd)
      case mb of
-       Just (Comp _ _ b', _) ->
-         do M.modify (second (M.adjust (second succ) key))
+       Just (Comp _ _ _ b', _) ->
+         do M.modify (second (second (M.adjust (second succ) key)))
             return (unsafeCoerce b')
        Nothing               ->
          do b <- genBuses prim ins
-            let comp = Comp prim a b
-            M.modify (second (M.insert key (comp,0)))
+            (compN:_) <- M.gets (fst . snd)
+            let comp = Comp compN prim a b
+            M.modify (second (tail *** M.insert key (comp,0)))
             return b
  where
    ins  = flattenBHack "genComp" prim a
@@ -1518,7 +1526,7 @@ runU :: UU -> [(Comp,Reuses)]
 runU cir = getComps compInfo
  where
    compInfo :: CompInfo
-   (_,compInfo) = execState (unmkCK cir UnitB) (PinId <$> [0 ..],mempty)
+   (_,(_,compInfo)) = execState (unmkCK cir UnitB) (PinId <$> [0 ..],([0..],mempty))
 #if !defined NoHashCons
    getComps = M.elems 
 #else
@@ -1691,7 +1699,6 @@ uuGraph = trimDGraph
         -- . connectState
         . mendG
         . map simpleComp
-        . tagged
         -- . (\ z -> trace ("runU result: " ++ show z) z)
         . runU
         -- . trace "uuGraph" id
@@ -1793,8 +1800,8 @@ graphDot name attrs depths =
 
 type Statement = String
 
-simpleComp :: (CompNum,(Comp,Reuses)) -> CompS
-simpleComp (n, (Comp prim a b,reuses)) =
+simpleComp :: (Comp,Reuses) -> CompS
+simpleComp (Comp n prim a b,reuses) =
   CompS n name
     (sourceBus <$> flattenBHack name prim a)
     (sourceBus <$> flattenB     name      b)
@@ -1814,7 +1821,6 @@ simpleComp (n, (Comp prim a b,reuses)) =
 
 data Dir = In | Out deriving Show
 type PortNum = Int
-type CompNum = Int
 
 -- -- For more succinct labels, so as not to stress Graphviz so much.
 -- -- TODO: also compact the port numbers to base 64.

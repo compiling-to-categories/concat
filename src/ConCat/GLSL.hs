@@ -14,6 +14,7 @@
 
 module ConCat.GLSL where
 
+import Control.Monad (when)
 import Data.Ord (comparing)
 import Data.List (sortBy)
 import Data.Either (rights)
@@ -36,8 +37,12 @@ import ConCat.Misc ((:*))
 
 type Im = Float :* Float :> Bool
 
-type OkIm a b = (a ~ (Float :* Float), b ~ Bool)
+type OkIm a b = (a :> b) ~ Im
 
+showGraph :: Bool
+showGraph = True -- False
+
+-- Phase out, and rename genGlsl'
 genGlsl :: String -> Im -> IO ()
 genGlsl name0 circ =
   do createDirectoryIfMissing False outDir
@@ -47,77 +52,75 @@ genGlsl name0 circ =
    (name,statements) = fromCirc name0 circ
    outDir = "out"
 
+genGlsl' :: String -> Im -> IO ()
+genGlsl' name0 circ =
+  do when showGraph $ putStrLn $ "genGlsl: Graph \n" ++ show g
+     createDirectoryIfMissing False outDir
+     writeFile (outDir++"/"++name++".frag")
+       (prettyShow fundef ++ "\n")
+ where
+   g@(name,compDepths,_report) = mkGraph name0 (unitize circ)
+   comps = sortBy (comparing C.compNum) (M.keys compDepths)
+   fundef = fromComps comps
+   outDir = "out"
+
 -- TEMP hack: wire in parameters
 prelude :: [String]
 prelude =
-  [ "varying vec2  _point;"
-  -- , "uniform float _time;"
-  -- , "float bToC (bool b) { return }"
-  , ""
-  , "main ()"
+  [ "bool effect (vec2 _point)"
   ]
 
 fromCirc :: String -> Im -> (String,Compound)
 fromCirc name0 circ =
-  (name, Compound (concat (fromCompS . unCompS <$> (i : mid ++ [o]))))
+  (name, Compound (concat (fromComp . unCompS <$> (i : mid ++ [o]))))
  where
    (name,compDepths,_report) = mkGraph name0 (unitize circ)
    (i,mid,o) = splitComps (sortBy (comparing C.compNum) (M.keys compDepths))
-   unCompS (CompS _ fun ins outs _) = (fun,ins,outs)
 
-#if 0
+unCompS :: CompS -> (String,[Bus],[Bus])
+unCompS (CompS _ fun ins outs _) = (fun,ins,outs)
 
-mkGraph :: Name -> UU -> GraphInfo
-type GraphInfo = (Name,CompDepths,Report)
-type CompDepths = Map CompS Depth
+fromComps :: [CompS] -> ExternalDeclaration
+fromComps comps =
+  funDef Bool "effect" (paramDecl <$> inputs)
+         (concat (fromComp . unCompS <$> (mid ++ [o])))
+ where
+   (unCompS -> ("In",[],inputs),mid,o) = splitComps comps
 
-#endif
+paramDecl :: Bus -> ParameterDeclaration
+paramDecl (Bus pid ty) =
+  ParameterDeclaration Nothing Nothing 
+    (TypeSpec Nothing (TypeSpecNoPrecision (glslTy ty) Nothing))
+    (Just (varName pid,Nothing))
 
-#if 0
-data ExternalDeclaration =
-    -- function declarations should be at top level (page 28)
-    FunctionDeclaration FunctionPrototype
-  | FunctionDefinition FunctionPrototype Compound
-  | Declaration Declaration
-  deriving (Show, Eq)
+funDef :: TypeSpecifierNonArray -> String -> [ParameterDeclaration]
+       -> [Statement] -> ExternalDeclaration
+funDef resultTy name params statements =
+  FunctionDefinition (
+    FuncProt (FullType Nothing
+              (TypeSpec Nothing (TypeSpecNoPrecision resultTy Nothing)))
+             name params)
+    (Compound statements)
 
-data FunctionPrototype = FuncProt FullType String [ParameterDeclaration]
-
-data FullType = FullType (Maybe TypeQualifier) TypeSpecifier
-
-data TypeSpecifier = TypeSpec (Maybe PrecisionQualifier) TypeSpecifierNoPrecision
-
-data TypeSpecifierNoPrecision = TypeSpecNoPrecision TypeSpecifierNonArray (Maybe (Maybe Expr)) -- constant expression
-#endif
-
-fromCompS :: (String,[Bus],[Bus]) -> [Statement]
-fromCompS ("In",[],[x,y]) = defXY x y
-fromCompS ("Out",[b],[]) = [assign "gl_FragCoord" (bToE b)]
-fromCompS (str,[],[b@(Bus _ ty)]) =
+fromComp :: (String,[Bus],[Bus]) -> [Statement]
+-- fromComp ("In",[],[x,y]) = defXY x y
+fromComp ("Out",[b],[]) = [Return (Just (bToE b))]
+fromComp (str,[],[b@(Bus _ ty)]) =
   [initBus b (
      case ty of
        C.Bool  -> BoolConstant        (read str)
        C.Int   -> IntConstant Decimal (read str)
        C.Float -> FloatConstant       (read str)
-       _ -> error ("ConCat.GLSL.fromCompS: unexpected literal type: " ++ show ty))]
-fromCompS (prim,ins,[b]) = [initBus b (app prim (bToE <$> ins))]
-fromCompS comp =
-  error ("ConCat.GLSL.fromCompS: not supported: " ++ show comp)
+       _ -> error ("ConCat.GLSL.fromComp: unexpected literal type: " ++ show ty))]
+fromComp (prim,ins,[b]) = [initBus b (app prim (bToE <$> ins))]
+fromComp comp =
+  error ("ConCat.GLSL.fromComp: not supported: " ++ show comp)
 
 initBus :: Bus -> Expr -> Statement
 initBus (Bus pid ty) e = initDecl (glslTy ty) (varName pid) e
 
 assign :: String -> Expr -> Statement
 assign v e = ExpressionStatement (Just (Equal (Variable v) e))
-
--- initDecl :: Bus -> Expr -> Statement
--- initDecl [Bus pid ty] e = 
---   [DeclarationStatement (
---     InitDeclaration (TypeDeclarator
---                      (FullType Nothing
---                       (TypeSpec Nothing
---                        (TypeSpecNoPrecision (glslTy ty) Nothing))))
---       [InitDecl (varName pid) Nothing (Just e)])]
 
 initDecl :: TypeSpecifierNonArray -> String -> Expr -> Statement
 initDecl ty var e =
@@ -147,14 +150,12 @@ app fun args =
 bToE :: Bus -> Expr
 bToE (Bus pid _ty) = Variable (varName pid)
 
+unsnoc :: [a] -> ([a],a)
+unsnoc as = (mid,o) where (mid,[o]) = splitAt (length as - 1) as
+
 -- Extract input, middle, output components
 splitComps :: [CompS] -> (CompS,[CompS],CompS)
-splitComps comps | compName i == "In" && compName o == "Out"
-                 = (i,mid,o)
- where
-   -- In and Out are added last.
-   -- TODO: more robust implementation, say via partition.
-   (mid,[i,o]) = splitAt (length comps - 2) comps
+splitComps (i@(CompS 0 "In" [] _ _) : (unsnoc -> (mid,o))) = (i,mid,o)
 splitComps comps = error ("ConCat.GLSL.splitComps: Oops: " ++ show comps)
 
 -- For experiments
