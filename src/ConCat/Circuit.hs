@@ -101,8 +101,6 @@ module ConCat.Circuit
 --   , Complex(..),cis
   -- For AbsTy
   , BusesM, abstB,abstC,reprC,Buses(..),Ty(..)
-  , notName, andName, orName, xorName
-  , mulName, powIName, divideName
   ) where
 
 import Prelude hiding (id,(.),curry,uncurry,const,sequence,Float,Double)
@@ -1030,15 +1028,9 @@ primDelay a0 = primOpt (delayName a0s) $ \ case
 
 -- primDelay a0 = namedC (delayName (show a0))
 
-notName, andName, orName, xorName :: String
-notName = "¬"
-andName = "∧"
-orName  = "∨"
-xorName = "⊕"
-
 instance BoolCat (:>) where
   -- type BoolOf (:>) = Bool
-  notC = primOpt notName $ \ case
+  notC = primOpt "¬" $ \ case
            [NotS a]  -> sourceB a
            [Val x]   -> newVal (not x)
            _         -> nothingA
@@ -1054,7 +1046,7 @@ instance BoolCat (:>) where
   -- Optimizations are limited by not having static access to source types. I
   -- think I can fix it by adding a `Ty` (statically typed type GADT) to
   -- `Source`. Or maybe a simpler version for primitive types only.
-  andC = primOptSort andName $ \ case
+  andC = primOptSort "∧" $ \ case
            [TrueS ,y]            -> sourceB y
            [x,TrueS ]            -> sourceB x
            [x@FalseS,_]          -> sourceB x
@@ -1065,7 +1057,7 @@ instance BoolCat (:>) where
            [x,NotS x'] | x' == x -> newVal False
            [NotS x,x'] | x' == x -> newVal False
            _                     -> nothingA
-  orC  = primOptSort orName $ \ case
+  orC  = primOptSort "∨" $ \ case
            [FalseS,y]            -> sourceB y
            [x,FalseS]            -> sourceB x
            [x@TrueS ,_]          -> sourceB x
@@ -1081,7 +1073,7 @@ instance BoolCat (:>) where
              do o <- unmkCK andC (PairB (BoolB x) (BoolB y))
                 newComp notC o
            _                     -> nothingA
-  xorC = primOptSort xorName $ \ case
+  xorC = primOptSort "⊕" $ \ case
            [FalseS,y]            -> sourceB y
            [x,FalseS]            -> sourceB x
            [TrueS,y ]            -> newComp1 notC y
@@ -1244,16 +1236,12 @@ geOpt = \ case
 --     No instance for (Read a0) arising from a pattern
 --     The type variable ‘a0’ is ambiguous
 
-leName, geName :: String
-leName = "≤"
-geName = "≥"
-
 #define OrdPrim(ty) \
  instance OrdCat (:>) (ty) where { \
    lessThan           = primOpt "<" (ltOpt @(ty)) ; \
    greaterThan        = primOpt ">" (gtOpt @(ty)) ; \
-   lessThanOrEqual    = primOpt leName (leOpt @(ty)) ; \
-   greaterThanOrEqual = primOpt geName (geOpt @(ty)) ; \
+   lessThanOrEqual    = primOpt "≤" (leOpt @(ty)) ; \
+   greaterThanOrEqual = primOpt "≥" (geOpt @(ty)) ; \
  }
 
 OrdPrim(Bool)
@@ -1326,12 +1314,6 @@ pattern NegateS a <- Source _ "negate" [a] 0
 pattern RecipS  :: Source -> Source
 pattern RecipS  a <- Source _ "recip"  [a] 0
 
-mulName, powIName, divideName :: String
-mulName = "×"
-powIName = "↑"
-divideName = "÷"
-
-
 instance (NumZ a, Read a, GST a, Eq a, SourceToBuses a)
       => NumCat (:>) a where
   negateC = primOpt "negate" $ \ case
@@ -1352,7 +1334,7 @@ instance (NumZ a, Read a, GST a, Eq a, SourceToBuses a)
               [x,NegateS y]  -> newComp2 addC x y
               [NegateS x,y]  -> newComp2 (negateC . addC) x y
               _              -> nothingA
-  mulC    = primOptSort mulName $ \ case
+  mulC    = primOptSort "×" $ \ case
               [Val x, Val y] -> newVal (x `mulZ` y)
               [OneT(a),y]    -> sourceB y
               [x,OneT(a)]    -> sourceB x
@@ -1361,7 +1343,7 @@ instance (NumZ a, Read a, GST a, Eq a, SourceToBuses a)
               [NegOneT(a) ,y] -> newComp1 negateC y
               [x,NegOneT(a) ] -> newComp1 negateC x
               _              -> nothingA
-  powIC   = primOpt     powIName $ \ case
+  powIC   = primOpt     "↑" $ \ case
               [Val x, Val y] -> newVal (x `powIZ` (y :: Int))
               [x@OneT(a) ,_] -> sourceB x
               [x,   OneT(a)] -> sourceB x
@@ -1914,7 +1896,7 @@ recordDots depths = nodes ++ edges
             label = []
 #else
             -- label | t == Bool = []
-            label = [printf "label=%s,fontsize=8" (show t)]
+            label = [printf "label=%s,fontsize=8,fontcolor=blue" (show t)]
 #endif
    port :: Dir -> (CompNum,PortNum) -> String
    port dir (cnum,np) =
