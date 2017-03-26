@@ -42,7 +42,7 @@ genGlsl :: String -> Im -> IO ()
 genGlsl name0 circ =
   do createDirectoryIfMissing False outDir
      writeFile (outDir++"/"++name++".frag")
-       (unlines prelude ++ prettyShow statements)
+       (unlines prelude ++ prettyShow statements ++ "\n")
  where
    (name,statements) = fromCirc name0 circ
    outDir = "out"
@@ -50,10 +50,11 @@ genGlsl name0 circ =
 -- TEMP hack: wire in parameters
 prelude :: [String]
 prelude =
-  [ "uniform float _time;"
-  , "varying vec2  _point;"
-  , "main () { gl_FragColor = effect(_point.x,_point.y)}"
-  , "effect (float x, float y)"
+  [ "varying vec2  _point;"
+  -- , "uniform float _time;"
+  -- , "float bToC (bool b) { return }"
+  , ""
+  , "main ()"
   ]
 
 fromCirc :: String -> Im -> (String,Compound)
@@ -91,16 +92,40 @@ data TypeSpecifierNoPrecision = TypeSpecNoPrecision TypeSpecifierNonArray (Maybe
 
 fromCompS :: (String,[Bus],[Bus]) -> [Statement]
 fromCompS ("In",[],[x,y]) = defXY x y
-fromCompS ("Out",[b],[]) = [Return (Just (bToE b))]
-fromCompS (prim,ins,[Bus pid ty]) =
-  [DeclarationStatement (
-    InitDeclaration (TypeDeclarator
-                     (FullType Nothing
-                      (TypeSpec Nothing
-                       (TypeSpecNoPrecision (glslTy ty) Nothing))))
-      [InitDecl (varName pid) Nothing (Just (prim `app` ins))])]
+fromCompS ("Out",[b],[]) = [assign "gl_FragCoord" (bToE b)]
+fromCompS (str,[],[b@(Bus _ ty)]) =
+  [initBus b (
+     case ty of
+       C.Bool  -> BoolConstant        (read str)
+       C.Int   -> IntConstant Decimal (read str)
+       C.Float -> FloatConstant       (read str)
+       _ -> error ("ConCat.GLSL.fromCompS: unexpected literal type: " ++ show ty))]
+fromCompS (prim,ins,[b]) = [initBus b (app prim (bToE <$> ins))]
 fromCompS comp =
   error ("ConCat.GLSL.fromCompS: not supported: " ++ show comp)
+
+initBus :: Bus -> Expr -> Statement
+initBus (Bus pid ty) e = initDecl (glslTy ty) (varName pid) e
+
+assign :: String -> Expr -> Statement
+assign v e = ExpressionStatement (Just (Equal (Variable v) e))
+
+-- initDecl :: Bus -> Expr -> Statement
+-- initDecl [Bus pid ty] e = 
+--   [DeclarationStatement (
+--     InitDeclaration (TypeDeclarator
+--                      (FullType Nothing
+--                       (TypeSpec Nothing
+--                        (TypeSpecNoPrecision (glslTy ty) Nothing))))
+--       [InitDecl (varName pid) Nothing (Just e)])]
+
+initDecl :: TypeSpecifierNonArray -> String -> Expr -> Statement
+initDecl ty var e =
+ DeclarationStatement (
+  InitDeclaration (
+      TypeDeclarator (
+          FullType Nothing (TypeSpec Nothing (TypeSpecNoPrecision ty Nothing))))
+  [InitDecl var Nothing (Just e)])
 
 
 glslTy :: C.Ty -> TypeSpecifierNonArray
@@ -112,17 +137,12 @@ glslTy ty = error ("ConCat.GLSL.glslTy: unsupported type: " ++ show ty)
 varName :: PinId -> String
 varName (PinId n) = "v" ++ show n
 
-pattern BE :: Expr -> Bus
-pattern BE e <- (bToE -> e)
-
-pattern BEs :: [Expr] -> [Bus]
-pattern BEs es <- (map bToE -> es)
-
-app :: String -> [Bus] -> Expr
-app "+" (BEs [e1,e2]) = Add e1 e2
-app ">" (BEs [e1,e2]) = Gt  e1 e2
+app :: String -> [Expr] -> Expr
+app "+" [e1,e2] = Add e1 e2
+app ">" [e1,e2] = Gt  e1 e2
 app fun args =
   error ("ConCat.GLSL.app: not supported: " ++ show (fun,args))
+
   
 bToE :: Bus -> Expr
 bToE (Bus pid _ty) = Variable (varName pid)
@@ -143,14 +163,6 @@ parse p = runParser p S "GLSL"
 
 selectField :: String -> String -> Expr
 selectField var field = FieldSelection (Variable var) field
-
-initDecl :: TypeSpecifierNonArray -> String -> Expr -> Statement
-initDecl ty var e =
- DeclarationStatement (
-  InitDeclaration (
-      TypeDeclarator (
-          FullType Nothing (TypeSpec Nothing (TypeSpecNoPrecision ty Nothing))))
-  [InitDecl var Nothing (Just e)])
 
 defXY :: Bus -> Bus -> [Statement]
 defXY (Bus x C.Float) (Bus y C.Float) =
