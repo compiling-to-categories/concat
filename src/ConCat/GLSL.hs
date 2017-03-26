@@ -42,18 +42,8 @@ type OkIm a b = (a :> b) ~ Im
 showGraph :: Bool
 showGraph = True -- False
 
--- Phase out, and rename genGlsl'
 genGlsl :: String -> Im -> IO ()
 genGlsl name0 circ =
-  do createDirectoryIfMissing False outDir
-     writeFile (outDir++"/"++name++".frag")
-       (unlines prelude ++ prettyShow statements ++ "\n")
- where
-   (name,statements) = fromCirc name0 circ
-   outDir = "out"
-
-genGlsl' :: String -> Im -> IO ()
-genGlsl' name0 circ =
   do when showGraph $ putStrLn $ "genGlsl: Graph \n" ++ show g
      createDirectoryIfMissing False outDir
      writeFile (outDir++"/"++name++".frag")
@@ -64,26 +54,13 @@ genGlsl' name0 circ =
    fundef = fromComps comps
    outDir = "out"
 
--- TEMP hack: wire in parameters
-prelude :: [String]
-prelude =
-  [ "bool effect (vec2 _point)"
-  ]
-
-fromCirc :: String -> Im -> (String,Compound)
-fromCirc name0 circ =
-  (name, Compound (concat (fromComp . unCompS <$> (i : mid ++ [o]))))
- where
-   (name,compDepths,_report) = mkGraph name0 (unitize circ)
-   (i,mid,o) = splitComps (sortBy (comparing C.compNum) (M.keys compDepths))
-
 unCompS :: CompS -> (String,[Bus],[Bus])
 unCompS (CompS _ fun ins outs _) = (fun,ins,outs)
 
 fromComps :: [CompS] -> ExternalDeclaration
 fromComps comps =
   funDef Bool "effect" (paramDecl <$> inputs)
-         (concat (fromComp . unCompS <$> (mid ++ [o])))
+         (fromComp . unCompS <$> (mid ++ [o]))
  where
    (unCompS -> ("In",[],inputs),mid,o) = splitComps comps
 
@@ -102,17 +79,16 @@ funDef resultTy name params statements =
              name params)
     (Compound statements)
 
-fromComp :: (String,[Bus],[Bus]) -> [Statement]
--- fromComp ("In",[],[x,y]) = defXY x y
-fromComp ("Out",[b],[]) = [Return (Just (bToE b))]
+fromComp :: (String,[Bus],[Bus]) -> Statement
+fromComp ("Out",[b],[]) = Return (Just (bToE b))
 fromComp (str,[],[b@(Bus _ ty)]) =
-  [initBus b (
-     case ty of
-       C.Bool  -> BoolConstant        (read str)
-       C.Int   -> IntConstant Decimal (read str)
-       C.Float -> FloatConstant       (read str)
-       _ -> error ("ConCat.GLSL.fromComp: unexpected literal type: " ++ show ty))]
-fromComp (prim,ins,[b]) = [initBus b (app prim (bToE <$> ins))]
+  initBus b (
+    case ty of
+      C.Bool  -> BoolConstant        (read str)
+      C.Int   -> IntConstant Decimal (read str)
+      C.Float -> FloatConstant       (read str)
+      _ -> error ("ConCat.GLSL.fromComp: unexpected literal type: " ++ show ty))
+fromComp (prim,ins,[b]) = initBus b (app prim (bToE <$> ins))
 fromComp comp =
   error ("ConCat.GLSL.fromComp: not supported: " ++ show comp)
 
