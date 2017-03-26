@@ -52,21 +52,18 @@ genGlsl name0 circ =
  where
    g@(name,compDepths,_report) = mkGraph name0 (unitize circ)
    comps = sortBy (comparing C.compNum) (M.keys compDepths)
-   fundef = fromComps (tweakName name) comps
+   fundef = fromCompSs (tweakName name) comps
    outDir = "out"
    tweakName = map tweakChar
    tweakChar c | isAlphaNum c = c
                | otherwise    = '_'
 
-unCompS :: CompS -> (String,[Bus],[Bus])
-unCompS (CompS _ fun ins outs _) = (fun,ins,outs)
-
-fromComps :: String -> [CompS] -> ExternalDeclaration
-fromComps name comps =
+fromCompSs :: String -> [CompS] -> ExternalDeclaration
+fromCompSs name comps =
   funDef Bool name (paramDecl <$> inputs)
-         (fromComp . unCompS <$> (mid ++ [o]))
+         (fromCompS <$> (mid ++ [o]))
  where
-   (unCompS -> ("In",[],inputs),mid,o) = splitComps comps
+   (CompS _ "In" [] inputs _,mid,o) = splitComps comps
 
 paramDecl :: Bus -> ParameterDeclaration
 paramDecl (Bus pid ty) =
@@ -83,18 +80,18 @@ funDef resultTy name params statements =
              name params)
     (Compound statements)
 
-fromComp :: (String,[Bus],[Bus]) -> Statement
-fromComp ("Out",[b],[]) = Return (Just (bToE b))
-fromComp (str,[],[b@(Bus _ ty)]) =
+fromCompS :: CompS -> Statement
+fromCompS (CompS _ "Out" [b] [] _) = Return (Just (bToE b))
+fromCompS (CompS _ str [] [b@(Bus _ ty)] _) =
   initBus b (
     case ty of
       C.Bool  -> BoolConstant        (read str)
       C.Int   -> IntConstant Decimal (read str)
       C.Float -> FloatConstant       (read str)
-      _ -> error ("ConCat.GLSL.fromComp: unexpected literal type: " ++ show ty))
-fromComp (prim,ins,[b]) = initBus b (app prim (bToE <$> ins))
-fromComp comp =
-  error ("ConCat.GLSL.fromComp: not supported: " ++ show comp)
+      _ -> error ("ConCat.GLSL.fromCompS: unexpected literal type: " ++ show ty))
+fromCompS (CompS _ prim ins [b] _) = initBus b (app prim (bToE <$> ins))
+fromCompS comp =
+  error ("ConCat.GLSL.fromCompS: not supported: " ++ show comp)
 
 initBus :: Bus -> Expr -> Statement
 initBus (Bus pid ty) e = initDecl (glslTy ty) (varName pid) e
