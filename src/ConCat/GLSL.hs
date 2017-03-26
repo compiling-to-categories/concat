@@ -16,6 +16,7 @@ module ConCat.GLSL where
 
 import Control.Monad (when)
 import Data.Ord (comparing)
+import Data.Char (isAlphaNum)
 import Data.List (sortBy)
 import Data.Either (rights)
 import qualified Data.Map as M
@@ -35,14 +36,14 @@ import ConCat.Circuit
 import qualified ConCat.Circuit as C
 import ConCat.Misc ((:*))
 
-type Im = Float :* Float :> Bool
+type CIm = Float :* Float :> Bool
 
-type OkIm a b = (a :> b) ~ Im
+type OkIm a b = (a :> b) ~ CIm
 
 showGraph :: Bool
-showGraph = True -- False
+showGraph = False -- True
 
-genGlsl :: String -> Im -> IO ()
+genGlsl :: OkIm a b => String -> (a :> b) -> IO ()
 genGlsl name0 circ =
   do when showGraph $ putStrLn $ "genGlsl: Graph \n" ++ show g
      createDirectoryIfMissing False outDir
@@ -51,15 +52,18 @@ genGlsl name0 circ =
  where
    g@(name,compDepths,_report) = mkGraph name0 (unitize circ)
    comps = sortBy (comparing C.compNum) (M.keys compDepths)
-   fundef = fromComps comps
+   fundef = fromComps (tweakName name) comps
    outDir = "out"
+   tweakName = map tweakChar
+   tweakChar c | isAlphaNum c = c
+               | otherwise    = '_'
 
 unCompS :: CompS -> (String,[Bus],[Bus])
 unCompS (CompS _ fun ins outs _) = (fun,ins,outs)
 
-fromComps :: [CompS] -> ExternalDeclaration
-fromComps comps =
-  funDef Bool "effect" (paramDecl <$> inputs)
+fromComps :: String -> [CompS] -> ExternalDeclaration
+fromComps name comps =
+  funDef Bool name (paramDecl <$> inputs)
          (fromComp . unCompS <$> (mid ++ [o]))
  where
    (unCompS -> ("In",[],inputs),mid,o) = splitComps comps
@@ -117,11 +121,23 @@ varName :: PinId -> String
 varName (PinId n) = "v" ++ show n
 
 app :: String -> [Expr] -> Expr
-app "+" [e1,e2] = Add e1 e2
-app ">" [e1,e2] = Gt  e1 e2
+app "¬"      [e]     = UnaryNot e
+app "∧"      [e1,e2] = And e1 e2
+app "∨"      [e1,e2] = Or e1 e2
+app "<"      [e1,e2] = Lt e1 e2
+app ">"      [e1,e2] = Gt e1 e2
+app "≤"      [e1,e2] = Lte e1 e2
+app "≥"      [e1,e2] = Gte e1 e2
+app "≡"      [e1,e2] = Equ e1 e2
+app "≢"      [e1,e2] = Neq e1 e2
+app "negate" [e]     = UnaryNegate e
+app "+"      [e1,e2] = Add e1 e2
+app "-"      [e1,e2] = Sub e1 e2
+app "×"      [e1,e2] = Mul e1 e2
+-- app "div" [e1,e2] = Div e1 e2
+-- app "mod" [e1,e2] = Mod e1 e2
 app fun args =
   error ("ConCat.GLSL.app: not supported: " ++ show (fun,args))
-
   
 bToE :: Bus -> Expr
 bToE (Bus pid _ty) = Variable (varName pid)
