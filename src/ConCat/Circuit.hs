@@ -83,7 +83,7 @@
 
 module ConCat.Circuit
   ( CircuitM, (:>)
-  , PinId, Width, Bus(..), Source(..)
+  , PinId(..), Width, Bus(..), Source(..)
   , GenBuses(..), GS, GST, genBusesRep', delayCRep, tyRep, bottomRep, unDelayName
   , namedC, constC -- , constS
   , SourceToBuses(..)
@@ -1236,12 +1236,16 @@ geOpt = \ case
 --     No instance for (Read a0) arising from a pattern
 --     The type variable ‘a0’ is ambiguous
 
+leName, geName :: String
+leName = "≤"
+geName = "≥"
+
 #define OrdPrim(ty) \
  instance OrdCat (:>) (ty) where { \
    lessThan           = primOpt "<" (ltOpt @(ty)) ; \
    greaterThan        = primOpt ">" (gtOpt @(ty)) ; \
-   lessThanOrEqual    = primOpt "≤" (leOpt @(ty)) ; \
-   greaterThanOrEqual = primOpt "≥" (geOpt @(ty)) ; \
+   lessThanOrEqual    = primOpt leName (leOpt @(ty)) ; \
+   greaterThanOrEqual = primOpt geName (geOpt @(ty)) ; \
  }
 
 OrdPrim(Bool)
@@ -1790,7 +1794,6 @@ graphDot name attrs depths =
 type Statement = String
 
 simpleComp :: (CompNum,(Comp,Reuses)) -> CompS
-
 simpleComp (n, (Comp prim a b,reuses)) =
   CompS n name
     (sourceBus <$> flattenBHack name prim a)
