@@ -1896,7 +1896,7 @@ recordDots depths = nodes ++ edges
             label = []
 #else
             -- label | t == Bool = []
-            label = [printf "label=%s,fontsize=8,fontcolor=blue" (show t)]
+            label = [printf "label=%s,fontsize=8,fontcolor=indigo" (show t)]
 #endif
    port :: Dir -> (CompNum,PortNum) -> String
    port dir (cnum,np) =
