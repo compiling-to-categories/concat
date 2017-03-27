@@ -92,10 +92,10 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
---   , test "diag-plus-im" (\ (x :: Float,y) -> x + 0.5 > y)
---   , test "disk" disk
---   , test "diag-disk" (\ (x,y) -> disk (x,y) && x > y)
---   , test "sqr-sqr" (\ (x,y) -> sqr (sqr x) > y) -- Test reuse
+  , test "diag-plus-im" (\ (x :: R,y) -> x + 0.5 > y)
+  , test "disk" disk
+  , test "diag-disk" (\ (x,y) -> disk (x,y) && x > y)
+  , test "sqr-sqr" (\ (x,y) -> sqr (sqr x) > y) -- Test reuse
 
 --   , test "const2-0-der" (der (\ (_::R,_::R) -> 0 :: R))
 
