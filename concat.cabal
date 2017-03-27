@@ -74,6 +74,7 @@ library
                        ConCat.ADFun2
                        ConCat.Polynomial
                        ConCat.GLSL
+                       ConCat.Demand
 
                        ConCat.C
                        ConCat.D
