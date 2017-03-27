@@ -80,6 +80,9 @@ uses = M.unionsWith (+) . map uses1
 uses1 :: CompS -> M.Map PinId Int
 uses1 (CompS _ _ ins _ _) = M.unionsWith (+) [M.singleton i 1 | Bus i _ <- ins]
 
+nestExpressions :: Bool
+nestExpressions = True -- False
+
 -- Given usage counts, generate delayed bindings and assignments
 accumComps :: M.Map PinId Int -> [CompS] -> (M.Map PinId Expr, [(Bus,Expr)])
 -- accumComps counts | trace ("accumComps: counts = " ++ show counts) False = undefined
@@ -91,7 +94,7 @@ accumComps counts = go M.empty
    -- go saved comps | trace ("accumComps/go " ++ show saved ++ " " ++ show comps) False = undefined
    go saved [] = (saved, [])
    go saved (c@(CompS _ _ _ [b@(Bus o _)] _) : comps) 
-     | Just n <- M.lookup o counts, n > 1 =
+     | Just n <- M.lookup o counts, (n > 1 || not nestExpressions) =
          let (saved',bindings') = go saved comps in
            (saved', (b,e) : bindings')
      | otherwise = go (M.insert o e saved) comps
