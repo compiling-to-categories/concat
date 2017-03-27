@@ -137,11 +137,11 @@ app "negate" [e]     = UnaryNegate e
 app "+"      [e1,e2] = Add e1 e2
 app "-"      [e1,e2] = Sub e1 e2
 app "×"      [e1,e2] = Mul e1 e2
--- app "div" [e1,e2] = Div e1 e2
--- app "mod" [e1,e2] = Mod e1 e2
+app "÷"      [e1,e2] = Div e1 e2
+app "mod"    [e1,e2] = Mod e1 e2
 app fun args =
   error ("ConCat.GLSL.app: not supported: " ++ show (fun,args))
-  
+
 bToE :: Bus -> Expr
 bToE (Bus pid _ty) = Variable (varName pid)
 
