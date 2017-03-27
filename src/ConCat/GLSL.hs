@@ -30,11 +30,11 @@ import Language.GLSL.Syntax
 import Language.GLSL.Pretty ()
 import Language.GLSL.Parser hiding (parse)
 
-import ConCat.Misc ((:*))
+import ConCat.Misc ((:*),R)
 import ConCat.Circuit (CompS(..),PinId(..),Bus(..),(:>), mkGraph, unitize)
 import qualified ConCat.Circuit as C
 
-type CIm = Float :* Float :> Bool
+type CIm = R :* R :> Bool
 
 type OkIm a b = (a :> b) ~ CIm
 
@@ -56,9 +56,10 @@ genGlsl name0 circ =
                | otherwise    = '_'
 
 constExpr :: C.Ty -> String -> Expr
-constExpr C.Bool = BoolConstant . read
-constExpr C.Int  = IntConstant Decimal . read
-constExpr C.Float = FloatConstant . read
+constExpr C.Bool   = BoolConstant        . read
+constExpr C.Int    = IntConstant Decimal . read
+constExpr C.Float  = FloatConstant       . read
+constExpr C.Double = FloatConstant       . read
 constExpr ty = error ("ConCat.GLSL.constExpr: unexpected literal type: " ++ show ty)
 
 fromComps' :: String -> [CompS] -> ExternalDeclaration
@@ -110,9 +111,10 @@ initBus :: Bus -> Expr -> Statement
 initBus (Bus pid ty) e = initDecl (glslTy ty) (varName pid) e
 
 glslTy :: C.Ty -> TypeSpecifierNonArray
-glslTy C.Int   = Int
-glslTy C.Bool  = Bool
-glslTy C.Float = Float
+glslTy C.Int    = Int
+glslTy C.Bool   = Bool
+glslTy C.Float  = Float
+glslTy C.Double = Float
 glslTy ty = error ("ConCat.GLSL.glslTy: unsupported type: " ++ show ty)
 
 varName :: PinId -> String
