@@ -11,6 +11,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -76,6 +77,7 @@ import ConCat.Interval
 import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
+import ConCat.GLSL (genGlsl,OkIm)
 import ConCat.RunCircuit (go,Okay,(:>))
 import ConCat.AltCat ( ccc,reveal,Uncurriable(..),U2(..),(:**:)(..),Ok2
                      , reprC,abstC,mulC,amb,ambC,asKleisli )
@@ -86,28 +88,18 @@ import ConCat.GradientDescent
 
 default (Int, Double)
 
-horner :: Num a => [a] -> a -> a
-
--- horner coeffs a = foldr (\ w z -> w + a * z) 0 coeffs
-
--- horner coeffs0 a = go coeffs0
---  where
---    go [] = a
---    go (c:cs) = c + a * go cs
-
--- This version inlines
-horner []     _ = 0
-horner (c:cs) a = c + a * horner cs a
-
-
-
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
+--   , test "diag-plus-im" (\ (x :: Float,y) -> x + 0.5 > y)
+--   , test "disk" disk
+--   , test "diag-disk" (\ (x,y) -> disk (x,y) && x > y)
+--   , test "sqr-sqr" (\ (x,y) -> sqr (sqr x) > y) -- Test reuse
+
 --   , test "const2-0-der" (der (\ (_::R,_::R) -> 0 :: R))
 
-  , test "const2-0-uncurry-der" (der (uncurry (\ (_::R) (_::R) -> 0 :: R)))
+--   , test "const2-0-uncurry-der" (der (uncurry (\ (_::R) (_::R) -> 0 :: R)))
 
 --   , print (asKleisli (\ x -> let z = x `amb` x+1 in z*z) 5 :: [Int])
 
@@ -340,6 +332,10 @@ runEC nm (syn :**: circ) = runSyn syn >> runCirc nm circ
 runCirc :: GO a b => String -> (a :> b) -> IO ()
 runCirc nm circ = RC.run nm [] circ
 
+-- runCircGlsl :: GO a b => String -> (a :> b) -> IO ()
+runCircGlsl :: OkIm a b => String -> (a :> b) -> IO ()
+runCircGlsl nm circ = runCirc nm circ >> genGlsl nm circ
+
 test :: Con a b => String -> (a -> b) -> IO ()
 test nm _f = oops ("test called on " ++ nm)
 {-# NOINLINE test #-}
@@ -372,6 +368,12 @@ type Con = Uncurriable Syn
 #elif 0
 type Con = Uncurriable (->)
 {-# RULES "(->); uncurries; Syn" forall nm f. test nm f = runSyn (ccc (uncurries (ccc f))) #-}
+#elif 1
+type Con a b = OkIm a b
+{-# RULES "GLSL" forall nm f. test nm f = genGlsl nm (ccc f) #-}
+#elif 1
+type Con a b = OkIm a b
+{-# RULES "Circuit and GLSL" forall nm f. test nm f = runCircGlsl nm (ccc f) #-}
 #elif 1
 type Con a b = GO a b
 {-# RULES "EC" forall nm f. test nm f = runEC nm (ccc f) #-}
@@ -496,3 +498,21 @@ par1 = Par1
 {-# INLINE [0] par1 #-}
 
 #endif
+
+horner :: Num a => [a] -> a -> a
+
+-- horner coeffs a = foldr (\ w z -> w + a * z) 0 coeffs
+
+-- horner coeffs0 a = go coeffs0
+--  where
+--    go [] = a
+--    go (c:cs) = c + a * go cs
+
+-- This version inlines
+horner []     _ = 0
+horner (c:cs) a = c + a * horner cs a
+
+type Region = R2 -> Bool
+
+disk :: Region
+disk p = magSqr p <= 1
