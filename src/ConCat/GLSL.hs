@@ -7,42 +7,39 @@
 {-# LANGUAGE ParallelListComp #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
-{-# OPTIONS_GHC -fdefer-typed-holes #-} -- TEMP
+-- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+-- {-# OPTIONS_GHC -fdefer-typed-holes #-} -- TEMP
 
 -- | Generate GLSL code from a circuit graph
 
-module ConCat.GLSL where
+module ConCat.GLSL 
+ ( OkIm, genGlsl
+ ) where
 
 import Control.Monad (when)
 import Data.Ord (comparing)
 import Data.Char (isAlphaNum)
 import Data.List (sortBy)
-import Data.Either (rights)
 import qualified Data.Map as M
 import System.Directory (createDirectoryIfMissing)
+-- import Debug.Trace (trace)
 
-import Text.ParserCombinators.Parsec (runParser,ParseError,GenParser)
-
-import Debug.Trace (trace)
-
+import Text.ParserCombinators.Parsec (runParser,ParseError)
 import Text.PrettyPrint.HughesPJClass -- (Pretty,prettyShow)
 import Language.GLSL.Syntax
-import Language.GLSL.Pretty
-
+import Language.GLSL.Pretty ()
 import Language.GLSL.Parser hiding (parse)
 
-import ConCat.Circuit ( CompS(..),compName,PinId(..),Bus(..),GenBuses,(:>)
-                      , GraphInfo, mkGraph, unitize )
-import qualified ConCat.Circuit as C
 import ConCat.Misc ((:*))
+import ConCat.Circuit (CompS(..),PinId(..),Bus(..),(:>), mkGraph, unitize)
+import qualified ConCat.Circuit as C
 
 type CIm = Float :* Float :> Bool
 
 type OkIm a b = (a :> b) ~ CIm
 
 showGraph :: Bool
-showGraph = True -- False
+showGraph = False -- True
 
 genGlsl :: OkIm a b => String -> (a :> b) -> IO ()
 genGlsl name0 circ =
@@ -57,19 +54,6 @@ genGlsl name0 circ =
    tweakName = map tweakChar
    tweakChar c | isAlphaNum c = c
                | otherwise    = '_'
-
-fromComps :: String -> [CompS] -> ExternalDeclaration
-fromComps name comps =
-  funDef Bool name (paramDecl <$> inputs) (fromComp <$> (mid ++ [o]))
- where
-   (CompS _ "In" [] inputs _,mid,o) = splitComps comps
-
-fromComp :: CompS -> Statement
-fromComp (CompS _ "Out" [b] [] _)          = Return (Just (bToE b))
-fromComp (CompS _ str [] [b@(Bus _ ty)] _) = initBus b (constExpr ty str)
-fromComp (CompS _ prim ins [b] _)          = initBus b (app prim (bToE <$> ins))
-fromComp comp =
-  error ("ConCat.GLSL.fromComp: not supported: " ++ show comp)
 
 constExpr :: C.Ty -> String -> Expr
 constExpr C.Bool = BoolConstant . read
@@ -97,7 +81,7 @@ uses1 (CompS _ _ ins _ _) = M.unionsWith (+) [M.singleton i 1 | Bus i _ <- ins]
 
 -- Given usage counts, generate delayed bindings and assignments
 accumComps :: M.Map PinId Int -> [CompS] -> (M.Map PinId Expr, [(Bus,Expr)])
-accumComps counts | trace ("accumComps: counts = " ++ show counts) False = undefined
+-- accumComps counts | trace ("accumComps: counts = " ++ show counts) False = undefined
 accumComps counts = go M.empty
  where
    -- Generate bindings for outputs used more than once,
@@ -169,15 +153,9 @@ unsnoc as = (mid,o) where (mid,[o]) = splitAt (length as - 1) as
     GLSL syntax utilities
 --------------------------------------------------------------------}
 
--- For experiments
-parse :: P a -> String -> Either ParseError a
-parse p = runParser p S "GLSL"
-
-selectField :: String -> String -> Expr
-selectField var field = FieldSelection (Variable var) field
-
-assign :: String -> Expr -> Statement
-assign v e = ExpressionStatement (Just (Equal (Variable v) e))
+-- For experiments. Makes it easy to see syntax representations.
+_parse :: P a -> String -> Either ParseError a
+_parse p = runParser p S "GLSL"
 
 initDecl :: TypeSpecifierNonArray -> String -> Expr -> Statement
 initDecl ty var e =
@@ -201,3 +179,11 @@ funDef resultTy name params statements =
               (TypeSpec Nothing (TypeSpecNoPrecision resultTy Nothing)))
              name params)
     (Compound statements)
+
+#if 0
+selectField :: String -> String -> Expr
+selectField var field = FieldSelection (Variable var) field
+
+assign :: String -> Expr -> Statement
+assign v e = ExpressionStatement (Just (Equal (Variable v) e))
+#endif
