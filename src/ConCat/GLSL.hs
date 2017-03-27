@@ -10,7 +10,7 @@
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 {-# OPTIONS_GHC -fdefer-typed-holes #-} -- TEMP
 
--- | 
+-- | Generate GLSL code from a circuit graph
 
 module ConCat.GLSL where
 
@@ -24,15 +24,16 @@ import System.Directory (createDirectoryIfMissing)
 
 import Text.ParserCombinators.Parsec (runParser,ParseError,GenParser)
 
+import Debug.Trace (trace)
+
 import Text.PrettyPrint.HughesPJClass -- (Pretty,prettyShow)
 import Language.GLSL.Syntax
 import Language.GLSL.Pretty
 
 import Language.GLSL.Parser hiding (parse)
 
-import ConCat.Circuit
-  ( CompS(..),compName,PinId(..),Bus(..),GenBuses,(:>)
-  , GraphInfo, mkGraph, unitize)
+import ConCat.Circuit ( CompS(..),compName,PinId(..),Bus(..),GenBuses,(:>)
+                      , GraphInfo, mkGraph, unitize )
 import qualified ConCat.Circuit as C
 import ConCat.Misc ((:*))
 
@@ -41,72 +42,88 @@ type CIm = Float :* Float :> Bool
 type OkIm a b = (a :> b) ~ CIm
 
 showGraph :: Bool
-showGraph = False -- True
+showGraph = True -- False
 
 genGlsl :: OkIm a b => String -> (a :> b) -> IO ()
 genGlsl name0 circ =
-  do when showGraph $ putStrLn $ "genGlsl: Graph \n" ++ show g
+  do when showGraph $ putStrLn $ "genGlsl: Graph " ++ show g
      createDirectoryIfMissing False outDir
-     writeFile (outDir++"/"++name++".frag")
-       (prettyShow fundef ++ "\n")
+     writeFile (outDir++"/"++name++".frag") (prettyShow fundef ++ "\n")
  where
    g@(name,compDepths,_report) = mkGraph name0 (unitize circ)
    comps = sortBy (comparing C.compNum) (M.keys compDepths)
-   fundef = fromCompSs (tweakName name) comps
+   fundef = fromComps' (tweakName name) comps
    outDir = "out"
    tweakName = map tweakChar
    tweakChar c | isAlphaNum c = c
                | otherwise    = '_'
 
-fromCompSs :: String -> [CompS] -> ExternalDeclaration
-fromCompSs name comps =
-  funDef Bool name (paramDecl <$> inputs)
-         (fromCompS <$> (mid ++ [o]))
+fromComps :: String -> [CompS] -> ExternalDeclaration
+fromComps name comps =
+  funDef Bool name (paramDecl <$> inputs) (fromComp <$> (mid ++ [o]))
  where
    (CompS _ "In" [] inputs _,mid,o) = splitComps comps
 
-paramDecl :: Bus -> ParameterDeclaration
-paramDecl (Bus pid ty) =
-  ParameterDeclaration Nothing Nothing 
-    (TypeSpec Nothing (TypeSpecNoPrecision (glslTy ty) Nothing))
-    (Just (varName pid,Nothing))
+fromComp :: CompS -> Statement
+fromComp (CompS _ "Out" [b] [] _)          = Return (Just (bToE b))
+fromComp (CompS _ str [] [b@(Bus _ ty)] _) = initBus b (constExpr ty str)
+fromComp (CompS _ prim ins [b] _)          = initBus b (app prim (bToE <$> ins))
+fromComp comp =
+  error ("ConCat.GLSL.fromComp: not supported: " ++ show comp)
 
-funDef :: TypeSpecifierNonArray -> String -> [ParameterDeclaration]
-       -> [Statement] -> ExternalDeclaration
-funDef resultTy name params statements =
-  FunctionDefinition (
-    FuncProt (FullType Nothing
-              (TypeSpec Nothing (TypeSpecNoPrecision resultTy Nothing)))
-             name params)
-    (Compound statements)
+constExpr :: C.Ty -> String -> Expr
+constExpr C.Bool = BoolConstant . read
+constExpr C.Int  = IntConstant Decimal . read
+constExpr C.Float = FloatConstant . read
+constExpr ty = error ("ConCat.GLSL.constExpr: unexpected literal type: " ++ show ty)
 
-fromCompS :: CompS -> Statement
-fromCompS (CompS _ "Out" [b] [] _) = Return (Just (bToE b))
-fromCompS (CompS _ str [] [b@(Bus _ ty)] _) =
-  initBus b (
-    case ty of
-      C.Bool  -> BoolConstant        (read str)
-      C.Int   -> IntConstant Decimal (read str)
-      C.Float -> FloatConstant       (read str)
-      _ -> error ("ConCat.GLSL.fromCompS: unexpected literal type: " ++ show ty))
-fromCompS (CompS _ prim ins [b] _) = initBus b (app prim (bToE <$> ins))
-fromCompS comp =
-  error ("ConCat.GLSL.fromCompS: not supported: " ++ show comp)
+fromComps' :: String -> [CompS] -> ExternalDeclaration
+-- fromComps' _ comps | trace ("fromComps' " ++ show comps) False = undefined
+fromComps' name comps =
+  funDef Bool name (paramDecl <$> inputs)
+         (map (uncurry initBus) assignments
+          ++ [Return (Just (bindings M.! res))])
+ where
+   (CompS _ "In" [] inputs _,mid, CompS _ "Out" [Bus res _] _ _) = splitComps comps
+   (bindings, assignments) = accumComps (uses mid) mid
+
+-- Count uses of each output
+uses :: [CompS] -> M.Map PinId Int
+uses = M.unionsWith (+) . map uses1
+
+-- Uses map for a single component
+uses1 :: CompS -> M.Map PinId Int
+uses1 (CompS _ _ ins _ _) = M.unionsWith (+) [M.singleton i 1 | Bus i _ <- ins]
+
+-- Given usage counts, generate delayed bindings and assignments
+accumComps :: M.Map PinId Int -> [CompS] -> (M.Map PinId Expr, [(Bus,Expr)])
+accumComps counts | trace ("accumComps: counts = " ++ show counts) False = undefined
+accumComps counts = go M.empty
+ where
+   -- Generate bindings for outputs used more than once,
+   -- and accumulate a map of the others.
+   go :: M.Map PinId Expr -> [CompS] -> (M.Map PinId Expr, [(Bus,Expr)])
+   -- go saved comps | trace ("accumComps/go " ++ show saved ++ " " ++ show comps) False = undefined
+   go saved [] = (saved, [])
+   go saved (c@(CompS _ _ _ [b@(Bus o _)] _) : comps) 
+     | Just n <- M.lookup o counts, n > 1 =
+         let (saved',bindings') = go saved comps in
+           (saved', (b,e) : bindings')
+     | otherwise = go (M.insert o e saved) comps
+    where
+      e = compExpr saved c
+   go _ c = error ("ConCat.GLSL.accumComps: oops: " ++ show c)
+
+compExpr :: M.Map PinId Expr -> CompS -> Expr
+compExpr _ (CompS _ str [] [Bus _ ty] _) = constExpr ty str
+compExpr saved (CompS _ prim ins _ _) = app prim (inExpr <$> ins)
+ where
+   inExpr :: Bus -> Expr
+   inExpr b@(Bus i _) | Just e <- M.lookup i saved = e
+                      | otherwise = bToE b
 
 initBus :: Bus -> Expr -> Statement
 initBus (Bus pid ty) e = initDecl (glslTy ty) (varName pid) e
-
-assign :: String -> Expr -> Statement
-assign v e = ExpressionStatement (Just (Equal (Variable v) e))
-
-initDecl :: TypeSpecifierNonArray -> String -> Expr -> Statement
-initDecl ty var e =
- DeclarationStatement (
-  InitDeclaration (
-      TypeDeclarator (
-          FullType Nothing (TypeSpec Nothing (TypeSpecNoPrecision ty Nothing))))
-  [InitDecl var Nothing (Just e)])
-
 
 glslTy :: C.Ty -> TypeSpecifierNonArray
 glslTy C.Int   = Int
@@ -120,9 +137,9 @@ varName (PinId n) = "v" ++ show n
 app :: String -> [Expr] -> Expr
 app "¬"      [e]     = UnaryNot e
 app "∧"      [e1,e2] = And e1 e2
-app "∨"      [e1,e2] = Or e1 e2
-app "<"      [e1,e2] = Lt e1 e2
-app ">"      [e1,e2] = Gt e1 e2
+app "∨"      [e1,e2] = Or  e1 e2
+app "<"      [e1,e2] = Lt  e1 e2
+app ">"      [e1,e2] = Gt  e1 e2
 app "≤"      [e1,e2] = Lte e1 e2
 app "≥"      [e1,e2] = Gte e1 e2
 app "≡"      [e1,e2] = Equ e1 e2
@@ -139,13 +156,18 @@ app fun args =
 bToE :: Bus -> Expr
 bToE (Bus pid _ty) = Variable (varName pid)
 
+-- Extract input, middle, output components. 
+splitComps :: [CompS] -> (CompS,[CompS],CompS)
+splitComps (i@(CompS 0 "In" [] _ _)
+            : (unsnoc -> (mid,o@(CompS _ "Out" _ [] _)))) = (i,mid,o)
+splitComps comps = error ("ConCat.GLSL.splitComps: Oops: " ++ show comps)
+
 unsnoc :: [a] -> ([a],a)
 unsnoc as = (mid,o) where (mid,[o]) = splitAt (length as - 1) as
 
--- Extract input, middle, output components
-splitComps :: [CompS] -> (CompS,[CompS],CompS)
-splitComps (i@(CompS 0 "In" [] _ _) : (unsnoc -> (mid,o))) = (i,mid,o)
-splitComps comps = error ("ConCat.GLSL.splitComps: Oops: " ++ show comps)
+{--------------------------------------------------------------------
+    GLSL syntax utilities
+--------------------------------------------------------------------}
 
 -- For experiments
 parse :: P a -> String -> Either ParseError a
@@ -154,8 +176,28 @@ parse p = runParser p S "GLSL"
 selectField :: String -> String -> Expr
 selectField var field = FieldSelection (Variable var) field
 
-defXY :: Bus -> Bus -> [Statement]
-defXY (Bus x C.Float) (Bus y C.Float) =
-  [ initDecl Float (varName v) (selectField "_point" field)
-  | v <- [x,y] | field <- ["x","y"]]
-defXY bx by = error ("ConCat.GLSL.defXY: oops: " ++ show (bx,by))
+assign :: String -> Expr -> Statement
+assign v e = ExpressionStatement (Just (Equal (Variable v) e))
+
+initDecl :: TypeSpecifierNonArray -> String -> Expr -> Statement
+initDecl ty var e =
+ DeclarationStatement (
+  InitDeclaration (
+      TypeDeclarator (
+          FullType Nothing (TypeSpec Nothing (TypeSpecNoPrecision ty Nothing))))
+  [InitDecl var Nothing (Just e)])
+
+paramDecl :: Bus -> ParameterDeclaration
+paramDecl (Bus pid ty) =
+  ParameterDeclaration Nothing Nothing 
+    (TypeSpec Nothing (TypeSpecNoPrecision (glslTy ty) Nothing))
+    (Just (varName pid,Nothing))
+
+funDef :: TypeSpecifierNonArray -> String -> [ParameterDeclaration]
+       -> [Statement] -> ExternalDeclaration
+funDef resultTy name params statements =
+  FunctionDefinition (
+    FuncProt (FullType Nothing
+              (TypeSpec Nothing (TypeSpecNoPrecision resultTy Nothing)))
+             name params)
+    (Compound statements)
