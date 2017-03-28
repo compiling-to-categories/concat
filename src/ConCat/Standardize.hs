@@ -134,6 +134,11 @@ instance (HasStandard a, Floating (Standard a)) =>  FloatingCat StdFun a where
   cosC = StdFun cosC
   sinC = StdFun sinC
 
+instance (HasStandard a, RealFracCat (->) (Standard a) (Standard b))
+      => RealFracCat StdFun a b where
+  floorC   = StdFun floorC
+  ceilingC = StdFun ceilingC
+
 {--------------------------------------------------------------------
     CCC interface
 --------------------------------------------------------------------}

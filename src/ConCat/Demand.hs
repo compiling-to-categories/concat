@@ -225,7 +225,7 @@ instance CoproductCat (:-?) where
 instance ConstCat (:-?) a where
   const _ = pack (const NoneD)
 
-class BottomCat (:-?) a b where
+instance BottomCat (:-?) a b where
   bottomC = pack (const NoneD)
 
 hyperStrict :: a :-? b
@@ -275,7 +275,11 @@ instance FloatingCat (->) a => FloatingCat (:-?) a where
   cosC = hyperStrict
   sinC = hyperStrict
 
-instance FromIntegralCat (->) a b -> FromIntegralCat (:-?) a b where
+instance RealFracCat (->) a b => RealFracCat (:-?) a b where
+  floorC   = hyperStrict
+  ceilingC = hyperStrict
+
+instance FromIntegralCat (->) a b => FromIntegralCat (:-?) a b where
   fromIntegralC = hyperStrict
 
 -- Still to come: IfCat, UnknownCat, RepCat, CoerceCat, 

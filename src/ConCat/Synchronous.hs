@@ -110,6 +110,10 @@ instance Floating a => FloatingCat Mealy a where
   cosC = arr cosC
   sinC = arr sinC
 
+instance RealFracCat (->) a b => RealFracCat Mealy a b where
+  floorC   = arr floorC
+  ceilingC = arr ceilingC
+
 instance BottomCat (->) a b => BottomCat Mealy a b where
   bottomC = arr bottomC
 

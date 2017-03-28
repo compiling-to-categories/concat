@@ -46,7 +46,7 @@ import ConCat.Category
   , ConstCat, ConstObj, lconst, rconst
   , BiCCC
   , BoolCat, BoolOf
-  , NumCat, FractionalCat, FloatingCat, FromIntegralCat
+  , NumCat, FractionalCat, FloatingCat, RealFracCat, FromIntegralCat
   , EqCat, OrdCat, EnumCat, BottomCat, IfCat, IfT, UnknownCat, RepCat, CoerceCat
   , TransitiveCon(..)
   , U2(..), (:**:)(..)
@@ -193,6 +193,9 @@ Op0(powIC,NumCat k a => Prod k a Int `k` a)
 
 Op0(recipC,FractionalCat k a => a `k` a)
 Op0(divideC,FractionalCat k a => Prod k a a `k` a)
+
+Op0(floorC,RealFracCat k a b => a `k` b)
+Op0(ceilingC,RealFracCat k a b => a `k` b)
 
 Op0(expC,FloatingCat k a => a `k` a)
 Op0(cosC,FloatingCat k a => a `k` a)

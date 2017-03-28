@@ -1364,6 +1364,11 @@ instance (FractionalZ a, Read a, Eq a, GST a, SourceToBuses a)
               [x,NegateS y]  -> newComp2 (negateC . divideC) x y
               _              -> nothingA
 
+instance (RealFrac a, Integral b, GST a, GST b, Read a)
+      => RealFracCat (:>) a b where
+  floorC = primNoOpt1 "floor" floor
+  ceilingC = primNoOpt1 "ceiling" ceiling
+
 instance (FloatingZ a, Read a, GST a) => FloatingCat (:>) a where
   expC = primNoOpt1 "exp" expZ
   cosC = primNoOpt1 "cos" cosZ

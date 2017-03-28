@@ -1254,6 +1254,31 @@ instance (FloatingCat k a, FloatingCat k' a) => FloatingCat (k :**: k') a where
   PINLINER(cosC)
   PINLINER(sinC)
 
+class Ok k a => RealFracCat k a b where
+  floorC, ceilingC :: a `k` b
+
+instance (RealFrac a, Integral b) => RealFracCat (->) a b where
+  floorC = floor
+  ceilingC = ceiling
+
+#ifdef KleisliInstances
+instance (Monad m, RealFrac a, Integral b) => RealFracCat (Kleisli m) a b where
+  -- floorC, ceilingC :: forall b. Integral b => Kleisli m a b
+  floorC   = arr floorC
+  ceilingC = arr ceilingC
+#endif
+
+instance Integral b => RealFracCat U2 a b where
+  floorC  = U2
+  ceilingC = U2
+
+instance (RealFracCat k a b, RealFracCat k' a b) => RealFracCat (k :**: k') a b where
+  floorC  = floorC  :**: floorC
+  ceilingC = ceilingC :**: ceilingC
+  PINLINER(floorC)
+  PINLINER(ceilingC)
+
+
 -- Stand-in for fromIntegral, avoiding the intermediate Integer in the Prelude
 -- definition.
 class FromIntegralCat k a b where
