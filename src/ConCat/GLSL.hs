@@ -12,14 +12,13 @@
 
 -- | Generate GLSL code from a circuit graph
 
-module ConCat.GLSL 
- ( OkIm, genGlsl
- ) where
+module ConCat.GLSL (CAnim,genGlsl) where
 
 import Control.Monad (when)
 import Data.Ord (comparing)
 import Data.Char (isAlphaNum)
 import Data.List (sortBy)
+import qualified Data.Set as S
 import qualified Data.Map as M
 import System.Directory (createDirectoryIfMissing)
 -- import Debug.Trace (trace)
@@ -34,14 +33,12 @@ import ConCat.Misc ((:*),R)
 import ConCat.Circuit (CompS(..),PinId(..),Bus(..),(:>), mkGraph, unitize)
 import qualified ConCat.Circuit as C
 
-type CIm = R :* R :> Bool
-
-type OkIm a b = (a :> b) ~ CIm
+type CAnim = R :* (R :* R) :> Bool
 
 showGraph :: Bool
 showGraph = False -- True
 
-genGlsl :: OkIm a b => String -> (a :> b) -> IO ()
+genGlsl :: String -> CAnim -> IO ()
 genGlsl name0 circ =
   do when showGraph $ putStrLn $ "genGlsl: Graph " ++ show g
      createDirectoryIfMissing False outDir
@@ -139,8 +136,11 @@ app "-"      [e1,e2] = Sub e1 e2
 app "×"      [e1,e2] = Mul e1 e2
 app "÷"      [e1,e2] = Div e1 e2
 app "mod"    [e1,e2] = Mod e1 e2
-app fun args =
-  error ("ConCat.GLSL.app: not supported: " ++ show (fun,args))
+app fun args | fun `S.member` knownFuncs = funcall fun args
+             | otherwise = error ("ConCat.GLSL.app: not supported: " ++ show (fun,args))
+
+knownFuncs :: S.Set String
+knownFuncs = S.fromList ["exp","cos","sin"]
 
 bToE :: Bus -> Expr
 bToE (Bus pid _ty) = Variable (varName pid)
@@ -184,6 +184,12 @@ funDef resultTy name params statements =
               (TypeSpec Nothing (TypeSpecNoPrecision resultTy Nothing)))
              name params)
     (Compound statements)
+
+funcall :: String -> [Expr] -> Expr
+funcall fun args = FunctionCall (FuncId fun) (Params args)
+
+-- funcall1 :: String -> Expr -> Expr
+-- funcall1 fun = funcall fun . (:[])
 
 #if 0
 selectField :: String -> String -> Expr
