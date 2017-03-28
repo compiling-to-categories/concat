@@ -96,8 +96,11 @@ disk' r p = magSqr p <= sqr r
 annulus :: R -> R -> Region
 annulus o i = disk o `diffR` disk i
 
--- -- | Checker-board
--- checker :: Region
--- checker (x,y) = test x == test y
---   where test w = frac w > 0.5
+-- | Checker-board
+checker :: Region
+checker (x,y) = test x == test y
+  where test w = frac w > 0.5
+{-# INLINE checker #-}
   
+frac :: RealFrac a => a -> a
+frac x = x - fromIntegral (floor x :: Int)
