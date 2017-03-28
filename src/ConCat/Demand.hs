@@ -167,7 +167,7 @@ AllD       `lubD` _            = AllD
 _          `lubD` AllD         = AllD
 (a :*** b) `lubD` (a' :*** b') = (a `lubD` a') *: (b `lubD` b')
 (a :+++ b) `lubD` (a' :+++ b') = (a `lubD` a') +: (b `lubD` b')
-(a :~> b)  `lubD` (a' :~> b')  = (a `lubD` a') >: (b `lubD` b')
+(a :~>  b) `lubD` (a' :~>  b') = (a `lubD` a') >: (b `lubD` b')
 
 -- | Greatest lower bound on demands. Specification: 
 -- @demand (ra `glbD` rb) == demand ra `glb` demand rb@.
@@ -178,7 +178,7 @@ AllD       `glbD` b            = b
 a          `glbD` AllD         = a
 (a :*** b) `glbD` (a' :*** b') = (a `glbD` a') *: (b `glbD` b')
 (a :+++ b) `glbD` (a' :+++ b') = (a `glbD` a') +: (b `glbD` b')
-(a :~> b)  `glbD` (a' :~> b')  = (a `glbD` a') >: (b `glbD` b')
+(a :~>  b) `glbD` (a' :~>  b') = (a `glbD` a') >: (b `glbD` b')
 
 -- The catch-all cases in lubD and glbD are sum/product.
 -- Impossible, but GHC doesn't realize. :(
@@ -207,6 +207,15 @@ instance ProductCat (:-?) where
   dup = pack mergeD
   (***) = inNew2 $ \ f g -> inUnpairD (f *** g)
 
+-- class (Category k, Ok k (Unit k)) => TerminalCat k where
+--   -- type Unit k :: u
+--   it :: Ok k a => a `k` Unit k
+
+instance TerminalCat (:-?) where
+  it = pack (const NoneD)
+
+-- need :: Demand () `k` Demand a
+
 instance CoproductCat (:-?) where
   inl = pack (exl . unplusD)
   inr = pack (exr . unplusD)
@@ -215,3 +224,63 @@ instance CoproductCat (:-?) where
 
 instance ConstCat (:-?) a where
   const _ = pack (const NoneD)
+
+class BottomCat (:-?) a b where
+  bottomC = pack (const NoneD)
+
+hyperStrict :: a :-? b
+hyperStrict = pack f
+ where
+   f NoneD = NoneD
+   f _     = AllD
+
+instance BoolCat (:-?) where
+  notC = pack id
+  andC = hyperStrict
+  orC  = hyperStrict
+  xorC = hyperStrict
+
+instance EqCat (->) a => EqCat (:-?) a where
+  equal    = hyperStrict
+  notEqual = hyperStrict
+
+instance OrdCat (->) a => OrdCat (:-?) a where
+  lessThan           = hyperStrict
+  greaterThan        = hyperStrict
+  lessThanOrEqual    = hyperStrict
+  greaterThanOrEqual = hyperStrict
+
+instance EnumCat (->) a => EnumCat (:-?) a where
+  succC = hyperStrict
+  predC = hyperStrict
+
+-- The following instances are too conservative for instances over non-flat
+-- types, such as tuples and many applicatives.
+-- 
+-- TODO: rework.
+
+instance NumCat (->) a => NumCat (:-?) a where
+  negateC = hyperStrict
+  addC    = hyperStrict
+  subC    = hyperStrict
+  mulC    = hyperStrict
+  powIC   = hyperStrict
+
+instance FractionalCat (->) a => FractionalCat (:-?) a where
+  recipC  = hyperStrict
+  divideC = hyperStrict
+
+instance FloatingCat (->) a => FloatingCat (:-?) a where
+  expC = hyperStrict
+  cosC = hyperStrict
+  sinC = hyperStrict
+
+instance FromIntegralCat (->) a b -> FromIntegralCat (:-?) a b where
+  fromIntegralC = hyperStrict
+
+-- Still to come: IfCat, UnknownCat, RepCat, CoerceCat, 
+
+-- Every demand function must map NoneD to NoneD, so represent a :-? b
+-- as Demand b -> Maybe (Demand a), and use Kleisli composition. Or represent
+-- as a Kleisli in the first place.
+
