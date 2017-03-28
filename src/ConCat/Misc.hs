@@ -234,3 +234,8 @@ typeR = typeRep (Proxy :: Proxy a)
 
 type R = Double -- Float
 
+sqr :: Num a => a -> a
+sqr a = a * a
+
+magSqr :: Num a => a :* a -> a
+magSqr (a,b) = sqr a + sqr b
