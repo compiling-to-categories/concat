@@ -513,34 +513,21 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
          | isBoxedTupleTyCon (dataConTyCon dc) ->
        -- To start, require v to be unused. Later, extend.
-       if not (isDeadBinder wild) && wild `isFreeIn` rhs then
+       if False && not (isDeadBinder wild) && wild `isFreeIn` rhs then
             pprPanic "lam Case of product: live wild var (not yet handled)" (ppr e)
        else
           Doing("lam Case of product")
-          --    \ x -> case scrut of _ { (a, b) -> rhs }
-          -- == \ x -> (\ (a,b) -> rhs) scrut
-          -- == \ x -> (\ c -> rhs[a/exl c, b/exr c) scrut
-          -- TODO: refactor with Lam case
-          -- Maybe let instead of subst
-#if 1
-          --    \ x -> case scrut of _ { (a, b) -> rhs }
-          -- == \ x -> let (a,b) = scrut in rhs
+          --    \ x -> case scrut of c { (a, b) -> rhs }
           -- == \ x -> let c = scrut in let {a = exl c; b = exr c} in rhs
-          let cName = uqVarName a ++ "_" ++ uqVarName b
-              c     = freshId (exprFreeVars e) cName (exprType scrut)
+          let -- cName = uqVarName a ++ "_" ++ uqVarName b
+              -- c     = freshId (exprFreeVars e) cName (exprType scrut)
+              c = zapIdOccInfo wild
               sub   = [(a,mkEx funCat exlV (Var c)),(b,mkEx funCat exrV (Var c))]
           in
             return (mkCcc (Lam x (mkCoreLets
                                   [ NonRec c scrut
                                   , NonRec a (mkEx funCat exlV (Var c))
                                   , NonRec b (mkEx funCat exrV (Var c)) ] rhs)))
-#else
-          let c     = freshId (exprFreeVars e) cName (exprType scrut)  -- (pairTy (varTy a) (varTy b))
-              cName = uqVarName a ++ "_" ++ uqVarName b
-              sub   = [(a,mkEx funCat exlV (Var c)),(b,mkEx funCat exrV (Var c))]
-          in
-            return (mkCcc (Lam x (App (Lam c (subst sub rhs)) scrut)))
-#endif
      Trying("lam Case unfold")
      Case scrut v altsTy alts
        | Just scrut' <- unfoldMaybe' scrut
