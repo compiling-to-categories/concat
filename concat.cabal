@@ -44,6 +44,8 @@ library
                      -- For ConCat.GenGLSL 
                      , language-glsl >= 0.2.0
                      , parsec >= 3.1.11
+                     -- For ConCat.Image
+                     , NumInstances >= 1.4
   exposed-modules:     ConCat.Category
                        ConCat.AltCat
                        ConCat.Misc
@@ -74,6 +76,7 @@ library
                        ConCat.ADFun2
                        ConCat.Polynomial
                        ConCat.GLSL
+                       ConCat.Image
                        ConCat.Demand
 
                        ConCat.C
@@ -97,12 +100,13 @@ Test-Suite test
   hs-Source-Dirs:   test
   main-is:          Test.hs
   Build-Depends:    Cabal >= 1.24.0.0
+                  , NumInstances >= 1.4
                   , base<5
                   , concat
                   , ghc-prim
                   , language-glsl >= 0.2.0
-                  , prettyclass
                   , parsec >= 3.1.11
+                  , prettyclass
   ghc-options:      -O2
 
 -- "stack test"
