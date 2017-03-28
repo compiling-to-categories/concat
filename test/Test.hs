@@ -65,7 +65,7 @@ import Distribution.TestSuite
 import GHC.Generics hiding (R,D)
 import GHC.Exts (lazy,coerce)
 
-import ConCat.Misc (Unop,Binop,(:*),PseudoFun(..),R,bottom,oops,Yes2)
+import ConCat.Misc (Unop,Binop,(:*),PseudoFun(..),R,bottom,oops,Yes2,sqr,magSqr)
 import ConCat.Rep
 import ConCat.Standardize
 import ConCat.Float
@@ -77,10 +77,11 @@ import ConCat.Interval
 import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses)
 import qualified ConCat.RunCircuit as RC
-import ConCat.GLSL (genGlsl,OkIm)
+import ConCat.GLSL (genGlsl,CAnim)
+import ConCat.Image
 import ConCat.RunCircuit (go,Okay,(:>))
 import ConCat.AltCat ( ccc,reveal,Uncurriable(..),U2(..),(:**:)(..),Ok2
-                     , reprC,abstC,mulC,amb,ambC,asKleisli )
+                     , reprC,abstC,mulC,amb,ambC,asKleisli, recipC )
 import qualified ConCat.AltCat as A
 import ConCat.Rebox () -- experiment
 import ConCat.Orphans ()
@@ -92,10 +93,20 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  , test "diag-plus-im" (\ (x :: R,y) -> x + 0.5 > y)
-  , test "disk" disk
-  , test "diag-disk" (\ (x,y) -> disk (x,y) && x > y)
-  , test "sqr-sqr" (\ (x,y) -> sqr (sqr x) > y) -- Test reuse
+--   , test "recip-r" (recip :: Unop R)
+--   , test "recipC-r" (recipC :: Unop R)
+
+--   , test "diag-plus-im" (\ t ((x,y) :: R2) -> x + sin t > y)
+--   , test "disk-sizing" (disk . cos)
+--   , test "disk-sizing-p" (disk' . cos)
+--   , test "diag-disk-turning" (\ t -> udisk `intersectR` rotate t xPos)
+--   , test "sqr-sqr-anim" (\ t (x,y) -> sqr (sqr x) > y + sin t) -- Test reuse
+  , test "checker-sizing" (\ t -> uscale (sin t) checker)
+
+--   , test "diag-plus-im" (\ t (x :: R,y) -> x + sin t > y)
+--   , test "disk" disk
+--   , test "diag-disk" (\ (x,y) -> disk (x,y) && x > y)
+--   , test "sqr-sqr" (\ (x,y) -> sqr (sqr x) > y) -- Test reuse
 
 --   , test "const2-0-der" (der (\ (_::R,_::R) -> 0 :: R))
 
@@ -332,8 +343,7 @@ runEC nm (syn :**: circ) = runSyn syn >> runCirc nm circ
 runCirc :: GO a b => String -> (a :> b) -> IO ()
 runCirc nm circ = RC.run nm [] circ
 
--- runCircGlsl :: GO a b => String -> (a :> b) -> IO ()
-runCircGlsl :: OkIm a b => String -> (a :> b) -> IO ()
+runCircGlsl :: String -> CAnim -> IO ()
 runCircGlsl nm circ = runCirc nm circ >> genGlsl nm circ
 
 test :: Con a b => String -> (a -> b) -> IO ()
@@ -343,6 +353,8 @@ test nm _f = oops ("test called on " ++ nm)
 tst :: Con a b => (a -> b) -> IO ()
 tst = test "tst"
 {-# NOINLINE tst #-}
+
+type OkAnim a b = (a -> b) ~ (R -> R2 -> Bool)
 
 -- ccc' :: (HasStandard a, HasStandard b) => (a -> b) -> (Standard a `k` Standard b)
 -- ccc' = ccc . standardize
@@ -368,12 +380,12 @@ type Con = Uncurriable Syn
 #elif 0
 type Con = Uncurriable (->)
 {-# RULES "(->); uncurries; Syn" forall nm f. test nm f = runSyn (ccc (uncurries (ccc f))) #-}
+#elif 0
+type Con a b = OkAnim a b
+{-# RULES "GLSL" forall nm f. test nm f = genGlsl nm (ccc (uncurry f)) #-}
 #elif 1
-type Con a b = OkIm a b
-{-# RULES "GLSL" forall nm f. test nm f = genGlsl nm (ccc f) #-}
-#elif 1
-type Con a b = OkIm a b
-{-# RULES "Circuit and GLSL" forall nm f. test nm f = runCircGlsl nm (ccc f) #-}
+type Con a b = OkAnim a b
+{-# RULES "Circuit and GLSL" forall nm f. test nm f = runCircGlsl nm (ccc (uncurry f)) #-}
 #elif 1
 type Con a b = GO a b
 {-# RULES "EC" forall nm f. test nm f = runEC nm (ccc f) #-}
@@ -466,19 +478,10 @@ cosSin a = (cos a, sin a)
 cosSinProd :: Floating a => a :* a -> a :* a
 cosSinProd (x,y) = (cos z, sin z) where z = (x * y)
 
-type R2 = R :* R
-
 type R3 = (R,R,R)
-
 type R4 = (R2,R2)
 
 type LComp a b c = LR b c -> LR a b -> LR a c
-
-sqr :: Num a => a -> a
-sqr a = a * a
-
-magSqr :: Num a => a :* a -> a
-magSqr (a,b) = sqr a + sqr b
 
 #if 0
 
@@ -513,6 +516,3 @@ horner []     _ = 0
 horner (c:cs) a = c + a * horner cs a
 
 type Region = R2 -> Bool
-
-disk :: Region
-disk p = magSqr p <= 1
