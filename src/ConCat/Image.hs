@@ -11,7 +11,7 @@ import Control.Applicative (liftA2)
 
 import Data.NumInstances ()
 
-import ConCat.Misc ((:*),R,Unop,Binop,magSqr)
+import ConCat.Misc ((:*),R,Unop,Binop,sqr,magSqr)
 -- import ConCat.AltCat (recipC)
 
 type R2 = R :* R
@@ -53,10 +53,11 @@ type Region = Image Bool
 type Filter c = Unop (Image c)
 
 translate :: R2 -> Filter c
-translate v = (. translateP (- v))
+translate v im = im . subtract v
 
 scale :: R2 -> Filter c
-scale v = (. scaleP (recip v))
+scale v im = im . (/ v)
+-- scale v = (. scaleP (recip v))
 
 uscale :: R -> Filter c
 uscale = uniform scale
@@ -84,7 +85,12 @@ udisk p = magSqr p <= 1
 
 -- | disk
 disk :: R -> Region
-disk s = uscale s udisk
+-- disk r = uscale r udisk
+disk r = uniform scale r udisk
+
+-- Alternative definition
+disk' :: R -> Region
+disk' r p = magSqr p <= sqr r
 
 -- | Annulus, given outer & inner radii
 annulus :: R -> R -> Region
