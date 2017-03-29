@@ -45,7 +45,7 @@ genGlsl name0 circ =
      writeFile (outDir++"/"++name++".frag") (prettyShow fundef ++ "\n")
  where
    g@(name,compDepths,_report) = mkGraph name0 (unitize circ)
-   comps = sortBy (comparing C.compNum) (M.keys compDepths)
+   comps = sortBy (comparing C.compId) (M.keys compDepths)
    fundef = fromComps' (tweakName name) comps
    outDir = "out"
    tweakName = map tweakChar

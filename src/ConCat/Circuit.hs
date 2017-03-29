@@ -89,8 +89,8 @@ module ConCat.Circuit
   , SourceToBuses(..)
 --   , litUnit, litBool, litInt
   -- , (|||*), fromBool, toBool
-  , CompS(..), compNum, compName, compIns, compOuts
-  , CompNum, DGraph, circuitGraph, Attr
+  , CompS(..), compId, compName, compIns, compOuts
+  , CompId, DGraph, circuitGraph, Attr
   , UU, writeDot, displayDot, mkGraph,Name,Report,GraphInfo
   , simpleComp, tagged
   , systemSuccess
@@ -481,13 +481,13 @@ newtype Prim a b = Prim { primName :: PrimName }
 
 instance Show (Prim a b) where show = primName
 
-type CompNum = Int
+type CompId = Int
 
-type CompNums = [CompNum]
+type CompSupply = [CompId]
 
 -- Component: primitive instance with inputs & outputs. Numbered consistently
 -- with dependency partial ordering.
-data Comp = forall a b. Comp CompNum (Prim a b) (Buses a) (Buses b)
+data Comp = forall a b. Comp CompId (Prim a b) (Buses a) (Buses b)
 
 deriving instance Show Comp
 
@@ -500,7 +500,7 @@ type CompInfo = [Comp]
 #endif
 
 -- The circuit monad.
-type CircuitM = State (PinSupply,(CompNums,CompInfo))
+type CircuitM = State (PinSupply,(CompSupply,CompInfo))
 
 type BCirc a b = Buses a -> CircuitM (Buses b)
 
@@ -1656,10 +1656,10 @@ histogram = map (head &&& length) . group . sort
 type Input  = Bus
 type Output = Bus
 
-data CompS = CompS CompNum PrimName [Input] [Output] Reuses deriving Show
+data CompS = CompS CompId PrimName [Input] [Output] Reuses deriving Show
 
-compNum :: CompS -> CompNum
-compNum (CompS n _ _ _ _) = n
+compId :: CompS -> CompId
+compId (CompS n _ _ _ _) = n
 compName :: CompS -> PrimName
 compName (CompS _ nm _ _ _) = nm
 compIns :: CompS -> [Input]
@@ -1667,8 +1667,8 @@ compIns (CompS _ _ ins _ _) = ins
 compOuts :: CompS -> [Output]
 compOuts (CompS _ _ _ outs _) = outs
 
-instance Eq CompS where (==) = (==) `on` compNum
-instance Ord CompS where compare = compare `on` compNum
+instance Eq CompS where (==) = (==) `on` compId
+instance Ord CompS where compare = compare `on` compId
 
 type DGraph = [CompS]
 
@@ -1819,7 +1819,7 @@ tagged = taggedFrom 0
 hideNoPorts :: Bool
 hideNoPorts = False
 
-type SourceInfo = (Ty,CompNum,PortNum,Depth)
+type SourceInfo = (Ty,CompId,PortNum,Depth)
 
 -- Map each pin to its info about it
 type SourceMap = Map PinId SourceInfo
@@ -1898,7 +1898,7 @@ recordDots depths = nodes ++ edges
             -- label | t == Bool = []
             label = [printf "label=%s,fontsize=8,fontcolor=indigo" (show t)]
 #endif
-   port :: Dir -> (CompNum,PortNum) -> String
+   port :: Dir -> (CompId,PortNum) -> String
    port dir (cnum,np) =
      printf "%s:%s" (compLab cnum) (portLab dir np)
    compLab nc = 'c' : show nc
@@ -1917,7 +1917,7 @@ segmentedDotString = intercalate "\"+\"" . divvy
 
 sourceMap :: [(CompS,Depth)] -> SourceMap
 sourceMap = foldMap $ \ (comp,depth) ->
-              M.fromList [ (p,(wid,compNum comp,np,depth))
+              M.fromList [ (p,(wid,compId comp,np,depth))
                          | (np,Bus p wid) <- tagged (compOuts comp) ]
 
 {-
@@ -2476,7 +2476,7 @@ extractRips = foldr extract mempty
    extract (CompS _ (OutRip r) is [] _) = (second.second) (M.insert r is)
    extract c                            = first (c :)
 
--- data CompS = CompS CompNum PrimName [Input] [Output] Reuses
+-- data CompS = CompS CompId PrimName [Input] [Output] Reuses
 
 #endif
 
