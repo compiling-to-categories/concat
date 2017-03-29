@@ -217,16 +217,16 @@ instance Show Bus where
 instance Show Source where
   show (Source b prim ins o) = printf "Source %s %s %s %d" (show b) (show prim) (show ins) o
 
-newPinId :: CircuitM PinId
-newPinId = do { (n,(c,comps)) <- M.get ; M.put (n+1,(c,comps)) ; return (PinId c n) }
+newPinId :: Int -> CircuitM PinId
+newPinId o = do { c <- M.gets (fst.snd) ; return (PinId c o) }
 
-newBus :: Ty -> CircuitM Bus
-newBus t = -- trace "newBus" $
-           flip Bus t <$> newPinId
+newBus :: Ty -> Int -> CircuitM Bus
+newBus t o = -- trace "newBus" $
+             flip Bus t <$> newPinId o
 
 newSource ::  Ty -> String -> Sources -> Int -> CircuitM Source
 newSource t prim ins o = -- trace "newSource" $
-                         (\ b -> Source b prim ins o) <$> newBus t
+                         (\ b -> Source b prim ins o) <$> newBus t o
 
 {--------------------------------------------------------------------
     Buses representing a given type
