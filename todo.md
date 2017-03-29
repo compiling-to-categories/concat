@@ -1,5 +1,7 @@
 # To do
 
+*   Maybe I should replace pin numbers by component numbers and output index (usually 0).
+    I could perhaps identify components by a sequence of component indices within the ancestor chain, like stack frames.
 *   Figure out how not to need orphan instances in `AD` and `Incremental`.
 *   Better way to select orphan modules in `runTcMUnsafe` in `BuildDictionary`.
 *   General `TerminalCat` default via `ConstCat` in `Category`.
@@ -8,6 +10,7 @@
 *   Demand analysis at category.
 *   Comment out `PseudoFun` annotations to see if anything breaks.
 *   Use `typeR` from `Misc` to replace uses of `typeRep`.
+    I don't think I'm still using `typeRep`.
 *   In `Plugin`, refactor common functionality between "top" & "lam" transformations.
 *   Name possibilities:
     *   Catskill (though [Catskell](https://wiki.haskell.org/Catskell))
