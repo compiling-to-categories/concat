@@ -166,8 +166,11 @@ import qualified ConCat.Free.LinearCol as LC
     Buses
 --------------------------------------------------------------------}
 
-data PinId = PinId Int deriving (Eq,Ord,Show)
+data PinId = PinId CompId Int deriving (Eq,Ord)
 type PinSupply = Int
+
+instance Show PinId where
+  show (PinId c n) = show c ++ "/" ++ show n
 
 -- TODO: Phase out PinSupply and CompSupply in favor of simple ints.
 
@@ -208,14 +211,14 @@ instance Eq  Source where (==) = (==) `on` sourceId
 instance Ord Source where compare = compare `on` sourceId
 
 instance Show Bus where
-  show (Bus (PinId i) t) =
-    "B" ++ show i ++ (if t /= Bool then ":" ++ show t else "")
+  show (Bus p t) =
+    "B" ++ show p ++ (if t /= Bool then ":" ++ show t else "")
 
 instance Show Source where
   show (Source b prim ins o) = printf "Source %s %s %s %d" (show b) (show prim) (show ins) o
 
 newPinId :: CircuitM PinId
-newPinId = do { (n,comps) <- M.get ; M.put (n+1,comps) ; return (PinId n) }
+newPinId = do { (n,(c,comps)) <- M.get ; M.put (n+1,(c,comps)) ; return (PinId c n) }
 
 newBus :: Ty -> CircuitM Bus
 newBus t = -- trace "newBus" $

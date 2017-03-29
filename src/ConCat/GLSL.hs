@@ -36,7 +36,7 @@ import qualified ConCat.Circuit as C
 type CAnim = R :* (R :* R) :> Bool
 
 showGraph :: Bool
-showGraph = False -- True
+showGraph = True -- False
 
 genGlsl :: String -> CAnim -> IO ()
 genGlsl name0 circ =
@@ -118,7 +118,7 @@ glslTy C.Double = Float
 glslTy ty = error ("ConCat.GLSL.glslTy: unsupported type: " ++ show ty)
 
 varName :: PinId -> String
-varName (PinId n) = "v" ++ show n
+varName (PinId c n) = "v" ++ "_" ++ show c ++ "_" ++ show n
 
 app :: String -> [Expr] -> Expr
 app "¬"      [e]     = UnaryNot e
