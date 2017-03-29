@@ -166,8 +166,8 @@ import qualified ConCat.Free.LinearCol as LC
     Buses
 --------------------------------------------------------------------}
 
-newtype PinId = PinId Int deriving (Eq,Ord,Show,Enum)
-type PinSupply = [PinId]
+data PinId = PinId Int deriving (Eq,Ord,Show)
+type PinSupply = Int
 
 -- TODO: Phase out PinSupply and CompSupply in favor of simple ints.
 
@@ -208,14 +208,14 @@ instance Eq  Source where (==) = (==) `on` sourceId
 instance Ord Source where compare = compare `on` sourceId
 
 instance Show Bus where
-  show (Bus (PinId i) w) =
-    "B" ++ show i ++ (if w /= Bool then ":" ++ show w else "")
+  show (Bus (PinId i) t) =
+    "B" ++ show i ++ (if t /= Bool then ":" ++ show t else "")
 
 instance Show Source where
   show (Source b prim ins o) = printf "Source %s %s %s %d" (show b) (show prim) (show ins) o
 
 newPinId :: CircuitM PinId
-newPinId = do { (p:ps',comps) <- M.get ; M.put (ps',comps) ; return p }
+newPinId = do { (n,comps) <- M.get ; M.put (n+1,comps) ; return (PinId n) }
 
 newBus :: Ty -> CircuitM Bus
 newBus t = -- trace "newBus" $
@@ -483,7 +483,7 @@ instance Show (Prim a b) where show = primName
 
 type CompId = Int
 
-type CompSupply = [CompId]
+type CompSupply = Int
 
 -- Component: primitive instance with inputs & outputs. Numbered consistently
 -- with dependency partial ordering.
@@ -516,9 +516,9 @@ genComp prim a =
             return (unsafeCoerce b')
        Nothing               ->
          do b <- genBuses prim ins
-            (compN:_) <- M.gets (fst . snd)
+            compN <- M.gets (fst . snd)
             let comp = Comp compN prim a b
-            M.modify (second (tail *** M.insert key (comp,0)))
+            M.modify (second (const (compN+1) *** M.insert key (comp,0)))
             return b
  where
    ins  = flattenBHack "genComp" prim a
@@ -1508,7 +1508,7 @@ runU :: UU -> [(Comp,Reuses)]
 runU cir = getComps compInfo
  where
    compInfo :: CompInfo
-   (_,(_,compInfo)) = execState (unmkCK cir UnitB) (PinId <$> [0 ..],([0..],mempty))
+   (_,(_,compInfo)) = execState (unmkCK cir UnitB) (0,(0,mempty))
 #if !defined NoHashCons
    getComps = M.elems 
 #else
