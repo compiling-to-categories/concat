@@ -208,14 +208,13 @@ instance Eq  Source where (==) = (==) `on` sourceId
 instance Ord Source where compare = compare `on` sourceId
 
 instance Show Bus where
-  show (Bus p t) =
-    "B" ++ show p ++ (if t /= Bool then ":" ++ show t else "")
+  show (Bus p t) = "B" ++ show p ++ (if t /= Bool then ":" ++ show t else "")
 
 instance Show Source where
   show (Source b prim ins o) = printf "Source %s %s %s %d" (show b) (show prim) (show ins) o
 
 newPinId :: Int -> CircuitM PinId
-newPinId o = do { c <- M.gets fst ; return (PinId c o) }
+newPinId o = flip PinId o <$> M.gets fst
 
 newBus :: Ty -> Int -> CircuitM Bus
 newBus t o = -- trace "newBus" $
@@ -541,8 +540,9 @@ genComp prim a = -- trace (printf "genComp %s %s --> %s"
 
 -- Treat delays specially to avoid optimization loop.
 flattenBHack :: String -> Prim a b -> Buses c -> Sources
--- flattenBHack _ (Prim (unDelayName -> Just _)) _ = []
 flattenBHack name _ b = flattenB name b
+
+-- flattenBHack _ (Prim (unDelayName -> Just _)) _ = []
 
 -- flattenBHack name p b = tweak <$> flattenB name b
 --  where
