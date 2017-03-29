@@ -7,7 +7,7 @@
 ----------------------------------------------------------------------
 -- |
 -- Module      :  ConCat.ShowUtils
--- Copyright   :  (c) 2013 Tabula Inc and 2016 Conal Elliott
+-- Copyright   :  (c) 2016 Conal Elliott
 -- License     :  BSD3
 -- 
 -- Maintainer  :  conal@conal.net

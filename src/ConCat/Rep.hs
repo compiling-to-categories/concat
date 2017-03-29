@@ -16,7 +16,7 @@
 ----------------------------------------------------------------------
 -- |
 -- Module      :  ConCat.Rep
--- Copyright   :  (c) 2014 Tabula, Inc. and 2016 Conal Elliott
+-- Copyright   :  (c) 2016 Conal Elliott
 -- 
 -- Maintainer  :  conal@conal.net
 -- Stability   :  experimental

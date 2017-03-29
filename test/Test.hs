@@ -95,8 +95,8 @@ main = sequence_
 
 --   , test "foo" (\ ((x,y) :: R2) -> 1 * x + 0 + (-1) * y)
 
---   , test "diag-plus-im" (\ t ((x,y) :: R2) -> x + sin t > y)
---   , test "disk-sizing" (disk . cos)
+  , test "diag-plus-im" (\ t ((x,y) :: R2) -> x + sin t > y)
+  , test "disk-sizing" (disk . cos)
 --   , test "disk-sizing-p" (disk' . cos)
 --   , test "diag-disk-turning" (\ t -> udisk `intersectR` rotate t xPos)
 --   , test "sqr-sqr-anim" (\ t ((x,y) :: R2) -> sqr (sqr x) > y + sin t) -- Test reuse
@@ -383,13 +383,13 @@ type Con = Uncurriable (->)
 #elif 0
 type Con a b = OkAnim a b
 {-# RULES "GLSL" forall nm f. test nm f = genGlsl nm (ccc (uncurry f)) #-}
-#elif 0
+#elif 1
 type Con a b = OkAnim a b
 {-# RULES "Circuit and GLSL" forall nm f. test nm f = runCircGlsl nm (ccc (uncurry f)) #-}
-#elif 1
+#elif 0
 type Con a b = GO a b
 {-# RULES "EC" forall nm f. test nm f = runEC nm (ccc f) #-}
-#elif 1
+#elif 0
 type Con a b = GO' a b
 {-# RULES "EC" forall nm f. test nm f = runEC nm (ccc' f) #-}
 #elif 0
