@@ -4,7 +4,7 @@ Experimenting (again) with constrained categories, as well as Haskell to hardwar
 
 To run:
 
-    stack build :basic
+    stack test
 
 ## Some applications
 
