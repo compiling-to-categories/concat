@@ -6,16 +6,26 @@ To run:
 
     stack build :basic
 
-## Some application ideas:
+## Some applications
 
-*   Interval analysis on general values rather than numbers
-    Use a standard ordering for sums and products
+Working:
+
+*   Circuit graphs
+*   Automatic differentiation
+*   GLSL for graphics
+*   Interval analysis
+*   Incremental computation
+
+In progress:
+
+*   Polynomials
+*   Demand analysis for strictness.
+*   Functions with some special cases like constant, linear, polynomial, as well as the general case
+
+Others:
 *   Something about language recognition, such as regular languages
 *   Various semirings, including shortest/longest paths
 *   Probabilistic programming
-*   Usage analysis.
-*   Something that makes memoization more efficient, such as simple usage analysis.
     If a computation ignores part of a value, then don't evaluate and cache variations in that part.
 *   Memoization at every stage. With what benefit?
 *   AFRP
-*   Functions with some special cases like constant, linear, polynomial, as well as the general case
