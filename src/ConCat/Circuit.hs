@@ -519,9 +519,9 @@ genComp prim a =
             return (unsafeCoerce b')
        Nothing               ->
          do b <- genBuses prim ins
-            compN <- M.gets (fst . snd)
-            let comp = Comp compN prim a b
-            M.modify (second (const (compN+1) *** M.insert key (comp,0)))
+            c <- M.gets (fst . snd)
+            let comp = Comp c prim a b
+            M.modify (second (const (c+1) *** M.insert key (comp,0)))
             return b
  where
    ins  = flattenBHack "genComp" prim a
