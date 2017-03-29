@@ -1526,7 +1526,7 @@ instance Show Type where show = pp
 #endif
 
 floatModule :: String
-floatModule = "GHC.Float" -- "ConCat.Float"
+floatModule = "GHC.Float"
 
 --    fracOp op ty = ("GHC.Float.$fFractional"++pp ty++"_$c"++op,[ty])
 --    floatingOp op ty = ("GHC.Float.$fFloating"++pp ty++"_$c"++op,[ty])

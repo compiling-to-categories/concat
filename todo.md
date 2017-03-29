@@ -1,7 +1,6 @@
 # To do
 
 *   Figure out how not to need orphan instances in `AD` and `Incremental`.
-*   Remove `ConCat.Float`.
 *   Better way to select orphan modules in `runTcMUnsafe` in `BuildDictionary`.
 *   General `TerminalCat` default via `ConstCat` in `Category`.
     Revisit all `TerminalCat` instances.
@@ -17,9 +16,6 @@
     Came up with second derivatives.
     See 2017-01-01 notes, including note to Richard Eisenberg.
 *   Larger tests, using shaped-types.
-*   Reboxing of `divideFloat#` and `divideDouble#`.
-    The rules in `ConCat.Rebox` (commented out) don't work, perhaps because those operations can fail.
-    Simplest solution may be to rebox those primitives programmatically in another simple `BuiltinRule`.
 *   Remove old code from `Plugin`.
 *   Add a test for derivatives without circuits, running the generated Haskell AD code.
 *   `Circuit`: try making nodes for `abst`, `repr`, and `coerce`.
@@ -30,7 +26,6 @@
     Does unfolding suffice as an alternative?
     Not quite, since lambda-bound variables can appear as scrutinees.
     Maybe we could eliminate that possibility with another transformation.
-*   Remove `ConCat.Float` and supporting complexity in `ConCat.Plugin`.
 *   After various optimizations, retry `ADFun` again for comparison.
 *   Converting to the `Trivial` category leads to run-time error: "Impossible case alternative".
 *   Fix the problem with finding numeric and show instances for `Float` & `Double`, and then simplify `Circuit` again to use 0 instead of `Eql(fromIntegerZ 0)`, `negate` instead of `negateZ`, etc.
@@ -62,6 +57,10 @@
 
 # Done
 
+*   Remove `ConCat.Float`.
+*   Reboxing of `divideFloat#` and `divideDouble#`.
+    The rules in `ConCat.Rebox` (commented out) don't work, perhaps because those operations can fail.
+    Simplest solution may be to rebox those primitives programmatically in another simple `BuiltinRule`.
 *   Re-organize `GAD` and `Incremental`.
     Leave only general support in `GAD`, and move specific to `AD` and `Incremental`.
 *   Try `Coercion` (from `Data.Type.Coercion`) as an example of constrained categories.

@@ -33,7 +33,7 @@
 
 module ConCat.Category where
 
-import Prelude hiding (id,(.),curry,uncurry,const,Float,Double)
+import Prelude hiding (id,(.),curry,uncurry,const)
 import qualified Prelude as P
 #ifdef DefaultCat
 import qualified Control.Category as C
@@ -62,7 +62,6 @@ import Control.Newtype (Newtype(..))
 import ConCat.Misc hiding ((<~),(~>),type (&&),type (&+&))
 import ConCat.Rep
 import ConCat.Orphans ()
-import ConCat.Float
 import ConCat.Additive (Additive)
 
 #define PINLINER(nm) {-# INLINE nm #-}

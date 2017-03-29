@@ -59,14 +59,13 @@
 
 module OptRules (tests) where
 
-import Prelude hiding (Float,Double,id,(.),const,curry,uncurry)
+import Prelude hiding (id,(.),const,curry,uncurry)
 
 import Data.Tuple (swap)
 import Distribution.TestSuite
 
 import ConCat.Misc (Unop,Binop,(:*))
 import ConCat.AltCat
-import ConCat.Float
 import ConCat.Syntactic (Syn,render)
 
 tests :: IO [Test]

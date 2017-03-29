@@ -56,8 +56,6 @@
 
 module Main where
 
-import Prelude hiding (Float,Double)   -- ,id,(.),const
-
 import Control.Arrow (second,runKleisli)
 import Data.Tuple (swap)
 import Data.Maybe
@@ -68,7 +66,6 @@ import GHC.Exts (lazy,coerce)
 import ConCat.Misc (Unop,Binop,(:*),PseudoFun(..),R,bottom,oops,Yes2,sqr,magSqr)
 import ConCat.Rep
 import ConCat.Standardize
-import ConCat.Float
 import ConCat.Free.VectorSpace (V)
 import ConCat.Free.LinearRow
 import ConCat.Incremental
@@ -96,12 +93,13 @@ main = sequence_
 --   , test "recip-r" (recip :: Unop R)
 --   , test "recipC-r" (recipC :: Unop R)
 
---   , test "diag-plus-im" (\ t ((x,y) :: R2) -> x + sin t > y)
---   , test "disk-sizing" (disk . cos)
---   , test "disk-sizing-p" (disk' . cos)
---   , test "diag-disk-turning" (\ t -> udisk `intersectR` rotate t xPos)
---   , test "sqr-sqr-anim" (\ t (x,y) -> sqr (sqr x) > y + sin t) -- Test reuse
-  , test "checker-sizing" (\ t -> uscale (sin t) checker)
+  , test "diag-plus-im" (\ t ((x,y) :: R2) -> x + sin t > y)
+  , test "disk-sizing" (disk . cos)
+  , test "disk-sizing-p" (disk' . cos)
+  , test "diag-disk-turning" (\ t -> udisk `intersectR` rotate t xPos)
+  , test "sqr-sqr-anim" (\ t (x,y) -> sqr (sqr x) > y + sin t) -- Test reuse
+
+--   , test "checker-sizing" (\ t -> uscale (sin t) checker)
 
 --   , test "diag-plus-im" (\ t (x :: R,y) -> x + sin t > y)
 --   , test "disk" disk

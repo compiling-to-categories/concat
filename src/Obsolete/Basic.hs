@@ -72,8 +72,6 @@
 
 module Basic {-(tests)-} where
 
-import Prelude hiding (Float,Double)   -- ,id,(.),const
-
 import Control.Arrow (second)
 import Data.Tuple (swap)
 import Data.Maybe
@@ -83,7 +81,6 @@ import GHC.Exts (lazy,coerce)
 
 import ConCat.Misc (Unop,Binop,(:*),PseudoFun(..),R,bottom)
 import ConCat.Rep
-import ConCat.Float
 import ConCat.Free.VectorSpace (V)
 import ConCat.Free.LinearRow
 import ConCat.Incremental

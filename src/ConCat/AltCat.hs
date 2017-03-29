@@ -24,7 +24,7 @@ module ConCat.AltCat
   , module C)
   where
 
-import Prelude hiding (id,(.),curry,uncurry,const,Float,Double)
+import Prelude hiding (id,(.),curry,uncurry,const)
 import qualified Prelude as P
 import Control.Arrow (runKleisli)
 import qualified Data.Tuple as P
@@ -34,7 +34,6 @@ import Data.Constraint ((\\))
 import qualified ConCat.Category as C
 import ConCat.Rep
 import ConCat.Misc ((:*),(:+),PseudoFun(..),oops)
-import ConCat.Float
 
 import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5,type (&+&)

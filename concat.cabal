@@ -65,7 +65,6 @@ library
                        ConCat.Syntactic
                        ConCat.Circuit
                        ConCat.RunCircuit
-                       ConCat.Float
                        ConCat.Rebox
                        ConCat.GAD
                        ConCat.AD
@@ -83,6 +82,7 @@ library
                        ConCat.C
                        ConCat.D
 
+--                        ConCat.Float
 --                        ConCat.ADFun
 --                        ConCat.EmptyCase
 --                        ConCat.GHC

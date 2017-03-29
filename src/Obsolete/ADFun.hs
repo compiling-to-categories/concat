@@ -15,13 +15,12 @@
 
 module ConCat.ADFun where
 
-import Prelude hiding (id,(.),curry,uncurry,Float,Double)
+import Prelude hiding (id,(.),curry,uncurry)
 import GHC.Exts (Coercible)
 
 import Control.Newtype
 
 import ConCat.Misc ((:*),inNew2,PseudoFun(..),R)
-import ConCat.Float
 import ConCat.Rep
 import ConCat.Free.VectorSpace (HasV(..))
 import ConCat.Free.LinearRow

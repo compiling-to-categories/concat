@@ -19,7 +19,7 @@
 
 module ConCat.Free.VectorSpace where
 
-import Prelude hiding (zipWith,Float,Double)
+import Prelude hiding (zipWith)
 -- import GHC.Exts (Coercible,coerce)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:+:)(..),(:.:)(..))
 
@@ -33,7 +33,6 @@ import Data.Key (Zip(..))
 import ConCat.Orphans ()
 import ConCat.Misc ((:*),(:+),(<~))
 import ConCat.Rep
-import ConCat.Float
 -- import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
 
 {--------------------------------------------------------------------
