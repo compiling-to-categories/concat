@@ -43,6 +43,7 @@ import qualified Control.Arrow as A
 import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
 -- import Data.Proxy (Proxy)
+import Data.Array
 import Data.Typeable (Typeable)
 import GHC.Exts (Coercible,coerce)
 import Data.Type.Equality ((:~:)(..))
@@ -1278,7 +1279,6 @@ instance (RealFracCat k a b, RealFracCat k' a b) => RealFracCat (k :**: k') a b 
   PINLINER(floorC)
   PINLINER(ceilingC)
 
-
 -- Stand-in for fromIntegral, avoiding the intermediate Integer in the Prelude
 -- definition.
 class FromIntegralCat k a b where
@@ -1460,6 +1460,34 @@ instance CoerceCat U2 a b where
 instance (CoerceCat k a b, CoerceCat k' a b) => CoerceCat (k :**: k') a b where
   coerceC = coerceC :**: coerceC
   PINLINER(coerceC)
+
+-- Arrays
+
+type Arr = Array Int
+
+class ArrayCat k a where
+  mkArray :: (Int :* Exp k Int a) `k` Arr a  -- Maybe size as (static) argument.
+  arrAt :: (Arr a :* Int) `k` a
+
+instance ArrayCat (->) a where
+  mkArray (n,f) = array (0,n-1) [(i,f i) | i <- [0 .. n-1]]
+  arrAt = uncurry (!)
+
+instance ArrayCat U2 a where
+  mkArray = U2
+  arrAt = U2
+
+instance (ArrayCat k a, ArrayCat k' a) => ArrayCat (k :**: k') a where
+  mkArray = mkArray :**: mkArray
+  arrAt = arrAt :**: arrAt
+  PINLINER(mkArray)
+  PINLINER(arrAt)
+
+#ifdef KleisliInstances
+instance Monad m => ArrayCat (Kleisli m) a where
+  mkArray = arr mkArray
+  arrAt = arr arrAt
+#endif
 
 {--------------------------------------------------------------------
     Functors
