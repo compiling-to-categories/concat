@@ -62,7 +62,7 @@
 -- equality checks. To find at least some problematic definitions, lower
 -- -fmax-pmcheck-iterations from default of 2000000. I'd like to simplify
 -- further. Ideally, use constructor pattern matching in the rewrites, instead
--- of comparing string.
+-- of comparing strings.
 
 {-# OPTIONS_GHC -fmax-pmcheck-iterations=1000000 #-}
 
@@ -72,7 +72,7 @@
 ----------------------------------------------------------------------
 -- |
 -- Module      :  ConCat.Circuit
--- Copyright   :  (c) 2013 Tabula and 2016 Conal Elliott
+-- Copyright   :  (c) 2016 Conal Elliott
 -- License     :  BSD3
 -- 
 -- Maintainer  :  conal@conal.net
