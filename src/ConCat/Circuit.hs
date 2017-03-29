@@ -1299,13 +1299,9 @@ instance (Read a, Ord a) => OrdCat (:>) a where
 
 #define ValT(x,ty) (Val ((x) :: ty))
 
-#define   ZeroT(ty) ValT(Eql(fromInteger 0),ty)
-#define    OneT(ty) ValT(Eql(fromInteger 1),ty)
-#define NegOneT(ty) ValT(Eql(fromInteger (-1)),ty)
-
--- TODO: fix the problem with finding numeric and show instances for Float &
--- Double, and then simplify again to use 0 instead of Eql(fromIntegerZ 0),
--- negate instead of negateZ, etc.
+#define   ZeroT(ty) ValT(0,ty)
+#define    OneT(ty) ValT(1,ty)
+#define NegOneT(ty) ValT((-1),ty)
 
 pattern NegateS :: Source -> Source
 pattern NegateS a <- Source _ "negate" [a] 0

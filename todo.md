@@ -28,7 +28,6 @@
     Maybe we could eliminate that possibility with another transformation.
 *   After various optimizations, retry `ADFun` again for comparison.
 *   Converting to the `Trivial` category leads to run-time error: "Impossible case alternative".
-*   Fix the problem with finding numeric and show instances for `Float` & `Double`, and then simplify `Circuit` again to use 0 instead of `Eql(fromIntegerZ 0)`, `negate` instead of `negateZ`, etc.
 *   Rewrite rule loop involving "`foo2`" and "`uncurry id`" in `AltCat`.
 *   In `LinearRow` and `LinearCol`, retry my old `scaleL` definition via `Keyed` and `Adjustable`, comparing for robustness and speed.
 *   `SPECIALIZE` vector space and linear map operations for some common functors, particularly `Par1`, e.g., `scaleL` as used for numeric primitives.
@@ -57,6 +56,7 @@
 
 # Done
 
+*   Fix the problem with finding numeric and show instances for `Float` & `Double`, and then simplify `Circuit` again to use 0 instead of `Eql(fromIntegerZ 0)`, `negate` instead of `negateZ`, etc.
 *   Remove `ConCat.Float`.
 *   Reboxing of `divideFloat#` and `divideDouble#`.
     The rules in `ConCat.Rebox` (commented out) don't work, perhaps because those operations can fail.

@@ -1295,7 +1295,7 @@ mkCccEnv opts = do
       lookupTh mkOcc mk modu = lookupRdr (mkModuleName modu) mkOcc mk
       findId      = lookupTh mkVarOcc lookupId
       findTc      = lookupTh mkTcOcc  lookupTyCon
-      findFloatTy = fmap mkTyConTy . findTc floatModule -- TODO: eliminate
+      -- findFloatTy = fmap mkTyConTy . findTc floatModule -- TODO: eliminate
       findCatId   = findId catModule
       findRepTc   = findTc repModule
       findRepId   = findId repModule
@@ -1320,8 +1320,8 @@ mkCccEnv opts = do
   coerceV     <- findCatId "coerceC"
   bottomCV    <- findCatId "bottomC"
   cccV        <- findCatId "ccc"
-  floatT      <- findFloatTy "Float"
-  doubleT     <- findFloatTy "Double"
+  -- floatT      <- findFloatTy "Float"
+  -- doubleT     <- findFloatTy "Double"
   -- reprV       <- findRepId "repr"
   -- abstV       <- findRepId "abst"
   -- hasRepTc    <- findRepTc "HasRep"
@@ -1348,7 +1348,7 @@ mkCccEnv opts = do
       mkMonoOp (stdName,(cmod,cop,tyArgs)) =
         do cv <- findId cmod cop
            return (stdName, (cv,tyArgs))
-  monoOps <- Map.fromList <$> mapM mkMonoOp (monoInfo (floatT,doubleT))
+  monoOps <- Map.fromList <$> mapM mkMonoOp monoInfo
   ruleBase <- eps_rule_base <$> (liftIO $ hscEPS hsc_env)
   -- pprTrace "ruleBase" (ppr ruleBase) (return ())
   let boxers = Map.fromList [(intTyCon,boxIV),(doubleTyCon,boxDV),(floatTyCon,boxFV)]
@@ -1449,8 +1449,8 @@ cccRuledArities = Map.fromList
 -- * module name for categorical counterpart (always catModule now)
 -- * categorical operation name
 -- * type arguments to cat op
-monoInfo :: (Type,Type) -> [(String,(String,String,[Type]))]
-monoInfo (floatT,doubleT) =
+monoInfo :: [(String,(String,String,[Type]))]
+monoInfo =
   [ (hop,(catModule,cop,tyArgs))
   | (cop,ps) <- info
   , (hop,tyArgs) <- ps
@@ -1485,7 +1485,7 @@ monoInfo (floatT,doubleT) =
      ]
     where
       ifd = intTy : fd
-      fd = [floatT,doubleT]
+      fd = [floatTy,doubleTy]
       boolOp op = [("GHC.Classes."++op,[])]
       -- eqOp ty = ("GHC.Classes.eq"++pp ty,[ty])
       eqOp op ty = ("GHC.Classes."++clsOp,[ty])
@@ -1518,9 +1518,6 @@ monoInfo (floatT,doubleT) =
          fdOp ty = (floatModule++"."++op++pp ty,[ty]) -- GHC.Float.sinFloat
 
 #if 0
-m0 :: [(String,(String,String,[Type]))]
-m0 = monoInfo (floatTy,doubleTy)
-
 -- An orphan instance to help me debug
 instance Show Type where show = pp
 #endif
