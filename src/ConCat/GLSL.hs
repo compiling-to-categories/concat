@@ -118,7 +118,9 @@ glslTy C.Double = Float
 glslTy ty = error ("ConCat.GLSL.glslTy: unsupported type: " ++ show ty)
 
 varName :: PinId -> String
-varName (PinId c n) = "v" ++ "_" ++ show c ++ "_" ++ show n
+varName (PinId 0 n) = "in" ++ show n
+varName (PinId c 0) = "v" ++ show c
+varName p = error ("ConCat.GLSL.varName unexpected " ++ show p)
 
 app :: String -> [Expr] -> Expr
 app "¬"      [e]     = UnaryNot e
