@@ -185,14 +185,11 @@ instance Ord Bus where compare = compare `on` busId
 type Sources = [Source]
 
 -- | An information source: its bus and a description of its construction, which
--- contains the primitive, argument sources, and which output of that
--- application (usually 0th).
-data Source = Source Bus PrimName Sources Int
-
--- TODO: probably remove the output index, since it's now in Bus via PinId.
+-- contains the primitive and argument sources.
+data Source = Source Bus PrimName Sources
 
 sourceBus :: Source -> Bus
-sourceBus (Source b _ _ _) = b
+sourceBus (Source b _ _) = b
 
 instance Eq  Source where (==) = (==) `on` sourceBus
 instance Ord Source where compare = compare `on` sourceBus
@@ -201,7 +198,7 @@ instance Ord Source where compare = compare `on` sourceBus
 --   show (Bus p t) = "B" ++ show p ++ (if t /= Bool then ":" ++ show t else "")
 
 instance Show Source where
-  show (Source b prim ins o) = printf "Source %s %s %s %d" (show b) (show prim) (show ins) o
+  show (Source b prim ins) = printf "Source %s %s %s" (show b) (show prim) (show ins)
 
 newBus :: Ty -> Int -> CircuitM Bus
 newBus t o = -- trace "newBus" $
@@ -209,7 +206,7 @@ newBus t o = -- trace "newBus" $
 
 newSource ::  Ty -> String -> Sources -> Int -> CircuitM Source
 newSource t prim ins o = -- trace "newSource" $
-                         (\ b -> Source b prim ins o) <$> newBus t o
+                         (\ b -> Source b prim ins) <$> newBus t o
 
 {--------------------------------------------------------------------
     Buses representing a given type
@@ -963,7 +960,7 @@ pattern Read :: Read a => a -> String
 pattern Read x <- (reads -> [(x,"")])
 
 pattern ConstS :: PrimName -> Source
-pattern ConstS name <- Source _ name [] 0
+pattern ConstS name <- Source _ name []
 
 pattern Val :: Read a => a -> Source
 pattern Val x <- ConstS (Read x)
@@ -977,16 +974,16 @@ pattern FalseS :: Source
 pattern FalseS <- ConstS("False")
 
 pattern NotS :: Source -> Source
-pattern NotS a <- Source _ "¬" [a] 0
+pattern NotS a <- Source _ "¬" [a]
 
 pattern XorS :: Source -> Source -> Source
-pattern XorS a b <- Source _ "⊕" [a,b] 0
+pattern XorS a b <- Source _ "⊕" [a,b]
 
 pattern EqS :: Source -> Source -> Source
-pattern EqS a b <- Source _ "≡" [a,b] 0
+pattern EqS a b <- Source _ "≡" [a,b]
 
 -- pattern NeS :: Source -> Source -> Source
--- pattern NeS a b <- Source _ "≢" [a,b] 0
+-- pattern NeS a b <- Source _ "≢" [a,b]
 
 #else
 
@@ -1001,7 +998,7 @@ pattern EqS a b <- Source _ "≡" [a,b] 0
 #define EqS(a,b) <- (Source _ "≡" [a,b] 0)
 
 -- pattern NeS :: Source -> Source -> Source
--- pattern NeS a b <- Source _ "≢" [a,b] 0
+-- pattern NeS a b <- Source _ "≢" [a,b]
 
 #endif
 
@@ -1291,10 +1288,10 @@ instance (Read a, Ord a) => OrdCat (:>) a where
 #define NegOneT(ty) ValT((-1),ty)
 
 pattern NegateS :: Source -> Source
-pattern NegateS a <- Source _ "negate" [a] 0
+pattern NegateS a <- Source _ "negate" [a]
 
 pattern RecipS  :: Source -> Source
-pattern RecipS  a <- Source _ "recip"  [a] 0
+pattern RecipS  a <- Source _ "recip"  [a]
 
 instance (Num a, Read a, GST a, Eq a, SourceToBuses a)
       => NumCat (:>) a where
@@ -1423,7 +1420,7 @@ ifOptI :: Opt Int
 
 -- Zero or one, yielding the False or True, respectively.
 pattern BitS :: Bool -> Source
-pattern BitS b <- Source _ (readBit -> Just b) [] 0
+pattern BitS b <- Source _ (readBit -> Just b) []
 
 readBit :: String -> Maybe Bool
 readBit "0" = Just False
@@ -1431,7 +1428,7 @@ readBit "1" = Just True
 readBit _   = Nothing
 
 pattern BToIS :: Source -> Source
-pattern BToIS a <- Source _ BooloInt [a] 0
+pattern BToIS a <- Source _ BooloInt [a]
 
 -- if c then 0 else b == if c then boolToInt False else b
 -- if c then 1 else b == if c then boolToInt True  else b
