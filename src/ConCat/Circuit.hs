@@ -83,7 +83,7 @@
 
 module ConCat.Circuit
   ( CircuitM, (:>)
-  , PinId(..), Width, Bus(..), Source(..)
+  , Width, Bus(..), Source(..)
   , GenBuses(..), GS, GST, genBusesRep', delayCRep, tyRep, bottomRep, unDelayName
   , namedC, constC -- , constS
   , SourceToBuses(..)
@@ -166,24 +166,17 @@ import qualified ConCat.Free.LinearCol as LC
     Buses
 --------------------------------------------------------------------}
 
-data PinId = PinId CompId Int deriving (Eq,Ord)
-
-instance Show PinId where
-  show (PinId c n) = show c ++ "/" ++ show n
-
--- TODO: Maybe stop using the name "pin", since it's a bus.
-
--- undefinedPinId :: PinId
--- undefinedPinId = PinId (-1)
-
 -- | Bus width
 type Width = Int
 
--- Data bus: Id, type
-data Bus = Bus PinId Ty
+-- Data bus: component id, output index, type
+data Bus = Bus CompId Int Ty deriving Show
 
--- undefinedBus :: Width -> Bus
--- undefinedBus = Bus undefinedPinId
+busId :: Bus -> (CompId,Int)
+busId (Bus c o _) = (c,o)
+
+instance Eq  Bus where (==) = (==) `on` busId
+instance Ord Bus where compare = compare `on` busId
 
 type Sources = [Source]
 
@@ -192,33 +185,23 @@ type Sources = [Source]
 -- application (usually 0th).
 data Source = Source Bus PrimName Sources Int
 
+-- TODO: probably remove the output index, since it's now in Bus via PinId.
+
 sourceBus :: Source -> Bus
 sourceBus (Source b _ _ _) = b
 
-busId :: Bus -> PinId
-busId (Bus i _) = i
+instance Eq  Source where (==) = (==) `on` sourceBus
+instance Ord Source where compare = compare `on` sourceBus
 
-sourceId :: Source -> PinId
-sourceId = busId . sourceBus
-
-instance Eq  Bus where (==) = (==) `on` busId
-instance Ord Bus where compare = compare `on` busId
-
-instance Eq  Source where (==) = (==) `on` sourceId
-instance Ord Source where compare = compare `on` sourceId
-
-instance Show Bus where
-  show (Bus p t) = "B" ++ show p ++ (if t /= Bool then ":" ++ show t else "")
+-- instance Show Bus where
+--   show (Bus p t) = "B" ++ show p ++ (if t /= Bool then ":" ++ show t else "")
 
 instance Show Source where
   show (Source b prim ins o) = printf "Source %s %s %s %d" (show b) (show prim) (show ins) o
 
-newPinId :: Int -> CircuitM PinId
-newPinId o = flip PinId o <$> M.gets fst
-
 newBus :: Ty -> Int -> CircuitM Bus
 newBus t o = -- trace "newBus" $
-             flip Bus t <$> newPinId o
+              (\ c -> Bus c o t) <$> M.gets fst
 
 newSource ::  Ty -> String -> Sources -> Int -> CircuitM Source
 newSource t prim ins o = -- trace "newSource" $
@@ -1822,7 +1805,7 @@ hideNoPorts = False
 type SourceInfo = (Ty,CompId,PortNum,Depth)
 
 -- Map each pin to its info about it
-type SourceMap = Map PinId SourceInfo
+type SourceMap = Map Bus SourceInfo
 
 -- TODO: Drop the comps argument, as it's already in depths
 
@@ -1876,7 +1859,7 @@ recordDots depths = nodes ++ edges
     where
       compEdges _c@(CompS cnum _ ins _ _) = edge <$> tagged ins
        where
-         edge (ni, Bus i t) =
+         edge (ni, b@(Bus _ _ t)) =
            -- Show the type per edge. I think I'd rather show in the output
            -- ports, but I don't know how to use a small font for those port
            -- labels but not for the operation label.
@@ -1884,7 +1867,7 @@ recordDots depths = nodes ++ edges
              (port Out (ocnum,opnum)) (port In (cnum,ni))
              (intercalate "," attrs)
           where
-            (_w,ocnum,opnum,_d) = srcMap M.! i
+            (_w,ocnum,opnum,_d) = srcMap M.! b
             attrs = label ++ constraint
 #ifdef ShallowDelay
             constraint | isDelay _c = ["constraint=false" ]
@@ -1917,8 +1900,10 @@ segmentedDotString = intercalate "\"+\"" . divvy
 
 sourceMap :: [(CompS,Depth)] -> SourceMap
 sourceMap = foldMap $ \ (comp,depth) ->
-              M.fromList [ (p,(wid,compId comp,np,depth))
-                         | (np,Bus p wid) <- tagged (compOuts comp) ]
+              M.fromList [ (b,(t,compId comp,np,depth))
+                         | (np,b@(Bus _ _ t)) <- tagged (compOuts comp) ]
+
+-- TODO: remove t from the SourceMap, since it's now in the key
 
 {-
 

@@ -30,7 +30,7 @@ import Language.GLSL.Pretty ()
 import Language.GLSL.Parser hiding (parse)
 
 import ConCat.Misc ((:*),R)
-import ConCat.Circuit (CompS(..),PinId(..),Bus(..),(:>), mkGraph, unitize)
+import ConCat.Circuit (CompS(..),Bus(..),(:>), mkGraph, unitize)
 import qualified ConCat.Circuit as C
 
 type CAnim = R :* (R :* R) :> Bool
@@ -66,49 +66,49 @@ fromComps' name comps =
          (map (uncurry initBus) assignments
           ++ [Return (Just (bindings M.! res))])
  where
-   (CompS _ "In" [] inputs _,mid, CompS _ "Out" [Bus res _] _ _) = splitComps comps
+   (CompS _ "In" [] inputs _,mid, CompS _ "Out" [res] _ _) = splitComps comps
    (bindings, assignments) = accumComps (uses mid) mid
 
 -- Count uses of each output
-uses :: [CompS] -> M.Map PinId Int
+uses :: [CompS] -> M.Map Bus Int
 uses = M.unionsWith (+) . map uses1
 
 -- Uses map for a single component
-uses1 :: CompS -> M.Map PinId Int
-uses1 (CompS _ _ ins _ _) = M.unionsWith (+) [M.singleton i 1 | Bus i _ <- ins]
+uses1 :: CompS -> M.Map Bus Int
+uses1 (CompS _ _ ins _ _) = M.unionsWith (+) (flip M.singleton 1 <$> ins)
 
 nestExpressions :: Bool
 nestExpressions = True -- False
 
 -- Given usage counts, generate delayed bindings and assignments
-accumComps :: M.Map PinId Int -> [CompS] -> (M.Map PinId Expr, [(Bus,Expr)])
+accumComps :: M.Map Bus Int -> [CompS] -> (M.Map Bus Expr, [(Bus,Expr)])
 -- accumComps counts | trace ("accumComps: counts = " ++ show counts) False = undefined
 accumComps counts = go M.empty
  where
    -- Generate bindings for outputs used more than once,
    -- and accumulate a map of the others.
-   go :: M.Map PinId Expr -> [CompS] -> (M.Map PinId Expr, [(Bus,Expr)])
+   go :: M.Map Bus Expr -> [CompS] -> (M.Map Bus Expr, [(Bus,Expr)])
    -- go saved comps | trace ("accumComps/go " ++ show saved ++ " " ++ show comps) False = undefined
    go saved [] = (saved, [])
-   go saved (c@(CompS _ _ _ [b@(Bus o _)] _) : comps) 
+   go saved (c@(CompS _ _ _ [o] _) : comps) 
      | Just n <- M.lookup o counts, (n > 1 || not nestExpressions) =
          let (saved',bindings') = go saved comps in
-           (saved', (b,e) : bindings')
+           (saved', (o,e) : bindings')
      | otherwise = go (M.insert o e saved) comps
     where
       e = compExpr saved c
    go _ c = error ("ConCat.GLSL.accumComps: oops: " ++ show c)
 
-compExpr :: M.Map PinId Expr -> CompS -> Expr
-compExpr _ (CompS _ str [] [Bus _ ty] _) = constExpr ty str
+compExpr :: M.Map Bus Expr -> CompS -> Expr
+compExpr _ (CompS _ str [] [Bus _ _ ty] _) = constExpr ty str
 compExpr saved (CompS _ prim ins _ _) = app prim (inExpr <$> ins)
  where
    inExpr :: Bus -> Expr
-   inExpr b@(Bus i _) | Just e <- M.lookup i saved = e
-                      | otherwise = bToE b
+   inExpr b | Just e <- M.lookup b saved = e
+            | otherwise = bToE b
 
 initBus :: Bus -> Expr -> Statement
-initBus (Bus pid ty) e = initDecl (glslTy ty) (varName pid) e
+initBus b@(Bus _ _ ty) e = initDecl (glslTy ty) (varName b) e
 
 glslTy :: C.Ty -> TypeSpecifierNonArray
 glslTy C.Int    = Int
@@ -117,10 +117,15 @@ glslTy C.Float  = Float
 glslTy C.Double = Float
 glslTy ty = error ("ConCat.GLSL.glslTy: unsupported type: " ++ show ty)
 
-varName :: PinId -> String
-varName (PinId 0 n) = "in" ++ show n
-varName (PinId c 0) = "v" ++ show c
-varName p = error ("ConCat.GLSL.varName unexpected " ++ show p)
+varName :: Bus -> String
+varName (Bus 0 n _) = "in" ++ show n
+varName (Bus c 0 _) = "v" ++ show c
+varName b = error ("ConCat.GLSL.varName unexpected " ++ show b)
+
+-- All actual primitives have exactly one output. The fake In primitive can have
+-- any number, and the fake Out primitive has none. I think I'd like to
+-- eliminate those fake prims, but I'm not ready to rule out multi-output
+-- primitives.
 
 app :: String -> [Expr] -> Expr
 app "¬"      [e]     = UnaryNot e
@@ -145,7 +150,7 @@ knownFuncs :: S.Set String
 knownFuncs = S.fromList ["exp","cos","sin"]
 
 bToE :: Bus -> Expr
-bToE (Bus pid _ty) = Variable (varName pid)
+bToE = Variable . varName
 
 -- Extract input, middle, output components. 
 splitComps :: [CompS] -> (CompS,[CompS],CompS)
@@ -173,10 +178,10 @@ initDecl ty var e =
   [InitDecl var Nothing (Just e)])
 
 paramDecl :: Bus -> ParameterDeclaration
-paramDecl (Bus pid ty) =
+paramDecl b@(Bus _ _ ty) =
   ParameterDeclaration Nothing Nothing 
     (TypeSpec Nothing (TypeSpecNoPrecision (glslTy ty) Nothing))
-    (Just (varName pid,Nothing))
+    (Just (varName b,Nothing))
 
 funDef :: TypeSpecifierNonArray -> String -> [ParameterDeclaration]
        -> [Statement] -> ExternalDeclaration
