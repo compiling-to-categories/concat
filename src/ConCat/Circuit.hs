@@ -83,7 +83,7 @@
 
 module ConCat.Circuit
   ( CircuitM, (:>)
-  , Width, Bus(..),busTy, Source(..)
+  , Bus(..),busTy, Source(..)
   , GenBuses(..), GS, GST, genBusesRep', delayCRep, tyRep, bottomRep, unDelayName
   , namedC, constC -- , constS
   , SourceToBuses(..)
@@ -166,9 +166,6 @@ import qualified ConCat.Free.LinearCol as LC
     Buses
 --------------------------------------------------------------------}
 
--- | Bus width
-type Width = Int
-
 -- Data bus: component id, output index, type
 data Bus = Bus CompId Int Ty deriving Show
 
@@ -198,7 +195,8 @@ instance Ord Source where compare = compare `on` sourceBus
 --   show (Bus p t) = "B" ++ show p ++ (if t /= Bool then ":" ++ show t else "")
 
 instance Show Source where
-  show (Source b prim ins) = printf "Source %s %s %s" (show b) (show prim) (show ins)
+  show (Source b prim ins) =
+    printf "Source %s %s %s" (show b) (show prim) (show ins)
 
 newBus :: Ty -> Int -> CircuitM Bus
 newBus t o = -- trace "newBus" $
