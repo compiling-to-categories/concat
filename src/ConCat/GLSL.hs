@@ -30,7 +30,7 @@ import Language.GLSL.Pretty ()
 import Language.GLSL.Parser hiding (parse)
 
 import ConCat.Misc ((:*),R)
-import ConCat.Circuit (CompS(..),Bus(..),(:>), mkGraph, unitize)
+import ConCat.Circuit (CompS(..),Bus(..),busTy,(:>), mkGraph, unitize)
 import qualified ConCat.Circuit as C
 
 type CAnim = R :* (R :* R) :> Bool
@@ -107,8 +107,11 @@ compExpr saved (CompS _ prim ins _ _) = app prim (inExpr <$> ins)
    inExpr b | Just e <- M.lookup b saved = e
             | otherwise = bToE b
 
+busType :: Bus -> TypeSpecifierNonArray
+busType = glslTy . busTy
+
 initBus :: Bus -> Expr -> Statement
-initBus b@(Bus _ _ ty) e = initDecl (glslTy ty) (varName b) e
+initBus b e = initDecl (busType b) (varName b) e
 
 glslTy :: C.Ty -> TypeSpecifierNonArray
 glslTy C.Int    = Int
@@ -178,9 +181,9 @@ initDecl ty var e =
   [InitDecl var Nothing (Just e)])
 
 paramDecl :: Bus -> ParameterDeclaration
-paramDecl b@(Bus _ _ ty) =
+paramDecl b =
   ParameterDeclaration Nothing Nothing 
-    (TypeSpec Nothing (TypeSpecNoPrecision (glslTy ty) Nothing))
+    (TypeSpec Nothing (TypeSpecNoPrecision (busType b) Nothing))
     (Just (varName b,Nothing))
 
 funDef :: TypeSpecifierNonArray -> String -> [ParameterDeclaration]

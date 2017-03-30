@@ -83,7 +83,7 @@
 
 module ConCat.Circuit
   ( CircuitM, (:>)
-  , Width, Bus(..), Source(..)
+  , Width, Bus(..),busTy, Source(..)
   , GenBuses(..), GS, GST, genBusesRep', delayCRep, tyRep, bottomRep, unDelayName
   , namedC, constC -- , constS
   , SourceToBuses(..)
@@ -172,8 +172,12 @@ type Width = Int
 -- Data bus: component id, output index, type
 data Bus = Bus CompId Int Ty deriving Show
 
+-- Identifying information for a bus. Faster comparisons without the type.
 busId :: Bus -> (CompId,Int)
 busId (Bus c o _) = (c,o)
+
+busTy :: Bus -> Ty
+busTy (Bus _ _ t) = t
 
 instance Eq  Bus where (==) = (==) `on` busId
 instance Ord Bus where compare = compare `on` busId
@@ -1859,7 +1863,7 @@ recordDots depths = nodes ++ edges
     where
       compEdges _c@(CompS cnum _ ins _ _) = edge <$> tagged ins
        where
-         edge (ni, b@(Bus _ _ t)) =
+         edge (ni, b) =
            -- Show the type per edge. I think I'd rather show in the output
            -- ports, but I don't know how to use a small font for those port
            -- labels but not for the operation label.
@@ -1879,7 +1883,8 @@ recordDots depths = nodes ++ edges
             label = []
 #else
             -- label | t == Bool = []
-            label = [printf "label=%s,fontsize=8,fontcolor=indigo" (show t)]
+            label = [printf "label=%s,fontsize=8,fontcolor=indigo"
+                            (show (busTy b))]
 #endif
    port :: Dir -> (CompId,PortNum) -> String
    port dir (cnum,np) =
@@ -1900,8 +1905,8 @@ segmentedDotString = intercalate "\"+\"" . divvy
 
 sourceMap :: [(CompS,Depth)] -> SourceMap
 sourceMap = foldMap $ \ (comp,depth) ->
-              M.fromList [ (b,(t,compId comp,np,depth))
-                         | (np,b@(Bus _ _ t)) <- tagged (compOuts comp) ]
+              M.fromList [ (b,(busTy b,compId comp,np,depth))
+                         | (np,b) <- tagged (compOuts comp) ]
 
 -- TODO: remove t from the SourceMap, since it's now in the key
 
