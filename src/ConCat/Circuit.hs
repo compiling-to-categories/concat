@@ -202,7 +202,7 @@ newBus :: Ty -> Int -> CircuitM Bus
 newBus t o = -- trace "newBus" $
               (\ c -> Bus c o t) <$> M.gets fst
 
-newSource ::  Ty -> String -> Sources -> Int -> CircuitM Source
+newSource ::  Ty -> PrimName -> Sources -> Int -> CircuitM Source
 newSource t prim ins o = -- trace "newSource" $
                          (\ b -> Source b prim ins) <$> newBus t o
 
@@ -279,14 +279,14 @@ genBuses prim ins = M.evalStateT (genBuses' (primName prim) ins) 0
 type BusesM = StateT Int CircuitM
 
 class Ok (:>) a => GenBuses a where
-  genBuses' :: String -> Sources -> BusesM (Buses a)
+  genBuses' :: PrimName -> Sources -> BusesM (Buses a)
   delay :: a -> (a :> a)
   ty :: a -> Ty                         -- dummy argument
 
 type GS a = (GenBuses a, Show a)
 
 genBus :: (Source -> Buses a) -> Ty
-       -> String -> Sources -> BusesM (Buses a)
+       -> PrimName -> Sources -> BusesM (Buses a)
 genBus wrap t prim ins = do o <- M.get
                             src <- M.lift (newSource t prim ins o)
                             M.put (o+1)
@@ -548,11 +548,11 @@ flattenBHack name _ b = flattenB name b
 --    tweak | isDelayPrim p = \ ~(Source bus nm _ins n) -> Source bus nm [] n 
 --          | otherwise     = id
 
-constComp' :: GenBuses b => String -> CircuitM (Buses b)
+constComp' :: GenBuses b => PrimName -> CircuitM (Buses b)
 constComp' str = -- trace ("constComp' " ++ str) $
                  genComp (Prim str) UnitB
 
-constComp :: GenBuses b => String -> BCirc a b
+constComp :: GenBuses b => PrimName -> BCirc a b
 constComp str = const (constComp' str)
 
 -- TODO: eliminate constComp in favor of a more restrictive version in which a
@@ -625,7 +625,7 @@ inCK2 :: (BCirc a a' -> BCirc b b' -> BCirc c c')
       -> ((a :> a') -> (b :> b') -> (c :> c'))
 inCK2 = inCK <~ unmkCK
 
-namedC :: GenBuses b => String -> a :> b
+namedC :: GenBuses b => PrimName -> a :> b
 -- namedC name = primOpt name noOpt
 namedC name = mkCK (genComp (Prim name))
 
@@ -670,8 +670,8 @@ orOpt f g a = do mb <- f a
                    Nothing -> g a
                    Just _  -> return mb
 
-primOpt :: GenBuses b => String -> Opt b -> a :> b
-primOptSort :: (Ok (:>) a, GenBuses b) => String -> Opt b -> a :> b
+primOpt :: GenBuses b => PrimName -> Opt b -> a :> b
+primOptSort :: (Ok (:>) a, GenBuses b) => PrimName -> Opt b -> a :> b
 #if !defined NoOptimizeCircuit
 
 -- primOpt name _ = mkCK (genComp (Prim name))
@@ -700,7 +700,7 @@ primOpt name _ = namedC name
 primOptSort = primOpt
 #endif
 
-primNoOpt1 :: (GST b, Read a) => String -> (a -> b) -> a :> b
+primNoOpt1 :: (GST b, Read a) => PrimName -> (a -> b) -> a :> b
 primNoOpt1 name fun = 
   primOpt name $
     \ case [Val x] -> newVal (fun x)
