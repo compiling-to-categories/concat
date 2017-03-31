@@ -1008,6 +1008,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    -- TODO: handle Prelude.const. Or let it inline.
    catFun _ = Nothing
    transCatOp :: ReExpr
+#if 0
    -- transCatOp e | dtrace "transCatOp" (ppr e) False = undefined
    transCatOp (collectArgs -> (Var v, Type _wasCat : rest))
      | True || dtrace "transCatOp v _wasCat rest" (text (fqVarName v) <+> ppr _wasCat <+> ppr rest) True
@@ -1038,6 +1039,32 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
          snd <$> foldl addArg (Just (0,Var v `App` Type cat)) rest
    transCatOp _ = -- pprTrace "transCatOp" (text "fail") $
                   Nothing
+#else
+   transCatOp (collectArgs -> (Var v, Type (TyConApp (isFunTyCon -> True) []) : rest))
+     | True || dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) True
+     = let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
+           addArg :: Maybe CoreExpr -> CoreExpr -> Maybe CoreExpr
+           -- addArg a b | dtrace "transCatOp addArg" (ppr (a,b)) False = undefined
+           addArg Nothing _ = -- dtrace "transCatOp Nothing" (text "bailing") $
+                              Nothing
+           addArg (Just e) arg
+              | isTyCoArg arg
+              = -- dtrace "addArg isTyCoArg" (ppr arg)
+                Just (e `App` arg)
+              | isPred arg
+              = --- dtrace "addArg isPred" (ppr arg)
+                -- onDictMaybe may fail (Nothing) in the target category.
+                onDictMaybe e  --  fails gracefully
+              | otherwise
+              = -- dtrace "addArg otherwise" (ppr (i,arg))
+                -- TODO: logic to sort out cat vs non-cat args.
+                -- We currently don't have both.
+                Just (e `App` (if isFunTy (exprType arg) then mkCcc else id) arg)
+       in
+         foldl addArg (Just (Var v `App` Type cat)) rest
+   transCatOp _ = -- pprTrace "transCatOp" (text "fail") $
+                   Nothing
+#endif
    reCat :: ReExpr
    reCat = {- traceFail "reCat" <+ -} transCatOp <+ catFun
    traceFail :: String -> ReExpr
@@ -1085,6 +1112,12 @@ isTrivial (Case e _ _ alts) = isTrivial e && all (isTrivial . altRhs) alts
 isTrivial _ = False
 
 incompleteCatOp :: CoreExpr -> Bool
+#if 1
+-- incompleteCatOp e | dtrace "incompleteCatOp" (ppr e) False = undefined
+incompleteCatOp e@(collectArgs -> (Var _v, Type (TyConApp (isFunTyCon -> True) []) : _rest))
+  = -- pprTrace "incompleteCatOp v rest" (text (fqVarName v) <+> ppr rest) $
+    isFunTy (exprType e)
+#else
 -- incompleteCatOp e | dtrace "incompleteCatOp" (ppr e) False = undefined
 incompleteCatOp (collectArgs -> (Var v, Type _wasCat : rest))
   | True || pprTrace "incompleteCatOp v _wasCat rest" (text (fqVarName v) <+> ppr _wasCat <+> ppr rest) True
@@ -1092,6 +1125,7 @@ incompleteCatOp (collectArgs -> (Var v, Type _wasCat : rest))
   , let seen = length (filter (not . isTyCoDictArg) rest)
   -- , dtrace "incompleteCatOp catArgs" (ppr seen <+> text "vs" <+> ppr catArgs) True
   = seen < catArgs
+#endif
 incompleteCatOp _ = False
 
 -- Whether to substitute based on type. Experimental. This version: substitute
@@ -1129,6 +1163,8 @@ isAbstReprId v = fqVarName v `elem` (((catModule ++ ".") ++) <$> ["reprC","abstC
 
 -- TODO: refactor
 
+#if 0
+
 -- For each categorical operation, how many non-cat args (first) and how many cat args (last)
 catOpArities :: Map String (Int,Int)
 catOpArities = Map.fromList $ map (\ (nm,m,n) -> (catModule ++ '.' : nm, (m,n))) $
@@ -1160,6 +1196,8 @@ catOpArities = Map.fromList $ map (\ (nm,m,n) -> (catModule ++ '.' : nm, (m,n)))
 -- TODO: also handle non-categorical arguments, as in unitArrow and const. Maybe
 -- return a pair of arities to cover non-categorical and categorical arguments.
 -- I could also handle these cases specially. Perhaps arity of -1 as a hack.
+
+#endif
 
 -- TODO: replace idV, composeV, etc with class objects from which I can extract
 -- those variables. Better, module objects, since I sometimes want functions
