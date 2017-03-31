@@ -36,7 +36,7 @@ import qualified ConCat.Circuit as C
 type CAnim = R :* (R :* R) :> Bool
 
 showGraph :: Bool
-showGraph = True -- False
+showGraph = False -- True
 
 genGlsl :: String -> CAnim -> IO ()
 genGlsl name0 circ =
@@ -133,18 +133,27 @@ varName b = error ("ConCat.GLSL.varName unexpected " ++ show b)
 app :: String -> [Expr] -> Expr
 app "¬"      [e]     = UnaryNot e
 app "∧"      [e1,e2] = And e1 e2
+app "&&"     [e1,e2] = And e1 e2
 app "∨"      [e1,e2] = Or  e1 e2
+app "||"     [e1,e2] = Or  e1 e2
 app "<"      [e1,e2] = Lt  e1 e2
 app ">"      [e1,e2] = Gt  e1 e2
 app "≤"      [e1,e2] = Lte e1 e2
+app "<="     [e1,e2] = Lte e1 e2
 app "≥"      [e1,e2] = Gte e1 e2
+app ">="     [e1,e2] = Gte e1 e2
 app "≡"      [e1,e2] = Equ e1 e2
+app "=="     [e1,e2] = Equ e1 e2
 app "≢"      [e1,e2] = Neq e1 e2
+app "/="     [e1,e2] = Neq e1 e2
 app "negate" [e]     = UnaryNegate e
 app "+"      [e1,e2] = Add e1 e2
 app "-"      [e1,e2] = Sub e1 e2
+app "−"      [e1,e2] = Sub e1 e2
 app "×"      [e1,e2] = Mul e1 e2
+app "*"      [e1,e2] = Mul e1 e2
 app "÷"      [e1,e2] = Div e1 e2
+app "/"      [e1,e2] = Div e1 e2
 app "mod"    [e1,e2] = Mod e1 e2
 app fun args | fun `S.member` knownFuncs = funcall fun args
              | otherwise = error ("ConCat.GLSL.app: not supported: " ++ show (fun,args))
