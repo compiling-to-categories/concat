@@ -499,7 +499,7 @@ genComp prim a =
          do b <- genBuses prim ins
             c <- M.gets fst
             let comp = Comp c prim a b
-            M.modify (const (c+1) *** M.insert key (comp,0))
+            M.modify (succ *** M.insert key (comp,0))
             return b
  where
    ins  = flattenBHack "genComp" prim a
