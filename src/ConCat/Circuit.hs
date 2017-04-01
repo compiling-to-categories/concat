@@ -90,11 +90,11 @@ module ConCat.Circuit
 --   , litUnit, litBool, litInt
   -- , (|||*), fromBool, toBool
   , CompS(..), compId, compName, compIns, compOuts
-  , CompId, DGraph, circuitGraph, Attr
-  , UU, writeDot, displayDot, mkGraph,Name,Report,GraphInfo
+  , CompId, DGraph, Attr
+  , writeDot, displayDot, mkGraph,Name,Report,GraphInfo -- , UU
   , simpleComp, tagged
   , systemSuccess
-  , unitize -- , unitize'
+  -- , unitize -- , unitize'
 --   , MealyC(..)
 --   , mealyAsArrow
 --   , unitizeMealyC
@@ -1560,18 +1560,17 @@ renameC = id
 type Name = String
 type Report = String
 
-type GraphInfo = (Name,CompDepths,Report)
+type GraphInfo = (CompDepths,Report)
 
-mkGraph :: Name -> UU -> GraphInfo
-mkGraph (renameC -> name') uu = (name',depths,report)
+mkGraph :: GenBuses a => (a :> b) -> GraphInfo
+mkGraph g = (depths,report)
  where
-   graph  = uuGraph uu
+   graph  = uuGraph (unitize g)
    depths = longestPaths graph
    depth  = longestPath depths
    report | depth == 0 = "No components.\n"  -- except In & Out
           | otherwise  =
-              printf "%s components: %s.%s Max depth: %d.\n"
-                name' (summary graph)
+              printf "Components: %s.%s Max depth: %d.\n" (summary graph)
 #if False && !defined NoHashCons
                 -- Are the reuse counts legit or an artifact of optimization?
                 (let reused :: Map PrimName Reuses
@@ -1592,8 +1591,8 @@ outDir = "out"
 outFile :: String -> String -> String
 outFile name suff = outDir++"/"++name++"."++suff
 
-writeDot :: [Attr] -> GraphInfo -> IO ()
-writeDot attrs (name,depths,report) = 
+writeDot :: String -> [Attr] -> GraphInfo -> IO ()
+writeDot (renameC -> name) attrs (depths,report) = 
   do createDirectoryIfMissing False outDir
      writeFile (outFile name "dot")
        (graphDot name attrs depths ++ "\n// "++ report)
@@ -1603,7 +1602,7 @@ writeDot attrs (name,depths,report) =
 -- backgroundRender = True
 
 displayDot :: (String,String) -> String -> IO ()
-displayDot (outType,res) name = 
+displayDot (outType,res) (renameC -> name) = 
   do putStrLn dotCommand
      systemSuccess dotCommand
      -- printf "Wrote %s\n" picFile
@@ -1667,8 +1666,8 @@ uuGraph = trimDGraph
         . runU
         -- . trace "uuGraph" id
 
-circuitGraph :: (GenBuses a, Ok2 (:>) a b) => (a :> b) -> DGraph
-circuitGraph = uuGraph . unitize
+-- circuitGraph :: (GenBuses a, Ok2 (:>) a b) => (a :> b) -> DGraph
+-- circuitGraph = uuGraph . unitize
 
 type CompDepths = Map CompS Depth
 

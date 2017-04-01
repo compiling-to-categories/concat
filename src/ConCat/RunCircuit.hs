@@ -33,7 +33,7 @@ import Prelude
 import Control.Monad (when)
 
 import ConCat.AltCat (ccc,Uncurriable(..),Ok) -- unitArrow
-import ConCat.Circuit (Attr,mkGraph,UU,writeDot,displayDot,unitize,(:>),GenBuses)
+import ConCat.Circuit (Attr,mkGraph,writeDot,displayDot,(:>),GenBuses)
 
 -- import ConCat.Netlist (saveAsVerilog)
 -- import ConCat.Mealy (Mealy(..,asFun)
@@ -93,25 +93,25 @@ showGraph = False -- True
 -- Run an example: reify, CCC, circuit.
 run :: (GenBuses a, Ok (:>) b) => String -> [Attr] -> (a :> b) -> IO ()
 run name attrs circ = do -- when showPretty $ putStrLn (name ++ " = " ++ show e)
-                         outGV name attrs (unitize circ)
+                         outGV name attrs circ
 {-# NOINLINE run #-}
 
 runSep :: (GenBuses a, Ok (:>) b) => String -> Double -> (a :> b) -> IO ()
 runSep name s = run name [ranksep s]
 
 -- Diagram and Verilog
-outGV :: String -> [Attr] -> UU -> IO ()
+outGV :: GenBuses a => String -> [Attr] -> (a :> b) -> IO ()
 outGV name attrs circ =
   do when showGraph $ putStrLn $ "outGV: Graph \n" ++ show g
-     writeDot attrs g
+     writeDot name attrs g
      -- Cap the size so that LaTeX doesn't choke and PDF viewers allow more
      -- zooming out.
-     when genPdf $ displayDot ("pdf","-Gsize=10,10") name'
+     when genPdf $ displayDot ("pdf","-Gsize=10,10") name
      -- displayDot ("svg","") 
      -- displayDot ("png","-Gdpi=200")
      -- when genVerilog $ saveAsVerilog g
  where
-   g@(name',_,_) = mkGraph name circ
+   g = mkGraph circ
 {-# NOINLINE outGV #-}
 
 -- TODO: Move file-saving code from outD and saveVerilog to here.

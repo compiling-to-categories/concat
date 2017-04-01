@@ -30,7 +30,7 @@ import Language.GLSL.Pretty ()
 import Language.GLSL.Parser hiding (parse)
 
 import ConCat.Misc ((:*),R)
-import ConCat.Circuit (CompS(..),Bus(..),busTy,(:>), mkGraph, unitize)
+import ConCat.Circuit (CompS(..),Bus(..),busTy,(:>), mkGraph)
 import qualified ConCat.Circuit as C
 
 type CAnim = R :* (R :* R) :> Bool
@@ -39,12 +39,12 @@ showGraph :: Bool
 showGraph = False -- True
 
 genGlsl :: String -> CAnim -> IO ()
-genGlsl name0 circ =
+genGlsl name circ =
   do when showGraph $ putStrLn $ "genGlsl: Graph " ++ show g
      createDirectoryIfMissing False outDir
      writeFile (outDir++"/"++name++".frag") (prettyShow fundef ++ "\n")
  where
-   g@(name,compDepths,_report) = mkGraph name0 (unitize circ)
+   g@(compDepths,_report) = mkGraph circ
    comps = sortBy (comparing C.compId) (M.keys compDepths)
    fundef = fromComps' (tweakName name) comps
    outDir = "out"
