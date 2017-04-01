@@ -1465,26 +1465,26 @@ instance (CoerceCat k a b, CoerceCat k' a b) => CoerceCat (k :**: k') a b where
 type Arr = Array Int
 
 class ArrayCat k a where
-  mkArray :: (Int :* Exp k Int a) `k` Arr a  -- Maybe size as (static) argument.
+  mkArr :: Int -> (Exp k Int a `k` Arr a)  -- Maybe size as (static) argument.
   arrAt :: (Arr a :* Int) `k` a
 
 instance ArrayCat (->) a where
-  mkArray (n,f) = array (0,n-1) [(i,f i) | i <- [0 .. n-1]]
+  mkArr n f = array (0,n-1) [(i,f i) | i <- [0 .. n-1]]
   arrAt = uncurry (!)
 
 instance ArrayCat U2 a where
-  mkArray = U2
+  mkArr _ = U2
   arrAt = U2
 
 instance (ArrayCat k a, ArrayCat k' a) => ArrayCat (k :**: k') a where
-  mkArray = mkArray :**: mkArray
+  mkArr n = mkArr n :**: mkArr n
   arrAt = arrAt :**: arrAt
-  PINLINER(mkArray)
+  PINLINER(mkArr)
   PINLINER(arrAt)
 
 #ifdef KleisliInstances
 instance Monad m => ArrayCat (Kleisli m) a where
-  mkArray = arr mkArray
+  mkArr = arr mkArr
   arrAt = arr arrAt
 #endif
 
