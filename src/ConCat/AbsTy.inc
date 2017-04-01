@@ -4,7 +4,7 @@
 
 #define AbsTy(abs) \
 instance (TypeableAR (abs), GenBuses (Rep (abs))) => GenBuses (abs) where \
-  { genBuses' = genBusesRep' ; delay = delayCRep ; ty = tyRep }; \
+  { genBuses' = genBusesRep' ; delay = delayCRep ; ty = tyRep @(abs) }; \
 instance (TypeableAR (abs), BottomCat (:>) z (Rep (abs))) => BottomCat (:>) z (abs) where \
   { bottomC = bottomRep }; \
 instance (TypeableAR (abs), IfCat (:>) (Rep (abs))) => IfCat (:>) (abs) where { ifC = repIf }; \
