@@ -90,11 +90,11 @@ module ConCat.Circuit
 --   , litUnit, litBool, litInt
   -- , (|||*), fromBool, toBool
   , CompS(..), compId, compName, compIns, compOuts
-  , CompId, DGraph, Attr
-  , writeDot, displayDot, mkGraph,Name,Report,GraphInfo -- , UU
+  , CompId, DGraph, circuitGraph, Attr
+  , writeDot, displayDot, mkGraph,Name,Report,GraphInfo
   , simpleComp, tagged
   , systemSuccess
-  -- , unitize -- , unitize'
+  -- , unitize, UU
 --   , MealyC(..)
 --   , mealyAsArrow
 --   , unitizeMealyC
@@ -221,7 +221,6 @@ data Buses :: * -> * where
   DoubleB  :: Source -> Buses Double
   PairB    :: Buses a -> Buses b -> Buses (a :* b)
   FunB     :: {-Ok2 (:>) a b => -} (a :> b) -> Buses (a -> b)
-  ArrayB   :: Source {- Int -} -> [CompS] -> Source -> Buses (Arr a)
   ConvertB :: (T a, T b) => Buses a -> Buses b
   -- AbstB :: Buses (Rep b) -> Buses b
 
@@ -258,17 +257,16 @@ instance Eq (Buses a) where
 -- Deriving would need GenBuses a.
 
 instance Show (Buses a) where
-  show UnitB          = "()"
-  show (BoolB b)      = show b
-  show (IntB b)       = show b
-  show (FloatB  b)    = show b
-  show (DoubleB b)    = show b
-  show (PairB a b)    = "("++show a++","++show b++")"
-  show (FunB _)       = "<function>"
+  show UnitB        = "()"
+  show (BoolB b)    = show b
+  show (IntB b)     = show b
+  show (FloatB  b)  = show b
+  show (DoubleB b)  = show b
+  show (PairB a b)  = "("++show a++","++show b++")"
+  show (FunB _)     = "<function>"
                       -- "<"++show (typeRep (Proxy :: Proxy a))++">"
-  show (ArrayB _ _ s) = "<array "++show s++">"
-  show (ConvertB b)   = "ConvertB ("++show b++")"
-  -- show (AbstB b)   = "AbstB ("++show b++")"
+  show (ConvertB b) = "ConvertB ("++show b++")"
+  -- show (AbstB b) = "AbstB ("++show b++")"
 
 -- TODO: Improve to Show instance with showsPrec. Maybe Pretty instead/also.
 
@@ -283,7 +281,7 @@ type BusesM = StateT Int CircuitM
 class Ok (:>) a => GenBuses a where
   genBuses' :: PrimName -> Sources -> BusesM (Buses a)
   delay :: a -> (a :> a)
-  ty :: a -> Ty                         -- dummy argument
+  ty :: Ty
 
 type GS a = (GenBuses a, Show a)
 
@@ -297,7 +295,7 @@ genBus wrap t prim ins = do o <- M.get
 instance GenBuses () where
   genBuses' _ _ = return UnitB
   delay () = id
-  ty = const Unit
+  ty = Unit
 
 delayPrefix :: String
 delayPrefix = "Cons "
@@ -316,29 +314,29 @@ instance GenBuses Bool where
   genBuses' = -- trace "genBuses' @ Bool" $
               genBus BoolB Bool
   delay = primDelay
-  ty = const Bool
+  ty = Bool
 
 instance GenBuses Int  where
   genBuses' = genBus IntB Int
   delay = primDelay
-  ty = const Int
+  ty = Int
 
 instance GenBuses Float  where
   genBuses' = genBus FloatB Float
   delay = primDelay
-  ty = const Float
+  ty = Float
 
 instance GenBuses Double  where
   genBuses' = genBus DoubleB Double
   delay = primDelay
-  ty = const Double
+  ty = Double
 
 instance (GenBuses a, GenBuses b) => GenBuses (a :* b) where
   genBuses' prim ins =
     -- trace ("genBuses' @ " ++ show (ty (undefined :: a :* b))) $
     PairB <$> genBuses' prim ins <*> genBuses' prim ins
   delay (a,b) = delay a *** delay b
-  ty ~(a,b) = Pair (ty a) (ty b)
+  ty = Pair (ty @a) (ty @b)
 
 flattenB :: String -> Buses a -> Sources
 flattenB name b = fromMaybe err (flattenMb b)
@@ -349,16 +347,15 @@ flattenMb :: Buses a -> Maybe Sources
 flattenMb = fmap toList . flat
  where
    flat :: Buses a -> Maybe (Seq Source)
-   flat UnitB          = Just mempty
-   flat (BoolB s)      = Just (singleton s)
-   flat (IntB s)       = Just (singleton s)
-   flat (FloatB  s)    = Just (singleton s)
-   flat (DoubleB s)    = Just (singleton s)
-   flat (PairB a s)    = liftA2 (<>) (flat a) (flat s)
-   flat (ConvertB s)   = flat s
-   flat (ArrayB _ _ s) = Just (singleton s)
-   flat (FunB _)       = Nothing
-   -- flat (AbstB s)   = flat s
+   flat UnitB        = Just mempty
+   flat (BoolB b)    = Just (singleton b)
+   flat (IntB b)     = Just (singleton b)
+   flat (FloatB  b)  = Just (singleton b)
+   flat (DoubleB b)  = Just (singleton b)
+   flat (PairB a b)  = liftA2 (<>) (flat a) (flat b)
+   flat (ConvertB b) = flat b
+   flat (FunB _)     = Nothing
+   -- flat (AbstB b) = flat b
 
 badBuses :: forall a x. Ok (:>) a => String -> Buses a -> x
 badBuses nm bs =
@@ -507,7 +504,7 @@ genComp prim a =
  where
    ins  = flattenBHack "genComp" prim a
    name = primName prim
-   key  = (name,ins,ty (undefined :: b))
+   key  = (name,ins,ty @b)
 
 -- TODO: Possibly key on argument type as well? What currently happens with Eq
 -- and Ord operations on Int vs Double? Maybe it's not an issue, since
@@ -1476,15 +1473,6 @@ instance IfCat (:>) () where ifC = unitIf
 instance (IfCat (:>) a, IfCat (:>) b) => IfCat (:>) (a :* b) where
   ifC = prodIf
 
---   ArrayB   :: Source {- Int -} -> [CompS] -> Source -> Buses (Arr a)
-
--- instance ArrayCat (:>) a where
---   mkArray = ...
-
--- class ArrayCat k a where
---   mkArray :: (Int :* Exp k Int a) `k` Arr a  -- Maybe size as (static) argument.
---   arrAt :: (Arr a :* Int) `k` a
-
 instance (GenBuses a, Ok2 (:>) a b) => Show (a :> b) where
   show = show . runC
 
@@ -1610,9 +1598,6 @@ writeDot (renameC -> name) attrs (depths,report) =
        (graphDot name attrs depths ++ "\n// "++ report)
      putStr report
 
--- backgroundRender :: Bool
--- backgroundRender = True
-
 displayDot :: (String,String) -> String -> IO ()
 displayDot (outType,res) (renameC -> name) = 
   do putStrLn dotCommand
@@ -1678,8 +1663,8 @@ uuGraph = trimDGraph
         . runU
         -- . trace "uuGraph" id
 
--- circuitGraph :: (GenBuses a, Ok2 (:>) a b) => (a :> b) -> DGraph
--- circuitGraph = uuGraph . unitize
+circuitGraph :: (GenBuses a, Ok2 (:>) a b) => (a :> b) -> DGraph
+circuitGraph = uuGraph . unitize
 
 type CompDepths = Map CompS Depth
 
@@ -2552,8 +2537,8 @@ genBusesRep' prim ins = abstB <$> genBuses' prim ins
 -- tweakValRep :: (HasRep a, Tweakable (Rep a)) => Unop a
 -- tweakValRep = abst . tweakVal . repr
 
-tyRep :: forall a. GenBuses (Rep a) => a -> Ty
-tyRep = const (ty (undefined :: Rep a))
+tyRep :: forall a. GenBuses (Rep a) => Ty
+tyRep = ty @(Rep a)
 
 delayCRep :: (HasRep a, TypeableAR a, GenBuses (Rep a)) => a -> (a :> a)
 delayCRep a0 = abstC . delay (repr a0) . reprC
