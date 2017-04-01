@@ -47,6 +47,7 @@ import ConCat.Category
   , BoolCat, BoolOf
   , NumCat, FractionalCat, FloatingCat, RealFracCat, FromIntegralCat
   , EqCat, OrdCat, EnumCat, BottomCat, IfCat, IfT, UnknownCat, RepCat, CoerceCat
+  , Arr, ArrayCat
   , TransitiveCon(..)
   , U2(..), (:**:)(..)
   , type (|-)(..), (<+), okProd
@@ -211,6 +212,15 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 {-# INLINE constFun #-}
 -- {-# OPINLINE constFun #-}
 -- OpRule1(constFun)
+
+Op0(mkArray, ArrayCat k a => (Int :* Exp k Int a) `k` Arr a)
+Op0(arrAt, ArrayCat k a => (Arr a :* Int) `k` a)
+
+-- class ArrayCat k a where
+--   mkArray :: (Int :* Exp k Int a) `k` Arr a  -- Maybe size as (static) argument.
+--   arrAt :: (Arr a :* Int) `k` a
+
+
 
 -- TODO: Consider moving all of the auxiliary functions (like constFun) here.
 -- Rename "ConCat.Category" to something like "ConCat.Category.Class" and
