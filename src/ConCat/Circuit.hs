@@ -221,6 +221,7 @@ data Buses :: * -> * where
   DoubleB  :: Source -> Buses Double
   PairB    :: Buses a -> Buses b -> Buses (a :* b)
   FunB     :: {-Ok2 (:>) a b => -} (a :> b) -> Buses (a -> b)
+  ArrayB   :: Source {- Int -} -> [CompS] -> Source -> Buses (Arr a)
   ConvertB :: (T a, T b) => Buses a -> Buses b
   -- AbstB :: Buses (Rep b) -> Buses b
 
@@ -257,16 +258,17 @@ instance Eq (Buses a) where
 -- Deriving would need GenBuses a.
 
 instance Show (Buses a) where
-  show UnitB        = "()"
-  show (BoolB b)    = show b
-  show (IntB b)     = show b
-  show (FloatB  b)  = show b
-  show (DoubleB b)  = show b
-  show (PairB a b)  = "("++show a++","++show b++")"
-  show (FunB _)     = "<function>"
+  show UnitB          = "()"
+  show (BoolB b)      = show b
+  show (IntB b)       = show b
+  show (FloatB  b)    = show b
+  show (DoubleB b)    = show b
+  show (PairB a b)    = "("++show a++","++show b++")"
+  show (FunB _)       = "<function>"
                       -- "<"++show (typeRep (Proxy :: Proxy a))++">"
-  show (ConvertB b) = "ConvertB ("++show b++")"
-  -- show (AbstB b) = "AbstB ("++show b++")"
+  show (ArrayB _ _ s) = "<array "++show s++">"
+  show (ConvertB b)   = "ConvertB ("++show b++")"
+  -- show (AbstB b)   = "AbstB ("++show b++")"
 
 -- TODO: Improve to Show instance with showsPrec. Maybe Pretty instead/also.
 
@@ -347,15 +349,16 @@ flattenMb :: Buses a -> Maybe Sources
 flattenMb = fmap toList . flat
  where
    flat :: Buses a -> Maybe (Seq Source)
-   flat UnitB        = Just mempty
-   flat (BoolB b)    = Just (singleton b)
-   flat (IntB b)     = Just (singleton b)
-   flat (FloatB  b)  = Just (singleton b)
-   flat (DoubleB b)  = Just (singleton b)
-   flat (PairB a b)  = liftA2 (<>) (flat a) (flat b)
-   flat (ConvertB b) = flat b
-   flat (FunB _)     = Nothing
-   -- flat (AbstB b) = flat b
+   flat UnitB          = Just mempty
+   flat (BoolB s)      = Just (singleton s)
+   flat (IntB s)       = Just (singleton s)
+   flat (FloatB  s)    = Just (singleton s)
+   flat (DoubleB s)    = Just (singleton s)
+   flat (PairB a s)    = liftA2 (<>) (flat a) (flat s)
+   flat (ConvertB s)   = flat s
+   flat (ArrayB _ _ s) = Just (singleton s)
+   flat (FunB _)       = Nothing
+   -- flat (AbstB s)   = flat s
 
 badBuses :: forall a x. Ok (:>) a => String -> Buses a -> x
 badBuses nm bs =
@@ -1472,6 +1475,15 @@ instance IfCat (:>) () where ifC = unitIf
 
 instance (IfCat (:>) a, IfCat (:>) b) => IfCat (:>) (a :* b) where
   ifC = prodIf
+
+--   ArrayB   :: Source {- Int -} -> [CompS] -> Source -> Buses (Arr a)
+
+-- instance ArrayCat (:>) a where
+--   mkArray = ...
+
+-- class ArrayCat k a where
+--   mkArray :: (Int :* Exp k Int a) `k` Arr a  -- Maybe size as (static) argument.
+--   arrAt :: (Arr a :* Int) `k` a
 
 instance (GenBuses a, Ok2 (:>) a b) => Show (a :> b) where
   show = show . runC
