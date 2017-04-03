@@ -16,6 +16,7 @@ import Prelude hiding (id,(.),curry,uncurry)
 
 import Control.Arrow (Kleisli(..),arr)
 import Control.Applicative (liftA2)
+import Control.Monad ((<=<))
 import Data.Sequence (Seq)
 
 import Control.Newtype
@@ -39,8 +40,8 @@ data Buses :: * -> * where
   -- FloatB   :: Source -> Buses Float
   -- DoubleB  :: Source -> Buses Double
   PairB    :: Buses a -> Buses b -> Buses (a :* b)
+  FunB     :: BCirc (e :* a) b -> Buses e -> Buses (a -> b)
   -- ConvertB :: (T a, T b) => Buses a -> Buses b
-  FunB     :: (e :* a :> b) -> Buses e -> Buses (a -> b)
 
 -- Primitive or composed kernel
 data Graph a b = PrimG (Prim a b) 
@@ -74,16 +75,13 @@ forkB :: BCirc a c -> BCirc a d -> BCirc a (c :* d)
 forkB f g a = liftA2 PairB (f a) (g a)
 
 
-infixl 1 :>, :+>
+infixl 1 :>
 
--- | Internal representation for '(:>)'.
-type a :+> b = Kleisli GraphM (Buses a) (Buses b)
+-- | Graph category
+newtype a :> b = C (Kleisli GraphM (Buses a) (Buses b))
 
--- | Circuit category
-newtype a :> b = C { unC :: a :+> b }
-
-pattern Circ :: BCirc a b -> (a :> b)
-pattern Circ f = C (Kleisli f)
+-- pattern Circ :: BCirc a b -> (a :> b)
+-- pattern Circ f = C (Kleisli f)
 
 instance Newtype (a :> b) where
   type O (a :> b) = BCirc a b
@@ -91,8 +89,8 @@ instance Newtype (a :> b) where
   unpack (C (Kleisli f)) = f
 
 instance Category (:>) where
-  id = C id
-  C g . C f = C (g . f)
+  id  = pack return
+  (.) = inNew2 (<=<)
 
 instance ProductCat (:>) where
   exl   = pack exlB
@@ -100,8 +98,6 @@ instance ProductCat (:>) where
   (&&&) = inNew2 forkB
 
 instance ClosedCat (:>) where
-  apply     = pack $ \ (PairB (FunB f e) a) -> unpack f (PairB e a)
-  curry   f = pack $ \ e -> return (FunB f e)
-  uncurry g = pack $ \ (PairB a b) -> do FunB f e <- unpack g a
-                                         unpack f (PairB e b)
-
+  apply   = pack  $ \ (PairB (FunB f e) a) -> f (PairB e a)
+  curry   = inNew $ \ f e -> return (FunB f e)
+  uncurry = inNew $ \ g (PairB a b) -> do { FunB f e <- g a ; f (PairB e b) }
