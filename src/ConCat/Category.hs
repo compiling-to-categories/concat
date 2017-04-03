@@ -79,6 +79,12 @@ infixr 7 :**:
 data (p :**: q) a b = p a b :**: q a b
 
 {--------------------------------------------------------------------
+    Monoid wrapper
+--------------------------------------------------------------------}
+
+newtype Monoid2 m a b = Monoid2 m
+
+{--------------------------------------------------------------------
     Constraints
 --------------------------------------------------------------------}
 
@@ -279,6 +285,10 @@ instance Category Coercion where
 instance Category U2 where
   id = U2
   U2 . U2 = U2
+
+instance Monoid m => Category (Monoid2 m) where
+  id = Monoid2 mempty
+  Monoid2 m . Monoid2 n = Monoid2 (m `mappend` n)
 
 instance (Category k, Category k') => Category (k :**: k') where
   type Ok (k :**: k') = Ok k &+& Ok k'
