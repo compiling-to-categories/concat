@@ -56,7 +56,23 @@ data Comp a b = Comp CompNum (Graph a b) (Buses a) (Buses b)
 -- Existential wrapper
 data Exists2 f = forall a b. Exists2 (f a b)
 
+
 type GraphM = Writer Comps
+
+type BCirc a b = Buses a -> GraphM (Buses b)
+
+unPairB :: Ok2 (:>) a b => Buses (a :* b) -> Buses a :* Buses b
+unPairB (PairB a b) = (a,b)
+
+exlB :: Ok2 (:>) a b => BCirc (a :* b) a
+exlB = return . exl . unPairB
+
+exrB :: Ok2 (:>) a b => BCirc (a :* b) b
+exrB = return . exr . unPairB
+
+forkB :: BCirc a c -> BCirc a d -> BCirc a (c :* d)
+forkB f g a = liftA2 PairB (f a) (g a)
+
 
 infixl 1 :>, :+>
 
@@ -65,8 +81,6 @@ type a :+> b = Kleisli GraphM (Buses a) (Buses b)
 
 -- | Circuit category
 newtype a :> b = C { unC :: a :+> b }
-
-type BCirc a b = Buses a -> GraphM (Buses b)
 
 pattern Circ :: BCirc a b -> (a :> b)
 pattern Circ f = C (Kleisli f)
@@ -80,19 +94,14 @@ instance Category (:>) where
   id = C id
   C g . C f = C (g . f)
 
-unPairB :: Ok2 (:>) a b => Buses (a :* b) -> Buses a :* Buses b
-unPairB (PairB a b) = (a,b)
-
-exlB :: Ok2 (:>) a b => Buses (a :* b) -> Buses a
-exlB = exl . unPairB
-
-exrB :: Ok2 (:>) a b => Buses (a :* b) -> Buses b
-exrB = exr . unPairB
-
-forkB :: BCirc a c -> BCirc a d -> BCirc a (c :* d)
-forkB f g a = liftA2 PairB (f a) (g a)
-
 instance ProductCat (:>) where
-  exl = C (arr exlB)
-  exr = C (arr exrB)
+  exl   = pack exlB
+  exr   = pack exrB
   (&&&) = inNew2 forkB
+
+instance ClosedCat (:>) where
+  apply     = pack $ \ (PairB (FunB f e) a) -> unpack f (PairB e a)
+  curry   f = pack $ \ e -> return (FunB f e)
+  uncurry g = pack $ \ (PairB a b) -> do FunB f e <- unpack g a
+                                         unpack f (PairB e b)
+
