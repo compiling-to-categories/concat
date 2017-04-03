@@ -50,6 +50,9 @@ data Buses :: * -> * where
   -- DoubleB  :: Source -> Buses Double
   PairB    :: Buses a -> Buses b -> Buses (a :* b)
   FunB     :: BG (e :* a) b -> Buses e -> Buses (a -> b)
+
+  FunB'    :: BG a b -> Buses (a -> b)
+
   -- ConvertB :: (T a, T b) => Buses a -> Buses b
 
 -- Primitive or composed kernel
@@ -183,10 +186,23 @@ instance ProductCat (:>) where
   exr   = pack exrB
   (&&&) = inNew2 forkB
 
+-- instance ClosedCat (:>) where
+--   apply   = pack  $ \ (PairB (FunB f e) a) -> f (PairB e a)
+--   curry   = inNew $ \ f e -> return (FunB f e)
+--   uncurry = inNew $ \ g (PairB a b) -> do { FunB f e <- g a ; f (PairB e b) }
+
 instance ClosedCat (:>) where
-  apply   = pack  $ \ (PairB (FunB f e) a) -> f (PairB e a)
-  curry   = inNew $ \ f e -> return (FunB f e)
-  uncurry = inNew $ \ g (PairB a b) -> do { FunB f e <- g a ; f (PairB e b) }
+  apply   = pack  $ \ (PairB (FunB' f) a) -> f a
+  curry   = inNew $ \ f -> return . FunB' . curry (f . uncurry PairB)
+  uncurry = inNew $ \ g (PairB a b) -> do { FunB' f <- g a ; f b }
+
+-- f :: BG (a :* b) c
+--   :: Buses (a :* b) -> GraphM (Buses c)
+-- f . uncurry PairB :: Buses a :* Buses b -> GraphM (Buses c)
+-- curry (f . uncurry PairB) :: Buses a -> Buses b -> GraphM (Buses c)
+--                           :: Buses a -> BG b c
+-- FunB' . curry (f . uncurry PairB) :: Buses a -> Buses (b -> c)
+-- return . FunB' . curry (f . uncurry PairB) :: BG a (b -> c)
 
 instance TerminalCat (:>) where
   it = pack (const (return UnitB))
@@ -218,3 +234,10 @@ class ArrayCat k a where
 --   mkArr n = pack (\ (FunB f e) -> _)
 --   arrAt = addPrim ArrAt
 
+#if 0
+
+f :: BG (e :* a) b
+  :: Buses (e :* a) -> GraphM (Buses b)
+e :: Buses e
+
+#endif
