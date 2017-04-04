@@ -49,9 +49,7 @@ data Buses :: * -> * where
   -- FloatB   :: Source -> Buses Float
   -- DoubleB  :: Source -> Buses Double
   PairB    :: Buses a -> Buses b -> Buses (a :* b)
-  FunB     :: BG (e :* a) b -> Buses e -> Buses (a -> b)
-
-  FunB'    :: BG a b -> Buses (a -> b)
+  FunB     :: BG a b -> Buses (a -> b)
 
   -- ConvertB :: (T a, T b) => Buses a -> Buses b
 
@@ -163,9 +161,9 @@ runG7 f n = tweak (M.runWriter (M.runStateT q n))
           b <- unpack f a
           return (a,b)
 
-genG :: (a :> b) -> GraphM (Graph a b)
+genG :: BG a b -> GraphM (Graph a b)
 genG f = do n <- M.get
-            let (n',g) = runG7 f n
+            let (n',g) = runG7 (pack f) n
             M.put n'
             return g
 
@@ -186,23 +184,22 @@ instance ProductCat (:>) where
   exr   = pack exrB
   (&&&) = inNew2 forkB
 
--- instance ClosedCat (:>) where
---   apply   = pack  $ \ (PairB (FunB f e) a) -> f (PairB e a)
---   curry   = inNew $ \ f e -> return (FunB f e)
---   uncurry = inNew $ \ g (PairB a b) -> do { FunB f e <- g a ; f (PairB e b) }
-
 instance ClosedCat (:>) where
-  apply   = pack  $ \ (PairB (FunB' f) a) -> f a
-  curry   = inNew $ \ f -> return . FunB' . curry (f . uncurry PairB)
-  uncurry = inNew $ \ g (PairB a b) -> do { FunB' f <- g a ; f b }
+  apply   = pack  $ \ (PairB (FunB f) a) -> f a
+  curry   = inNew $ \ f -> return . FunB . curry (f . uncurry PairB)
+  uncurry = inNew $ \ g (PairB a b) -> do { FunB f <- g a ; f b }
 
--- f :: BG (a :* b) c
---   :: Buses (a :* b) -> GraphM (Buses c)
--- f . uncurry PairB :: Buses a :* Buses b -> GraphM (Buses c)
--- curry (f . uncurry PairB) :: Buses a -> Buses b -> GraphM (Buses c)
---                           :: Buses a -> BG b c
--- FunB' . curry (f . uncurry PairB) :: Buses a -> Buses (b -> c)
--- return . FunB' . curry (f . uncurry PairB) :: BG a (b -> c)
+#if 0
+
+f :: BG (a :* b) c
+  :: Buses (a :* b) -> GraphM (Buses c)
+f . uncurry PairB :: Buses a :* Buses b -> GraphM (Buses c)
+curry (f . uncurry PairB) :: Buses a -> Buses b -> GraphM (Buses c)
+                          :: Buses a -> BG b c
+FunB' . curry (f . uncurry PairB) :: Buses a -> Buses (b -> c)
+return . FunB' . curry (f . uncurry PairB) :: BG a (b -> c)
+
+#endif
 
 instance TerminalCat (:>) where
   it = pack (const (return UnitB))
@@ -230,14 +227,9 @@ class ArrayCat k a where
   arrAt :: (Arr a :* Int) `k` a
 #endif
 
--- instance ArrayCat (:>) a where
---   mkArr n = pack (\ (FunB f e) -> _)
---   arrAt = addPrim ArrAt
+instance ArrayCat (:>) a where
+  mkArr n = pack (\ (FunB f) -> _)
+  arrAt = addPrim ArrAt
 
-#if 0
+-- genG :: BG a b -> GraphM (Graph a b)
 
-f :: BG (e :* a) b
-  :: Buses (e :* a) -> GraphM (Buses b)
-e :: Buses e
-
-#endif
