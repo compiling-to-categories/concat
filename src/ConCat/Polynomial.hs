@@ -114,9 +114,6 @@ instance (HasPoly a, HasPoly b, Functor a, Functor b) => HasPoly (a :*: b) where
 ab  :: PolyF a (PolyF b w)
 ab' :: PolyF a (PolyF b w)
 
-
-
-
 idP @a :: a (PolyF a s)
 idP @b :: b (PolyF b s)
 
