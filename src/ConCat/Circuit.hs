@@ -216,10 +216,6 @@ newSource t prim ins o = -- trace "newSource" $
 data Buses :: * -> * where
   UnitB    :: Buses ()
   PrimB    :: Source -> Buses b
-  -- BoolB    :: Source -> Buses Bool
-  -- IntB     :: Source -> Buses Int
-  -- FloatB   :: Source -> Buses Float
-  -- DoubleB  :: Source -> Buses Double
   PairB    :: Buses a -> Buses b -> Buses (a :* b)
   FunB     :: {-Ok2 (:>) a b => -} (a :> b) -> Buses (a -> b)
   ConvertB :: (T a, T b) => Buses a -> Buses b
@@ -236,10 +232,7 @@ data Buses :: * -> * where
 -- Currently unused.
 instance Eq (Buses a) where
   UnitB      == UnitB       = True
-  BoolB s    == BoolB s'    = s == s'
-  IntB s     == IntB s'     = s == s'
-  FloatB  s  == FloatB  s'  = s == s'
-  DoubleB s  == DoubleB s'  = s == s'
+  PrimB s    == PrimB s'    = s == s'
   PairB a b  == PairB a' b' = a == a' && b == b'
   FunB _     == FunB _      = False             -- TODO: reconsider
   ConvertB a == ConvertB b  = case cast a of
@@ -260,10 +253,6 @@ instance Eq (Buses a) where
 instance Show (Buses a) where
   show UnitB        = "()"
   show (PrimB s)    = show s
-  -- show (BoolB b)    = show b
-  -- show (IntB b)     = show b
-  -- show (FloatB  b)  = show b
-  -- show (DoubleB b)  = show b
   show (PairB a b)  = "("++show a++","++show b++")"
   show (FunB _)     = "<function>"
                       -- "<"++show (typeRep (Proxy :: Proxy a))++">"
@@ -312,34 +301,31 @@ unDelayName = stripPrefix delayPrefix
 -- isDelayPrim :: Prim a b -> Bool
 -- isDelayPrim = isJust . unDelayName . primName
 
-instance GenBuses Bool where
-  genBuses' = genPrimBus
-  -- genBuses' = genBus BoolB Bool
-  delay = primDelay
-  ty = Bool
-
---   genBuses' :: PrimName -> Sources -> BusesM (Buses a)
-
 genPrimBus :: forall a. GenBuses a => PrimName -> Sources -> BusesM (Buses a)
 genPrimBus = genBus PrimB (ty @a)
 
+instance GenBuses Bool where
+  genBuses' = genPrimBus
+  delay = primDelay
+  ty = Bool
+
 instance GenBuses Int  where
   genBuses' = genPrimBus
-  -- genBuses' = genBus IntB Int
   delay = primDelay
   ty = Int
 
 instance GenBuses Float  where
   genBuses' = genPrimBus
-  -- genBuses' = genBus FloatB Float
   delay = primDelay
   ty = Float
 
 instance GenBuses Double  where
   genBuses' = genPrimBus
-  -- genBuses' = genBus DoubleB Double
   delay = primDelay
   ty = Double
+
+-- TODO: perhaps give default definitions for genBuses' and delay, and eliminate
+-- the definitions in Bool,...,Double.
 
 instance (GenBuses a, GenBuses b) => GenBuses (a :* b) where
   genBuses' prim ins =
@@ -359,10 +345,6 @@ flattenMb = fmap toList . flat
    flat :: Buses a -> Maybe (Seq Source)
    flat UnitB        = Just mempty
    flat (PrimB s)    = Just (singleton s)
-   -- flat (BoolB b)    = Just (singleton b)
-   -- flat (IntB b)     = Just (singleton b)
-   -- flat (FloatB  b)  = Just (singleton b)
-   -- flat (DoubleB b)  = Just (singleton b)
    flat (PairB a b)  = liftA2 (<>) (flat a) (flat b)
    flat (ConvertB b) = flat b
    flat (FunB _)     = Nothing
@@ -697,10 +679,8 @@ tryCommute :: a :> a
 tryCommute = mkCK try
  where
 #if !defined NoCommute
+   -- TODO: Add an Ord constraint to PrimB for this line
    try (PairB (PrimB a) (PrimB a')) | a > a' = return (PairB (PrimB a') (PrimB a))
-   -- try (PairB (BoolB a) (BoolB a')) | a > a' = return (PairB (BoolB a') (BoolB a))
-   -- try (PairB (IntB  a) (IntB  a')) | a > a' = return (PairB (IntB  a') (IntB  a))
-   -- TODO: Float & Double
 #endif
    try b = return b
 
@@ -729,22 +709,6 @@ primNoOpt1 name fun =
 constC :: GST b => b -> a :> b
 constC = mkCK . constM
 
--- Phasing out constC
-
--- pureC :: Buses b -> a :> b
--- pureC = mkCK . pure . pure
-
-#if 0
-litUnit :: () -> a :> ()
-litUnit = pureC . const UnitB
-
-litInt :: Int -> a :> Int
-litInt = pureC . IntB . IntS
-
-litBool :: Bool -> a :> Bool
-litBool = pureC . BoolB . BoolS
-#endif
-
 inC :: (a :+> b -> a' :+> b') -> (a :> b -> a' :> b')
 inC = C <~ unC
 
@@ -756,11 +720,6 @@ instance Category (:>) where
   type Ok (:>) = T
   id  = C id
   (.) = inC2 (.)
-
--- onPairBM :: Functor m =>
---             (Buses a :* Buses b -> m (Buses a' :* Buses b'))
---          -> (Buses (a :* b) -> m (Buses (a' :* b')))
--- onPairBM f = fmap pairB . f . unPairB
 
 crossB :: (Applicative m, Ok2 (:>) a b)
        => (Buses a -> m (Buses c)) -> (Buses b -> m (Buses d))
@@ -945,10 +904,10 @@ instance BottomCat (:>) where
 
 class SourceToBuses a where toBuses :: Source -> Buses a
 instance SourceToBuses ()     where toBuses = const UnitB
-instance SourceToBuses Bool   where toBuses = PrimB -- BoolB
-instance SourceToBuses Int    where toBuses = PrimB -- IntB
-instance SourceToBuses Float  where toBuses = PrimB -- FloatB
-instance SourceToBuses Double where toBuses = PrimB -- DoubleB
+instance SourceToBuses Bool   where toBuses = PrimB
+instance SourceToBuses Int    where toBuses = PrimB
+instance SourceToBuses Float  where toBuses = PrimB
+instance SourceToBuses Double where toBuses = PrimB
 
 sourceB :: SourceToBuses a => Source -> CircuitM (Maybe (Buses a))
 sourceB = justA . toBuses
