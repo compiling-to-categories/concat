@@ -12,6 +12,7 @@
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -fdefer-typed-holes #-} -- TEMP
 
 -- | Experimenting with a replacement for Circuit
 
@@ -38,31 +39,35 @@ data Prim :: * -> * -> * where
   Not :: Prim Bool Bool
   And, Or, Xor :: Prim (Bool :* Bool) Bool
   -- ...
+  MkArray :: Int -> Prim (Int -> a) (Arr a)
   ArrAt :: Prim (Arr a :* Int) a 
-  In :: Prim () b
-  Out :: Prim a ()
+  -- In :: Prim () b
+  -- Out :: Prim a ()
+  -- SubGraph :: Graph a b -> Prim a b
 
-data Buses :: * -> * where
-  UnitB    :: Buses ()
-  -- BoolB    :: Source -> Buses Bool
-  -- IntB     :: Source -> Buses Int
-  -- FloatB   :: Source -> Buses Float
-  -- DoubleB  :: Source -> Buses Double
-  PairB    :: Buses a -> Buses b -> Buses (a :* b)
-  FunB     :: BG a b -> Buses (a -> b)
+type PortNum = Int
 
-  -- ConvertB :: (T a, T b) => Buses a -> Buses b
+data Ports :: * -> * where
+  UnitP    :: Ports ()
+  BoolP    :: PortNum -> Ports Bool
+  IntP     :: PortNum -> Ports Int
+  FloatP   :: PortNum -> Ports Float
+  DoubleP  :: PortNum -> Ports Double
+  PairP    :: Ports a -> Ports b -> Ports (a :* b)
+  FunP     :: Graph a b -> Ports (a -> b)
+
+  -- ConvertP :: (T a, T b) => Ports a -> Ports b
 
 -- Primitive or composed kernel
 data Graph a b = PrimG (Prim a b) 
-               | CompositeG (Buses a) Comps (Buses b)
+               | CompositeG (Ports a) Comps (Ports b)
 
 type Comps = Seq (Exists2 Comp)
 
-type CompNum = Int
+-- type CompNum = Int
 
 -- Instantiated component with inputs and defining outputs
-data Comp a b = Comp CompNum (Graph a b) (Buses a) (Buses b)
+data Comp a b = Comp {- CompNum -} (Ports a) (Graph a b) (Ports b)
 
 -- Existential wrapper
 data Exists2 f = forall a b. Exists2 (f a b)
@@ -71,33 +76,69 @@ data Exists2 f = forall a b. Exists2 (f a b)
     Graph monad
 --------------------------------------------------------------------}
 
-type GraphM = M.StateT CompNum (M.Writer Comps)
+type GraphM = M.StateT PortNum (M.Writer Comps)
 
-newCompNum :: GraphM CompNum
-newCompNum = do { !n <- M.get ; M.put (n+1) ; return n }
+newPortNum :: GraphM PortNum
+newPortNum = do { !n <- M.get ; M.put (n+1) ; return n }
 
 addComp :: Comp a b -> GraphM ()
 addComp comp = M.tell (singleton (Exists2 comp))
 
-genBuses :: CompNum -> Buses b
-genBuses = error "genBuses: not yet defined"
+genPorts :: GraphM (Ports b)
+genPorts = _ -- error "genPorts: not yet defined"
 
-type BG a b = Buses a -> GraphM (Buses b)
+type BG a b = Ports a -> GraphM (Ports b)
 
 addG :: Graph a b -> BG a b
-addG g a = do n <- newCompNum
-              let b = genBuses n
-              addComp (Comp n g a b)
+addG g a = do b <- genPorts
+              addComp (Comp a g b)
               return b
 
-exlB :: Ok2 (:>) a b => BG (a :* b) a
-exlB (PairB a _) = return a
+runG :: BG a b -> Ports a -> PortNum -> (Graph a b,PortNum)
+runG f a n = (CompositeG a comps b,n')
+ where
+   ((b,n'),comps) = M.runWriter (M.runStateT (f a) n)
 
-exrB :: Ok2 (:>) a b => BG (a :* b) b
-exrB (PairB _ b) = return b
+exlP :: Ok2 (:>) a b => BG (a :* b) a
+exlP (PairP a _) = return a
 
-forkB :: BG a c -> BG a d -> BG a (c :* d)
-forkB f g a = liftA2 PairB (f a) (g a)
+exrP :: Ok2 (:>) a b => BG (a :* b) b
+exrP (PairP _ b) = return b
+
+forkP :: BG a c -> BG a d -> BG a (c :* d)
+forkP f g a = liftA2 PairP (f a) (g a)
+
+-- type PortMap = Map PortMap PortMap
+
+substG :: Graph a b -> Ports a -> GraphM (Ports b)
+substG = _
+
+applyP :: BG ((a -> b) :* a) b
+applyP (PairP (FunP g) a) = substG g a
+
+-- applyP (PairP (FunP (PrimG prim)) a) =
+--   do b <- genPorts
+--      return (CompositeG a (singleton prim)
+
+curryP :: BG (a :* b) c -> BG a (b -> c)
+
+curryP f a = do b <- genPorts
+                n <- M.get
+                let (CompositeG _ comps c,n') = runG f (PairP a b) n
+                M.put n'
+                return (FunP (CompositeG b comps c))
+
+-- It's awkward to have runG insert the given ports just to replace them later.
+-- Maybe split Graph into a part without input ports (produced by runG) and the
+-- input ports.
+
+-- It's also awkward to have the two Graph constructors. For instance, the
+-- curryP definition is incomplete.
+
+-- runG :: BG a b -> Ports a -> PortNum -> (Graph a b,PortNum)
+
+-- runG :: BG (a :* b) c -> Ports (a :* b) -> PortNum -> (Graph (a :* b) c,PortNum)
+
 
 {--------------------------------------------------------------------
     Graph category
@@ -105,70 +146,8 @@ forkB f g a = liftA2 PairB (f a) (g a)
 
 infixl 1 :>
 
--- | Graph category
-newtype a :> b = C (Kleisli GraphM (Buses a) (Buses b))
-
-runG :: (a :> b) -> CompNum -> Buses a -> ((Buses b, CompNum), Comps)
-runG f n a = M.runWriter (M.runStateT (unpack f a) n)
-
-runG2 :: (a :> b) -> CompNum -> (CompNum, Comps)
-runG2 f n = first snd (M.runWriter (M.runStateT q n))
- where
-   q = do a <- addG (PrimG In) UnitB
-          b <- unpack f a
-          UnitB <- addG (PrimG Out) b
-          return ()
-
-runG3 :: (a :> b) -> CompNum -> (CompNum, Comps)
-runG3 f n = first snd (M.runWriter (M.runStateT (q UnitB) n))
- where
-   q = addG (PrimG Out) <=< unpack f <=< addG (PrimG In)
-
-runG4 :: (() :> ()) -> CompNum -> (CompNum, Comps)
-runG4 f n = first snd (M.runWriter (M.runStateT (unpack f UnitB) n))
-
-unitize :: (a :> b) -> (() :> ())
-unitize = addPrim Out <~ addPrim In
--- unitize f = addPrim Out . f . addPrim In
-
-runG5 :: forall a b. (a :> b) -> CompNum -> (CompNum, Graph a b)
-runG5 f n = (n',CompositeG i comps o)
- where
-   (((i,o),n'),comps) = M.runWriter (M.runStateT q n)
-   q :: GraphM (Buses a, Buses b)
-   q = do a <- addG (PrimG In) UnitB
-          b <- unpack f a
-          UnitB <- addG (PrimG Out) b
-          return (a,b)
-
--- Don't add In and Out components
-runG6 :: forall a b. (a :> b) -> CompNum -> (CompNum, Graph a b)
-runG6 f n = (n',CompositeG i comps o)
- where
-   (((i,o),n'),comps) = M.runWriter (M.runStateT q n)
-   q :: GraphM (Buses a, Buses b)
-   q = do a <- genBuses <$> newCompNum
-          b <- unpack f a
-          return (a,b)
-
--- Stylistic variation
-runG7 :: forall a b. (a :> b) -> CompNum -> (CompNum, Graph a b)
-runG7 f n = tweak (M.runWriter (M.runStateT q n))
- where
-   tweak (((a,b),n'),comps) = (n',CompositeG a comps b)
-   q :: GraphM (Buses a, Buses b)
-   q = do a <- genBuses <$> newCompNum
-          b <- unpack f a
-          return (a,b)
-
-genG :: BG a b -> GraphM (Graph a b)
-genG f = do n <- M.get
-            let (n',g) = runG7 (pack f) n
-            M.put n'
-            return g
-
--- genG f = do (n',g) <- runG7 f <$> M.get
---             g <$ M.put n'
+-- | Graph generator category
+newtype a :> b = C (Kleisli GraphM (Ports a) (Ports b))
 
 instance Newtype (a :> b) where
   type O (a :> b) = BG a b
@@ -180,29 +159,33 @@ instance Category (:>) where
   (.) = inNew2 (<=<)
 
 instance ProductCat (:>) where
-  exl   = pack exlB
-  exr   = pack exrB
-  (&&&) = inNew2 forkB
+  exl   = pack exlP
+  exr   = pack exrP
+  (&&&) = inNew2 forkP
 
 instance ClosedCat (:>) where
-  apply   = pack  $ \ (PairB (FunB f) a) -> f a
-  curry   = inNew $ \ f -> return . FunB . curry (f . uncurry PairB)
-  uncurry = inNew $ \ g (PairB a b) -> do { FunB f <- g a ; f b }
+  apply   = pack applyP
+  curry   = inNew curryP
+
+-- instance ClosedCat (:>) where
+--   apply   = pack  $ \ (PairP (FunP f) a) -> f a
+--   curry   = inNew $ \ f -> return . FunP . curry (f . uncurry PairP)
+--   uncurry = inNew $ \ g (PairP a b) -> do { FunP f <- g a ; f b }
 
 #if 0
 
 f :: BG (a :* b) c
-  :: Buses (a :* b) -> GraphM (Buses c)
-f . uncurry PairB :: Buses a :* Buses b -> GraphM (Buses c)
-curry (f . uncurry PairB) :: Buses a -> Buses b -> GraphM (Buses c)
-                          :: Buses a -> BG b c
-FunB' . curry (f . uncurry PairB) :: Buses a -> Buses (b -> c)
-return . FunB' . curry (f . uncurry PairB) :: BG a (b -> c)
+  :: Ports (a :* b) -> GraphM (Ports c)
+f . uncurry PairP :: Ports a :* Ports b -> GraphM (Ports c)
+curry (f . uncurry PairP) :: Ports a -> Ports b -> GraphM (Ports c)
+                          :: Ports a -> BG b c
+FunB' . curry (f . uncurry PairP) :: Ports a -> Ports (b -> c)
+return . FunB' . curry (f . uncurry PairP) :: BG a (b -> c)
 
 #endif
 
 instance TerminalCat (:>) where
-  it = pack (const (return UnitB))
+  it = pack (const (return UnitP))
 
 -- instance GST b => ConstCat (:>) b where
 --   const b = -- trace ("circuit const " ++ show b) $
@@ -227,9 +210,8 @@ class ArrayCat k a where
   arrAt :: (Arr a :* Int) `k` a
 #endif
 
-instance ArrayCat (:>) a where
-  mkArr n = pack (\ (FunB f) -> _)
-  arrAt = addPrim ArrAt
+-- instance ArrayCat (:>) a where
+--   mkArr n = pack (\ (FunP f) -> _)
+--   arrAt = addPrim ArrAt
 
 -- genG :: BG a b -> GraphM (Graph a b)
-
