@@ -33,9 +33,8 @@ import qualified Control.Monad.Writer as M
 import ConCat.Misc ((:*),(:=>),inNew,inNew2)
 import ConCat.Category
 
--- Primitive operation, including literals
+-- Primitive operation, including literals and subgraphs
 data Prim :: * -> * -> * where
-  Literal :: b -> Prim () b
   Not :: Prim Bool Bool
   And, Or, Xor :: Prim (Bool :* Bool) Bool
   -- ...
@@ -43,7 +42,8 @@ data Prim :: * -> * -> * where
   ArrAt :: Prim (Arr a :* Int) a 
   -- In :: Prim () b
   -- Out :: Prim a ()
-  -- SubGraph :: Graph a b -> Prim a b
+  Literal :: b -> Prim () b
+  SubGraph :: Graph a b -> Prim a b
 
 type PortNum = Int
 
@@ -58,16 +58,14 @@ data Ports :: * -> * where
 
   -- ConvertP :: (T a, T b) => Ports a -> Ports b
 
--- Primitive or composed kernel
-data Graph a b = PrimG (Prim a b) 
-               | CompositeG (Ports a) Comps (Ports b)
+data Graph a b = Graph (Ports a) Comps (Ports b)
 
 type Comps = Seq (Exists2 Comp)
 
 -- type CompNum = Int
 
 -- Instantiated component with inputs and defining outputs
-data Comp a b = Comp {- CompNum -} (Ports a) (Graph a b) (Ports b)
+data Comp a b = Comp (Ports a) (Prim a b) (Ports b)
 
 -- Existential wrapper
 data Exists2 f = forall a b. Exists2 (f a b)
@@ -89,13 +87,8 @@ genPorts = _ -- error "genPorts: not yet defined"
 
 type BG a b = Ports a -> GraphM (Ports b)
 
-addG :: Graph a b -> BG a b
-addG g a = do b <- genPorts
-              addComp (Comp a g b)
-              return b
-
 runG :: BG a b -> Ports a -> PortNum -> (Graph a b,PortNum)
-runG f a n = (CompositeG a comps b,n')
+runG f a n = (Graph a comps b,n')
  where
    ((b,n'),comps) = M.runWriter (M.runStateT (f a) n)
 
@@ -124,16 +117,13 @@ curryP :: BG (a :* b) c -> BG a (b -> c)
 
 curryP f a = do b <- genPorts
                 n <- M.get
-                let (CompositeG _ comps c,n') = runG f (PairP a b) n
+                let (Graph _ comps c,n') = runG f (PairP a b) n
                 M.put n'
-                return (FunP (CompositeG b comps c))
+                return (FunP (Graph b comps c))
 
 -- It's awkward to have runG insert the given ports just to replace them later.
 -- Maybe split Graph into a part without input ports (produced by runG) and the
 -- input ports.
-
--- It's also awkward to have the two Graph constructors. For instance, the
--- curryP definition is incomplete.
 
 -- runG :: BG a b -> Ports a -> PortNum -> (Graph a b,PortNum)
 
@@ -192,7 +182,10 @@ instance TerminalCat (:>) where
 --             constC b
 
 addPrim :: Prim a b -> (a :> b)
-addPrim = pack . addG . PrimG
+addPrim p = pack $ \ a ->
+            do b <- genPorts
+               addComp (Comp a p b)
+               return b
 
 instance BoolCat (:>) where
   notC = addPrim Not
