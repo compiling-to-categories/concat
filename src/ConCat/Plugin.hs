@@ -1224,9 +1224,11 @@ cccRules famEnvs env@(CccEnv {..}) guts annotations =
                 , ru_nargs = 4  -- including type args
                 , ru_try   = \ dflags inScope _fn ->
                                 \ case
-                                  [Type k, Type _a,Type _b,arg] ->
-                                       ccc env (ops dflags inScope k) k arg
-                                  _args -> -- pprTrace "ccc ru_try args" (ppr _args) $
+                                  -- _args | pprTrace "ccc ru_try args" (ppr _args) False -> undefined
+                                  _es@(Type k : Type _a : Type _b : arg : _) ->
+                                    -- pprTrace "ccc: going in" (ppr es) $
+                                    ccc env (ops dflags inScope k) k arg
+                                  _args -> -- pprTrace "ccc ru_try mismatch args" (ppr _args) $
                                            Nothing
                 }
 #if 1
