@@ -87,8 +87,8 @@ genPorts = _ -- error "genPorts: not yet defined"
 
 type BG a b = Ports a -> GraphM (Ports b)
 
-runG :: BG a b -> Ports a -> PortNum -> (Graph a b,PortNum)
-runG f a n = (Graph a comps b,n')
+runG :: BG a b -> Ports a -> PortNum -> (Comps, Ports b,PortNum)
+runG f a n = (comps, b, n')
  where
    ((b,n'),comps) = M.runWriter (M.runStateT (f a) n)
 
@@ -114,20 +114,11 @@ applyP (PairP (FunP g) a) = substG g a
 --      return (CompositeG a (singleton prim)
 
 curryP :: BG (a :* b) c -> BG a (b -> c)
-
 curryP f a = do b <- genPorts
                 n <- M.get
-                let (Graph _ comps c,n') = runG f (PairP a b) n
+                let (comps,c,n') = runG f (PairP a b) n
                 M.put n'
                 return (FunP (Graph b comps c))
-
--- It's awkward to have runG insert the given ports just to replace them later.
--- Maybe split Graph into a part without input ports (produced by runG) and the
--- input ports.
-
--- runG :: BG a b -> Ports a -> PortNum -> (Graph a b,PortNum)
-
--- runG :: BG (a :* b) c -> Ports (a :* b) -> PortNum -> (Graph (a :* b) c,PortNum)
 
 
 {--------------------------------------------------------------------
