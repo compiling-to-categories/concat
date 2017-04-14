@@ -262,7 +262,7 @@ instance Show (Buses a) where
 -- TODO: Improve to Show instance with showsPrec. Maybe Pretty instead/also.
 
 -- Component (primitive) type
-data Ty = Unit | Bool | Int | Float | Double | Pair Ty Ty deriving (Eq,Ord,Show)
+data Ty = Unit | Bool | Int | Float | Double | Pair Ty Ty | Arr Ty deriving (Eq,Ord,Show)
 
 genBuses :: GenBuses b => Prim a b -> Sources -> CircuitM (Buses b)
 genBuses prim ins = M.evalStateT (genBuses' (primName prim) ins) 0
@@ -324,8 +324,13 @@ instance GenBuses Double  where
   delay = primDelay
   ty = Double
 
+instance GS a => GenBuses (Arr a)  where
+  genBuses' = genPrimBus
+  delay = primDelay
+  ty = Arr (ty @a)
+
 -- TODO: perhaps give default definitions for genBuses' and delay, and eliminate
--- the definitions in Bool,...,Double.
+-- the definitions in Bool,...,Double,Arr a.
 
 instance (GenBuses a, GenBuses b) => GenBuses (a :* b) where
   genBuses' prim ins =
@@ -355,16 +360,6 @@ badBuses nm bs =
   error (nm ++ " got unexpected bus " ++ show bs
         -- ++ " to make bus type "++show (typeRep (Proxy :: Proxy a))
         )
-
--- -- Workaround for "spurious non-exhaustive warning with GADT and newtypes"
--- -- <https://ghc.haskell.org/trac/ghc/ticket/6124>.
--- #define BogusMatch(name) name _ = error "BogusMatch"
--- #define BogusAlt _ -> error "BogusMatch"
-
--- unUnitB :: Buses () -> ()
--- unUnitB UnitB    = ()
--- unUnitB (AbstB _) = badBuses "unUnitB"
--- -- BogusMatch(unUnitB)
 
 unPairB :: Ok2 (:>) a b => Buses (a :* b) -> Buses a :* Buses b
 #if 1
@@ -903,11 +898,12 @@ instance BottomCat (:>) where
 -- TODO: state names like "⊕" and "≡" just once.
 
 class SourceToBuses a where toBuses :: Source -> Buses a
-instance SourceToBuses ()     where toBuses = const UnitB
-instance SourceToBuses Bool   where toBuses = PrimB
-instance SourceToBuses Int    where toBuses = PrimB
-instance SourceToBuses Float  where toBuses = PrimB
-instance SourceToBuses Double where toBuses = PrimB
+instance SourceToBuses ()      where toBuses = const UnitB
+instance SourceToBuses Bool    where toBuses = PrimB
+instance SourceToBuses Int     where toBuses = PrimB
+instance SourceToBuses Float   where toBuses = PrimB
+instance SourceToBuses Double  where toBuses = PrimB
+instance SourceToBuses (Arr a) where toBuses = PrimB
 
 sourceB :: SourceToBuses a => Source -> CircuitM (Maybe (Buses a))
 sourceB = justA . toBuses
@@ -1443,6 +1439,18 @@ instance IfCat (:>) () where ifC = unitIf
 
 instance (IfCat (:>) a, IfCat (:>) b) => IfCat (:>) (a :* b) where
   ifC = prodIf
+
+-- class ArrayCat k a where
+--   mkArr :: (Int `k` a) -> (Int `k` Arr a)
+--   arrAt :: (Arr a :* Int) `k` a
+
+-- instance GenBuses a => ArrayCat (:>) a where
+--   mkArr f = 
+--   arrAt = namedC "arrAt"
+
+{--------------------------------------------------------------------
+    Running
+--------------------------------------------------------------------}
 
 instance (GenBuses a, Ok2 (:>) a b) => Show (a :> b) where
   show = show . runC
