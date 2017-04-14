@@ -1,4 +1,20 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE TypeFamilies, TypeOperators, ConstraintKinds #-}
+{-# LANGUAGE FlexibleInstances, FlexibleContexts, MultiParamTypeClasses #-}
+{-# LANGUAGE ViewPatterns, TupleSections #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, StandaloneDeriving #-}
+{-# LANGUAGE ExistentialQuantification, TypeSynonymInstances, GADTs #-}
+{-# LANGUAGE Rank2Types, ScopedTypeVariables #-}
+{-# LANGUAGE UndecidableInstances #-} -- see below
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE DataKinds #-} -- for LU & BU
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE DeriveFunctor, DeriveDataTypeable #-}
+{-# LANGUAGE TypeApplications, AllowAmbiguousTypes #-}
+{-# LANGUAGE UndecidableSuperClasses #-}  -- GenBuses
+
+-- TODO: trim language extensions
 
 -- #define NoOptimizeCircuit
 -- #define NoHashCons
@@ -26,23 +42,6 @@
 -- #define TaggedSums
 -- #define ChurchSums
 
-{-# LANGUAGE TypeFamilies, TypeOperators, ConstraintKinds #-}
-{-# LANGUAGE FlexibleInstances, FlexibleContexts, MultiParamTypeClasses #-}
-{-# LANGUAGE ViewPatterns, TupleSections #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving, StandaloneDeriving #-}
-{-# LANGUAGE ExistentialQuantification, TypeSynonymInstances, GADTs #-}
-{-# LANGUAGE Rank2Types, ScopedTypeVariables #-}
-{-# LANGUAGE UndecidableInstances #-} -- see below
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE DataKinds #-} -- for LU & BU
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE DeriveFunctor, DeriveDataTypeable #-}
-{-# LANGUAGE TypeApplications, AllowAmbiguousTypes #-}
-{-# LANGUAGE UndecidableSuperClasses #-}  -- GenBuses
-
--- TODO: trim language extensions
-
 #ifdef ChurchSums
 {-# LANGUAGE LiberalTypeSynonyms, ImpredicativeTypes, EmptyDataDecls #-}
 #endif
@@ -50,6 +49,8 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-} -- for OkayArr
 {-# OPTIONS_GHC -fno-warn-unticked-promoted-constructors #-}
+
+{-# OPTIONS_GHC -fdefer-typed-holes #-}
 
 -- This module compiles pretty slowly. Some of my pattern matching style led to
 -- the following warning:
@@ -109,7 +110,7 @@ import Data.Monoid ({-mempty,-}(<>),Sum,Product,All,Any)
 -- import Data.Newtypes.PrettyDouble
 -- import Data.Functor ((<$>))
 import Control.Applicative ({-Applicative(..),-}liftA2)
-import Control.Monad (unless)
+import Control.Monad (unless,(<=<))
 import Control.Arrow (arr,Kleisli(..))
 import Data.Foldable ({-foldMap,-}toList)
 import qualified GHC.Generics as G
@@ -265,7 +266,7 @@ instance Show (Buses a) where
 data Ty = Unit | Bool | Int | Float | Double | Pair Ty Ty | Arr Ty deriving (Eq,Ord,Show)
 
 genBuses :: GenBuses b => Prim a b -> Sources -> CircuitM (Buses b)
-genBuses prim ins = M.evalStateT (genBuses' (primName prim) ins) 0
+genBuses prim ins = M.evalStateT (genBuses' (show prim) ins) 0
 
 type BusesM = StateT Int CircuitM
 
@@ -446,9 +447,17 @@ mkConvertB a -- | Just Refl <- eqT @a @b = a
 type PrimName = String
 
 -- | Primitive of type @a -> b@
-newtype Prim a b = Prim { primName :: PrimName }
+-- data Prim a b = Prim PrimName | MkArr [Comp] deriving Show
 
-instance Show (Prim a b) where show = primName
+data Prim :: * -> * -> * where
+  Prim :: PrimName -> Prim a b
+  MkArr :: [Comp] -> Prim Int (Arr a)
+
+-- deriving instance Show (Prim a b)
+
+instance Show (Prim a b) where
+  show (Prim name)   = name
+  show (MkArr comps) = "MkArr " ++ show comps
 
 type CompId = Int
 
@@ -477,8 +486,8 @@ type BCirc a b = Buses a -> CircuitM (Buses b)
 genComp :: forall a b. GenBuses b => Prim a b -> BCirc a b
 #if !defined NoHashCons
 genComp prim a =
-  do 
-     mb <- M.gets (M.lookup key . snd)
+  trace (printf "genComp %s %s --> %s" (show prim) (show a) (show (ty @b))) $
+  do mb <- M.gets (M.lookup key . snd)
      case mb of
        Just (Comp _ _ _ b', _) ->
          do M.modify (second (M.adjust (second succ) key))
@@ -491,7 +500,7 @@ genComp prim a =
             return b
  where
    ins  = flattenBHack "genComp" prim a
-   name = primName prim
+   name = show prim
    key  = (name,ins,ty @b)
 
 -- TODO: Possibly key on argument type as well? What currently happens with Eq
@@ -500,7 +509,7 @@ genComp prim a =
 
 #else
 genComp prim a = -- trace (printf "genComp %s %s --> %s"
-                 --         (show prim) (show a) (show (ty (undefined :: b)))) $
+                 --         (show prim) (show a) (show (ty @b))) $
                  do b <- genBuses prim (flattenBHack "genComp" prim a)
                     -- trace (printf "gen'd buses %s" (show b)) (return ())
                     M.modify (second (Comp prim a b :))
@@ -614,8 +623,13 @@ inCK2 :: (BCirc a a' -> BCirc b b' -> BCirc c c')
 inCK2 = inCK <~ unmkCK
 
 namedC :: GenBuses b => PrimName -> a :> b
+namedC = mkCK . genComp . Prim
+-- namedC name = mkCK (genComp (Prim name))
 -- namedC name = primOpt name noOpt
-namedC name = mkCK (genComp (Prim name))
+
+-- subgraphC :: GenBuses b => [Comp] -> a :> b
+-- subgraphC = mkCK . genComp . Subgraph
+-- -- subgraphC comps = mkCK (genComp (Subgraph comps))
 
 type Opt b = Sources -> CircuitM (Maybe (Buses b))
 
@@ -1444,9 +1458,14 @@ instance (IfCat (:>) a, IfCat (:>) b) => IfCat (:>) (a :* b) where
 --   mkArr :: (Int `k` a) -> (Int `k` Arr a)
 --   arrAt :: (Arr a :* Int) `k` a
 
--- instance GenBuses a => ArrayCat (:>) a where
---   mkArr f = 
---   arrAt = namedC "arrAt"
+instance GS a => ArrayCat (:>) a where
+  mkArr f = mkCK $ \ size ->
+            -- Run from current free CompNum, and then update.
+            do n <- M.gets fst
+               let (map fst -> comps, n') = runU' (unitize f) n
+               M.modify (first (const n'))
+               genComp (MkArr comps) size
+  arrAt = namedC "arrAt"
 
 {--------------------------------------------------------------------
     Running
@@ -1466,10 +1485,13 @@ runC = runU . unitize
 type UU = () :> ()
 
 runU :: UU -> [(Comp,Reuses)]
-runU cir = getComps compInfo
+runU cir = fst (runU' cir 0)
+
+runU' :: UU -> CompSupply -> ([(Comp,Reuses)],CompSupply)
+runU' cir supplyIn = (getComps compInfo, supplyOut)
  where
    compInfo :: CompInfo
-   (_,compInfo) = execState (unmkCK cir UnitB) (0,mempty)
+   (supplyOut,compInfo) = execState (unmkCK cir UnitB) (supplyIn,mempty)
 #if !defined NoHashCons
    getComps = M.elems 
 #else

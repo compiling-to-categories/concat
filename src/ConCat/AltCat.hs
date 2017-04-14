@@ -213,7 +213,8 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 -- {-# OPINLINE constFun #-}
 -- OpRule1(constFun)
 
-Op0(mkArr, ArrayCat k a => Int -> (Exp k Int a `k` Arr a))
+-- Op0(mkArr, ArrayCat k a => Int -> (Exp k Int a `k` Arr a))
+Op0(mkArr, ArrayCat k a => (Int `k` a) -> (Int `k` Arr a))
 Op0(arrAt, ArrayCat k a => (Arr a :* Int) `k` a)
 
 
