@@ -84,13 +84,13 @@
 
 module ConCat.Circuit
   ( CircuitM, (:>)
-  , Bus(..),busTy, Source(..)
+  , Bus(..),busTy, Prim(..), Source(..)
   , GenBuses(..), GS, GST, genBusesRep', delayCRep, tyRep, bottomRep, unDelayName
   , namedC, constC -- , constS
   , SourceToBuses(..)
 --   , litUnit, litBool, litInt
   -- , (|||*), fromBool, toBool
-  , CompS(..), compId, compName, compIns, compOuts
+  , CompS(..), compId, compIns, compOuts
   , CompId, DGraph, circuitGraph, Attr
   , writeDot, displayDot, mkGraph,Name,Report,GraphInfo
   , simpleComp, tagged
@@ -447,11 +447,9 @@ mkConvertB a -- | Just Refl <- eqT @a @b = a
 type PrimName = String
 
 -- | Primitive of type @a -> b@
--- data Prim a b = Prim PrimName | MkArr [Comp] deriving Show
-
 data Prim :: * -> * -> * where
   Prim :: PrimName -> Prim a b
-  MkArr :: [Comp] -> Prim Int (Arr a)
+  MkArr :: GraphInfo -> Prim Int (Arr a)
 
 -- deriving instance Show (Prim a b)
 
@@ -486,7 +484,7 @@ type BCirc a b = Buses a -> CircuitM (Buses b)
 genComp :: forall a b. GenBuses b => Prim a b -> BCirc a b
 #if !defined NoHashCons
 genComp prim a =
-  trace (printf "genComp %s %s --> %s" (show prim) (show a) (show (ty @b))) $
+  -- trace (printf "genComp %s %s --> %s" (show prim) (show a) (show (ty @b))) $
   do mb <- M.gets (M.lookup key . snd)
      case mb of
        Just (Comp _ _ _ b', _) ->
@@ -1462,9 +1460,9 @@ instance GS a => ArrayCat (:>) a where
   mkArr f = mkCK $ \ size ->
             -- Run from current free CompNum, and then update.
             do n <- M.gets fst
-               let (map fst -> comps, n') = runU' (unitize f) n
+               let (info, n') = mkGraph' f n
                M.modify (first (const n'))
-               genComp (MkArr comps) size
+               genComp (MkArr info) size
   arrAt = namedC "arrAt"
 
 {--------------------------------------------------------------------
@@ -1564,9 +1562,12 @@ type Report = String
 type GraphInfo = (CompDepths,Report)
 
 mkGraph :: GenBuses a => (a :> b) -> GraphInfo
-mkGraph g = (depths,report)
+mkGraph g = fst (mkGraph' g 0)
+
+mkGraph' :: GenBuses a => (a :> b) -> CompSupply -> (GraphInfo,CompSupply)
+mkGraph' g n = ((depths,report),n')
  where
-   graph  = uuGraph (unitize g)
+   (graph,n')  = uuGraph' (unitize g) n
    depths = longestPaths graph
    depth  = longestPath depths
    report | depth == 0 = "No components.\n"  -- except In & Out
@@ -1635,12 +1636,14 @@ histogram = map (head &&& length) . group . sort
 type Input  = Bus
 type Output = Bus
 
-data CompS = CompS CompId PrimName [Input] [Output] Reuses deriving Show
+data CompS = forall a b. CompS CompId (Prim a b) [Input] [Output] Reuses
+
+deriving instance Show CompS
 
 compId :: CompS -> CompId
 compId (CompS n _ _ _ _) = n
-compName :: CompS -> PrimName
-compName (CompS _ nm _ _ _) = nm
+compName :: CompS -> String
+compName (CompS _ prim _ _ _) = show prim
 compIns :: CompS -> [Input]
 compIns (CompS _ _ ins _ _) = ins
 compOuts :: CompS -> [Output]
@@ -1656,13 +1659,25 @@ type Dot = String
 type Depth = Int
 
 uuGraph :: UU -> DGraph
-uuGraph = trimDGraph
-        -- . connectState
-        . mendG
-        . map simpleComp
-        -- . (\ z -> trace ("runU result: " ++ show z) z)
-        . runU
-        -- . trace "uuGraph" id
+uuGraph uu = fst (uuGraph' uu 0)
+
+uuGraph' :: UU -> CompSupply -> (DGraph,CompSupply)
+uuGraph' uu n = first (
+                  trimDGraph
+                  -- . connectState
+                  . mendG
+                  . map simpleComp
+                  -- . (\ z -> trace ("runU result: " ++ show z) z)
+                ) (runU' uu n)
+
+-- uuGraph :: UU -> DGraph
+-- uuGraph = trimDGraph
+--         -- . connectState
+--         . mendG
+--         . map simpleComp
+--         -- . (\ z -> trace ("runU result: " ++ show z) z)
+--         . runU
+--         -- . trace "uuGraph" id
 
 circuitGraph :: (GenBuses a, Ok2 (:>) a b) => (a :> b) -> DGraph
 circuitGraph = uuGraph . unitize
@@ -1744,10 +1759,12 @@ sourceComp g = \ o -> fromMaybe (error (msg o)) (M.lookup o comps)
 graphDot :: String -> [Attr] -> CompDepths -> Dot
 graphDot name attrs depths =
   printf "digraph %s {\n%s}\n" (tweak <$> name)
-         (concatMap wrap (prelude ++ recordDots depths))
+         (unlines (indent <$> (prelude ++ recordDots depths)))
  where
-   prelude = [ "margin=0"
+   prelude = map (++ ";") $
+             [ "margin=0"
              , "rankdir=LR"
+             , "compound=true"
              , "node [shape=Mrecord]"
              , "bgcolor=transparent"
              , "nslimit=20"  -- helps with very large rank graphs
@@ -1755,30 +1772,24 @@ graphDot name attrs depths =
              -- , "ranksep=1.0"
              -- , fixedsize=true
              ] ++ [a ++ "=" ++ show v | (a,v) <- attrs]
-   wrap  = ("  " ++) . (++ ";\n")
    tweak '-' = '_'
    tweak c   = c
+
+indent :: Unop String
+indent = ("  " ++)
 
 type Statement = String
 
 simpleComp :: (Comp,Reuses) -> CompS
 simpleComp (Comp n prim a b,reuses) =
-  CompS n name
+  CompS n prim
     (sourceBus <$> flattenBHack name prim a)
     (sourceBus <$> flattenB     name      b)
     reuses
  where
    name = show prim
 
--- simpleComp (n, (Comp prim a b,reuses)) = CompS n name (flat a) (flat b) reuses
---  where
---    name = show prim
---    flat :: forall t. Buses t -> [Bus]
---    flat = map sourceBus . flattenBHack name prim
-
-
--- Working here in converting away from flattening
-
+-- Working here on converting away from flattening
 
 data Dir = In | Out deriving Show
 type PortNum = Int
@@ -1795,6 +1806,7 @@ taggedFrom n = zip [n ..]
 tagged :: [a] -> [(Int,a)]
 tagged = taggedFrom 0
 
+-- Hide components that have no ports
 hideNoPorts :: Bool
 hideNoPorts = False
 
@@ -1803,23 +1815,31 @@ type SourceInfo = (Ty,CompId,PortNum,Depth)
 -- Map each pin to its info about it
 type SourceMap = Map Bus SourceInfo
 
--- TODO: Drop the comps argument, as it's already in depths
-
 recordDots :: CompDepths -> [Statement]
 recordDots depths = nodes ++ edges
  where
    comps = M.keys depths
-   nodes = node <$> comps
+   nodes = concatMap node comps
     where
-      node :: CompS -> String
-      node (CompS nc prim ins outs _) =
-        printf "%s%s [label=\"{%s%s%s}\"%s]" prefix (compLab nc) 
-          (ports "" (labs In ins) "|")
-          (escape prim)
-          (ports "|" (labs Out outs) "")
-          extras
+      node :: CompS -> [String]
+      -- Working here.
+      node (CompS nc (MkArr (subDepths,_)) ins outs _) =
+        [printf "subgraph cluster%d {" nc]
+        ++ (indent <$> (map (++ ";") attrs ++ recordDots subDepths))
+        ++ ["}"]
        where
-         extras | prim == unknownName = ",fontcolor=red,color=red,style=bold"
+         attrs = [ "// label=mkArr; fontsize=8"
+                 , "color=DarkGreen"
+                 , "margin=5"
+                 ]
+      node (CompS nc (Prim primName) ins outs _) =        
+        [printf "%s%s [label=\"{%s%s%s}\"%s];" prefix (compLab nc) 
+           (ports "" (labs In ins) "|")
+           (escape primName)
+           (ports "|" (labs Out outs) "")
+           extras]
+       where
+         extras | primName == unknownName = ",fontcolor=red,color=red,style=bold"
                 | otherwise = ""
          prefix =
            if hideNoPorts && null ins && null outs then "// " else ""
@@ -1859,14 +1879,14 @@ recordDots depths = nodes ++ edges
            -- Show the type per edge. I think I'd rather show in the output
            -- ports, but I don't know how to use a small font for those port
            -- labels but not for the operation label.
-           printf "%s -> %s [%s]"
+           printf "%s -> %s [%s];"
              (port Out (ocnum,opnum)) (port In (cnum,ni))
              (intercalate "," attrs)
           where
             (_w,ocnum,opnum,_d) = srcMap M.! b
             attrs = label ++ constraint
 #ifdef ShallowDelay
-            constraint | isDelay _c = ["constraint=false" ]
+            constraint | isDelay _c = ["constraint=false"]
                        | otherwise  = []
 #else
             constraint = []
@@ -1875,7 +1895,7 @@ recordDots depths = nodes ++ edges
             label = []
 #else
             -- label | t == Bool = []
-            label = [printf "label=%s,fontsize=8,fontcolor=indigo"
+            label = [printf "label=\"%s\",fontsize=8,fontcolor=indigo"
                             (show (busTy b))]
 #endif
    port :: Dir -> (CompId,PortNum) -> String
