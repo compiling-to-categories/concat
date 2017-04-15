@@ -30,7 +30,7 @@ import Language.GLSL.Pretty ()
 import Language.GLSL.Parser hiding (parse)
 
 import ConCat.Misc ((:*),R)
-import ConCat.Circuit (CompS(..),Bus(..),busTy,(:>), mkGraph)
+import ConCat.Circuit (Prim(..),CompS(..),CompId,Bus(..),busTy,(:>), mkGraph)
 import qualified ConCat.Circuit as C
 
 type CAnim = R :* (R :* R) :> Bool
@@ -59,6 +59,9 @@ constExpr C.Float  = FloatConstant       . read
 constExpr C.Double = FloatConstant       . read
 constExpr ty = error ("ConCat.GLSL.constExpr: unexpected literal type: " ++ show ty)
 
+pattern CompS' :: CompId -> String -> [Bus] -> [Bus] -> CompS
+pattern CompS' n name ins outs <- CompS n (Prim name) ins outs _
+
 fromComps' :: String -> [CompS] -> ExternalDeclaration
 -- fromComps' _ comps | trace ("fromComps' " ++ show comps) False = undefined
 fromComps' name comps =
@@ -66,7 +69,7 @@ fromComps' name comps =
          (map (uncurry initBus) assignments
           ++ [Return (Just (bindings M.! res))])
  where
-   (CompS _ "In" [] inputs _,mid, CompS _ "Out" [res] _ _) = splitComps comps
+   (CompS' _ "In" [] inputs,mid, CompS' _ "Out" [res] _) = splitComps comps
    (bindings, assignments) = accumComps (uses mid) mid
 
 -- Count uses of each output
@@ -100,8 +103,8 @@ accumComps counts = go M.empty
    go _ c = error ("ConCat.GLSL.accumComps: oops: " ++ show c)
 
 compExpr :: M.Map Bus Expr -> CompS -> Expr
-compExpr _ (CompS _ str [] [Bus _ _ ty] _) = constExpr ty str
-compExpr saved (CompS _ prim ins _ _) = app prim (inExpr <$> ins)
+compExpr _ (CompS' _ str [] [Bus _ _ ty]) = constExpr ty str
+compExpr saved (CompS' _ prim ins _) = app prim (inExpr <$> ins)
  where
    inExpr :: Bus -> Expr
    inExpr b | Just e <- M.lookup b saved = e
@@ -166,8 +169,8 @@ bToE = Variable . varName
 
 -- Extract input, middle, output components. 
 splitComps :: [CompS] -> (CompS,[CompS],CompS)
-splitComps (i@(CompS 0 "In" [] _ _)
-            : (unsnoc -> (mid,o@(CompS _ "Out" _ [] _)))) = (i,mid,o)
+splitComps (i@(CompS' 0 "In" [] _)
+            : (unsnoc -> (mid,o@(CompS' _ "Out" _ [])))) = (i,mid,o)
 splitComps comps = error ("ConCat.GLSL.splitComps: Oops: " ++ show comps)
 
 unsnoc :: [a] -> ([a],a)
