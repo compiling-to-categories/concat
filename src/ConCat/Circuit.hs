@@ -1,4 +1,24 @@
 {-# LANGUAGE CPP #-}
+
+#define NoOptimizeCircuit
+
+-- #define NoHashCons
+
+-- #define NoIfBotOpt
+-- #define NoIdempotence
+
+-- -- Improves hash consing, but can obscure equivalent circuits
+-- #define NoCommute
+
+-- #define NoBusLabel
+
+#define MealyToArrow
+
+-- -- Whether a delay/cons element is considered further from input
+-- #define ShallowDelay
+
+-- #define NoMend
+
 {-# LANGUAGE TypeFamilies, TypeOperators, ConstraintKinds #-}
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, MultiParamTypeClasses #-}
 {-# LANGUAGE ViewPatterns, TupleSections #-}
@@ -16,32 +36,6 @@
 
 -- TODO: trim language extensions
 
--- #define NoOptimizeCircuit
--- #define NoHashCons
-
--- #define NoIfBotOpt
--- #define NoIdempotence
-
--- -- Improves hash consing, but can obscure equivalent circuits
--- #define NoCommute
-
--- #define NoBusLabel
-
-#define MealyToArrow
-
--- -- TODO: Make dynamic, perhaps via display attributes
--- #define ShowDepths
-
--- -- Whether a delay/cons element is considered further from input
--- #define ShallowDelay
-
--- #define NoMend
-
-#define NoSums
--- #define StaticSums
--- #define TaggedSums
--- #define ChurchSums
-
 #ifdef ChurchSums
 {-# LANGUAGE LiberalTypeSynonyms, ImpredicativeTypes, EmptyDataDecls #-}
 #endif
@@ -50,7 +44,8 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-} -- for OkayArr
 {-# OPTIONS_GHC -fno-warn-unticked-promoted-constructors #-}
 
-{-# OPTIONS_GHC -fdefer-typed-holes #-}
+-- {-# OPTIONS_GHC -fdefer-typed-holes #-}  -- TEMP
+-- {-# OPTIONS_GHC -fdefer-type-errors #-}  -- TEMP
 
 -- This module compiles pretty slowly. Some of my pattern matching style led to
 -- the following warning:
@@ -84,24 +79,22 @@
 
 module ConCat.Circuit
   ( CircuitM, (:>)
-  , Bus(..),busTy, Prim(..), Source(..)
+  , Bus(..),Input,Output, busTy, Source(..)
   , GenBuses(..), GS, GST, genBusesRep', delayCRep, tyRep, bottomRep, unDelayName
   , namedC, constC -- , constS
   , SourceToBuses(..)
---   , litUnit, litBool, litInt
+  , mkGraph
   -- , (|||*), fromBool, toBool
-  , CompS(..), compId, compIns, compOuts
-  , CompId, DGraph, circuitGraph, Attr
-  , writeDot, displayDot, mkGraph,Name,Report,GraphInfo
-  , simpleComp, tagged
+  -- , CompS(..), compId, compName, compIns, compOuts
+  -- , CompId, circuitGraph
+  , Attr
+  , writeDot, displayDot,Name,Report,Graph(..)
+  -- , simpleComp
+  , tagged
   , systemSuccess
-  -- , unitize, UU
---   , MealyC(..)
---   , mealyAsArrow
---   , unitizeMealyC
---   , Complex(..),cis
   -- For AbsTy
-  , BusesM, abstB,abstC,reprC,Buses(..),Ty(..)
+  , BusesM, abstB,abstC,reprC,Buses(..)
+  -- , Ty(..)
   ) where
 
 import Prelude hiding (id,(.),curry,uncurry,const,sequence)
@@ -110,7 +103,7 @@ import Data.Monoid ({-mempty,-}(<>),Sum,Product,All,Any)
 -- import Data.Newtypes.PrettyDouble
 -- import Data.Functor ((<$>))
 import Control.Applicative ({-Applicative(..),-}liftA2)
-import Control.Monad (unless,(<=<))
+import Control.Monad (unless)
 import Control.Arrow (arr,Kleisli(..))
 import Data.Foldable ({-foldMap,-}toList)
 import qualified GHC.Generics as G
@@ -122,7 +115,7 @@ import Data.Char (isAscii)
 import Data.List (partition)
 #endif
 import Data.Map (Map)
-import qualified Data.Map as M
+import qualified Data.Map as M  -- accidental qualifier clash with mtl. Change one.
 -- import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Sequence (Seq,singleton)
@@ -133,8 +126,10 @@ import Debug.Trace (trace)
 import Unsafe.Coerce -- experiment
 #endif
 -- import GHC.Exts (Coercible) -- ,coerce
-import Data.Typeable (Typeable,eqT,cast) -- ,Proxy(..),typeRep
+import Data.Typeable (TypeRep,Typeable,eqT,cast) -- ,Proxy(..),typeRep
 import Data.Type.Equality ((:~:)(..))
+
+import Data.Constraint (Dict(..),(:-)(..))
 
 import qualified System.Info as SI
 import System.Process (system) -- ,readProcess
@@ -152,8 +147,7 @@ import qualified Control.Monad.State as M
 
 -- import TypeUnary.Vec hiding (get)
 
--- TODO: Eliminate most of the following, as I move data types out of circat
-import ConCat.Misc ((:*),Unop,Binop,Yes1) -- 
+import ConCat.Misc ((:*),Unop,Binop,Yes1,typeR)
 import ConCat.Complex
 import ConCat.Rep
 import ConCat.Category
@@ -167,8 +161,27 @@ import qualified ConCat.Free.LinearCol as LC
     Buses
 --------------------------------------------------------------------}
 
--- Data bus: component id, output index, type
+-- Component (primitive) type
+data Ty = Unit | Bool | Int | Float | Double | Pair Ty Ty | Arr Ty | Fun Ty Ty deriving (Eq,Ord)
+
+instance Show Ty where
+  showsPrec _ Unit   = showString "()"
+  showsPrec _ Bool   = showString "Bool"
+  showsPrec _ Int    = showString "Int"
+  showsPrec _ Float  = showString "Float"
+  showsPrec _ Double = showString "Double"
+  showsPrec p (Pair a b) = showParen (p >= 7) $
+    showsPrec 7 a . showString " × " . showsPrec 7 b
+  showsPrec p (Arr a) = showParen (p >= 9) $
+    showString "Arr " . showsPrec 9 a
+  showsPrec p (Fun a b) = showParen (p >= 1) $
+    showsPrec 1 a . showString " → " . showsPrec 0 b
+
+-- Data bus: component id, output index, type; *or* subgraph ID
 data Bus = Bus CompId Int Ty deriving Show
+
+type Input  = Bus
+type Output = Bus
 
 -- Identifying information for a bus. Faster comparisons without the type.
 busId :: Bus -> (CompId,Int)
@@ -184,20 +197,13 @@ type Sources = [Source]
 
 -- | An information source: its bus and a description of its construction, which
 -- contains the primitive and argument sources.
-data Source = Source Bus PrimName Sources
+data Source = Source Bus PrimName Sources deriving Show
 
 sourceBus :: Source -> Bus
 sourceBus (Source b _ _) = b
 
 instance Eq  Source where (==) = (==) `on` sourceBus
 instance Ord Source where compare = compare `on` sourceBus
-
--- instance Show Bus where
---   show (Bus p t) = "B" ++ show p ++ (if t /= Bool then ":" ++ show t else "")
-
-instance Show Source where
-  show (Source b prim ins) =
-    printf "Source %s %s %s" (show b) (show prim) (show ins)
 
 newBus :: Ty -> Int -> CircuitM Bus
 newBus t o = -- trace "newBus" $
@@ -217,16 +223,12 @@ newSource t prim ins o = -- trace "newSource" $
 data Buses :: * -> * where
   UnitB    :: Buses ()
   PrimB    :: Source -> Buses b
-  PairB    :: Buses a -> Buses b -> Buses (a :* b)
-  FunB     :: {-Ok2 (:>) a b => -} (a :> b) -> Buses (a -> b)
-  ConvertB :: (T a, T b) => Buses a -> Buses b
+  PairB    :: Ok2 (:>) a b => Buses a -> Buses b -> Buses (a :* b)
+  FunB     :: SubgraphId -> Buses (a -> b)
+  ConvertB :: Ok2 (:>) a b => Buses a -> Buses b
   -- AbstB :: Buses (Rep b) -> Buses b
 
--- TODO: Try Buses as a type family instead of a GADT.
--- Note that I need some operations on all buses, so I'd need a class also.
-
--- TODO: Can I unify AbstB and ConvertB? Do those constructors really need the
--- constraints a ~ Rep b and ConvertB a b?
+deriving instance Show (Buses a)
 
 #if 0
 
@@ -246,34 +248,22 @@ instance Eq (Buses a) where
 
 #endif
 
--- deriving instance Typeable Buses
--- deriving instance Show (Buses a)
-
--- Deriving would need GenBuses a.
-
-instance Show (Buses a) where
-  show UnitB        = "()"
-  show (PrimB s)    = show s
-  show (PairB a b)  = "("++show a++","++show b++")"
-  show (FunB _)     = "<function>"
-                      -- "<"++show (typeRep (Proxy :: Proxy a))++">"
-  show (ConvertB b) = "ConvertB ("++show b++")"
-  -- show (AbstB b) = "AbstB ("++show b++")"
-
--- TODO: Improve to Show instance with showsPrec. Maybe Pretty instead/also.
-
--- Component (primitive) type
-data Ty = Unit | Bool | Int | Float | Double | Pair Ty Ty | Arr Ty deriving (Eq,Ord,Show)
-
 genBuses :: GenBuses b => Prim a b -> Sources -> CircuitM (Buses b)
-genBuses prim ins = M.evalStateT (genBuses' (show prim) ins) 0
+genBuses prim ins = M.evalStateT (genBuses' (primName prim) ins) 0
 
 type BusesM = StateT Int CircuitM
 
-class Ok (:>) a => GenBuses a where
+-- Experiment with using Typeable. I removed it previously to avoid large
+-- dictionaries.
+
+class GenBuses a where
   genBuses' :: PrimName -> Sources -> BusesM (Buses a)
   delay :: a -> (a :> a)
   ty :: Ty
+
+-- -- Temporary alias
+-- ty :: forall a. Typeable a => TypeRep
+-- ty = typeR @a
 
 type GS a = (GenBuses a, Show a)
 
@@ -340,21 +330,28 @@ instance (GenBuses a, GenBuses b) => GenBuses (a :* b) where
   delay (a,b) = delay a *** delay b
   ty = Pair (ty @a) (ty @b)
 
-flattenB :: String -> Buses a -> Sources
-flattenB name b = fromMaybe err (flattenMb b)
- where
-   err = error $ "flattenB/"++name++": unhandled " ++ show b
+instance (GenBuses a, GenBuses b) => GenBuses (a -> b) where
+  genBuses' _prim _ins = M.lift $ do subgraphId <- M.gets fst
+                                     M.modify (first succ)
+                                     return (FunB subgraphId)
+  delay = error "delay for functions: not yet implemented"
+  ty = ty @a `Fun` ty @b
 
-flattenMb :: Buses a -> Maybe Sources
-flattenMb = fmap toList . flat
+flattenB :: GenBuses a => Buses a -> Sources
+flattenB = toList . flat
  where
-   flat :: Buses a -> Maybe (Seq Source)
-   flat UnitB        = Just mempty
-   flat (PrimB s)    = Just (singleton s)
-   flat (PairB a b)  = liftA2 (<>) (flat a) (flat b)
+   flat :: forall a. GenBuses a => Buses a -> Seq Source
+   flat UnitB        = mempty
+   flat (PrimB s)    = singleton s
+   flat (PairB a b)  = flat a <> flat b
    flat (ConvertB b) = flat b
-   flat (FunB _)     = Nothing
+   flat (FunB gid)   = singleton (funSource gid (ty @a))
    -- flat (AbstB b) = flat b
+
+funSource :: SubgraphId -> Ty -> Source
+funSource gid t = Source (Bus gid 0 t) (subgraphName gid) []
+
+-- TODO: Eliminate the flattening failure mode. In progress
 
 badBuses :: forall a x. Ok (:>) a => String -> Buses a -> x
 badBuses nm bs =
@@ -392,21 +389,21 @@ exlB = fst . unPairB
 exrB :: Ok2 (:>) a b => Buses (a :* b) -> Buses b
 exrB = snd . unPairB
 
--- Trying to eliminate Typeable from Ok (:>), since having it leads to lots of
--- large Typeable dictionary constructions.
--- My last dependency is unFunB's use of convertC.
--- type T = Typeable
-type T = Yes1
+-- -- Trying to eliminate Typeable from Ok (:>), since having it leads to lots of
+-- -- large Typeable dictionary constructions.
+-- -- My last dependency is unFunB's use of convertC.
+-- -- type T = Typeable
+-- type T = Yes1
 
 #if 1
 
-type TypeableAR a = (T a, T (Rep a))
+type OkCAR a = Ok2 (:>) a (Rep a)
 
 -- TODO: if this experiment works out, eliminate AbstB, and rename ConvertB.
-abstB :: TypeableAR a => Buses (Rep a) -> Buses a
+abstB :: OkCAR a => Buses (Rep a) -> Buses a
 abstB = convertB
 
-reprB :: TypeableAR a => Buses a -> Buses (Rep a)
+reprB :: OkCAR a => Buses a -> Buses (Rep a)
 reprB = convertB
 
 #else
@@ -425,18 +422,16 @@ reprB b = badBuses "reprB" b
 
 #endif
 
-convertC :: forall a b. (T a, T b) => a :> b
+convertC :: forall a b. Ok2 (:>) a b => a :> b
 convertC = C (arr convertB)
 
-convertB :: forall a b. (T a, T b)
-         => Buses a -> Buses b
+convertB :: forall a b. Ok2 (:>) a b => Buses a -> Buses b
 -- convertB a | trace ("convertB " ++ show (typeRep (Proxy :: Proxy (a -> b))) ++ ": " ++ show a ++ "\n") False = undefined
 convertB (ConvertB p) = mkConvertB p  -- coalesce
 convertB a            = mkConvertB a
 
 -- Make a ConvertB if source and target types differ; otherwise id
-mkConvertB :: forall a b. (T a, T b)
-           => Buses a -> Buses b
+mkConvertB :: forall a b. Ok2 (:>) a b => Buses a -> Buses b
 mkConvertB a -- | Just Refl <- eqT @a @b = a
              | otherwise              = ConvertB a
 
@@ -447,58 +442,66 @@ mkConvertB a -- | Just Refl <- eqT @a @b = a
 type PrimName = String
 
 -- | Primitive of type @a -> b@
-data Prim :: * -> * -> * where
-  Prim :: PrimName -> Prim a b
-  MkArr :: GraphInfo -> Prim Int (Arr a)
+newtype Prim a b = Prim PrimName deriving Show
 
--- deriving instance Show (Prim a b)
+primName :: Prim a b -> String
+primName (Prim name) = name
 
-instance Show (Prim a b) where
-  show (Prim name)   = name
-  show (MkArr comps) = "MkArr " ++ show comps
+-- instance Show (Prim a b) where show = primName
 
-type CompId = Int
+type Id = Int
 
-type CompSupply = Int
+type CompId = Id
+
+type IdSupply = Id
 
 -- Component: primitive instance with inputs & outputs. Numbered consistently
 -- with dependency partial ordering.
-data Comp = forall a b. Comp CompId (Prim a b) (Buses a) (Buses b)
+data Comp = forall a b. Ok2 (:>) a b => Comp CompId (Prim a b) (Buses a) (Buses b)
 
 deriving instance Show Comp
 
-type Reuses = Int
+compId :: Comp -> CompId
+compId (Comp n _ _ _) = n
+
+instance Eq  Comp where (==) = (==) `on` compId
+instance Ord Comp where compare = compare `on` compId
+
+
 #if !defined NoHashCons
 -- Tracks prim applications (including output type) and reuses per component.
-type CompInfo = Map (PrimName,Sources,Ty) (Comp,Reuses)
+type CompInfo = Map (PrimName,Sources,Ty) Comp
 #else
 type CompInfo = [Comp]
 #endif
 
+type SubgraphId = Id
+type Subgraphs  = Map SubgraphId Graph
+
+data Graph = Graph [Comp] Subgraphs deriving Show
+
 -- The circuit monad.
-type CircuitM = State (CompSupply,CompInfo)
+type CircuitM = State (IdSupply,(CompInfo,Subgraphs))
 
 type BCirc a b = Buses a -> CircuitM (Buses b)
 
 -- Instantiate a 'Prim'
-genComp :: forall a b. GenBuses b => Prim a b -> BCirc a b
+genComp :: forall a b. Ok2 (:>) a b => Prim a b -> BCirc a b
 #if !defined NoHashCons
 genComp prim a =
-  -- trace (printf "genComp %s %s --> %s" (show prim) (show a) (show (ty @b))) $
-  do mb <- M.gets (M.lookup key . snd)
+  do mb <- M.gets (M.lookup key . fst . snd)
      case mb of
-       Just (Comp _ _ _ b', _) ->
-         do M.modify (second (M.adjust (second succ) key))
-            return (unsafeCoerce b')
+       Just (Comp _ _ _ b') ->
+         return (unsafeCoerce b')
        Nothing               ->
          do b <- genBuses prim ins
             c <- M.gets fst
             let comp = Comp c prim a b
-            M.modify (succ *** M.insert key (comp,0))
+            M.modify (succ *** first (M.insert key comp))
             return b
  where
-   ins  = flattenBHack "genComp" prim a
-   name = show prim
+   ins  = flattenB a
+   name = primName prim
    key  = (name,ins,ty @b)
 
 -- TODO: Possibly key on argument type as well? What currently happens with Eq
@@ -507,7 +510,7 @@ genComp prim a =
 
 #else
 genComp prim a = -- trace (printf "genComp %s %s --> %s"
-                 --         (show prim) (show a) (show (ty @b))) $
+                 --         (show prim) (show a) (show (ty (undefined :: b)))) $
                  do b <- genBuses prim (flattenBHack "genComp" prim a)
                     -- trace (printf "gen'd buses %s" (show b)) (return ())
                     M.modify (second (Comp prim a b :))
@@ -515,37 +518,9 @@ genComp prim a = -- trace (printf "genComp %s %s --> %s"
                     return b
 #endif
 
--- Treat delays specially to avoid optimization loop.
-flattenBHack :: String -> Prim a b -> Buses c -> Sources
-flattenBHack name _ b = flattenB name b
-
--- flattenBHack _ (Prim (unDelayName -> Just _)) _ = []
-
--- flattenBHack name p b = tweak <$> flattenB name b
---  where
---    tweak ~(Source bus nm ins n) = Source bus nm' ins' n'
---     where
---       (nm',ins',n') | isDelayPrim p = ("bloop",[],0)
---                     | otherwise     = (nm,ins,n)
-
--- flattenBHack name p b = tweak <$> flattenB name b
---  where
---    tweak ~(Source bus nm ins n) = Source bus nm ins' n
---     where
---       ins' = if isDelayPrim p then [] else ins
-
--- flattenBHack name p b = tweak <$> flattenB name b
---  where
---    tweak ~(Source bus nm ins n) = Source bus nm ins' n
---     where
---       ins' = if isDelayPrim p then [] else ins
-
---    tweak | isDelayPrim p = \ ~(Source bus nm _ins n) -> Source bus nm [] n 
---          | otherwise     = id
-
 constComp' :: GenBuses b => PrimName -> CircuitM (Buses b)
 constComp' str = -- trace ("constComp' " ++ str) $
-                 genComp (Prim str) UnitB
+                 genComp (Prim ({- "const " ++ -} str)) UnitB
 
 constComp :: GenBuses b => PrimName -> BCirc a b
 constComp str = const (constComp' str)
@@ -590,14 +565,11 @@ type a :+> b = Kleisli CircuitM (Buses a) (Buses b)
 -- | Circuit category
 newtype a :> b = C { unC :: a :+> b }
 
-instance (TypeableAR a, r ~ Rep a) => RepCat (:>) a r where
+instance (OkCAR a, r ~ Rep a) => RepCat (:>) a r where
   reprC = C (arr reprB)
   abstC = C (arr abstB)
 
-instance -- Coercible a b
-         (T a, T b)
-      => CoerceCat (:>) a b where
-  coerceC = convertC
+instance Ok2 (:>) a b => CoerceCat (:>) a b where coerceC = convertC
 
 -- instance CoerceCat (:>) where
 --   coerceC = C (arr coerce)
@@ -620,14 +592,9 @@ inCK2 :: (BCirc a a' -> BCirc b b' -> BCirc c c')
       -> ((a :> a') -> (b :> b') -> (c :> c'))
 inCK2 = inCK <~ unmkCK
 
-namedC :: GenBuses b => PrimName -> a :> b
-namedC = mkCK . genComp . Prim
--- namedC name = mkCK (genComp (Prim name))
+namedC :: Ok2 (:>) a b => PrimName -> a :> b
 -- namedC name = primOpt name noOpt
-
--- subgraphC :: GenBuses b => [Comp] -> a :> b
--- subgraphC = mkCK . genComp . Subgraph
--- -- subgraphC comps = mkCK (genComp (Subgraph comps))
+namedC name = mkCK (genComp (Prim name))
 
 type Opt b = Sources -> CircuitM (Maybe (Buses b))
 
@@ -670,17 +637,14 @@ orOpt f g a = do mb <- f a
                    Nothing -> g a
                    Just _  -> return mb
 
-primOpt :: GenBuses b => PrimName -> Opt b -> a :> b
-primOptSort :: (Ok (:>) a, GenBuses b) => PrimName -> Opt b -> a :> b
+primOpt, primOptSort :: Ok2 (:>) a b => PrimName -> Opt b -> a :> b
 #if !defined NoOptimizeCircuit
 
 -- primOpt name _ = mkCK (genComp (Prim name))
 
 primOpt name opt =
   mkCK $ \ a -> let plain = genComp (Prim name) a in
-                  case flattenMb a of
-                    Nothing   -> plain
-                    Just srcs -> opt srcs >>= maybe plain return
+                  opt (flattenB a) >>= maybe plain return
 
 tryCommute :: a :> a
 tryCommute = mkCK try
@@ -699,7 +663,8 @@ primOpt name _ = namedC name
 primOptSort = primOpt
 #endif
 
-primNoOpt1 :: (GST b, Read a) => PrimName -> (a -> b) -> a :> b
+primNoOpt1 :: (Ok2 (:>) a b, Read a, Show b, Tweakable b)
+           => PrimName -> (a -> b) -> a :> b
 primNoOpt1 name fun = 
   primOpt name $
     \ case [Val x] -> newVal (fun x)
@@ -724,27 +689,29 @@ inC2 :: (a :+> b -> a' :+> b' -> a'' :+> b'')
 inC2 = inC <~ unC
 
 instance Category (:>) where
-  type Ok (:>) = T
+  type Ok (:>) = GenBuses
   id  = C id
   (.) = inC2 (.)
 
-crossB :: (Applicative m, Ok2 (:>) a b)
+crossB :: (Applicative m, Ok4 (:>) a b c d)
        => (Buses a -> m (Buses c)) -> (Buses b -> m (Buses d))
        -> (Buses (a :* b) -> m (Buses (c :* d)))
 crossB f g = (\ ~(a,b) -> liftA2 PairB (f a) (g b)) . unPairB
 
 -- or drop crossB in favor of forkB with fstB and sndB
 
-forkB :: Applicative m =>
+forkB :: (Applicative m, Ok3 (:>) a c d) =>
          (Buses a -> m (Buses c)) -> (Buses a -> m (Buses d))
       -> (Buses a -> m (Buses (c :* d)))
 forkB f g a = liftA2 PairB (f a) (g a)
 
 -- or drop forkB in favor of dupB and crossB
 
-dupB :: Applicative m =>
+dupB :: (Applicative m, Ok (:>) a) =>
         Buses a -> m (Buses (a :* a))
 dupB a = pure (PairB a a)
+
+instance OpCon (:*) (Sat GenBuses) where inOp = Entail (Sub Dict)
 
 instance ProductCat (:>) where
   -- type Prod (:>) = (:*)
@@ -754,66 +721,48 @@ instance ProductCat (:>) where
   (***) = inCK2 crossB  -- or default
   (&&&) = inCK2 forkB   -- or default
 
-#if 1
-
 instance (Ok (:>) a, IfCat (:>) b) => IfCat (:>) (a -> b) where
   ifC = funIf
 
-unFunB :: {- Ok2 (:>) a b => -} Buses (a -> b) -> (a :> b)
-unFunB (FunB ab)            = ab
-unFunB (ConvertB (FunB cd)) = convertC A.. cd A.. convertC
+unFunB :: Ok2 (:>) a b => Buses (a -> b) -> SubgraphId
+unFunB (FunB gid)           = gid
+-- unFunB (ConvertB (FunB cd)) = ...
 unFunB bs                   = badBuses "unFunB" bs
 
-pairB :: Buses a :* Buses b -> Buses (a :* b)
-pairB (a,b) = PairB a b
+subgraphName :: SubgraphId -> PrimName
+subgraphName n = "f_" ++ show n
+
+subgraphPrim :: SubgraphId -> Prim a b
+subgraphPrim = Prim . subgraphName
+
+applyB :: Ok2 (:>) a b => BCirc ((a -> b) :* a) b
+applyB (unPairB -> (unFunB -> gid, a)) = genComp (subgraphPrim gid) a
+
+instance OpCon (->) (Sat GenBuses) where inOp = Entail (Sub Dict)
+
+addSubgraph :: Ok2 (:>) u v => SubgraphId -> BCirc u v -> CircuitM ()
+addSubgraph gid bcirc =
+  do supply <- M.gets fst
+     let (graphInfo,supply') = mkGraph' (mkCK bcirc) supply
+     -- M.modify (const supply' *** second _)
+     M.modify (const supply' *** second (M.insert gid graphInfo))
+
+
+genSubGraph :: Ok2 (:>) u v => BCirc u v -> CircuitM (Buses (u -> v))
+genSubGraph uv =
+  do o@(unFunB -> prim) <- genBuses (err "prim") (err "sources")
+     addSubgraph prim uv
+     return o
+ where
+   err str = error ("curry on (:>): evaluated " ++ str)  -- Hm. Awkward.
 
 instance ClosedCat (:>) where
   -- type Exp (:>) = (->)
-  apply   = C (applyK . first (arr (unC . unFunB)) . arr unPairB)
-  curry   = inC $ \ h -> arr (FunB . C) . curryK (h . arr pairB)
-  uncurry = inC $ \ f -> uncurryK (arr (unC . unFunB) . f) . arr unPairB 
-#endif
+  -- apply = mkCK applyB
+  apply = namedC "apply"
+  curry f = mkCK $ \ a -> genSubGraph (\ b -> unmkCK f (PairB a b))
 
-#if defined TypeDerivation
-
--- ClosedCat type derivations:
-
-type KC = Kleisli CircuitM
-
--- apply:
-
-unC :: (a :> b) -> (a :+> b)
-unFunB :: Buses (a -> b) -> (a :> b)
-unC . unFunB :: Buses (a -> b) -> (a :+> b)
-arr (unC . unFunB) :: KC (Buses (a -> b)) (a :+> b)
-first (arr (unC . unFunB))
-  :: KC (Buses (a -> b) :* Buses a) ((a :+> b) :* Buses a)
-applyK . first (arr (unC . unFunB))
-  :: KC (Buses (a -> b) :* Buses a) (Buses b)
-applyK . first (arr (unC . unFunB)) . arr unPairB
-  :: KC (Buses ((a -> b) :* a)) (Buses b)
-  :: ((a -> b) :* a) :+> b
-C (applyK . first (arr (unC . unFunB)) . arr unPairB) :: ((a -> b) :* a) :> b
-
--- curry:
-
-h :: a :* b :> c
-unC h :: a :* b :+> c
-      :: KC (Buses (a :* b)) (Buses c)
-unC h . arr pairB :: KC (Buses a :* Buses b) (Buses c)
-curryK (unC h . arr pairB) :: KC (Buses a) (KC (Buses b) (Buses c))
-arr C . curryK (unC h . arr pairB) :: KC (Buses a) (b :> c)
-arr (FunB . C) . curryK (unC h . arr pairB) :: KC (Buses a) (Buses (b -> c))
-C (arr (FunB . C) . curryK (unC h . arr pairB)) :: a :> (b -> c)
-
--- Derive uncurry by inverting curry:
-
-f == arr (FunB . C) . curryK (h . arr pairB)
-arr (unC . unFunB) . f == curryK (h . arr pairB)
-uncurryK (arr (unC . unFunB) . f) == h . arr pairB
-uncurryK (arr (unC . unFunB) . f) . arr unPairB == h
-
-#endif
+-- genBuses :: GenBuses b => Prim a b -> Sources -> CircuitM (Buses b)
 
 instance TerminalCat (:>) where
   -- type Unit (:>) = ()
@@ -909,13 +858,14 @@ instance BottomCat (:>) where
 
 -- TODO: state names like "⊕" and "≡" just once.
 
-class SourceToBuses a where toBuses :: Source -> Buses a
+class GenBuses a => SourceToBuses a where toBuses :: Source -> Buses a
 instance SourceToBuses ()      where toBuses = const UnitB
 instance SourceToBuses Bool    where toBuses = PrimB
 instance SourceToBuses Int     where toBuses = PrimB
 instance SourceToBuses Float   where toBuses = PrimB
 instance SourceToBuses Double  where toBuses = PrimB
-instance SourceToBuses (Arr a) where toBuses = PrimB
+
+instance (GenBuses a, Show a) => SourceToBuses (Arr a) where toBuses = PrimB
 
 sourceB :: SourceToBuses a => Source -> CircuitM (Maybe (Buses a))
 sourceB = justA . toBuses
@@ -923,16 +873,12 @@ sourceB = justA . toBuses
 unknownName :: PrimName
 unknownName = "??"
 
-instance GenBuses b => UnknownCat (:>) a b where
+instance Ok2 (:>) a b => UnknownCat (:>) a b where
   unknownC = namedC unknownName
 
 #define Sat(pred) ((pred) -> True)
 #define Eql(x) Sat(==(x))
 
--- -- https://ghc.haskell.org/trac/ghc/ticket/12007
--- #define BrokenPat
-
-#if !defined BrokenPat
 pattern Read :: Read a => a -> String
 pattern Read x <- (reads -> [(x,"")])
 
@@ -951,33 +897,16 @@ pattern FalseS :: Source
 pattern FalseS <- ConstS("False")
 
 pattern NotS :: Source -> Source
-pattern NotS a <- Source _ "¬" [a]
+pattern NotS a <- Source _ "not" [a]
 
 pattern XorS :: Source -> Source -> Source
-pattern XorS a b <- Source _ "⊕" [a,b]
+pattern XorS a b <- Source _ "xor" [a,b]
 
 pattern EqS :: Source -> Source -> Source
-pattern EqS a b <- Source _ "≡" [a,b]
+pattern EqS a b <- Source _ "==" [a,b]
 
 -- pattern NeS :: Source -> Source -> Source
--- pattern NeS a b <- Source _ "≢" [a,b]
-
-#else
-
-#define Read(x) (reads -> [((x),"")])
-#define ConstS(name) (Source _ name [] 0)
-#define Val(x) ConstS(Read(x))
-
-#define TrueS ConstS("True")
-#define FalseS ConstS("False")
-#define NotS(a) (Source _ "¬" [a] 0)
-#define XorS(a,b) (Source _ "⊕" [a,b] 0)
-#define EqS(a,b) <- (Source _ "≡" [a,b] 0)
-
--- pattern NeS :: Source -> Source -> Source
--- pattern NeS a b <- Source _ "≢" [a,b]
-
-#endif
+-- pattern NeS a b <- Source _ "/=" [a,b]
 
 primDelay :: (SourceToBuses a, GS a) => a -> (a :> a)
 primDelay a0 = primOpt (delayName a0s) $ \ case
@@ -990,7 +919,7 @@ primDelay a0 = primOpt (delayName a0s) $ \ case
 
 instance BoolCat (:>) where
   -- type BoolOf (:>) = Bool
-  notC = primOpt "¬" $ \ case
+  notC = primOpt "not" $ \ case
            [NotS a]  -> sourceB a
            [Val x]   -> newVal (not x)
            _         -> nothingA
@@ -1004,9 +933,9 @@ instance BoolCat (:>) where
   --   prevents the constraint ‘(SourceToBuses b0)’ from being solved.
   -- 
   -- Optimizations are limited by not having static access to source types. I
-  -- think I can fix it by adding a `Ty` (statically typed type GADT) to
+  -- think I can fix it by adding a statically typed type GADT to
   -- `Source`. Or maybe a simpler version for primitive types only.
-  andC = primOptSort "∧" $ \ case
+  andC = primOptSort "&&" $ \ case
            [TrueS ,y]            -> sourceB y
            [x,TrueS ]            -> sourceB x
            [x@FalseS,_]          -> sourceB x
@@ -1017,7 +946,7 @@ instance BoolCat (:>) where
            [x,NotS x'] | x' == x -> newVal False
            [NotS x,x'] | x' == x -> newVal False
            _                     -> nothingA
-  orC  = primOptSort "∨" $ \ case
+  orC  = primOptSort "||" $ \ case
            [FalseS,y]            -> sourceB y
            [x,FalseS]            -> sourceB x
            [x@TrueS ,_]          -> sourceB x
@@ -1033,7 +962,7 @@ instance BoolCat (:>) where
              do o <- unmkCK andC (PairB (PrimB x) (PrimB y))
                 newComp notC o
            _                     -> nothingA
-  xorC = primOptSort "⊕" $ \ case
+  xorC = primOptSort "xor" $ \ case
            [FalseS,y]            -> sourceB y
            [x,FalseS]            -> sourceB x
            [TrueS,y ]            -> newComp1 notC y
@@ -1057,15 +986,6 @@ instance BoolCat (:>) where
 
 boolToIntC :: Bool :> Int
 boolToIntC = namedC BooloInt
-
--- instance BoolCat (:>) where
---   notC = namedC "¬"
---   andC = namedC "∧"
---   orC  = namedC "∨"
---   xorC = namedC "⊕"
-
--- TODO: After I have more experience with these graph optimizations, reconsider
--- the interface.
 
 #if 1
 
@@ -1156,8 +1076,8 @@ EqPrim(Float)
 EqPrim(Double)
 
 instance EqCat (:>) Bool where
-  equal    = primOptSort "≡" (eqOpt @Bool `orOpt` eqOptB)
-  notEqual = primOptSort "⊕" (neOpt @Bool `orOpt` neOptB)
+  equal    = primOptSort "=="  (eqOpt @Bool `orOpt` eqOptB)
+  notEqual = primOptSort "xor" (neOpt @Bool `orOpt` neOptB)
 
 instance EqCat (:>) () where
   equal = constC True
@@ -1200,8 +1120,8 @@ geOpt = \ case
  instance OrdCat (:>) (ty) where { \
    lessThan           = primOpt "<" (ltOpt @(ty)) ; \
    greaterThan        = primOpt ">" (gtOpt @(ty)) ; \
-   lessThanOrEqual    = primOpt "≤" (leOpt @(ty)) ; \
-   greaterThanOrEqual = primOpt "≥" (geOpt @(ty)) ; \
+   lessThanOrEqual    = primOpt "<=" (leOpt @(ty)) ; \
+   greaterThanOrEqual = primOpt ">=" (geOpt @(ty)) ; \
  }
 
 OrdPrim(Bool)
@@ -1222,11 +1142,11 @@ instance OrdCat (:>) () where
 #else
 
 instance (Read a, Eq a) => EqCat (:>) a where
-    equal    = primOptSort "≡" $ \ case
+    equal    = primOptSort "==" $ \ case
                  [Val (x :: a), Val y] -> newVal (x == y)
                  [a,b] | a == b -> newVal True
                  _              -> nothingA
-    notEqual = primOptSort "≢" $ \ case
+    notEqual = primOptSort "/=" $ \ case
                  [Val (x :: a), Val y] -> newVal (x /= y)
                  [a,b] | a == b -> newVal False
                  _              -> nothingA
@@ -1240,11 +1160,11 @@ instance (Read a, Ord a) => OrdCat (:>) a where
                           [Val (x :: a), Val y] -> newVal (x > y)
                           [a,b] | a == b        -> newVal False
                           _                     -> nothingA
-   lessThanOrEqual    = primOpt "≤" $ \ case
+   lessThanOrEqual    = primOpt "<=" $ \ case
                           [Val (x :: a), Val y] -> newVal (x <= y)
                           [a,b] | a == b        -> newVal True
                           _                     -> nothingA
-   greaterThanOrEqual = primOpt "≥" $ \ case
+   greaterThanOrEqual = primOpt ">=" $ \ case
                           [Val (x :: a), Val y] -> newVal (x >= y)
                           [a,b] | a == b        -> newVal True
                           _                     -> nothingA
@@ -1290,7 +1210,7 @@ instance (Num a, Read a, GST a, Eq a, SourceToBuses a)
               [x,NegateS y]  -> newComp2 addC x y
               [NegateS x,y]  -> newComp2 (negateC . addC) x y
               _              -> nothingA
-  mulC    = primOptSort "×" $ \ case
+  mulC    = primOptSort "*" $ \ case
               [Val x, Val y] -> newVal (x * y)
               [OneT(a),y]    -> sourceB y
               [x,OneT(a)]    -> sourceB x
@@ -1299,7 +1219,7 @@ instance (Num a, Read a, GST a, Eq a, SourceToBuses a)
               [NegOneT(a) ,y] -> newComp1 negateC y
               [x,NegOneT(a) ] -> newComp1 negateC x
               _              -> nothingA
-  powIC   = primOpt     "↑" $ \ case
+  powIC   = primOpt     "^" $ \ case
               [Val x, Val y] -> newVal (x ^ (y :: Int))
               [x@OneT(a) ,_] -> sourceB x
               [x,   OneT(a)] -> sourceB x
@@ -1314,7 +1234,7 @@ instance (Fractional a, Read a, Eq a, GST a, SourceToBuses a)
               [RecipS x]     -> sourceB x
               [NegateS x]    -> newComp1 (negateC . recipC) x
               _              -> nothingA
-  divideC = primOpt "÷" $ \ case
+  divideC = primOpt "/" $ \ case
               [Val x, Val y] -> newVal (x / y)
               [z@ZeroT(a),_] -> sourceB z
               [x,NegateS y]  -> newComp2 (negateC . divideC) x y
@@ -1332,7 +1252,7 @@ instance (Floating a, Read a, GST a) => FloatingCat (:>) a where
 
 -- TODO: optimizations, e.g., sin & cos of negative angles.
 
-instance ({-Ok (:>) a, -}Integral a, Num b, Read a, GST b)
+instance (Ok (:>) a, Integral a, Num b, Read a, GST b)
       => FromIntegralCat (:>) a b where
   fromIntegralC = primNoOpt1 "fromIntegral" fromIntegral
 
@@ -1452,17 +1372,8 @@ instance IfCat (:>) () where ifC = unitIf
 instance (IfCat (:>) a, IfCat (:>) b) => IfCat (:>) (a :* b) where
   ifC = prodIf
 
--- class ArrayCat k a where
---   mkArr :: (Int `k` a) -> (Int `k` Arr a)
---   arrAt :: (Arr a :* Int) `k` a
-
 instance GS a => ArrayCat (:>) a where
-  mkArr f = mkCK $ \ size ->
-            -- Run from current free CompNum, and then update.
-            do n <- M.gets fst
-               let (info, n') = mkGraph' f n
-               M.modify (first (const n'))
-               genComp (MkArr info) size
+  mkArr = namedC "mkArr"
   arrAt = namedC "arrAt"
 
 {--------------------------------------------------------------------
@@ -1470,26 +1381,26 @@ instance GS a => ArrayCat (:>) a where
 --------------------------------------------------------------------}
 
 instance (GenBuses a, Ok2 (:>) a b) => Show (a :> b) where
-  show = show . runC
+  show = show . mkGraph -- runC
 
 --     Application is no smaller than the instance head
 --       in the type family application: RepT :> a
 --     (Use -XUndecidableInstances to permit this)
 
--- Turn a circuit into a list of components, including fake In & Out.
-runC :: (GenBuses a, Ok (:>) b) => (a :> b) -> [(Comp,Reuses)]
-runC = runU . unitize
+-- -- Turn a circuit into a list of components, including fake In & Out.
+-- runC :: (GenBuses a, Ok (:>) b) => (a :> b) -> Graph
+-- runC = runU . unitize
 
 type UU = () :> ()
 
-runU :: UU -> [(Comp,Reuses)]
-runU cir = fst (runU' cir 0)
+-- runU :: UU -> Graph
+-- runU cir = fst (runU' cir 0)
 
-runU' :: UU -> CompSupply -> ([(Comp,Reuses)],CompSupply)
-runU' cir supplyIn = (getComps compInfo, supplyOut)
+runU' :: UU -> IdSupply -> (Graph,IdSupply)
+runU' cir supply = (Graph (getComps compInfo) subgraphs, supply')
  where
    compInfo :: CompInfo
-   (supplyOut,compInfo) = execState (unmkCK cir UnitB) (supplyIn,mempty)
+   (supply',(compInfo,subgraphs)) = execState (unmkCK cir UnitB) (supply,mempty)
 #if !defined NoHashCons
    getComps = M.elems 
 #else
@@ -1506,6 +1417,19 @@ unitize = namedC "Out" <~ namedC "In"
 -- unitize' = unitize . uncurries
 
 -- TODO: phase out unitize, and rename unitize'.
+
+-- uuGraph :: UU -> Graph
+-- uuGraph uu = fst (uuGraph' uu 0)
+
+uuGraph' :: UU -> IdSupply -> (Graph,IdSupply)
+uuGraph' = runU'  -- for now
+
+mkGraph :: Ok2 (:>) a b => (a :> b) -> Graph
+mkGraph g = {- trimGraph -} (fst (mkGraph' g 0))
+
+mkGraph' :: Ok2 (:>) a b => (a :> b) -> IdSupply -> (Graph,IdSupply)
+mkGraph' g n = uuGraph' (unitize g) n
+
 
 {--------------------------------------------------------------------
     Visualize circuit as dot graph
@@ -1549,43 +1473,15 @@ renameC = id
 #if defined NoMend
         . (++"-no-mend")
 #endif
-#if defined ShowDepths
-        . (++"-with-depths")
-#endif
 #if defined ShallowDelay
         . (++"-shallow-delay")
 #endif
 
+-- Remove while I'm sorting things out
+#if 1
+
 type Name = String
 type Report = String
-
-type GraphInfo = (CompDepths,Report)
-
-mkGraph :: GenBuses a => (a :> b) -> GraphInfo
-mkGraph g = fst (mkGraph' g 0)
-
-mkGraph' :: GenBuses a => (a :> b) -> CompSupply -> (GraphInfo,CompSupply)
-mkGraph' g n = ((depths,report),n')
- where
-   (graph,n')  = uuGraph' (unitize g) n
-   depths = longestPaths graph
-   depth  = longestPath depths
-   report | depth == 0 = "No components.\n"  -- except In & Out
-          | otherwise  =
-              printf "Components: %s.%s Max depth: %d.\n" (summary graph)
-#if False && !defined NoHashCons
-                -- Are the reuse counts legit or an artifact of optimization?
-                (let reused :: Map PrimName Reuses
-                     reused = M.fromListWith (+)
-                               [(nm,reuses) | CompS _ nm _ _ reuses <- graph]
-                 in
-                   case showCounts (M.toList reused) of
-                     ""  -> ""
-                     str -> printf " Reuses: %s." str)
-#else          
-                ""
-#endif         
-                depth
 
 outDir :: String
 outDir = "out"
@@ -1593,12 +1489,15 @@ outDir = "out"
 outFile :: String -> String -> String
 outFile name suff = outDir++"/"++name++"."++suff
 
-writeDot :: String -> [Attr] -> GraphInfo -> IO ()
-writeDot (renameC -> name) attrs (depths,report) = 
+writeDot :: String -> [Attr] -> Graph -> IO ()
+writeDot (renameC -> name) attrs g = 
   do createDirectoryIfMissing False outDir
      writeFile (outFile name "dot")
-       (graphDot name attrs depths ++ "\n// "++ report)
-     putStr report
+       (graphDot name attrs g {- ++"// "++ report -})
+     putStrLn ("Wrote " ++ name)
+     -- putStr report
+
+-- TODO: write out subgraphs somewhere
 
 displayDot :: (String,String) -> String -> IO ()
 displayDot (outType,res) (renameC -> name) = 
@@ -1615,6 +1514,8 @@ displayDot (outType,res) (renameC -> name) =
             "linux"  -> "display" -- was "xdg-open"
             _        -> error "unknown open for OS"
 
+#if 0
+
 showCounts :: [(PrimName,Int)] -> String
 showCounts = intercalate ", "
            . map (\ (nm,num) -> printf "%d %s" num nm)
@@ -1622,10 +1523,14 @@ showCounts = intercalate ", "
                        else ps ++ [("total",sum (snd <$> ps))])
            . filter (\ (nm,n) -> n > 0 && not (isOuterPrim nm))
 
-summary :: DGraph -> String
+summary :: Graph -> String
 summary = showCounts
         . histogram
         . map compName
+        . gather  -- TODO: handle subgraphs as well
+ where
+   gather :: Graph -> [CompS]
+   gather (Graph comps subgraphs) = comps ++ concatMap gather (M.elems subgraphs)
 
 histogram :: Ord a => [a] -> [(a,Int)]
 histogram = map (head &&& length) . group . sort
@@ -1633,59 +1538,32 @@ histogram = map (head &&& length) . group . sort
 -- TODO: Instead of failing, emit a message about the generated file. Perhaps
 -- simply use "echo".
 
-type Input  = Bus
-type Output = Bus
+#endif
 
-data CompS = forall a b. CompS CompId (Prim a b) [Input] [Output] Reuses
+type Dot = String
 
-deriving instance Show CompS
+#if 0
+
+data CompS = CompS CompId PrimName [Input] [Output] deriving Show
 
 compId :: CompS -> CompId
-compId (CompS n _ _ _ _) = n
-compName :: CompS -> String
-compName (CompS _ prim _ _ _) = show prim
+compId (CompS n _ _ _) = n
+compName :: CompS -> PrimName
+compName (CompS _ nm _ _) = nm
 compIns :: CompS -> [Input]
-compIns (CompS _ _ ins _ _) = ins
+compIns (CompS _ _ ins _) = ins
 compOuts :: CompS -> [Output]
-compOuts (CompS _ _ _ outs _) = outs
+compOuts (CompS _ _ _ outs) = outs
 
 instance Eq CompS where (==) = (==) `on` compId
 instance Ord CompS where compare = compare `on` compId
 
-type DGraph = [CompS]
-
-type Dot = String
-
-type Depth = Int
-
-uuGraph :: UU -> DGraph
-uuGraph uu = fst (uuGraph' uu 0)
-
-uuGraph' :: UU -> CompSupply -> (DGraph,CompSupply)
-uuGraph' uu n = first (
-                  trimDGraph
-                  -- . connectState
-                  . mendG
-                  . map simpleComp
-                  -- . (\ z -> trace ("runU result: " ++ show z) z)
-                ) (runU' uu n)
-
--- uuGraph :: UU -> DGraph
--- uuGraph = trimDGraph
---         -- . connectState
---         . mendG
---         . map simpleComp
---         -- . (\ z -> trace ("runU result: " ++ show z) z)
---         . runU
---         -- . trace "uuGraph" id
-
-circuitGraph :: (GenBuses a, Ok2 (:>) a b) => (a :> b) -> DGraph
-circuitGraph = uuGraph . unitize
+-- type Depth = Int
 
 type CompDepths = Map CompS Depth
 
 -- | Longest paths excluding delay/Cons elements.
-longestPaths :: DGraph -> CompDepths
+longestPaths :: Graph -> CompDepths
 longestPaths g = distances
  where
    sComp = sourceComp g
@@ -1705,6 +1583,15 @@ longestPaths g = distances
 -- Note: if we measured the depth *before* mending, we wouldn't have to be take
 -- care about cycles.
 
+sourceComp :: Graph -> (Output -> Comp)
+sourceComp g = \ o -> fromMaybe (error (msg o)) (M.lookup o comps)
+ where
+   msg o = printf "sourceComp: mystery output %s in graph %s."
+             (show o) (show g)
+   comps = foldMap (\ c -> M.fromList [(o,c) | o <- compOuts c]) g
+
+-- The pred eliminates counting both In (constants) *and* Out.
+
 maximumD :: [Depth] -> Depth
 maximumD [] = 0
 maximumD ds = maximum ds
@@ -1718,54 +1605,64 @@ longestPath = maximumD . M.elems . withOuts
 isDelay :: CompS -> Bool
 isDelay = isJust . unDelayName . compName
 
--- #define SkipTrim
-
--- Remove unused components.
--- Depth-first search from the "Out" component.
--- Explicitly include other outer prims as well, in case any are ignored.
-trimDGraph :: Unop DGraph
-#ifdef SkipTrim
-trimDGraph = id
-#else
-
-type Trimmer = State (S.Set CompS) ()
-
-trimDGraph g = S.elems $ execState (mapM_ searchComp outComps) S.empty
- where
-   outComps = filter (isOut . compName) g
-   sComp = sourceComp g
-   searchComp :: CompS -> Trimmer
-   searchComp c =
-    do seen <- M.gets (S.member c)
-       unless seen $
-         do M.modify (S.insert c)
-            mapM_ (searchComp . sComp) (compIns c)
-   isOut = isJust . stripPrefix "Out"
-
--- It's important that comps is outside of the o lambda, so that it gets
--- computed just once for g.
-
 #endif
 
-sourceComp :: DGraph -> (Output -> CompS)
-sourceComp g = \ o -> fromMaybe (error (msg o)) (M.lookup o comps)
+-- Trim unused components and subgraphs. Construct the transitive closure
+-- of immediate dependencies starting from the top-level graph's output
+-- component. For each key/value pair in the map, find the immediate predecessor
+-- IDs. If the value is a component, the predecessors are the inputs'
+-- components. If the value is a subgraph, the single predecessor is the output
+-- for that subgraph.
+
+trimGraph :: Unop Graph
+-- trimGraph g | trace (printf "trimGraph %s" (show g)) False = undefined
+trimGraph g = go g
  where
-   msg o = printf "sourceComp: mystery output %s in graph %s."
-             (show o) (show g)
-   comps = foldMap (\ c -> M.fromList [(o,c) | o <- compOuts c]) g
+   isUsed = (`S.member` usedComps g)
+   go (Graph comps subgraphs) =
+     Graph (filter (isUsed . compId) comps)
+               (go <$> M.filterWithKey (const . isUsed) subgraphs)
 
--- The pred eliminates counting both In (constants) *and* Out.
+transitiveClosure :: forall a. (Show a, Ord a) => (a -> [a]) -> [a] -> S.Set a
+-- TODO: remove Show constraint after debugging
+transitiveClosure nexts = go mempty
+ where
+   go :: S.Set a -> [a] -> S.Set a
+   -- go seen as | trace (printf "go %s %s" (show (S.toList seen)) (show as)) False = undefined
+   go seen     [] = seen
+   go seen (a:as) | a `S.member` seen = go seen as
+                  | otherwise         = go (S.insert a seen) (nexts a ++ as)
 
-graphDot :: String -> [Attr] -> CompDepths -> Dot
-graphDot name attrs depths =
+usedComps :: Graph -> S.Set CompId
+usedComps g = transitiveClosure (compUses g) [outId g]
+
+compUses :: Graph -> CompId -> [CompId]
+compUses g = -- trace (printf "compUses: gmap == %s" (show gmap))
+             (M.!) (preds <$> gmap)
+  where
+    gmap = graphMap g
+    preds (Left (Comp _ _ (flatB -> ins) _)) = [c | Bus c _ _ <- ins]
+    preds (Right subgraph) = [outId subgraph]
+
+graphMap :: Graph -> Map Id (Either Comp Graph)
+graphMap (Graph comps subgraphs) =
+     M.fromList [(compId c,Left c) | c <- comps]
+  <> (Right <$> subgraphs)
+  <> M.unions (graphMap <$> M.elems subgraphs)
+
+graphDot :: String -> [Attr] -> Graph -> Dot
+graphDot name attrs (Graph comps subgraphs) =
   printf "digraph %s {\n%s}\n" (tweak <$> name)
-         (unlines (indent <$> (prelude ++ recordDots depths)))
+         (unlines $ map indent $
+          (prelude ++
+           recordDots comps subgraphs ++
+           concatMap subgraphDot (M.toList subgraphs)))
  where
-   prelude = map (++ ";") $
-             [ "margin=0"
-             , "rankdir=LR"
+   prelude = [ "margin=0"
              , "compound=true"
+             , "rankdir=LR"
              , "node [shape=Mrecord]"
+             , "edge [fontsize=8,fontcolor=indigo]"
              , "bgcolor=transparent"
              , "nslimit=20"  -- helps with very large rank graphs
              -- , "ratio=1"
@@ -1778,18 +1675,30 @@ graphDot name attrs depths =
 indent :: Unop String
 indent = ("  " ++)
 
+subgraphDot :: (SubgraphId,Graph) -> [Dot]
+subgraphDot (gid, Graph comps subgraphs) =
+     [printf "subgraph cluster_%s {" name]
+  ++ map indent
+         (prelude ++
+          recordDots comps subgraphs ++
+          concatMap subgraphDot (M.toList subgraphs))
+  ++ ["}"]
+ where
+   name = subgraphName gid
+   prelude = [ "margin=5"
+             -- , "label="++name
+             , "color=DarkGreen"
+             ]
+
+-- TODO: refactor graphDot & subgraphDot
+
 type Statement = String
 
-simpleComp :: (Comp,Reuses) -> CompS
-simpleComp (Comp n prim a b,reuses) =
-  CompS n prim
-    (sourceBus <$> flattenBHack name prim a)
-    (sourceBus <$> flattenB     name      b)
-    reuses
- where
-   name = show prim
+-- simpleComp :: Comp -> CompS
+-- simpleComp (Comp n prim a b,reuses) = CompS n (show prim) (flatB a) (flatB b) reuses
 
--- Working here on converting away from flattening
+flatB :: GenBuses c => Buses c -> [Bus]
+flatB = fmap sourceBus . flattenB
 
 data Dir = In | Out deriving Show
 type PortNum = Int
@@ -1806,40 +1715,53 @@ taggedFrom n = zip [n ..]
 tagged :: [a] -> [(Int,a)]
 tagged = taggedFrom 0
 
--- Hide components that have no ports
 hideNoPorts :: Bool
 hideNoPorts = False
 
-type SourceInfo = (Ty,CompId,PortNum,Depth)
+-- Prettier names for graph display
+prettyName :: Unop String
+prettyName str = fromMaybe str (M.lookup str prettyNames)
 
--- Map each pin to its info about it
-type SourceMap = Map Bus SourceInfo
+prettyNames :: Map String String
+prettyNames = M.fromList
+ [ ("not","¬") , ("&&","∧") , ("||","∨") , ("xor","⊕")
+ , ("==","≡") , ("/=","≢")
+ , ("<=","≤") , (">=","≥")
+ , ("*","×") , ("^","↑") , ("/","÷")
+ ]
 
-recordDots :: CompDepths -> [Statement]
-recordDots depths = nodes ++ edges
+-- type SourceInfo = (Ty,CompId,PortNum)
+
+-- -- Map each pin to its info about it
+-- type SourceMap = Map Bus SourceInfo
+
+-- TODO: Drop the comps argument, as it's already in depths
+
+-- data Graph = Graph [Comp] Subgraphs deriving Show
+-- data Comp = forall a b. Ok2 (:>) a b => Comp CompId (Prim a b) (Buses a) (Buses b)
+
+outId :: Graph -> CompId
+outId (Graph (filter isOut -> [Comp cid _ _ _]) _) = cid
+outId g = error ("outId: no Out found in graph: " ++ show g)
+
+isOut :: Comp -> Bool
+isOut (Comp _ (Prim name) _ _) = name == "Out"
+
+recordDots :: [Comp] -> Subgraphs -> [Statement]
+recordDots comps (fmap outId -> subOuts) = nodes ++ edges
  where
-   comps = M.keys depths
-   nodes = concatMap node comps
+   nodes = node <$> comps
     where
-      node :: CompS -> [String]
-      -- Working here.
-      node (CompS nc (MkArr (subDepths,_)) ins outs _) =
-        [printf "subgraph cluster%d {" nc]
-        ++ (indent <$> (map (++ ";") attrs ++ recordDots subDepths))
-        ++ ["}"]
+      node :: Comp -> String
+      node (Comp nc (primName -> prettyName -> prim)
+                 (flatB -> ins) (flatB -> outs)) =
+        printf "%ssubgraph cluster%d { color=white ; %s [label=\"{%s%s%s}\"%s] }" prefix nc (compLab nc) 
+          (ports "" (labs In ins) "|")
+          (escape prim)
+          (ports "|" (labs Out outs) "")
+          extras
        where
-         attrs = [ "// label=mkArr; fontsize=8"
-                 , "color=DarkGreen"
-                 , "margin=5"
-                 ]
-      node (CompS nc (Prim primName) ins outs _) =        
-        [printf "%s%s [label=\"{%s%s%s}\"%s];" prefix (compLab nc) 
-           (ports "" (labs In ins) "|")
-           (escape primName)
-           (ports "|" (labs Out outs) "")
-           extras]
-       where
-         extras | primName == unknownName = ",fontcolor=red,color=red,style=bold"
+         extras | prim == unknownName = ",fontcolor=red,color=red,style=bold"
                 | otherwise = ""
          prefix =
            if hideNoPorts && null ins && null outs then "// " else ""
@@ -1852,8 +1774,7 @@ recordDots depths = nodes ++ edges
                        intercalate "|" (portSticker <$> tagged bs)
           where
             portSticker :: (Int,Bus) -> String
-            portSticker (p,b) =
-                 bracket (portLab dir p) ++ showDepth b
+            portSticker (p,_) = bracket (portLab dir p)
          -- Escape angle brackets, "|", and other non-ascii
          escape :: Unop String
          escape [] = []
@@ -1861,32 +1782,24 @@ recordDots depths = nodes ++ edges
           where
              mbEsc | (c `elem` "<>|{}") || not (isAscii c)  = ('\\' :)
                    | otherwise     = id
-   showDepth :: Bus -> String
-#ifdef ShowDepths
-   showDepth ((srcMap M.!) . busId -> (_,_,_,d)) = show d
-#else
-   showDepth _ = ""
-#endif
    bracket = ("<"++) . (++">")
    portLab :: Dir -> PortNum -> String
    portLab dir np = printf "%s%d" (show dir) np
-   srcMap = sourceMap (M.toList depths)
    edges = concatMap compEdges comps
     where
-      compEdges _c@(CompS cnum _ ins _ _) = edge <$> tagged ins
+      compEdges _c@(Comp cnum _ a _) = edge <$> tagged (flatB a)
        where
-         edge (ni, b) =
-           -- Show the type per edge. I think I'd rather show in the output
-           -- ports, but I don't know how to use a small font for those port
-           -- labels but not for the operation label.
-           printf "%s -> %s [%s];"
-             (port Out (ocnum,opnum)) (port In (cnum,ni))
+         edge (ni, Bus ocnum opnum t) =
+           printf "%s -> %s [%s]"
+             (maybe (port Out (ocnum,opnum)) compLab mbSubOut)
+             (port In (cnum,ni))
              (intercalate "," attrs)
           where
-            (_w,ocnum,opnum,_d) = srcMap M.! b
-            attrs = label ++ constraint
+            mbSubOut = M.lookup ocnum subOuts
+            attrs = (if isJust mbSubOut then [printf "ltail=cluster_%s" (subgraphName ocnum)] else []) ++
+                    label ++ constraint
 #ifdef ShallowDelay
-            constraint | isDelay _c = ["constraint=false"]
+            constraint | isDelay _c = ["constraint=false" ]
                        | otherwise  = []
 #else
             constraint = []
@@ -1894,14 +1807,21 @@ recordDots depths = nodes ++ edges
 #ifdef NoBusLabel
             label = []
 #else
+            -- Show the type per edge. I think I'd rather show in the output
+            -- ports, but I don't know how to use a small font for those port
+            -- labels but not for the operation label.
             -- label | t == Bool = []
-            label = [printf "label=\"%s\",fontsize=8,fontcolor=indigo"
-                            (show (busTy b))]
+            label = [printf "label=\"%s\"" (show t)]
 #endif
    port :: Dir -> (CompId,PortNum) -> String
    port dir (cnum,np) =
      printf "%s:%s" (compLab cnum) (portLab dir np)
    compLab nc = 'c' : show nc
+
+-- sourceMap :: [Comp] -> SourceMap
+-- sourceMap = foldMap $ \ (Comp nc _ _ b) ->
+--               M.fromList [ (o,(busTy o,nc,np))
+--                          | (np,o) <- tagged (flatB b) ]
 
 segmentedDotString :: Unop String
 segmentedDotString = intercalate "\"+\"" . divvy
@@ -1914,635 +1834,7 @@ segmentedDotString = intercalate "\"+\"" . divvy
 -- showBool False = "F"
 -- showBool True  = "T"
 
-
-sourceMap :: [(CompS,Depth)] -> SourceMap
-sourceMap = foldMap $ \ (comp,depth) ->
-              M.fromList [ (b,(busTy b,compId comp,np,depth))
-                         | (np,b) <- tagged (compOuts comp) ]
-
--- TODO: remove t from the SourceMap, since it's now in the key
-
-{-
-
--- Stateful addition via StateFun
-
-outSG :: (IsSourceP s, IsSourceP2 a b, StateCatWith sk (:>) s) =>
-         String -> (a `sk` b) -> IO ()
-outSG name = outG name . runState
-
-type (:->) = StateFun (:>) Bool
-
--}
-
-{-
-
--- TODO: Revisit this whole line of thinking now that I have a ClosedCat instance for (:>)
-
-{--------------------------------------------------------------------
-    Temporary hack for StateExp
---------------------------------------------------------------------}
-
--- For ClosedCat, we'll use tries.
-
--- instance ClosedCat (:>) where
---   type Exp (:>) u v = u :->: v
---   type ClosedKon (:>) u = HasTrie u
---   apply = muxC
---   curry = undefined
---   uncurry = undefined
-
---     Could not deduce (IsSource (Buses b),
---                       IsSource (Buses a),
---                       IsSource (Buses (Trie a b)))
---       arising from a use of `muxC'
-
-{-
-newtype a :> b = Circ (Kleisli CircuitM (Buses a) (Buses b))
-
-apply   :: ((a :->: b) :* a) :> b
-curry   :: ((a :* b) :> c) -> (a :> (b :->: c))
-uncurry :: (a :> (b :->: c)) -> (a :* b) :> c
--}
-
---   apply   :: ClosedKon k a => (Exp k a b :* a) `k` b
---   curry   :: ClosedKon k b => ((a :* b) `k` c) -> (a `k` Exp k b c)
---   uncurry :: ClosedKon k b => (a `k` Exp k b c) -> (a :* b) `k` c
-
-applyC :: ( HasTrie a, IsSource2 a b, IsSource (a :->: b) ) =>
-          ((a :->: b) :* a) :> b
-applyC = muxC
-
-curryC :: ( HasTrie b, Show (b :->: b), CTraversableWith (Trie b) (:>)
-          , IsSource (b :->: b)
-          -- , StrongCat (:>) (Trie b), StrongKon (:>) (Trie b) a b
-          , b ~ bool
-          ) => 
-          ((a :* b) :> c) -> (a :> (b :->: c))
-curryC = traverseCurry idTrie
-
--- TODO: Give StrongCat instance and drop constraint the Strong or bool
--- constraint above.
-
--- uncurryC :: (a :> (b :->: c)) -> (a :* b) :> c
-
-uncurryC :: (HasTrie b, IsSource2 b c, IsSource (b :->: c)) =>
-            (a :> (b :->: c)) -> ((a :* b) :> c)
-uncurryC h = applyC . first h
-
-{-
-
-h :: a :> (b :->: c)
-first h :: (a :* b) :> ((b :->: c) :* b)
-apply . first h :: (a :* b) :> c
-
--}
-
--- instance ClosedCatU k s => StateCat (StateExp k s) where
---   type StateKon  (StateExp k s) = ClosedKon k s
---   type StateBase (StateExp k s) = k
---   type StateT    (StateExp k s) = s
---   state    f  = StateExp (curry (f . swapP))
---   runState st = uncurry (unStateExp st) . swapP
-
-
-infixr 1 :+>
--- Temporary specialization of StateExp to (:>) and bool
-newtype (a :+> b) =
-  BStateExp { unBStateExp :: a :> (bool :->: (b :* bool)) }
-
-pureBState :: (a :> b) -> a :+> b
-pureBState f = bstate (swapP . second f)
-
-inBState :: (s ~ t, s ~ bool, IsSource b) =>
-            (((s :* a) :> (b :* s)) -> ((t :* c) :> (d :* t)))
-         -> (a :+> b                -> c :+> d)
-inBState = bstate <~ runBState
-
-inBState2 :: (s ~ t, u ~ s, s ~ bool, IsSource b, IsSource d) =>
-             (((s :* a) :> (b :* s)) -> ((t :* c) :> (d :* t)) -> ((u :* e) :> (f :* u)))
-         -> (a :+> b                -> c :+> d                -> e :+> f)
-inBState2 = inBState <~ runBState
-
-
--- Oh. I don't think I can define a Category instance, because of the IsSource
--- constraints.
-
-
--- Temporary specialization of state and runState
-
-bstate :: (s ~ bool) =>
-          (s :* a) :> (b :* s) -> a :+> b
-bstate f  = BStateExp (curryC (f . swapP))
-
-runBState :: (s ~ bool, IsSource b) =>
-             a :+> b -> (s :* a) :> (b :* s)
-runBState st = uncurryC (unBStateExp st) . swapP
-
--- | Full adder with 'StateCat' interface
-fullAddBS :: Pair bool :+> bool
-fullAddBS = bstate fullAdd
-
--- | Structure adder with 'StateCat' interface
-addBS :: CTraversableWith t (:+>) =>
-         t (Pair bool) :+> t bool
-addBS = traverseC fullAddBS
-
-outBSG :: IsSource2 a b =>
-          String -> (a :+> b) -> IO ()
-outBSG name = outG name . runBState
-
-type AddBS f = f (Pair bool) :+> f bool
-
-type AddVBS n = AddBS (Vec  n)
-type AddTBS n = AddBS (Tree n)
-
-addVBS1 :: AddVBS N1
-addVBS1 = addBS
-
--- addVBS2 :: AddVBS N2
--- addVBS2 = addBS
-
-addTBS1 :: AddTBS N1
-addTBS1 = addBS
-
--}
-
-{--------------------------------------------------------------------
-    Another pass at ClosedCat
---------------------------------------------------------------------}
-
-{-
-type family Unpins a
-
-type instance Unpins PinId = Bool
-
--- Everything else distributes:
-type instance Unpins ()         = ()
-type instance Unpins ( a :* b ) = Unpins a :* Unpins b
-type instance Unpins (Pair a  ) = Pair (Unpins a)
-type instance Unpins (Vec n a ) = Vec  n (Unpins a)
-type instance Unpins (Tree n a) = Tree n (Unpins a)
-
-distribMF :: Monad m => m (p -> q) -> (p -> m q)
-distribMF u p = liftM ($ p) u
-
--- instance ClosedCat (:>) where
---   type ClosedKon (:>) u =
---     (IsSource u, HasTrie (Unpins u), Traversable (Trie (Unpins u)))
---   type Exp (:>) u v = Unpins u :->: v
---   apply = muxC
-
---     Could not deduce (IsSource b, IsSource (Trie (Unpins a) b))
---       arising from a use of `muxC'
-
-
-
---   curry   = inNew $ \ f -> sequence . trie . curry f
---   uncurry = inNew $ \ h -> uncurry (distribMF . liftM untrie . h)
-
---   apply   :: ClosedKon k a => (Exp k a b :* a) `k` b
---   curry   :: ClosedKon k b => ((a :* b) `k` c) -> (a `k` Exp k b c)
---   uncurry :: ClosedKon k b => (a `k` Exp k b c) -> (a :* b) `k` c
-
-  apply   :: ClosedKon (:>) a => ((Unpins a :->: b) :* a) :> b
-  curry   :: ClosedKon (:>) b => ((a :* b) :> c) -> (a :> (Unpins b :->: c))
-  uncurry :: ClosedKon (:>) b => (a :> (Unpins b :->: c)) -> ((a :* b) :> c)
-
-uncurry untrie :: ((k :->: v) :* k) -> v
-uncurry untrie :: ((Unpins a :->: b) :* Unpins a) -> b
-
--}
-
-#if defined NoSums
-
--- type BusSum a b = ()
-
-sumErr :: String -> a
-sumErr str = error (str ++ " for (:>): not defined. Sorry")
-
-instance CoproductCat (:>) where
-  -- type Coprod (:>) = Either
-  inl   = sumErr "inl"
-  inr   = sumErr "inr"
-  (|||) = sumErr "(|||)"
-
-instance DistribCat (:>) where
-  distl = sumErr "distl"
-  distr = sumErr "distr"
-
 #endif
-
-#if defined StaticSums
-
-type instance Buses (a :+ b) = Buses a :+ Buses b
-
-instance CoproductCat (:>) where
-  inl   = C inl
-  inr   = C inr
-  (|||) = inC2 (|||)
-
-instance DistribCat (:>) where
-  distl = C distl
-  distr = C distr
-
-{- Types:
-
-Abbreviations:
-
-> type KC = Kleisli CircuitM
-> type S = Source
-
-Consider `Source`- specialized versions of `KC`:
-
-> inl :: KC (S a) (S a :+ S b)
->     == KC (S a) (S (a :+ b))
->     == a :+> a :+ b
->
-> inr :: KC (S b) (S a :+ S b)
->     == KC (S b) (S (a :+ b))
->     == b :+> a :+ b
->
-> (|||) :: KC (S a) (S c) -> KC (S b) (S c) -> KC (S a :+ S b) (S c)
->       == KC (S a) (S c) -> KC (S b) (S c) -> KC (S (a :+ b)) (S c)
->       == a :+> c -> b :+> c -> (a :+ b) :+> c
->
-> distl :: KC (S a :* (S u :+ S v)) (S a :* S u :+ S a :* S v)
->       == KC (S (a :* (u :+ v))) (S (a :* u :+ a :* v))
->       == (a :* (u :+ v)) :+> (a :* u :+ a :* v)
->
-> distr :: KC ((S u :+ S v) :* S b) (S u :* S b :+ S v :* S b)
->       == KC (S ((u :+ v) :* b)) (S (u :* b :+ v :* b))
->       == ((u :+ v) :* b) :+> (u :* b :+ v :* b)
-
--}
-
-#elif defined TaggedSums
-
-{--------------------------------------------------------------------
-    Coproducts
---------------------------------------------------------------------}
-
--- Move elsewhere
-
-infixl 6 :++
-
-data a :++ b = UP { sumBuses :: Seq PinId, sumFlag :: PinId } deriving Show
-
-type instance Buses (a :+ b) = Buses a :++ Buses b
-
-instance IsSource2 a b => IsSource (a :++ b) where
-  toBuses (UP ps f) = ps <> singleton f
-  genSource =
-    liftM2 UP (Seq.replicateM (numBuses (undefined :: (a :++ b)) - 1) newPinId)
-              newPinId
-  numBuses _ =
-    (numBuses (undefined :: a) `max` numBuses (undefined :: b)) + 1
-
-unsafeInject :: forall q a b. (IsSourceP q, IsSourceP2 a b) =>
-                Bool -> q :> a :+ b
-unsafeInject flag = mkCK $ \ q ->
-  do x <- constM flag q
-     let nq  = numBuses (undefined :: Buses q)
-         na  = numBuses (undefined :: Buses a)
-         nb  = numBuses (undefined :: Buses b)
-         pad = Seq.replicate (max na nb - nq) x
-     return (UP (toBuses q <> pad) x)
-
-inlC :: IsSourceP2 a b => a :> a :+ b
-inlC = unsafeInject False
-
-inrC :: IsSourceP2 a b => b :> a :+ b
-inrC = unsafeInject True
-
-infixr 2 |||*
-
-{-
-(|||*) :: (IsSourceP2 a b, IsSourceP c) =>
-          (a :> c) -> (b :> c) -> (a :+ b :> c)
-f |||* g = muxC . ((f *** g) . extractBoth &&& pureC sumFlag)
-
-cond :: IsSource (Buses c) => ((c :* c) :* Bool) :> c
-cond = muxCT . first toPair
-
-muxCT :: (IsSourceP2 ((u :->: v) :* u) v, HasTrie u) =>
-         ((u :->: v) :* u) :> v
-muxCT = namedC "mux"
--}
-
-(|||*) :: (IsSourceP2 a b, IsSourceP c) =>
-          (a :> c) -> (b :> c) -> (a :+ b :> c)
-f |||* g = muxC . (pureC sumFlag &&& (f *** g) . extractBoth)
-
--- TODO: Reduce muxC to several one-bit muxes.
-
--- unsafeExtract :: IsSource (Buses c) => a :+ b :> c
--- unsafeExtract = pureC (pinsSource . sumBuses)
-
-extractBoth :: IsSourceP2 a b => a :+ b :> a :* b
-extractBoth = pureC ((pinsSource &&& pinsSource) . sumBuses)
-
-pinsSource :: IsSource a => Seq PinId -> a
-pinsSource pins = M.evalState genSource (toList pins)
-
-pureC :: (Buses a -> Buses b) -> (a :> b)
-pureC = C . arr
-
--- TODO: Generalize CoproductCat to accept constraints like IsSourceP, and then
--- move inlC, inrC, (|||*) into a CoproductCat instance. Tricky.
-
-#elif defined ChurchSums
-
-{--------------------------------------------------------------------
-    Yet another sum experiment: Church encoding
---------------------------------------------------------------------}
-
-type instance Buses (a :+ b) = PSum a b
-
-newtype PSum a b =
-  PSum { unPSum :: forall c. CondCat (:>) c => (a :=> c) :* (b :=> c) :> c }
-
-psc :: (forall c. CondCat (:>) c => (a :> c) :* (b :> c) -> CircuitM (Buses c)) -> PSum a b
-psc q = PSum (mkCK q)
-
-unPsc :: PSum a b -> (forall c. CondCat (:>) c => (a :> c) :* (b :> c) -> CircuitM (Buses c))
-unPsc ps = unmkCK (unPSum ps)
-
-inlC :: a :> a :+ b
-inlC = mkCK (\ a -> return (psc (\ (f,_) -> unmkCK f a)))
-
-inrC :: b :> a :+ b
-inrC = mkCK (\ b -> return (psc (\ (_,g) -> unmkCK g b)))
-
-infixr 2 |||*
-
-(|||*) :: forall a b c. CondCat (:>) c =>
-          (a :> c) -> (b :> c) -> (a :+ b :> c)
-f |||* g = mkCK (\ q -> unPsc q (f,g))
-
-distlC :: forall u a b. (u :* (a :+ b)) :> (u :* a :+ u :* b)
-distlC = mkCK (\ (u,q) -> return (psc (\ (f,g) -> unPsc q (injl u f, injl u g))))
-
-{-
-u :: Buses u
-q :: Buses (a :+ b)
-  == PSum a b
-unPSum q :: forall c. CondCat (:>) c => (a :> c) :* (b :> c) -> CircuitM (Buses c)
-
-f :: u :* a :> c
-g :: u :* b :> c
-
-injl u f :: a :> c
-injl u g :: b :> c
-
-unPSum q (injl u f) (injl v f) :: CircuitM (Buses c)
-
--}
-
-distrC :: forall v a b. ((a :+ b) :* v) :> (a :* v :+ b :* v)
-distrC = mkCK (\ (q,v) -> return (psc (\ (f,g) -> unPsc q (injr v f, injr v g))))
-
-injl :: Buses u -> (u :* a :> c) -> (a :> c)
-injl u = inCK (. (u,))
-
-injr :: Buses v -> (a :* v :> c) -> (a :> c)
-injr v = inCK (. (,v))
-
--- (. (u,)) :: (Buses (u :* a) -> CircuitM (Buses c)) -> (Buses a -> CircuitM (Buses c))
--- inCK (. (u,)) :: (u :* a : c) -> (a :> c)
-
-#if 0
-instance                        CondCat (:>) ()      where cond = it
-instance                        CondCat (:>) Bool      where cond = mux
-instance (CondCat2 (:>) a b) => CondCat (:>) (a :*  b) where cond = prodCond
-instance (CondCat (:>) b)    => CondCat (:>) (a :=> b) where cond = funCond
-instance CondCat (:>) (a :+ b)                         where cond = sumCond
-#endif
-
-sumToFun' :: (t :> a :+ b)
-          -> forall c. CondCat (:>) c => t :> ((a :=> c) :* (b :=> c) :=> c)
-sumToFun' = (inCK.fmap.fmap) unPSum
-
-sumToFun :: forall a b c. CondCat (:>) c => (a :+ b :> ((a :=> c) :* (b :=> c) :=> c))
-sumToFun = sumToFun' id
-
--- sumToFun = (inCK.fmap.fmap) unPSum (id :: a :+ b :> a :+ b)
-
-funToSum' :: forall t a b.
-             (forall c. CondCat (:>) c => t :> ((a :=> c) :* (b :=> c) :=> c))
-          -> (t :> a :+ b)
-funToSum' q = mkCK (return . foo)
- where
-   foo :: Buses t -> Buses (a :+ b)
-   foo t = PSum (mkCK r)
-    where
-      r :: forall c. CondCat (:>) c => (a :> c) :* (b :> c) -> CircuitM (Buses c)
-      r fg = do h <- unmkCK q t
-                unmkCK h fg
-
-#if 0
-
-q :: forall c. CondCat (:>) c => t :> ((a :=> c) :* (b :=> c) :=> c)
-
-unmkCK q :: forall c. CondCat (:>) c => Buses t -> CircuitM (Buses ((a :=> c) :* (b :=> c) :=> c))
-         :: forall c. CondCat (:>) c => Buses t -> CircuitM ((a :=> c) :* (b :=> c) :> c)
-
-fg :: (a :> c) :* (b :> c)
-
-unmkCK q t :: forall c. CondCat (:>) c => CircuitM ((a :=> c) :* (b :=> c) :> c)
-h :: (a :=> c) :* (b :=> c) :> c
-unmkCK h :: (a :> b) :* (b :> c) -> CircuitM (Buses c)
-unmkCK h fg :: CircuitM (Buses c)
-
-#endif
-
-type CondArr a = Bool :* (a :* a) :> a
-type CondFun a = forall t. (t :> Bool) -> Binop (t :> a)
-
-condArrToFun :: CondArr a -> CondFun a
-condArrToFun condArr p q r = condArr . (p &&& (q &&& r))
-
-condFunToArr :: CondFun a -> CondArr a
-condFunToArr condFun = condFun exl (exl . exr) (exr . exr)
-
-cond' :: CondCat (:>) a => CondFun a
-cond' = condArrToFun cond
--- cond' p q r = cond . (p &&& (q &&& r))
-
--- cond'' :: CondCat a => CondArr a
--- cond'' = condFunToArr cond'
--- -- cond'' = cond' exl (exl . exr) (exr . exr)
-
-sumCond' :: (t :> Bool) -> Binop (t :> a :+ b)
-sumCond' p q r = funToSum' (cond' p (sumToFun' q) (sumToFun' r))
--- sumCond' p q r = funToSum' (condArrToFun cond p (sumToFun' q) (sumToFun' r))
--- sumCond' p q r = funToSum' (cond . (p &&& (sumToFun' q &&& sumToFun' r)))
-
-sumCond :: Bool :* ((a :+ b) :* (a :+ b)) :> a :+ b
-sumCond = condFunToArr sumCond'
--- sumCond = sumCond' exl (exl . exr) (exr . exr)
--- sumCond = funToSum' (cond . (exl &&& (sumToFun' (exl . exr) &&& sumToFun' (exr . exr))))
-
--- The CondCat (:>) constraint in cond as used in 'fromBool' is what leads to CondCat in
--- PSum and hence breaks (|||). I'm looking for an alternative.
-
-fromBool :: Bool :> () :+ ()
-fromBool = cond . (id &&& (inl &&& inr) . it)
-
-toBool :: () :+ () :> Bool
-toBool = constC False |||* constC True
-
-instance CoproductCat (:>) where
-  inl   = inlC
-  inr   = inrC
-  (|||) = error "(|||) for (:>): Sorry -- no unconstrained method yet. Use (|||*)"
-
-instance DistribCat (:>) where
-  distl = distlC
-  distr = distrC
-
-#endif
-
-#if 0
-
-instance DelayCat (:>) where
-  type DelayKon (:>) s = GenBuses s
-  delayC = delay
-
-{--------------------------------------------------------------------
-    Mealy machines
---------------------------------------------------------------------}
-
-data MealyC a b = forall s. GenBuses s => MealyC (a :* s :> b :* s) s
-
-#if 0
-
-loop :: (a :* c :> b :* c) -> (a :> b)
-loop (C f) = C (loop (arr unPairB . f . arr (uncurry PairB)))
-
-#ifdef TypeDerivation
-f :: KC (Buses (a :* c)) (Buses (b :* c))
-arr (uncurry PairB) :: KC (Buses a :* Buses c) (Buses (a :* c))
-arr unPairB :: KC (Buses (b :* c)) (Buses b :* Buses c)
-arr unPairB . f . arr (uncurry PairB)
- :: KC (Buses a :* Buses c) (Buses b :* Buses c)
-#endif
-
--- I'm getting a <<loop>> (black hole).
--- Try some experiments
-
-#else
-
-instance LoopCat (:>) where
-  type LoopKon (:>) s = GenBuses s
-  loopC h = mkCK f
-   where
-     f a = do PinId n  <- newPinId         -- really newPatchId
-              sIn      <- genRip "In" n UnitB
-              (b,sOut) <- unPairB <$> unmkCK h (PairB a sIn)
-              ()       <- unUnitB <$> genRip "Out" n sOut
-              return b
-
--- TODO: Replace "rip" with a word that suggests needing to be riped later.
-
-ripPrefix :: String -> String
-ripPrefix pre = pre++"Rip "
-
-genRip :: GenBuses v => String -> Int -> BCirc u v
-genRip pre n = genComp (Prim (ripName pre n))
-
-ripName :: String -> Int -> String
-ripName pre n = ripPrefix pre ++ show n
-mendG :: Unop DGraph
-#if defined NoMend
-mendG = id
-#else
-mendG = fixRips . extractRips
-
-unRipName :: String -> String -> Maybe Int
-unRipName pre (stripPrefix (ripPrefix pre) -> Just (Read n)) = Just n
-unRipName _ _ = Nothing
-
-pattern InRip :: Int -> String
-pattern InRip  n <- (unRipName "In"  -> Just n)
-
-pattern OutRip :: Int -> String
-pattern OutRip n <- (unRipName "Out" -> Just n)
-
-type Unripped = (DGraph, (Map Int [Output], Map Int [Input]))
-
-extractRips :: DGraph -> Unripped
-extractRips = foldr extract mempty
- where
-   extract :: CompS -> Unop Unripped
-   extract (CompS _ (InRip  r) [] os _) = (second.first ) (M.insert r os)
-   extract (CompS _ (OutRip r) is [] _) = (second.second) (M.insert r is)
-   extract c                            = first (c :)
-
--- data CompS = CompS CompId PrimName [Input] [Output] Reuses
-
-#endif
-
-patchMap :: (Map Int [Output], Map Int [Input]) -> Map Output Input
-patchMap oi =
-  M.unions ((M.fromList . uncurry zip) <$> M.elems (uncurry mapZip oi))
-
-fixRips :: Unripped -> DGraph
-fixRips (g, patchMap -> pm) = map patchC g
- where
-   patchC :: Unop CompS
-   patchC = (onInputs.fmap) patchIn
-   patchIn :: Unop Bus
-   patchIn b = fromMaybe b (M.lookup b pm)
-
-onInputs :: Unop [Input] -> Unop CompS
-onInputs f (CompS n p i o m) = CompS n p (f i) o m
-
-mapZip :: Ord k => Map k a -> Map k b -> Map k (a,b)
-mapZip as bs = M.mapWithKey (\ k a -> (a,bs M.! k)) as
-
--- TODO: Consider more efficient mapZip alternatives. On the other hand, I
--- expect the maps to be very small, usually having only zero or one element.
-
-#endif
-
-mealyAsArrow :: MealyC a b -> (a :> b)
-mealyAsArrow (MealyC f s0) = loopC (f . second (delay s0))
-
-unitizeMealyC :: GenBuses a => MealyC a b -> UU
-
-#ifdef MealyToArrow
-unitizeMealyC = unitize . mealyAsArrow
-#else
-unitizeMealyC = unitizeLoopC . preLoopC
-
--- Ready for loop.
-data LoopC a b = forall s. GenBuses s => LoopC (a :* s :> b :* s)
-
--- Like mealyAsArrow but without the loop.
-preLoopC :: GenBuses a => MealyC a b -> LoopC a b
-preLoopC (MealyC f s0) = LoopC (f . second (delay s0))
-
-unitizeLoopC :: GenBuses a => LoopC a b -> UU
-unitizeLoopC (LoopC f) = undup . f' . dup
- where
-   f' = (namedC "Out" *** namedC "NewState")
-      . f
-      . (namedC "In"  *** namedC "OldState")
-   undup :: () :* () :> ()
-   undup = it
-
-#endif
-
-#else
-mendG :: Unop DGraph
-mendG = id
-#endif
-
-outerPrims :: [PrimName]
-outerPrims = ["In","Out", "OldState","NewState"]
-
-isOuterPrim :: PrimName -> Bool
-isOuterPrim = flip S.member (S.fromList outerPrims)
 
 {--------------------------------------------------------------------
     Type-specific support
@@ -2551,7 +1843,7 @@ isOuterPrim = flip S.member (S.fromList outerPrims)
 -- GenBuses needed for data types appearing the external interfaces (and hence
 -- not removed during compilation).
 
-genBusesRep' :: (TypeableAR a, GenBuses (Rep a)) =>
+genBusesRep' :: (OkCAR a, GenBuses (Rep a)) =>
                 String -> Sources -> BusesM (Buses a)
 genBusesRep' prim ins = abstB <$> genBuses' prim ins
 
@@ -2561,8 +1853,12 @@ genBusesRep' prim ins = abstB <$> genBuses' prim ins
 tyRep :: forall a. GenBuses (Rep a) => Ty
 tyRep = ty @(Rep a)
 
-delayCRep :: (HasRep a, TypeableAR a, GenBuses (Rep a)) => a -> (a :> a)
+delayCRep :: (HasRep a, OkCAR a, GenBuses a, GenBuses (Rep a)) => a -> (a :> a)
 delayCRep a0 = abstC . delay (repr a0) . reprC
+
+
+-- Omit temporarily for faster compilation
+#if 0
 
 #include "AbsTy.inc"
 
@@ -2615,3 +1911,5 @@ AbsTy(M.StateT s m a)
 -- the GHCi problem with this module.
 AbsTy(LR.L s a b)
 AbsTy(LC.L s a b)
+
+#endif
