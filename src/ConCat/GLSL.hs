@@ -65,6 +65,7 @@ fromComps name comps
   = funDef Bool name (paramDecl <$> inputs)
            (map (uncurry initBus) assignments
             ++ [Return (Just (bindings M.! res))])
+fromComps name comps = error ("ConCat.GLSL.fromComps: unexpected subgraph comp " ++ show (name,comps))
 
 -- Count uses of each output
 uses :: [Comp] -> M.Map Bus Int
@@ -73,6 +74,7 @@ uses = M.unionsWith (+) . map uses1
 -- Uses map for a single component
 uses1 :: Comp -> M.Map Bus Int
 uses1 (CompS _ _ ins _) = M.unionsWith (+) (flip M.singleton 1 <$> ins)
+uses1 comp = error ("ConCat.GLSL.uses1: unexpected subgraph comp " ++ show comp)
 
 nestExpressions :: Bool
 nestExpressions = True -- False
@@ -103,6 +105,7 @@ compExpr saved (CompS _ prim ins _) = app prim (inExpr <$> ins)
    inExpr :: Bus -> Expr
    inExpr b | Just e <- M.lookup b saved = e
             | otherwise = bToE b
+compExpr _ comp = error ("ConCat.GLSL.compExpr: unexpected subgraph comp " ++ show comp)
 
 busType :: Bus -> TypeSpecifierNonArray
 busType = glslTy . busTy
