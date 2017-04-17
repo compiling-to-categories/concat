@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 
-#define NoOptimizeCircuit
+-- #define NoOptimizeCircuit
 
 -- #define NoHashCons
 
@@ -108,7 +108,7 @@ import Control.Arrow (arr,Kleisli(..))
 import Data.Foldable ({-foldMap,-}toList)
 import qualified GHC.Generics as G
 import Data.Function (on)
-import Data.Maybe (fromMaybe,isJust)
+import Data.Maybe (fromMaybe,isJust,maybeToList)
 import Data.List (intercalate,group,sort,stripPrefix)
 import Data.Char (isAscii)
 #ifndef MealyToArrow
@@ -224,7 +224,7 @@ data Buses :: * -> * where
   UnitB    :: Buses ()
   PrimB    :: Source -> Buses b
   PairB    :: Ok2 (:>) a b => Buses a -> Buses b -> Buses (a :* b)
-  FunB     :: SubgraphId -> Buses (a -> b)
+  -- FunB     :: SubgraphId -> Buses (a -> b)
   ConvertB :: Ok2 (:>) a b => Buses a -> Buses b
   -- AbstB :: Buses (Rep b) -> Buses b
 
@@ -237,7 +237,7 @@ instance Eq (Buses a) where
   UnitB      == UnitB       = True
   PrimB s    == PrimB s'    = s == s'
   PairB a b  == PairB a' b' = a == a' && b == b'
-  FunB _     == FunB _      = False             -- TODO: reconsider
+  -- FunB _     == FunB _      = False             -- TODO: reconsider
   ConvertB a == ConvertB b  = case cast a of
                                 Just a' -> a' == b
                                 Nothing -> False
@@ -295,6 +295,8 @@ unDelayName = stripPrefix delayPrefix
 genPrimBus :: forall a. GenBuses a => PrimName -> Sources -> BusesM (Buses a)
 genPrimBus = genBus PrimB (ty @a)
 
+-- TODO: Combine genBus and genPrimBus.
+
 instance GenBuses Bool where
   genBuses' = genPrimBus
   delay = primDelay
@@ -331,9 +333,10 @@ instance (GenBuses a, GenBuses b) => GenBuses (a :* b) where
   ty = Pair (ty @a) (ty @b)
 
 instance (GenBuses a, GenBuses b) => GenBuses (a -> b) where
-  genBuses' _prim _ins = M.lift $ do subgraphId <- M.gets fst
-                                     M.modify (first succ)
-                                     return (FunB subgraphId)
+  genBuses' = genPrimBus
+--   genBuses' _prim _ins = M.lift $ do subgraphId <- M.gets fst
+--                                      M.modify (first succ)
+--                                      return (FunB subgraphId)
   delay = error "delay for functions: not yet implemented"
   ty = ty @a `Fun` ty @b
 
@@ -345,11 +348,11 @@ flattenB = toList . flat
    flat (PrimB s)    = singleton s
    flat (PairB a b)  = flat a <> flat b
    flat (ConvertB b) = flat b
-   flat (FunB gid)   = singleton (funSource gid (ty @a))
+   -- flat (FunB gid)   = singleton (funSource gid (ty @a))
    -- flat (AbstB b) = flat b
 
-funSource :: SubgraphId -> Ty -> Source
-funSource gid t = Source (Bus gid 0 t) (subgraphName gid) []
+-- funSource :: SubgraphId -> Ty -> Source
+-- funSource gid t = Source (Bus gid 0 t) (subgraphName gid) []
 
 -- TODO: Eliminate the flattening failure mode. In progress
 
@@ -483,6 +486,11 @@ data Graph = Graph [Comp] Subgraphs deriving Show
 -- The circuit monad.
 type CircuitM = State (IdSupply,(CompInfo,Subgraphs))
 
+genId :: CircuitM Id
+genId = do n <- M.gets fst
+           M.modify (first succ)
+           return n
+
 type BCirc a b = Buses a -> CircuitM (Buses b)
 
 -- Instantiate a 'Prim'
@@ -495,6 +503,7 @@ genComp prim a =
          return (unsafeCoerce b')
        Nothing               ->
          do b <- genBuses prim ins
+            -- TODO: use genId here
             c <- M.gets fst
             let comp = Comp c prim a b
             M.modify (succ *** first (M.insert key comp))
@@ -724,19 +733,28 @@ instance ProductCat (:>) where
 instance (Ok (:>) a, IfCat (:>) b) => IfCat (:>) (a -> b) where
   ifC = funIf
 
-unFunB :: Ok2 (:>) a b => Buses (a -> b) -> SubgraphId
-unFunB (FunB gid)           = gid
--- unFunB (ConvertB (FunB cd)) = ...
-unFunB bs                   = badBuses "unFunB" bs
+-- unFunB :: Ok2 (:>) a b => Buses (a -> b) -> SubgraphId
+-- unFunB (FunB gid)           = gid
+-- -- unFunB (ConvertB (FunB cd)) = ...
+-- unFunB bs                   = badBuses "unFunB" bs
+
+subgraphNamePrefix :: String
+subgraphNamePrefix = "f"
 
 subgraphName :: SubgraphId -> PrimName
-subgraphName n = "f_" ++ show n
+subgraphName n = subgraphNamePrefix ++ show n
 
 subgraphPrim :: SubgraphId -> Prim a b
-subgraphPrim = Prim . subgraphName
+subgraphPrim = Prim . ("curry " ++) . subgraphName
+-- subgraphPrim = Prim . subgraphName
 
-applyB :: Ok2 (:>) a b => BCirc ((a -> b) :* a) b
-applyB (unPairB -> (unFunB -> gid, a)) = genComp (subgraphPrim gid) a
+unSubgraphPrim :: Prim a b -> Maybe SubgraphId
+unSubgraphPrim (Prim p) =
+  read <$> stripPrefix ("curry " ++ subgraphNamePrefix) p
+
+-- applyB :: Ok2 (:>) a b => BCirc ((a -> b) :* a) b
+-- applyB (unPairB -> (unFunB -> gid, a)) = genComp (subgraphPrim gid) a
+
 
 instance OpCon (->) (Sat GenBuses) where inOp = Entail (Sub Dict)
 
@@ -747,20 +765,19 @@ addSubgraph gid bcirc =
      -- M.modify (const supply' *** second _)
      M.modify (const supply' *** second (M.insert gid graphInfo))
 
-
-genSubGraph :: Ok2 (:>) u v => BCirc u v -> CircuitM (Buses (u -> v))
-genSubGraph uv =
-  do o@(unFunB -> prim) <- genBuses (err "prim") (err "sources")
-     addSubgraph prim uv
-     return o
- where
-   err str = error ("curry on (:>): evaluated " ++ str)  -- Hm. Awkward.
+curryB :: Ok3 (:>) a b c => BCirc (a :* b) c -> BCirc a (b -> c)
+curryB f a = do gid <- genId
+                addSubgraph gid f
+                genComp (subgraphPrim gid) a
 
 instance ClosedCat (:>) where
   -- type Exp (:>) = (->)
   -- apply = mkCK applyB
   apply = namedC "apply"
-  curry f = mkCK $ \ a -> genSubGraph (\ b -> unmkCK f (PairB a b))
+  curry = mkCK . curryB . unmkCK
+  -- curry f = mkCK $ \ a -> genSubGraph (\ b -> unmkCK f (PairB a b))
+
+-- TODO: use Newtype and inNew.
 
 -- genBuses :: GenBuses b => Prim a b -> Sources -> CircuitM (Buses b)
 
@@ -1425,7 +1442,7 @@ uuGraph' :: UU -> IdSupply -> (Graph,IdSupply)
 uuGraph' = runU'  -- for now
 
 mkGraph :: Ok2 (:>) a b => (a :> b) -> Graph
-mkGraph g = {- trimGraph -} (fst (mkGraph' g 0))
+mkGraph g = trimGraph (fst (mkGraph' g 0))
 
 mkGraph' :: Ok2 (:>) a b => (a :> b) -> IdSupply -> (Graph,IdSupply)
 mkGraph' g n = uuGraph' (unitize g) n
@@ -1614,6 +1631,10 @@ isDelay = isJust . unDelayName . compName
 -- components. If the value is a subgraph, the single predecessor is the output
 -- for that subgraph.
 
+-- I'm trying a different style, with named subgraphs and curry primitives. In
+-- this style, a live primitive component named "curry f<n>" depends on subgraph
+-- n.
+
 trimGraph :: Unop Graph
 -- trimGraph g | trace (printf "trimGraph %s" (show g)) False = undefined
 trimGraph g = go g
@@ -1641,8 +1662,14 @@ compUses g = -- trace (printf "compUses: gmap == %s" (show gmap))
              (M.!) (preds <$> gmap)
   where
     gmap = graphMap g
-    preds (Left (Comp _ _ (flatB -> ins) _)) = [c | Bus c _ _ <- ins]
+    -- preds (Left (Comp _ _ (flatB -> ins) _)) = [c | Bus c _ _ <- ins]
+    preds (Left (Comp _ p (flatB -> ins) _)) =
+      maybeToList (unSubgraphPrim p) ++
+      [c | Bus c _ _ <- ins]
     preds (Right subgraph) = [outId subgraph]
+
+-- TODO: If I decide to stick with named subgraphs and curry primitives, then
+-- simplify graphMap, compUses, and the subgraph link logic in recordDots.
 
 graphMap :: Graph -> Map Id (Either Comp Graph)
 graphMap (Graph comps subgraphs) =
@@ -1685,9 +1712,9 @@ subgraphDot (gid, Graph comps subgraphs) =
   ++ ["}"]
  where
    name = subgraphName gid
-   prelude = [ "margin=5"
-             -- , "label="++name
-             , "color=DarkGreen"
+   prelude = [ "margin=8" , "fontsize=20", "labeljust=r", "color=DarkGreen"
+             -- , "label=\"uncurry "++name++"\""
+             , "label="++name
              ]
 
 -- TODO: refactor graphDot & subgraphDot
@@ -1755,7 +1782,7 @@ recordDots comps (fmap outId -> subOuts) = nodes ++ edges
       node :: Comp -> String
       node (Comp nc (primName -> prettyName -> prim)
                  (flatB -> ins) (flatB -> outs)) =
-        printf "%ssubgraph cluster%d { color=white ; %s [label=\"{%s%s%s}\"%s] }" prefix nc (compLab nc) 
+        printf "%ssubgraph cluster%d { label=\"\"; color=white ; %s [label=\"{%s%s%s}\"%s] }" prefix nc (compLab nc) 
           (ports "" (labs In ins) "|")
           (escape prim)
           (ports "|" (labs Out outs) "")
