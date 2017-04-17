@@ -1476,23 +1476,24 @@ type Arr = Array Int
 
 class ArrayCat k a where
   -- mkArr :: Int -> (Exp k Int a `k` Arr a)  -- Maybe size as (static) argument.
-  -- mkArr :: (Int :* Exp k Int a) `k` Arr a
-  mkArr :: (Int `k` a) -> (Int `k` Arr a)
+  mkArr :: (Int :* Exp k Int a) `k` Arr a
+  -- mkArr :: (Int `k` a) -> (Int `k` Arr a)
   arrAt :: (Arr a :* Int) `k` a
 
 instance ArrayCat (->) a where
-  -- mkArr (n,f) = array (0,n-1) [(i,f i) | i <- [0 .. n-1]]
-  mkArr f n = array (0,n-1) [(i,f i) | i <- [0 .. n-1]]
+  mkArr (n,f) = array (0,n-1) [(i,f i) | i <- [0 .. n-1]]
+  -- mkArr f n = array (0,n-1) [(i,f i) | i <- [0 .. n-1]]
   arrAt = uncurry (!)
 
 instance ArrayCat U2 a where
-  mkArr _ = U2
+  mkArr = U2
+  -- mkArr _ = U2
   arrAt = U2
 
 instance (ArrayCat k a, ArrayCat k' a) => ArrayCat (k :**: k') a where
   -- mkArr n = mkArr n :**: mkArr n
-  -- mkArr = mkArr :**: mkArr
-  mkArr (f :**: f') = mkArr f :**: mkArr f'
+  mkArr = mkArr :**: mkArr
+  -- mkArr (f :**: f') = mkArr f :**: mkArr f'
   arrAt = arrAt :**: arrAt
   PINLINER(mkArr)
   PINLINER(arrAt)
