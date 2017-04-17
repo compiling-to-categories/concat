@@ -314,6 +314,10 @@ AbstIf((a,b,c))
 
 #endif
 
+instance ArrayCat Syn a where
+  arrAt = app0 "arrAt"
+  mkArr = app0 "mkArr"
+
 instance UnknownCat Syn a b where
   unknownC = app0 "unknownC"
   INLINER(unknownC)
