@@ -1052,7 +1052,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
               = -- dtrace "addArg isTyCoArg" (ppr arg)
                 Just (e `App` arg)
               | isPred arg
-              = --- dtrace "addArg isPred" (ppr arg)
+              = -- dtrace "addArg isPred" (ppr arg)
                 -- onDictMaybe may fail (Nothing) in the target category.
                 onDictMaybe e  --  fails gracefully
               | otherwise
