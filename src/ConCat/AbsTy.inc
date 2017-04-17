@@ -3,15 +3,15 @@
 -- language pragmas section and AbsTyImports in your imports section.
 
 #define AbsTy(abs) \
-instance (TypeableAR (abs), GenBuses (Rep (abs))) => GenBuses (abs) where \
+instance (OkCAR (abs), GenBuses (Rep (abs))) => GenBuses (abs) where \
   { genBuses' = genBusesRep' ; delay = delayCRep ; ty = tyRep @(abs) }; \
-instance (TypeableAR (abs), BottomCat (:>) z (Rep (abs))) => BottomCat (:>) z (abs) where \
+instance ({-OkCAR (abs), -} GenBuses z, GenBuses (Rep (abs)), BottomCat (:>) z (Rep (abs))) => BottomCat (:>) z (abs) where \
   { bottomC = bottomRep }; \
-instance (TypeableAR (abs), IfCat (:>) (Rep (abs))) => IfCat (:>) (abs) where { ifC = repIf }; \
+instance (OkCAR (abs), IfCat (:>) (Rep (abs))) => IfCat (:>) (abs) where { ifC = repIf }; \
 instance Uncurriable k _a_ (abs) where uncurries f = f ; {-# INLINE uncurries #-}
 
 -- See 2016-01-13 notes on "bottom evaluated"
--- instance (TypeableAR (abs), ConstCat (:>) (Rep (abs))) => ConstCat (:>) (abs) where \
+-- instance (OkCAR (abs), ConstCat (:>) (Rep (abs))) => ConstCat (:>) (abs) where \
 --   { const = repConst } ; \
 
 #define AbsTyPragmas \
