@@ -76,7 +76,7 @@ import ConCat.Circuit (GenBuses,(:>),mkGraph)
 import ConCat.Image
 import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay)
--- import ConCat.GLSL (genGlsl,CAnim)
+import ConCat.GLSL (genGlsl,CAnim)
 import ConCat.AltCat ( ccc,reveal,Uncurriable(..),U2(..),(:**:)(..),Ok2
                      , reprC,abstC,mulC,amb,ambC,asKleisli,recipC, mkArr )
 import qualified ConCat.AltCat as A
@@ -112,12 +112,12 @@ main = sequence_
 
 --   , print (gather (ccc (\ (x,y) -> x + y - y :: Int)) (10,20))
 
---   , test "diag-plus-im" (\ t ((x,y) :: R2) -> x + sin t > y)
---   , test "disk-sizing" (disk . cos)
---   , test "disk-sizing-p" (disk' . cos)
---   , test "diag-disk-turning" (\ t -> udisk `intersectR` rotate t xPos)
---   , test "sqr-sqr-anim" (\ t ((x,y) :: R2) -> sqr (sqr x) > y + sin t)
---   , test "diag-disk-turning-sizing" (\ t -> disk (cos t) `intersectR` rotate t xPos)
+  , test "diag-plus-im" (\ t ((x,y) :: R2) -> x + sin t > y)
+  , test "disk-sizing" (disk . cos)
+  , test "disk-sizing-p" (disk' . cos)
+  , test "diag-disk-turning" (\ t -> udisk `intersectR` rotate t xPos)
+  , test "sqr-sqr-anim" (\ t ((x,y) :: R2) -> sqr (sqr x) > y + sin t)
+  , test "diag-disk-turning-sizing" (\ t -> disk (cos t) `intersectR` rotate t xPos)
 
  -- Test reuse
 
@@ -150,9 +150,9 @@ main = sequence_
 
 --   , test "add-iv" (unIF (ccc (uncurry ((+) @Int))))
 
-  , test "mul-iv" (unIF (ccc (uncurry ((*) @Int))))
+--   , test "mul-iv" (unIF (ccc (uncurry ((*) @Int))))
 
-  , test "thrice-iv" (unIF (ccc (\ x -> 3 * x :: Int)))
+--   , test "thrice-iv" (unIF (ccc (\ x -> 3 * x :: Int)))
 
 --   , test "sqr-iv" (unIF (ccc (sqr @Int)))
 
@@ -160,7 +160,7 @@ main = sequence_
 
 --   , test "poly1" (\ x -> 1 + 3 * x :: Double)
 
-  , test "poly2" (\ x -> 1 + 3 * x + 5 * x^2 :: Double)
+--   , test "poly2" (\ x -> 1 + 3 * x + 5 * x^2 :: Double)
 
 --   , test "poly1-iv" (ivFun (\ x -> 1 + 3 * x + 5 * x^2 :: Double))
 
@@ -373,8 +373,8 @@ runEC nm (syn :**: circ) = runSyn syn >> runCirc nm circ
 runCirc :: GO a b => String -> (a :> b) -> IO ()
 runCirc nm circ = RC.run nm [] circ
 
--- runCircGlsl :: String -> CAnim -> IO ()
--- runCircGlsl nm circ = runCirc nm circ >> genGlsl nm circ
+runCircGlsl :: String -> CAnim -> IO ()
+runCircGlsl nm circ = runCirc nm circ >> genGlsl nm circ
 
 test :: Con a b => String -> (a -> b) -> IO ()
 test nm _f = oops ("test called on " ++ nm)
@@ -416,9 +416,9 @@ type Con = Uncurriable (->)
 #elif 0
 type Con a b = OkAnim a b
 {-# RULES "GLSL" forall nm f. test nm f = genGlsl nm (ccc (uncurry f)) #-}
-#elif 0
+#elif 1
 type Con a b = OkAnim a b
-{-# RULES "Circuit and GLSL" forall nm f. test nm f = runCircGlsl nm (ccc (uncurry f)) #-}
+{-# RULES "Circuit and GLSL" forall nm f. test nm f = runCircGlsl nm (ccc f) #-}
 #elif 1
 type Con a b = GO a b
 {-# RULES "EC" forall nm f. test nm f = runEC nm (ccc f) #-}

@@ -29,21 +29,24 @@ import Language.GLSL.Pretty ()
 import Language.GLSL.Parser hiding (parse)
 
 import ConCat.Misc ((:*),R)
+import qualified ConCat.Category as C
 import ConCat.Circuit (Comp(..),Bus(..),busTy,(:>),mkGraph,pattern CompS)
 import qualified ConCat.Circuit as C
 
-type CAnim = R :* (R :* R) :> Bool
+type Image = R :* R -> Bool     -- TODO: color etc
+
+type CAnim = R :> Image
 
 showGraph :: Bool
 showGraph = False -- True
 
 genGlsl :: String -> CAnim -> IO ()
-genGlsl name circ =
+genGlsl name anim =
   do when showGraph $ putStrLn $ "genGlsl: Graph " ++ show comps
      createDirectoryIfMissing False outDir
      writeFile (outDir++"/"++name++".frag") (prettyShow fundef ++ "\n")
  where
-   comps = sort (mkGraph circ)
+   comps = sort (mkGraph (C.uncurry anim))
    fundef = fromComps (tweakName name) comps
    outDir = "out"
    tweakName = map tweakChar
