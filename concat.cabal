@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                concat
-version:             0.1.0.0
+version:             0.2.0.0
 cabal-version:       >=1.18
 synopsis:            Constrained categories
 description:         Experiments with constrained categories
@@ -65,6 +65,7 @@ library
                        ConCat.Syntactic
                        ConCat.Circuit
                        ConCat.RunCircuit
+                       ConCat.GLSL
                        ConCat.Rebox
                        ConCat.GAD
                        ConCat.AD
@@ -75,7 +76,6 @@ library
                        ConCat.Additive
                        ConCat.ADFun2
                        ConCat.Polynomial
-                       ConCat.GLSL
                        ConCat.Image
                        ConCat.Demand
 
