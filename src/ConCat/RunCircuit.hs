@@ -32,7 +32,7 @@ import Prelude
 
 import Control.Monad (when)
 
-import ConCat.AltCat (ccc,Uncurriable(..),Ok) -- unitArrow
+import ConCat.AltCat (ccc,Uncurriable(..),Ok,Ok2) -- unitArrow
 import ConCat.Circuit (Attr,mkGraph,writeDot,displayDot,(:>),GenBuses)
 
 -- import ConCat.Netlist (saveAsVerilog)
@@ -96,11 +96,11 @@ run name attrs circ = do -- when showPretty $ putStrLn (name ++ " = " ++ show e)
                          outGV name attrs circ
 {-# NOINLINE run #-}
 
-runSep :: (GenBuses a, Ok (:>) b) => String -> Double -> (a :> b) -> IO ()
+runSep :: (Ok2 (:>) a b) => String -> Double -> (a :> b) -> IO ()
 runSep name s = run name [ranksep s]
 
 -- Diagram and Verilog
-outGV :: GenBuses a => String -> [Attr] -> (a :> b) -> IO ()
+outGV :: Ok2 (:>) a b => String -> [Attr] -> (a :> b) -> IO ()
 outGV name attrs circ =
   do when showGraph $ putStrLn $ "outGV: Graph \n" ++ show g
      writeDot name attrs g
