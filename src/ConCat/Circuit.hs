@@ -80,14 +80,11 @@
 
 module ConCat.Circuit
   ( CircuitM, (:>)
-  , Bus(..),Input,Output, busTy, Source(..)
+  , Bus(..),Comp(..),Input,Output, Ty(..), busTy, Source(..), Template(..)
   , GenBuses(..), GS, genBusesRep', delayCRep, tyRep, bottomRep, unDelayName
   , namedC, constC -- , constS
-  , SourceToBuses(..)
+  , SourceToBuses(..), pattern CompS
   , mkGraph
-  -- , (|||*), fromBool, toBool
-  -- , CompS(..), compId, compName, compIns, compOuts
-  -- , CompId, circuitGraph
   , Attr
   , writeDot, displayDot,Name,Report,Graph
   -- , simpleComp
@@ -1671,6 +1668,9 @@ type Statement = String
 flatB :: GenBuses c => Buses c -> [Bus]
 flatB = fmap sourceBus . flattenB
 
+pattern CompS :: CompId -> String -> [Bus] -> [Bus] -> Comp
+pattern CompS cid name ins outs <- Comp cid (Prim name) (flatB -> ins) (flatB -> outs)
+
 data Dir = In | Out deriving Show
 type PortNum = Int
 
@@ -1716,7 +1716,7 @@ recordDots comps = nodes ++ edges
    nodes = concatMap node comps
     where
       node :: Comp -> [Statement]
-      node (Comp nc (Prim (prettyName -> prim)) (flatB -> ins) (flatB -> outs)) =
+      node (CompS nc (prettyName -> prim) ins outs) =
         [printf "%ssubgraph cluster%d { label=\"\"; color=white ; %s [label=\"{%s%s%s}\"%s] }" prefix nc (compLab nc) 
           (ports "" (labs In ins) "|")
           (escape prim)
