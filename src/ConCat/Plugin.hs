@@ -1041,7 +1041,8 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                   Nothing
 #else
    transCatOp (collectArgs -> (Var v, Type (TyConApp (isFunTyCon -> True) []) : rest))
-     | True || dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) True
+     | dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) False = undefined
+     | okArgs
      = let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
            addArg :: Maybe CoreExpr -> CoreExpr -> Maybe CoreExpr
            -- addArg a b | dtrace "transCatOp addArg" (ppr (a,b)) False = undefined
@@ -1062,8 +1063,15 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                 Just (e `App` (if isFunTy (exprType arg) then mkCcc else id) arg)
        in
          foldl addArg (Just (Var v `App` Type cat)) rest
+      where
+       mbArities = Map.lookup (fqVarName v) catOpArities
+       okArgs | Nothing <- mbArities = True
+              | Just (catArgs,nonCatArgs) <- mbArities
+              = -- dtrace "transCatOp arities" (ppr (catArgs,nonCatArgs)) $
+                length (filter (not . isTyCoDictArg) rest) == catArgs + nonCatArgs
    transCatOp _ = -- pprTrace "transCatOp" (text "fail") $
                    Nothing
+
 #endif
    reCat :: ReExpr
    reCat = {- traceFail "reCat" <+ -} transCatOp <+ catFun
@@ -1163,7 +1171,7 @@ isAbstReprId v = fqVarName v `elem` (((catModule ++ ".") ++) <$> ["reprC","abstC
 
 -- TODO: refactor
 
-#if 0
+#if 1
 
 -- For each categorical operation, how many non-cat args (first) and how many cat args (last)
 catOpArities :: Map String (Int,Int)
