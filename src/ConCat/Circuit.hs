@@ -1717,7 +1717,7 @@ recordDots comps = nodes ++ edges
     where
       node :: Comp -> [Statement]
       node (CompS nc (prettyName -> prim) ins outs) =
-        [printf "%ssubgraph clusterc%d { label=\"\"; color=white ; %s [label=\"{%s%s%s}\"%s] }" prefix nc (compLab nc) 
+        [printf "%ssubgraph clusterc%d { label=\"\"; color=white; margin=0; %s [label=\"{%s%s%s}\"%s] }" prefix nc (compLab nc) 
           (ports "" (labs In ins) "|")
           (escape prim)
           (ports "|" (labs Out outs) "")
@@ -1747,8 +1747,6 @@ recordDots comps = nodes ++ edges
       node (Comp nc (Subgraph g _) UnitB (PrimB _)) = subgraphDot nc g
       node comp = error ("recordDots/node: unexpected comp " ++ show comp)
    bracket = ("<"++) . (++">")
-   portLab :: Dir -> PortNum -> String
-   portLab dir np = printf "%s%d" (show dir) np
    edges = concatMap compEdges comps
     where
       compEdges _c@(Comp cnum _ a _) = edge <$> tagged (flattenB a)
@@ -1782,7 +1780,10 @@ recordDots comps = nodes ++ edges
    port :: Dir -> (CompId,PortNum) -> String
    port dir (cnum,np) =
      printf "%s:%s" (compLab cnum) (portLab dir np)
+   compLab :: CompId -> String
    compLab nc = 'c' : show nc
+   portLab :: Dir -> PortNum -> String
+   portLab dir np = printf "%s%d" (show dir) np
 
 -- sourceMap :: [Comp] -> SourceMap
 -- sourceMap = foldMap $ \ (Comp nc _ _ b) ->
