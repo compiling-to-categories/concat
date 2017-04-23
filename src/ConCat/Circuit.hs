@@ -83,6 +83,7 @@ module ConCat.Circuit
   , Bus(..),Comp(..),Input,Output, Ty(..), busTy, Source(..), Template(..)
   , GenBuses(..), GS, genBusesRep', delayCRep, tyRep, bottomRep, unDelayName
   , namedC, constC -- , constS
+  , genUnflattenB'
   , SourceToBuses(..), pattern CompS
   , mkGraph
   , Attr
@@ -92,6 +93,7 @@ module ConCat.Circuit
   , systemSuccess
   -- For AbsTy
   , BusesM, abstB,abstC,reprC,Buses(..)
+  , OkCAR
   -- , Ty(..)
   ) where
 
@@ -963,10 +965,8 @@ instance BoolCat (:>) where
 #endif
            _                          -> nothingA
 
-#define BooloInt "Bool→Int"
-
 boolToIntC :: Bool :> Int
-boolToIntC = namedC BooloInt
+boolToIntC = namedC "boolToInt"
 
 #if 1
 
@@ -1340,13 +1340,12 @@ ifOptI = \ case
   _              -> nothingA
 #endif
 
-instance IfCat (:>) Bool   where ifC = primOpt "if" (ifOpt `orOpt` ifOptB)
-instance IfCat (:>) Int    where ifC = primOpt "if" (ifOpt `orOpt` ifOptI)
-instance IfCat (:>) Float  where ifC = primOpt "if" ifOpt
-instance IfCat (:>) Double where ifC = primOpt "if" ifOpt
+instance IfCat (:>) Bool    where ifC = primOpt "if" (ifOpt `orOpt` ifOptB)
+instance IfCat (:>) Int     where ifC = primOpt "if" (ifOpt `orOpt` ifOptI)
+instance IfCat (:>) Float   where ifC = primOpt "if" ifOpt
+instance IfCat (:>) Double  where ifC = primOpt "if" ifOpt
 
--- instance IfCat (:>) Bool where ifC = namedC "if"
--- instance IfCat (:>) Int  where ifC = namedC "if"
+instance GS a => IfCat (:>) (Arr a) where ifC = primOpt "if" ifOpt
 
 instance IfCat (:>) () where ifC = unitIf
 
@@ -1700,6 +1699,7 @@ prettyNames = M.fromList
  , ("<=","≤") , (">=","≥")
  , ("*","×") , ("^","↑") , ("/","÷")
  , ("undefined","⊥")
+ , ("boolToInt", "Bool→Int")
  ]
 
 outId :: Graph -> CompId
@@ -1717,7 +1717,7 @@ recordDots comps = nodes ++ edges
     where
       node :: Comp -> [Statement]
       node (CompS nc (prettyName -> prim) ins outs) =
-        [printf "%ssubgraph cluster%d { label=\"\"; color=white ; %s [label=\"{%s%s%s}\"%s] }" prefix nc (compLab nc) 
+        [printf "%ssubgraph clusterc%d { label=\"\"; color=white ; %s [label=\"{%s%s%s}\"%s] }" prefix nc (compLab nc) 
           (ports "" (labs In ins) "|")
           (escape prim)
           (ports "|" (labs Out outs) "")
@@ -1822,9 +1822,12 @@ tyRep = ty @(Rep a)
 delayCRep :: (HasRep a, OkCAR a, GenBuses a, GenBuses (Rep a)) => a -> (a :> a)
 delayCRep a0 = abstC . delay (repr a0) . reprC
 
+genUnflattenB' :: (GenBuses a, GenBuses (Rep a)) => State [Source] (Buses a)
+genUnflattenB' = abstB <$> unflattenB'
+
 
 -- Omit temporarily for faster compilation
-#if 0
+#if 1
 
 #include "AbsTy.inc"
 
