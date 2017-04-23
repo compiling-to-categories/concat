@@ -134,7 +134,7 @@ varName b = error ("ConCat.GLSL.varName unexpected " ++ show b)
 -- primitives.
 
 app :: String -> [Expr] -> Expr
-app "not"      [e]     = UnaryNot e
+app "not"    [e]     = UnaryNot e
 app "&&"     [e1,e2] = And e1 e2
 app "||"     [e1,e2] = Or  e1 e2
 app "<"      [e1,e2] = Lt  e1 e2
@@ -150,6 +150,7 @@ app "−"      [e1,e2] = Sub e1 e2
 app "*"      [e1,e2] = Mul e1 e2
 app "/"      [e1,e2] = Div e1 e2
 app "mod"    [e1,e2] = Mod e1 e2
+app "xor"    [e1,e2] = Neq e1 e2
 app fun args | fun `S.member` knownFuncs = funcall fun args
              | otherwise = error ("ConCat.GLSL.app: not supported: " ++ show (fun,args))
 
