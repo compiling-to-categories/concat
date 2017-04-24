@@ -260,6 +260,12 @@ instance NumCat Syn a where
   INLINER(mulC)
   INLINER(powIC)
 
+instance IntegralCat Syn a where
+  divC = app0 "divC"
+  modC = app0 "modC"
+  INLINER(divC)
+  INLINER(modC)
+
 instance FractionalCat Syn a where
   recipC  = app0 "recipC"
   divideC = app0 "divideC"
@@ -314,7 +320,7 @@ AbstIf((a,b,c))
 
 #endif
 
-instance ArrayCat Syn a where
+instance ArrayCat Syn a b where
   arrAt = app0 "arrAt"
   mkArr = app0 "mkArr"
 
