@@ -78,6 +78,11 @@ infixr 7 :**:
 -- | Product for binary type constructors
 data (p :**: q) a b = p a b :**: q a b
 
+instance HasRep ((k :**: k') a b) where
+  type Rep ((k :**: k') a b) = k a b :* k' a b
+  abst (f,g) = f :**: g
+  repr (f :**: g) = (f,g)
+
 {--------------------------------------------------------------------
     Monoid wrapper
 --------------------------------------------------------------------}
@@ -1207,6 +1212,31 @@ instance (NumCat k a, NumCat k' a) => NumCat (k :**: k') a where
   PINLINER(mulC)
   PINLINER(powIC)
 
+class Ok k a => IntegralCat k a where
+  -- For now
+  divC :: Prod k a a `k` a
+  modC :: Prod k a a `k` a
+
+instance Integral a => IntegralCat (->) a where
+  divC = uncurry div
+  modC = uncurry mod
+
+#ifdef KleisliInstances
+instance (Monad m, Integral a) => IntegralCat (Kleisli m) a where
+  divC = arr divC
+  modC = arr modC
+#endif
+
+instance IntegralCat U2 a where
+  divC = U2
+  modC = U2
+
+instance (IntegralCat k a, IntegralCat k' a) => IntegralCat (k :**: k') a where
+  divC = divC :**: divC
+  modC = modC :**: modC
+  PINLINER(divC)
+  PINLINER(modC)
+
 class Ok k a => FractionalCat k a where
   recipC :: a `k` a
   divideC :: Prod k a a `k` a
@@ -1471,35 +1501,71 @@ instance (CoerceCat k a b, CoerceCat k' a b) => CoerceCat (k :**: k') a b where
   PINLINER(coerceC)
 
 -- Arrays
+#if 1
+newtype Arr a b = MkArr (Array a b) deriving Show
 
-type Arr = Array Int
+class ArrayCat k a b where
+  mkArr :: Exp k a b `k` Arr a b
+  -- arrAt :: Arr a b `k` Exp k a b
+  arrAt :: Prod k (Arr a b) a `k` b
+
+instance {- Enum a => -} ArrayCat (->) a b where
+  mkArr = mkArrFun
+  arrAt = arrAtFun
+  PINLINER(mkArr)
+  PINLINER(arrAt)
+
+mkArrFun :: {- Enum a => -} (a -> b) -> Arr a b
+mkArrFun = oops "mkArrFun not yet defined"
+{-# NOINLINE mkArrFun #-}
+
+arrAtFun :: {- Enum a => -} Arr a b :* a -> b
+arrAtFun = oops "arrAtFun not yet defined"
+{-# NOINLINE arrAtFun #-}
+
+-- TODO: working definitions for mkArrFun and arrAtFun
+
+#else
+newtype Arr a = MkArr (Array Int a) deriving Show
+-- data Arr a = MkArr deriving Show
 
 class ArrayCat k a where
-  -- mkArr :: Int -> (Exp k Int a `k` Arr a)  -- Maybe size as (static) argument.
   mkArr :: (Int :* Exp k Int a) `k` Arr a
-  -- mkArr :: (Int `k` a) -> (Int `k` Arr a)
   arrAt :: (Arr a :* Int) `k` a
 
 instance ArrayCat (->) a where
-  mkArr (n,f) = array (0,n-1) [(i,f i) | i <- [0 .. n-1]]
-  -- mkArr f n = array (0,n-1) [(i,f i) | i <- [0 .. n-1]]
-  arrAt = uncurry (!)
+  mkArr f = MkArr (array (0,n-1) [(i,f i) | i <- [0 .. n-1]])
+  -- arrAt (MkArr a,n) = a ! n
+  -- mkArr = error "mkArr on ArrayCat (->) undefined"
+  -- arrAt = error "arrAt on ArrayCat (->) undefined"
+  mkArr = mkArrFun
+  arrAt = arrAtFun
+  PINLINER(mkArr)
+  PINLINER(arrAt)
 
-instance ArrayCat U2 a where
+mkArrFun :: Int :* (Int -> a) -> Arr a
+mkArrFun (n,f) = MkArr (array (0,n-1) [(i,f i) | i <- [0 .. n-1]])
+{-# NOINLINE mkArrFun #-}
+
+arrAtFun :: Arr a :* Int -> a
+arrAtFun (MkArr a, i) = a ! i
+{-# NOINLINE arrAtFun #-}
+
+#endif
+
+instance ArrayCat U2 a b where
   mkArr = U2
   -- mkArr _ = U2
   arrAt = U2
 
-instance (ArrayCat k a, ArrayCat k' a) => ArrayCat (k :**: k') a where
-  -- mkArr n = mkArr n :**: mkArr n
+instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
   mkArr = mkArr :**: mkArr
-  -- mkArr (f :**: f') = mkArr f :**: mkArr f'
   arrAt = arrAt :**: arrAt
   PINLINER(mkArr)
   PINLINER(arrAt)
 
 #ifdef KleisliInstances
-instance Monad m => ArrayCat (Kleisli m) a where
+instance (Monad m, Enum a) => ArrayCat (Kleisli m) a b where
   mkArr = arr mkArr
   arrAt = arr arrAt
 #endif
