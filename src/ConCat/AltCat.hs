@@ -45,8 +45,9 @@ import ConCat.Category
   , ConstCat, ConstObj, lconst, rconst
   , BiCCC
   , BoolCat, BoolOf
-  , NumCat, FractionalCat, FloatingCat, RealFracCat, FromIntegralCat
+  , NumCat, IntegralCat, FractionalCat, FloatingCat, RealFracCat, FromIntegralCat
   , EqCat, OrdCat, EnumCat, BottomCat, IfCat, IfT, UnknownCat, RepCat, CoerceCat
+  , repIf
   , Arr, ArrayCat
   , TransitiveCon(..)
   , U2(..), (:**:)(..)
@@ -138,7 +139,7 @@ Op1(lassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k a (Coprod 
 Op1(rassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c))
 
 Op0(apply,forall k a b. (ClosedCat k, Ok2 k a b) => Prod k (Exp k a b) a `k` b)
-Op1(curry,(ClosedCat k, Ok3 k a b c) => (Prod k a b `k` c) -> (a `k` Exp k b c))
+  Op1(curry,(ClosedCat k, Ok3 k a b c) => (Prod k a b `k` c) -> (a `k` Exp k b c))
 Op1(uncurry,forall k a b c. (ClosedCat k, Ok3 k a b c) => (a `k` Exp k b c)  -> (Prod k a b `k` c))
 
 Op0(distl,forall k a u v. (DistribCat k, Ok3 k a u v) => Prod k a (Coprod k u v) `k` Coprod k (Prod k a u) (Prod k a v))
@@ -191,6 +192,9 @@ Op0(subC,NumCat k a => Prod k a a `k` a)
 Op0(mulC,NumCat k a => Prod k a a `k` a)
 Op0(powIC,NumCat k a => Prod k a Int `k` a)
 
+Op0(divC,IntegralCat k a => Prod k a a `k` a)
+Op0(modC,IntegralCat k a => Prod k a a `k` a)
+
 Op0(recipC,FractionalCat k a => a `k` a)
 Op0(divideC,FractionalCat k a => Prod k a a `k` a)
 
@@ -213,9 +217,13 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 -- {-# OPINLINE constFun #-}
 -- OpRule1(constFun)
 
+#if 1
+Op0(mkArr, ArrayCat k a b => Exp k a b `k` Arr a b)
+Op0(arrAt, ArrayCat k a b => Prod k (Arr a b) a `k` b)
+#else
 Op0(mkArr, ArrayCat k a => (Int :* Exp k Int a) `k` Arr a)
 Op0(arrAt, ArrayCat k a => (Arr a :* Int) `k` a)
-
+#endif
 
 -- TODO: Consider moving all of the auxiliary functions (like constFun) here.
 -- Rename "ConCat.Category" to something like "ConCat.Category.Class" and
