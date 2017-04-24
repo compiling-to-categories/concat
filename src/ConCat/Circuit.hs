@@ -81,7 +81,8 @@
 module ConCat.Circuit
   ( CircuitM, (:>)
   , Bus(..),Comp(..),Input,Output, Ty(..), busTy, Source(..), Template(..)
-  , GenBuses(..), GS, genBusesRep', delayCRep, tyRep, bottomRep, unDelayName
+  , GenBuses(..), GS, genBusesRep', tyRep, bottomRep
+  -- , delayCRep, unDelayName
   , namedC, constC -- , constS
   , genUnflattenB'
   , SourceToBuses(..), pattern CompS
@@ -162,7 +163,7 @@ import qualified ConCat.Free.LinearCol as LC
 --------------------------------------------------------------------}
 
 -- Component (primitive) type
-data Ty = Unit | Bool | Int | Float | Double | Pair Ty Ty | Arr Ty | Fun Ty Ty deriving (Eq,Ord)
+data Ty = Unit | Bool | Int | Float | Double | Pair Ty Ty | Arr Ty Ty | Fun Ty Ty deriving (Eq,Ord)
 
 instance Show Ty where
   showsPrec _ Unit   = showString "()"
@@ -172,8 +173,8 @@ instance Show Ty where
   showsPrec _ Double = showString "Double"
   showsPrec p (Pair a b) = showParen (p >= 7) $
     showsPrec 7 a . showString " × " . showsPrec 7 b
-  showsPrec p (Arr a) = showParen (p >= 9) $
-    showString "Arr " . showsPrec 9 a
+  showsPrec p (Arr a b) = showParen (p >= 9) $
+    showString "Arr " . showsPrec 9 a . showString " " . showsPrec 9 b
   showsPrec p (Fun a b) = showParen (p >= 1) $
     showsPrec 1 a . showString " → " . showsPrec 0 b
 
@@ -260,7 +261,7 @@ type BusesM = StateT Int CircuitM
 
 class GenBuses a where
   genBuses' :: Template u v -> [Source] -> BusesM (Buses a)
-  delay :: a -> (a :> a)
+  -- delay :: a -> (a :> a)
   ty :: Ty
   unflattenB' :: State [Source] (Buses a)
 
@@ -281,19 +282,19 @@ unflattenB sources | [] <- rest = a
 
 instance GenBuses () where
   genBuses' _ _ = return UnitB
-  delay () = id
+  -- delay () = id
   ty = Unit
   unflattenB' = return UnitB
 
-delayPrefix :: String
-delayPrefix = "Cons "
-              -- "delay "
+-- delayPrefix :: String
+-- delayPrefix = "Cons "
+--               -- "delay "
 
-delayName :: String -> String
-delayName = (delayPrefix ++)
+-- delayName :: String -> String
+-- delayName = (delayPrefix ++)
 
-unDelayName :: String -> Maybe String
-unDelayName = stripPrefix delayPrefix
+-- unDelayName :: String -> Maybe String
+-- unDelayName = stripPrefix delayPrefix
 
 -- isDelayTemplate :: Template a b -> Bool
 -- isDelayTemplate = isJust . unDelayName . primName
@@ -319,32 +320,32 @@ unflattenPrimB = do (s:ss) <- M.get
 
 instance GenBuses Bool where
   genBuses' = genPrimBus
-  delay = primDelay
+  -- delay = primDelay
   ty = Bool
   unflattenB' = unflattenPrimB
 
 instance GenBuses Int  where
   genBuses' = genPrimBus
-  delay = primDelay
+  -- delay = primDelay
   ty = Int
   unflattenB' = unflattenPrimB
 
 instance GenBuses Float  where
   genBuses' = genPrimBus
-  delay = primDelay
+  -- delay = primDelay
   ty = Float
   unflattenB' = unflattenPrimB
 
 instance GenBuses Double  where
   genBuses' = genPrimBus
-  delay = primDelay
+  -- delay = primDelay
   ty = Double
   unflattenB' = unflattenPrimB
 
-instance GS a => GenBuses (Arr a)  where
+instance (GenBuses a, GenBuses b) => GenBuses (Arr a b)  where
   genBuses' = genPrimBus
-  delay = primDelay
-  ty = Arr (ty @a)
+  -- delay = primDelay
+  ty = Arr (ty @a) (ty @b)
   unflattenB' = unflattenPrimB
 
 -- TODO: perhaps give default definitions for genBuses', delay, and unflattenB',
@@ -354,13 +355,13 @@ instance (GenBuses a, GenBuses b) => GenBuses (a :* b) where
   genBuses' templ ins =
     -- trace ("genBuses' @ " ++ show (ty (undefined :: a :* b))) $
     PairB <$> genBuses' templ ins <*> genBuses' templ ins
-  delay (a,b) = delay a *** delay b
+  -- delay (a,b) = delay a *** delay b
   ty = Pair (ty @a) (ty @b)
   unflattenB' = liftA2 PairB unflattenB' unflattenB'
 
 instance (GenBuses a, GenBuses b) => GenBuses (a -> b) where
   genBuses' = genPrimBus
-  delay = error "delay for functions: not yet implemented"
+  -- delay = error "delay for functions: not yet implemented"
   ty = ty @a `Fun` ty @b
   unflattenB' = unflattenPrimB
 
@@ -848,7 +849,8 @@ instance SourceToBuses Int     where toBuses = PrimB
 instance SourceToBuses Float   where toBuses = PrimB
 instance SourceToBuses Double  where toBuses = PrimB
 
-instance (GenBuses a, Show a) => SourceToBuses (Arr a) where toBuses = PrimB
+instance (GenBuses a, GenBuses b) => SourceToBuses (Arr a b) where
+  toBuses = PrimB
 
 sourceB :: SourceToBuses a => Source -> CircuitM (Maybe (Buses a))
 sourceB = justA . toBuses
@@ -891,12 +893,12 @@ pattern EqS a b <- PSource _ "==" [a,b]
 -- pattern NeS :: Source -> Source -> Source
 -- pattern NeS a b <- PSource _ "/=" [a,b]
 
-primDelay :: (SourceToBuses a, GS a) => a -> (a :> a)
-primDelay a0 = primOpt (delayName a0s) $ \ case
-                 [c@(ConstS (Eql(a0s)))] -> sourceB c
-                 _ -> nothingA
- where
-   a0s = show a0
+-- primDelay :: (SourceToBuses a, GS a) => a -> (a :> a)
+-- primDelay a0 = primOpt (delayName a0s) $ \ case
+--                  [c@(ConstS (Eql(a0s)))] -> sourceB c
+--                  _ -> nothingA
+--  where
+--    a0s = show a0
 
 -- primDelay a0 = namedC (delayName (show a0))
 
@@ -1208,6 +1210,22 @@ instance (Num a, Read a, GS a, Eq a, SourceToBuses a)
               [_,  ZeroT(a)] -> newVal (fromInteger 1)
               _              -> nothingA
 
+-- instance Integral a => IntegralCat (:>) a where
+--   divC = primNoOpt1 "div" div
+--   modC = primNoOpt1 "mod" mod
+
+instance (Integral a, Read a, GS a, SourceToBuses a) => IntegralCat (:>) a where
+  divC = primOpt "div" $ \case
+              [Val x, Val y] -> newVal (x `div` y)
+              [x,OneT(a)]    -> sourceB x
+              [x@ZeroT(a),_] -> sourceB x
+              _              -> nothingA
+  modC = primOpt "mod" $ \case
+              [Val x, Val y] -> newVal (x `mod` y)
+              [_,OneT(a)]    -> newVal 0
+              [x@ZeroT(a),_] -> sourceB x
+              _              -> nothingA
+
 instance (Fractional a, Read a, Eq a, GS a, SourceToBuses a)
       => FractionalCat (:>) a where
   recipC  = primOpt "recip" $ \ case
@@ -1223,7 +1241,7 @@ instance (Fractional a, Read a, Eq a, GS a, SourceToBuses a)
 
 instance (RealFrac a, Integral b, GS a, GS b, Read a)
       => RealFracCat (:>) a b where
-  floorC = primNoOpt1 "floor" floor
+  floorC   = primNoOpt1 "floor"   floor
   ceilingC = primNoOpt1 "ceiling" ceiling
 
 instance (Floating a, Read a, GS a) => FloatingCat (:>) a where
@@ -1335,8 +1353,8 @@ pattern OneS <- ConstS "1"
 -- (if c then 1 else 0) = boolToInt c
 -- (if c then 0 else 1) = boolToInt (not c)
 ifOptI = \ case
-  [c,OneS,ZeroS] -> newComp1 boolToIntC c
-  [c,ZeroS,OneS] -> newComp1 (boolToIntC . notC) c
+  -- [c,OneS,ZeroS] -> newComp1 boolToIntC c
+  -- [c,ZeroS,OneS] -> newComp1 (boolToIntC . notC) c
   _              -> nothingA
 #endif
 
@@ -1345,14 +1363,15 @@ instance IfCat (:>) Int     where ifC = primOpt "if" (ifOpt `orOpt` ifOptI)
 instance IfCat (:>) Float   where ifC = primOpt "if" ifOpt
 instance IfCat (:>) Double  where ifC = primOpt "if" ifOpt
 
-instance GS a => IfCat (:>) (Arr a) where ifC = primOpt "if" ifOpt
+instance (GenBuses a, GenBuses b) => IfCat (:>) (Arr a b) where
+  ifC = primOpt "if" ifOpt
 
 instance IfCat (:>) () where ifC = unitIf
 
 instance (IfCat (:>) a, IfCat (:>) b) => IfCat (:>) (a :* b) where
   ifC = prodIf
 
-instance GS a => ArrayCat (:>) a where
+instance (GenBuses a, GenBuses b) => ArrayCat (:>) a b where
   mkArr = namedC "mkArr"
   arrAt = namedC "arrAt"
 
@@ -1700,6 +1719,7 @@ prettyNames = M.fromList
  , ("*","×") , ("^","↑") , ("/","÷")
  , ("undefined","⊥")
  , ("boolToInt", "Bool→Int")
+ , ("arrAt","!")
  ]
 
 outId :: Graph -> CompId
@@ -1717,12 +1737,21 @@ recordDots comps = nodes ++ edges
     where
       node :: Comp -> [Statement]
       node (CompS nc (prettyName -> prim) ins outs) =
-        [printf "%ssubgraph clusterc%d { label=\"\"; color=white; margin=0; %s [label=\"{%s%s%s}\"%s] }" prefix nc (compLab nc) 
-          (ports "" (labs In ins) "|")
-          (escape prim)
-          (ports "|" (labs Out outs) "")
-          extras]
+        [prefix ++ mbCluster 
+         (printf "%s [label=\"{%s%s%s}\"%s]"
+           (compLab nc) 
+           (ports "" (labs In ins) "|")
+           (escape prim)
+           (ports "|" (labs Out outs) "")
+           extras)]
        where
+         isSubgraph (Subgraph {}) = True
+         isSubgraph _ = False
+         wrapNodes = any (\ (Comp _ p _ _) -> isSubgraph p) comps
+         mbCluster :: Unop String
+         mbCluster | wrapNodes =
+           printf "subgraph clusterc%d { label=\"\"; color=white; margin=0; %s }" nc
+                   | otherwise = id
          extras | prim == unknownName = ",fontcolor=red,color=red,style=bold"
                 | otherwise = ""
          prefix =
@@ -1820,8 +1849,8 @@ genBusesRep' templ ins = abstB <$> genBuses' templ ins
 tyRep :: forall a. GenBuses (Rep a) => Ty
 tyRep = ty @(Rep a)
 
-delayCRep :: (HasRep a, OkCAR a, GenBuses a, GenBuses (Rep a)) => a -> (a :> a)
-delayCRep a0 = abstC . delay (repr a0) . reprC
+-- delayCRep :: (HasRep a, OkCAR a, GenBuses a, GenBuses (Rep a)) => a -> (a :> a)
+-- delayCRep a0 = abstC . delay (repr a0) . reprC
 
 genUnflattenB' :: (GenBuses a, GenBuses (Rep a)) => State [Source] (Buses a)
 genUnflattenB' = abstB <$> unflattenB'
