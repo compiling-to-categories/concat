@@ -3,12 +3,14 @@
 -- language pragmas section and AbsTyImports in your imports section.
 
 #define AbsTy(abs) \
-instance (OkCAR (abs), GenBuses (Rep (abs))) => GenBuses (abs) where \
-  { genBuses' = genBusesRep' ; delay = delayCRep ; ty = tyRep @(abs) }; \
-instance ({-OkCAR (abs), -} GenBuses z, GenBuses (Rep (abs)), BottomCat (:>) z (Rep (abs))) => BottomCat (:>) z (abs) where \
+instance (OkCAR (abs)) => GenBuses (abs) where \
+  { genBuses' = genBusesRep' {- ; delay = delayCRep -} ; ty = tyRep @(abs) ; unflattenB' = genUnflattenB' }; \
+instance ({-OkCAR (abs), -} GenBuses z, GenBuses (Rep (abs)), ConCat.Category.BottomCat (:>) z (Rep (abs))) => ConCat.Category.BottomCat (:>) z (abs) where \
   { bottomC = bottomRep }; \
-instance (OkCAR (abs), IfCat (:>) (Rep (abs))) => IfCat (:>) (abs) where { ifC = repIf }; \
-instance Uncurriable k _a_ (abs) where uncurries f = f ; {-# INLINE uncurries #-}
+instance (OkCAR (abs), ConCat.Category.IfCat (:>) (Rep (abs))) => ConCat.Category.IfCat (:>) (abs) where { ifC = ConCat.Category.repIf };
+
+--  \
+-- instance Uncurriable k _a_ (abs) where uncurries f = f ; {-# INLINE uncurries #-}
 
 -- See 2016-01-13 notes on "bottom evaluated"
 -- instance (OkCAR (abs), ConstCat (:>) (Rep (abs))) => ConstCat (:>) (abs) where \
@@ -18,5 +20,7 @@ instance Uncurriable k _a_ (abs) where uncurries f = f ; {-# INLINE uncurries #-
 {-# LANGUAGE MultiParamTypeClasses, UndecidableInstances, FlexibleInstances #-}
 
 #define AbsTyImports \
-import ConCat.AltCat (BottomCat(..),IfCat(..),repIf,Uncurriable(..),constRepr) ;\
-import ConCat.Circuit (GenBuses(..),delayCRep,tyRep,bottomRep,genBusesRep',(:>));
+import qualified ConCat.Category ;\
+import ConCat.Circuit (GenBuses(..){-,delayCRep-},tyRep,bottomRep,genBusesRep',genUnflattenB',(:>),OkCAR);
+
+-- import ConCat.AltCat (BottomCat(..),IfCat(..),repIf,Uncurriable(..)) ;\
