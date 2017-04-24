@@ -797,8 +797,8 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    onDictTry :: CoreExpr -> Either SDoc CoreExpr
    onDictTry e | Just (ty,_) <- splitFunTy_maybe (exprType e)
                , isPredTy' ty = App e <$> buildDictMaybe ty
-               | otherwise = pprPanic "ccc / onDictMaybe: not a function from pred"
-                               (pprWithType e)
+               | otherwise = return e
+                             -- pprPanic "ccc / onDictMaybe: not a function from pred" (pprWithType e)
    onDictMaybe :: ReExpr
    onDictMaybe e = eitherToMaybe (onDictTry e)
    onDict :: Unop CoreExpr
@@ -808,7 +808,8 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                        buildDictionary hsc_env dflags guts inScope ty
    catOp :: Cat -> Var -> [Type] -> CoreExpr
    -- catOp k op tys | dtrace "catOp" (ppr (k,op,tys)) False = undefined
-   catOp k op tys = onDict (Var op `mkTyApps` (k : tys))
+   catOp k op tys -- | dtrace "catOp" (pprWithType (Var op `mkTyApps` (k : tys))) True
+                  = onDict (Var op `mkTyApps` (k : tys))
    -- TODO: refactor catOp and catOpMaybe when the dust settles
    -- catOp :: Cat -> Var -> CoreExpr
    -- catOp k op = catOp k op []
@@ -1001,10 +1002,10 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
       twoArgs (tyArgs2_maybe -> Just (_,tyArgs2_maybe -> Just _)) = True
       twoArgs _ = False
    catFun (collectTyArgs -> (Var v, tys))
-     | True || dtrace "catFun poly" (text (fqVarName v) <+> dcolon <+> ppr (varType v)) True
+     | {- True || -} dtrace "catFun poly" (text (fqVarName v) <+> dcolon <+> ppr (varType v)) True
      , Just op <- Map.lookup (fqVarName v) polyOps
-     = -- dtrace "catFun poly" (ppr (v,tys,op) <+> text "-->" <+> ppr (onDictMaybe (catOp cat op tys))) $
-       return (onDict (catOp cat op tys))
+     = dtrace "catFun poly" (ppr (v,tys,op) <+> text "-->" <+> ppr (onDictMaybe (catOp cat op tys))) $
+       return ({- onDict -} (catOp cat op tys))
    -- TODO: handle Prelude.const. Or let it inline.
    catFun _ = Nothing
    transCatOp :: ReExpr
@@ -1041,7 +1042,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                   Nothing
 #else
    transCatOp (collectArgs -> (Var v, Type (TyConApp (isFunTyCon -> True) []) : rest))
-     | dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) False = undefined
+     -- | dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) False = undefined
      | okArgs
      = let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
            addArg :: Maybe CoreExpr -> CoreExpr -> Maybe CoreExpr
@@ -1482,6 +1483,7 @@ polyInfo = [(hmod++"."++hop,(catModule,cop)) | (hmod,ops) <- info, (hop,cop) <- 
           , ("GHC.Tuple", [("(,)","pair"),("swap","swapP")])
           , ("Data.Tuple",[("fst","exl"),("snd","exr")])
           , ("Data.Either", [("Left","inl"),("Right","inr")])
+          , ("ConCat.Category", [("mkArrFun","mkArr"),("arrAtFun","arrAt")])
           ]
    tw x = (x,x)
 
