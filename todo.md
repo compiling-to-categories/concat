@@ -58,21 +58,6 @@
 *   Fancier data types via `HasRep` or `Control.Newtype`.
 *   More rule-based optimization.
 
-# Reboxing failures
-
-Some examples of failed reboxing:
-
-``` haskell
-lam Case of boxer: bare unboxed var
-  case x_ah7G of _ [Occ=Dead] { I# ds1_ahdT ->
-  case ds1_ahdT of _ [Occ=Dead] {
-    __DEFAULT -> case $fEnumBool1 of wild_00 { };
-    0# -> $fCardVoid1;
-    1# -> $fCard()_$csize
-  }
-  }
-```
-
 *Add more here as I encounter them.*
 
 # Done
