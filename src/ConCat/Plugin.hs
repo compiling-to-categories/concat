@@ -1002,7 +1002,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
       twoArgs (tyArgs2_maybe -> Just (_,tyArgs2_maybe -> Just _)) = True
       twoArgs _ = False
    catFun (collectTyArgs -> (Var v, tys))
-     | {- True || -} dtrace "catFun poly" (text (fqVarName v) <+> dcolon <+> ppr (varType v)) True
+     | True || dtrace "catFun poly" (text (fqVarName v) <+> dcolon <+> ppr (varType v)) True
      , Just op <- Map.lookup (fqVarName v) polyOps
      = dtrace "catFun poly" (ppr (v,tys,op) <+> text "-->" <+> ppr (onDictMaybe (catOp cat op tys))) $
        return ({- onDict -} (catOp cat op tys))
