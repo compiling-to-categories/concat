@@ -79,6 +79,10 @@ r `diffR` r' = r `intersectR` complementR r'
 xPos :: Region
 xPos (x,_y) =  x > 0
 
+-- | Opposite quadrants
+xyPos :: Region
+xyPos (x,y) =  x*y > 0
+
 -- | unit disk
 udisk :: Region
 udisk p = magSqr p <= 1
@@ -104,3 +108,6 @@ checker (x,y) = test x == test y
   
 frac :: RealFrac a => a -> a
 frac x = x - fromIntegral (floor x :: Int)
+
+woobly :: Region
+woobly p@(x,y) = magSqr p < 0.75 + 0.25 * sin (5 * atan2 y x)
