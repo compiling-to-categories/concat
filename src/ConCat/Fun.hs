@@ -50,7 +50,7 @@ import Control.Newtype
 
 import ConCat.Misc ((:*),(:+), (<~), inNew, inNew2)
 import ConCat.Rep
-import ConCat.AltCat (Arr,mkArr,arrAt,divC,modC)
+import ConCat.AltCat (Arr,array,arrAt,divC,modC)
 
 AbsTyImports
 
@@ -161,7 +161,7 @@ uncurry <$> traverse (traverse f) (curry h) :: g (a :* b -> c)
 
 instance Newtype (Arr a b) where
   type O (Arr a b) = a -> b
-  pack   = mkArr
+  pack   = array
   unpack = curry arrAt
   {-# INLINE pack #-}
   {-# INLINE unpack #-}
@@ -179,28 +179,34 @@ instance Applicative (Arr a) where
 instance Foldable ((->) a) => Foldable (Arr a) where
   foldMap f = foldMap f . unpack
   {-# INLINE foldMap #-}
+  sum = getSum . foldMap Sum
+  {-# INLINE sum #-}
+
+-- instance Foldable (Arr Bool) where
+--   foldMap f = foldMap f . unpack
+--   {-# INLINE foldMap #-}
 
 instance {-# overlapping #-} (Foldable (Arr a), Foldable ((->) b))
       => Foldable (Arr (a :* b)) where
-  foldMap f arr = fold (mkArr (fmap (foldMap f) (curry (curry arrAt arr))))
+  foldMap f arr = fold (array (fmap (foldMap f) (curry (curry arrAt arr))))
   {-# INLINE foldMap #-}
+  sum = getSum . foldMap Sum
+  {-# INLINE sum #-}
 
--- f :: c -> m
--- arr :: Arr (a :* b) c
--- curry arrAt arr :: a :* b -> c
--- curry (curry arrAt arr) :: a -> b -> c
--- fmap (foldMap f) (curry (curry arrAt arr)) :: a -> m
--- mkArr (fmap (foldMap f) (curry (curry arrAt arr))) :: Arr a m
--- fold (mkArr (fmap (foldMap f) (curry (curry arrAt arr)))) :: m
+--                                                   f       :: c -> m
+--                                                   arr     :: Arr (a :* b) c
+--                                       curry arrAt arr     :: a :* b -> c
+--                                curry (curry arrAt arr)    :: a -> b -> c
+--              fmap (foldMap f) (curry (curry arrAt arr))   :: a -> m
+--       array (fmap (foldMap f) (curry (curry arrAt arr)))  :: Arr a m
+-- fold (array (fmap (foldMap f) (curry (curry arrAt arr)))) :: m
 
+-- instance Traversable ((->) a) => Traversable (Arr a) where
+--   traverse f = fmap pack . traverse f . unpack
+--   {-# INLINE traverse #-}
 
+-- lscan :: (Traversable f, Monoid a) => f a -> f a :* a
+-- lscan = swap . mapAccumL (\ acc a -> (acc <> a,acc)) mempty
 
-instance Traversable ((->) a) => Traversable (Arr a) where
-  traverse f = fmap pack . traverse f . unpack
-  {-# INLINE traverse #-}
-
-lscan :: (Traversable f, Monoid a) => f a -> f a :* a
-lscan = swap . mapAccumL (\ acc a -> (acc <> a,acc)) mempty
-
-lsums :: (Traversable f, Num a) => f a -> f a :* a
-lsums = (fmap getSum *** getSum) . lscan . fmap Sum
+-- lsums :: (Traversable f, Num a) => f a -> f a :* a
+-- lsums = (fmap getSum *** getSum) . lscan . fmap Sum
