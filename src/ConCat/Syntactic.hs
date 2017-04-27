@@ -322,7 +322,7 @@ AbstIf((a,b,c))
 
 instance ArrayCat Syn a b where
   arrAt = app0 "arrAt"
-  mkArr = app0 "mkArr"
+  array = app0 "array"
 
 instance UnknownCat Syn a b where
   unknownC = app0 "unknownC"
