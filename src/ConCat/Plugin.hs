@@ -135,10 +135,10 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      -- my experiments, since much time is spent optimizing rules, IIUC. It'll
      -- be important to restore polymorphic transformation later for useful
      -- separate compilation.
-     Trying("top poly bail")
-     (exprType -> isMonoTy -> False) ->
-       Doing("top poly bail")
-       Nothing
+--      Trying("top poly bail")
+--      (exprType -> isMonoTy -> False) ->
+--        Doing("top poly bail")
+--        Nothing
      Trying("top Lam")
      Lam x body -> goLam x body
      Trying("top reCat")
@@ -404,44 +404,18 @@ ccc (CccEnv {..}) (Ops {..}) cat =
          if xInRhs then
            Doing("lam Let subst")
            -- TODO: mkCcc instead of goLam?
+           -- Just (mkCcc (Lam x (subst1 v rhs body')))
+           -- Sometimes GHC then un-substitutes, leading to a loop.
+           -- Using goLam prevents GHC from getting that chance. (Always?)
            goLam x (subst1 v rhs body')
+           -- Yet another choice is to lambda-lift the binding over x and then
+           -- float the let past the x binding.
          else
            Doing("lam Let float")
            return (Let bind (mkCcc (Lam x body')))
        else
-#if 0
-         -- See 2016-01-02 notes. These cases can help, but using reveal
-         -- in dfun nailed it without help.
-         -- TODO: extend this MultiWayIf upward
-         if | Just rhs' <- unfoldMaybe rhs ->
-              Doing("lam Let unfold")
-              return (mkCcc (Lam x (Let (NonRec v rhs') body')))
-            | Case scrut wild _ty [(con,bs,crhs)] <- rhs
-              , x `notElem` bs ->
-              Doing("lam Let Case")
-              -- (let v = (case scrut of p -> crhs) in body') -->
-              -- (case scrut of p -> let v = crhs in body')
-              return (mkCcc (Lam x (
-                Case scrut wild (exprType body')
-                     [(con,bs,Let (NonRec v crhs) body')])))
-            | (Var (isPairVar -> True),[Type tya,Type tyb, a,b])
-                 <- collectArgs rhs ->
-              Doing("lam Let pair")
-              -- let v = (A,B) in body' -->
-              -- let a = A in let b = B in let v = (a,b) in body'
-              let used = exprFreeVars _e
-                  nm = uqVarName v
-                  va = freshId               used     (nm++"_fst") tya
-                  vb = freshId (extendVarSet used va) (nm++"_snd") tyb
-              in
-                return $ mkCcc $ Lam x $
-                 Let (NonRec va a) $
-                  Let (NonRec vb b) $
-                   subst1 v (mkCoreVarTup [va,vb]) body'
-            | otherwise ->
-#endif
-              Doing("lam Let to beta-redex")
-              goLam x (App (Lam v body') rhs)
+         Doing("lam Let to beta-redex")
+         goLam x (App (Lam v body') rhs)
       where
         xInRhs = x `isFreeIn` rhs
      Trying("lam eta-reduce")
@@ -725,7 +699,8 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    inlineE e = varApps inlineV [exprType e] [e]  -- move outward
    -- Replace boxing constructors by their boxing function synonyms (boxI etc)
    boxCon :: ReExpr
-   boxCon e0 | tweaked   = Just e1
+   boxCon e0 | tweaked   = -- dtrace "boxCon" (ppr (e0,e1)) $
+                           Just e1
              | otherwise = Nothing
     where
       (Any tweaked,e1) = everywhereM (mkM tweak) e0
@@ -803,13 +778,19 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    onDictMaybe e = eitherToMaybe (onDictTry e)
    onDict :: Unop CoreExpr
    onDict f = noDictErr (pprWithType f) (onDictTry f)
+   -- Yet another variant: keep applying to dictionaries as long as we have
+   -- a predicate type. TODO: reassess and refactor these variants.
+   onDicts :: Unop CoreExpr
+   onDicts e | Just (ty,_) <- splitFunTy_maybe (exprType e)
+             , isPredTy' ty = onDicts (onDict e)
+             | otherwise    = e
    buildDictMaybe :: Type -> Either SDoc CoreExpr
    buildDictMaybe ty = simplifyE dflags False <$>  -- remove simplifyE call later?
                        buildDictionary hsc_env dflags guts inScope ty
    catOp :: Cat -> Var -> [Type] -> CoreExpr
    -- catOp k op tys | dtrace "catOp" (ppr (k,op,tys)) False = undefined
    catOp k op tys -- | dtrace "catOp" (pprWithType (Var op `mkTyApps` (k : tys))) True
-                  = onDict (Var op `mkTyApps` (k : tys))
+                  = onDicts (Var op `mkTyApps` (k : tys))
    -- TODO: refactor catOp and catOpMaybe when the dust settles
    -- catOp :: Cat -> Var -> CoreExpr
    -- catOp k op = catOp k op []
@@ -1090,6 +1071,10 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
       pseudoAnns = findAnns deserializeWithData annotations . NamedTarget . varName
 
 substFriendly :: Bool -> CoreExpr -> Bool
+-- substFriendly catClosed rhs
+--   | pprTrace "substFriendly"
+--     (ppr ((catClosed,rhs),not (liftedExpr rhs),incompleteCatOp rhs,isTrivial rhs,isFunTy (exprType rhs) && not catClosed))
+--     False = undefined
 substFriendly catClosed rhs =
      not (liftedExpr rhs)
   -- || substFriendlyTy (exprType rhs)
@@ -1483,7 +1468,7 @@ polyInfo = [(hmod++"."++hop,(catModule,cop)) | (hmod,ops) <- info, (hop,cop) <- 
           , ("GHC.Tuple", [("(,)","pair"),("swap","swapP")])
           , ("Data.Tuple",[("fst","exl"),("snd","exr")])
           , ("Data.Either", [("Left","inl"),("Right","inr")])
-          , ("ConCat.Category", [("mkArrFun","mkArr"),("arrAtFun","arrAt")])
+          , ("ConCat.Category", [("arrayFun","array"),("arrAtFun","arrAt")])
           ]
    tw x = (x,x)
 
@@ -1836,14 +1821,23 @@ idOccs :: Id -> CoreExpr -> Int
 idOccs x = go
  where
    -- go e | pprTrace "idOccs go" (ppr e) False = undefined
-   go (Var y)      | y == x = -- pprTrace "idOccs found" (ppr y) $
-                              1
-   go (App u v)             = go u + go v
-   go (Tick _ e)            = go e
-   go (Cast e _)            = go e
-   go (Lam y body) | y /= x = go body
-   go (Case e _ _ alts)     = go e + sum (goAlt <$> alts)
-   go _                     = 0
+   go (Lit _)                  = 0
+   go (Type _)                 = 0
+   go (Coercion _)             = 0
+   go (Var y)      | y == x    = -- pprTrace "idOccs found" (ppr y) $
+                                 1
+                   | otherwise = 0
+   go (App u v)                = go u + go v
+   go (Tick _ e)               = go e
+   go (Cast e _)               = go e
+   go (Lam y body) | y == x    = 0
+                   | otherwise = go body
+   go (Let bind body)          = goBind bind + go body
+   go (Case e _ _ alts)        = go e + sum (goAlt <$> alts)
+   goBind (NonRec y rhs) = goB (y,rhs)
+   goBind (Rec ps)       = sum (goB <$> ps)
+   goB (y,rhs) | y == x    = 0
+               | otherwise = go rhs
    -- goAlt alt | pprTrace "idOccs goAlt" (ppr alt) False = undefined
    goAlt (_,ys,rhs) | x `elem` ys = 0
                     | otherwise   = go rhs
