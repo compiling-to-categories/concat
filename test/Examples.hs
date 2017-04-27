@@ -19,7 +19,7 @@
 {-# OPTIONS -Wno-type-defaults #-}
 
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
+-- {-# OPTIONS_GHC -Wno-unused-imports #-}
 
 -- To keep ghci happy, it appears that the plugin flag must be in the test module.
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
@@ -55,37 +55,20 @@
 
 module Main where
 
-import Control.Arrow (second,runKleisli)
-import Data.Tuple (swap)
-import Data.Maybe
-import Distribution.TestSuite
-import GHC.Generics hiding (R,D)
-import GHC.Exts (lazy,coerce)
-import Text.Show.Functions ()  -- for Show
-
-import ConCat.Misc
-  (Unop,Binop,(:*),(:+),PseudoFun(..),R,bottom,oops,Yes2,sqr,magSqr)
-import ConCat.Rep
-import ConCat.Standardize
-import ConCat.Free.VectorSpace (V)
-import ConCat.Free.LinearRow
-import ConCat.Incremental
+import ConCat.Misc ((:*),R,sqr,magSqr)
+-- import ConCat.Incremental
 import ConCat.AD
 import ConCat.Interval
 import ConCat.Syntactic (Syn,render)
-import ConCat.Circuit (GenBuses,(:>),mkGraph)
+import ConCat.Circuit (GenBuses,(:>))
 import ConCat.Image
 import qualified ConCat.RunCircuit as RC
-import ConCat.RunCircuit (go,Okay)
-import ConCat.GLSL (genGlsl,Anim,CAnim)
-import ConCat.AltCat ( ccc,reveal,Uncurriable(..),U2(..),(:**:)(..),Ok, Ok2
-                     , reprC,abstC,mulC,amb,ambC,asKleisli,recipC, Arr,array,arrAt )
-import qualified ConCat.AltCat as A
-import ConCat.Rebox () -- experiment
-import ConCat.Orphans ()
-import ConCat.GradientDescent
+import ConCat.GLSL (genGlsl,CAnim)
+import ConCat.AltCat (ccc,U2(..),(:**:)(..),Ok2) --, Ok, Ok3, Arr, array,arrAt
+import ConCat.AltCat ()
+import ConCat.Rebox () -- necessary for reboxing rules to fire
 
-import ConCat.Fun
+-- import ConCat.Fun
 
 default (Int, Double)
 
@@ -93,91 +76,47 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
---   -- Circuit graphs
---   , runEC "magSqr"    (ccc (magSqr @Double))
+  -- -- Circuit graphs
+  -- , runEC "magSqr"    $ ccc $ magSqr @Double
+  -- , runEC "cosSin-xy" $ ccc $ cosSinProd @R
+  -- , runEC "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
+  , runEC "horner"    $ ccc $ horner @Double [1,3,5]
 
-  , runEC' "magSqr" (magSqr @Double)
+  -- -- GLSL/WebGL code for GPU-accelerated graphics
+  -- , runCircGlsl "wobbly-disk" $ ccc $
+  --     \ t -> disk' (0.75 + 0.25 * cos t)
+  -- , runCircGlsl "diag-plus-im" $ ccc $
+  --     \ t ((x,y) :: R2) -> x + sin t > y
+  -- , runCircGlsl "disk-sizing" $ ccc $
+  --     disk . cos
+  -- , runCircGlsl "disk-sizing-p" $ ccc $
+  --     disk' . cos
+  -- , runCircGlsl "diag-disk-turning" $ ccc $
+  --     \ t -> udisk `intersectR` rotate t xPos
+  -- , runCircGlsl "sqr-sqr-anim" $ ccc $
+  --     \ t ((x,y) :: R2) -> sqr (sqr x) > y + sin t
+  -- , runCircGlsl "diag-disk-turning-sizing" $ ccc $
+  --     \ t -> disk' (cos t) `xorR` rotate t xyPos
 
+  -- -- Interval analysis
+  -- , runEC "add-iv"    $ ccc $ ivFun $ uncurry ((+) @Int)
+  -- , runEC "mul-iv"    $ ccc $ ivFun $ uncurry ((*) @Int)
+  -- , runEC "thrice-iv" $ ccc $ ivFun $ \ x -> 3 * x :: Int
+  -- , runEC "sqr-iv"    $ ccc $ ivFun $ sqr @Int
+  -- , runEC "magSqr-iv" $ ccc $ ivFun $ magSqr @Int
+  -- , runEC "xp3y-iv"   $ ccc $ ivFun $ \ ((x,y) :: R2) -> x + 3 * y
+  -- , runEC "horner-iv" $ ccc $ ivFun $ horner @Double [1,3,5]
 
---   -- GLSL/WebGL code for GPU-accelerated graphics
---   , runCircGlsl "wobbly-disk" $ ccc $
---       \ t -> disk' (0.75 + 0.25 * cos t)
---   , runCircGlsl "diag-plus-im" $ ccc $
---       \ t ((x,y) :: R2) -> x + sin t > y
---   , runCircGlsl "disk-sizing" $ ccc $
---       disk . cos
---   , runCircGlsl "disk-sizing-p" $ ccc $
---       disk' . cos
---   , runCircGlsl "diag-disk-turning" $ ccc $
---       \ t -> udisk `intersectR` rotate t xPos
---   , runCircGlsl "sqr-sqr-anim" $ ccc $
---       \ t ((x,y) :: R2) -> sqr (sqr x) > y + sin t
---   , runCircGlsl "diag-disk-turning-sizing" $ ccc $
---       \ t -> disk' (cos t) `xorR` rotate t xyPos
-
-  , runCircGlsl' "diag-disk-turning-sizing" $
-      \ t -> disk' (cos t) `xorR` rotate t xyPos
-
---   -- Interval analysis
---   , runEC "add-iv"    (ccc (ivFun (uncurry ((+) @Int))))
---   , runEC "mul-iv"    (ccc (ivFun (uncurry ((*) @Int))))
---   , runEC "thrice-iv" (ccc (ivFun (\ x -> 3 * x :: Int)))
---   , runEC "sqr-iv"    (ccc (ivFun (sqr @Int)))
---   , runEC "magSqr-iv" (ccc (ivFun (magSqr @Int)))
---   , runEC "xp3y-iv"   (ccc (ivFun (\ ((x,y) :: R2) -> x + 3 * y)))
---   , runEC "horner-iv" (ccc (ivFun (horner @Double [1,3,5])))
-
---   -- Interval analysis
---   , runIv "add"    (uncurry ((+) @Int))
---   , runIv "mul"    (uncurry ((*) @Int))
---   , runIv "thrice" (\ x -> 3 * x :: Int)
---   , runIv "sqr"    (sqr @Int)
---   , runIv "magSqr" (magSqr @Int)
---   , runIv "xp3y"   (\ ((x,y) :: R2) -> x + 3 * y)
---   , runIv "horner" (horner @Double [1,3,5])
-
-  -- Automatic differentiation
+  -- -- Automatic differentiation
   
---   , runEC "sqr-ad" (ccc (andDer (ccc (sqr @R))))
-
---   , runEC "magSqr-ad" (ccc (andDer (magSqr @R)))
-
---   , runEC "cos-2x"      (\ x -> cos (2 * x) :: R)
---   , runEC "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
---   , runEC "cos-xpy"     (\ (x,y) -> cos (x + y) :: R)
---   , runEC "cos-xy" (\ (x,y) -> cos (x * y) :: R)
---   , runEC "cos-xy-d1" (der (\ (x,y) -> cos (x * y) :: R))
---   , runEC "cos-xy-d2" (der (der (\ (x,y) -> cos (x * y) :: R)))
---   , runEC "cosSin-xy" (cosSinProd @R)
---   , runEC "cosSin-xy-d1" (der (cosSinProd @R))
---   , runEC "cosSin-xy-ad1" (andDer (\ (x,y) -> cosSin (x * y) :: R2))
---   , runEC "cosSin-xy-ad1-i" (inc (andDer (\ (x,y) -> cosSin (x * y) :: R2)))
---   , runEC "cosSin-xyz" (\ (x,y,z) -> cosSin (x * y + x * z + y * z) :: R2)
---   , runEC "cosSin-xyz-d1" (der (\ (x,y,z) -> cosSin (x * y + x * z + y * z) :: R2))
-
-
+  -- , runEC "sqr-ad"       $ ccc $ andDer $ sqr @R
+  -- , runEC "magSqr-ad"    $ ccc $ andDer $ magSqr @R
+  -- , runEC "cos-2x-ad"    $ ccc $ andDer $ \ x -> cos (2 * x) :: R
+  -- , runEC "cos-2xx-ad"   $ ccc $ andDer $ \ x -> cos (2 * x * x) :: R
+  -- , runEC "cos-xpy-ad"   $ ccc $ andDer $ \ (x,y) -> cos (x + y) :: R
+  -- , runEC "cosSin-xy-ad" $ ccc $ andDer $ cosSinProd @R
 
   ]
-
-runIv :: (Ok2 IF a b, Ok2 (:>) (Iv a) (Iv b))
-      => String -> (a -> b) -> IO ()
-runIv nm = oops ("runIv " ++ nm)
-{-# NOINLINE runIv #-}
-{-# RULES "runIv" forall nm f.
-  runIv nm f = runEC (nm ++ "-iv") (ccc (ivFun f)) #-}
-
-runEC' :: Ok2 (:>) a b => String -> (a -> b) -> IO ()
-runEC' nm = oops ("runEC' " ++ nm)
-{-# NOINLINE runEC' #-}
-{-# RULES "runEC'" forall nm f.
-  runEC' nm f = let (syn :**: circ) = ccc f in runSyn syn >> runCirc nm circ  #-}
-
-runCircGlsl' :: String -> Anim -> IO ()
-runCircGlsl' nm = oops ("runCircGlsl' " ++ nm)
-{-# NOINLINE runCircGlsl' #-}
-{-# RULES "runCircGlsl'" forall nm f.
-  runCircGlsl' nm f = let circ = ccc f in runCirc nm circ >> genGlsl nm circ #-}
-
 
 {--------------------------------------------------------------------
     Testing utilities
@@ -210,7 +149,7 @@ cosSin :: Floating a => a -> a :* a
 cosSin a = (cos a, sin a)
 
 cosSinProd :: Floating a => a :* a -> a :* a
-cosSinProd (x,y) = (cos z, sin z) where z = (x * y)
+cosSinProd (x,y) = cosSin (x * y)
 
 horner :: Num a => [a] -> a -> a
 horner []     _ = 0
