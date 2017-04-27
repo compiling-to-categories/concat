@@ -271,7 +271,7 @@ main = sequence_
 
 --   , test "sqr-ad" (andDer (ccc (sqr @R)))
 
-  , putStrLn ('\n' : render (ccc (andDer (ccc (sqr @R)))))
+  -- , putStrLn ('\n' : render (ccc (andDer (ccc (sqr @R)))))
 
 --   , test "magSqr-d" (der (magSqr @R))
 
@@ -623,3 +623,17 @@ horner []     _ = 0
 horner (c:cs) a = c + a * horner cs a
 
 type Region = R2 -> Bool
+
+
+
+-- runAD :: String -> (a -> b) -> IO ()
+-- runAD nm = oops ("runAD " ++ nm)
+-- {-# NOINLINE runAD #-}
+-- -- {-# RULES "runAD" forall nm f. runAD nm f = runEC nm (ccc (andDer (ccc f))) #-}
+-- {-# RULES "runAD" forall nm f. runAD nm f = runCirc nm (toCirc (andDer' f)) #-}
+
+-- toCirc :: (a -> b) -> (a :> b)
+-- toCirc = undefined
+
+-- andDer' :: (a -> b) -> (a -> b :* LR a b)
+-- andDer' = undefined
