@@ -19,7 +19,7 @@
 {-# OPTIONS -Wno-type-defaults #-}
 
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
--- {-# OPTIONS_GHC -Wno-unused-imports #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 -- To keep ghci happy, it appears that the plugin flag must be in the test module.
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
@@ -56,7 +56,7 @@
 module Main where
 
 import ConCat.Misc ((:*),R,sqr,magSqr)
--- import ConCat.Incremental
+import ConCat.Incremental (inc)
 import ConCat.AD
 import ConCat.Interval
 import ConCat.Syntactic (Syn,render)
@@ -77,10 +77,10 @@ main = sequence_
   [ putChar '\n' -- return ()
 
   -- -- Circuit graphs
-  -- , runEC "magSqr"    $ ccc $ magSqr @Double
-  -- , runEC "cosSin-xy" $ ccc $ cosSinProd @R
-  -- , runEC "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
-  , runEC "horner"    $ ccc $ horner @Double [1,3,5]
+  -- , runSynCirc "magSqr"    $ ccc $ magSqr @Double
+  -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
+  -- , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"    $ ccc $ horner @Double [1,3,5]
 
   -- -- GLSL/WebGL code for GPU-accelerated graphics
   -- , runCircGlsl "wobbly-disk" $ ccc $
@@ -99,22 +99,24 @@ main = sequence_
   --     \ t -> disk' (cos t) `xorR` rotate t xyPos
 
   -- -- Interval analysis
-  -- , runEC "add-iv"    $ ccc $ ivFun $ uncurry ((+) @Int)
-  -- , runEC "mul-iv"    $ ccc $ ivFun $ uncurry ((*) @Int)
-  -- , runEC "thrice-iv" $ ccc $ ivFun $ \ x -> 3 * x :: Int
-  -- , runEC "sqr-iv"    $ ccc $ ivFun $ sqr @Int
-  -- , runEC "magSqr-iv" $ ccc $ ivFun $ magSqr @Int
-  -- , runEC "xp3y-iv"   $ ccc $ ivFun $ \ ((x,y) :: R2) -> x + 3 * y
-  -- , runEC "horner-iv" $ ccc $ ivFun $ horner @Double [1,3,5]
+  -- , runSynCirc "add-iv"    $ ccc $ ivFun $ uncurry ((+) @Int)
+  -- , runSynCirc "mul-iv"    $ ccc $ ivFun $ uncurry ((*) @Int)
+  -- , runSynCirc "thrice-iv" $ ccc $ ivFun $ \ x -> 3 * x :: Int
+  -- , runSynCirc "sqr-iv"    $ ccc $ ivFun $ sqr @Int
+  -- , runSynCirc "magSqr-iv" $ ccc $ ivFun $ magSqr @Int
+  -- , runSynCirc "xp3y-iv"   $ ccc $ ivFun $ \ ((x,y) :: R2) -> x + 3 * y
+  -- , runSynCirc "horner-iv" $ ccc $ ivFun $ horner @Double [1,3,5]
 
   -- -- Automatic differentiation
-  
-  -- , runEC "sqr-ad"       $ ccc $ andDer $ sqr @R
-  -- , runEC "magSqr-ad"    $ ccc $ andDer $ magSqr @R
-  -- , runEC "cos-2x-ad"    $ ccc $ andDer $ \ x -> cos (2 * x) :: R
-  -- , runEC "cos-2xx-ad"   $ ccc $ andDer $ \ x -> cos (2 * x * x) :: R
-  -- , runEC "cos-xpy-ad"   $ ccc $ andDer $ \ (x,y) -> cos (x + y) :: R
-  -- , runEC "cosSin-xy-ad" $ ccc $ andDer $ cosSinProd @R
+  -- , runSynCirc "sqr-ad"       $ ccc $ andDer $ sqr @R
+  -- , runSynCirc "magSqr-ad"    $ ccc $ andDer $ magSqr @R
+  -- , runSynCirc "cos-2x-ad"    $ ccc $ andDer $ \ x -> cos (2 * x) :: R
+  -- , runSynCirc "cos-2xx-ad"   $ ccc $ andDer $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "cos-xpy-ad"   $ ccc $ andDer $ \ (x,y) -> cos (x + y) :: R
+  -- , runSynCirc "cosSin-xy-ad" $ ccc $ andDer $ cosSinProd @R
+
+  -- -- Incremental evaluation. Currently broken.
+  -- , runSynCirc "magSqr-inc" $ ccc $ inc $ andDer $ magSqr @R
 
   ]
 
@@ -132,14 +134,17 @@ type GO a b = (GenBuses a, Ok2 (:>) a b)
 runSyn :: Syn a b -> IO ()
 runSyn syn = putStrLn ('\n' : render syn)
 
-runEC :: GO a b => String -> EC a b -> IO ()
-runEC nm (syn :**: circ) = runSyn syn >> runCirc nm circ
+runSynCirc :: GO a b => String -> EC a b -> IO ()
+runSynCirc nm (syn :**: circ) = runSyn syn >> runCirc nm circ
 
 runCirc :: GO a b => String -> (a :> b) -> IO ()
 runCirc nm circ = RC.run nm [] circ
 
 runCircGlsl :: String -> CAnim -> IO ()
 runCircGlsl nm circ = runCirc nm circ >> genGlsl nm circ
+
+-- TODO: rework runCircGlsl so that it generates the circuit graph once rather
+-- than twice.
 
 {--------------------------------------------------------------------
     Misc definitions
