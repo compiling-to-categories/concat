@@ -12,7 +12,9 @@
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+
 {-# OPTIONS_GHC -fdefer-typed-holes #-} -- TEMP
+{-# OPTIONS_GHC -fdefer-type-errors #-} -- TEMP
 
 -- | Experimenting with a replacement for Circuit
 
@@ -29,6 +31,7 @@ import Control.Newtype
 -- mtl
 import qualified Control.Monad.State  as M
 import qualified Control.Monad.Writer as M
+import Data.Constraint
 
 import ConCat.Misc ((:*),(:=>),inNew,inNew2)
 import ConCat.Category
@@ -48,13 +51,13 @@ data Prim :: * -> * -> * where
 type PortNum = Int
 
 data Ports :: * -> * where
-  UnitP    :: Ports ()
-  BoolP    :: PortNum -> Ports Bool
-  IntP     :: PortNum -> Ports Int
-  FloatP   :: PortNum -> Ports Float
-  DoubleP  :: PortNum -> Ports Double
-  PairP    :: Ports a -> Ports b -> Ports (a :* b)
-  FunP     :: Graph a b -> Ports (a -> b)
+  UnitP   :: Ports ()
+  BoolP   :: PortNum -> Ports Bool
+  IntP    :: PortNum -> Ports Int
+  FloatP  :: PortNum -> Ports Float
+  DoubleP :: PortNum -> Ports Double
+  PairP   :: Ports a -> Ports b -> Ports (a :* b)
+  FunP    :: Graph a b -> Ports (a -> b)
 
   -- ConvertP :: (T a, T b) => Ports a -> Ports b
 
@@ -82,8 +85,19 @@ newPortNum = do { !n <- M.get ; M.put (n+1) ; return n }
 addComp :: Comp a b -> GraphM ()
 addComp comp = M.tell (singleton (Exists2 comp))
 
-genPorts :: GraphM (Ports b)
-genPorts = _ -- error "genPorts: not yet defined"
+class HasPorts b where genPorts :: GraphM (Ports b)
+
+instance HasPorts ()     where genPorts = pure UnitP
+instance HasPorts Bool   where genPorts = BoolP   <$> newPortNum
+instance HasPorts Int    where genPorts = IntP    <$> newPortNum
+instance HasPorts Float  where genPorts = FloatP  <$> newPortNum
+instance HasPorts Double where genPorts = DoubleP <$> newPortNum
+
+instance (HasPorts a, HasPorts b) => HasPorts (a :* b) where
+  genPorts = liftA2 PairP genPorts genPorts
+
+-- instance (HasPorts a, HasPorts b) => HasPorts (a -> b) where
+--   genPorts = ...
 
 type BG a b = Ports a -> GraphM (Ports b)
 
@@ -113,13 +127,12 @@ applyP (PairP (FunP g) a) = substG g a
 --   do b <- genPorts
 --      return (CompositeG a (singleton prim)
 
-curryP :: BG (a :* b) c -> BG a (b -> c)
+curryP :: HasPorts b => BG (a :* b) c -> BG a (b -> c)
 curryP f a = do b <- genPorts
                 n <- M.get
                 let (comps,c,n') = runG f (PairP a b) n
                 M.put n'
                 return (FunP (Graph b comps c))
-
 
 {--------------------------------------------------------------------
     Graph category
@@ -136,17 +149,22 @@ instance Newtype (a :> b) where
   unpack (C (Kleisli f)) = f
 
 instance Category (:>) where
+  type Ok (:>) = HasPorts
   id  = pack return
   (.) = inNew2 (<=<)
+
+instance OpCon (Prod (:>)) (Sat HasPorts) where inOp = Entail (Sub Dict)
 
 instance ProductCat (:>) where
   exl   = pack exlP
   exr   = pack exrP
   (&&&) = inNew2 forkP
 
+-- instance OpCon (Exp (:>)) (Sat HasPorts) where inOp = Entail (Sub Dict)
+
 instance ClosedCat (:>) where
-  apply   = pack applyP
-  curry   = inNew curryP
+  apply = pack applyP
+  curry = inNew curryP
 
 -- instance ClosedCat (:>) where
 --   apply   = pack  $ \ (PairP (FunP f) a) -> f a
@@ -190,12 +208,12 @@ instance BoolCat (:>) where
 type Arr = Array Int
 
 class ArrayCat k a where
-  mkArr :: Int -> (Exp k Int a `k` Arr a)
+  array :: Int -> (Exp k Int a `k` Arr a)
   arrAt :: (Arr a :* Int) `k` a
 #endif
 
 -- instance ArrayCat (:>) a where
---   mkArr n = pack (\ (FunP f) -> _)
+--   array n = pack (\ (FunP f) -> _)
 --   arrAt = addPrim ArrAt
 
 -- genG :: BG a b -> GraphM (Graph a b)
