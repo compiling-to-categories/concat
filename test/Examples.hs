@@ -65,7 +65,6 @@ import ConCat.Image
 import qualified ConCat.RunCircuit as RC
 import ConCat.GLSL (genGlsl,CAnim)
 import ConCat.AltCat (ccc,U2(..),(:**:)(..),Ok2) --, Ok, Ok3, Arr, array,arrAt
-import ConCat.AltCat ()
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 
 -- import ConCat.Fun
