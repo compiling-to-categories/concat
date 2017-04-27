@@ -78,6 +78,7 @@ library
                        ConCat.Polynomial
                        ConCat.Image
                        ConCat.Demand
+                       ConCat.Fun
 
                        ConCat.C
                        ConCat.D
@@ -100,6 +101,22 @@ Test-Suite test
   default-language: Haskell98
   hs-Source-Dirs:   test
   main-is:          Test.hs
+  Build-Depends:    Cabal >= 1.24.0.0
+                  , NumInstances >= 1.4
+                  , array >= 0.5.1.1
+                  , base<5
+                  , concat
+                  , ghc-prim
+                  , language-glsl >= 0.2.0
+                  , parsec >= 3.1.11
+                  , prettyclass
+  ghc-options:      -O2
+
+Test-Suite examples
+  type:             exitcode-stdio-1.0
+  default-language: Haskell98
+  hs-Source-Dirs:   test
+  main-is:          Examples.hs
   Build-Depends:    Cabal >= 1.24.0.0
                   , NumInstances >= 1.4
                   , array >= 0.5.1.1
