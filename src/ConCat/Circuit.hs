@@ -1372,7 +1372,7 @@ instance (IfCat (:>) a, IfCat (:>) b) => IfCat (:>) (a :* b) where
   ifC = prodIf
 
 instance (GenBuses a, GenBuses b) => ArrayCat (:>) a b where
-  mkArr = namedC "mkArr"
+  array = namedC "array"
   arrAt = namedC "arrAt"
 
 {--------------------------------------------------------------------

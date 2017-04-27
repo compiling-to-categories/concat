@@ -217,13 +217,8 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 -- {-# OPINLINE constFun #-}
 -- OpRule1(constFun)
 
-#if 1
-Op0(mkArr, ArrayCat k a b => Exp k a b `k` Arr a b)
+Op0(array, ArrayCat k a b => Exp k a b `k` Arr a b)
 Op0(arrAt, ArrayCat k a b => Prod k (Arr a b) a `k` b)
-#else
-Op0(mkArr, ArrayCat k a => (Int :* Exp k Int a) `k` Arr a)
-Op0(arrAt, ArrayCat k a => (Arr a :* Int) `k` a)
-#endif
 
 -- TODO: Consider moving all of the auxiliary functions (like constFun) here.
 -- Rename "ConCat.Category" to something like "ConCat.Category.Class" and

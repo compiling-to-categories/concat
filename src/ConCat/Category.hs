@@ -43,7 +43,7 @@ import qualified Control.Arrow as A
 import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
 -- import Data.Proxy (Proxy)
-import Data.Array
+import Data.Array (Array)
 import Data.Typeable (Typeable)
 import GHC.Exts (Coercible,coerce)
 import Data.Type.Equality ((:~:)(..))
@@ -1501,72 +1501,45 @@ instance (CoerceCat k a b, CoerceCat k' a b) => CoerceCat (k :**: k') a b where
   PINLINER(coerceC)
 
 -- Arrays
-#if 1
 newtype Arr a b = MkArr (Array a b) deriving Show
 
 class ArrayCat k a b where
-  mkArr :: Exp k a b `k` Arr a b
+  array :: Exp k a b `k` Arr a b
   -- arrAt :: Arr a b `k` Exp k a b
   arrAt :: Prod k (Arr a b) a `k` b
 
 instance {- Enum a => -} ArrayCat (->) a b where
-  mkArr = mkArrFun
+  array = arrayFun
   arrAt = arrAtFun
-  PINLINER(mkArr)
+  -- {-# NOINLINE array #-}
+  -- {-# NOINLINE arrAt #-}
+  PINLINER(array)
   PINLINER(arrAt)
 
-mkArrFun :: {- Enum a => -} (a -> b) -> Arr a b
-mkArrFun = oops "mkArrFun not yet defined"
-{-# NOINLINE mkArrFun #-}
+arrayFun :: {- Enum a => -} (a -> b) -> Arr a b
+arrayFun = oops "arrayFun not yet defined"
+{-# NOINLINE arrayFun #-}
 
 arrAtFun :: {- Enum a => -} Arr a b :* a -> b
 arrAtFun = oops "arrAtFun not yet defined"
 {-# NOINLINE arrAtFun #-}
 
--- TODO: working definitions for mkArrFun and arrAtFun
-
-#else
-newtype Arr a = MkArr (Array Int a) deriving Show
--- data Arr a = MkArr deriving Show
-
-class ArrayCat k a where
-  mkArr :: (Int :* Exp k Int a) `k` Arr a
-  arrAt :: (Arr a :* Int) `k` a
-
-instance ArrayCat (->) a where
-  mkArr f = MkArr (array (0,n-1) [(i,f i) | i <- [0 .. n-1]])
-  -- arrAt (MkArr a,n) = a ! n
-  -- mkArr = error "mkArr on ArrayCat (->) undefined"
-  -- arrAt = error "arrAt on ArrayCat (->) undefined"
-  mkArr = mkArrFun
-  arrAt = arrAtFun
-  PINLINER(mkArr)
-  PINLINER(arrAt)
-
-mkArrFun :: Int :* (Int -> a) -> Arr a
-mkArrFun (n,f) = MkArr (array (0,n-1) [(i,f i) | i <- [0 .. n-1]])
-{-# NOINLINE mkArrFun #-}
-
-arrAtFun :: Arr a :* Int -> a
-arrAtFun (MkArr a, i) = a ! i
-{-# NOINLINE arrAtFun #-}
-
-#endif
+-- TODO: working definitions for arrayFun and arrAtFun
 
 instance ArrayCat U2 a b where
-  mkArr = U2
-  -- mkArr _ = U2
+  array = U2
+  -- array _ = U2
   arrAt = U2
 
 instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
-  mkArr = mkArr :**: mkArr
+  array = array :**: array
   arrAt = arrAt :**: arrAt
-  PINLINER(mkArr)
+  PINLINER(array)
   PINLINER(arrAt)
 
 #ifdef KleisliInstances
 instance (Monad m, Enum a) => ArrayCat (Kleisli m) a b where
-  mkArr = arr mkArr
+  array = arr array
   arrAt = arr arrAt
 #endif
 
