@@ -4,7 +4,11 @@ Experimenting (again) with constrained categories, as well as Haskell to hardwar
 
 To run:
 
-    stack test
+    stack build :examples
+
+There are several more commented-out examples in test/Examples.hs.
+You can fiddle with comments to change the collection of examples compiled.
+That module also serves as an example to copy and make your own examples.
 
 ## Some applications
 
@@ -15,6 +19,7 @@ Working:
 *   GLSL for graphics
 *   Interval analysis
 *   Incremental computation
+*   SMT (satisfy modulo theories), with John Wiegley
 
 In progress:
 
@@ -23,9 +28,9 @@ In progress:
 *   Functions with some special cases like constant, linear, polynomial, as well as the general case
 
 Others:
+
 *   Something about language recognition, such as regular languages
 *   Various semirings, including shortest/longest paths
-*   Probabilistic programming
-    If a computation ignores part of a value, then don't evaluate and cache variations in that part.
+*   Probabilistic programming and other wrappings of monadic interfaces
 *   Memoization at every stage. With what benefit?
 *   AFRP
