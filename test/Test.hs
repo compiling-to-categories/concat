@@ -26,7 +26,7 @@
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
 
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
--- {-# OPTIONS_GHC -dverbose-core2core #-}
+-- {-# OPTIONS_GHC -dverbose-core2core #-} 
 
 -- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
 
@@ -39,7 +39,7 @@
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
-{-# OPTIONS_GHC -dsuppress-uniques #-}
+-- {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
 ----------------------------------------------------------------------
@@ -62,8 +62,10 @@ import Data.Maybe
 import Distribution.TestSuite
 import GHC.Generics hiding (R,D)
 import GHC.Exts (lazy,coerce)
+import Text.Show.Functions ()  -- for Show
 
-import ConCat.Misc (Unop,Binop,(:*),PseudoFun(..),R,bottom,oops,Yes2,sqr,magSqr)
+import ConCat.Misc
+  (Unop,Binop,(:*),(:+),PseudoFun(..),R,bottom,oops,Yes2,sqr,magSqr)
 import ConCat.Rep
 import ConCat.Standardize
 import ConCat.Free.VectorSpace (V)
@@ -78,11 +80,13 @@ import qualified ConCat.RunCircuit as RC
 import ConCat.RunCircuit (go,Okay)
 import ConCat.GLSL (genGlsl,CAnim)
 import ConCat.AltCat ( ccc,reveal,Uncurriable(..),U2(..),(:**:)(..),Ok2
-                     , reprC,abstC,mulC,amb,ambC,asKleisli,recipC, mkArr )
+                     , reprC,abstC,mulC,amb,ambC,asKleisli,recipC, Arr,array,arrAt )
 import qualified ConCat.AltCat as A
 import ConCat.Rebox () -- experiment
 import ConCat.Orphans ()
 import ConCat.GradientDescent
+
+import ConCat.Fun
 
 default (Int, Double)
 
@@ -90,13 +94,73 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
+--   , test "foo" (toEnum @Bool)
+
+--   , test "a1" (fmap (+3) :: Unop (Arr Bool Int))
+--   , test "sum-arr-2"  (sum @(Arr Bool) @Int)
+--   , test "sum-arr-4"  (sum @(Arr (Bool :* Bool)) @Int)
+--   , test "sum-arr-8"  (sum @(Arr ((Bool :* Bool) :* Bool)) @Int)
+--   , test "sum-arr-16" (sum :: Arr (((Bool :* Bool) :* Bool) :* Bool) Int -> Int)
+--   , test "sum-arr-16p" (sum :: Arr ((((() :* Bool) :* Bool) :* Bool) :* Bool) Int -> Int)
+
+--   , test "foo" (sum @(Arr (Bool :* ())) @Int)
+
+--   , test "lsums-arr" (lsums @(Arr Bool) @Int)  -- compiles, but ?!
+
+--   , test "foo" (\ a b c -> a + b * c :: Int)
+
+--   , test "fun1" (arrAt :: Arr Bool Int :* Bool -> Int)
+
+--   , test "fun2" (\ arr -> sum (arrToF arr :: Par1 Int))
+
+--   , test "fun3" (\ arr -> arrToF arr :: RPow Pair N2 Int)
+
+--   , test "fun4" (\ arr -> sum (arrToF arr :: RVec N2 Int))  -- fail
+
+--   , test "fun5" (\ arr -> arrToFun arr :: Fun Bool Int)
+
+--   , test "fun6" (\ arr -> sum (arrToFFun arr :: FFun (Bool :+ Bool) Int))
+
+--   , test "fun7" (\ arr -> sum (arrToFFun arr :: FFun (Bool :* Bool) Int))
+
+--   , test "fun8" (\ arr -> ffunToArr (fmap (+3) (arrToFFun arr :: FFun (Bool :* Bool) Int)))
+
+--   , test "fun9" (\ arr -> unTArr (fmap (+3) (TArr arr :: TArr (Bool :* Bool :* Bool) Int)))
+
+--   , test "div" (div :: Binop Int)
+
+--   , test "divC" (A.divC :: Int :* Int -> Int)
+
+--   , test "divMod" (divMod :: Int -> Int -> (Int,Int))
+
+--   , test "fun9" (\ arr -> sum (TArr arr :: TArr (Bool :* Bool) Int))
+
+--   , test "fromEnum-toEnum-partial" (fromEnum' . toEnum' @Bool)
+
+--   , test "fun10" (\ arr -> sum (TArr arr :: TArr ((Bool :* Bool) :* Bool) Int))
+
+--   , test "fun11" (\ arr -> sum (TArr arr :: TArr (((Bool :* Bool) :* Bool) :* Bool) Int))
+
+--   , test "fun12" (\ arr -> sum (TArr arr :: TArr ((((Bool :* Bool) :* Bool) :* Bool) :* Bool) Int))
+
+--   , test "fun11" (\ arr -> sum (TArr arr :: TArr (Bool :* (Bool :* Bool)) Int))
+
+--   , test "unProdTArr"  (unProdTArr @Bool @Bool @Int)
+--   , test "unProdTArr2" (unProdTArr2 @Bool @Bool @Int)
+
+--   , test "foo" (\ (x :: ()) -> toEnum (fromEnum x) :: ())
+
+--   , test "bar" (\ n -> fromEnum (toEnum n :: ()))
+
+--   , test "fun8" (\ arr -> ffunToArr (fmap (+3) (arrToFFun arr :: FFun (Bool :* Bool) Int)))
+
 --   , test "app" (\ ((f,a) :: ((Int -> Bool) :* Int)) -> f a)
 --   , test "app-false" (\ f -> f False :: Bool)
 --   , test "and-curried" (&&)
 --   , test "flip" (flip @Int @Float @Bool)
 --   , test "plus-3" (\ (x :: Int) -> x + 3)
---   , test "mkArr1" (\ n -> mkArr (n, \ i -> i*i))
---   , test "mkArr2" (\ n -> mkArr (n, \ i -> i*n))
+--   , test "array1" (\ n -> array (n, \ i -> i*i))
+--   , test "array2" (\ n -> array (n, \ i -> i*n))
 
 --   , test "not" not
 
@@ -112,12 +176,14 @@ main = sequence_
 
 --   , print (gather (ccc (\ (x,y) -> x + y - y :: Int)) (10,20))
 
-  , test "diag-plus-im" (\ t ((x,y) :: R2) -> x + sin t > y)
-  , test "disk-sizing" (disk . cos)
-  , test "disk-sizing-p" (disk' . cos)
-  , test "diag-disk-turning" (\ t -> udisk `intersectR` rotate t xPos)
-  , test "sqr-sqr-anim" (\ t ((x,y) :: R2) -> sqr (sqr x) > y + sin t)
-  , test "diag-disk-turning-sizing" (\ t -> disk (cos t) `intersectR` rotate t xPos)
+--   , test "wobbly-disk" (\ t -> disk (0.75 + 0.25 * cos t))
+--   , test "wobbly-diskp" (\ t -> disk' (0.75 + 0.25 * cos t))
+--   , test "diag-plus-im" (\ t ((x,y) :: R2) -> x + sin t > y)
+--   , test "disk-sizing" (disk . cos)
+--   , test "disk-sizing-p" (disk' . cos)
+--   , test "diag-disk-turning" (\ t -> udisk `intersectR` rotate t xPos)
+--   , test "sqr-sqr-anim" (\ t ((x,y) :: R2) -> sqr (sqr x) > y + sin t)
+--   , test "diag-disk-turning-sizing" (\ t -> disk' (cos t) `xorR` rotate t xyPos)
 
  -- Test reuse
 
@@ -157,6 +223,12 @@ main = sequence_
 --   , test "sqr-iv" (unIF (ccc (sqr @Int)))
 
 --   , test "magSqr-iv" (unIF (ccc (magSqr @Int)))
+
+--   , test "xp3y-curried" (\ (x :: R) y -> x + 3 * y)
+
+--   , test "xp3y" (\ ((x,y) :: R2) -> x + 3 * y)
+
+--   , test "xp3y-iv" (unIF (ccc (\ ((x,y) :: R2) -> x + 3 * y)))
 
 --   , test "poly1" (\ x -> 1 + 3 * x :: Double)
 
@@ -198,6 +270,8 @@ main = sequence_
 --   , test "magSqr3" (\ (a,b,c) -> sqr a + sqr b + sqr c :: R)
 
 --   , test "sqr-ad" (andDer (ccc (sqr @R)))
+
+  , putStrLn ('\n' : render (ccc (andDer (ccc (sqr @R)))))
 
 --   , test "magSqr-d" (der (magSqr @R))
 
@@ -416,7 +490,7 @@ type Con = Uncurriable (->)
 #elif 0
 type Con a b = OkAnim a b
 {-# RULES "GLSL" forall nm f. test nm f = genGlsl nm (ccc (uncurry f)) #-}
-#elif 1
+#elif 0
 type Con a b = OkAnim a b
 {-# RULES "Circuit and GLSL" forall nm f. test nm f = runCircGlsl nm (ccc f) #-}
 #elif 1
