@@ -12,7 +12,7 @@
 
 -- | Generate GLSL code from a circuit graph
 
-module ConCat.GLSL (CAnim,genGlsl) where
+module ConCat.GLSL (Anim,CAnim,genGlsl) where
 
 import Control.Monad (when)
 import Data.Char (isAlphaNum)
@@ -35,6 +35,7 @@ import qualified ConCat.Circuit as C
 
 type Image = R :* R -> Bool     -- TODO: color etc
 
+type  Anim = R -> Image
 type CAnim = R :> Image
 
 showGraph :: Bool
