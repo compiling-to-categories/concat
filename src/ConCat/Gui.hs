@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -28,6 +29,11 @@ data In   :: * -> * where
 
 deriving instance Show (In a)
 
+instance Monoid (Out a) where
+  mempty = NoO
+  NoO `mappend` b = b
+  a `mappend` _ = a
+
 infixr 9 :-->
 
 data Out  :: * -> * where
@@ -36,7 +42,16 @@ data Out  :: * -> * where
   PairO   :: Out a -> Out b -> Out (a :* b)
   (:-->)  :: In a -> Out b -> Out (a -> b)
 
+-- unFunO :: Out (a -> b) -> In a :* Out b
+-- unFunO (a :--> b) = (a,b)
+-- unFunO o = error ("unFunO: " ++ show o)
+
 deriving instance Show (Out a)
+
+instance Monoid (In a) where
+  mempty = NoI
+  NoI `mappend` b = b
+  a `mappend` _ = a
 
 data Gui a b = Gui (In a) (Out b) deriving Show
 
@@ -44,10 +59,15 @@ instance Newtype (Gui a b) where
   type O (Gui a b) = In a :* Out b
   pack (a,b) = Gui a b
   unpack (Gui a b) = (a,b)
-  unpack g = error ("unpack Gui: " ++ show g)
+
+input :: In a -> Gui a a
+input = pack . (,NoO)
+
+output :: Out a -> Gui a a
+output = pack . (NoI,)
 
 noGui :: Gui a b
-noGui = pack (NoI,NoO)
+noGui = pack (NoI,NoO)          -- or input NoI, or output NoO
 
 instance Category Gui where
   id = noGui
@@ -56,4 +76,4 @@ instance Category Gui where
 instance ProductCat Gui where
   exl = noGui
   exr = noGui
-  (&&&) = inNew2 (\ (a,c) (a',d) -> (a, c `PairO` d))
+  (&&&) = inNew2 (\ (a,c) (a',d) -> (a `mappend` a', c `PairO` d))
