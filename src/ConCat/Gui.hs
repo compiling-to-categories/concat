@@ -38,18 +38,22 @@ data Out  :: * -> * where
 
 deriving instance Show (Out a)
 
-unFunO :: Out (a -> b) -> In a :* Out b
-unFunO (a :--> b) = (a,b)
-unFunO o = error ("unFunO: " ++ show o)
-
-newtype Gui a b = Gui (Out (a -> b))
+data Gui a b = Gui (In a) (Out b) deriving Show
 
 instance Newtype (Gui a b) where
-  type O (Gui a b) = Out (a -> b)
-  pack o = Gui o
-  unpack (Gui o) = o
+  type O (Gui a b) = In a :* Out b
+  pack (a,b) = Gui a b
+  unpack (Gui a b) = (a,b)
+  unpack g = error ("unpack Gui: " ++ show g)
+
+noGui :: Gui a b
+noGui = pack (NoI,NoO)
 
 instance Category Gui where
-  id = Gui (NoI :--> NoO)
-  (unpack -> unFunO -> (_,c)) . (unpack -> unFunO -> (a,_)) =
-    pack (a :--> c)
+  id = noGui
+  (.) = inNew2 (\ (_,c) (a,_) -> (a,c))
+
+instance ProductCat Gui where
+  exl = noGui
+  exr = noGui
+  (&&&) = inNew2 (\ (a,c) (a',d) -> (a, c `PairO` d))
