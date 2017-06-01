@@ -1521,6 +1521,7 @@ arrayFun = oops "arrayFun not yet defined"
 {-# NOINLINE arrayFun #-}
 
 arrAtFun :: {- Enum a => -} Arr a b :* a -> b
+-- arrAtFun :: {- Enum a => -} Arr a b -> (a -> b)
 arrAtFun = oops "arrAtFun not yet defined"
 {-# NOINLINE arrAtFun #-}
 
