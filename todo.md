@@ -1,5 +1,43 @@
 # To do
 
+*   Automated testing.
+*   Associated types for product, coproduct, exponential, `Bool`, `Int`, etc.
+    The type of `ccc` will have to change, moving closer to the categorical notion of functor (and cartesian functor, closed cartesian functor, etc)
+*   Move examples out to one or more other packages.
+*   Users' guide / misc notes.
+*   Document and begin fixing robustness issues.
+*   Study performance, and begin improving:
+    *   AD seems rather slow.
+        Perhaps due to lots of inlining and simplification.
+*   Clean up & simplify implementation (once automated testing is in place), particularly `ConCat.Plugin`.
+*   Categories/back-ends:
+    *   Verilog back-end, starting with the circuit graph category in `ConCat.Circuit` from concat and `Circat.Netlist` from circat.
+        We'll need `Float` and `Double` literals, not currently supported by the KU netlist libraries.
+    *   GPU via CUDA or OpenCL, perhaps starting with the graph/circuit category (as with dot, Verilog, and GLSL)
+    *   Interval analysis (`ConCat.Interval`): more operations.
+    *   Polynomials
+    *   Probabilistic computation
+    *   Other Kleisli categories
+    *   Javascript generation
+    *   Circuit graphs: rework with statically typed primitives.
+        *   Cleaner optimization
+        *   How to hash-cons?
+    *   Optimization, e.g., along the lines of z3cat.
+    *   Automatic differentiation:
+        *   Back-ends with explicit tensor representations.
+            Experiment with associating composition.
+        *   `ClosedCat` instance?
+*   Improve treatment of coercions, replacing `CoerceCat` with composed uses of `RepCat`.
+    (I've not managed to do so.)
+*   Better use of GHC optimizations so that need less (ideally none) in `ConCat.Circuit`.
+*   Get rewrite rules to work better.
+    Coercions and `let` bindings sometimes interfere.
+*   Use [dump-core](https://hackage.haskell.org/package/dump-core) ([GitHub](https://github.com/yav/dump-core)) to view generated Core.
+
+
+
+# Misc to be reviewed
+
 *   Compilation with AD is slow. Diagnose, and improve.
 *   Maybe I should replace pin numbers by component numbers and output index (usually 0).
     I could perhaps identify components by a sequence of component indices within the ancestor chain, like stack frames.
