@@ -34,6 +34,7 @@
 *   Get rewrite rules to work better.
     Coercions and `let` bindings sometimes interfere.
 *   Use [dump-core](https://hackage.haskell.org/package/dump-core) ([GitHub](https://github.com/yav/dump-core)) to view generated Core.
+*   Representation/levity polymorphism, so that we can used unboxed primitives, rather than having to reverse GHC unboxing work.
 
 
 
