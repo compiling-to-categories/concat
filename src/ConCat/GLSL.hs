@@ -135,25 +135,32 @@ varName b = error ("ConCat.GLSL.varName unexpected " ++ show b)
 -- primitives.
 
 app :: String -> [Expr] -> Expr
-app "not"    [e]     = UnaryNot e
-app "&&"     [e1,e2] = And e1 e2
-app "||"     [e1,e2] = Or  e1 e2
-app "<"      [e1,e2] = Lt  e1 e2
-app ">"      [e1,e2] = Gt  e1 e2
-app "<="     [e1,e2] = Lte e1 e2
-app ">="     [e1,e2] = Gte e1 e2
-app "=="     [e1,e2] = Equ e1 e2
-app "/="     [e1,e2] = Neq e1 e2
-app "negate" [e]     = UnaryNegate e
-app "+"      [e1,e2] = Add e1 e2
-app "-"      [e1,e2] = Sub e1 e2
-app "−"      [e1,e2] = Sub e1 e2
-app "*"      [e1,e2] = Mul e1 e2
-app "/"      [e1,e2] = Div e1 e2
-app "mod"    [e1,e2] = Mod e1 e2
-app "xor"    [e1,e2] = Neq e1 e2
-app fun args | fun `S.member` knownFuncs = funcall fun args
-             | otherwise = error ("ConCat.GLSL.app: not supported: " ++ show (fun,args))
+app nm es = go nm
+ where
+   go "not" = app1 UnaryNot
+   go "&&"  = app2 And
+   go "||"     = app2 Or 
+   go "<"      = app2 Lt 
+   go ">"      = app2 Gt 
+   go "<="     = app2 Lte
+   go ">="     = app2 Gte
+   go "=="     = app2 Equ
+   go "/="     = app2 Neq
+   go "negate" = app1 UnaryNegate
+   go "+"      = app2 Add
+   go "-"      = app2 Sub
+   go "−"      = app2 Sub
+   go "*"      = app2 Mul
+   go "/"      = app2 Div
+   go "mod"    = app2 Mod
+   go "xor"    = app2 Neq
+   go fun | fun `S.member` knownFuncs = funcall fun es
+          | otherwise = error ("ConCat.GLSL.app: not supported: " ++ show (fun,es))
+   err str = error ("app " ++ nm ++ ": expecting " ++ str ++ " but got " ++ show es)
+   app1 op | [e] <- es = op e
+           | otherwise = err "one argument"
+   app2 op | [e1,e2] <- es = op e1 e2
+           | otherwise = err "two arguments"
 
 knownFuncs :: S.Set String
 knownFuncs = S.fromList ["exp","cos","sin"]
