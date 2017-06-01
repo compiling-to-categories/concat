@@ -27,6 +27,7 @@
         *   Back-ends with explicit tensor representations.
             Experiment with associating composition.
         *   `ClosedCat` instance?
+    *   A GUI category, along the lines of [*Tangible Functional Programming*](http://conal.net/papers/Eros/).
 *   Improve treatment of coercions, replacing `CoerceCat` with composed uses of `RepCat`.
     (I've not managed to do so.)
 *   Better use of GHC optimizations so that need less (ideally none) in `ConCat.Circuit`.
