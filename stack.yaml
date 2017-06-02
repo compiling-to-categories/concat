@@ -1,2 +1,6 @@
 resolver: lts-8.0
 
+packages:
+- core
+- plugin
+- examples
