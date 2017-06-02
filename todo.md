@@ -3,7 +3,13 @@
 *   Automated testing.
 *   Associated types for product, coproduct, exponential, `Bool`, `Int`, etc.
     The type of `ccc` will have to change, moving closer to the categorical notion of functor (and cartesian functor, closed cartesian functor, etc)
-*   Move examples out to one or more other packages.
+*   Split concat into a few packages/repos:
+    *   Constrained categories ("concat")
+    *   The compiler plugin
+    *   Example categories and uses
+
+    Make sure that it's easy & quick to build and run examples after the other packages change, without having to check in.
+    For instance, use a stack.yaml with local package references.
 *   Users' guide / misc notes.
 *   Document and begin fixing robustness issues.
 *   Study performance, and begin improving:
