@@ -331,12 +331,15 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      --        -- return $ mkCcc (etaExpand 1 e)
      -- TODO: If I don't etaReduceN, merge goLam back into the go Lam case.
 #endif
+     Tick t e -> Doing("top tick")
+                 return $ Tick t (mkCcc e)
      _e -> Doing("top Unhandled")
            -- pprTrace "ccc go. Unhandled" (ppr _e) $ Nothing
            -- pprPanic "ccc go. Unhandled" (ppr _e)
            Nothing
-   -- goLam x body | dtrace "goLam:" (ppr (Lam x body)) False = undefined
    -- go _ = Nothing
+   -- goLam x body | dtrace "goLam:" (ppr (Lam x body)) False = undefined
+   -- goLam x body | dtrace ("goLam body constr: " ++ exprConstr body) (ppr (Lam x body)) False = undefined
    goLam x body | Just e' <- etaReduce_maybe (Lam x body) =
     Doing("lam eta-reduce")
     return (mkCcc e')
@@ -569,8 +572,9 @@ ccc (CccEnv {..}) (Ops {..}) cat =
 #endif
      Trying("lam App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
-     u `App` v | liftedExpr v
-               -- , pprTrace "lam App mkApplyMaybe -->" (ppr (mkApplyMaybe cat vty bty, cat)) True
+     u `App` v | pprTrace "lam App" (ppr (u,v)) False -> undefined
+               | liftedExpr v
+               , pprTrace "lam App mkApplyMaybe -->" (ppr (mkApplyMaybe cat vty bty, cat)) True
                , Just app <- mkApplyMaybe cat vty bty ->
        Doing("lam App")
        return $ mkCompose cat
@@ -585,6 +589,8 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           return (mkCcc (Lam x body'))
           -- goLam x body'
           -- TODO: factor out Lam x (mkCcc ...)
+     Tick t e -> Doing("lam tick")
+                 return $ Tick t (mkCcc (Lam x e))
      -- Give up
      _e -> pprPanic "ccc" ("lam Unhandled" <+> ppr _e)
            -- pprTrace "goLam" ("Unhandled" <+> ppr _e) $ Nothing
@@ -1930,3 +1936,16 @@ isCast _         = False
 -- | Monadic variation on everywhere' (top-down)
 everywhereM' :: Monad m => GenericM m -> GenericM m
 everywhereM' f = gmapM (everywhereM' f) <=< f
+
+exprConstr :: Expr b -> String
+exprConstr (Var {})      = "Var"
+exprConstr (Lit {})      = "Lit"
+exprConstr (App {})      = "App"
+exprConstr (Lam {})      = "Lam"
+exprConstr (Let {})      = "Let"
+exprConstr (Case {})     = "Case"
+exprConstr (Cast {})     = "Cast"
+exprConstr (Tick {})     = "Tick"
+exprConstr (Type {})     = "Type"
+exprConstr (Coercion {}) = "Coercion"
+
