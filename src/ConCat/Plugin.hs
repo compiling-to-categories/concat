@@ -572,9 +572,9 @@ ccc (CccEnv {..}) (Ops {..}) cat =
 #endif
      Trying("lam App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
-     u `App` v | pprTrace "lam App" (ppr (u,v)) False -> undefined
+     u `App` v -- | pprTrace "lam App" (ppr (u,v)) False -> undefined
                | liftedExpr v
-               , pprTrace "lam App mkApplyMaybe -->" (ppr (mkApplyMaybe cat vty bty, cat)) True
+               -- , pprTrace "lam App mkApplyMaybe -->" (ppr (mkApplyMaybe cat vty bty, cat)) True
                , Just app <- mkApplyMaybe cat vty bty ->
        Doing("lam App")
        return $ mkCompose cat
