@@ -163,7 +163,7 @@ import qualified ConCat.Free.LinearCol as LC
 --------------------------------------------------------------------}
 
 -- Component (primitive) type
-data Ty = Unit | Bool | Int | Float | Double | Pair Ty Ty | Arr Ty Ty | Fun Ty Ty deriving (Eq,Ord)
+data Ty = Unit | Bool | Int | Float | Double | Prod Ty Ty | Arr Ty Ty | Fun Ty Ty deriving (Eq,Ord)
 
 instance Show Ty where
   showsPrec _ Unit   = showString "()"
@@ -171,7 +171,7 @@ instance Show Ty where
   showsPrec _ Int    = showString "Int"
   showsPrec _ Float  = showString "Float"
   showsPrec _ Double = showString "Double"
-  showsPrec p (Pair a b) = showParen (p >= 7) $
+  showsPrec p (Prod a b) = showParen (p >= 7) $
     showsPrec 7 a . showString " × " . showsPrec 7 b
   showsPrec p (Arr a b) = showParen (p >= 9) $
     showString "Arr " . showsPrec 9 a . showString " " . showsPrec 9 b
@@ -229,7 +229,7 @@ newSource t templ ins o = -- trace "newSource" $
 data Buses :: * -> * where
   UnitB    :: Buses ()
   PrimB    :: Source -> Buses b
-  PairB    :: Ok2 (:>) a b => Buses a -> Buses b -> Buses (a :* b)
+  ProdB    :: Ok2 (:>) a b => Buses a -> Buses b -> Buses (a :* b)
   -- FunB     :: SubgraphId -> Buses (a -> b)
   ConvertB :: Ok2 (:>) a b => Buses a -> Buses b
   -- AbstB :: Buses (Rep b) -> Buses b
@@ -242,7 +242,7 @@ deriving instance Show (Buses a)
 instance Eq (Buses a) where
   UnitB      == UnitB       = True
   PrimB s    == PrimB s'    = s == s'
-  PairB a b  == PairB a' b' = a == a' && b == b'
+  ProdB a b  == ProdB a' b' = a == a' && b == b'
   -- FunB _     == FunB _      = False             -- TODO: reconsider
   ConvertB a == ConvertB b  = case cast a of
                                 Just a' -> a' == b
@@ -310,7 +310,7 @@ genPrimBus = genBus PrimB (ty @a)
 --    flat :: forall a. GenBuses a => Buses a -> Seq Source
 --    flat UnitB        = mempty
 --    flat (PrimB s)    = singleton s
---    flat (PairB a b)  = flat a <> flat b
+--    flat (ProdB a b)  = flat a <> flat b
 --    flat (ConvertB b) = flat b
 
 unflattenPrimB :: GenBuses a => State [Source] (Buses a)
@@ -354,10 +354,10 @@ instance (GenBuses a, GenBuses b) => GenBuses (Arr a b)  where
 instance (GenBuses a, GenBuses b) => GenBuses (a :* b) where
   genBuses' templ ins =
     -- trace ("genBuses' @ " ++ show (ty (undefined :: a :* b))) $
-    PairB <$> genBuses' templ ins <*> genBuses' templ ins
+    ProdB <$> genBuses' templ ins <*> genBuses' templ ins
   -- delay (a,b) = delay a *** delay b
-  ty = Pair (ty @a) (ty @b)
-  unflattenB' = liftA2 PairB unflattenB' unflattenB'
+  ty = Prod (ty @a) (ty @b)
+  unflattenB' = liftA2 ProdB unflattenB' unflattenB'
 
 instance (GenBuses a, GenBuses b) => GenBuses (a -> b) where
   genBuses' = genPrimBus
@@ -371,22 +371,22 @@ flattenB = toList . flat
    flat :: forall a. GenBuses a => Buses a -> Seq Source
    flat UnitB        = mempty
    flat (PrimB s)    = singleton s
-   flat (PairB a b)  = flat a <> flat b
+   flat (ProdB a b)  = flat a <> flat b
    flat (ConvertB b) = flat b
 
 badBuses :: forall a x. Ok (:>) a => String -> Buses a -> x
 badBuses nm bs = error (nm ++ " got unexpected bus " ++ show bs)
 
-unPairB :: Ok2 (:>) a b => Buses (a :* b) -> Buses a :* Buses b
-unPairB (PairB a b)            = (a,b)
-unPairB (ConvertB (PairB c d)) = (convertB c, convertB d)
-unPairB b                      = badBuses "unPairB" b
+unProdB :: Ok2 (:>) a b => Buses (a :* b) -> Buses a :* Buses b
+unProdB (ProdB a b)            = (a,b)
+unProdB (ConvertB (ProdB c d)) = (convertB c, convertB d)
+unProdB b                      = badBuses "unProdB" b
 
 exlB :: Ok2 (:>) a b => Buses (a :* b) -> Buses a
-exlB = fst . unPairB
+exlB = fst . unProdB
 
 exrB :: Ok2 (:>) a b => Buses (a :* b) -> Buses b
-exrB = snd . unPairB
+exrB = snd . unProdB
 
 type OkCAR a = Ok2 (:>) a (Rep a)
 
@@ -605,15 +605,15 @@ newComp1 cir a = newComp cir (toBuses a)
 
 newComp2 :: (SourceToBuses a, SourceToBuses b) =>
             (a :* b :> c) -> Source -> Source -> CircuitM (Maybe (Buses c))
-newComp2 cir a b = newComp cir (PairB (toBuses a) (toBuses b))
+newComp2 cir a b = newComp cir (ProdB (toBuses a) (toBuses b))
 
 newComp3L :: (SourceToBuses a, SourceToBuses b, SourceToBuses c) =>
              ((a :* b) :* c :> d) -> Source -> Source -> Source -> CircuitM (Maybe (Buses d))
-newComp3L cir a b c = newComp cir (PairB (PairB (toBuses a) (toBuses b)) (toBuses c))
+newComp3L cir a b c = newComp cir (ProdB (ProdB (toBuses a) (toBuses b)) (toBuses c))
 
 newComp3R :: (SourceToBuses a, SourceToBuses b, SourceToBuses c) =>
              (a :* (b :* c) :> d) -> Source -> Source -> Source -> CircuitM (Maybe (Buses d))
-newComp3R cir a b c = newComp cir (PairB (toBuses a) (PairB (toBuses b) (toBuses c)))
+newComp3R cir a b c = newComp cir (ProdB (toBuses a) (ProdB (toBuses b) (toBuses c)))
 
 newVal :: GS b => b -> CircuitM (Maybe (Buses b))
 newVal b = Just <$> constM' b
@@ -644,7 +644,7 @@ tryCommute = mkCK try
  where
 #if !defined NoCommute
    -- TODO: Add an Ord constraint to PrimB for this line
-   try (PairB (PrimB a) (PrimB a')) | a > a' = return (PairB (PrimB a') (PrimB a))
+   try (ProdB (PrimB a) (PrimB a')) | a > a' = return (ProdB (PrimB a') (PrimB a))
 #endif
    try b = return b
 
@@ -689,20 +689,20 @@ instance Category (:>) where
 crossB :: (Applicative m, Ok4 (:>) a b c d)
        => (Buses a -> m (Buses c)) -> (Buses b -> m (Buses d))
        -> (Buses (a :* b) -> m (Buses (c :* d)))
-crossB f g = (\ ~(a,b) -> liftA2 PairB (f a) (g b)) . unPairB
+crossB f g = (\ ~(a,b) -> liftA2 ProdB (f a) (g b)) . unProdB
 
 -- or drop crossB in favor of forkB with fstB and sndB
 
 forkB :: (Applicative m, Ok3 (:>) a c d) =>
          (Buses a -> m (Buses c)) -> (Buses a -> m (Buses d))
       -> (Buses a -> m (Buses (c :* d)))
-forkB f g a = liftA2 PairB (f a) (g a)
+forkB f g a = liftA2 ProdB (f a) (g a)
 
 -- or drop forkB in favor of dupB and crossB
 
 dupB :: (Applicative m, Ok (:>) a) =>
         Buses a -> m (Buses (a :* a))
-dupB a = pure (PairB a a)
+dupB a = pure (ProdB a a)
 
 instance OpCon (:*) (Sat GenBuses) where inOp = Entail (Sub Dict)
 
@@ -727,7 +727,7 @@ genSubgraph bcirc =
      genComp (Subgraph g bcirc) UnitB
 
 curryB :: Ok3 (:>) a b c => BCirc (a :* b) c -> BCirc a (b -> c)
-curryB f a = genSubgraph (\ b -> f (PairB a b))
+curryB f a = genSubgraph (\ b -> f (ProdB a b))
 
 -- primOpt, primOptSort :: Ok2 (:>) a b => PrimName -> Opt b -> a :> b
 -- type Opt b = [Source] -> CircuitM (Maybe (Buses b))
@@ -944,7 +944,7 @@ instance BoolCat (:>) where
            -- not a    || not b == not (a && b)
            -- TODO: Handle more elegantly.
            [NotS x, NotS y]      ->
-             do o <- unmkCK andC (PairB (PrimB x) (PrimB y))
+             do o <- unmkCK andC (ProdB (PrimB x) (PrimB y))
                 newComp notC o
            _                     -> nothingA
   xorC = primOptSort "xor" $ \ case
