@@ -28,6 +28,7 @@
     *   Circuit graphs: rework with statically typed primitives.
         *   Cleaner optimization
         *   How to hash-cons?
+    *   GLSL: optimizations to introduce SIMD
     *   Optimization, e.g., along the lines of z3cat.
     *   Automatic differentiation:
         *   Back-ends with explicit tensor representations.
