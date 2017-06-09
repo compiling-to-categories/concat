@@ -320,7 +320,7 @@ AbstIf((a,b,c))
 
 #endif
 
-instance ArrayCat Syn a b where
+instance ArrayCat Syn {-a-} b where
   arrAt = app0 "arrAt"
   array = app0 "array"
 

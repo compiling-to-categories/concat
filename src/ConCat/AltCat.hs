@@ -218,8 +218,8 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 -- OpRule1(constFun)
 
 #if 1
-Op0(array, ArrayCat k a b => Exp k Int b `k` Arr a b)
-Op0(arrAt, ArrayCat k a b => Prod k (Arr a b) Int `k` b)
+Op0(array, ArrayCat k b => Prod k Int (Exp k Int b) `k` Arr b)
+Op0(arrAt, ArrayCat k b => Prod k (Arr b) Int `k` b)
 #else
 Op0(array, ArrayCat k a b => Exp k a b `k` Arr a b)
 Op0(arrAt, ArrayCat k a b => Prod k (Arr a b) a `k` b)

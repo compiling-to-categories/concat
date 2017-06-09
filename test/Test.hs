@@ -57,6 +57,7 @@
 
 module Main where
 
+import Control.Applicative (liftA2)
 import Control.Arrow (second,runKleisli)
 import Data.Tuple (swap)
 import Data.Maybe
@@ -99,9 +100,9 @@ type Succ = 'Succ
 
 type family LVec n a where
   LVec Zero a = ()
-  LVec (Succ n) a = LVec n a :* a
-  -- LVec N1 a = a
-  -- LVec (Succ (Succ n)) a = LVec (Succ n) a :* a
+  -- LVec (Succ n) a = LVec n a :* a
+  LVec N1 a = a
+  LVec (Succ (Succ n)) a = LVec (Succ n) a :* a
 
 type N0  = Zero
 -- Generated code
@@ -112,6 +113,13 @@ type N2  = Succ N1
 type N3  = Succ N2
 type N4  = Succ N3
 type N5  = Succ N4
+type N6  = Succ N5
+type N7  = Succ N6
+type N8  = Succ N7
+type N9  = Succ N8
+type N10 = Succ N9
+type N11 = Succ N10
+type N12 = Succ N11
 -- ...
 
 type LB n = LVec n Bool
@@ -121,49 +129,20 @@ main = sequence_
   [ putChar '\n' -- return ()
 
   -- , test "foo" (toEnum @Bool)
-  -- , test "a1" (fmap (+3) :: Unop (Arr Bool Int))
 
-  -- , test "sum-arr-1"  (sum @(Arr ()) @Int)
-  -- , test "sum-arr-1-b"  (sum @(Arr (() :* ())) @Int)
+  -- , test "map-arr-1024" (fmap sqr :: Unop (Arr' (LB N10) Int))
 
-  -- , test "sum-arr-2"  (sum @(Arr Bool) @Int)
-  -- , test "sum-arr-2-b"  (sum @(Arr (() :* Bool)) @Int)
-  -- , test "sum-arr-4"  (sum @(Arr (Bool :* Bool)) @Int)
-  -- , test "sum-arr-4-b"  (sum @(Arr ((() :* Bool) :* Bool)) @Int)
-  -- , test "sum-arr-4-w"  (sum @(Arr (Bool :* Bool)) @Int)
+  -- , test "add-arr-1024" (uncurry (liftA2 (+) :: Binop (Arr' (LB N10) Int)))
+  -- , test "add-arr-b-1024" (uncurry (liftArr2 (+) :: Binop (Arr' (LB N10) Int)))
 
-  -- , test "sum-arr-8-a"  (sum @(Arr (LB N3)) @Int)
-  , test "sum-arr-8-b"  (sum @(Arr (LB N3)) @Int)
-
-  -- , test "sum-arr-3"  (sum @(Arr (Bool :+ ())) @Int)
-  -- , test "sum-arr-8-b"  (sum @(Arr (((() :* Bool) :* Bool) :* Bool)) @Int)
-  -- , test "sum-arr-8-c"  (sum @(Arr ((Bool :* (Bool :* (Bool :* ()))))) @Int)
-  -- , test "sum-arr-16" (sum :: Arr (((Bool :* Bool) :* Bool) :* Bool) Int -> Int)
-  -- , test "sum-arr-16p" (sum :: Arr ((((() :* Bool) :* Bool) :* Bool) :* Bool) Int -> Int)
-
-  -- , test "foo" (sum @(Arr (Bool :* ())) @Int)
-
-  -- , test "lsums-arr" (lsums @(Arr Bool) @Int)  -- compiles, but ?!
-
-  -- , test "foo" (\ a b c -> a + b * c :: Int)
-
-  -- , test "fun1" (arrAt :: Arr Bool Int -> Bool -> Int)
-
-  -- , test "fun2" (\ arr -> sum (arrToF arr :: Par1 Int))
-
-  -- , test "fun3" (\ arr -> arrToF arr :: RPow Pair N2 Int)
-
-  -- , test "fun4" (\ arr -> sum (arrToF arr :: RVec N2 Int))  -- fail
-
-  -- , test "fun5" (\ arr -> arrToFun arr :: Fun Bool Int)
-
-  -- , test "fun6" (\ arr -> sum (arrToFFun arr :: FFun (Bool :+ Bool) Int))
-
-  -- , test "fun7" (\ arr -> sum (arrToFFun arr :: FFun (Bool :* Bool) Int))
-
-  -- , test "fun8" (\ arr -> ffunToArr (fmap (+3) (arrToFFun arr :: FFun (Bool :* Bool) Int)))
-
-  -- , test "fun9" (\ arr -> unTArr (fmap (+3) (TArr arr :: TArr (Bool :* Bool :* Bool) Int)))
+  -- , test "sum-arr-2"    (sum @(Arr' (LB N1)) @Int)
+  -- , test "sum-arr-4"    (sum @(Arr' (LB N2)) @Int)
+  -- , test "sum-arr-8"    (sum @(Arr' (LB N3)) @Int)
+  , test "sum-arr-16"   (sum @(Arr' (LB N4)) @Int)
+  -- , test "sum-arr-32"   (sum @(Arr' (LB N5)) @Int)
+  -- , test "sum-arr-256" (sum @(Arr' (LB N8)) @Int)
+  -- , test "sum-arr-1024" (sum @(Arr' (LB N10)) @Int)
+  -- , test "sum-arr-4096" (sum @(Arr' (LB N12)) @Int)
 
   -- , test "div" (div :: Binop Int)
 

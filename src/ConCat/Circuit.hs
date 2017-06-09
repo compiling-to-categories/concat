@@ -163,7 +163,7 @@ import qualified ConCat.Free.LinearCol as LC
 --------------------------------------------------------------------}
 
 -- Component (primitive) type
-data Ty = Unit | Bool | Int | Float | Double | Prod Ty Ty | Arr Ty Ty | Fun Ty Ty deriving (Eq,Ord)
+data Ty = Unit | Bool | Int | Float | Double | Prod Ty Ty | Arr {-Ty-} Ty | Fun Ty Ty deriving (Eq,Ord)
 
 instance Show Ty where
   showsPrec _ Unit   = showString "()"
@@ -173,8 +173,8 @@ instance Show Ty where
   showsPrec _ Double = showString "Double"
   showsPrec p (Prod a b) = showParen (p >= 7) $
     showsPrec 7 a . showString " × " . showsPrec 7 b
-  showsPrec p (Arr a b) = showParen (p >= 9) $
-    showString "Arr " . showsPrec 9 a . showString " " . showsPrec 9 b
+  showsPrec p (Arr {-a-} b) = showParen (p >= 9) $
+    showString "Arr " {-. showsPrec 9 a-} . showString " " . showsPrec 9 b
   showsPrec p (Fun a b) = showParen (p >= 1) $
     showsPrec 1 a . showString " → " . showsPrec 0 b
 
@@ -342,11 +342,12 @@ instance GenBuses Double  where
   ty = Double
   unflattenB' = unflattenPrimB
 
-instance (GenBuses a, GenBuses b) => GenBuses (Arr a b)  where
+instance ({-GenBuses a, -}GenBuses b) => GenBuses (Arr {-a -}b)  where
   genBuses' = genPrimBus
   -- delay = primDelay
-  ty = Arr (ty @a) (ty @b)
+  ty = Arr {-(ty @a) -}(ty @b)
   unflattenB' = unflattenPrimB
+
 
 -- TODO: perhaps give default definitions for genBuses', delay, and unflattenB',
 -- and eliminate the definitions in Bool,...,Double,Arr a.
@@ -849,7 +850,7 @@ instance SourceToBuses Int     where toBuses = PrimB
 instance SourceToBuses Float   where toBuses = PrimB
 instance SourceToBuses Double  where toBuses = PrimB
 
-instance (GenBuses a, GenBuses b) => SourceToBuses (Arr a b) where
+instance (GenBuses a, GenBuses b) => SourceToBuses (Arr {- a -} b) where
   toBuses = PrimB
 
 sourceB :: SourceToBuses a => Source -> CircuitM (Maybe (Buses a))
@@ -1363,15 +1364,16 @@ instance IfCat (:>) Int     where ifC = primOpt "if" (ifOpt `orOpt` ifOptI)
 instance IfCat (:>) Float   where ifC = primOpt "if" ifOpt
 instance IfCat (:>) Double  where ifC = primOpt "if" ifOpt
 
-instance (GenBuses a, GenBuses b) => IfCat (:>) (Arr a b) where
-  ifC = primOpt "if" ifOpt
+-- instance ({-GenBuses a, -}GenBuses b) => IfCat (:>) (Arr {-a -}b) where
+--   -- ifC = primOpt "if" ifOpt
+--   ifC = primOpt "if" ifOpt
 
 instance IfCat (:>) () where ifC = unitIf
 
 instance (IfCat (:>) a, IfCat (:>) b) => IfCat (:>) (a :* b) where
   ifC = prodIf
 
-instance (GenBuses a, GenBuses b) => ArrayCat (:>) a b where
+instance ({-GenBuses a, -}GenBuses b) => ArrayCat (:>) {-a -}b where
   array = namedC "array"
   arrAt = namedC "arrAt"
 

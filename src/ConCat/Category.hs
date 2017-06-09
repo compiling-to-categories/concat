@@ -1502,29 +1502,49 @@ instance (CoerceCat k a b, CoerceCat k' a b) => CoerceCat (k :**: k') a b where
 
 #if 1
 -- Int-based arrays
-newtype Arr (a :: *) b = MkArr (Array Int b) deriving Show
+newtype Arr b = MkArr (Array Int b) deriving Show
 
-class ArrayCat k a b where
-  array :: Exp k Int b `k` Arr a b
-  -- arrAt :: Arr a b `k` Exp k a b
-  arrAt :: Prod k (Arr a b) Int `k` b
+-- instance Newtype (Arr b) where
+--   type O (Arr b) = Array Int b
+--   pack a = MkArr a
+--   unpack (MkArr a) = a
 
-instance {- Enum a => -} ArrayCat (->) a b where
+class ArrayCat k b where
+  array :: Prod k Int (Exp k Int b) `k` Arr b
+  arrAt :: Prod k (Arr b) Int `k` b
+
+instance ArrayCat (->) b where
   array = arrayFun
   arrAt = arrAtFun
-  -- {-# NOINLINE array #-}
-  -- {-# NOINLINE arrAt #-}
   PINLINER(array)
   PINLINER(arrAt)
 
-arrayFun :: {- Enum a => -} forall a b. (Int -> b) -> Arr a b
+arrayFun :: Int :* (Int -> b) -> Arr b
 arrayFun = oops "arrayFun not yet defined"
 {-# NOINLINE arrayFun #-}
 
-arrAtFun :: {- Enum a => -} forall a b. Arr a b :* Int -> b
--- arrAtFun :: {- Enum a => -} Arr a b -> (a -> b)
+arrAtFun :: Arr b :* Int -> b
 arrAtFun = oops "arrAtFun not yet defined"
 {-# NOINLINE arrAtFun #-}
+
+-- TODO: working definitions for arrayFun and arrAtFun
+
+instance ArrayCat U2 b where
+  array = U2
+  arrAt = U2
+
+instance (ArrayCat k b, ArrayCat k' b) => ArrayCat (k :**: k') b where
+  array = array :**: array
+  arrAt = arrAt :**: arrAt
+  PINLINER(array)
+  PINLINER(arrAt)
+
+#ifdef KleisliInstances
+instance Monad m => ArrayCat (Kleisli m) b where
+  array = arr array
+  arrAt = arr arrAt
+#endif
+
 #else
 -- Arrays
 newtype Arr a b = MkArr (Array a b) deriving Show
@@ -1550,7 +1570,6 @@ arrAtFun :: {- Enum a => -} Arr a b :* a -> b
 -- arrAtFun :: {- Enum a => -} Arr a b -> (a -> b)
 arrAtFun = oops "arrAtFun not yet defined"
 {-# NOINLINE arrAtFun #-}
-#endif
 
 -- TODO: working definitions for arrayFun and arrAtFun
 
@@ -1569,6 +1588,8 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
 instance (Monad m, Enum a) => ArrayCat (Kleisli m) a b where
   array = arr array
   arrAt = arr arrAt
+#endif
+
 #endif
 
 {--------------------------------------------------------------------
