@@ -1,8 +1,8 @@
 -- -*- flycheck-disabled-checkers: '(haskell-ghc haskell-stack-ghc); -*-
 
--- stack test
+-- stack build :test
 --
--- stack build && stack test >& ~/Haskell/concat/out/o1
+-- stack build && stack build :test >& ~/Haskell/concat/out/o1
 
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
@@ -12,6 +12,7 @@
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE DataKinds           #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -90,335 +91,372 @@ import ConCat.Fun
 
 default (Int, Double)
 
+data Nat = Zero | Succ Nat
+
+-- So we don't need -Wno-unticked-promoted-constructors
+type Zero = 'Zero
+type Succ = 'Succ
+
+type family LVec n a where
+  LVec Zero a = ()
+  LVec (Succ n) a = LVec n a :* a
+  -- LVec N1 a = a
+  -- LVec (Succ (Succ n)) a = LVec (Succ n) a :* a
+
+type N0  = Zero
+-- Generated code
+-- 
+--   putStrLn $ unlines ["type N" ++ show (n+1) ++ " = S N" ++ show n | n <- [0..31]]
+type N1  = Succ N0
+type N2  = Succ N1
+type N3  = Succ N2
+type N4  = Succ N3
+type N5  = Succ N4
+-- ...
+
+type LB n = LVec n Bool
+
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
---   , test "foo" (toEnum @Bool)
+  -- , test "foo" (toEnum @Bool)
+  -- , test "a1" (fmap (+3) :: Unop (Arr Bool Int))
 
---   , test "a1" (fmap (+3) :: Unop (Arr Bool Int))
---   , test "sum-arr-2"  (sum @(Arr Bool) @Int)
---   , test "sum-arr-4"  (sum @(Arr (Bool :* Bool)) @Int)
---   , test "sum-arr-8"  (sum @(Arr ((Bool :* Bool) :* Bool)) @Int)
---   , test "sum-arr-16" (sum :: Arr (((Bool :* Bool) :* Bool) :* Bool) Int -> Int)
---   , test "sum-arr-16p" (sum :: Arr ((((() :* Bool) :* Bool) :* Bool) :* Bool) Int -> Int)
+  -- , test "sum-arr-1"  (sum @(Arr ()) @Int)
+  -- , test "sum-arr-1-b"  (sum @(Arr (() :* ())) @Int)
 
---   , test "foo" (sum @(Arr (Bool :* ())) @Int)
+  -- , test "sum-arr-2"  (sum @(Arr Bool) @Int)
+  -- , test "sum-arr-2-b"  (sum @(Arr (() :* Bool)) @Int)
+  -- , test "sum-arr-4"  (sum @(Arr (Bool :* Bool)) @Int)
+  -- , test "sum-arr-4-b"  (sum @(Arr ((() :* Bool) :* Bool)) @Int)
+  -- , test "sum-arr-4-w"  (sum @(Arr (Bool :* Bool)) @Int)
 
---   , test "lsums-arr" (lsums @(Arr Bool) @Int)  -- compiles, but ?!
+  -- , test "sum-arr-8-a"  (sum @(Arr (LB N3)) @Int)
+  , test "sum-arr-8-b"  (sum @(Arr (LB N3)) @Int)
 
---   , test "foo" (\ a b c -> a + b * c :: Int)
+  -- , test "sum-arr-3"  (sum @(Arr (Bool :+ ())) @Int)
+  -- , test "sum-arr-8-b"  (sum @(Arr (((() :* Bool) :* Bool) :* Bool)) @Int)
+  -- , test "sum-arr-8-c"  (sum @(Arr ((Bool :* (Bool :* (Bool :* ()))))) @Int)
+  -- , test "sum-arr-16" (sum :: Arr (((Bool :* Bool) :* Bool) :* Bool) Int -> Int)
+  -- , test "sum-arr-16p" (sum :: Arr ((((() :* Bool) :* Bool) :* Bool) :* Bool) Int -> Int)
 
---   , test "fun1" (arrAt :: Arr Bool Int :* Bool -> Int)
+  -- , test "foo" (sum @(Arr (Bool :* ())) @Int)
 
---   , test "fun2" (\ arr -> sum (arrToF arr :: Par1 Int))
+  -- , test "lsums-arr" (lsums @(Arr Bool) @Int)  -- compiles, but ?!
 
---   , test "fun3" (\ arr -> arrToF arr :: RPow Pair N2 Int)
+  -- , test "foo" (\ a b c -> a + b * c :: Int)
 
---   , test "fun4" (\ arr -> sum (arrToF arr :: RVec N2 Int))  -- fail
+  -- , test "fun1" (arrAt :: Arr Bool Int -> Bool -> Int)
 
---   , test "fun5" (\ arr -> arrToFun arr :: Fun Bool Int)
+  -- , test "fun2" (\ arr -> sum (arrToF arr :: Par1 Int))
 
---   , test "fun6" (\ arr -> sum (arrToFFun arr :: FFun (Bool :+ Bool) Int))
+  -- , test "fun3" (\ arr -> arrToF arr :: RPow Pair N2 Int)
 
---   , test "fun7" (\ arr -> sum (arrToFFun arr :: FFun (Bool :* Bool) Int))
+  -- , test "fun4" (\ arr -> sum (arrToF arr :: RVec N2 Int))  -- fail
 
---   , test "fun8" (\ arr -> ffunToArr (fmap (+3) (arrToFFun arr :: FFun (Bool :* Bool) Int)))
+  -- , test "fun5" (\ arr -> arrToFun arr :: Fun Bool Int)
 
---   , test "fun9" (\ arr -> unTArr (fmap (+3) (TArr arr :: TArr (Bool :* Bool :* Bool) Int)))
+  -- , test "fun6" (\ arr -> sum (arrToFFun arr :: FFun (Bool :+ Bool) Int))
 
---   , test "div" (div :: Binop Int)
+  -- , test "fun7" (\ arr -> sum (arrToFFun arr :: FFun (Bool :* Bool) Int))
 
---   , test "divC" (A.divC :: Int :* Int -> Int)
+  -- , test "fun8" (\ arr -> ffunToArr (fmap (+3) (arrToFFun arr :: FFun (Bool :* Bool) Int)))
 
---   , test "divMod" (divMod :: Int -> Int -> (Int,Int))
+  -- , test "fun9" (\ arr -> unTArr (fmap (+3) (TArr arr :: TArr (Bool :* Bool :* Bool) Int)))
 
---   , test "fun9" (\ arr -> sum (TArr arr :: TArr (Bool :* Bool) Int))
+  -- , test "div" (div :: Binop Int)
 
---   , test "fromEnum-toEnum-partial" (fromEnum' . toEnum' @Bool)
+  -- , test "divC" (A.divC :: Int :* Int -> Int)
 
---   , test "fun10" (\ arr -> sum (TArr arr :: TArr ((Bool :* Bool) :* Bool) Int))
+  -- , test "divMod" (divMod :: Int -> Int -> (Int,Int))
 
---   , test "fun11" (\ arr -> sum (TArr arr :: TArr (((Bool :* Bool) :* Bool) :* Bool) Int))
+  -- , test "fun9" (\ arr -> sum (TArr arr :: TArr (Bool :* Bool) Int))
 
---   , test "fun12" (\ arr -> sum (TArr arr :: TArr ((((Bool :* Bool) :* Bool) :* Bool) :* Bool) Int))
+  -- , test "fromEnum-toEnum-partial" (fromEnum' . toEnum' @Bool)
 
---   , test "fun11" (\ arr -> sum (TArr arr :: TArr (Bool :* (Bool :* Bool)) Int))
+  -- , test "fun10" (\ arr -> sum (TArr arr :: TArr ((Bool :* Bool) :* Bool) Int))
 
---   , test "unProdTArr"  (unProdTArr @Bool @Bool @Int)
---   , test "unProdTArr2" (unProdTArr2 @Bool @Bool @Int)
+  -- , test "fun11" (\ arr -> sum (TArr arr :: TArr (((Bool :* Bool) :* Bool) :* Bool) Int))
 
---   , test "foo" (\ (x :: ()) -> toEnum (fromEnum x) :: ())
+  -- , test "fun12" (\ arr -> sum (TArr arr :: TArr ((((Bool :* Bool) :* Bool) :* Bool) :* Bool) Int))
 
---   , test "bar" (\ n -> fromEnum (toEnum n :: ()))
+  -- , test "fun11" (\ arr -> sum (TArr arr :: TArr (Bool :* (Bool :* Bool)) Int))
 
---   , test "fun8" (\ arr -> ffunToArr (fmap (+3) (arrToFFun arr :: FFun (Bool :* Bool) Int)))
+  -- , test "unProdTArr"  (unProdTArr @Bool @Bool @Int)
+  -- , test "unProdTArr2" (unProdTArr2 @Bool @Bool @Int)
 
---   , test "app" (\ ((f,a) :: ((Int -> Bool) :* Int)) -> f a)
---   , test "app-false" (\ f -> f False :: Bool)
---   , test "and-curried" (&&)
---   , test "flip" (flip @Int @Float @Bool)
---   , test "plus-3" (\ (x :: Int) -> x + 3)
---   , test "array1" (\ n -> array (n, \ i -> i*i))
---   , test "array2" (\ n -> array (n, \ i -> i*n))
+  -- , test "foo" (\ (x :: ()) -> toEnum (fromEnum x) :: ())
 
---   , test "not" not
+  -- , test "bar" (\ n -> fromEnum (toEnum n :: ()))
 
---   , test "foo" (\ (a :: Int, b :: Int) -> let f = sqr . sqr in f a + f (f b))
+  -- , test "fun8" (\ arr -> ffunToArr (fmap (+3) (arrToFFun arr :: FFun (Bool :* Bool) Int)))
 
---   , print (ccc not False)
+  -- , test "app" (\ ((f,a) :: ((Int -> Bool) :* Int)) -> f a)
+  -- , test "app-false" (\ f -> f False :: Bool)
+  -- , test "and-curried" (&&)
+  -- , test "flip" (flip @Int @Float @Bool)
+  -- , test "plus-3" (\ (x :: Int) -> x + 3)
+  -- , test "array1" (\ n -> array (n, \ i -> i*i))
+  -- , test "array2" (\ n -> array (n, \ i -> i*n))
 
---   , test "recip-r" (recip :: Unop R)
+  -- , test "not" not
 
---   , test "recipC-r" (recipC :: Unop R)
+  -- , test "foo" (\ (a :: Int, b :: Int) -> let f = sqr . sqr in f a + f (f b))
 
---   , test "foo" (\ ((x,y) :: R2) -> 1 * x + 0 + (-1) * y)
+  -- , print (ccc not False)
 
---   , print (gather (ccc (\ (x,y) -> x + y - y :: Int)) (10,20))
+  -- , test "recip-r" (recip :: Unop R)
 
---   , test "wobbly-disk" (\ t -> disk (0.75 + 0.25 * cos t))
---   , test "wobbly-diskp" (\ t -> disk' (0.75 + 0.25 * cos t))
---   , test "diag-plus-im" (\ t ((x,y) :: R2) -> x + sin t > y)
---   , test "disk-sizing" (disk . cos)
---   , test "disk-sizing-p" (disk' . cos)
---   , test "diag-disk-turning" (\ t -> udisk `intersectR` rotate t xPos)
---   , test "sqr-sqr-anim" (\ t ((x,y) :: R2) -> sqr (sqr x) > y + sin t)
---   , test "diag-disk-turning-sizing" (\ t -> disk' (cos t) `xorR` rotate t xyPos)
+  -- , test "recipC-r" (recipC :: Unop R)
 
- -- Test reuse
+  -- , test "foo" (\ ((x,y) :: R2) -> 1 * x + 0 + (-1) * y)
 
---   , test "checker-sizing" (\ t -> uscale (sin t) checker) -- oops: bombs
+  -- , print (gather (ccc (\ (x,y) -> x + y - y :: Int)) (10,20))
 
---   , test "diag-plus-im" (\ t (x :: R,y) -> x + sin t > y)
---   , test "disk" disk
---   , test "diag-disk" (\ (x,y) -> udisk (x,y) && x > y)
---   , test "sqr-sqr" (\ (x,y) -> sqr (sqr x) > y) -- Test reuse
+  -- , test "wobbly-disk" (\ t -> disk (0.75 + 0.25 * cos t))
+  -- , test "wobbly-diskp" (\ t -> disk' (0.75 + 0.25 * cos t))
+  -- , test "diag-plus-im" (\ t ((x,y) :: R2) -> x + sin t > y)
+  -- , test "disk-sizing" (disk . cos)
+  -- , test "disk-sizing-p" (disk' . cos)
+  -- , test "diag-disk-turning" (\ t -> udisk `intersectR` rotate t xPos)
+  -- , test "sqr-sqr-anim" (\ t ((x,y) :: R2) -> sqr (sqr x) > y + sin t)
+  -- , test "diag-disk-turning-sizing" (\ t -> disk' (cos t) `xorR` rotate t xyPos)
 
---   , test "const2-0-der" (der (\ (_::R,_::R) -> 0 :: R))
+ -- -- Test reuse
 
---   , test "const2-0-uncurry-der" (der (uncurry (\ (_::R) (_::R) -> 0 :: R)))
+  -- , test "checker-sizing" (\ t -> uscale (sin t) checker) -- oops: bombs
 
---   , print (asKleisli (\ x -> let z = x `amb` x+1 in z*z) 5 :: [Int])
+  -- , test "diag-plus-im" (\ t (x :: R,y) -> x + sin t > y)
+  -- , test "disk" disk
+  -- , test "diag-disk" (\ (x,y) -> udisk (x,y) && x > y)
+  -- , test "sqr-sqr" (\ (x,y) -> sqr (sqr x) > y) -- Test reuse
 
---   , print (asKleisli (\ x -> (x `amb` x+1) * (x `amb` x+1)) 5 :: [Int])
+  -- , test "const2-0-der" (der (\ (_::R,_::R) -> 0 :: R))
 
---   , test "min" (uncurry (min @Int))
+  -- , test "const2-0-uncurry-der" (der (uncurry (\ (_::R) (_::R) -> 0 :: R)))
 
---   , test "minmax" (\ (x :: Int, y :: Int) -> (min x y, max x y))
+  -- , print (asKleisli (\ x -> let z = x `amb` x+1 in z*z) 5 :: [Int])
 
---   , test "min4" (min4 @Int)
+  -- , print (asKleisli (\ x -> (x `amb` x+1) * (x `amb` x+1)) 5 :: [Int])
 
---   , test "min4p" (let min' = (\ x y -> if x <= y then x else y) in \ ((a::Int,b),(c,d)) -> min' (min' a b) (min' c d))
+  -- , test "min" (uncurry (min @Int))
 
---   , test "minmax4" (\ w -> (min4 w, max4 w :: Int))
+  -- , test "minmax" (\ (x :: Int, y :: Int) -> (min x y, max x y))
 
---   , print (unIF (ccc (sqr @Int)) (2,5))
+  -- , test "min4" (min4 @Int)
 
---   , test "add-iv" (unIF (ccc (uncurry ((+) @Int))))
+  -- , test "min4p" (let min' = (\ x y -> if x <= y then x else y) in \ ((a::Int,b),(c,d)) -> min' (min' a b) (min' c d))
 
---   , test "mul-iv" (unIF (ccc (uncurry ((*) @Int))))
+  -- , test "minmax4" (\ w -> (min4 w, max4 w :: Int))
 
---   , test "thrice-iv" (unIF (ccc (\ x -> 3 * x :: Int)))
+  -- , print (unIF (ccc (sqr @Int)) (2,5))
 
---   , test "sqr-iv" (unIF (ccc (sqr @Int)))
+  -- , test "add-iv" (unIF (ccc (uncurry ((+) @Int))))
 
---   , test "magSqr-iv" (unIF (ccc (magSqr @Int)))
+  -- , test "mul-iv" (unIF (ccc (uncurry ((*) @Int))))
 
---   , test "xp3y-curried" (\ (x :: R) y -> x + 3 * y)
+  -- , test "thrice-iv" (unIF (ccc (\ x -> 3 * x :: Int)))
 
---   , test "xp3y" (\ ((x,y) :: R2) -> x + 3 * y)
+  -- , test "sqr-iv" (unIF (ccc (sqr @Int)))
 
---   , test "xp3y-iv" (unIF (ccc (\ ((x,y) :: R2) -> x + 3 * y)))
+  -- , test "magSqr-iv" (unIF (ccc (magSqr @Int)))
 
---   , test "poly1" (\ x -> 1 + 3 * x :: Double)
+  -- , test "xp3y-curried" (\ (x :: R) y -> x + 3 * y)
 
---   , test "poly2" (\ x -> 1 + 3 * x + 5 * x^2 :: Double)
+  -- , test "xp3y" (\ ((x,y) :: R2) -> x + 3 * y)
 
---   , test "poly1-iv" (ivFun (\ x -> 1 + 3 * x + 5 * x^2 :: Double))
+  -- , test "xp3y-iv" (unIF (ccc (\ ((x,y) :: R2) -> x + 3 * y)))
 
---   , test "horner" (horner @Double [1,3,5])
+  -- , test "poly1" (\ x -> 1 + 3 * x :: Double)
 
---   , test "horner-iv" (ivFun (horner @Double [1,3,5]))
+  -- , test "poly2" (\ x -> 1 + 3 * x + 5 * x^2 :: Double)
 
---   , test "poly1-der" (der (\ x -> 1 + 3 * x + 5 * x^2 :: Double))
+  -- , test "poly1-iv" (ivFun (\ x -> 1 + 3 * x + 5 * x^2 :: Double))
 
---   , test "poly1-der-iv" (ivFun (der (\ x -> 1 + 3 * x + 5 * x^2 :: Double)))
+  -- , test "horner" (horner @Double [1,3,5])
 
---   , test "horner-der" (der (horner @Double [1,3,5])) -- times out
+  -- , test "horner-iv" (ivFun (horner @Double [1,3,5]))
 
---   , test "horner-der-iv" (ivFun (der (horner @Double [1,3,5])))
+  -- , test "poly1-der" (der (\ x -> 1 + 3 * x + 5 * x^2 :: Double))
 
---   , test "a3b" (\ (a,b) -> a + 3 * b :: Int)
+  -- , test "poly1-der-iv" (ivFun (der (\ x -> 1 + 3 * x + 5 * x^2 :: Double)))
 
---   , test "abc" (\ ((a,b),c) -> a + b * c :: Int)
+  -- , test "horner-der" (der (horner @Double [1,3,5])) -- times out
 
---   , test "sqr-d" (der (\ x -> x * x :: R))
+  -- , test "horner-der-iv" (ivFun (der (horner @Double [1,3,5])))
 
---   -- [[Oops --- ccc called!
---   , print (der (\ x -> x * x :: R) 1.0)
+  -- , test "a3b" (\ (a,b) -> a + 3 * b :: Int)
 
---   -- 2.0
---   , print (gradient (\ x -> x * x :: R) 1.0)
+  -- , test "abc" (\ ((a,b),c) -> a + b * c :: Int)
 
---   , print (take 10 gd1)
+  -- , test "sqr-d" (der (\ x -> x * x :: R))
 
---   , test "sqr" (sqr @R)
---   , test "magSqr" (magSqr @R)
+  -- -- [[Oops --- ccc called!
+  -- , print (der (\ x -> x * x :: R) 1.0)
 
---   , test "sum-pp" (\ ((a,b),(c,d)) -> (a+c)+(b+d) :: R)
+  -- -- 2.0
+  -- , print (gradient (\ x -> x * x :: R) 1.0)
 
---   , test "magSqr3" (\ (a,b,c) -> sqr a + sqr b + sqr c :: R)
+  -- , print (take 10 gd1)
 
---   , test "sqr-ad" (andDer (ccc (sqr @R)))
+  -- , test "sqr" (sqr @R)
+  -- , test "magSqr" (magSqr @R)
+
+  -- , test "sum-pp" (\ ((a,b),(c,d)) -> (a+c)+(b+d) :: R)
+
+  -- , test "magSqr3" (\ (a,b,c) -> sqr a + sqr b + sqr c :: R)
+
+  -- , test "sqr-ad" (andDer (ccc (sqr @R)))
 
   -- , putStrLn ('\n' : render (ccc (andDer (ccc (sqr @R)))))
 
---   , test "magSqr-d" (der (magSqr @R))
+  -- , test "magSqr-d" (der (magSqr @R))
 
---   , test "magSqr-ad" (andDer (magSqr @R))
+  -- , test "magSqr-ad" (andDer (magSqr @R))
 
---   , print (minimize 1 cos 3)   -- (3.141592653589793,4)
+  -- , print (minimize 1 cos 3)   -- (3.141592653589793,4)
 
---   , test "foo" (gradient cos :: R -> R)
+  -- , test "foo" (gradient cos :: R -> R)
 
---   , test "foo" (gradient (negateV . cos) :: R -> R)
+  -- , test "foo" (gradient (negateV . cos) :: R -> R)
 
---   , print (minimize 1 cos 5)  -- (3.141592653589793,6)
---   , print (maximize 1 cos 5)  -- (6.283185307179586,5)
+  -- , print (minimize 1 cos 5)  -- (3.141592653589793,6)
+  -- , print (maximize 1 cos 5)  -- (6.283185307179586,5)
 
---   -- 0.2: ((5.0e-324,5.0e-324),1460)
---   -- 0.4: ((0.0,0.0),2)
---   -- 0.5: ((0.0,0.0),2)
---   -- 0.6: ((0.0,0.0),465)
---   -- 0.7: ((0.0,0.0),816)
---   -- 0.8: ...
---   , print (minimize 0.5 (\ (a,b) -> sqr a + sqr b) (1,3))
+  -- -- 0.2: ((5.0e-324,5.0e-324),1460)
+  -- -- 0.4: ((0.0,0.0),2)
+  -- -- 0.5: ((0.0,0.0),2)
+  -- -- 0.6: ((0.0,0.0),465)
+  -- -- 0.7: ((0.0,0.0),816)
+  -- -- 0.8: ...
+  -- , print (minimize 0.5 (\ (a,b) -> sqr a + sqr b) (1,3))
 
---   , test "nothing" (\ () -> Nothing :: Maybe Int)
+  -- , test "nothing" (\ () -> Nothing :: Maybe Int)
 
---   , test "magSqr-ad-inc" (inc (andDer (magSqr @R)))
+  -- , test "magSqr-ad-inc" (inc (andDer (magSqr @R)))
 
---   , test "negate-ai" (andInc (negate :: Unop Int))
+  -- , test "negate-ai" (andInc (negate :: Unop Int))
 
---   , test "xx" (\ x -> x * x :: R)
+  -- , test "xx" (\ x -> x * x :: R)
 
---   , test "xy" (\ (x,y) -> x * y :: R)
+  -- , test "xy" (\ (x,y) -> x * y :: R)
 
---   , test "xy-ad" (andDer (\ (x,y) -> x * y :: R))
+  -- , test "xy-ad" (andDer (\ (x,y) -> x * y :: R))
 
---   , test "xy-ad-inc" (inc (andDer (\ (x,y) -> x * y :: R)))
+  -- , test "xy-ad-inc" (inc (andDer (\ (x,y) -> x * y :: R)))
 
---   , test "xy-i" (inc (\ (x,y) -> x * y :: R))
+  -- , test "xy-i" (inc (\ (x,y) -> x * y :: R))
 
---   , test "xy-ai" (andInc (\ (x,y) -> x * y :: R))
+  -- , test "xy-ai" (andInc (\ (x,y) -> x * y :: R))
 
---   , test "cond" (\ x -> if x > 0 then x else negate x :: Int)
+  -- , test "cond" (\ x -> if x > 0 then x else negate x :: Int)
 
---   , test "cond-fun" (\ x -> (if x > 0 then id else negate) x :: Int)
+  -- , test "cond-fun" (\ x -> (if x > 0 then id else negate) x :: Int)
 
---   , test "sop1-ai" (andInc (\ (x,y,z) -> x * y + y * z + x * z :: R))
+  -- , test "sop1-ai" (andInc (\ (x,y,z) -> x * y + y * z + x * z :: R))
 
---   , test "sop1" (\ (x,y,z) -> x * y + y * z + x * z :: R)
+  -- , test "sop1" (\ (x,y,z) -> x * y + y * z + x * z :: R)
 
---   , test "sop1-ai" (andInc (\ (x,y,z) -> x * y + y * z + x * z :: R))
---   , test "sop1-ad" (andDer (\ (x,y,z) -> x * y + y * z + x * z :: R))
---   , test "sop1-ad-ai" (andInc (andDer (\ (x,y,z) -> x * y + y * z + x * z :: R)))
+  -- , test "sop1-ai" (andInc (\ (x,y,z) -> x * y + y * z + x * z :: R))
+  -- , test "sop1-ad" (andDer (\ (x,y,z) -> x * y + y * z + x * z :: R))
+  -- , test "sop1-ad-ai" (andInc (andDer (\ (x,y,z) -> x * y + y * z + x * z :: R)))
 
---   , test "sop2-ad-ai" (andInc (andDer (\ (x,y,z) -> x * y + z :: R)))
+  -- , test "sop2-ad-ai" (andInc (andDer (\ (x,y,z) -> x * y + z :: R)))
 
---   , test "sop3-ad-ai" (andInc (andDer (\ (x::R,_y::R,_z::R) -> x)))
+  -- , test "sop3-ad-ai" (andInc (andDer (\ (x::R,_y::R,_z::R) -> x)))
 
---   , test "sop4-d-ai" (andInc (der (\ (x::R,_y::R,_z::R) -> x)))
+  -- , test "sop4-d-ai" (andInc (der (\ (x::R,_y::R,_z::R) -> x)))
 
---   , test "sum4" (\ (a,b,c,d) -> (a+b)+(c+d) :: R)
+  -- , test "sum4" (\ (a,b,c,d) -> (a+b)+(c+d) :: R)
 
---   , test "sum4-ai" (andInc (\ (a,b,c,d) -> (a+b)+(c+d) :: Int))
+  -- , test "sum4-ai" (andInc (\ (a,b,c,d) -> (a+b)+(c+d) :: Int))
 
---   , test "sum4p-ai" (andInc (\ ((a,b),(c,d)) -> (a+b)+(c+d) :: Int))
+  -- , test "sum4p-ai" (andInc (\ ((a,b),(c,d)) -> (a+b)+(c+d) :: Int))
 
---   , test "sum8" (\ ((a,b,c,d),(e,f,g,h)) -> ((a+b)+(c+d))+((e+f)+(g+h)) :: R)
---   , test "sum8-ai" (andInc (\ ((a,b,c,d),(e,f,g,h)) -> ((a+b)+(c+d))+((e+f)+(g+h)) :: R))
+  -- , test "sum8" (\ ((a,b,c,d),(e,f,g,h)) -> ((a+b)+(c+d))+((e+f)+(g+h)) :: R)
+  -- , test "sum8-ai" (andInc (\ ((a,b,c,d),(e,f,g,h)) -> ((a+b)+(c+d))+((e+f)+(g+h)) :: R))
 
---   , test "magSqr"            (magSqr @R)
---   , test "magSqr-ai" (andInc (magSqr @R))
---   , test "magSqr-i"     (inc (magSqr @R))
+  -- , test "magSqr"            (magSqr @R)
+  -- , test "magSqr-ai" (andInc (magSqr @R))
+  -- , test "magSqr-i"     (inc (magSqr @R))
 
---   , test "linear-compose-r-r-r" (uncurry ((A..) :: LComp R R R))
---   , test "linear-compose-r2-r-r" (uncurry ((A..) :: LComp R2 R R))
---   , test "linear-compose-r-r2-r" (uncurry ((A..) :: LComp R R2 R))
---   , test "linear-compose-r2-r2-r2" (uncurry ((A..) :: LComp R2 R2 R2))
+  -- , test "linear-compose-r-r-r" (uncurry ((A..) :: LComp R R R))
+  -- , test "linear-compose-r2-r-r" (uncurry ((A..) :: LComp R2 R R))
+  -- , test "linear-compose-r-r2-r" (uncurry ((A..) :: LComp R R2 R))
+  -- , test "linear-compose-r2-r2-r2" (uncurry ((A..) :: LComp R2 R2 R2))
 
---   , tst (Par1 @ Bool)
---   , tst (Par1 . Par1 @ Bool)
---   , tst (\ (x :: Bool) -> Par1 (Par1 x))
---   , tst (\ () -> Par1 True)
+  -- , tst (Par1 @ Bool)
+  -- , tst (Par1 . Par1 @ Bool)
+  -- , tst (\ (x :: Bool) -> Par1 (Par1 x))
+  -- , tst (\ () -> Par1 True)
 
---   , tst (\ (Par1 b) -> b :: Bool)
---   , tst (\ (Par1 (Par1 b)) -> b :: Bool)
+  -- , tst (\ (Par1 b) -> b :: Bool)
+  -- , tst (\ (Par1 (Par1 b)) -> b :: Bool)
 
---   , tst ((\ (L w) -> w) :: LR R R -> (V R R :-* V R R) R)
---   , tst ((\ (L (Par1 (Par1 s))) -> s) :: LR R R -> R)
+  -- , tst ((\ (L w) -> w) :: LR R R -> (V R R :-* V R R) R)
+  -- , tst ((\ (L (Par1 (Par1 s))) -> s) :: LR R R -> R)
 
---   , tst (scale :: R -> L R R R)
+  -- , tst (scale :: R -> L R R R)
 
---   , test "id-r"          (id :: Unop R)
---   , test "id-r2"         (id :: Unop R2)
---   , test "id-r3"         (id :: Unop R3)
---   , test "id-r4"         (id :: Unop R4)
+  -- , test "id-r"          (id :: Unop R)
+  -- , test "id-r2"         (id :: Unop R2)
+  -- , test "id-r3"         (id :: Unop R3)
+  -- , test "id-r4"         (id :: Unop R4)
 
---   , test "const-r-4"     (const 4 :: Unop R)
---   , test "const-r-34"    (const (3,4) :: R -> R2)
---   , test "const-r2-34"   (const (3,4) :: Unop R2)
+  -- , test "const-r-4"     (const 4 :: Unop R)
+  -- , test "const-r-34"    (const (3,4) :: R -> R2)
+  -- , test "const-r2-34"   (const (3,4) :: Unop R2)
 
---   , test "x-plus-four" (\ x -> x + 4 :: R)
---   , test "four-plus-x" (\ x -> 4 + x :: R)
+  -- , test "x-plus-four" (\ x -> x + 4 :: R)
+  -- , test "four-plus-x" (\ x -> 4 + x :: R)
 
---   , test "sin"         (sin @R)
---   , test "cos"         (cos @R)
---   , test "double"      (\ x -> x + x :: R) 
+  -- , test "sin"         (sin @R)
+  -- , test "cos"         (cos @R)
+  -- , test "double"      (\ x -> x + x :: R) 
 
---   , test "sin-d1" (der (sin @R))
---   , test "sin-d2" (der (der (sin @R)))
---   , test "sin-d3" (der (der (der (sin @R))))
---   , test "sin-d4" (der (der (der (der (sin @R)))))
+  -- , test "sin-d1" (der (sin @R))
+  -- , test "sin-d2" (der (der (sin @R)))
+  -- , test "sin-d3" (der (der (der (sin @R))))
+  -- , test "sin-d4" (der (der (der (der (sin @R)))))
 
---   , tst (\ (p :: R2) -> (snd p, fst p))
---   , tst (\ ((x,y) :: R2) -> (y,x))
---   , tst (\ ((x,y) :: R2) -> (Par1 y,Par1 x))
---   , tst (\ ((x,y) :: R2) -> Par1 y :*: Par1 x) -- simple
+  -- , tst (\ (p :: R2) -> (snd p, fst p))
+  -- , tst (\ ((x,y) :: R2) -> (y,x))
+  -- , tst (\ ((x,y) :: R2) -> (Par1 y,Par1 x))
+  -- , tst (\ ((x,y) :: R2) -> Par1 y :*: Par1 x) -- simple
 
---   , tst (\ (p :: Par1 R, q :: Par1 R) -> p :*: q)  -- complex
+  -- , tst (\ (p :: Par1 R, q :: Par1 R) -> p :*: q)  -- complex
 
---   , tst (abstC :: Par1 R :* Par1 R -> (Par1 :*: Par1) R)
+  -- , tst (abstC :: Par1 R :* Par1 R -> (Par1 :*: Par1) R)
 
---   , test "mult"                     (uncurry ((*) @R))
---   , test "mult-d1"             (der (uncurry ((*) @R)))
---   , test "mult-d2"        (der (der (uncurry ((*) @R))))
---   , test "mult-d3"   (der (der (der (uncurry ((*) @R)))))
+  -- , test "mult"                     (uncurry ((*) @R))
+  -- , test "mult-d1"             (der (uncurry ((*) @R)))
+  -- , test "mult-d2"        (der (der (uncurry ((*) @R))))
+  -- , test "mult-d3"   (der (der (der (uncurry ((*) @R)))))
 
---   , test "square"      (\ x -> x * x :: R)
+  -- , test "square"      (\ x -> x * x :: R)
 
---   , test "cos-2x"      (\ x -> cos (2 * x) :: R)
---   , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
---   , test "cos-xpy"     (\ (x,y) -> cos (x + y) :: R)
+  -- , test "cos-2x"      (\ x -> cos (2 * x) :: R)
+  -- , test "cos-2xx"     (\ x -> cos (2 * x * x) :: R)
+  -- , test "cos-xpy"     (\ (x,y) -> cos (x + y) :: R)
 
---   , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
---   , test "cos-xy-d1" (der (\ (x,y) -> cos (x * y) :: R))
---   , test "cos-xy-d2" (der (der (\ (x,y) -> cos (x * y) :: R)))
+  -- , test "cos-xy" (\ (x,y) -> cos (x * y) :: R)
+  -- , test "cos-xy-d1" (der (\ (x,y) -> cos (x * y) :: R))
+  -- , test "cos-xy-d2" (der (der (\ (x,y) -> cos (x * y) :: R)))
 
---   , test "cosSin-xy" (cosSinProd @R)
---   , test "cosSin-xy-d1" (der (cosSinProd @R))
+  -- , test "cosSin-xy" (cosSinProd @R)
+  -- , test "cosSin-xy-d1" (der (cosSinProd @R))
 
---   , test "cosSin-xy-ad1" (andDer (\ (x,y) -> cosSin (x * y) :: R2))
+  -- , test "cosSin-xy-ad1" (andDer (\ (x,y) -> cosSin (x * y) :: R2))
 
---   , test "cosSin-xy-ad1-i" (inc (andDer (\ (x,y) -> cosSin (x * y) :: R2)))
+  -- , test "cosSin-xy-ad1-i" (inc (andDer (\ (x,y) -> cosSin (x * y) :: R2)))
 
---   , test "cosSin-xyz" (\ (x,y,z) -> cosSin (x * y + x * z + y * z) :: R2)
---   , test "cosSin-xyz-d1" (der (\ (x,y,z) -> cosSin (x * y + x * z + y * z) :: R2))
+  -- , test "cosSin-xyz" (\ (x,y,z) -> cosSin (x * y + x * z + y * z) :: R2)
+  -- , test "cosSin-xyz-d1" (der (\ (x,y,z) -> cosSin (x * y + x * z + y * z) :: R2))
 
---   , test "three" three
---   , test "threep" three'
---   , test "addThree" addThree
+  -- , test "three" three
+  -- , test "threep" three'
+  -- , test "addThree" addThree
 
   ]
 

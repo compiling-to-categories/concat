@@ -1500,6 +1500,32 @@ instance (CoerceCat k a b, CoerceCat k' a b) => CoerceCat (k :**: k') a b where
   coerceC = coerceC :**: coerceC
   PINLINER(coerceC)
 
+#if 1
+-- Int-based arrays
+newtype Arr (a :: *) b = MkArr (Array Int b) deriving Show
+
+class ArrayCat k a b where
+  array :: Exp k Int b `k` Arr a b
+  -- arrAt :: Arr a b `k` Exp k a b
+  arrAt :: Prod k (Arr a b) Int `k` b
+
+instance {- Enum a => -} ArrayCat (->) a b where
+  array = arrayFun
+  arrAt = arrAtFun
+  -- {-# NOINLINE array #-}
+  -- {-# NOINLINE arrAt #-}
+  PINLINER(array)
+  PINLINER(arrAt)
+
+arrayFun :: {- Enum a => -} forall a b. (Int -> b) -> Arr a b
+arrayFun = oops "arrayFun not yet defined"
+{-# NOINLINE arrayFun #-}
+
+arrAtFun :: {- Enum a => -} forall a b. Arr a b :* Int -> b
+-- arrAtFun :: {- Enum a => -} Arr a b -> (a -> b)
+arrAtFun = oops "arrAtFun not yet defined"
+{-# NOINLINE arrAtFun #-}
+#else
 -- Arrays
 newtype Arr a b = MkArr (Array a b) deriving Show
 
@@ -1524,6 +1550,7 @@ arrAtFun :: {- Enum a => -} Arr a b :* a -> b
 -- arrAtFun :: {- Enum a => -} Arr a b -> (a -> b)
 arrAtFun = oops "arrAtFun not yet defined"
 {-# NOINLINE arrAtFun #-}
+#endif
 
 -- TODO: working definitions for arrayFun and arrAtFun
 
