@@ -2,7 +2,7 @@
 
 -- stack build :test
 --
--- stack build && stack build :test >& ~/Haskell/concat/out/o1
+-- stack build && stack build :test >& /tmp/o1
 
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
@@ -26,7 +26,7 @@
 -- To keep ghci happy, it appears that the plugin flag must be in the test module.
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
 
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-} 
 
 -- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
@@ -65,6 +65,7 @@ import Distribution.TestSuite
 import GHC.Generics hiding (R,D)
 import GHC.Exts (lazy,coerce)
 import Text.Show.Functions ()  -- for Show
+import Data.Void (Void)
 
 import ConCat.Misc
   (Unop,Binop,(:*),(:+),PseudoFun(..),R,bottom,oops,Yes2,sqr,magSqr)
@@ -88,7 +89,9 @@ import ConCat.Rebox () -- experiment
 import ConCat.Orphans ()
 import ConCat.GradientDescent
 
-import ConCat.Fun
+-- import ConCat.Fun
+import ConCat.Arr (DArr)
+import qualified ConCat.Arr as Arr
 
 default (Int, Double)
 
@@ -135,14 +138,39 @@ main = sequence_
   -- , test "add-arr-1024" (uncurry (liftA2 (+) :: Binop (Arr' (LB N10) Int)))
   -- , test "add-arr-b-1024" (uncurry (liftArr2 (+) :: Binop (Arr' (LB N10) Int)))
 
-  -- , test "sum-arr-2"    (sum @(Arr' (LB N1)) @Int)
-  -- , test "sum-arr-4"    (sum @(Arr' (LB N2)) @Int)
-  -- , test "sum-arr-8"    (sum @(Arr' (LB N3)) @Int)
-  , test "sum-arr-16"   (sum @(Arr' (LB N4)) @Int)
-  -- , test "sum-arr-32"   (sum @(Arr' (LB N5)) @Int)
-  -- , test "sum-arr-256" (sum @(Arr' (LB N8)) @Int)
-  -- , test "sum-arr-1024" (sum @(Arr' (LB N10)) @Int)
-  -- , test "sum-arr-4096" (sum @(Arr' (LB N12)) @Int)
+  -- , test "fmap-arr-10" (fmap @(Arr 10) @Int negate)
+
+  -- , test "sum-arr-0" (sum @(DArr Void) @Int)
+
+  -- , test "arrAt" (arrAt :: (Arr 3 Bool, Int) -> Bool)
+
+  -- , test "sum-arr-1" (sum @(DArr ()) @Int)
+
+  -- , test "sum-arr-2" (sum @(DArr Bool) @Int)
+
+  -- , test "foo" (\ (_ :: ()) -> darr id :: DArr Bool Bool)
+
+  -- , test "toEnum-bool" (Arr.toEnum @Bool)
+  -- , test "toEnum-boolxbool" (Arr.toEnum @(Bool :* Bool))
+  -- , test "fromEnum-bool" (Arr.fromEnum @Bool)
+  -- , test "fromEnum-boolxbool" (Arr.fromEnum @(Bool :* Bool))
+
+  , test "toEnum-fromEnum-bool-a" (\ b -> Arr.toEnum @Bool (Arr.fromEnum @Bool b))
+
+  -- , test "toEnum-fromEnum-bool-b" (Arr.toEnum @Bool . Arr.fromEnum @Bool)
+
+  -- , test "toEnum-fromEnum-boolxbool" (Arr.toEnum @(Bool :* Bool) . Arr.fromEnum @(Bool :* Bool))
+
+  -- , test "sum-arr-2-2"  (sum @(DArr (Bool :* Bool)) @Int)
+
+  -- , test "sum-arr-lb1"  (sum @(DArr (LB N1))  @Int)
+  -- , test "sum-arr-lb2"  (sum @(DArr (LB N2))  @Int)
+  -- , test "sum-arr-lb3"  (sum @(DArr (LB N3))  @Int)
+  -- , test "sum-arr-lb4"  (sum @(DArr (LB N4))  @Int)
+  -- , test "sum-arr-lb5"  (sum @(DArr (LB N5))  @Int)
+  -- , test "sum-arr-lb8"  (sum @(DArr (LB N8))  @Int)
+  -- , test "sum-arr-lb10" (sum @(DArr (LB N10)) @Int)
+  -- , test "sum-arr-lb12" (sum @(DArr (LB N12)) @Int)
 
   -- , test "div" (div :: Binop Int)
 

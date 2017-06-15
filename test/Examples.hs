@@ -24,7 +24,7 @@
 -- To keep ghci happy, it appears that the plugin flag must be in the test module.
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
 
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-} 
 
 -- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
@@ -38,8 +38,9 @@
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
--- {-# OPTIONS_GHC -dsuppress-uniques #-}
+{-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
+
 
 ----------------------------------------------------------------------
 -- |
@@ -75,11 +76,16 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
+  -- -- Profiling tests
+  -- , runSynCirc "cos" $ ccc $ cos @R   -- okay
+  -- , runSynCirc "magSqr" $ ccc $ magSqr @R --fails
+  -- , runSynCirc "sqr" $ ccc $ \ (n :: Int) -> n * n
+
   -- -- Circuit graphs
   -- , runSynCirc "magSqr"    $ ccc $ magSqr @Double
   -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
   -- , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
-  , runSynCirc "horner"    $ ccc $ horner @Double [1,3,5]
+  -- , runSynCirc "horner"    $ ccc $ horner @Double [1,3,5]
 
   -- -- GLSL/WebGL code for GPU-accelerated graphics
   -- , runCircGlsl "wobbly-disk" $ ccc $
@@ -104,9 +110,12 @@ main = sequence_
   -- , runSynCirc "sqr-iv"    $ ccc $ ivFun $ sqr @Int
   -- , runSynCirc "magSqr-iv" $ ccc $ ivFun $ magSqr @Int
   -- , runSynCirc "xp3y-iv"   $ ccc $ ivFun $ \ ((x,y) :: R2) -> x + 3 * y
+  -- , runSynCirc "xyp3-iv"   $ ccc $ ivFun $ \ (x,y) -> x * y + 3 :: R
   -- , runSynCirc "horner-iv" $ ccc $ ivFun $ horner @Double [1,3,5]
 
   -- -- Automatic differentiation
+  -- , runSynCirc "sin-ad"       $ ccc $ andDer $ sin @R
+  -- , runSynCirc "cos-ad"       $ ccc $ andDer $ cos @R
   -- , runSynCirc "sqr-ad"       $ ccc $ andDer $ sqr @R
   -- , runSynCirc "magSqr-ad"    $ ccc $ andDer $ magSqr @R
   -- , runSynCirc "cos-2x-ad"    $ ccc $ andDer $ \ x -> cos (2 * x) :: R

@@ -1,6 +1,8 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE CPP #-}
 
+#define SizedArrays
+
 -- #define NoOptimizeCircuit
 
 -- #define NoHashCons
@@ -129,6 +131,9 @@ import Unsafe.Coerce -- experiment
 -- import GHC.Exts (Coercible) -- ,coerce
 import Data.Typeable (TypeRep,Typeable,eqT,cast) -- ,Proxy(..),typeRep
 import Data.Type.Equality ((:~:)(..))
+#ifdef SizedArrays
+import GHC.TypeLits (Nat,KnownNat)
+#endif
 
 import Data.Constraint (Dict(..),(:-)(..))
 
@@ -163,7 +168,13 @@ import qualified ConCat.Free.LinearCol as LC
 --------------------------------------------------------------------}
 
 -- Component (primitive) type
-data Ty = Unit | Bool | Int | Float | Double | Prod Ty Ty | Arr {-Ty-} Ty | Fun Ty Ty deriving (Eq,Ord)
+data Ty = Unit | Bool | Int | Float | Double | Prod Ty Ty
+#ifdef SizedArrays
+        | Array Int Ty          -- Int instead of Nat for Eq & Ord
+#else
+        | Arr {-Ty-} Ty
+#endif
+        | Fun Ty Ty deriving (Eq,Ord)
 
 instance Show Ty where
   showsPrec _ Unit   = showString "()"
@@ -173,8 +184,13 @@ instance Show Ty where
   showsPrec _ Double = showString "Double"
   showsPrec p (Prod a b) = showParen (p >= 7) $
     showsPrec 7 a . showString " × " . showsPrec 7 b
+#ifdef SizedArrays
+  showsPrec p (Array n b) = showParen (p >= 9) $
+    showString "Arr " . showsPrec 9 n . showString " " . showsPrec 9 b
+#else
   showsPrec p (Arr {-a-} b) = showParen (p >= 9) $
     showString "Arr " {-. showsPrec 9 a-} . showString " " . showsPrec 9 b
+#endif
   showsPrec p (Fun a b) = showParen (p >= 1) $
     showsPrec 1 a . showString " → " . showsPrec 0 b
 
@@ -342,11 +358,19 @@ instance GenBuses Double  where
   ty = Double
   unflattenB' = unflattenPrimB
 
+#if 1
+instance (KnownNat n, GenBuses b) => GenBuses (Arr n b)  where
+  genBuses' = genPrimBus
+  -- delay = primDelay
+  ty = Array (natV @n) (ty @b)
+  unflattenB' = unflattenPrimB
+#else
 instance ({-GenBuses a, -}GenBuses b) => GenBuses (Arr {-a -}b)  where
   genBuses' = genPrimBus
   -- delay = primDelay
   ty = Arr {-(ty @a) -}(ty @b)
   unflattenB' = unflattenPrimB
+#endif
 
 
 -- TODO: perhaps give default definitions for genBuses', delay, and unflattenB',
@@ -850,8 +874,13 @@ instance SourceToBuses Int     where toBuses = PrimB
 instance SourceToBuses Float   where toBuses = PrimB
 instance SourceToBuses Double  where toBuses = PrimB
 
+#ifdef SizedArrays
+instance (KnownNat n, GenBuses b) => SourceToBuses (Arr n b) where
+  toBuses = PrimB
+#else
 instance (GenBuses a, GenBuses b) => SourceToBuses (Arr {- a -} b) where
   toBuses = PrimB
+#endif
 
 sourceB :: SourceToBuses a => Source -> CircuitM (Maybe (Buses a))
 sourceB = justA . toBuses

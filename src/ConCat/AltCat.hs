@@ -13,8 +13,10 @@
 {-# LANGUAGE UndecidableInstances  #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -fno-warn-inline-rule-shadowing #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -Wno-inline-rule-shadowing #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
+
+{-# OPTIONS_GHC -Wno-orphans #-} -- See Functor (Arr n)
 
 -- | Alternative interface to the class operations from ConCat.Category, so as
 -- not to get inlined too eagerly to optimize.
@@ -30,6 +32,7 @@ import Control.Arrow (runKleisli)
 import qualified Data.Tuple as P
 import GHC.Exts (Coercible,coerce)
 import Data.Constraint ((\\))
+import GHC.TypeLits
 
 import qualified ConCat.Category as C
 import ConCat.Rep
@@ -48,7 +51,7 @@ import ConCat.Category
   , NumCat, IntegralCat, FractionalCat, FloatingCat, RealFracCat, FromIntegralCat
   , EqCat, OrdCat, EnumCat, BottomCat, IfCat, IfT, UnknownCat, RepCat, CoerceCat
   , repIf
-  , Arr, ArrayCat
+  , Arr, natV, ArrayCat
   , TransitiveCon(..)
   , U2(..), (:**:)(..)
   , type (|-)(..), (<+), okProd
@@ -194,6 +197,7 @@ Op0(powIC,NumCat k a => Prod k a Int `k` a)
 
 Op0(divC,IntegralCat k a => Prod k a a `k` a)
 Op0(modC,IntegralCat k a => Prod k a a `k` a)
+Op0(divModC, (ProductCat k, IntegralCat k a, Ok k a) => Prod k a a `k` Prod k a a)
 
 Op0(recipC,FractionalCat k a => a `k` a)
 Op0(divideC,FractionalCat k a => Prod k a a `k` a)
@@ -218,6 +222,26 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 -- OpRule1(constFun)
 
 #if 1
+
+Op0(array, (ArrayCat k b, KnownNat n) => (Exp k Int b) `k` Arr n b)
+Op0(arrAt, (ArrayCat k b, KnownNat n) => Prod k (Arr n b) Int `k` b)
+
+at :: KnownNat n => Arr n b -> Int -> b
+at = curry arrAt
+{-# INLINE at #-}
+
+-- Orphan instances, defined here so as to use late-inlining operations.
+instance KnownNat n => Functor (Arr n) where
+  fmap f as = array (f . at as)
+  {-# INLINE fmap #-}
+
+instance KnownNat n => Applicative (Arr n) where
+  pure x = array (pure x)
+  fs <*> as = array (at fs <*> at as)
+  {-# INLINE pure #-}
+  {-# INLINE (<*>) #-}
+
+#elif 0
 Op0(array, ArrayCat k b => Prod k Int (Exp k Int b) `k` Arr b)
 Op0(arrAt, ArrayCat k b => Prod k (Arr b) Int `k` b)
 #else
@@ -480,6 +504,8 @@ ccc _ = oops "ccc"
 -- "coerceC . coerceC" coerceC . coerceC = coco
 
 -- "coerceC . coerceC" coerceC . coerceC = snd coco'
+
+"at/arr" forall f i. arrAt (array f,i) = f i
 
  #-}
 #endif

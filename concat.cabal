@@ -47,6 +47,8 @@ library
                      , parsec >= 3.1.11
                      -- For ConCat.Image
                      , NumInstances >= 1.4
+                     -- For ConCat.Arr
+                     , ghc-typelits-knownnat
   exposed-modules:     ConCat.Category
                        ConCat.AltCat
                        ConCat.Misc
@@ -78,7 +80,8 @@ library
                        ConCat.Polynomial
                        ConCat.Image
                        ConCat.Demand
-                       ConCat.Fun
+--                        ConCat.Fun
+                       ConCat.Arr
 
                        ConCat.C
                        ConCat.D

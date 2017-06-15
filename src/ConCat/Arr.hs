@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DeriveFoldable #-}
@@ -26,113 +27,41 @@
 
 {-# OPTIONS -Wno-orphans #-}
 
+#include "AbsTy.inc"
+AbsTyPragmas
+
 -- | Experiments with statically sized arrays
 
 module ConCat.Arr where
 
+import Prelude hiding (Enum(..))
 import Control.Arrow ((|||))
 import Control.Applicative (liftA2)
 import Data.Void (Void,absurd)
-import Data.Monoid ((<>))
+import Data.Monoid ((<>),Sum(..))
 import GHC.TypeLits
-import Data.Array (Array,array,(!))
+import Data.Array (Array,(!))
+import qualified Data.Array as Arr
 import Data.Proxy (Proxy(..))
 import GHC.Generics ((:*:)(..),(:.:)(..))
 
--- import Data.Constraint (Dict(..),(:-)(..),(\\))
+import Control.Newtype (Newtype(..))
 
 import ConCat.Misc ((:*),(:+))
-
-data Arr (n :: Nat) a = KnownNat n => Arr (Array Int a)
-
--- For ConCat.Category
-class ArrayCat k b where
-  arr' :: KnownNat n => (Int -> b) `k` Arr n b
-  at'  :: KnownNat n => (Arr n b :* Int) `k` b
-
-instance ArrayCat (->) b where
-  arr' = arrFun
-  at' (Arr bs,i) = bs ! i
-
-natV :: forall n. KnownNat n => Int
-natV = fromInteger (natVal (Proxy :: Proxy n)) - 1
-
-arrFun :: forall n a. KnownNat n => (Int -> a) -> Arr n a
-arrFun f = Arr (array (0,m) [(i, f i) | i <- [0..m]]) where m = natV @n
-{-# INLINE [0] arrFun #-}
-
--- For ConCat.AltCat
-arr :: (ArrayCat k b, KnownNat n) => (Int -> b) `k` Arr n b
-arr = arr
-{-# INLINE [0] arr #-}
-
-at  :: (ArrayCat k b, KnownNat n) => (Arr n b :* Int) `k` b
-at = at'
-{-# INLINE [0] at #-}
-
-atc :: KnownNat n => Arr n b -> Int -> b
-atc = curry at
-
-instance KnownNat n => Functor (Arr n) where
-  fmap f as = arr (f . atc as)
-  -- fmap = fmapArr
-  -- fmap f (Arr a) = Arr (fmap f a)
-
--- fmapArr :: KnownNat n => (a -> b) -> Arr n a -> Arr n b
--- fmapArr f as@(Arr _) = arr (f . atc as)
---                      -- Arr (fmap f a)
--- {-# INLINE [0] fmapArr #-}
-
-instance KnownNat n => Applicative (Arr n) where
-  pure x = arr (pure x)
-  -- (<*>) = liftArr2 ($)
-  -- (<*>) = appArr
-  fs <*> as = arr (atc fs <*> atc as)
-
--- appArr :: Arr n (a -> b) -> Arr n a -> Arr n b
--- appArr (Arr fs) (Arr as) = arr ((fs !) <*> (as !))
--- {-# INLINE [0] appArr #-}
-
--- -- Remove if liftA2 via (<*>)/appArr works out instead.
--- liftArr2 :: (a -> b -> c) -> Arr n a -> Arr n b -> Arr n c
--- liftArr2 f (Arr as) (Arr bs) = arr (liftA2 f (as !) (bs !))
--- {-# INLINE [0] liftArr2 #-}
-
-{-# RULES
-
-"at/arr" forall f i. at (arr f,i) = f i
-
--- Maybe at/arr is all I need.
-
--- "fmap arr" forall f as. fmapArr f (arr as) = arr (fmap f as)
-
--- "appArr arr" forall fs as. appArr (arr fs) (arr as) = arr (fs <*> as)
-
--- "liftArr2 arr" forall f as bs. liftArr2 f (arr as) (arr bs) = arr (liftA2 f as bs)
-
-  #-}
-
--- instance Foldable (Arr n) where foldMap f (Arr a) = foldMap f a
-
--- -- Maybe drop this instance
--- instance KnownNat n => Foldable (Arr n) where
---   foldMap f a = foldMap f (atc a <$> [0 .. natV @n - 1])
+import ConCat.AltCat (Arr,array,arrAt,at,natV,divModC)
+import ConCat.Rep (HasRep(..))
+AbsTyImports
 
 {--------------------------------------------------------------------
     Domain-typed arrays
 --------------------------------------------------------------------}
 
--- -- Type cardinality.
--- -- If useful, generalize to card :: Num n => n
--- class Card a where card :: Nat
-
--- instance (KnownNat a, KnownNat b) => KnownNat (a :* b) where
-  
+-- Type cardinality.
 class (Enum a, KnownNat (Card a)) => HasCard a where
   type Card a :: Nat
 
-instance HasCard () where type Card () = 1
-
+instance HasCard Void where type Card Void = 0
+instance HasCard ()   where type Card ()   = 1
 instance HasCard Bool where type Card Bool = 2
 
 instance (HasCard a, HasCard b) => HasCard (a :+ b) where
@@ -156,39 +85,70 @@ instance (HasCard a, HasCard b) => HasCard (a :* b) where
 
 data DArr a b = DArr { unDarr :: Arr (Card a) b }
 
+instance HasCard a => Newtype (DArr a b) where
+  type O (DArr a b) = Arr (Card a) b
+  pack = DArr
+  unpack = unDarr
+  {-# INLINE pack #-}
+  {-# INLINE unpack #-}
+
+instance HasCard a => HasRep (DArr a b) where
+  type Rep (DArr a b) = Arr (Card a) b
+  abst = pack
+  repr = unpack
+
+AbsTy(DArr a b)
+
 deriving instance HasCard a => Functor (DArr a)
 -- deriving instance Foldable (DArr a)
 
 instance HasCard i => Applicative (DArr i) where
   pure x = DArr (pure x)
   DArr fs <*> DArr xs = DArr (fs <*> xs)
+  {-# INLINE pure #-}
+  {-# INLINE (<*>) #-}
 
 atd :: HasCard a => DArr a b -> a -> b
-atd (DArr bs) a = atc bs (fromEnum a)
+atd (DArr bs) a = arrAt (bs,fromEnum a)
+                  -- bs `at` fromEnum a
+{-# INLINE atd #-}
 
 darr :: HasCard a => (a -> b) -> DArr a b
-darr f = DArr (arr (f . toEnum))
+darr f = DArr (array (f . toEnum))
+{-# INLINE darr #-}
 
 instance Foldable (DArr Void) where
   foldMap _f _h = mempty
+  {-# INLINE foldMap #-}
 
 instance Foldable (DArr ()) where
   foldMap f (atd -> h) = f (h ())
+  {-# INLINE foldMap #-}
+  sum = getSum . foldMap Sum  -- experiment
+  {-# INLINE sum #-}
 
 instance Foldable (DArr Bool) where
   foldMap f (atd -> h) = f (h False) <> f (h True)
+  {-# INLINE foldMap #-}
+  sum = getSum . foldMap Sum  -- experiment
+  {-# INLINE sum #-}
 
 splitDSum :: (HasCard a, HasCard b) => DArr (a :+ b) z -> (DArr a :*: DArr b) z
 splitDSum (atd -> h) = darr (h . Left) :*: darr (h . Right)
+{-# INLINE splitDSum #-}
 
 instance (HasCard a, HasCard b , Foldable (DArr a), Foldable (DArr b))
       => Foldable (DArr (a :+ b)) where
   -- foldMap f (atd -> h) =
   --   foldMap f (darr (h . Left)) <> foldMap f (darr (h . Right))
   foldMap f = foldMap f . splitDSum
+  {-# INLINE foldMap #-}
+  sum = getSum . foldMap Sum  -- experiment
+  {-# INLINE sum #-}
 
 factorDProd :: (HasCard a, HasCard b) => DArr (a :* b) z -> (DArr a :.: DArr b) z
 factorDProd = Comp1 . darr . fmap darr . curry . atd
+{-# INLINE factorDProd #-}
 
 -- atd       :: DArr (a :* b) z   -> (a :* b -> z)
 -- curry     :: (a :* b -> z)     -> (a -> b -> z)
@@ -200,13 +160,49 @@ instance ( HasCard a, HasCard b, Enum a, Enum b
          , Foldable (DArr a), Foldable (DArr b) )
       => Foldable (DArr (a :* b)) where
   foldMap f = foldMap f . factorDProd
+  {-# INLINE foldMap #-}
+  sum = getSum . foldMap Sum  -- experiment
+  {-# INLINE sum #-}
 
 {--------------------------------------------------------------------
-    Missing Enum instances
+    Enum
 --------------------------------------------------------------------}
+
+-- Custom Enum class using *total* definitions of toEnum.
+
+class Enum a where
+  fromEnum' :: a -> Int
+  toEnum' :: Int -> a
+
+fromEnum :: Enum a => a -> Int
+fromEnum = fromEnum'
+{-# INLINE [0] fromEnum #-}
+
+toEnum :: Enum a => Int -> a
+toEnum = toEnum'
+{-# INLINE [0] toEnum #-}
+
+{-# RULES
+
+-- "toEnum . fromEnum" forall a . toEnum (fromEnum a) = a
+-- "fromEnum . toEnum" forall n . fromEnum (toEnum n) = n  -- true in our context
+
+ #-}
+
 instance Enum Void where
-  fromEnum = absurd
-  toEnum _ = error "toEnum on void"
+  fromEnum' = absurd
+  toEnum' _ = error "toEnum on void"
+
+instance Enum () where
+  fromEnum' () = 0
+  toEnum' _ = ()
+
+instance Enum Bool where
+  fromEnum' False = 0
+  fromEnum' True  = 1
+  toEnum' 0       = False
+  toEnum' 1       = True
+  -- toEnum'         = (> 0)
 
 card :: forall a. HasCard a => Int
 card = natV @(Card a)
@@ -214,21 +210,20 @@ card = natV @(Card a)
 instance (Enum a, HasCard a, Enum b) => Enum (a :+ b) where
   -- fromEnum (Left  a) = fromEnum a
   -- fromEnum (Right b) = card @a + fromEnum b
-  fromEnum = fromEnum ||| (natV @(Card a) +) . fromEnum
-  toEnum i | i < na    = Left  (toEnum i)
-           | otherwise = Right (toEnum (i - na))
+  fromEnum' = fromEnum ||| (card @a +) . fromEnum
+  toEnum' i | i < na    = Left  (toEnum i)
+            | otherwise = Right (toEnum (i - na))
    where
-     na = natV @(Card a)
-  {-# INLINE fromEnum #-}
-  {-# INLINE toEnum #-}
+     na = card @a
+  {-# INLINE fromEnum' #-}
+  {-# INLINE toEnum' #-}
 
 instance (Enum a, HasCard b, Enum b) => Enum (a :* b) where
-  fromEnum (a,b) = fromEnum a * natV @(Card b) + fromEnum b
-  toEnum i = (toEnum d, toEnum m)
+  fromEnum' (a,b) = fromEnum a * card @b + fromEnum b
+  toEnum' i = (toEnum d, toEnum m)
    where
-     (d,m) = i `divMod` n
-     n = card @b
-  {-# INLINE fromEnum #-}
-  {-# INLINE toEnum #-}
+     (d,m) = divModC (i,card @b)
+  {-# INLINE fromEnum' #-}
+  {-# INLINE toEnum' #-}
 
--- Switch to categorical divMod to avoid method inlining.
+-- The categorical divMod avoids method inlining.

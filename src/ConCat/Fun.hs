@@ -89,9 +89,9 @@ instance Enum () where
 instance Enum Bool where
   fromEnum False = 0
   fromEnum True  = 1
-  toEnum 0 = False
-  toEnum 1 = True
---   toEnum = (> 0)
+  toEnum 0       = False
+  toEnum 1       = True
+--   toEnum      = (> 0)
 
 #endif
 
@@ -277,7 +277,18 @@ inArr2' = inArr' <~ arrAt'
 
 instance (Enum a, Card a) => Functor (Arr' a) where
   fmap = inArr' . fmap
+  -- fmap f (Arr' 
   {-# INLINE fmap #-}
+
+fmapArr' :: (Enum a, Card a) => (b -> c) -> (Arr' a b -> Arr' a c)
+fmapArr' = inArr' . fmap
+{-# INLINE [0] fmapArr' #-}
+
+{-# RULES
+
+-- "fmapArr' arr'" fmapArr' f (arr' 
+
+ #-}
 
 instance (Enum a, Card a) => Applicative (Arr' a) where
   pure = arr' . pure
@@ -298,18 +309,65 @@ instance Foldable (Arr' Bool) where
   foldMap f (arrAt' -> h) = f (h 0) <> f (h 1)
   {-# INLINE foldMap #-}
 
+curryArr' :: forall a b c. (Enum a, Card a, Enum b, Card b)
+          => Arr' (a :* b) c -> Arr' a (b -> c)
+curryArr' (arrAt' -> h) = arr' (curry (h . comb))
+ where
+   comb (j,b) = card @b * j + fromEnum b
+{-# INLINE curryArr' #-}
+
 instance {-# overlapping #-} ( Enum a, Card a, Enum b, Card b
                              , Foldable (Arr' a), Foldable ((->) b) )
       => Foldable (Arr' (a :* b)) where
   -- foldMap f arr = (foldMap.foldMap) f (array (fmap array (curry (curry arrAt arr . comb))))
   -- foldMap f (arrAt' -> h) = fold (array (fmap (foldMap f . array) (curry (h . comb))))
-  foldMap f (arrAt' -> h) =
+
+  -- foldMap f (arrAt' -> h) =
+  --   fold (arr' @a (fmap (foldMap f . (. fromEnum @b)) (curry (h . comb))))
+  --  where
+  --    comb (j,k) = card @b * j + k
+
+  -- foldMap f (arrAt' -> h) = fold (arr' @a (foldMap f . curry (h . comb)))
+  --  where
+  --    comb (j,b) = card @b * j + fromEnum @b b
+
+
+  -- foldMap f (arrAt' -> h) = (foldMap.foldMap) f (arr' @a (curry (h . comb)))
+  --  where
+  --    comb (j,b) = card @b * j + fromEnum @b b
+
+
+  foldMap f = fold . fmap f
+  fold (arrAt' -> h) = fold (fmap fold (arr' @a (curry (h . comb))))
+   where
+     comb (j,b) = card @b * j + fromEnum @b b
+
+
   --   (foldMap.foldMap) f (arr' @a (fmap (arr' @b) (curry (h . comb))))
   --   fold (arr' @a (fmap (foldMap f . arr' @b) (curry (h . comb))))
-    fold (arr' @a (fmap (foldMap f . (. fromEnum @b)) (curry (h . comb))))
-   where
-     comb (j,k) = card @b * j + k
+  -- foldMap f = foldMap f . Comp1 . curryArr' 
+
+  -- foldMap f = (foldMap.foldMap) f . curryArr' 
+
   {-# INLINE foldMap #-}
+
+#if 0
+                                  h           :: Int -> c
+                                  h . comb    :: Int * b -> c
+                           curry (h . comb)   :: Int -> b -> c
+                     arr' (curry (h . comb))  :: Arr' (b -> c)
+(foldMap.foldMap) f (arr' (curry (h . comb))) :: m
+#endif
+
+
+#if 0
+                                  h           :: Int -> c
+                                  h . comb    :: Int * b -> c
+                           curry (h . comb)   :: Int -> b -> c
+               foldMap f . curry (h . comb)   :: Int -> m
+      arr' @a (foldMap f . curry (h . comb))  :: Arr' a m
+fold (arr' @a (foldMap f . curry (h . comb))) :: m
+#endif
 
 #if 0
                                                           h            :: Int -> c

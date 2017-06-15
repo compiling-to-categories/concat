@@ -43,7 +43,6 @@ import qualified Control.Arrow as A
 import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
 -- import Data.Proxy (Proxy)
-import Data.Array (Array)
 import Data.Typeable (Typeable)
 import GHC.Exts (Coercible,coerce)
 import Data.Type.Equality ((:~:)(..))
@@ -54,6 +53,11 @@ import GHC.Types (Constraint)
 import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import GHC.Types (type (*))  -- experiment with TypeInType
 -- import qualified Data.Constraint as K
+import GHC.TypeLits
+import Data.Array (Array,(!))
+import qualified Data.Array as Arr
+import Data.Proxy (Proxy(..))
+import GHC.Generics ((:*:)(..),(:.:)(..))
 
 import Control.Newtype (Newtype(..))
 
@@ -1217,6 +1221,10 @@ class Ok k a => IntegralCat k a where
   divC :: Prod k a a `k` a
   modC :: Prod k a a `k` a
 
+divModC :: forall k a. (ProductCat k, IntegralCat k a, Ok k a)
+        => Prod k a a `k` Prod k a a
+divModC = divC &&& modC  <+ okProd @k @a @a
+
 instance Integral a => IntegralCat (->) a where
   divC = uncurry div
   modC = uncurry mod
@@ -1501,6 +1509,30 @@ instance (CoerceCat k a b, CoerceCat k' a b) => CoerceCat (k :**: k') a b where
   PINLINER(coerceC)
 
 #if 1
+
+data Arr (n :: Nat) a = KnownNat n => Arr (Array Int a)
+
+-- For ConCat.Category
+class ArrayCat k b where
+  array :: KnownNat n => (Int -> b) `k` Arr n b
+  arrAt :: KnownNat n => (Arr n b :* Int) `k` b
+
+-- at :: KnownNat n => Arr n b -> Int -> b
+-- at (Arr bs) = (bs !)
+
+-- at :: (ArrayCat k b, ClosedCat k, KnownNat n) => Arr n b `k` (Exp k Int b)
+-- at = curry arrAt
+
+instance ArrayCat (->) b where
+  array :: forall n. KnownNat n => (Int -> b) -> Arr n b
+  array f = Arr (Arr.array (0,m) [(i, f i) | i <- [0..m-1]]) where m = natV @n
+  arrAt (Arr bs,i) = bs ! i
+  -- arrAt = uncurry at
+
+natV :: forall n. KnownNat n => Int
+natV = fromInteger (natVal (Proxy :: Proxy n))
+
+#elif 1
 -- Int-based arrays
 newtype Arr b = MkArr (Array Int b) deriving Show
 
@@ -1528,22 +1560,6 @@ arrAtFun = oops "arrAtFun not yet defined"
 {-# NOINLINE arrAtFun #-}
 
 -- TODO: working definitions for arrayFun and arrAtFun
-
-instance ArrayCat U2 b where
-  array = U2
-  arrAt = U2
-
-instance (ArrayCat k b, ArrayCat k' b) => ArrayCat (k :**: k') b where
-  array = array :**: array
-  arrAt = arrAt :**: arrAt
-  PINLINER(array)
-  PINLINER(arrAt)
-
-#ifdef KleisliInstances
-instance Monad m => ArrayCat (Kleisli m) b where
-  array = arr array
-  arrAt = arr arrAt
-#endif
 
 #else
 -- Arrays
@@ -1573,23 +1589,22 @@ arrAtFun = oops "arrAtFun not yet defined"
 
 -- TODO: working definitions for arrayFun and arrAtFun
 
-instance ArrayCat U2 a b where
+#endif
+
+instance ArrayCat U2 b where
   array = U2
-  -- array _ = U2
   arrAt = U2
 
-instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
+instance (ArrayCat k b, ArrayCat k' b) => ArrayCat (k :**: k') b where
   array = array :**: array
   arrAt = arrAt :**: arrAt
   PINLINER(array)
   PINLINER(arrAt)
 
 #ifdef KleisliInstances
-instance (Monad m, Enum a) => ArrayCat (Kleisli m) a b where
+instance Monad m => ArrayCat (Kleisli m) b where
   array = arr array
   arrAt = arr arrAt
-#endif
-
 #endif
 
 {--------------------------------------------------------------------

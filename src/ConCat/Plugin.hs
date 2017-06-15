@@ -46,7 +46,7 @@ import MkId (mkDictSelRhs,coerceId)
 import Pair (Pair(..))
 import PrelNames (leftDataConName,rightDataConName)
 import Type (coreView)
-import TcType (isIntTy)
+import TcType (isIntTy,isIntegerTy)
 import FamInstEnv (normaliseType)
 import TyCoRep                          -- TODO: explicit imports
 import Unique (mkBuiltinUnique)
@@ -505,8 +505,12 @@ ccc (CccEnv {..}) (Ops {..}) cat =
                                   [ NonRec c scrut
                                   , NonRec a (mkEx funCat exlV (Var c))
                                   , NonRec b (mkEx funCat exrV (Var c)) ] rhs)))
-     Trying("lam Case unfold")
+     -- Trying("lam Case cast")
+     -- Case (Cast scrut (setNominalRole_maybe -> Just co')) v altsTy alts
+     --   -> Doing("lam Case cast")
+     --           Trying("lam Case cast")
      Case scrut v altsTy alts
+       -- | pprTrace "lam Case unfold" (ppr (scrut,unfoldMaybe' scrut)) False -> undefined
        | Just scrut' <- unfoldMaybe' scrut
        -> Doing("lam Case unfold")
           return $ mkCcc $ Lam x $
@@ -750,6 +754,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    unfoldOkay _                    = False
    -- Temp hack: avoid exl/exr and reprC/abstC.
    unfoldMaybe' :: ReExpr
+   -- unfoldMaybe' e | pprTrace "unfoldMaybe'" (ppr (e,exprHead e)) False = undefined
    unfoldMaybe' e@(exprHead -> Just v)
      | not (isSelectorId v || isAbstReprId v) = unfoldMaybe e
    unfoldMaybe' _ = Nothing                                    
@@ -1078,17 +1083,22 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
 
 substFriendly :: Bool -> CoreExpr -> Bool
 -- substFriendly catClosed rhs
---   | pprTrace "substFriendly"
---     (ppr ((catClosed,rhs),not (liftedExpr rhs),incompleteCatOp rhs,isTrivial rhs,isFunTy (exprType rhs) && not catClosed))
---     False = undefined
+ --  | pprTrace "substFriendly"
+ --    (ppr ((catClosed,rhs),not (liftedExpr rhs),incompleteCatOp rhs,isTrivial rhs,isFunTy ty && not catClosed,isIntegerTy ty))
+ --    False = undefined
+ -- where
+ --   ty = exprType rhs
 substFriendly catClosed rhs =
      not (liftedExpr rhs)
   -- || substFriendlyTy (exprType rhs)
   || incompleteCatOp rhs
   || -- pprTrace "isTrivial" (ppr rhs <+> text "-->" <+> ppr (isTrivial rhs))
      (isTrivial rhs)
-  || isFunTy (exprType rhs) && not catClosed
+  || isFunTy ty && not catClosed
+  || isIntegerTy ty -- TODO: replace with something more general
   -- || isVarTyCos rhs
+ where
+   ty = exprType rhs
 
 isVarTyCos :: CoreExpr -> Bool
 isVarTyCos (collectTyCoDictArgs -> (Var _,_)) = True
