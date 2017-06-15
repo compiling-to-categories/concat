@@ -90,8 +90,8 @@ import ConCat.Orphans ()
 import ConCat.GradientDescent
 
 -- import ConCat.Fun
-import ConCat.Arr (DArr)
-import qualified ConCat.Arr as Arr
+-- import ConCat.Arr (DArr)
+-- import qualified ConCat.Arr as Arr
 
 default (Int, Double)
 
@@ -155,7 +155,7 @@ main = sequence_
   -- , test "fromEnum-bool" (Arr.fromEnum @Bool)
   -- , test "fromEnum-boolxbool" (Arr.fromEnum @(Bool :* Bool))
 
-  , test "toEnum-fromEnum-bool-a" (\ b -> Arr.toEnum @Bool (Arr.fromEnum @Bool b))
+  -- , test "toEnum-fromEnum-bool-a" (\ b -> Arr.toEnum @Bool (Arr.fromEnum @Bool b))
 
   -- , test "toEnum-fromEnum-bool-b" (Arr.toEnum @Bool . Arr.fromEnum @Bool)
 

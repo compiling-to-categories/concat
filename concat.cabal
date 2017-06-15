@@ -80,7 +80,7 @@ library
                        ConCat.Polynomial
                        ConCat.Image
                        ConCat.Demand
---                        ConCat.Fun
+                       -- ConCat.Fun
                        ConCat.Arr
 
                        ConCat.C
@@ -121,6 +121,7 @@ Test-Suite examples
   hs-Source-Dirs:   test
   main-is:          Examples.hs
   Build-Depends:    Cabal >= 1.24.0.0
+                  , newtype-generics
                   , NumInstances >= 1.4
                   , array >= 0.5.1.1
                   , base<5

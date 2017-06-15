@@ -1508,73 +1508,16 @@ instance (CoerceCat k a b, CoerceCat k' a b) => CoerceCat (k :**: k') a b where
   coerceC = coerceC :**: coerceC
   PINLINER(coerceC)
 
-#if 1
-
-data Arr (n :: Nat) a = KnownNat n => Arr (Array Int a)
-
--- For ConCat.Category
-class ArrayCat k b where
-  array :: KnownNat n => (Int -> b) `k` Arr n b
-  arrAt :: KnownNat n => (Arr n b :* Int) `k` b
-
--- at :: KnownNat n => Arr n b -> Int -> b
--- at (Arr bs) = (bs !)
-
--- at :: (ArrayCat k b, ClosedCat k, KnownNat n) => Arr n b `k` (Exp k Int b)
--- at = curry arrAt
-
-instance ArrayCat (->) b where
-  array :: forall n. KnownNat n => (Int -> b) -> Arr n b
-  array f = Arr (Arr.array (0,m) [(i, f i) | i <- [0..m-1]]) where m = natV @n
-  arrAt (Arr bs,i) = bs ! i
-  -- arrAt = uncurry at
-
-natV :: forall n. KnownNat n => Int
-natV = fromInteger (natVal (Proxy :: Proxy n))
-
-#elif 1
--- Int-based arrays
-newtype Arr b = MkArr (Array Int b) deriving Show
-
--- instance Newtype (Arr b) where
---   type O (Arr b) = Array Int b
---   pack a = MkArr a
---   unpack (MkArr a) = a
-
-class ArrayCat k b where
-  array :: Prod k Int (Exp k Int b) `k` Arr b
-  arrAt :: Prod k (Arr b) Int `k` b
-
-instance ArrayCat (->) b where
-  array = arrayFun
-  arrAt = arrAtFun
-  PINLINER(array)
-  PINLINER(arrAt)
-
-arrayFun :: Int :* (Int -> b) -> Arr b
-arrayFun = oops "arrayFun not yet defined"
-{-# NOINLINE arrayFun #-}
-
-arrAtFun :: Arr b :* Int -> b
-arrAtFun = oops "arrAtFun not yet defined"
-{-# NOINLINE arrAtFun #-}
-
--- TODO: working definitions for arrayFun and arrAtFun
-
-#else
 -- Arrays
 newtype Arr a b = MkArr (Array a b) deriving Show
 
 class ArrayCat k a b where
   array :: Exp k a b `k` Arr a b
-  -- arrAt :: Arr a b `k` Exp k a b
   arrAt :: Prod k (Arr a b) a `k` b
 
 instance {- Enum a => -} ArrayCat (->) a b where
   array = arrayFun
   arrAt = arrAtFun
-  -- {-# NOINLINE array #-}
-  -- {-# NOINLINE arrAt #-}
   PINLINER(array)
   PINLINER(arrAt)
 
@@ -1583,26 +1526,24 @@ arrayFun = oops "arrayFun not yet defined"
 {-# NOINLINE arrayFun #-}
 
 arrAtFun :: {- Enum a => -} Arr a b :* a -> b
--- arrAtFun :: {- Enum a => -} Arr a b -> (a -> b)
 arrAtFun = oops "arrAtFun not yet defined"
 {-# NOINLINE arrAtFun #-}
 
 -- TODO: working definitions for arrayFun and arrAtFun
 
-#endif
-
-instance ArrayCat U2 b where
+instance ArrayCat U2 a b where
   array = U2
+  -- array _ = U2
   arrAt = U2
 
-instance (ArrayCat k b, ArrayCat k' b) => ArrayCat (k :**: k') b where
+instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
   array = array :**: array
   arrAt = arrAt :**: arrAt
   PINLINER(array)
   PINLINER(arrAt)
 
 #ifdef KleisliInstances
-instance Monad m => ArrayCat (Kleisli m) b where
+instance (Monad m, Enum a) => ArrayCat (Kleisli m) a b where
   array = arr array
   arrAt = arr arrAt
 #endif

@@ -32,7 +32,8 @@ import Control.Arrow (runKleisli)
 import qualified Data.Tuple as P
 import GHC.Exts (Coercible,coerce)
 import Data.Constraint ((\\))
-import GHC.TypeLits
+
+import Control.Newtype (Newtype(..))
 
 import qualified ConCat.Category as C
 import ConCat.Rep
@@ -51,7 +52,7 @@ import ConCat.Category
   , NumCat, IntegralCat, FractionalCat, FloatingCat, RealFracCat, FromIntegralCat
   , EqCat, OrdCat, EnumCat, BottomCat, IfCat, IfT, UnknownCat, RepCat, CoerceCat
   , repIf
-  , Arr, natV, ArrayCat
+  , Arr, ArrayCat
   , TransitiveCon(..)
   , U2(..), (:**:)(..)
   , type (|-)(..), (<+), okProd
@@ -221,34 +222,13 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 -- {-# OPINLINE constFun #-}
 -- OpRule1(constFun)
 
-#if 1
-
-Op0(array, (ArrayCat k b, KnownNat n) => (Exp k Int b) `k` Arr n b)
-Op0(arrAt, (ArrayCat k b, KnownNat n) => Prod k (Arr n b) Int `k` b)
-
-at :: KnownNat n => Arr n b -> Int -> b
-at = curry arrAt
-{-# INLINE at #-}
-
--- Orphan instances, defined here so as to use late-inlining operations.
-instance KnownNat n => Functor (Arr n) where
-  fmap f as = array (f . at as)
-  {-# INLINE fmap #-}
-
-instance KnownNat n => Applicative (Arr n) where
-  pure x = array (pure x)
-  fs <*> as = array (at fs <*> at as)
-  {-# INLINE pure #-}
-  {-# INLINE (<*>) #-}
-
-#elif 0
-Op0(array, ArrayCat k b => Prod k Int (Exp k Int b) `k` Arr b)
-Op0(arrAt, ArrayCat k b => Prod k (Arr b) Int `k` b)
-#else
 Op0(array, ArrayCat k a b => Exp k a b `k` Arr a b)
 Op0(arrAt, ArrayCat k a b => Prod k (Arr a b) a `k` b)
--- Op0(arrAt, ArrayCat k a b => Arr a b `k` Exp k a b)
-#endif
+
+at :: (ArrayCat k a b, ClosedCat k, Ok3 k a b (Arr a b))
+   => Arr a b `k` (Exp k a b)
+at = curry arrAt
+{-# INLINE at #-}
 
 -- TODO: Consider moving all of the auxiliary functions (like constFun) here.
 -- Rename "ConCat.Category" to something like "ConCat.Category.Class" and

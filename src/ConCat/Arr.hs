@@ -25,18 +25,12 @@
 {-# OPTIONS_GHC -Wredundant-constraints #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
+-- | Another go at safe array wrappers
+
 #include "AbsTy.inc"
 AbsTyPragmas
 
--- #define CustomEnum
-
--- | Another go at safe array wrappers
-
-module ConCat.Fun where
-
-#ifdef CustomEnum
-import Prelude hiding (Enum(..))
-#endif
+module ConCat.Arr where
 
 import Data.Monoid ((<>),Sum(..))
 import Data.Foldable (Foldable(..),toList)
@@ -48,75 +42,15 @@ import GHC.Generics
 import Data.Tuple (swap)
 import Data.Void
 
+import GHC.Exts (inline)        -- experiment
+
 import Control.Newtype (Newtype(..))
 
-import ConCat.Misc ((:*),(:+), (<~), inNew, inNew2)
+import ConCat.Misc ((:*),(:+), (<~), Unop, inNew, inNew2)
 import ConCat.Rep
-import ConCat.AltCat (Arr,array,arrAt,divC,modC)
+import ConCat.AltCat (Arr,array,arrAt,at,divC,modC)
 
 AbsTyImports
-
-{--------------------------------------------------------------------
-    Some missing Enum instances
---------------------------------------------------------------------}
-
-#ifdef CustomEnum
--- Define a new class instead of instantiating the usual one. I want total toEnum.
-
-class Enum a where
-  fromEnum' :: a -> Int
-  toEnum' :: Int -> a
-
-fromEnum :: Enum a => a -> Int
-fromEnum = fromEnum'
-{-# INLINE [0] fromEnum #-}
-
-toEnum :: Enum a => Int -> a
-toEnum = toEnum'
-{-# INLINE [0] toEnum #-}
-
-{-# RULES
-
-"toEnum . fromEnum" forall a . toEnum (fromEnum a) = a
-"fromEnum . toEnum" forall n . fromEnum (toEnum n) = n  -- true in our context
-
- #-}
-
-instance Enum () where
-  fromEnum () = 0
-  toEnum _ = ()
-
-instance Enum Bool where
-  fromEnum False = 0
-  fromEnum True  = 1
-  toEnum 0       = False
-  toEnum 1       = True
---   toEnum      = (> 0)
-
-#endif
-
-instance Enum Void where
-  fromEnum = absurd
-  toEnum _ = error "toEnum on void"
-
-instance (Enum a, Card a, Enum b) => Enum (a :+ b) where
-  -- fromEnum (Left  a) = fromEnum a
-  -- fromEnum (Right b) = card @a + fromEnum b
-  fromEnum = fromEnum ||| (card @a +) . fromEnum
-  toEnum i | i < card @a = Left  (toEnum i)
-            | otherwise   = Right (toEnum (i - card @a))
-  {-# INLINE fromEnum #-}
-  {-# INLINE toEnum #-}
-
-instance (Enum a, Card b, Enum b) => Enum (a :* b) where
-  fromEnum (a,b) = fromEnum a * card @b + fromEnum b
-  -- toEnum i = (toEnum ia, toEnum ib) where (ia,ib) = i `divMod` card @b
-  -- toEnum ((`divMod` card @b) -> (ia,ib)) = (toEnum ia, toEnum ib)
-  -- toEnum = (toEnum *** toEnum) . (`divMod` card @b) -- reboxing trouble
-  -- toEnum i = (toEnum (i `div` n), toEnum (i `mod` n)) where n = card @b
-  toEnum i = (toEnum (divC (i,n)), toEnum (modC (i,n))) where n = card @b
-  {-# INLINE fromEnum #-}
-  {-# INLINE toEnum #-}
 
 {--------------------------------------------------------------------
     Foldable functions
@@ -186,16 +120,6 @@ instance Traversable ((->) ()) where
   traverse :: Applicative g => (a -> g b) -> (() -> a) -> g (() -> b)
   traverse f h = pure <$> f (h ())
 
-#if 0
-data Pair a = a :# a
-
-instance Functor Pair where fmap f (a :# b) = f a :# f b
-
-instance Foldable Pair where foldMap f (a :# b) = f a <> f b
-
-instance Traversable Pair where traverse f (a :# b) = (:#) <$> f a <*> f b
-#endif
-
 bool :: w -> w -> (Bool -> w)
 bool e t i = if i then t else e
 
@@ -223,204 +147,6 @@ uncurry <$> traverse (traverse f) (curry h) :: g (a :* b -> c)
 
 #endif
 
-#if 1
-
--- Type cardinality.
--- If useful, generalize to card :: Num n => n
-class Card a where card :: Int
-
-instance Card Void where card = 0
-
-instance Card ()   where card = 1
-
-instance Card Bool where card = 2
-
-instance (Card a, Card b) => Card (a :+ b) where
-  card = card @a + card @b
-
-instance (Card a, Card b) => Card (a :* b) where
-  card = card @a * card @b
-
-instance (Card a, Card b) => Card (a -> b) where
-  card = card @b ^ card @a
-
-data Arr' a b = (Enum a, Card a) => Arr' (Arr b)
-
-instance (Enum a, Card a) => Newtype (Arr' a b) where
-  type O (Arr' a b) = Arr b
-  pack arr = Arr' arr
-  unpack (Arr' arr) = arr
-  {-# INLINE pack #-}
-  {-# INLINE unpack #-}
-
-instance (Enum a, Card a) => HasRep (Arr' a b) where
-  type Rep (Arr' a b) = O (Arr' a b)
-  abst = pack
-  repr = unpack
-
-type ArrQ = Arr'  -- CPP hack
-AbsTy(ArrQ a b)
-
-arr' :: forall a b. (Enum a, Card a) => (Int -> b) -> Arr' a b
-arr' f = Arr' (array (card @a, f))
-
-arrAt' :: Arr' a b -> (Int -> b)
-arrAt' (Arr' arr) = curry arrAt arr
-
-inArr' :: (Enum b, Card b)
-       => ((Int -> p) -> (Int -> q)) -> (Arr' a p -> Arr' b q)
-inArr' = arr' <~ arrAt'
-
-inArr2' :: (Enum c, Card c)
-        => ((Int -> p) -> (Int -> q) -> (Int -> r)) -> (Arr' a p -> Arr' b q -> Arr' c r)
-inArr2' = inArr' <~ arrAt'
-
-instance (Enum a, Card a) => Functor (Arr' a) where
-  fmap = inArr' . fmap
-  -- fmap f (Arr' 
-  {-# INLINE fmap #-}
-
-fmapArr' :: (Enum a, Card a) => (b -> c) -> (Arr' a b -> Arr' a c)
-fmapArr' = inArr' . fmap
-{-# INLINE [0] fmapArr' #-}
-
-{-# RULES
-
--- "fmapArr' arr'" fmapArr' f (arr' 
-
- #-}
-
-instance (Enum a, Card a) => Applicative (Arr' a) where
-  pure = arr' . pure
-  -- (<*>) = inArr2' (<*>)
-  (<*>) = liftArr2 ($)
-  {-# INLINE pure #-}
-  {-# INLINE (<*>) #-}
-
-liftArr2 :: (Enum a, Card a) => (p -> q -> r) -> Arr' a p -> Arr' a q -> Arr' a r
-liftArr2 = inArr2' . liftA2
--- liftArr2 op p q = arr' (\ i -> arrAt' p i `op` arrAt' q i)
-
-instance Foldable (Arr' ()) where
-  foldMap f (arrAt' -> h) = f (h 0)
-  {-# INLINE foldMap #-}
-
-instance Foldable (Arr' Bool) where
-  foldMap f (arrAt' -> h) = f (h 0) <> f (h 1)
-  {-# INLINE foldMap #-}
-
-curryArr' :: forall a b c. (Enum a, Card a, Enum b, Card b)
-          => Arr' (a :* b) c -> Arr' a (b -> c)
-curryArr' (arrAt' -> h) = arr' (curry (h . comb))
- where
-   comb (j,b) = card @b * j + fromEnum b
-{-# INLINE curryArr' #-}
-
-instance {-# overlapping #-} ( Enum a, Card a, Enum b, Card b
-                             , Foldable (Arr' a), Foldable ((->) b) )
-      => Foldable (Arr' (a :* b)) where
-  -- foldMap f arr = (foldMap.foldMap) f (array (fmap array (curry (curry arrAt arr . comb))))
-  -- foldMap f (arrAt' -> h) = fold (array (fmap (foldMap f . array) (curry (h . comb))))
-
-  -- foldMap f (arrAt' -> h) =
-  --   fold (arr' @a (fmap (foldMap f . (. fromEnum @b)) (curry (h . comb))))
-  --  where
-  --    comb (j,k) = card @b * j + k
-
-  -- foldMap f (arrAt' -> h) = fold (arr' @a (foldMap f . curry (h . comb)))
-  --  where
-  --    comb (j,b) = card @b * j + fromEnum @b b
-
-
-  -- foldMap f (arrAt' -> h) = (foldMap.foldMap) f (arr' @a (curry (h . comb)))
-  --  where
-  --    comb (j,b) = card @b * j + fromEnum @b b
-
-
-  foldMap f = fold . fmap f
-  fold (arrAt' -> h) = fold (fmap fold (arr' @a (curry (h . comb))))
-   where
-     comb (j,b) = card @b * j + fromEnum @b b
-
-
-  --   (foldMap.foldMap) f (arr' @a (fmap (arr' @b) (curry (h . comb))))
-  --   fold (arr' @a (fmap (foldMap f . arr' @b) (curry (h . comb))))
-  -- foldMap f = foldMap f . Comp1 . curryArr' 
-
-  -- foldMap f = (foldMap.foldMap) f . curryArr' 
-
-  {-# INLINE foldMap #-}
-
-#if 0
-                                  h           :: Int -> c
-                                  h . comb    :: Int * b -> c
-                           curry (h . comb)   :: Int -> b -> c
-                     arr' (curry (h . comb))  :: Arr' (b -> c)
-(foldMap.foldMap) f (arr' (curry (h . comb))) :: m
-#endif
-
-
-#if 0
-                                  h           :: Int -> c
-                                  h . comb    :: Int * b -> c
-                           curry (h . comb)   :: Int -> b -> c
-               foldMap f . curry (h . comb)   :: Int -> m
-      arr' @a (foldMap f . curry (h . comb))  :: Arr' a m
-fold (arr' @a (foldMap f . curry (h . comb))) :: m
-#endif
-
-#if 0
-                                                          h            :: Int -> c
-                                                          h . comb     :: Int * Int -> c
-                                                   curry (h . comb)    :: Int -> Int -> c
-               fmap (            (. fromEnum @b)) (curry (h . comb))   :: Int -> b -> c
-               fmap (foldMap f . (. fromEnum @b)) (curry (h . comb))   :: Int -> m
-      arr' @a (fmap (foldMap f . (. fromEnum @b)) (curry (h . comb)))  :: Arr' a m
-fold (arr' @a (fmap (foldMap f . (. fromEnum @b)) (curry (h . comb)))) :: m
-#endif
-
-#if 0
-                                            h                  :: Int -> c
-                                            h . comb           :: Int :* Int -> c
-                                     curry (h . comb)          :: Int -> Int -> c
-               fmap (            arr' @b) (curry (h . comb))   :: Int -> Arr' c
-               fmap (foldMap f . arr' @b) (curry (h . comb))   :: Int -> m
-      arr' @a (fmap (foldMap f . arr' @b) (curry (h . comb)))  :: Arr' a m
-fold (arr' @a (fmap (foldMap f . arr' @b) (curry (h . comb)))) :: m
-#endif
-
-#if 0
-                                                     h            :: Int -> c
-                                                     h . comb     :: Int :* Int -> c
-                                              curry (h . comb)    :: Int -> Int -> c
-                              fmap (arr' @b) (curry (h . comb))   :: Int -> Arr' b c
-                     arr' @a (fmap (arr' @b) (curry (h . comb)))  :: Arr' a (Arr' b c)
-(foldMap.foldMap) f (arr' @a (fmap (arr' @b) (curry (h . comb)))) :: m
-#endif
-
-
-#if 0
-
-foldMap :: Monoid m => (c -> m) -> Arr (a :* b) c -> m
-foldMap f = foldMap f . Comp1 . array . curry . arrAt
-
-                                      arr     :: Arr (a :* b) z
-                                arrAt arr     :: a :* b -> z
-                         curry (arrAt arr)    :: a -> b -> z
-                  array (curry (arrAt arr))   :: Arr a (b -> z)
-           Comp1 (array (curry (arrAt arr)))  :: (Arr a :.: (->) b) z
-foldMap f (Comp1 (array (curry (arrAt arr)))) :: m
-
-arrAt     :: Arr (a :* b) z -> (a :* b -> z)
-curry     :: (a :* b -> z) -> (a -> b -> z)
-array     :: (a -> b -> z) -> Arr a (b -> z)
-Comp1     :: Arr a (b -> z) -> (Arr a :.: (->) b) z
-foldMap f :: (Arr a :.: (->) b) z -> m
-
-#endif
-
-#else
-
 instance Newtype (Arr a b) where
   type O (Arr a b) = a -> b
   pack   = array
@@ -438,6 +164,9 @@ instance Applicative (Arr a) where
   {-# INLINE pure #-}
   {-# INLINE (<*>) #-}
 
+liftArr2 :: forall i a b c. (a -> b -> c) -> (Arr i a -> Arr i b -> Arr i c)
+liftArr2 = inNew2 . liftA2
+
 instance Foldable ((->) a) => Foldable (Arr a) where
   foldMap f = foldMap f . unpack
   {-# INLINE foldMap #-}
@@ -450,29 +179,26 @@ instance Foldable ((->) a) => Foldable (Arr a) where
 
 instance {-# overlapping #-} (Foldable (Arr a), Foldable ((->) b))
       => Foldable (Arr (a :* b)) where
-#if 0
   -- foldMap f = foldMap f . Comp1 . array . curry . curry arrAt
   -- foldMap f = (foldMap.foldMap) f . array . curry . curry arrAt
   -- foldMap f = foldMap f . Comp1 . array . curry . curry arrAt
   -- foldMap f = (foldMap.foldMap) f . array . curry . curry arrAt
   -- foldMap f = fold . fmap f
-#else
   -- foldMap f arr = fold (array (fmap (foldMap f) (curry (curry arrAt arr))))
-  foldMap f = fold . array . fmap (foldMap f) . curry . curry arrAt
+  foldMap f = fold . array . fmap (foldMap f) . curry . at
   -- foldMap f = fold . array . fmap (foldMap f . array) . curry . curry arrAt
-#endif
   {-# INLINE foldMap #-}
   -- sum = getSum . foldMap Sum
   -- {-# INLINE sum #-}
 
 #if 0
-                                                  f       :: c -> m
-                                                  arr     :: Arr (a :* b) c
-                                      curry arrAt arr     :: a :* b -> c
-                               curry (curry arrAt arr)    :: a -> b -> c
-             fmap (foldMap f) (curry (curry arrAt arr))   :: a -> m
-      array (fmap (foldMap f) (curry (curry arrAt arr)))  :: Arr a m
-fold (array (fmap (foldMap f) (curry (curry arrAt arr)))) :: m
+                                         f       :: c -> m
+                                         arr     :: Arr (a :* b) c
+                                      at arr     :: a :* b -> c
+                               curry (at arr)    :: a -> b -> c
+             fmap (foldMap f) (curry (at arr))   :: a -> m
+      array (fmap (foldMap f) (curry (at arr)))  :: Arr a m
+fold (array (fmap (foldMap f) (curry (at arr)))) :: m
 #endif
 
 #if 0
@@ -504,8 +230,6 @@ foldMap f :: (Arr a :.: (->) b) z -> m
 
 #endif
 
-#endif
-
 -- instance Traversable ((->) a) => Traversable (Arr a) where
 --   traverse f = fmap pack . traverse f . unpack
 --   {-# INLINE traverse #-}
@@ -515,3 +239,87 @@ foldMap f :: (Arr a :.: (->) b) z -> m
 
 -- lsums :: (Traversable f, Num a) => f a -> f a :* a
 -- lsums = (fmap getSum *** getSum) . lscan . fmap Sum
+
+{--------------------------------------------------------------------
+    Function wrappers with memoization
+--------------------------------------------------------------------}
+
+infixr 1 :->
+
+newtype a :-> b = FFun { unFFun :: a -> b }
+  deriving (Monoid,Functor,Applicative,Monad)
+
+type FFun = (:->)
+
+instance Newtype (a :-> b) where
+  type O (a :-> b) = a -> b
+  pack = FFun
+  unpack = unFFun
+
+instance HasRep (a :-> b) where
+  type Rep (a :-> b) = a -> b
+  abst = pack
+  repr = unpack
+
+memoFun :: Unop (a -> b)
+memoFun = at . array
+
+memoFFun :: Unop (a :-> b)
+memoFFun = inNew memoFun
+-- memoFFun (FFun f) = FFun (at (array f))
+
+AbsTy(a :-> b)
+
+-- instance FFunctor (FFun a) where
+--   fmap = inNew . fmap   -- fmap h (FFun f) = FFun (h . f)
+
+-- instance Applicative (FFun a) where
+--   pure = pack . pure
+--   (<*>) = inNew2 (<*>)
+
+-- deriving instance Foldable ((->) a) => Foldable (FFun a)
+
+instance Foldable ((->) a) => Foldable (FFun a) where
+  foldMap f = foldMap f . unpack
+  {-# INLINE foldMap #-}
+  -- sum = getSum . foldMap Sum
+  -- {-# INLINE sum #-}
+
+instance {-# overlapping #-}
+         -- (Foldable ((->) a), Foldable ((->) b))
+         -- Foldable ((->) (a :* b))
+         (Foldable ((:->) a), Foldable ((->) b))
+      => Foldable (FFun (a :* b)) where
+  -- foldMap f = foldMap f . unFFun
+  -- foldMap f = (foldMap . foldMap) f . curry . unFFun
+
+  -- foldMap f = fold . FFun . memoFun . fmap (foldMap f) . curry . unFFun
+
+  -- foldMap f = fold . (FFun . memoFun . fmap (foldMap f) . curry . unFFun)
+
+  foldMap f = fold . prefoldMapFFun f
+
+  -- foldMap f = fold . inline prefoldMapFFun f
+
+  {-# INLINE foldMap #-}
+
+prefoldMapFFun :: forall a b c m. (Foldable ((->) b), Monoid m)
+               => (c -> m) -> (a :* b :-> c) -> (a :-> m)
+prefoldMapFFun f = FFun . memoFun . fmap (foldMap f) . curry . unFFun
+{-# INLINE prefoldMapFFun #-}
+
+
+#if 0
+                                        FFun h     :: a :* b :-> c
+                                             h     :: a :* b -> c
+                                       curry h     :: a -> b -> c
+                     fmap (foldMap f) (curry h)    :: a -> m
+              array (fmap (foldMap f) (curry h))   :: Arr a m
+          at (array (fmap (foldMap f) (curry h)))  :: a -> m
+            memoFun (fmap (foldMap f) (curry h))   :: a -> m
+      FFun (memoFun (fmap (foldMap f) (curry h)))  :: a :-> m
+fold (FFun (memoFun (fmap (foldMap f) (curry h)))) :: m
+#endif
+
+arrFFun :: Arr a b -> FFun a b
+arrFFun = pack . unpack
