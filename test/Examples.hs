@@ -13,6 +13,7 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE ViewPatterns        #-}
+{-# LANGUAGE DataKinds           #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -24,7 +25,7 @@
 -- To keep ghci happy, it appears that the plugin flag must be in the test module.
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
 
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-} 
 
 -- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
@@ -56,7 +57,11 @@
 
 module Main where
 
-import ConCat.Misc ((:*),R,sqr,magSqr)
+import Data.Monoid (Sum(..))
+import Data.Foldable (fold)
+import Control.Applicative (liftA2)
+
+import ConCat.Misc ((:*),R,sqr,magSqr,Binop,inNew,inNew2)
 import ConCat.Incremental (inc)
 import ConCat.AD
 import ConCat.Interval
@@ -65,10 +70,11 @@ import ConCat.Circuit (GenBuses,(:>))
 import ConCat.Image
 import qualified ConCat.RunCircuit as RC
 import ConCat.GLSL (genGlsl,CAnim)
-import ConCat.AltCat (ccc,U2(..),(:**:)(..),Ok2) --, Ok, Ok3, Arr, array,arrAt
+import ConCat.AltCat (ccc,U2(..),(:**:)(..),Ok2, Arr, array,arrAt) --, Ok, Ok3
 import ConCat.Rebox () -- necessary for reboxing rules to fire
+import ConCat.Arr -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
 
--- import ConCat.Fun
+import Control.Newtype (Newtype(..))
 
 default (Int, Double)
 
@@ -76,10 +82,66 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- -- Profiling tests
-  -- , runSynCirc "cos" $ ccc $ cos @R   -- okay
-  -- , runSynCirc "magSqr" $ ccc $ magSqr @R --fails
-  -- , runSynCirc "sqr" $ ccc $ \ (n :: Int) -> n * n
+  -- Current experiments
+
+  -- , runSynCirc "fmap-arr-bool-plus" $ ccc $ fmap @(Arr Bool) ((+) @Int)
+  -- , runSynCirc "app-arr-bool" $ ccc $ (<*>) @(Arr Bool) @Int @Int
+
+  -- , runSynCirc "fmap-fun-bool-plus" $ ccc $ fmap   @((->) Bool) ((+) @Int)
+  -- , runSynCirc "app-fun-bool"       $ ccc $ (<*>)  @((->) Bool) @Int @Int
+  -- , runSynCirc "liftA2-fun-bool"    $ ccc $ liftA2 @((->) Bool) ((+) @Int)
+
+  -- , runSynCirc "fmap-ffun-bool-plus" $ ccc $ fmap @(FFun Bool) ((+) @Int)
+  -- , runSynCirc "liftA2-ffun-bool" $ ccc $ liftA2 @(FFun Bool) ((+) @Int)
+
+  -- , runSynCirc "sum-ffun-lb1-b" $ ccc $ sum @(FFun (LB N1)) @Int
+  -- , runSynCirc "sum-ffun-lb2-b" $ ccc $ sum @(FFun (LB N2)) @Int
+  -- , runSynCirc "sum-ffun-lb3-b" $ ccc $ sum @(FFun (LB N3)) @Int
+  -- , runSynCirc "sum-ffun-lb4-b" $ ccc $ sum @(FFun (LB N4)) @Int
+
+  -- , runSynCirc "sum-arrFFun-lb1-a" $ ccc $ sum @(FFun (LB N1)) @Int . arrFFun
+  -- , runSynCirc "sum-arrFFun-lb2-a" $ ccc $ sum @(FFun (LB N2)) @Int . arrFFun
+  -- , runSynCirc "sum-arrFFun-lb3-d" $ ccc $ sum @(FFun (LB N3)) @Int . arrFFun
+  -- , runSynCirc "sum-arrFFun-lb4-a" $ ccc $ sum @(FFun (LB N4)) @Int . arrFFun
+
+
+  -- , runSynCirc "prefold-a" $ ccc $ prefoldMapFFun @(LB N2) @Bool @Int Sum . arrFFun
+  -- , runSynCirc "fold-lb2-a" $ ccc $ (fold :: (Bool :* Bool :-> Sum Int) -> Sum Int)
+  -- , runSynCirc "sum-arrFFun-lb3-e" $ ccc $
+  --      (fold :: (LB N2 :-> Sum Int) -> Sum Int)
+  --    . (prefoldMapFFun @(LB N2) @Bool @Int Sum . arrFFun)
+
+  -- , runSynCirc "sum-arr-lb1-b" $ ccc $ sum @(Arr (LB N1)) @Int
+  -- , runSynCirc "sum-arr-lb2-b" $ ccc $ sum @(Arr (LB N2)) @Int
+  -- , runSynCirc "sum-arr-lb3-b" $ ccc $ sum @(Arr (LB N3)) @Int
+  -- , runSynCirc "sum-arr-lb4-b" $ ccc $ sum @(Arr (LB N4)) @Int
+
+  -- , runSynCirc "fmap-fun-bool-plus" $ ccc $ fmap   @((->) Bool) ((+) @Int)
+  -- , runSynCirc "app-fun-bool"       $ ccc $ (<*>)  @((->) Bool) @Int @Int
+  -- , runSynCirc "inArr2-liftA2-bool"    $ ccc $
+  --      (inNew2 (liftA2 (+)) :: Binop (Arr Bool Int))
+
+  -- , runSynCirc "sum-fun-2" $ ccc $ (sum @((->) Bool) @Int)
+  -- , runSynCirc "sum-fun-4" $ ccc $ (sum @((->) (Bool :* Bool)) @Int)
+
+  -- , runSynCirc "sum-fun-8" $ ccc $ (sum @((->) ((Bool :* Bool) :* Bool)) @Int)
+
+  -- , runSynCirc "unpack-arr-2" $ ccc $ (unpack @(Arr Bool Int))
+  -- , runSynCirc "unpack-arr-4" $ ccc $ (unpack @(Arr (Bool :* Bool) Int))
+
+  -- , runSynCirc "sum-arr-fun-2"    $ ccc $
+  --      (sum . unpack :: Arr Bool Int -> Int)
+  -- , runSynCirc "sum-arr-fun-4"    $ ccc $
+  --      (sum . unpack :: Arr (Bool :* Bool) Int -> Int)
+  -- , runSynCirc "sum-arr-fun-8"    $ ccc $
+  --      (sum . unpack :: Arr ((Bool :* Bool) :* Bool) Int -> Int)
+
+  -- , runSynCirc "fmap-arr-bool" $ ccc $ fmap @(Arr Bool) (negate @Int)
+  -- , runSynCirc "liftA2-arr-bool" $ ccc $ liftA2 @(Arr Bool) ((+) @Int)
+  -- , runSynCirc "liftArr2-bool" $ ccc $ liftArr2 @Bool ((+) @Int)
+  -- , runSynCirc "liftArr2-bool-unc" $ ccc $ uncurry (liftArr2 @Bool ((+) @Int))
+  -- , runSynCirc "sum-arr-bool" $ ccc $ sum @(Arr Bool) @Int
+
 
   -- -- Circuit graphs
   -- , runSynCirc "magSqr"    $ ccc $ magSqr @Double
@@ -153,6 +215,42 @@ runCircGlsl nm circ = runCirc nm circ >> genGlsl nm circ
 
 -- TODO: rework runCircGlsl so that it generates the circuit graph once rather
 -- than twice.
+
+{--------------------------------------------------------------------
+    Vectors
+--------------------------------------------------------------------}
+
+data Nat = Zero | Succ Nat
+
+-- So we don't need -Wno-unticked-promoted-constructors
+type Zero = 'Zero
+type Succ = 'Succ
+
+type family LVec n a where
+  LVec Zero a = ()
+  -- LVec (Succ n) a = LVec n a :* a
+  LVec N1 a = a
+  LVec (Succ (Succ n)) a = LVec (Succ n) a :* a
+
+type LB n = LVec n Bool
+
+type N0  = Zero
+-- Generated code
+-- 
+--   putStrLn $ unlines ["type N" ++ show (n+1) ++ " = S N" ++ show n | n <- [0..31]]
+type N1  = Succ N0
+type N2  = Succ N1
+type N3  = Succ N2
+type N4  = Succ N3
+type N5  = Succ N4
+type N6  = Succ N5
+type N7  = Succ N6
+type N8  = Succ N7
+type N9  = Succ N8
+type N10 = Succ N9
+type N11 = Succ N10
+type N12 = Succ N11
+-- ...
 
 {--------------------------------------------------------------------
     Misc definitions
