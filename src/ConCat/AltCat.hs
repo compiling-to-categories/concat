@@ -496,7 +496,7 @@ ccc _ = oops "ccc"
 
 -- "at . arr" forall g f. arrAt . (array . g &&& f) = atArr g f
 
--- -- Hack to ensure needed ClosedCat. Must find alternative.
+-- -- curry Hack to ensure needed ClosedCat. Must find alternative.
 -- "at . arr" forall g f. arrAt . (array . curry g &&& f) = atArr (curry g) f
 
 "at . arr" at . array = id
