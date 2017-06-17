@@ -55,7 +55,7 @@ import ConCat.Category
   , Arr, ArrayCat
   , TransitiveCon(..)
   , U2(..), (:**:)(..)
-  , type (|-)(..), (<+), okProd
+  , type (|-)(..), (<+), okProd, okExp
   , OpCon(..),FunctorC(..),Sat(..)
   , AmbCat
   )
@@ -228,7 +228,7 @@ Op0(arrAt, ArrayCat k a b => Prod k (Arr a b) a `k` b)
 at :: (ArrayCat k a b, ClosedCat k, Ok3 k a b (Arr a b))
    => Arr a b `k` (Exp k a b)
 at = curry arrAt
-{-# INLINE at #-}
+{-# OPINLINE at #-}
 
 -- TODO: Consider moving all of the auxiliary functions (like constFun) here.
 -- Rename "ConCat.Category" to something like "ConCat.Category.Class" and
@@ -485,10 +485,30 @@ ccc _ = oops "ccc"
 
 -- "coerceC . coerceC" coerceC . coerceC = snd coco'
 
-"at/arr" forall f i. arrAt (array f,i) = f i
-
  #-}
 #endif
+
+{-# RULES
+
+-- "at/arr" forall f i. arrAt (array f,i) = f i
+
+-- "at . arr" forall g f. arrAt . (array . g &&& f) = apply . (g &&& f)
+
+-- "at . arr" forall g f. arrAt . (array . g &&& f) = atArr g f
+
+-- -- Hack to ensure needed ClosedCat. Must find alternative.
+-- "at . arr" forall g f. arrAt . (array . curry g &&& f) = atArr (curry g) f
+
+"at . arr" at . array = id
+"arr . at" array . at = id
+
+ #-}
+
+-- atArr :: forall k i a b. (ClosedCat k, Ok3 k i a b)
+--       => (a `k` Exp k i b) -> (a `k` i) -> (a `k` b)
+-- atArr g f = apply . (g &&& f)
+--   <+ okProd @k @(Exp k i b) @i
+--   <+ okExp @k @i @b
 
 coco :: forall k a b c. (CoerceCat k a b, CoerceCat k b c, TransitiveCon (CoerceCat k))
      => (a `k` c)
