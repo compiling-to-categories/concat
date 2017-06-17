@@ -150,7 +150,7 @@ uncurry <$> traverse (traverse f) (curry h) :: g (a :* b -> c)
 instance Newtype (Arr a b) where
   type O (Arr a b) = a -> b
   pack   = array
-  unpack = curry arrAt
+  unpack = at
   {-# INLINE pack #-}
   {-# INLINE unpack #-}
 
@@ -185,7 +185,9 @@ instance {-# overlapping #-} (Foldable (Arr a), Foldable ((->) b))
   -- foldMap f = (foldMap.foldMap) f . array . curry . curry arrAt
   -- foldMap f = fold . fmap f
   -- foldMap f arr = fold (array (fmap (foldMap f) (curry (curry arrAt arr))))
+
   foldMap f = fold . array . fmap (foldMap f) . curry . at
+
   -- foldMap f = fold . array . fmap (foldMap f . array) . curry . curry arrAt
   {-# INLINE foldMap #-}
   -- sum = getSum . foldMap Sum
