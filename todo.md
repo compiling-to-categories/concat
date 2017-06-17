@@ -1,5 +1,7 @@
 # To do
 
+*   Fix the array fusion rule, removing the `curry` hack.
+
 *   Automated testing.
 *   Associated types for product, coproduct, exponential, `Bool`, `Int`, etc.
     The type of `ccc` will have to change, moving closer to the categorical notion of functor (and cartesian functor, closed cartesian functor, etc)
