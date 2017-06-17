@@ -148,8 +148,8 @@ import qualified Control.Monad.State as M
 
 -- import TypeUnary.Vec hiding (get)
 
-import ConCat.Misc ((:*),Unop,Binop,Yes1,typeR)
-import ConCat.Complex
+import ConCat.Misc ((:*),(:+),Unop,Binop,Yes1,typeR)
+import ConCat.Complex (Complex)
 import ConCat.Rep
 import ConCat.Category
 import qualified ConCat.AltCat as A
@@ -163,9 +163,12 @@ import qualified ConCat.Free.LinearCol as LC
 --------------------------------------------------------------------}
 
 -- Component (primitive) type
-data Ty = Unit | Bool | Int | Float | Double | Prod Ty Ty
+data Ty = Unit | Bool | Int | Float | Double 
         | Arr Ty Ty
-        | Fun Ty Ty deriving (Eq,Ord)
+        | Prod Ty Ty
+        | Sum Ty Ty
+        | Fun Ty Ty
+  deriving (Eq,Ord)
 
 instance Show Ty where
   showsPrec _ Unit   = showString "()"
@@ -173,6 +176,8 @@ instance Show Ty where
   showsPrec _ Int    = showString "Int"
   showsPrec _ Float  = showString "Float"
   showsPrec _ Double = showString "Double"
+  showsPrec p (Sum a b) = showParen (p >= 6) $
+    showsPrec 6 a . showString " + " . showsPrec 6 b
   showsPrec p (Prod a b) = showParen (p >= 7) $
     showsPrec 7 a . showString " × " . showsPrec 7 b
   showsPrec p (Arr a b) = showParen (p >= 9) $
@@ -350,9 +355,15 @@ instance (GenBuses a, GenBuses b) => GenBuses (Arr a b)  where
   ty = Arr (ty @a) (ty @b)
   unflattenB' = unflattenPrimB
 
-
 -- TODO: perhaps give default definitions for genBuses', delay, and unflattenB',
 -- and eliminate the definitions in Bool,...,Double,Arr a.
+
+
+instance (GenBuses a, GenBuses b) => GenBuses (a :+ b)  where
+  genBuses' = genPrimBus
+  -- delay = primDelay
+  ty = Sum (ty @a) (ty @b)
+  unflattenB' = unflattenPrimB
 
 instance (GenBuses a, GenBuses b) => GenBuses (a :* b) where
   genBuses' templ ins =
@@ -716,6 +727,13 @@ instance ProductCat (:>) where
   dup   = mkCK dupB
   (***) = inCK2 crossB  -- or default
   (&&&) = inCK2 forkB   -- or default
+
+-- instance OpCon (:+) (Sat GenBuses) where inOp = Entail (Sub Dict)
+
+-- instance CoproductCat (:>) where
+--   inl = namedC "inl"
+--   inr = namedC "inr"
+--   f ||| g = namedC "|||" . (f &&& g) -- not quite
 
 instance (Ok (:>) a, IfCat (:>) b) => IfCat (:>) (a -> b) where
   ifC = funIf
