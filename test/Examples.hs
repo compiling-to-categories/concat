@@ -84,6 +84,8 @@ main = sequence_
 
   -- Current experiments
 
+  , runSynCirc "map-map-arr-b" $ ccc $ fmap (+ 3) . fmap @(Arr Bool) @Int (+ 2)
+
   -- , runSynCirc "fmap-arr-bool-plus" $ ccc $ fmap @(Arr Bool) ((+) @Int)
   -- , runSynCirc "app-arr-bool" $ ccc $ (<*>) @(Arr Bool) @Int @Int
 
@@ -111,10 +113,10 @@ main = sequence_
   --      (fold :: (LB N2 :-> Sum Int) -> Sum Int)
   --    . (prefoldMapFFun @(LB N2) @Bool @Int Sum . arrFFun)
 
-  -- , runSynCirc "sum-arr-lb1-b" $ ccc $ sum @(Arr (LB N1)) @Int
-  -- , runSynCirc "sum-arr-lb2-b" $ ccc $ sum @(Arr (LB N2)) @Int
-  -- , runSynCirc "sum-arr-lb3-b" $ ccc $ sum @(Arr (LB N3)) @Int
-  -- , runSynCirc "sum-arr-lb4-b" $ ccc $ sum @(Arr (LB N4)) @Int
+  -- , runSynCirc "sum-arr-lb1" $ ccc $ sum @(Arr (LB N1)) @Int
+  -- , runSynCirc "sum-arr-lb2" $ ccc $ sum @(Arr (LB N2)) @Int
+  -- , runSynCirc "sum-arr-lb3" $ ccc $ sum @(Arr (LB N3)) @Int
+  -- , runSynCirc "sum-arr-lb4" $ ccc $ sum @(Arr (LB N4)) @Int
 
   -- , runSynCirc "fmap-fun-bool-plus" $ ccc $ fmap   @((->) Bool) ((+) @Int)
   -- , runSynCirc "app-fun-bool"       $ ccc $ (<*>)  @((->) Bool) @Int @Int
