@@ -84,13 +84,18 @@ main = sequence_
 
   -- Current experiments
 
-  , runSynCirc "map-map-arr-b" $ ccc $ fmap (+ 3) . fmap @(Arr Bool) @Int (+ 2)
+  -- , runSynCirc "map-negate-arr" $ ccc $ fmap @(Arr Bool) @Int negate
+
+  -- , runSynCirc "map-map-arr" $ ccc $ fmap (+3) . fmap @(Arr Bool) @Int (+2)
+
+  -- , runSynCirc "liftA2-arr-b" $ ccc $ uncurry $ liftA2 @(Arr Bool) ((+) @Int)
 
   -- , runSynCirc "fmap-arr-bool-plus" $ ccc $ fmap @(Arr Bool) ((+) @Int)
   -- , runSynCirc "app-arr-bool" $ ccc $ (<*>) @(Arr Bool) @Int @Int
 
   -- , runSynCirc "fmap-fun-bool-plus" $ ccc $ fmap   @((->) Bool) ((+) @Int)
   -- , runSynCirc "app-fun-bool"       $ ccc $ (<*>)  @((->) Bool) @Int @Int
+
   -- , runSynCirc "liftA2-fun-bool"    $ ccc $ liftA2 @((->) Bool) ((+) @Int)
 
   -- , runSynCirc "fmap-ffun-bool-plus" $ ccc $ fmap @(FFun Bool) ((+) @Int)
@@ -117,6 +122,7 @@ main = sequence_
   -- , runSynCirc "sum-arr-lb2" $ ccc $ sum @(Arr (LB N2)) @Int
   -- , runSynCirc "sum-arr-lb3" $ ccc $ sum @(Arr (LB N3)) @Int
   -- , runSynCirc "sum-arr-lb4" $ ccc $ sum @(Arr (LB N4)) @Int
+  -- , runSynCirc "sum-arr-lb8" $ ccc $ sum @(Arr (LB N8)) @Int
 
   -- , runSynCirc "fmap-fun-bool-plus" $ ccc $ fmap   @((->) Bool) ((+) @Int)
   -- , runSynCirc "app-fun-bool"       $ ccc $ (<*>)  @((->) Bool) @Int @Int
@@ -252,6 +258,10 @@ type N9  = Succ N8
 type N10 = Succ N9
 type N11 = Succ N10
 type N12 = Succ N11
+type N13 = Succ N12
+type N14 = Succ N13
+type N15 = Succ N14
+type N16 = Succ N15
 -- ...
 
 {--------------------------------------------------------------------
