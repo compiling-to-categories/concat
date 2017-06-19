@@ -224,11 +224,12 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 
 Op0(array, ArrayCat k a b => Exp k a b `k` Arr a b)
 Op0(arrAt, ArrayCat k a b => Prod k (Arr a b) a `k` b)
+-- Op0(at   , ArrayCat k a b => Arr a b `k` Exp k a b)
 
 at :: (ArrayCat k a b, ClosedCat k, Ok3 k a b (Arr a b))
-   => Arr a b `k` (Exp k a b)
+   => Arr a b `k` Exp k a b
 at = curry arrAt
-{-# OPINLINE at #-}
+-- {-# OPINLINE at #-}
 
 -- TODO: Consider moving all of the auxiliary functions (like constFun) here.
 -- Rename "ConCat.Category" to something like "ConCat.Category.Class" and
@@ -490,25 +491,32 @@ ccc _ = oops "ccc"
 
 {-# RULES
 
--- "at/arr" forall f i. arrAt (array f,i) = f i
+-- "arrAt . arr" forall g f. atArr . (array . g &&& f) = atArr g f
 
--- "at . arr" forall g f. arrAt . (array . g &&& f) = apply . (g &&& f)
+--    opt_univ fell into a hole {awmL}
 
--- "at . arr" forall g f. arrAt . (array . g &&& f) = atArr g f
+-- Oddly, this alternative works:
 
--- -- curry Hack to ensure needed ClosedCat. Must find alternative.
--- "at . arr" forall g f. arrAt . (array . curry g &&& f) = atArr (curry g) f
+"arrAt . arr" forall g f. uncurry at . (array . g &&& f) = atArr g f
 
-"at . arr" at . array = id
-"arr . at" array . at = id
+-- "at . arr" at . array = id
+-- "arr . at" array . at = id
 
  #-}
 
--- atArr :: forall k i a b. (ClosedCat k, Ok3 k i a b)
---       => (a `k` Exp k i b) -> (a `k` i) -> (a `k` b)
--- atArr g f = apply . (g &&& f)
---   <+ okProd @k @(Exp k i b) @i
---   <+ okExp @k @i @b
+
+-- I may have stumbled onto a hack for writing GHC rewrite rules whose RHSs
+-- impose stronger constraints than their LHSs. In the RHS: add an inlining
+-- synonym for the identity arrow that introduces the extra constraints. I think
+-- the simplifier will inline and eliminate the identity synonym while leaving
+-- the constraint behind.
+
+
+atArr :: forall k i a b. (ClosedCat k, Ok3 k i a b)
+      => (a `k` Exp k i b) -> (a `k` i) -> (a `k` b)
+atArr g f = apply . (g &&& f)
+  <+ okProd @k @(Exp k i b) @i
+  <+ okExp @k @i @b
 
 coco :: forall k a b c. (CoerceCat k a b, CoerceCat k b c, TransitiveCon (CoerceCat k))
      => (a `k` c)
