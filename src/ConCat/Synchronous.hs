@@ -20,7 +20,7 @@ import Data.Tuple (swap)
 import ConCat.Misc ((:*))
 import ConCat.Category
 
--- | Mealy stream transformer represented as Mealy machine.
+-- | Synchronous stream transformer represented as Mealy machine.
 data Mealy a b = forall s. Mealy (a :* s -> b :* s) s
 
 -- TODO: generalize from (->) to other categories
