@@ -1511,9 +1511,13 @@ instance (CoerceCat k a b, CoerceCat k' a b) => CoerceCat (k :**: k') a b where
 -- Arrays
 newtype Arr a b = MkArr (Array a b) deriving Show
 
-class ArrayCat k a b where
+class (ClosedCat k, Ok3 k a b (Arr a b)) => ArrayCat k a b where
   array :: Exp k a b `k` Arr a b
   arrAt :: Prod k (Arr a b) a `k` b
+  -- at    :: Arr a b `k` Exp k a b
+  -- {-# MINIMAL array, (arrAt | at) #-}
+  -- arrAt = uncurry at
+  -- at = curry arrAt
 
 instance {- Enum a => -} ArrayCat (->) a b where
   array = arrayFun
@@ -1541,12 +1545,14 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
   arrAt = arrAt :**: arrAt
   PINLINER(array)
   PINLINER(arrAt)
+  -- at = at :**: at
+  -- PINLINER(at)
 
-#ifdef KleisliInstances
-instance (Monad m, Enum a) => ArrayCat (Kleisli m) a b where
-  array = arr array
-  arrAt = arr arrAt
-#endif
+-- #ifdef KleisliInstances
+-- instance (Monad m, Enum a) => ArrayCat (Kleisli m) a b where
+--   array = arr array
+--   arrAt = arr arrAt
+-- #endif
 
 {--------------------------------------------------------------------
     Functors
