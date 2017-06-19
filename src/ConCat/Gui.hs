@@ -29,10 +29,14 @@ data In   :: * -> * where
 
 deriving instance Show (In a)
 
+unPairI :: In (a :* b) -> In a :* In b
+unPairI (PairI a b) = (a,b)
+unPairI _ = (NoI,NoI)
+
 instance Monoid (Out a) where
   mempty = NoO
   NoO `mappend` b = b
-  a `mappend` _ = a
+  a   `mappend` _ = a
 
 infixr 9 :-->
 
@@ -42,16 +46,20 @@ data Out  :: * -> * where
   PairO   :: Out a -> Out b -> Out (a :* b)
   (:-->)  :: In a -> Out b -> Out (a -> b)
 
--- unFunO :: Out (a -> b) -> In a :* Out b
--- unFunO (a :--> b) = (a,b)
--- unFunO o = error ("unFunO: " ++ show o)
+unPairO :: Out (a :* b) -> Out a :* Out b
+unPairO (PairO a b) = (a,b)
+unPairO _ = (NoO,NoO)
+
+unFunO :: Out (a -> b) -> In a :* Out b
+unFunO (a :--> b) = (a,b)
+unFunO _ = (NoI,NoO)
 
 deriving instance Show (Out a)
 
 instance Monoid (In a) where
   mempty = NoI
   NoI `mappend` b = b
-  a `mappend` _ = a
+  a   `mappend` _ = a
 
 data Gui a b = Gui (In a) (Out b) deriving Show
 
@@ -77,3 +85,12 @@ instance ProductCat Gui where
   exl = noGui
   exr = noGui
   (&&&) = inNew2 (\ (a,c) (a',d) -> (a `mappend` a', c `PairO` d))
+
+-- Having to choose a vs a' in (&&&) smells funny.
+
+-- How to render sums?
+
+instance ClosedCat Gui where
+  apply = noGui
+  curry (Gui (unPairI -> (a,b)) c) = Gui a (b :--> c)
+  uncurry (Gui a (unFunO -> (b,c))) = Gui (PairI a b) c
