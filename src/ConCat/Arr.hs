@@ -179,16 +179,18 @@ instance Foldable ((->) a) => Foldable (Arr a) where
 
 instance {-# overlapping #-} (Foldable (Arr a), Foldable ((->) b))
       => Foldable (Arr (a :* b)) where
-  -- foldMap f = foldMap f . Comp1 . array . curry . curry arrAt
+  -- foldMap f = foldMap f . Comp1 . array . curry . at
+  -- foldMap f = foldMap f . Comp1 . array . fmap array . curry . at
   -- foldMap f = (foldMap.foldMap) f . array . curry . curry arrAt
   -- foldMap f = foldMap f . Comp1 . array . curry . curry arrAt
   -- foldMap f = (foldMap.foldMap) f . array . curry . curry arrAt
   -- foldMap f = fold . fmap f
   -- foldMap f arr = fold (array (fmap (foldMap f) (curry (curry arrAt arr))))
+  -- foldMap f = fold . array . fmap (foldMap f . array) . curry . curry arrAt
+  -- foldMap f = foldMap (foldMap f) . array . curry . at
 
   foldMap f = fold . array . fmap (foldMap f) . curry . at
 
-  -- foldMap f = fold . array . fmap (foldMap f . array) . curry . curry arrAt
   {-# INLINE foldMap #-}
   -- sum = getSum . foldMap Sum
   -- {-# INLINE sum #-}
@@ -201,6 +203,22 @@ instance {-# overlapping #-} (Foldable (Arr a), Foldable ((->) b))
              fmap (foldMap f) (curry (at arr))   :: a -> m
       array (fmap (foldMap f) (curry (at arr)))  :: Arr a m
 fold (array (fmap (foldMap f) (curry (at arr)))) :: m
+
+at               :: Arr (a :* b) c -> (a :* b -> c)
+curry            :: (a :* b -> c)  -> (a -> b -> c)
+fmap (foldMap f) :: (a -> b -> c)  -> (a -> m)
+array            :: (a -> m)       -> Arr a m
+fold             :: Arr a m        -> m
+
+#endif
+
+#if 0
+                                         f      :: c -> m
+                                         arr    :: Arr (a :* b) c
+                                      at arr    :: a :* b -> c
+                               curry (at arr)   :: a -> b -> c
+                        array (curry (at arr))  :: Arr a (b -> c)
+   foldMap (foldMap f) (array (curry (at arr))) :: m
 #endif
 
 #if 0
@@ -217,18 +235,29 @@ fold (array (fmap (foldMap f) (curry (at arr)))) :: m
 foldMap :: Monoid m => (c -> m) -> Arr (a :* b) c -> m
 foldMap f = foldMap f . Comp1 . array . curry . arrAt
 
-                                      arr     :: Arr (a :* b) z
-                                arrAt arr     :: a :* b -> z
-                         curry (arrAt arr)    :: a -> b -> z
-                  array (curry (arrAt arr))   :: Arr a (b -> z)
-           Comp1 (array (curry (arrAt arr)))  :: (Arr a :.: (->) b) z
-foldMap f (Comp1 (array (curry (arrAt arr)))) :: m
+                                   arr     :: Arr (a :* b) z
+                                at arr     :: a :* b -> z
+                         curry (at arr)    :: a -> b -> z
+                  array (curry (at arr))   :: Arr a (b -> z)
+           Comp1 (array (curry (at arr)))  :: (Arr a :.: (->) b) z
+foldMap f (Comp1 (array (curry (at arr)))) :: m
 
-arrAt     :: Arr (a :* b) z -> (a :* b -> z)
+at        :: Arr (a :* b) z -> (a :* b -> z)
 curry     :: (a :* b -> z) -> (a -> b -> z)
 array     :: (a -> b -> z) -> Arr a (b -> z)
 Comp1     :: Arr a (b -> z) -> (Arr a :.: (->) b) z
 foldMap f :: (Arr a :.: (->) b) z -> m
+
+#endif
+
+#if 0
+
+at         :: Arr (a :* b) z      -> (a :* b -> z)
+curry      :: (a :* b -> z)       -> (a -> b -> z)
+fmap array :: (a -> b -> z)       -> (a -> Arr b z)
+array      :: (a -> Arr b z)      -> Arr a (Arr b z)
+Comp1      :: Arr a (Arr b z)     -> (Arr a :.: Arr b) z
+foldMap f  :: (Arr a :.: Arr b) z -> m
 
 #endif
 
