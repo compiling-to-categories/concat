@@ -150,7 +150,6 @@ main = sequence_
   -- , runSynCirc "liftArr2-bool-unc" $ ccc $ uncurry (liftArr2 @Bool ((+) @Int))
   -- , runSynCirc "sum-arr-bool" $ ccc $ sum @(Arr Bool) @Int
 
-
   -- -- Circuit graphs
   -- , runSynCirc "magSqr"    $ ccc $ magSqr @Double
   -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
@@ -193,7 +192,7 @@ main = sequence_
   -- , runSynCirc "cos-xpy-ad"   $ ccc $ andDer $ \ (x,y) -> cos (x + y) :: R
   -- , runSynCirc "cosSin-xy-ad" $ ccc $ andDer $ cosSinProd @R
 
-  -- -- Incremental evaluation. Currently broken.
+  -- -- Incremental differentiation. Currently broken.
   -- , runSynCirc "magSqr-inc" $ ccc $ inc $ andDer $ magSqr @R
 
   ]

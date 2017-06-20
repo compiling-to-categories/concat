@@ -40,7 +40,7 @@ import Control.Monad.Trans.State (StateT(..))
 -- import Data.Void (Void)
 -- TODO: more
 
-import ConCat.Complex
+-- import ConCat.Complex
 
 -- import GHC.Types (TYPE)
 -- import GHC.Exts (Int(..),Int#)
@@ -162,11 +162,11 @@ instance HasRep (Maybe a) where
 -- type instance Rep (Maybe a) = Unit :+ a
 -- ...
 
-instance HasRep (Complex a) where
-  type Rep (Complex a) = a :* a
-  repr (a :+ a') = (a,a')
-  abst (a,a') = (a :+ a')
-  INLINES
+-- instance HasRep (Complex a) where
+--   type Rep (Complex a) = a :* a
+--   repr (a :+ a') = (a,a')
+--   abst (a,a') = (a :+ a')
+--   INLINES
 
 -- instance HasRep (G.V1 p) where
 --   type Rep (G.V1 p) = Void

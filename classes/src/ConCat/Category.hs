@@ -65,8 +65,8 @@ import Control.Newtype (Newtype(..))
 
 import ConCat.Misc hiding ((<~),(~>),type (&&),type (&+&))
 import ConCat.Rep
-import ConCat.Orphans ()
-import ConCat.Additive (Additive)
+-- import ConCat.Orphans ()
+-- import ConCat.Additive (Additive)
 
 #define PINLINER(nm) {-# INLINE nm #-}
 -- #define PINLINER(nm)
@@ -205,13 +205,13 @@ instance Typeable op => OpCon op (Sat Typeable) where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
 
-instance OpCon (:*) (Sat Additive) where
-  inOp = Entail (Sub Dict)
-  {-# INLINE inOp #-}
+-- instance OpCon (:*) (Sat Additive) where
+--   inOp = Entail (Sub Dict)
+--   {-# INLINE inOp #-}
 
-instance OpCon (->) (Sat Additive) where
-  inOp = Entail (Sub Dict)
-  {-# INLINE inOp #-}
+-- instance OpCon (->) (Sat Additive) where
+--   inOp = Entail (Sub Dict)
+--   {-# INLINE inOp #-}
 
 #if 1
 -- Experiment. Smaller Core?
