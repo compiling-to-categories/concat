@@ -13,7 +13,6 @@ author:              Conal Elliott
 maintainer:          conal@conal.net
 Copyright:           (c) 2016-2017 by Conal Elliott
 build-type:          Simple
--- extra-source-files:  ChangeLog.md
 
 source-repository head
   type:             git
@@ -23,46 +22,30 @@ library
   default-language:    Haskell2010
   hs-source-dirs:      src
   include-dirs:        src
-  -- install-includes:    ConCat/AbsTy.inc
+  install-includes:    ConCat/AbsTy.inc
   build-depends:       base >=4.9 && <4.10
-                     -- , array >= 0.5.1.1
                      , constraints >= 0.8
                      , containers >= 0.5.7.1
-                     -- , ghc-prim >= 0.5.0.0
                      , keys >= 3.11
                      , newtype-generics
                      , pointed >= 5
                      , prettyclass
                      , concat-classes, concat-plugin
-                     -- For Circuit
                      , directory >= 1.2.6.2
                      , process >= 1.4.2.0
                      , mtl >= 2.2.1
                      , transformers >= 0.5.2.0
-                     -- For ConCat.Complex
                      , QuickCheck >= 2.8.2
-                     -- For ConCat.GenGLSL 
                      , language-glsl >= 0.2.0
                      , parsec >= 3.1.11
-                     -- For ConCat.Image
                      , NumInstances >= 1.4
   exposed-modules:     
-                       -- ConCat.Category
-                       -- ConCat.AltCat
-                       -- ConCat.Misc
-                       -- ConCat.Rebox
                        ConCat.Orphans
                        ConCat.Free.VectorSpace
                        ConCat.Free.Diagonal
                        ConCat.Free.LinearCol
                        ConCat.Free.LinearRow
-                       -- ConCat.Lambda
                        ConCat.Complex
-                       -- ConCat.Rep
-                       -- ConCat.Standardize
-                       -- ConCat.Simplify
-                       -- ConCat.BuildDictionary
-                       -- ConCat.Plugin
                        ConCat.Syntactic
                        ConCat.Circuit
                        ConCat.RunCircuit
@@ -74,27 +57,12 @@ library
                        ConCat.GradientDescent
                        ConCat.Synchronous
                        ConCat.Additive
-                       -- ConCat.ADFun2
                        ConCat.Polynomial
                        ConCat.Image
                        ConCat.Demand
-                       -- ConCat.Fun
                        ConCat.Arr
 
-                       -- ConCat.C
-                       -- ConCat.D
 
---                        ConCat.Float
---                        ConCat.ADFun
---                        ConCat.EmptyCase
---                        ConCat.GHC
---                        HERMIT.GHC.Typechecker
---                        ConCat.Entail
---                        ConCat.Semimodule
---                        ConCat.Basis
---                        ConCat.LMap
---                        ConCat.FLMap
---                        ConCat.ShowUtils
 
 
 Test-Suite test
@@ -133,19 +101,3 @@ Test-Suite examples
                   , parsec >= 3.1.11
                   , prettyclass
   ghc-options:      -O2
-
--- "stack test"
-
--- To keep ghci happy, it appears that the plugin flag must be in the test module.
-
--- -- Experimental
--- Test-Suite gtest
---   type:             exitcode-stdio-1.0
---   default-language: Haskell98
---   hs-Source-Dirs:   test
---   main-is:          GTest.hs
---   Build-Depends:    Cabal >= 1.24.0.0
---                   , base<5
---                   , concat
---                   , ghc-prim
---   ghc-options:      -O2
