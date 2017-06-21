@@ -31,14 +31,18 @@ library
                      , pointed >= 5
                      , prettyclass
                      , concat-classes, concat-plugin
-                     -- For Circuit, to be moved to another project
+                     -- For Complex
+                     , QuickCheck >= 2.8.2
+                     -- For Circuit
                      , directory >= 1.2.6.2
                      , process >= 1.4.2.0
                      , mtl >= 2.2.1
-                     -- For ConCat.GenGLSL 
+                     -- For Incremental		
+                     , transformers >= 0.5.2.0, mtl >= 2.2.1		
+                     -- For GenGLSL 
                      , language-glsl >= 0.2.0
                      , parsec >= 3.1.11
-                     -- For ConCat.Image
+                     -- For Image
                      , NumInstances >= 1.4
   exposed-modules:     
                        ConCat.Orphans
