@@ -17,7 +17,7 @@
 -- <https://github.com/jwiegley/z3cat>, which is described at
 -- <http://newartisans.com/2017/04/haskell-and-z3/>
 
-module ConCat.SMT (solve) where
+module ConCat.SMT (solve,GenE(..),EvalE(..)) where
 
 import Control.Applicative (liftA2)
 import Data.List (sort)
