@@ -31,13 +31,14 @@ library
                      , pointed >= 5
                      , prettyclass
                      , concat-classes, concat-plugin
+                     -- For Circuit, to be moved to another project
                      , directory >= 1.2.6.2
                      , process >= 1.4.2.0
                      , mtl >= 2.2.1
-                     , transformers >= 0.5.2.0
-                     , QuickCheck >= 2.8.2
+                     -- For ConCat.GenGLSL 
                      , language-glsl >= 0.2.0
                      , parsec >= 3.1.11
+                     -- For ConCat.Image
                      , NumInstances >= 1.4
   exposed-modules:     
                        ConCat.Orphans
@@ -61,9 +62,6 @@ library
                        ConCat.Image
                        ConCat.Demand
                        ConCat.Arr
-
-
-
 
 Test-Suite test
   type:             exitcode-stdio-1.0
