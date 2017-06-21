@@ -1009,8 +1009,8 @@ neOpt = \ case
 
 #define EqTemplate(ty) \
  instance EqCat (:>) (ty) where { \
-    equal    = primOptSort "≡" (eqOpt @(ty)) ;\
-    notEqual = primOptSort "≢" (neOpt @(ty))  \
+    equal    = primOptSort "==" (eqOpt @(ty)) ;\
+    notEqual = primOptSort "/=" (neOpt @(ty))  \
   }
 
 iffC :: EqCat k (BoolOf k) => Prod k (BoolOf k) (BoolOf k) `k` BoolOf k
@@ -1208,7 +1208,7 @@ instance (Num a, Read a, GS a, Eq a, SourceToBuses a)
               [x,NegateS y]  -> newComp2 subC x y
               [NegateS x,y]  -> newComp2 subC y x
               _              -> nothingA
-  subC    = primOpt     "−" $ \ case
+  subC    = primOpt     "-" $ \ case
               [Val x, Val y] -> newVal (x - y)
               [ZeroT(a),y]   -> newComp1 negateC y
               [x,ZeroT(a)]   -> sourceB x
@@ -1739,7 +1739,7 @@ prettyNames = M.fromList
  [ ("not","¬") , ("&&","∧") , ("||","∨") , ("xor","⊕")
  , ("==","≡") , ("/=","≢")
  , ("<=","≤") , (">=","≥")
- , ("*","×") , ("^","↑") , ("/","÷")
+ , ("-","−"), ("*","×") , ("^","↑") , ("/","÷")
  , ("undefined","⊥")
  , ("boolToInt", "Bool→Int")
  , ("arrAt","!")
