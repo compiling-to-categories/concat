@@ -137,8 +137,8 @@ varName b = error ("ConCat.GLSL.varName unexpected " ++ show b)
 app :: String -> [Expr] -> Expr
 app nm es = go nm
  where
-   go "not" = app1 UnaryNot
-   go "&&"  = app2 And
+   go "not"    = app1 UnaryNot
+   go "&&"     = app2 And
    go "||"     = app2 Or 
    go "<"      = app2 Lt 
    go ">"      = app2 Gt 
