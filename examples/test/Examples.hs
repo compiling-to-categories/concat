@@ -73,6 +73,7 @@ import ConCat.GLSL (genGlsl,CAnim)
 import ConCat.AltCat (ccc,U2(..),(:**:)(..),Ok2, Arr, array,arrAt) --, Ok, Ok3
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Arr -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
+import qualified ConCat.SMT as SMT
 
 import Control.Newtype (Newtype(..))
 
@@ -195,7 +196,28 @@ main = sequence_
   -- -- Incremental differentiation. Currently broken.
   -- , runSynCirc "magSqr-inc" $ ccc $ inc $ andDer $ magSqr @R
 
+  -- , runCirc "smt-a" $ ccc $ (\ (x :: Double) -> sqr x == 9)
+
+  -- , runCircSMT "smt-a" $ ccc $ (\ (x :: Double) -> sqr x == 9)
+  -- , runCircSMT "smt-b" $ ccc $ (\ (x :: Double) -> sqr x == 9 && x < 0)
+  , runCircSMT "smt-c" $ ccc $ pred1 @Double
+
+  -- -- Broken
+  -- , runSyn $ ccc $ (\ (x :: Int) -> x == 9)
+
   ]
+
+pred1 :: (Num a, Ord a) => a :* a -> Bool
+pred1 (x,y) =
+    x < y &&
+    y < 100 &&
+    foo x 20 f &&
+    0 <= x - 3 + 7 * y &&
+    (x == y || y + 20 == x + 30)
+  where
+    f z k = z > 100 && k 20
+    foo a b g = g 222 (< a + b)
+
 
 {--------------------------------------------------------------------
     Testing utilities
@@ -222,6 +244,12 @@ runCircGlsl nm circ = runCirc nm circ >> genGlsl nm circ
 
 -- TODO: rework runCircGlsl so that it generates the circuit graph once rather
 -- than twice.
+
+runSMT :: (GenBuses a, Show a, SMT.GenE a, SMT.EvalE a) => (a :> Bool) -> IO ()
+runSMT circ = SMT.solve circ >>= print
+
+runCircSMT :: (GenBuses a, Show a, SMT.GenE a, SMT.EvalE a) => String -> (a :> Bool) -> IO ()
+runCircSMT nm circ = runCirc nm circ >> runSMT circ
 
 {--------------------------------------------------------------------
     Vectors
