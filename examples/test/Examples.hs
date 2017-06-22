@@ -131,11 +131,14 @@ main = sequence_
   -- , runCirc "smt-a" $ ccc $ (\ (x :: Double) -> sqr x == 9)
 
   -- , runCircSMT "smt-a" $ ccc $ (\ (x :: Double) -> sqr x == 9)
-  -- , runCircSMT "smt-b" $ ccc $ (\ (x :: Double) -> sqr x == 9 && x < 0)
-  -- , runCircSMT "smt-c" $ ccc $ pred1 @Double
-  , runCircSMT "smt-d" $ ccc $ (\ b -> (if b then 3 else 5 :: Int) > 4)
+  -- , runSMT $ ccc $ (\ (x :: Double) -> sqr x == 9)
+  -- , runSMT $ ccc $ (\ (x :: Double) -> sqr x == 9 && x < 0)
+  -- , runSMT $ ccc $ pred1 @Double
+  -- , runSMT $ ccc $ (\ b -> (if b then 3 else 5 :: Int) > 4)
+  , runSMT $ ccc $ (\ (x::R,y) -> x + y == 15 && x == 2 * y)
 
   -- -- Broken
+  -- , runSMT $ ccc $ (\ (x::R,y) -> x + y == 15 && x * y == 20)  -- "illegal argument" ??
   -- , runSyn $ ccc $ (\ (x :: Int) -> x == 9)
 
 
