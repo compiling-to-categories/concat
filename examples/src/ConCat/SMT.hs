@@ -1,23 +1,17 @@
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE ParallelListComp #-}
--- TODO: trim pragmas above
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 {-# OPTIONS_GHC -Wall #-}
--- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
 -- | SMT category built on z3. A re-implementation of
 -- <https://github.com/jwiegley/z3cat>, which is described at
 -- <http://newartisans.com/2017/04/haskell-and-z3/>
 
-module ConCat.SMT (solve,GenE(..),EvalE(..)) where
+module ConCat.SMT (solve,GenBuses,EvalE) where
 
 import Control.Applicative (liftA2)
 import Data.List (sort)
@@ -27,8 +21,7 @@ import Control.Monad.State (StateT,runStateT,execStateT,get,gets,put,modify,lift
 
 import Z3.Monad
 
-import ConCat.AltCat (Ok)
-import ConCat.Circuit (Comp(..),Bus(..),Ty(..),busTy,(:>),mkGraph,pattern CompS)
+import ConCat.Circuit (Comp(..),Bus(..),Ty(..),busTy,GenBuses(..),(:>),mkGraph,pattern CompS)
 
 type E = AST
 
@@ -37,11 +30,11 @@ type M = StateT (M.Map Bus E) Z3
 busE :: Bus -> M E
 busE b = gets (M.! b)
 
-solve :: forall a. (Ok (:>) a, GenE a, EvalE a) => (a :> Bool) -> IO (Maybe a)
+solve :: forall a. (GenBuses a, EvalE a) => (a :> Bool) -> IO (Maybe a)
 solve p =
   -- evalZ3With Nothing (opt "MODEL" True) $ do
   evalZ3 $ do
-  do is <- genE @a
+  do is <- genEs (ty @a)
      m  <- execStateT (mapM_ addComp mids) (M.fromList (busesIn `zip` is))
      assert (m M.! res)
      -- check and get solution
@@ -51,21 +44,20 @@ solve p =
      splitComps (sort (mkGraph p))
 
 addComp :: Comp -> M ()
-addComp (CompS _ str [] [o]) = do res <- lift (constExpr (busTy o) str)
-                                  modify (M.insert o res)
-addComp (CompS _ prim ins [o]) = do es  <- mapM busE ins
-                                    res <- lift (app prim es)
+addComp (CompS _ prim ins [o]) = do res <- add
                                     modify (M.insert o res)
+ where
+   add | null ins = lift (constExpr (busTy o) prim)
+       | otherwise = do es  <- mapM busE ins
+                        lift (app prim es)
 addComp comp = error ("ConCat.SMT.addComp: unexpected subgraph comp " ++ show comp)
-
--- TODO: refactor addComp
 
 constExpr :: Ty -> String -> Z3 E
 constExpr Bool    = mkBool    . read
 constExpr Int     = mkIntNum  . read @Int
 constExpr Float   = mkRealNum . read @Float
 constExpr Double  = mkRealNum . read @Double
-constExpr ty      = error ("ConCat.SMT.constExpr: unexpected literal type: " ++ show ty)
+constExpr t       = error ("ConCat.SMT.constExpr: unexpected literal type: " ++ show t)
 
 app :: String -> [E] -> Z3 E
 app nm es =
@@ -102,33 +94,19 @@ mkNeq a b = mkNot =<< mkEq a b
     Modified from z3cat
 --------------------------------------------------------------------}
 
-class GenE a where genE :: Z3 [E]
-
 genPrim :: (String -> Z3 AST) -> Z3 [E]
 genPrim mk = (:[]) <$> mk "x"
 
-instance GenE ()     where genE = return []
-instance GenE Bool   where genE = genPrim mkFreshBoolVar
-instance GenE Int    where genE = genPrim mkFreshIntVar
-instance GenE Float  where genE = genPrim mkFreshRealVar
-instance GenE Double where genE = genPrim mkFreshRealVar
+genEs :: Ty -> Z3 [E]
+genEs Unit       = return []
+genEs Bool       = genPrim mkFreshBoolVar
+genEs Int        = genPrim mkFreshIntVar
+genEs Float      = genPrim mkFreshRealVar
+genEs Double     = genPrim mkFreshRealVar
+genEs (Prod a b) = liftA2 (++) (genEs a) (genEs b)
+genEs t          = error ("ConCat.SMT.genEs: " ++ show t)
 
-instance (GenE a, GenE b) => GenE (a,b) where
-  genE = liftA2 (++) (genE @a) (genE @b)
-
--- genTy :: Ty -> Z3 [E]
--- genTy Unit       = return []
--- genTy Bool       = genPrim mkFreshBoolVar
--- genTy Int        = genPrim mkFreshIntVar
--- genTy Float      = genPrim mkFreshRealVar
--- genTy Double     = genPrim mkFreshRealVar
--- genTy (Prod a b) = liftA2 (++) (genTy a) (genTy b)
--- genTy ty         = error ("ConCat.SMT.genTy: " ++ show ty)
-
--- -- TODO: replace genE with genTy and combine with ty from circuit
-
-
--- TODO: Use Seq in place of [] in genE, and compare efficiency.
+-- TODO: Use Seq in place of [] in genEs, and compare efficiency.
 
 type EvalM = StateT [E] Z3
 
