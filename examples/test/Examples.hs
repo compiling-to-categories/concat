@@ -242,14 +242,14 @@ runCirc nm circ = RC.run nm [] circ
 runCircGlsl :: String -> CAnim -> IO ()
 runCircGlsl nm circ = runCirc nm circ >> genGlsl nm circ
 
--- TODO: rework runCircGlsl so that it generates the circuit graph once rather
--- than twice.
-
-runSMT :: (GenBuses a, Show a, SMT.GenE a, SMT.EvalE a) => (a :> Bool) -> IO ()
+runSMT :: (GenBuses a, Show a, SMT.EvalE a) => (a :> Bool) -> IO ()
 runSMT circ = SMT.solve circ >>= print
 
-runCircSMT :: (GenBuses a, Show a, SMT.GenE a, SMT.EvalE a) => String -> (a :> Bool) -> IO ()
+runCircSMT :: (GenBuses a, Show a, SMT.EvalE a) => String -> (a :> Bool) -> IO ()
 runCircSMT nm circ = runCirc nm circ >> runSMT circ
+
+-- TODO: rework runCircGlsl and runCircSMT to generate the circuit graph once
+-- rather than twice.
 
 {--------------------------------------------------------------------
     Vectors
