@@ -71,6 +71,7 @@ app nm es _ =
     "/"      -> app2  mkDiv
     "mod"    -> app2  mkMod
     "xor"    -> app2  mkNeq
+    "if"     -> app3  mkIte
     fun      -> error ("ConCat.SMT.app: not supported: " ++ show fun)
  where
    err str = error ("app " ++ nm ++ ": expecting " ++ str ++ " but got " ++ show es)
@@ -79,13 +80,8 @@ app nm es _ =
    app2 op | [e1,e2] <- es = op e1 e2
            | otherwise = err "two arguments"
    app2l op = app2 (\ a b -> op [a,b])
-
--- TODO: handle "if":
-
-    -- "if"     -> app3  mkIf
-
--- mkIf :: MonadZ3 z3 => E -> E -> E -> z3 E
--- mkIf i t e = suchThat $ \ v -> i && v == t || not i && v == e
+   app3 op | [e1,e2,e3] <- es = op e1 e2 e3
+           | otherwise = err "three arguments"
 
 constExpr :: Ty -> String -> Z3 E
 constExpr Bool   = mkBool    . read

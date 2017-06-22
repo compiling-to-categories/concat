@@ -123,7 +123,7 @@ main = sequence_
   -- , runSynCirc "cos-2x-ad"    $ ccc $ andDer $ \ x -> cos (2 * x) :: R
   -- , runSynCirc "cos-2xx-ad"   $ ccc $ andDer $ \ x -> cos (2 * x * x) :: R
   -- , runSynCirc "cos-xpy-ad"   $ ccc $ andDer $ \ (x,y) -> cos (x + y) :: R
-  , runSynCirc "cosSin-xy-ad" $ ccc $ andDer $ cosSinProd @R
+  -- , runSynCirc "cosSin-xy-ad" $ ccc $ andDer $ cosSinProd @R
 
   -- -- Incremental differentiation. Currently broken.
   -- , runSynCirc "magSqr-inc" $ ccc $ inc $ andDer $ magSqr @R
@@ -133,9 +133,12 @@ main = sequence_
   -- , runCircSMT "smt-a" $ ccc $ (\ (x :: Double) -> sqr x == 9)
   -- , runCircSMT "smt-b" $ ccc $ (\ (x :: Double) -> sqr x == 9 && x < 0)
   -- , runCircSMT "smt-c" $ ccc $ pred1 @Double
+  , runCircSMT "smt-c" $ ccc $ (\ b -> (if b then 3 else 5 :: Int) > 4)
 
   -- -- Broken
   -- , runSyn $ ccc $ (\ (x :: Int) -> x == 9)
+
+
 
   -- Array experiments
 
