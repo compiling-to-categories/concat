@@ -7,9 +7,14 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
--- | SMT category built on z3. A re-implementation of
--- <https://github.com/jwiegley/z3cat>, which is described at
--- <http://newartisans.com/2017/04/haskell-and-z3/>
+-- | SMT category built on z3, as first suggested and implemented by John
+-- Wiegley with some implementation help from me (Conal). See
+-- <https://github.com/jwiegley/z3cat> and John's blog post
+-- <http://newartisans.com/2017/04/haskell-and-z3/>. The version in this module
+-- is a re-implementation z3cat and works by converting from the circuit graph
+-- category rather than as a category of its own. I had a hunch that it’d come
+-- out more simply this way, and I think it did. GLSL generation works in the
+-- same way.
 
 module ConCat.SMT (solve,GenBuses,EvalE) where
 
