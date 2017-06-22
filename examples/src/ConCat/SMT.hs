@@ -30,13 +30,11 @@ type E = AST
 
 type M = StateT (M.Map Bus E) Z3
 
-busE :: Bus -> M E
-busE b = gets (M.! b)
-
+-- | Build and solve an SMT problem
 solve :: forall a. (GenBuses a, EvalE a) => (a :> Bool) -> IO (Maybe a)
 solve p =
   evalZ3 $ do
-  do is <- genEs (ty @a)
+  do is <- genVars (ty @a)
      m  <- execStateT (mapM_ addComp mids) (M.fromList (busesIn `zip` is))
      assert (m M.! res)              -- Make it so!
      snd <$> withModel (`evalEs` is) -- Extract argument value
@@ -49,6 +47,9 @@ addComp (CompS _ prim ins [o]) = do es <- mapM busE ins
                                     e  <- lift $ app prim es (busTy o)
                                     modify (M.insert o e)
 addComp comp = error ("ConCat.SMT.addComp: unexpected subgraph comp " ++ show comp)
+
+busE :: Bus -> M E
+busE b = gets (M.! b)
 
 app :: String -> [E] -> Ty -> Z3 E
 app str [] t = constExpr t str
@@ -80,11 +81,11 @@ app nm es _ =
    app2l op = app2 (\ a b -> op [a,b])
 
 constExpr :: Ty -> String -> Z3 E
-constExpr Bool    = mkBool    . read
-constExpr Int     = mkIntNum  . read @Int
-constExpr Float   = mkRealNum . read @Float
-constExpr Double  = mkRealNum . read @Double
-constExpr t       = error ("ConCat.SMT.constExpr: unexpected literal type: " ++ show t)
+constExpr Bool   = mkBool    . read
+constExpr Int    = mkIntNum  . read @Int
+constExpr Float  = mkRealNum . read @Float
+constExpr Double = mkRealNum . read @Double
+constExpr t      = error ("ConCat.SMT.constExpr: unexpected literal type: " ++ show t)
 
 mkNeq :: MonadZ3 z3 => E -> E -> z3 E
 mkNeq a b = mkNot =<< mkEq a b
@@ -93,8 +94,8 @@ mkNeq a b = mkNot =<< mkEq a b
     Adapted from z3cat
 --------------------------------------------------------------------}
 
-genEs :: Ty -> Z3 [E]
-genEs = (fmap.fmap) toList go
+genVars :: Ty -> Z3 [E]
+genVars = (fmap.fmap) toList go
  where
    -- Seq for efficient (<>)
    go :: Ty -> Z3 (Seq E)
@@ -105,8 +106,9 @@ genEs = (fmap.fmap) toList go
    go Double     = genPrim mkFreshRealVar
    go (Prod a b) = liftA2 (<>) (go a) (go b)
    go t          = error ("ConCat.SMT.go: " ++ show t)
-   genPrim :: (String -> Z3 AST) -> Z3 (Seq E)
-   genPrim mk = singleton <$> mk "x"
+
+genPrim :: (String -> Z3 AST) -> Z3 (Seq E)
+genPrim mk = singleton <$> mk "x"
 
 type EvalM = StateT [E] Z3
 
