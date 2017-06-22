@@ -133,7 +133,7 @@ main = sequence_
   -- , runCircSMT "smt-a" $ ccc $ (\ (x :: Double) -> sqr x == 9)
   -- , runCircSMT "smt-b" $ ccc $ (\ (x :: Double) -> sqr x == 9 && x < 0)
   -- , runCircSMT "smt-c" $ ccc $ pred1 @Double
-  , runCircSMT "smt-c" $ ccc $ (\ b -> (if b then 3 else 5 :: Int) > 4)
+  , runCircSMT "smt-d" $ ccc $ (\ b -> (if b then 3 else 5 :: Int) > 4)
 
   -- -- Broken
   -- , runSyn $ ccc $ (\ (x :: Int) -> x == 9)
