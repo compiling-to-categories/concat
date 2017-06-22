@@ -13,9 +13,12 @@
 
 module ConCat.SMT (solve,GenBuses,EvalE) where
 
+import Data.Monoid ((<>))
+import Data.Foldable (toList)
 import Control.Applicative (liftA2)
 import Data.List (sort)
 import qualified Data.Map as M
+import Data.Sequence (Seq,singleton)
 
 import Control.Monad.State (StateT,runStateT,execStateT,get,gets,put,modify,lift)
 
@@ -32,60 +35,24 @@ busE b = gets (M.! b)
 
 solve :: forall a. (GenBuses a, EvalE a) => (a :> Bool) -> IO (Maybe a)
 solve p =
-  -- evalZ3With Nothing (opt "MODEL" True) $ do
   evalZ3 $ do
   do is <- genEs (ty @a)
      m  <- execStateT (mapM_ addComp mids) (M.fromList (busesIn `zip` is))
-     assert (m M.! res)
-     -- check and get solution
-     snd <$> withModel (`evalEs` is)
+     assert (m M.! res)              -- Make it so!
+     snd <$> withModel (`evalEs` is) -- Extract argument value
  where
    (CompS _ "In" [] busesIn,mids, CompS _ "Out" [res] _) =
      splitComps (sort (mkGraph p))
 
 addComp :: Comp -> M ()
-
--- addComp (CompS _ prim ins [o]) = modify . M.insert o =<< add
---  where
---    add | null ins = lift (constExpr (busTy o) prim)
---        | otherwise = do es  <- mapM busE ins
---                         lift (app prim es)
-
--- addComp (CompS _ prim ins [o]) =
---   modify . M.insert o =<<
---   if null ins then
---     lift (constExpr (busTy o) prim)
---   else
---     do es <- mapM busE ins
---        lift (app prim es)
-
--- addComp (CompS _ prim ins [o]) =
---   do e <- if null ins then
---             lift (constExpr (busTy o) prim)
---           else
---             do es <- mapM busE ins
---                lift (app prim es)
---      modify (M.insert o e)
-
-addComp (CompS _ prim ins [o]) =
-  do es <- mapM busE ins
-     e  <- lift $ if null ins then
-                    constExpr (busTy o) prim
-                  else
-                    app prim es
-     modify (M.insert o e)
-
+addComp (CompS _ prim ins [o]) = do es <- mapM busE ins
+                                    e  <- lift $ app prim es (busTy o)
+                                    modify (M.insert o e)
 addComp comp = error ("ConCat.SMT.addComp: unexpected subgraph comp " ++ show comp)
 
-constExpr :: Ty -> String -> Z3 E
-constExpr Bool    = mkBool    . read
-constExpr Int     = mkIntNum  . read @Int
-constExpr Float   = mkRealNum . read @Float
-constExpr Double  = mkRealNum . read @Double
-constExpr t       = error ("ConCat.SMT.constExpr: unexpected literal type: " ++ show t)
-
-app :: String -> [E] -> Z3 E
-app nm es =
+app :: String -> [E] -> Ty -> Z3 E
+app str [] t = constExpr t str
+app nm es _ =
   case nm of
     "not"    -> app1  mkNot
     "&&"     -> app2l mkAnd
@@ -112,26 +79,34 @@ app nm es =
            | otherwise = err "two arguments"
    app2l op = app2 (\ a b -> op [a,b])
 
+constExpr :: Ty -> String -> Z3 E
+constExpr Bool    = mkBool    . read
+constExpr Int     = mkIntNum  . read @Int
+constExpr Float   = mkRealNum . read @Float
+constExpr Double  = mkRealNum . read @Double
+constExpr t       = error ("ConCat.SMT.constExpr: unexpected literal type: " ++ show t)
+
 mkNeq :: MonadZ3 z3 => E -> E -> z3 E
 mkNeq a b = mkNot =<< mkEq a b
 
 {--------------------------------------------------------------------
-    Modified from z3cat
+    Adapted from z3cat
 --------------------------------------------------------------------}
 
-genPrim :: (String -> Z3 AST) -> Z3 [E]
-genPrim mk = (:[]) <$> mk "x"
-
 genEs :: Ty -> Z3 [E]
-genEs Unit       = return []
-genEs Bool       = genPrim mkFreshBoolVar
-genEs Int        = genPrim mkFreshIntVar
-genEs Float      = genPrim mkFreshRealVar
-genEs Double     = genPrim mkFreshRealVar
-genEs (Prod a b) = liftA2 (++) (genEs a) (genEs b)
-genEs t          = error ("ConCat.SMT.genEs: " ++ show t)
-
--- TODO: Use Seq in place of [] in genEs, and compare efficiency.
+genEs = (fmap.fmap) toList go
+ where
+   -- Seq for efficient (<>)
+   go :: Ty -> Z3 (Seq E)
+   go Unit       = return mempty
+   go Bool       = genPrim mkFreshBoolVar
+   go Int        = genPrim mkFreshIntVar
+   go Float      = genPrim mkFreshRealVar
+   go Double     = genPrim mkFreshRealVar
+   go (Prod a b) = liftA2 (<>) (go a) (go b)
+   go t          = error ("ConCat.SMT.go: " ++ show t)
+   genPrim :: (String -> Z3 AST) -> Z3 (Seq E)
+   genPrim mk = singleton <$> mk "x"
 
 type EvalM = StateT [E] Z3
 
@@ -160,7 +135,7 @@ instance EvalE Float  where evalE = evalPrim evalReal fromRational
 instance EvalE Double where evalE = evalPrim evalReal fromRational
 
 instance (EvalE a, EvalE b) => EvalE (a,b) where
-    evalE m = liftA2 (,) (evalE m) (evalE m)
+  evalE m = liftA2 (,) (evalE m) (evalE m)
 
 {--------------------------------------------------------------------
     Copied from GLSL. Move to Circuit.
