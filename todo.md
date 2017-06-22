@@ -1,6 +1,7 @@
 # To do
 
-*   Fix the array fusion rule, removing the `curry` hack.
+*   SMT depends on z3, which takes some work to install.
+    Maybe disable SMT by default in concat-examples.cabal, with a flag to enable it.
 
 *   Automated testing.
 *   Associated types for product, coproduct, exponential, `Bool`, `Int`, etc.
