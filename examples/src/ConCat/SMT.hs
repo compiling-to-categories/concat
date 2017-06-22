@@ -44,12 +44,37 @@ solve p =
      splitComps (sort (mkGraph p))
 
 addComp :: Comp -> M ()
-addComp (CompS _ prim ins [o]) = do res <- add
-                                    modify (M.insert o res)
- where
-   add | null ins = lift (constExpr (busTy o) prim)
-       | otherwise = do es  <- mapM busE ins
-                        lift (app prim es)
+
+-- addComp (CompS _ prim ins [o]) = modify . M.insert o =<< add
+--  where
+--    add | null ins = lift (constExpr (busTy o) prim)
+--        | otherwise = do es  <- mapM busE ins
+--                         lift (app prim es)
+
+-- addComp (CompS _ prim ins [o]) =
+--   modify . M.insert o =<<
+--   if null ins then
+--     lift (constExpr (busTy o) prim)
+--   else
+--     do es <- mapM busE ins
+--        lift (app prim es)
+
+-- addComp (CompS _ prim ins [o]) =
+--   do e <- if null ins then
+--             lift (constExpr (busTy o) prim)
+--           else
+--             do es <- mapM busE ins
+--                lift (app prim es)
+--      modify (M.insert o e)
+
+addComp (CompS _ prim ins [o]) =
+  do es <- mapM busE ins
+     e  <- lift $ if null ins then
+                    constExpr (busTy o) prim
+                  else
+                    app prim es
+     modify (M.insert o e)
+
 addComp comp = error ("ConCat.SMT.addComp: unexpected subgraph comp " ++ show comp)
 
 constExpr :: Ty -> String -> Z3 E
