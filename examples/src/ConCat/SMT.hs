@@ -80,6 +80,13 @@ app nm es _ =
            | otherwise = err "two arguments"
    app2l op = app2 (\ a b -> op [a,b])
 
+-- TODO: handle "if":
+
+    -- "if"     -> app3  mkIf
+
+-- mkIf :: MonadZ3 z3 => E -> E -> E -> z3 E
+-- mkIf i t e = suchThat $ \ v -> i && v == t || not i && v == e
+
 constExpr :: Ty -> String -> Z3 E
 constExpr Bool   = mkBool    . read
 constExpr Int    = mkIntNum  . read @Int
