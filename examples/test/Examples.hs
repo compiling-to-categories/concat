@@ -83,74 +83,6 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- Current experiments
-
-  -- , runSynCirc "map-negate-arr" $ ccc $ fmap @(Arr Bool) @Int negate
-
-  -- , runSynCirc "map-map-arr" $ ccc $ fmap (+3) . fmap @(Arr Bool) @Int (+2)
-
-  -- , runSynCirc "liftA2-arr-b" $ ccc $ uncurry $ liftA2 @(Arr Bool) ((+) @Int)
-
-  -- , runSynCirc "fmap-arr-bool-plus" $ ccc $ fmap @(Arr Bool) ((+) @Int)
-  -- , runSynCirc "app-arr-bool" $ ccc $ (<*>) @(Arr Bool) @Int @Int
-
-  -- , runSynCirc "fmap-fun-bool-plus" $ ccc $ fmap   @((->) Bool) ((+) @Int)
-  -- , runSynCirc "app-fun-bool"       $ ccc $ (<*>)  @((->) Bool) @Int @Int
-
-  -- , runSynCirc "liftA2-fun-bool"    $ ccc $ liftA2 @((->) Bool) ((+) @Int)
-
-  -- , runSynCirc "fmap-ffun-bool-plus" $ ccc $ fmap @(FFun Bool) ((+) @Int)
-  -- , runSynCirc "liftA2-ffun-bool" $ ccc $ liftA2 @(FFun Bool) ((+) @Int)
-
-  -- , runSynCirc "sum-ffun-lb1-b" $ ccc $ sum @(FFun (LB N1)) @Int
-  -- , runSynCirc "sum-ffun-lb2-b" $ ccc $ sum @(FFun (LB N2)) @Int
-  -- , runSynCirc "sum-ffun-lb3-b" $ ccc $ sum @(FFun (LB N3)) @Int
-  -- , runSynCirc "sum-ffun-lb4-b" $ ccc $ sum @(FFun (LB N4)) @Int
-
-  -- , runSynCirc "sum-arrFFun-lb1-a" $ ccc $ sum @(FFun (LB N1)) @Int . arrFFun
-  -- , runSynCirc "sum-arrFFun-lb2-a" $ ccc $ sum @(FFun (LB N2)) @Int . arrFFun
-  -- , runSynCirc "sum-arrFFun-lb3-d" $ ccc $ sum @(FFun (LB N3)) @Int . arrFFun
-  -- , runSynCirc "sum-arrFFun-lb4-a" $ ccc $ sum @(FFun (LB N4)) @Int . arrFFun
-
-
-  -- , runSynCirc "prefold-a" $ ccc $ prefoldMapFFun @(LB N2) @Bool @Int Sum . arrFFun
-  -- , runSynCirc "fold-lb2-a" $ ccc $ (fold :: (Bool :* Bool :-> Sum Int) -> Sum Int)
-  -- , runSynCirc "sum-arrFFun-lb3-e" $ ccc $
-  --      (fold :: (LB N2 :-> Sum Int) -> Sum Int)
-  --    . (prefoldMapFFun @(LB N2) @Bool @Int Sum . arrFFun)
-
-  -- , runSynCirc "sum-arr-lb1" $ ccc $ sum @(Arr (LB N1)) @Int
-  -- , runSynCirc "sum-arr-lb2" $ ccc $ sum @(Arr (LB N2)) @Int
-  -- , runSynCirc "sum-arr-lb3" $ ccc $ sum @(Arr (LB N3)) @Int
-  -- , runSynCirc "sum-arr-lb4" $ ccc $ sum @(Arr (LB N4)) @Int
-  -- , runSynCirc "sum-arr-lb8" $ ccc $ sum @(Arr (LB N8)) @Int
-
-  -- , runSynCirc "fmap-fun-bool-plus" $ ccc $ fmap   @((->) Bool) ((+) @Int)
-  -- , runSynCirc "app-fun-bool"       $ ccc $ (<*>)  @((->) Bool) @Int @Int
-  -- , runSynCirc "inArr2-liftA2-bool"    $ ccc $
-  --      (inNew2 (liftA2 (+)) :: Binop (Arr Bool Int))
-
-  -- , runSynCirc "sum-fun-2" $ ccc $ (sum @((->) Bool) @Int)
-  -- , runSynCirc "sum-fun-4" $ ccc $ (sum @((->) (Bool :* Bool)) @Int)
-
-  -- , runSynCirc "sum-fun-8" $ ccc $ (sum @((->) ((Bool :* Bool) :* Bool)) @Int)
-
-  -- , runSynCirc "unpack-arr-2" $ ccc $ (unpack @(Arr Bool Int))
-  -- , runSynCirc "unpack-arr-4" $ ccc $ (unpack @(Arr (Bool :* Bool) Int))
-
-  -- , runSynCirc "sum-arr-fun-2"    $ ccc $
-  --      (sum . unpack :: Arr Bool Int -> Int)
-  -- , runSynCirc "sum-arr-fun-4"    $ ccc $
-  --      (sum . unpack :: Arr (Bool :* Bool) Int -> Int)
-  -- , runSynCirc "sum-arr-fun-8"    $ ccc $
-  --      (sum . unpack :: Arr ((Bool :* Bool) :* Bool) Int -> Int)
-
-  -- , runSynCirc "fmap-arr-bool" $ ccc $ fmap @(Arr Bool) (negate @Int)
-  -- , runSynCirc "liftA2-arr-bool" $ ccc $ liftA2 @(Arr Bool) ((+) @Int)
-  -- , runSynCirc "liftArr2-bool" $ ccc $ liftArr2 @Bool ((+) @Int)
-  -- , runSynCirc "liftArr2-bool-unc" $ ccc $ uncurry (liftArr2 @Bool ((+) @Int))
-  -- , runSynCirc "sum-arr-bool" $ ccc $ sum @(Arr Bool) @Int
-
   -- -- Circuit graphs
   -- , runSynCirc "magSqr"    $ ccc $ magSqr @Double
   -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
@@ -191,7 +123,7 @@ main = sequence_
   -- , runSynCirc "cos-2x-ad"    $ ccc $ andDer $ \ x -> cos (2 * x) :: R
   -- , runSynCirc "cos-2xx-ad"   $ ccc $ andDer $ \ x -> cos (2 * x * x) :: R
   -- , runSynCirc "cos-xpy-ad"   $ ccc $ andDer $ \ (x,y) -> cos (x + y) :: R
-  -- , runSynCirc "cosSin-xy-ad" $ ccc $ andDer $ cosSinProd @R
+  , runSynCirc "cosSin-xy-ad" $ ccc $ andDer $ cosSinProd @R
 
   -- -- Incremental differentiation. Currently broken.
   -- , runSynCirc "magSqr-inc" $ ccc $ inc $ andDer $ magSqr @R
@@ -200,10 +132,58 @@ main = sequence_
 
   -- , runCircSMT "smt-a" $ ccc $ (\ (x :: Double) -> sqr x == 9)
   -- , runCircSMT "smt-b" $ ccc $ (\ (x :: Double) -> sqr x == 9 && x < 0)
-  , runCircSMT "smt-c" $ ccc $ pred1 @Double
+  -- , runCircSMT "smt-c" $ ccc $ pred1 @Double
 
   -- -- Broken
   -- , runSyn $ ccc $ (\ (x :: Int) -> x == 9)
+
+  -- Array experiments
+
+  -- , runSynCirc "map-negate-arr" $ ccc $ fmap @(Arr Bool) @Int negate
+
+  -- , runSynCirc "map-map-arr" $ ccc $ fmap (+3) . fmap @(Arr Bool) @Int (+2)
+
+  -- , runSynCirc "liftA2-arr-b" $ ccc $ uncurry $ liftA2 @(Arr Bool) ((+) @Int)
+
+  -- , runSynCirc "fmap-arr-bool-plus" $ ccc $ fmap @(Arr Bool) ((+) @Int)
+  -- , runSynCirc "app-arr-bool" $ ccc $ (<*>) @(Arr Bool) @Int @Int
+
+  -- , runSynCirc "fmap-fun-bool-plus" $ ccc $ fmap   @((->) Bool) ((+) @Int)
+  -- , runSynCirc "app-fun-bool"       $ ccc $ (<*>)  @((->) Bool) @Int @Int
+
+  -- , runSynCirc "liftA2-fun-bool"    $ ccc $ liftA2 @((->) Bool) ((+) @Int)
+
+  -- , runSynCirc "sum-arr-lb1" $ ccc $ sum @(Arr (LB N1)) @Int
+  -- , runSynCirc "sum-arr-lb2" $ ccc $ sum @(Arr (LB N2)) @Int
+  -- , runSynCirc "sum-arr-lb3" $ ccc $ sum @(Arr (LB N3)) @Int
+  -- , runSynCirc "sum-arr-lb4" $ ccc $ sum @(Arr (LB N4)) @Int
+  -- , runSynCirc "sum-arr-lb8" $ ccc $ sum @(Arr (LB N8)) @Int
+
+  -- , runSynCirc "fmap-fun-bool-plus" $ ccc $ fmap   @((->) Bool) ((+) @Int)
+  -- , runSynCirc "app-fun-bool"       $ ccc $ (<*>)  @((->) Bool) @Int @Int
+  -- , runSynCirc "inArr2-liftA2-bool"    $ ccc $
+  --      (inNew2 (liftA2 (+)) :: Binop (Arr Bool Int))
+
+  -- , runSynCirc "sum-fun-2" $ ccc $ (sum @((->) Bool) @Int)
+  -- , runSynCirc "sum-fun-4" $ ccc $ (sum @((->) (Bool :* Bool)) @Int)
+
+  -- , runSynCirc "sum-fun-8" $ ccc $ (sum @((->) ((Bool :* Bool) :* Bool)) @Int)
+
+  -- , runSynCirc "unpack-arr-2" $ ccc $ (unpack @(Arr Bool Int))
+  -- , runSynCirc "unpack-arr-4" $ ccc $ (unpack @(Arr (Bool :* Bool) Int))
+
+  -- , runSynCirc "sum-arr-fun-2"    $ ccc $
+  --      (sum . unpack :: Arr Bool Int -> Int)
+  -- , runSynCirc "sum-arr-fun-4"    $ ccc $
+  --      (sum . unpack :: Arr (Bool :* Bool) Int -> Int)
+  -- , runSynCirc "sum-arr-fun-8"    $ ccc $
+  --      (sum . unpack :: Arr ((Bool :* Bool) :* Bool) Int -> Int)
+
+  -- , runSynCirc "fmap-arr-bool" $ ccc $ fmap @(Arr Bool) (negate @Int)
+  -- , runSynCirc "liftA2-arr-bool" $ ccc $ liftA2 @(Arr Bool) ((+) @Int)
+  -- , runSynCirc "liftArr2-bool" $ ccc $ liftArr2 @Bool ((+) @Int)
+  -- , runSynCirc "liftArr2-bool-unc" $ ccc $ uncurry (liftArr2 @Bool ((+) @Int))
+  -- , runSynCirc "sum-arr-bool" $ ccc $ sum @(Arr Bool) @Int
 
   ]
 
