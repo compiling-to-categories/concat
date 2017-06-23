@@ -70,7 +70,7 @@ import Data.Void (Void)
 import ConCat.Misc
   (Unop,Binop,(:*),(:+),PseudoFun(..),R,bottom,oops,Yes2,sqr,magSqr)
 import ConCat.Rep
-import ConCat.Standardize
+-- import ConCat.Standardize
 import ConCat.Free.VectorSpace (V)
 import ConCat.Free.LinearRow
 import ConCat.Incremental
