@@ -118,6 +118,7 @@ der = deriv
 -- {-# ANN der PseudoFun #-}
 
 gradient :: HasV R a => (a -> R) -> a -> a
+-- gradient :: HasV s a => (a -> s) -> a -> a
 gradient f = unV . unpack . unpack . der f
 {-# INLINE gradient #-}
 -- {-# RULES "gradient" forall f. gradient f = unV . unpack . unpack . der f #-}
