@@ -26,6 +26,7 @@
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
 
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -ddump-simpl #-} 
 -- {-# OPTIONS_GHC -dverbose-core2core #-} 
 
 -- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
@@ -125,6 +126,20 @@ main = sequence_
   -- , runSynCirc "cos-xpy-ad"   $ ccc $ andDer $ \ (x,y) -> cos (x + y) :: R
   -- , runSynCirc "cosSin-xy-ad" $ ccc $ andDer $ cosSinProd @R
 
+  -- -- Dies with "Oops --- ccc called!", without running the plugin.
+  -- , print $ andDer sin (1 :: R)
+
+  -- -- (0.8414709848078965,[[0.5403023058681398]]), i.e., (sin 1, [[cos 1]]),
+  -- -- where the "[[ ]]" is matrix-style presentation of the underlying
+  -- -- linear map.
+  -- , runPrint 1     $ andDer $ sin @R
+  -- , runPrint (1,1) $ andDer $ \ (x,y) -> cos (x + y) :: R
+  -- , runPrint (1,1) $ andDer $ cosSinProd @R
+
+  -- -- ccc post-transfo check.
+  -- , runPrint 1 $ gradient sin
+  -- , runSynCirc "gradient-sin" $ ccc $ gradient sin
+
   -- -- Incremental differentiation. Currently broken.
   -- , runSynCirc "magSqr-inc" $ ccc $ inc $ andDer $ magSqr @R
 
@@ -135,7 +150,7 @@ main = sequence_
   -- , runSMT $ ccc $ \ (x :: Double) -> sqr x == 9 && x < 0
   -- , runSMT $ ccc $ pred1 @Double
   -- , runSMT $ ccc $ \ b -> (if b then 3 else 5 :: Int) > 4
-  , runSMT $ ccc $ \ (x::R,y) -> x + y == 15 && x == 2 * y
+  -- , runSMT $ ccc $ \ (x::R,y) -> x + y == 15 && x == 2 * y
 
   -- -- Broken
   -- , runSMT $ ccc $ (\ (x::R,y) -> x + y == 15 && x * y == 20)  -- "illegal argument" ??
@@ -193,6 +208,9 @@ main = sequence_
 
   ]
 
+f1 :: Num a => a -> a
+f1 x = x^2
+
 pred1 :: (Num a, Ord a) => a :* a -> Bool
 pred1 (x,y) =
     x < y &&
@@ -236,6 +254,9 @@ runCircSMT nm circ = runCirc nm circ >> runSMT circ
 
 -- TODO: rework runCircGlsl and runCircSMT to generate the circuit graph once
 -- rather than twice.
+
+runPrint :: Show b => a -> (a -> b) -> IO ()
+runPrint a f = print (f a)
 
 {--------------------------------------------------------------------
     Vectors
