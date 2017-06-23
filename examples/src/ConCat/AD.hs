@@ -119,8 +119,7 @@ der = deriv
 
 gradient :: HasV R a => (a -> R) -> a -> a
 gradient f = unV . unpack . unpack . der f
-{-# INLINE gradient #-}  -- experiment
--- {-# NOINLINE gradient #-}
+{-# INLINE gradient #-}
 -- {-# RULES "gradient" forall f. gradient f = unV . unpack . unpack . der f #-}
 
 --                             f :: a -> R
