@@ -65,6 +65,7 @@ import Control.Applicative (liftA2)
 import ConCat.Misc ((:*),R,sqr,magSqr,Binop,inNew,inNew2)
 import ConCat.Incremental (inc)
 import ConCat.AD
+import ConCat.GradientDescent (maximize,minimize)
 import ConCat.Interval
 import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses,(:>))
@@ -147,8 +148,11 @@ main = sequence_
   -- , runPrint (1,1) $ andDer $ \ (x,y) -> cos (x + y) :: R
   -- , runPrint (1,1) $ andDer $ cosSinProd @R
 
-  , runPrint 1     $ gradient $ sin @R
-  , runPrint (1,1) $ gradient $ \ (x,y) -> cos (x + y) :: R
+  -- , runPrint 1     $ gradient $ sin @R
+  -- , runPrint (1,1) $ gradient $ \ (x,y) -> cos (x + y) :: R
+
+  -- , print (minimize 1 cos 5)  -- (3.141592653589793,6)
+  -- , print (maximize 1 cos 5)  -- (6.283185307179586,5)
 
   -- , runSynCirc "gradient-sin" $ ccc $ gradient sin
 
