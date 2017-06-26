@@ -37,6 +37,9 @@ library
                      , directory >= 1.2.6.2
                      , process >= 1.4.2.0
                      , mtl >= 2.2.1
+                     , finite-typelits
+                     -- -- For NatArr
+                     -- , ghc-typelits-knownnat
                      -- For Incremental		
                      , transformers >= 0.5.2.0, mtl >= 2.2.1		
                      -- For GenGLSL 
@@ -69,24 +72,8 @@ library
                        ConCat.Demand
                        ConCat.Arr
                        ConCat.SMT
-
-Test-Suite test
-  type:             exitcode-stdio-1.0
-  default-language: Haskell98
-  hs-Source-Dirs:   test
-  main-is:          Test.hs
-  Build-Depends:    Cabal >= 1.24.0.0
-                  , NumInstances >= 1.4
-                  , array >= 0.5.1.1
-                  , base<5
-                  , concat-classes
-                  , concat-plugin
-                  , concat-examples
-                  , ghc-prim
-                  , language-glsl >= 0.2.0
-                  , parsec >= 3.1.11
-                  , prettyclass
   ghc-options:      -O2
+  -- cpp-options:      -DVectorSized
 
 Test-Suite examples
   type:             exitcode-stdio-1.0
@@ -105,4 +92,6 @@ Test-Suite examples
                   , language-glsl >= 0.2.0
                   , parsec >= 3.1.11
                   , prettyclass
+                  -- Array/vector experiments
+                  , vector
   ghc-options:      -O2
