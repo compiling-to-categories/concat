@@ -76,6 +76,15 @@ import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Arr -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
 import qualified ConCat.SMT as SMT
 
+-- These imports bring newtype constructors into scope, allowing CoerceCat (->)
+-- dictionaries to be constructed. We could remove the LinearRow import if we
+-- changed L from a newtype to data, but we still run afoul of coercions for
+-- GHC.Generics newtypes.
+-- 
+-- TODO: Find a better solution!
+import qualified GHC.Generics as G
+import qualified ConCat.Free.LinearRow
+
 import Control.Newtype (Newtype(..))
 
 default (Int, Double)
@@ -83,6 +92,8 @@ default (Int, Double)
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
+
+  -- , runSynCirc "foo" $ ccc $ (G.Par1 . G.Par1 @R)
 
   -- -- Circuit graphs
   -- , runSynCirc "magSqr"    $ ccc $ magSqr @Double
@@ -136,8 +147,12 @@ main = sequence_
   -- , runPrint (1,1) $ andDer $ \ (x,y) -> cos (x + y) :: R
   -- , runPrint (1,1) $ andDer $ cosSinProd @R
 
-  -- -- ccc post-transfo check.
-  -- , runPrint 1 $ gradient sin
+  -- , runPrint 1     $ gradient $ sin @R
+  -- , runPrint (1,1) $ gradient $ \ (x,y) -> cos (x + y) :: R
+
+  -- ccc post-transfo check.
+  , runPrint 1 $ gradient sin
+
   -- , runSynCirc "gradient-sin" $ ccc $ gradient sin
 
   -- -- Incremental differentiation. Currently broken.
