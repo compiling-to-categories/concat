@@ -147,11 +147,8 @@ main = sequence_
   -- , runPrint (1,1) $ andDer $ \ (x,y) -> cos (x + y) :: R
   -- , runPrint (1,1) $ andDer $ cosSinProd @R
 
-  -- , runPrint 1     $ gradient $ sin @R
-  -- , runPrint (1,1) $ gradient $ \ (x,y) -> cos (x + y) :: R
-
-  -- ccc post-transfo check.
-  , runPrint 1 $ gradient sin
+  , runPrint 1     $ gradient $ sin @R
+  , runPrint (1,1) $ gradient $ \ (x,y) -> cos (x + y) :: R
 
   -- , runSynCirc "gradient-sin" $ ccc $ gradient sin
 
