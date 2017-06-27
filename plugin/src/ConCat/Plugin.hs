@@ -596,7 +596,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Tick t e -> Doing("lam tick")
                  return $ Tick t (mkCcc (Lam x e))
      -- Give up
-     _e -> pprPanic "ccc" ("lam Unhandled" <+> ppr _e)
+     _e -> pprPanic "ccc" ("lam Unhandled" <+> ppr (Lam x _e))
            -- pprTrace "goLam" ("Unhandled" <+> ppr _e) $ Nothing
     where
       xty = varType x
