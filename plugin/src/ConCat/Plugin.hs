@@ -1604,7 +1604,7 @@ monoInfo =
          fdOp :: Type -> (String, [Type])
          fdOp ty = (floatModule++"."++op++pp ty,[ty]) -- GHC.Float.sinFloat
 
-#if 1
+#if 0
 -- An orphan instance to help me debug
 instance Show Type where show = pp
 #endif
