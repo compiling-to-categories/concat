@@ -731,17 +731,6 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
         | v == tagToEnumV && ty `eqType` boolTy
         = success $ Var boxIBV `App` e'
       -- Int equality turns into matching, which takes some care.
-#if 0
-      tweak (Case scrut@(Var v) _ rhsTy ((DEFAULT, [], d) : (mapM litAlt -> Just las)))
-       | notNull las
-       , hasTyCon intPrimTyCon (varType v)
-       = Doing("lam Case of Int#")
-         -- TODO: let-bind scrut or use live binder
-         success $ foldr mkIf d las
-        where
-         -- Because scrut is unboxed, we know it's a variable or ... (?)
-         mkIf (lit,rhs) e = varApps ifEqIntHash [rhsTy] [scrut,Lit lit,rhs,e]
-#else
       tweak (Case scrut v rhsTy ((DEFAULT, [], d) : (mapM litAlt -> Just las)))
        | notNull las
        , hasTyCon intPrimTyCon vty
@@ -753,7 +742,6 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
          scrutV = zapIdOccInfo v
          scrut' = Var scrutV
          mkIf (lit,rhs) e = varApps ifEqIntHash [rhsTy] [scrut',Lit lit,rhs,e]
-#endif
       tweak e = (Any False, e)
       litAlt (LitAlt lit,[],rhs) = Just (lit,rhs)
       litAlt _ = Nothing
