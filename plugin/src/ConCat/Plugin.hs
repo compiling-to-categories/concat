@@ -46,7 +46,8 @@ import MkId (mkDictSelRhs,coerceId)
 import Pair (Pair(..))
 import PrelNames (leftDataConName,rightDataConName)
 import Type (coreView)
-import TcType (isIntTy,isIntegerTy)
+import TcType (isIntTy,isIntegerTy,tcSplitTyConApp_maybe)
+import TysPrim (intPrimTyCon)
 import FamInstEnv (normaliseType)
 import TyCoRep                          -- TODO: explicit imports
 import Unique (mkBuiltinUnique)
@@ -85,6 +86,7 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , tagToEnumV       :: Id
                      , bottomV          :: Id
                      , boxIBV           :: Id
+                     , ifEqIntHash      :: Id
                   -- , reboxV           :: Id
                      , inlineV          :: Id
                   -- , coercibleTc      :: TyCon
@@ -421,6 +423,10 @@ ccc (CccEnv {..}) (Ops {..}) cat =
          goLam x (App (Lam v body') rhs)
       where
         xInRhs = x `isFreeIn` rhs
+     -- Trying("lam letrec")
+     -- _e@(Let bind@(Rec [(v,rhs)]) body') ->
+     --    Doing("lam letrec")
+     --    undefined
      Trying("lam eta-reduce")
      (etaReduce_maybe -> Just e') ->
        Doing("lam eta-reduce")
@@ -714,16 +720,43 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
              | otherwise = Nothing
     where
       (Any tweaked,e1) = everywhereM (mkM tweak) e0
+      success = (Any True,)
       tweak :: CoreExpr -> (Any,CoreExpr)
       tweak e@(App (Var con) e')
         | isDataConWorkId con
         , Just (tc,[]) <- splitTyConApp_maybe (exprType e)
         , Just boxV <- Map.lookup tc boxers
-        = (Any True, Var boxV `App` e')
+        = success $ Var boxV `App` e'
       tweak ((Var v `App` Type ty) `App` e')
         | v == tagToEnumV && ty `eqType` boolTy
-        = (Any True, Var boxIBV `App` e')
+        = success $ Var boxIBV `App` e'
+      -- Int equality turns into matching, which takes some care.
+#if 1
+      tweak (Case scrut@(Var v) _ rhsTy ((DEFAULT, [], d) : (mapM litAlt -> Just las)))
+       | notNull las
+       , hasTyCon intPrimTyCon (varType v)
+       = Doing("lam Case of Int#")
+         -- TODO: let-bind scrut or use live binder
+         success $ foldr mkIf d las
+        where
+         -- Because scrut is unboxed, we know it's a variable or ... (?)
+         mkIf (lit,rhs) e = varApps ifEqIntHash [rhsTy] [scrut,Lit lit,rhs,e]
+#else
+      tweak (Case scrut v rhsTy ((DEFAULT, [], d) : (mapM litAlt -> Just las)))
+       | notNull las
+       , hasTyCon intPrimTyCon vty
+       = Doing("lam Case of Int#")
+         -- TODO: let-bind scrut or use live binder
+         success $ mkCoreLet (NonRec scrutV scrut) $ foldr mkIf d las
+        where
+         vty = varType v
+         scrutV = zapIdOccInfo v
+         scrut' = Var scrutV
+         mkIf (lit,rhs) e = varApps ifEqIntHash [rhsTy] [scrut',Lit lit,rhs,e]
+#endif
       tweak e = (Any False, e)
+      litAlt (LitAlt lit,[],rhs) = Just (lit,rhs)
+      litAlt _ = Nothing
    -- hrMeth :: Type -> Maybe (Id -> CoreExpr)
    -- hrMeth ty = -- dtrace "hasRepMeth:" (ppr ty) $
    --             hasRepMeth dflags guts inScope ty
@@ -1384,6 +1417,7 @@ mkCccEnv opts = do
   boxFV       <- findBoxId "boxF"
   boxDV       <- findBoxId "boxD"
   boxIBV      <- findBoxId "boxIB"
+  ifEqIntHash <- findBoxId "ifEqInt#"
   tagToEnumV  <- findId "GHC.Prim" "tagToEnum#"
   bottomV     <- findId "ConCat.Misc" "bottom"
   -- lazyV    <- findExtId "lazy"
@@ -1524,17 +1558,17 @@ monoInfo =
      , ("subC",numOps "-"), ("mulC",numOps "*")
 #endif
        -- powIC
-
      , ("negateC",fdOps "negate"), ("addC",fdOps "plus")
      , ("subC",fdOps "minus"), ("mulC",fdOps "times")
      , ("recipC", fdOps "recip"), ("divideC", fdOps "divide")
      , ("expC", fdOps "exp")
      , ("cosC", fdOps "cos")
      , ("sinC", fdOps "sin")
-
      --
      , ("succC",[("GHC.Enum.$fEnumInt_$csucc",[intTy])])
      , ("predC",[("GHC.Enum.$fEnumInt_$cpred",[intTy])])
+     , ("divC",[("GHC.Real.$fIntegralInt_$cdiv",[intTy])])
+     , ("modC",[("GHC.Real.$fIntegralInt_$cmod",[intTy])])
      ]
     where
       ifd = intTy : fd
@@ -1563,14 +1597,14 @@ monoInfo =
           where
             tyName = pp ty
             modu | isIntTy ty = "GHC.Num"
-                 | otherwise  = floatModule
+                 | otherwise  = floatModule  -- Really?
 #endif
       fdOps op = fdOp <$> fd
        where
          fdOp :: Type -> (String, [Type])
          fdOp ty = (floatModule++"."++op++pp ty,[ty]) -- GHC.Float.sinFloat
 
-#if 0
+#if 1
 -- An orphan instance to help me debug
 instance Show Type where show = pp
 #endif
@@ -1961,3 +1995,6 @@ exprConstr (Tick {})     = "Tick"
 exprConstr (Type {})     = "Type"
 exprConstr (Coercion {}) = "Coercion"
 
+hasTyCon :: TyCon -> Type -> Bool
+hasTyCon tc (tcSplitTyConApp_maybe -> Just (tc', _)) = tc' == tc
+hasTyCon _ _ = False
