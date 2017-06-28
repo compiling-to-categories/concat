@@ -156,3 +156,9 @@ ghc: panic! (the 'impossible' happened)
 --     RULE left-hand side too complicated to desugar
 --       Optimised lhs: case unD u of wild_00 { __DEFAULT ->
 --                      GHC.Types.D# wild_00 }
+
+
+-- Handy for translating case-of-Int#
+ifEqInt# :: Int# -> Int# -> a -> a -> a
+ifEqInt# m n a b = if equal (boxI m, boxI n) then a else b
+{-# INLINE ifEqInt# #-}
