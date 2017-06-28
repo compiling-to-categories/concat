@@ -32,7 +32,7 @@ AbsTyPragmas
 
 -- | Experiments with statically sized arrays
 
-module ConCat.Arr where
+module ConCat.NatArr where
 
 import Prelude hiding (Enum(..))
 import Control.Arrow ((|||))
