@@ -256,12 +256,12 @@ main = sequence_
 
   -- , runSynCirc "foo" $ ccc $ \ (x :: Int) -> 13 * x == 130
 
-  -- , runSynCirc "multi-if-equal-int-scrut" $ ccc $
-  --     \ x -> case 13 `mod` x of
-  --         1 -> 3
-  --         5 -> 7
-  --         7 -> 9
-  --         (_ :: Int) -> 0 :: Int
+  , runSynCirc "multi-if-equal-int-scrut" $ ccc $
+      \ x -> case 13 * x of
+          1 -> 3
+          5 -> 7
+          7 -> 9
+          (_ :: Int) -> 0 :: Int
 
   -- , runSynCirc "if-equal-int-x" $ ccc $
   --     \ x -> case x of

@@ -31,6 +31,8 @@
 
 -- #define DefaultCat
 
+-- #define VectorSized
+
 module ConCat.Category where
 
 import Prelude hiding (id,(.),curry,uncurry,const)
@@ -60,6 +62,11 @@ import Data.Proxy (Proxy(..))
 import GHC.Generics ((:*:)(..),(:.:)(..))
 
 import Control.Newtype (Newtype(..))
+#ifdef VectorSized
+import Data.Finite (Finite)
+import Data.Vector.Sized (Vector)
+import qualified Data.Vector.Sized as VS
+#endif
 
 -- import Data.MemoTrie
 
@@ -1508,6 +1515,51 @@ instance (CoerceCat k a b, CoerceCat k' a b) => CoerceCat (k :**: k') a b where
   coerceC = coerceC :**: coerceC
   PINLINER(coerceC)
 
+#ifdef VectorSized
+-- TODO: drop "Arr" alias if these definitions work out
+type Arr = Vector
+
+class (ClosedCat k, {-KnownNat n, -}Ok3 k b (Finite n) (Arr n b))
+   => ArrayCat k n b where
+  array :: Exp k (Finite n) b `k` Arr n b
+  arrAt :: Prod k (Arr n b) (Finite n) `k` b
+
+instance KnownNat n => ArrayCat (->) n b where
+  array = arrayFun
+  arrAt = arrAtFun
+  PINLINER(array)
+  PINLINER(arrAt)
+
+arrayFun :: KnownNat n => (Finite n -> b) -> Arr n b
+arrayFun = VS.generate_
+{-# NOINLINE arrayFun #-}
+
+arrAtFun :: KnownNat n => Arr n b :* Finite n -> b
+arrAtFun = uncurry VS.index
+{-# NOINLINE arrAtFun #-}
+
+-- TODO: working definitions for arrayFun and arrAtFun
+
+instance {- KnownNat n => -} ArrayCat U2 n b where
+  array = U2
+  -- array _ = U2
+  arrAt = U2
+
+instance (ArrayCat k n b, ArrayCat k' n b) => ArrayCat (k :**: k') n b where
+  array = array :**: array
+  arrAt = arrAt :**: arrAt
+  PINLINER(array)
+  PINLINER(arrAt)
+  -- at = at :**: at
+  -- PINLINER(at)
+
+-- #ifdef KleisliInstances
+-- instance (Monad m, Enum n) => ArrayCat (Kleisli m) n b where
+--   array = arr array
+--   arrAt = arr arrAt
+-- #endif
+
+#else
 -- Arrays
 newtype Arr a b = MkArr (Array a b) deriving Show
 
@@ -1553,6 +1605,8 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
 --   array = arr array
 --   arrAt = arr arrAt
 -- #endif
+
+#endif
 
 {--------------------------------------------------------------------
     Functors

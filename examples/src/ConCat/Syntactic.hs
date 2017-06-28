@@ -19,6 +19,8 @@
 
 -- | Syntactic CCC
 
+-- #define VectorSized
+
 module ConCat.Syntactic where
 
 import Prelude hiding (id,(.),lookup,const)
@@ -29,6 +31,11 @@ import Control.Newtype
 import Text.PrettyPrint.HughesPJClass hiding (render,first)
 import Data.Typeable (Typeable)
 import Data.Constraint (Dict(..),(:-)(..))  -- temp
+
+#ifdef VectorSized
+import GHC.TypeLits (KnownNat)
+import Data.Finite (Finite)
+#endif
 
 import ConCat.Category
 import ConCat.Misc (inNew,inNew2,Unop,Binop,typeR,Yes1,(:*))
@@ -320,10 +327,17 @@ AbstIf((a,b,c))
 
 #endif
 
+#ifdef VectorSized
+instance KnownNat n => ArrayCat Syn n b where
+  arrAt = app0 "arrAt"
+  array = app0 "array"
+  -- at    = app0 "at"
+#else
 instance ArrayCat Syn a b where
   arrAt = app0 "arrAt"
   array = app0 "array"
   -- at    = app0 "at"
+#endif
 
 instance UnknownCat Syn a b where
   unknownC = app0 "unknownC"

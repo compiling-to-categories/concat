@@ -33,3 +33,4 @@ library
                        ConCat.BuildDictionary
                        ConCat.Plugin
                        ConCat.Rebox
+  ghc-options:      -O2

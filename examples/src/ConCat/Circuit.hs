@@ -78,6 +78,8 @@
 -- Circuit representation
 ----------------------------------------------------------------------
 
+-- #define VectorSized
+
 module ConCat.Circuit
   ( CircuitM, (:>)
   , Bus(..),Comp(..),Input,Output, Ty(..), busTy, Source(..), Template(..)
@@ -137,6 +139,11 @@ import System.Process (system) -- ,readProcess
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (ExitCode(ExitSuccess))
 
+#ifdef VectorSized
+import GHC.TypeLits (Nat,KnownNat)
+import Data.Finite (Finite)
+#endif
+
 -- mtl
 import Control.Monad.State (State,execState,StateT)
 
@@ -164,7 +171,12 @@ import qualified ConCat.Free.LinearCol as LC
 
 -- Component (primitive) type
 data Ty = Unit | Bool | Int | Float | Double 
+#ifdef VectorSized
+        | Finite Integer
+        | Arr Integer Ty
+#else
         | Arr Ty Ty
+#endif
         | Prod Ty Ty
         | Sum Ty Ty
         | Fun Ty Ty
@@ -180,8 +192,15 @@ instance Show Ty where
     showsPrec 6 a . showString " + " . showsPrec 6 b
   showsPrec p (Prod a b) = showParen (p >= 7) $
     showsPrec 7 a . showString " × " . showsPrec 7 b
+#ifdef VectorSized
+  showsPrec p (Finite n) = showParen (p >= 9) $
+    showString "Finite " . showsPrec 9 n
+  showsPrec p (Arr n b) = showParen (p >= 9) $
+    showString "Arr " . showsPrec 9 n . showString " " . showsPrec 9 b
+#else
   showsPrec p (Arr a b) = showParen (p >= 9) $
     showString "Arr " . showsPrec 9 a . showString " " . showsPrec 9 b
+#endif
   showsPrec p (Fun a b) = showParen (p >= 1) $
     showsPrec 1 a . showString " → " . showsPrec 0 b
 
@@ -349,11 +368,23 @@ instance GenBuses Double  where
   ty = Double
   unflattenB' = unflattenPrimB
 
+#ifdef VectorSized
+
+instance (KnownNat n, GenBuses b) => GenBuses (Arr n b)  where
+  genBuses' = genPrimBus
+  -- delay = primDelay
+  ty = Arr (A.natV @n) (ty @b)
+  unflattenB' = unflattenPrimB
+
+#else
+
 instance (GenBuses a, GenBuses b) => GenBuses (Arr a b)  where
   genBuses' = genPrimBus
   -- delay = primDelay
   ty = Arr (ty @a) (ty @b)
   unflattenB' = unflattenPrimB
+
+#endif
 
 -- TODO: perhaps give default definitions for genBuses', delay, and unflattenB',
 -- and eliminate the definitions in Bool,...,Double,Arr a.
@@ -870,9 +901,13 @@ instance SourceToBuses Int     where toBuses = PrimB
 instance SourceToBuses Float   where toBuses = PrimB
 instance SourceToBuses Double  where toBuses = PrimB
 
+#ifdef VectorSized
+instance (KnownNat n, GenBuses b) => SourceToBuses (Arr n b) where
+  toBuses = PrimB
+#else
 instance (GenBuses a, GenBuses b) => SourceToBuses (Arr a b) where
   toBuses = PrimB
-
+#endif
 
 sourceB :: SourceToBuses a => Source -> CircuitM (Maybe (Buses a))
 sourceB = justA . toBuses
@@ -1394,9 +1429,22 @@ instance IfCat (:>) () where ifC = unitIf
 instance (IfCat (:>) a, IfCat (:>) b) => IfCat (:>) (a :* b) where
   ifC = prodIf
 
+#ifdef VectorSized
+
+instance KnownNat n => GenBuses (Finite n) where
+  genBuses' = genPrimBus
+  -- delay = primDelay
+  ty = Finite (A.natV @n)
+  unflattenB' = unflattenPrimB
+
+instance (KnownNat n, GenBuses b) => ArrayCat (:>) n b where
+  array = namedC "array"
+  arrAt = namedC "arrAt"
+#else
 instance (GenBuses a, GenBuses b) => ArrayCat (:>) a b where
   array = namedC "array"
   arrAt = namedC "arrAt"
+#endif
 
 {--------------------------------------------------------------------
     Running

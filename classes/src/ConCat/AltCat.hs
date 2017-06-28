@@ -21,6 +21,8 @@
 -- | Alternative interface to the class operations from ConCat.Category, so as
 -- not to get inlined too eagerly to optimize.
 
+-- #define VectorSized
+
 module ConCat.AltCat
   ( module ConCat.AltCat
   , module C)
@@ -34,6 +36,11 @@ import GHC.Exts (Coercible,coerce)
 import Data.Constraint ((\\))
 
 import Control.Newtype (Newtype(..))
+#ifdef VectorSized
+import Data.Proxy (Proxy(..))
+import GHC.TypeLits (KnownNat,natVal)
+import Data.Finite (Finite)
+#endif
 
 import qualified ConCat.Category as C
 import ConCat.Rep
@@ -222,6 +229,21 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 -- {-# OPINLINE constFun #-}
 -- OpRule1(constFun)
 
+#ifdef VectorSized
+
+Op0(array, ArrayCat k n b => Exp k (Finite n) b `k` Arr n b)
+Op0(arrAt, ArrayCat k n b => Prod k (Arr n b) (Finite n) `k` b)
+
+at :: (ArrayCat k n b, ClosedCat k, Ok3 k (Finite n) b (Arr n b))
+   => Arr n b `k` Exp k (Finite n) b
+at = curry arrAt
+-- {-# OPINLINE at #-}
+
+natV :: forall n. KnownNat n => Integer
+natV = natVal (Proxy @n)
+
+#else
+
 Op0(array, ArrayCat k a b => Exp k a b `k` Arr a b)
 Op0(arrAt, ArrayCat k a b => Prod k (Arr a b) a `k` b)
 -- Op0(at   , ArrayCat k a b => Arr a b `k` Exp k a b)
@@ -230,6 +252,8 @@ at :: (ArrayCat k a b, ClosedCat k, Ok3 k a b (Arr a b))
    => Arr a b `k` Exp k a b
 at = curry arrAt
 -- {-# OPINLINE at #-}
+
+#endif
 
 -- TODO: Consider moving all of the auxiliary functions (like constFun) here.
 -- Rename "ConCat.Category" to something like "ConCat.Category.Class" and

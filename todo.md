@@ -2,7 +2,8 @@
 
 *   SMT depends on z3, which takes some work to install.
     Maybe disable SMT by default in concat-examples.cabal, with a flag to enable it.
-
+*   I think the ghc-typelits-knownnat plugin works in GHCi.
+    What's stopping concat-plugin from doing the same?
 *   Automated testing.
 *   Associated types for product, coproduct, exponential, `Bool`, `Int`, etc.
     The type of `ccc` will have to change, moving closer to the categorical notion of functor (and cartesian functor, closed cartesian functor, etc)
@@ -115,6 +116,7 @@
 
 # Done
 
+*   Matches on `Int` literals lead to an error: "lam Case of boxer: bare unboxed var".
 *   Fix the problem with finding numeric and show instances for `Float` & `Double`, and then simplify `Circuit` again to use 0 instead of `Eql(fromIntegerZ 0)`, `negate` instead of `negateZ`, etc.
 *   Remove `ConCat.Float`.
 *   Reboxing of `divideFloat#` and `divideDouble#`.

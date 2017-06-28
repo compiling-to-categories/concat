@@ -147,6 +147,10 @@ uncurry <$> traverse (traverse f) (curry h) :: g (a :* b -> c)
 
 #endif
 
+#ifdef VectorSized
+
+#else
+
 instance Newtype (Arr a b) where
   type O (Arr a b) = a -> b
   pack   = array
@@ -354,3 +358,5 @@ fold (FFun (memoFun (fmap (foldMap f) (curry h)))) :: m
 
 arrFFun :: Arr a b -> FFun a b
 arrFFun = pack . unpack
+
+#endif

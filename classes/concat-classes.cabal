@@ -30,7 +30,10 @@ library
                      , ghc-prim >= 0.5.0.0
                      , newtype-generics
                      , transformers >= 0.5.2.0
+                     , finite-typelits, vector-sized
   exposed-modules:     ConCat.Category
                        ConCat.AltCat
                        ConCat.Misc
                        ConCat.Rep
+  ghc-options:      -O2
+  -- cpp-options:      -DVectorSized
