@@ -25,7 +25,7 @@
 -- To keep ghci happy, it appears that the plugin flag must be in the test module.
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
 
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -ddump-simpl #-} 
 -- {-# OPTIONS_GHC -dverbose-core2core #-} 
 
@@ -93,8 +93,6 @@ default (Int, Double)
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
-
-  -- , runSynCirc "foo" $ ccc $ (G.Par1 . G.Par1 @R)
 
   -- -- Circuit graphs
   -- , runSynCirc "magSqr"    $ ccc $ magSqr @Double
@@ -166,12 +164,29 @@ main = sequence_
   -- , runSMT $ ccc $ \ (x :: Double) -> sqr x == 9 && x < 0
   -- , runSMT $ ccc $ pred1 @Double
   -- , runSMT $ ccc $ \ b -> (if b then 3 else 5 :: Int) > 4
-  -- , runSMT $ ccc $ \ (x::R,y) -> x + y == 15 && x == 2 * y
+  -- , runSMT $ ccc $ \ (x::R,y) -> x + y == 15 && x == 2 * y 
 
   -- -- Broken
   -- , runSMT $ ccc $ (\ (x::R,y) -> x + y == 15 && x * y == 20)  -- "illegal argument" ??
   -- , runSyn $ ccc $ (\ (x :: Int) -> x == 9)
 
+  -- Recursion experiments
+  -- , runSynCirc "fac1" $ ccc $ fac1  -- bare unboxed var
+  -- , runSynCirc "fac2" $ ccc $ fac2 -- infinite compilation loop
+  -- , runSynCirc "fac3" $ ccc $ fac3 -- same infinite compilation loop
+  -- , runSynCirc "fac4" $ ccc $ fac4 -- same infinite compilation loop
+  -- , runSynCirc "fac5" $ ccc $ -- same infinite compilation loop
+  --     \ (n0 :: Int) -> let go n = if n < 1 then 1 else n * go (n-1) in
+  --                        go n0
+
+  -- , runSynCirc "fac6" $ ccc $ -- unhandled letrec
+  --     \ (n0 :: Int, n1) -> let go n = if n < 1 then n1 else n * go (n-1) in
+  --                        go n0
+
+  -- , runSynCirc "fac7" $ ccc $ fac7
+
+  -- , runSynCirc "fac8" $ ccc $ fac8 -- compilation loop
+  -- , runSynCirc "fac9" $ ccc $ fac9 -- compilation loop
 
 
   -- Array experiments
@@ -221,6 +236,37 @@ main = sequence_
   -- , runSynCirc "liftArr2-bool" $ ccc $ liftArr2 @Bool ((+) @Int)
   -- , runSynCirc "liftArr2-bool-unc" $ ccc $ uncurry (liftArr2 @Bool ((+) @Int))
   -- , runSynCirc "sum-arr-bool" $ ccc $ sum @(Arr Bool) @Int
+
+  -- -- Int equality turns into matching, which takes some care.
+  -- -- See boxCon/tweak in ConCat.Plugin
+  -- , runSynCirc "equal-3"     $ ccc $ \ (x :: Int) -> x == 3
+  -- , runSynCirc "unequal-3"   $ ccc $ \ (x :: Int) -> x /= 3
+  -- , runSynCirc "not-equal-3" $ ccc $ \ (x :: Int) -> not (x == 3)
+
+  -- , runSynCirc "multi-if-equal-int" $ ccc $
+  --     \ case
+  --         1 -> 3
+  --         5 -> 7
+  --         7 -> 9
+  --         (_ :: Int) -> 0 :: Int
+
+  -- , runSynCirc "foo" $ ccc $ div @Int
+
+  -- , runSynCirc "foo" $ ccc $ (*) @Int
+
+  -- , runSynCirc "foo" $ ccc $ \ (x :: Int) -> 13 * x == 130
+
+  -- , runSynCirc "multi-if-equal-int-scrut" $ ccc $
+  --     \ x -> case 13 `mod` x of
+  --         1 -> 3
+  --         5 -> 7
+  --         7 -> 9
+  --         (_ :: Int) -> 0 :: Int
+
+  -- , runSynCirc "if-equal-int-x" $ ccc $
+  --     \ x -> case x of
+  --         5 -> x `div` 2
+  --         (_ :: Int) -> 0 :: Int
 
   ]
 
@@ -336,3 +382,39 @@ horner (c:cs) a = c + a * horner cs a
 --  where
 --    go [] = a
 --    go (c:cs) = c + a * go cs
+
+-- foo1 :: R -> L R R R
+-- foo1 = coerce
+
+fac1 :: Int -> Int
+fac1 0 = 1
+fac1 n = n * fac1 (n-1)
+
+fac2 :: Int -> Int
+fac2 n = if n < 1 then 1 else n * fac2 (n-1)
+
+fac3 :: Int -> Int
+fac3 = go
+ where
+   go n = if n < 1 then 1 else n * go (n-1)
+
+fac4 :: Int -> Int
+fac4 n0 = go n0
+ where
+   go n = if n < 1 then 1 else n * go (n-1)
+
+
+fac7 :: Int :* Int -> Int
+fac7 (n0,n1) = go n0
+ where
+   go n = if n < 1 then n1 else n * go (n-1)
+
+fac8 :: Int -> Int
+fac8 n0 = go n0 1
+ where
+   go n acc = if n < 1 then acc else go (n-1) (n * acc)
+
+fac9 :: Int -> Int
+fac9 n0 = go (n0,1)
+ where
+   go (n,acc) = if n < 1 then acc else go (n-1,n * acc)
