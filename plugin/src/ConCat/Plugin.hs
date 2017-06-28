@@ -731,7 +731,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
         | v == tagToEnumV && ty `eqType` boolTy
         = success $ Var boxIBV `App` e'
       -- Int equality turns into matching, which takes some care.
-#if 1
+#if 0
       tweak (Case scrut@(Var v) _ rhsTy ((DEFAULT, [], d) : (mapM litAlt -> Just las)))
        | notNull las
        , hasTyCon intPrimTyCon (varType v)
