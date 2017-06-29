@@ -20,7 +20,7 @@ module ConCat.SMT (solve,GenBuses,EvalE) where
 
 import Data.Monoid ((<>))
 import Data.Foldable (toList)
-import Control.Applicative (liftA2)
+import Control.Applicative (liftA2,liftA3)
 import Data.List (sort)
 import qualified Data.Map as M
 import Data.Sequence (Seq,singleton)
@@ -146,6 +146,11 @@ instance EvalE Double where evalE = evalPrim evalReal fromRational
 
 instance (EvalE a, EvalE b) => EvalE (a,b) where
   evalE m = liftA2 (,) (evalE m) (evalE m)
+
+instance (EvalE a, EvalE b, EvalE c) => EvalE (a,b,c) where
+  evalE m = liftA3 (,,) (evalE m) (evalE m) (evalE m)
+
+-- TODO: default for evalE via HasRep
 
 {--------------------------------------------------------------------
     Copied from GLSL. Move to Circuit.
