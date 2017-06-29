@@ -25,7 +25,7 @@
 -- To keep ghci happy, it appears that the plugin flag must be in the test module.
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
 
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -ddump-simpl #-} 
 -- {-# OPTIONS_GHC -dverbose-core2core #-} 
 
@@ -165,6 +165,7 @@ main = sequence_
   -- , runSMT $ ccc $ pred1 @Double
   -- , runSMT $ ccc $ \ b -> (if b then 3 else 5 :: Int) > 4
   -- , runSMT $ ccc $ \ (x::R,y) -> x + y == 15 && x == 2 * y 
+  , runSMT $ ccc $ fermat @Int
 
   -- -- Broken
   -- , runSMT $ ccc $ (\ (x::R,y) -> x + y == 15 && x * y == 20)  -- "illegal argument" ??
@@ -256,12 +257,12 @@ main = sequence_
 
   -- , runSynCirc "foo" $ ccc $ \ (x :: Int) -> 13 * x == 130
 
-  , runSynCirc "multi-if-equal-int-scrut" $ ccc $
-      \ x -> case 13 * x of
-          1 -> 3
-          5 -> 7
-          7 -> 9
-          (_ :: Int) -> 0 :: Int
+  -- , runSynCirc "multi-if-equal-int-scrut" $ ccc $
+  --     \ x -> case 13 * x of
+  --         1 -> 3
+  --         5 -> 7
+  --         7 -> 9
+  --         (_ :: Int) -> 0 :: Int
 
   -- , runSynCirc "if-equal-int-x" $ ccc $
   --     \ x -> case x of
@@ -284,6 +285,10 @@ pred1 (x,y) =
     f z k = z > 100 && k 20
     foo a b g = g 222 (< a + b)
 
+fermat :: (Ord a, Num a) => (a,a,a) -> Bool
+fermat (a,b,c) =    sqr a + sqr b == sqr c
+                 && a > 0 && b > 0 && c > 0
+                 -- && b > 100
 
 {--------------------------------------------------------------------
     Testing utilities
