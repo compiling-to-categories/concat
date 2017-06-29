@@ -1,9 +1,11 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DefaultSignatures #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -20,7 +22,7 @@ module ConCat.SMT (solve,GenBuses,EvalE) where
 
 import Data.Monoid ((<>))
 import Data.Foldable (toList)
-import Control.Applicative (liftA2,liftA3)
+import Control.Applicative (liftA2)
 import Data.List (sort)
 import qualified Data.Map as M
 import Data.Sequence (Seq,singleton)
@@ -30,6 +32,7 @@ import Control.Monad.State (StateT,runStateT,execStateT,get,gets,put,modify,lift
 import Z3.Monad
 
 import ConCat.Circuit (Comp(..),Bus(..),Ty(..),busTy,GenBuses(..),(:>),mkGraph,pattern CompS)
+import ConCat.Rep (HasRep(..))
 
 type E = AST
 
@@ -121,7 +124,10 @@ genPrim mk = singleton <$> mk "x"
 type EvalM = StateT [E] Z3
 
 -- Assemble a list of Es into a value.
-class EvalE a where evalE :: Model -> EvalM a
+class EvalE a where
+  evalE :: Model -> EvalM a
+  default evalE :: (HasRep a, EvalE (Rep a)) => Model -> EvalM a
+  evalE = (fmap.fmap) abst evalE
 
 evalEs :: EvalE a => Model -> [E] -> Z3 a
 evalEs model es = do (a,[]) <- runStateT (evalE model) es
@@ -147,10 +153,9 @@ instance EvalE Double where evalE = evalPrim evalReal fromRational
 instance (EvalE a, EvalE b) => EvalE (a,b) where
   evalE m = liftA2 (,) (evalE m) (evalE m)
 
-instance (EvalE a, EvalE b, EvalE c) => EvalE (a,b,c) where
-  evalE m = liftA3 (,,) (evalE m) (evalE m) (evalE m)
-
--- TODO: default for evalE via HasRep
+instance (EvalE a, EvalE b, EvalE c) => EvalE (a,b,c)
+instance (EvalE a, EvalE b, EvalE c, EvalE d) => EvalE (a,b,c,d)
+-- etc
 
 {--------------------------------------------------------------------
     Copied from GLSL. Move to Circuit.
