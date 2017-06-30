@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -19,7 +20,10 @@
 -- out more simply this way, and I think it did. GLSL generation works in the
 -- same way.
 
-module ConCat.SMT (solve,EvalE,solveAscending,predValToPred) where
+module ConCat.SMT
+  ( solve,EvalE,solveAscending,solveAscendingFrom,predValToPred
+  , solveAscendingFrom'
+  ) where
 
 import Prelude hiding (id,(.),const)
 
@@ -29,8 +33,9 @@ import Control.Applicative (liftA2)
 import Data.List (sort,unfoldr)
 import qualified Data.Map as M
 import Data.Sequence (Seq,singleton)
-
 import System.IO.Unsafe (unsafePerformIO)
+
+import Debug.Trace (trace)
 
 import Control.Monad.State (StateT,runStateT,execStateT,get,gets,put,modify,lift)
 
@@ -45,11 +50,17 @@ type E = AST
 
 type M = StateT (M.Map Bus E) Z3
 
--- TODO: change back to IO (Maybe a), and inquire about deterministism
+-- TODO: inquire about deterministism, and maybe change back to IO (Maybe a).
+
+type GE a = (GenBuses a, EvalE a, Show a)
+
+traceShow' :: Show a => String -> a -> a
+traceShow' str a = trace (str ++ ": " ++ show a) a
 
 -- | Build and solve an SMT problem
-solve :: forall a. (GenBuses a, EvalE a) => (a :> Bool) -> Maybe a
-solve p = unsafePerformIO $ -- Since evalZ3 is presumably deterministic
+solve :: forall a. GE a => (a :> Bool) -> Maybe a
+solve p = traceShow' "solve" $
+          unsafePerformIO $ -- Since evalZ3 is presumably deterministic
   evalZ3 $ do
   do is <- genVars (ty @a)
      m  <- execStateT (mapM_ addComp mids) (M.fromList (busesIn `zip` is))
@@ -153,18 +164,21 @@ evalPrim ev f m =
                      put es'
                      return (f a')
 
-instance EvalE ()     where evalE = evalPrim evalBool (const ())
 instance EvalE Bool   where evalE = evalPrim evalBool id
 instance EvalE Int    where evalE = evalPrim evalInt  fromInteger
 instance EvalE Float  where evalE = evalPrim evalReal fromRational
 instance EvalE Double where evalE = evalPrim evalReal fromRational
 
+instance EvalE () where evalE = (pure.pure) ()
+
 instance (EvalE a, EvalE b) => EvalE (a,b) where
-  evalE m = liftA2 (,) (evalE m) (evalE m)
+  evalE = (liftA2.liftA2) (,) evalE evalE
 
 instance (EvalE a, EvalE b, EvalE c) => EvalE (a,b,c)
 instance (EvalE a, EvalE b, EvalE c, EvalE d) => EvalE (a,b,c,d)
 -- etc
+
+-- Note: the () and (a,b) cases suggest using ReaderT m
 
 {--------------------------------------------------------------------
     Constrained optimization via iterated satisfaction
@@ -175,20 +189,13 @@ predValToPred :: Eq r => (a -> Bool :* r) -> (a :* r -> Bool)
 predValToPred h (a,r') = b && r' == r where (b,r) = h a
 {-# INLINE predValToPred #-}
 
--- solveAscending' :: ( GenBuses a, GenBuses r, EvalE (a :* r)
---                    , OrdCat (:>) r, ConstCat (:>) r )
---                 => (a :> Bool :* r) -> [a :* r]
--- solveAscending' h = solveAscending (\ (a,r') -> let (b,r) = h a in b && r' == r)
-
-solveAscending :: ( GenBuses a, GenBuses r, EvalE (a :* r)
-                  , OrdCat (:>) r, ConstCat (:>) r )
+solveAscending :: (GE a, GE r, OrdCat (:>) r, ConstCat (:>) r)
                => (a :* r :> Bool) -> [a :* r]
-solveAscending q = maybe [] (\ (a,r) -> (a,r) : solveAscendingFrom q r) (solve q)
+solveAscending q = maybe [] (\ (a,r) -> (a,r) : solveAscendingFrom r q) (solve q)
 
-solveAscendingFrom :: forall a r. ( GenBuses a, GenBuses r, EvalE (a :* r)
-                                  , OrdCat (:>) r, ConstCat (:>) r )
-                => (a :* r :> Bool) -> r -> [a :* r]
-solveAscendingFrom q = unfoldr (fmap (id &&& exr) . solve . andAbove q)
+solveAscendingFrom :: (GE a, GE r, OrdCat (:>) r, ConstCat (:>) r)
+                   => r -> (a :* r :> Bool) -> [a :* r]
+solveAscendingFrom r q = unfoldr (fmap (id &&& exr) . solve . andAbove q) r
 
 -- andAbove f lower = \ (a,r) -> f (a,r) && r > lower
 andAbove :: forall k a r. (ConstCat k r, OrdCat k r, Ok k a)
@@ -218,6 +225,20 @@ unfoldr (fmap (id &&& exr) . solve . andAbove q) :: r -> [a :* r]
 
 -- TODO: Replace a :* r with b, and give an ordering, maybe as b -> o for some
 -- ordered o.
+
+-- Investigating strictness bug
+
+solve' :: (Int :* Int :> Bool) -> Maybe (Int :* Int)
+-- solve' = solve
+solve' _ = Just (3,3)
+
+solveAscendingFrom' :: (GE Int, GE Int, OrdCat (:>) Int, ConstCat (:>) Int)
+                    => Int -> (Int :* Int :> Bool) -> [Int :* Int]
+solveAscendingFrom' r q = unfoldr (fmap (id &&& exr) . solve' . andAbove' q) r
+ where
+   andAbove' :: ((Int :* Int) :> Bool) -> Int -> ((Int :* Int) :> Bool)
+   andAbove' f lower = andC . (greaterThan . (exr &&& const lower) &&& f)
+
 
 {--------------------------------------------------------------------
     Copied from GLSL. Move to Circuit.
