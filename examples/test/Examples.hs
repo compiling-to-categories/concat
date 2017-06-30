@@ -26,8 +26,8 @@
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
 
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
--- {-# OPTIONS_GHC -ddump-simpl #-} 
--- {-# OPTIONS_GHC -dverbose-core2core #-} 
+-- {-# OPTIONS_GHC -ddump-simpl #-}
+-- {-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
 
@@ -61,6 +61,7 @@ module Main where
 import Data.Monoid (Sum(..))
 import Data.Foldable (fold)
 import Control.Applicative (liftA2)
+import Data.List (unfoldr)  -- TEMP
 
 import ConCat.Misc ((:*),R,sqr,magSqr,Binop,inNew,inNew2)
 import ConCat.Incremental (inc)
@@ -72,10 +73,10 @@ import ConCat.Circuit (GenBuses,(:>))
 import ConCat.Image
 import qualified ConCat.RunCircuit as RC
 import ConCat.GLSL (genGlsl,CAnim)
-import ConCat.AltCat (ccc,U2(..),(:**:)(..),Ok2, Arr, array,arrAt) --, Ok, Ok3
+import ConCat.AltCat (ccc,U2(..),(:**:)(..),Ok2, Arr, array,arrAt,OrdCat,ConstCat) --, Ok, Ok3
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Arr -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
-import qualified ConCat.SMT as SMT
+import ConCat.SMT
 
 -- These imports bring newtype constructors into scope, allowing CoerceCat (->)
 -- dictionaries to be constructed. We could remove the LinearRow import if we
@@ -160,12 +161,35 @@ main = sequence_
   -- , runCirc "smt-a" $ ccc $ (\ (x :: Double) -> sqr x == 9)
 
   -- , runCircSMT "smt-a" $ ccc $ \ (x :: Double) -> sqr x == 9
-  -- , runSMT $ ccc $ \ (x :: Double) -> sqr x == 9
-  -- , runSMT $ ccc $ \ (x :: Double) -> sqr x == 9 && x < 0
-  -- , runSMT $ ccc $ pred1 @Double
-  -- , runSMT $ ccc $ \ b -> (if b then 3 else 5 :: Int) > 4
-  -- , runSMT $ ccc $ \ (x::R,y) -> x + y == 15 && x == 2 * y 
-  , runSMT $ ccc $ fermat @Int
+
+  -- , print $ solve $ ccc $ \ (x :: Double) -> sqr x == 9
+  -- , print $ solve $ ccc $ \ (x :: Double) -> sqr x == 9 && x < 0
+  -- , print $ solve $ ccc $ pred1 @Double
+  -- , print $ solve $ ccc $ \ b -> (if b then 3 else 5 :: Int) > 4
+  -- , print $ solve $ ccc $ \ (x::R,y) -> x + y == 15 && x == 2 * y
+
+  -- , print $ solve $ ccc $ fermat @Int             -- Just (12,9,15)
+  -- , print $ solve $ ccc $ fermatUnder @Int 10     -- Just (4,3,5)
+  -- , print $ solve $ ccc $ fermatUnder @Int 100    -- Just (45,60,75)
+  -- , print $ solve $ ccc $ fermatUnder @Int 1000   -- Just (975,140,985)
+  -- , print $ solve $ ccc $ fermatUnder @Int 10000  -- Just (7635,4072,8653)
+
+  -- , print $ solve $ ccc $ fermatUnder @Int 100    -- Just (45,60,75)
+
+  -- , print $ solve $ ccc $ fermatMax @Int -- Just ((3,4,5),5)
+
+  -- , print $ solveAscending $ ccc $ fermatMax @Int  -- hangs
+
+  -- , print $ solveAscending $ ccc $ fermatMaxUnder @Int 10
+  -- , print $ solveAscending $ ccc $ fermatMaxUnder @Int 100
+  -- , print $ solveAscending $ ccc $ fermatMaxUnder @Int 1000
+  -- , print $ solveAscending $ ccc $ fermatMaxUnder @Int 10000
+
+  -- , print $ solveAscendingFrom 500 $ ccc $ fermatMaxUnder @Int 1000
+
+  , print $ solveAscendingFrom' 500 $ ccc $ (\ (x :: Int,y) -> x < 1000 && x == y)
+
+  -- , print $ solveAscendingFrom' 500 $ ccc $ fermatMaxUnder @Int 1000
 
   -- -- Broken
   -- , runSMT $ ccc $ (\ (x::R,y) -> x + y == 15 && x * y == 20)  -- "illegal argument" ??
@@ -275,20 +299,31 @@ f1 :: Num a => a -> a
 f1 x = x^2
 
 pred1 :: (Num a, Ord a) => a :* a -> Bool
-pred1 (x,y) =
-    x < y &&
-    y < 100 &&
-    foo x 20 f &&
-    0 <= x - 3 + 7 * y &&
-    (x == y || y + 20 == x + 30)
+pred1 (x,y) =    x < y
+              && y < 100
+              && foo x 20 f
+              && 0 <= x - 3 + 7 * y
+              && (x == y || y + 20 == x + 30)
   where
     f z k = z > 100 && k 20
     foo a b g = g 222 (< a + b)
 
 fermat :: (Ord a, Num a) => (a,a,a) -> Bool
-fermat (a,b,c) =    sqr a + sqr b == sqr c
-                 && a > 0 && b > 0 && c > 0
-                 -- && b > 100
+fermat (a,b,c) = sqr a + sqr b == sqr c && a > 0 && b > 0 && c > 0
+
+max3 :: (Ord a, Num a) => (a,a,a) -> a
+max3 (a,b,c) = a `max` b `max` c
+
+fermatUnder :: (Ord a, Num a) => a -> (a,a,a) -> Bool
+fermatUnder upper w = fermat w && max3 w <= upper
+
+-- Maximal Fermat triple, measured by maximum element.
+fermatMax :: (Ord a, Num a) => ((a,a,a),a) -> Bool
+fermatMax (w,m) = fermat w && m == max3 w
+
+-- fermatMax but with an upper bound.
+fermatMaxUnder :: (Ord a, Num a) => a -> ((a,a,a),a) -> Bool
+fermatMaxUnder upper q = fermatMax q && snd q <= upper
 
 {--------------------------------------------------------------------
     Testing utilities
@@ -313,14 +348,19 @@ runCirc nm circ = RC.run nm [] circ
 runCircGlsl :: String -> CAnim -> IO ()
 runCircGlsl nm circ = runCirc nm circ >> genGlsl nm circ
 
-runSMT :: (GenBuses a, Show a, SMT.EvalE a) => (a :> Bool) -> IO ()
-runSMT circ = SMT.solve circ >>= print
+runSMT :: (GenBuses a, Show a, EvalE a) => (a :> Bool) -> IO ()
+runSMT = print . solve
 
-runCircSMT :: (GenBuses a, Show a, SMT.EvalE a) => String -> (a :> Bool) -> IO ()
+runCircSMT :: (GenBuses a, Show a, EvalE a) => String -> (a :> Bool) -> IO ()
 runCircSMT nm circ = runCirc nm circ >> runSMT circ
 
 -- TODO: rework runCircGlsl and runCircSMT to generate the circuit graph once
 -- rather than twice.
+
+runSolveAsc :: ( GenBuses a, Show a, GenBuses r, Show r, EvalE a, EvalE r
+               , OrdCat (:>) r, ConstCat (:>) r )
+            => (a :* r :> Bool) -> IO ()
+runSolveAsc = print . solveAscending
 
 runPrint :: Show b => a -> (a -> b) -> IO ()
 runPrint a f = print (f a)
