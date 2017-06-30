@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeOperators #-}
@@ -18,29 +19,37 @@
 -- out more simply this way, and I think it did. GLSL generation works in the
 -- same way.
 
-module ConCat.SMT (solve,GenBuses,EvalE) where
+module ConCat.SMT (solve,EvalE,solveAscending,predValToPred) where
+
+import Prelude hiding (id,(.),const)
 
 import Data.Monoid ((<>))
 import Data.Foldable (toList)
 import Control.Applicative (liftA2)
-import Data.List (sort)
+import Data.List (sort,unfoldr)
 import qualified Data.Map as M
 import Data.Sequence (Seq,singleton)
+
+import System.IO.Unsafe (unsafePerformIO)
 
 import Control.Monad.State (StateT,runStateT,execStateT,get,gets,put,modify,lift)
 
 import Z3.Monad
 
-import ConCat.Circuit (Comp(..),Bus(..),Ty(..),busTy,GenBuses(..),(:>),mkGraph,pattern CompS)
+import ConCat.Misc ((:*))
 import ConCat.Rep (HasRep(..))
+import ConCat.AltCat
+import ConCat.Circuit (Comp(..),Bus(..),Ty(..),busTy,GenBuses(..),(:>),mkGraph,pattern CompS)
 
 type E = AST
 
 type M = StateT (M.Map Bus E) Z3
 
+-- TODO: change back to IO (Maybe a), and inquire about deterministism
+
 -- | Build and solve an SMT problem
-solve :: forall a. (GenBuses a, EvalE a) => (a :> Bool) -> IO (Maybe a)
-solve p =
+solve :: forall a. (GenBuses a, EvalE a) => (a :> Bool) -> Maybe a
+solve p = unsafePerformIO $ -- Since evalZ3 is presumably deterministic
   evalZ3 $ do
   do is <- genVars (ty @a)
      m  <- execStateT (mapM_ addComp mids) (M.fromList (busesIn `zip` is))
@@ -156,6 +165,59 @@ instance (EvalE a, EvalE b) => EvalE (a,b) where
 instance (EvalE a, EvalE b, EvalE c) => EvalE (a,b,c)
 instance (EvalE a, EvalE b, EvalE c, EvalE d) => EvalE (a,b,c,d)
 -- etc
+
+{--------------------------------------------------------------------
+    Constrained optimization via iterated satisfaction
+--------------------------------------------------------------------}
+
+-- Convert constrained optimization into a predicate for solving.
+predValToPred :: Eq r => (a -> Bool :* r) -> (a :* r -> Bool)
+predValToPred h (a,r') = b && r' == r where (b,r) = h a
+{-# INLINE predValToPred #-}
+
+-- solveAscending' :: ( GenBuses a, GenBuses r, EvalE (a :* r)
+--                    , OrdCat (:>) r, ConstCat (:>) r )
+--                 => (a :> Bool :* r) -> [a :* r]
+-- solveAscending' h = solveAscending (\ (a,r') -> let (b,r) = h a in b && r' == r)
+
+solveAscending :: ( GenBuses a, GenBuses r, EvalE (a :* r)
+                  , OrdCat (:>) r, ConstCat (:>) r )
+               => (a :* r :> Bool) -> [a :* r]
+solveAscending q = maybe [] (\ (a,r) -> (a,r) : solveAscendingFrom q r) (solve q)
+
+solveAscendingFrom :: forall a r. ( GenBuses a, GenBuses r, EvalE (a :* r)
+                                  , OrdCat (:>) r, ConstCat (:>) r )
+                => (a :* r :> Bool) -> r -> [a :* r]
+solveAscendingFrom q = unfoldr (fmap (id &&& exr) . solve . andAbove q)
+
+-- andAbove f lower = \ (a,r) -> f (a,r) && r > lower
+andAbove :: forall k a r. (ConstCat k r, OrdCat k r, Ok k a)
+         => ((a :* r) `k` Bool) -> r -> ((a :* r) `k` Bool)
+andAbove f lower = andC . (greaterThan . (exr &&& const lower) &&& f)
+  <+ okProd @k @a    @r
+  <+ okProd @k @r    @r
+  <+ okProd @k @Bool @Bool
+
+#if 0
+
+-- andAbove:
+
+                       const lower  :: a :* r :> r
+               exr &&& const lower  :: a :* r :> r :* r
+greaterThan . (exr &&& const lower) :: a :* r :> (a :* r) :* r
+
+-- solveAscendingFrom:
+
+                                     andAbove q  :: r -> (a :* r :> Bool)
+                             solve . andAbove q  :: r -> Maybe (a :* r)
+         fmap (id &&& exr) . solve . andAbove q  :: r -> Maybe ((a :* r) :* r)
+         fmap (id &&& exr) . solve . andAbove q  :: r -> Maybe ((a :* r) :* r)
+unfoldr (fmap (id &&& exr) . solve . andAbove q) :: r -> [a :* r]
+
+#endif
+
+-- TODO: Replace a :* r with b, and give an ordering, maybe as b -> o for some
+-- ordered o.
 
 {--------------------------------------------------------------------
     Copied from GLSL. Move to Circuit.
