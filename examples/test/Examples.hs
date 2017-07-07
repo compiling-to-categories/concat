@@ -97,7 +97,7 @@ main = sequence_
   [ putChar '\n' -- return ()
 
   -- -- Circuit graphs
-  , runSynCirc "magSqr"    $ ccc $ magSqr @Double
+  -- , runSynCirc "magSqr"    $ ccc $ magSqr @Double
   -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
   -- , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
   -- , runSynCirc "horner"    $ ccc $ horner @Double [1,3,5]
@@ -227,8 +227,8 @@ main = sequence_
 
   -- , runSynCirc "sum-arr-lb1" $ ccc $ sum @(Arr (LB N1)) @Int
   -- , runSynCirc "sum-arr-lb2" $ ccc $ sum @(Arr (LB N2)) @Int
-  -- , runSynCirc "sum-arr-lb3" $ ccc $ sum @(Arr (LB N3)) @Int
-  -- , runSynCirc "sum-arr-lb4" $ ccc $ sum @(Arr (LB N4)) @Int
+  , runSynCirc "sum-arr-lb3-b" $ ccc $ sum @(Arr (LB N3)) @Int
+  , runSynCirc "sum-arr-lb4-b" $ ccc $ sum @(Arr (LB N4)) @Int
   -- , runSynCirc "sum-arr-lb8" $ ccc $ sum @(Arr (LB N8)) @Int
 
   -- , runSynCirc "fmap-fun-bool-plus" $ ccc $ fmap   @((->) Bool) ((+) @Int)
