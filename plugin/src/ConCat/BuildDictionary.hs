@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# OPTIONS_GHC -Wall #-}
 
--- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 -- {-# OPTIONS_GHC -fno-warn-unused-binds   #-} -- TEMP
 
 ----------------------------------------------------------------------
@@ -24,6 +24,7 @@ import Data.Char (isSpace)
 import Data.Data (Data)
 import Data.Set (Set,fromList,member)
 import Data.Generics (mkQ,everything)
+import Control.Monad (filterM)
 import System.IO.Unsafe (unsafePerformIO)
 
 import GhcPlugins
@@ -45,35 +46,68 @@ import           TcRnTypes
 import ErrUtils (pprErrMsgBagWithLoc)
 import Encoding (zEncodeString)
 import Unique (mkUniqueGrimily)
+import Finder (findExposedPackageModule)
 
 import TcRnDriver
 -- Temp
 -- import HERMIT.GHC.Typechecker (initTcFromModGuts)
 -- import ConCat.GHC
 
+isFound :: FindResult -> Bool
+isFound (Found _ _) = True
+isFound _           = False
+
+-- TODO: take a ModuleName instead of a Module.
+moduleIsOkay :: HscEnv -> Module -> IO Bool
+moduleIsOkay env modu =
+  -- error "moduleIsOkay: BAM" $
+  -- pprTrace "moduleIsOkay" (ppr modu) $
+  do res <- findExposedPackageModule env (moduleName modu) Nothing
+     case res of
+       Found _ _ -> return True
+       _         -> pprTrace "module not found: " (ppr modu) $
+                    return False
+       
+-- moduleIsOkay _ = return . not . (`member` excludeMods) . moduleName
+
+-- findExposedPackageModule :: HscEnv -> ModuleName -> Maybe FastString
+--                          -> IO FindResult
+
+
 runTcMUnsafe :: HscEnv -> DynFlags -> ModGuts -> TcM a -> a
 runTcMUnsafe env0 dflags guts m = unsafePerformIO $ do
     -- What is the effect of HsSrcFile (should we be using something else?)
     -- What should the boolean flag be set to?
-    (msgs, mr) <- runTcInteractive env m
+
+    -- let orphans = filter (not . (`member` excludeMods))
+    --                 (moduleName <$> dep_orphs (mg_deps guts))
+
+    -- let orphans = moduleName <$> dep_orphs (mg_deps guts)
+
+    orphans <- (fmap.fmap) moduleName $
+                 filterM (moduleIsOkay env0) (dep_orphs (mg_deps guts))
+
+    (msgs, mr) <- runTcInteractive (env orphans) m
                   -- initTcFromModGuts env0 guts HsSrcFile False m
-    let showMsgs (warns, errs) = showSDoc dflags $ vcat
-                                                 $    text "Errors:" : pprErrMsgBagWithLoc errs
-                                                   ++ text "Warnings:" : pprErrMsgBagWithLoc warns
+    let showMsgs (warns, errs) = showSDoc dflags $ vcat $
+              text "Errors:"   : pprErrMsgBagWithLoc errs
+           ++ text "Warnings:" : pprErrMsgBagWithLoc warns
     maybe (fail $ showMsgs msgs) return mr
  where
    imports0 = ic_imports (hsc_IC env0)
    -- imports0 shows up empty for my uses. Add GHC.Float and ConCat.Orphans for
    -- orphans, plus GHC.Generics for its newtypes (Coercible).
    -- TODO: find a better way.
-   orphans = filter (not . (`member` excludeMods))
-                    (moduleName <$> dep_orphs (mg_deps guts))
    -- Hack: these ones lead to "Failed to load interface for ..."
-   extraModuleNames = orphans
                       -- mkModuleName <$> ["GHC.Float"","GHC.Exts","ConCat.Orphans","ConCat.AD"]
                       -- map moduleName (dep_orphs (mg_deps guts))
-   env = -- pprTrace "runTcMUnsafe dep_mods" (ppr (dep_mods (mg_deps guts))) $
-         -- pprTrace "runTcMUnsafe dep_orphs" (ppr orphans) $
+   env :: [ModuleName] -> HscEnv
+   env extraModuleNames = 
+
+         pprTrace "runTcMUnsafe extraModuleNames" (ppr extraModuleNames) $
+
+         -- pprTrace "runTcMUnsafe dep_mods" (ppr (dep_mods (mg_deps guts))) $
+         -- pprTrace "runTcMUnsafe orphans" (ppr orphans) $
          -- pprTrace "runTcMUnsafe dep_orphs" (ppr (dep_orphs (mg_deps guts))) $
          -- pprTrace "runTcMUnsafe dep_finsts" (ppr (dep_finsts (mg_deps guts))) $
          -- pprTrace "runTcMUnsafe mg_insts" (ppr (mg_insts guts)) $
@@ -81,6 +115,7 @@ runTcMUnsafe env0 dflags guts m = unsafePerformIO $ do
          -- pprTrace "runTcMUnsafe imports0" (ppr imports0) $
          -- pprTrace "runTcMUnsafe mg_rdr_env guts" (ppr (mg_rdr_env guts)) $
          -- pprTrace "runTcMUnsafe ic_rn_gbl_env" (ppr (ic_rn_gbl_env (hsc_IC env0))) $         
+
          env0 { hsc_IC = (hsc_IC env0)
                  { ic_imports = map IIModule extraModuleNames ++ imports0
                  , ic_rn_gbl_env = mg_rdr_env guts
@@ -96,6 +131,9 @@ excludeMods = fromList $ map mkModuleName $
   , "Control.Monad.STM", "Data.Text", "Data.Text.Lazy", "Data.Text.Show"
   , "Data.Time.Calendar.Gregorian", "Data.Time.Format.Parse"
   , "Data.Time.LocalTime.LocalTime", "Control.Monad.Trans.Error"
+    --  Experiment (https://github.com/conal/concat/issues/14)
+  -- , "Data.Attoparsec.ByteString.Char8"
+  -- , "Data.Attoparsec.Text.Internal"
   ]
 
 -- TODO: Try initTcForLookup or initTcInteractive in place of initTcFromModGuts.
@@ -138,11 +176,12 @@ buildDictionary' env dflags guts evar =
 
 buildDictionary :: HscEnv -> DynFlags -> ModGuts -> InScopeEnv -> Type -> Either SDoc CoreExpr
 buildDictionary env dflags guts inScope ty =
-  -- pprTrace "buildDictionary" (ppr ty $$ text "-->" $$ ppr dict) (return ())
-  -- pprTrace "buildDictionary free vars" (ppr (exprFreeVars dict)) (return ())
-  -- pprTrace "buildDictionary (bnds,freeIds)" (ppr (bnds,freeIds)) (return ())
-  -- pprTrace "buildDictionary (collectArgs dict)" (ppr (collectArgs dict)) (return ())
-  -- either (\ e -> pprTrace "buildDictionary fail" (ppr ty $$ text "-->" $$ e) res) (const res)
+  pprTrace "buildDictionary" (ppr ty) $
+  pprTrace "buildDictionary" (ppr ty $$ text "-->" $$ ppr dict) $
+  -- pprTrace "buildDictionary free vars" (ppr (exprFreeVars dict)) $
+  -- pprTrace "buildDictionary (bnds,freeIds)" (ppr (bnds,freeIds)) $
+  -- pprTrace "buildDictionary (collectArgs dict)" (ppr (collectArgs dict)) $
+  -- either (\ e -> pprTrace "buildDictionary fail" (ppr ty $$ text "-->" $$ e) res) (const res) $
   res
  where
    res | null bnds          = Left (text "no bindings")
@@ -162,7 +201,8 @@ buildDictionary env dflags guts inScope ty =
    -- variables, however, since there may be some in the given type as
    -- parameters. Alternatively, check that there are no free variables (val or
    -- type) in the resulting dictionary that were not in the original type.
-   freeIdTys = varType <$> filter isId (uniqSetToList (exprFreeVars dict))
+   freeIds = filter isId (uniqSetToList (exprFreeVars dict))
+   freeIdTys = varType <$> freeIds
    holeyBinds = filter hasCoercionHole bnds
    -- err doc = Left (doc $$ ppr ty $$ text "-->" $$ ppr dict)
 
