@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# OPTIONS_GHC -Wall #-}
 
-{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+-- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 -- {-# OPTIONS_GHC -fno-warn-unused-binds   #-} -- TEMP
 
 ----------------------------------------------------------------------
@@ -22,7 +22,6 @@ module ConCat.BuildDictionary (buildDictionary) where
 import Data.Monoid (Any(..))
 import Data.Char (isSpace)
 import Data.Data (Data)
-import Data.Set (Set,fromList,member)
 import Data.Generics (mkQ,everything)
 import Control.Monad (filterM)
 import System.IO.Unsafe (unsafePerformIO)
@@ -57,38 +56,14 @@ isFound :: FindResult -> Bool
 isFound (Found _ _) = True
 isFound _           = False
 
--- TODO: take a ModuleName instead of a Module.
-moduleIsOkay :: HscEnv -> Module -> IO Bool
-moduleIsOkay env modu =
-  -- error "moduleIsOkay: BAM" $
-  -- pprTrace "moduleIsOkay" (ppr modu) $
-  do res <- findExposedPackageModule env (moduleName modu) Nothing
-     case res of
-       Found _ _ -> return True
-       _         -> pprTrace "module not found: " (ppr modu) $
-                    return False
+moduleIsOkay :: HscEnv -> ModuleName -> IO Bool
+moduleIsOkay env mname = isFound <$> findExposedPackageModule env mname Nothing
        
--- moduleIsOkay _ = return . not . (`member` excludeMods) . moduleName
-
--- findExposedPackageModule :: HscEnv -> ModuleName -> Maybe FastString
---                          -> IO FindResult
-
-
 runTcMUnsafe :: HscEnv -> DynFlags -> ModGuts -> TcM a -> a
 runTcMUnsafe env0 dflags guts m = unsafePerformIO $ do
-    -- What is the effect of HsSrcFile (should we be using something else?)
-    -- What should the boolean flag be set to?
-
-    -- let orphans = filter (not . (`member` excludeMods))
-    --                 (moduleName <$> dep_orphs (mg_deps guts))
-
-    -- let orphans = moduleName <$> dep_orphs (mg_deps guts)
-
-    orphans <- (fmap.fmap) moduleName $
-                 filterM (moduleIsOkay env0) (dep_orphs (mg_deps guts))
-
+    -- Remove hidden modules from dep_orphans
+    orphans <- filterM (moduleIsOkay env0) (moduleName <$> dep_orphs (mg_deps guts))
     (msgs, mr) <- runTcInteractive (env orphans) m
-                  -- initTcFromModGuts env0 guts HsSrcFile False m
     let showMsgs (warns, errs) = showSDoc dflags $ vcat $
               text "Errors:"   : pprErrMsgBagWithLoc errs
            ++ text "Warnings:" : pprErrMsgBagWithLoc warns
@@ -104,8 +79,7 @@ runTcMUnsafe env0 dflags guts m = unsafePerformIO $ do
    env :: [ModuleName] -> HscEnv
    env extraModuleNames = 
 
-         pprTrace "runTcMUnsafe extraModuleNames" (ppr extraModuleNames) $
-
+         -- pprTrace "runTcMUnsafe extraModuleNames" (ppr extraModuleNames) $
          -- pprTrace "runTcMUnsafe dep_mods" (ppr (dep_mods (mg_deps guts))) $
          -- pprTrace "runTcMUnsafe orphans" (ppr orphans) $
          -- pprTrace "runTcMUnsafe dep_orphs" (ppr (dep_orphs (mg_deps guts))) $
@@ -115,26 +89,12 @@ runTcMUnsafe env0 dflags guts m = unsafePerformIO $ do
          -- pprTrace "runTcMUnsafe imports0" (ppr imports0) $
          -- pprTrace "runTcMUnsafe mg_rdr_env guts" (ppr (mg_rdr_env guts)) $
          -- pprTrace "runTcMUnsafe ic_rn_gbl_env" (ppr (ic_rn_gbl_env (hsc_IC env0))) $         
-
          env0 { hsc_IC = (hsc_IC env0)
                  { ic_imports = map IIModule extraModuleNames ++ imports0
                  , ic_rn_gbl_env = mg_rdr_env guts
                  , ic_instances = (mg_insts guts, mg_fam_insts guts)
                  } }
          -- env0
-
--- Lousy hack. If I leave these modules in the orphans list, I get a failure due
--- to hidden packages. Instead I'd like to learn which ones to exclude on the fly.
-excludeMods :: Set ModuleName
-excludeMods = fromList $ map mkModuleName $
-  [ "Data.Binary.Generic","Data.ByteString.Builder","Data.Hashable.Generic"
-  , "Control.Monad.STM", "Data.Text", "Data.Text.Lazy", "Data.Text.Show"
-  , "Data.Time.Calendar.Gregorian", "Data.Time.Format.Parse"
-  , "Data.Time.LocalTime.LocalTime", "Control.Monad.Trans.Error"
-    --  Experiment (https://github.com/conal/concat/issues/14)
-  -- , "Data.Attoparsec.ByteString.Char8"
-  -- , "Data.Attoparsec.Text.Internal"
-  ]
 
 -- TODO: Try initTcForLookup or initTcInteractive in place of initTcFromModGuts.
 -- If successful, drop dflags and guts arguments.
@@ -176,8 +136,8 @@ buildDictionary' env dflags guts evar =
 
 buildDictionary :: HscEnv -> DynFlags -> ModGuts -> InScopeEnv -> Type -> Either SDoc CoreExpr
 buildDictionary env dflags guts inScope ty =
-  pprTrace "buildDictionary" (ppr ty) $
-  pprTrace "buildDictionary" (ppr ty $$ text "-->" $$ ppr dict) $
+  -- pprTrace "buildDictionary" (ppr ty) $
+  -- pprTrace "buildDictionary" (ppr ty $$ text "-->" $$ ppr dict) $
   -- pprTrace "buildDictionary free vars" (ppr (exprFreeVars dict)) $
   -- pprTrace "buildDictionary (bnds,freeIds)" (ppr (bnds,freeIds)) $
   -- pprTrace "buildDictionary (collectArgs dict)" (ppr (collectArgs dict)) $
