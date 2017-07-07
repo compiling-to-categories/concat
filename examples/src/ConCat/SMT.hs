@@ -35,8 +35,6 @@ import qualified Data.Map as M
 import Data.Sequence (Seq,singleton)
 import System.IO.Unsafe (unsafePerformIO)
 
-import Debug.Trace (trace)
-
 import Control.Monad.State (StateT,runStateT,execStateT,get,gets,put,modify,lift)
 
 import Z3.Monad
@@ -50,17 +48,13 @@ type E = AST
 
 type M = StateT (M.Map Bus E) Z3
 
--- TODO: inquire about deterministism, and maybe change back to IO (Maybe a).
+-- TODO: inquire about determinism, and maybe change back to IO (Maybe a).
 
-type GE a = (GenBuses a, EvalE a, Show a)
-
-traceShow' :: Show a => String -> a -> a
-traceShow' str a = trace (str ++ ": " ++ show a) a
+type GE a = (GenBuses a, EvalE a, Show a) -- remove Show when not debugging
 
 -- | Build and solve an SMT problem
 solve :: forall a. GE a => (a :> Bool) -> Maybe a
-solve p = traceShow' "solve" $
-          unsafePerformIO $ -- Since evalZ3 is presumably deterministic
+solve p = unsafePerformIO $ -- Assuming that evalZ3 is deterministic
   evalZ3 $ do
   do is <- genVars (ty @a)
      m  <- execStateT (mapM_ addComp mids) (M.fromList (busesIn `zip` is))
@@ -138,7 +132,7 @@ genVars = (fmap.fmap) toList go
    go (Prod a b) = liftA2 (<>) (go a) (go b)
    go t          = error ("ConCat.SMT.go: " ++ show t)
 
-genPrim :: (String -> Z3 AST) -> Z3 (Seq E)
+genPrim :: (String -> Z3 E) -> Z3 (Seq E)
 genPrim mk = singleton <$> mk "x"
 
 type EvalM = StateT [E] Z3
@@ -153,7 +147,7 @@ evalEs :: EvalE a => Model -> [E] -> Z3 a
 evalEs model es = do (a,[]) <- runStateT (evalE model) es
                      return a
 
--- type EvalAst m a = Model -> AST -> m (Maybe a)
+-- type EvalAst m a = Model -> E -> m (Maybe a)
 
 evalPrim :: EvalAst Z3 a' -> (a' -> a) -> Model -> EvalM a
 evalPrim ev f m =
@@ -189,13 +183,24 @@ predValToPred :: Eq r => (a -> Bool :* r) -> (a :* r -> Bool)
 predValToPred h (a,r') = b && r' == r where (b,r) = h a
 {-# INLINE predValToPred #-}
 
+-- Hrmph. I'm not getting these results lazily. The tracing in solve indicates
+-- that, nothing about the result list is available until *all* of the solve
+-- calls finish.
+
 solveAscending :: (GE a, GE r, OrdCat (:>) r, ConstCat (:>) r)
                => (a :* r :> Bool) -> [a :* r]
 solveAscending q = maybe [] (\ (a,r) -> (a,r) : solveAscendingFrom r q) (solve q)
 
 solveAscendingFrom :: (GE a, GE r, OrdCat (:>) r, ConstCat (:>) r)
                    => r -> (a :* r :> Bool) -> [a :* r]
-solveAscendingFrom r q = unfoldr (fmap (id &&& exr) . solve . andAbove q) r
+-- solveAscendingFrom r q = unfoldr (fmap (id &&& exr) . solve . andAbove q) r
+
+-- Rewrite as an explicit loop, and insert more tracing.
+
+solveAscendingFrom r q =
+  case solve (andAbove q r) of
+    Nothing     -> []
+    Just (a,r') -> (a,r') : solveAscendingFrom r' q
 
 -- andAbove f lower = \ (a,r) -> f (a,r) && r > lower
 andAbove :: forall k a r. (ConstCat k r, OrdCat k r, Ok k a)
