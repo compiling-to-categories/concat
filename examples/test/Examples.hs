@@ -61,6 +61,7 @@ module Main where
 import Data.Monoid (Sum(..))
 import Data.Foldable (fold)
 import Control.Applicative (liftA2)
+import Control.Monad ((<=<))
 import Data.List (unfoldr)  -- TEMP
 
 import ConCat.Misc ((:*),R,sqr,magSqr,Binop,inNew,inNew2)
@@ -96,7 +97,7 @@ main = sequence_
   [ putChar '\n' -- return ()
 
   -- -- Circuit graphs
-  -- , runSynCirc "magSqr"    $ ccc $ magSqr @Double
+  , runSynCirc "magSqr"    $ ccc $ magSqr @Double
   -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
   -- , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
   -- , runSynCirc "horner"    $ ccc $ horner @Double [1,3,5]
@@ -162,37 +163,31 @@ main = sequence_
 
   -- , runCircSMT "smt-a" $ ccc $ \ (x :: Double) -> sqr x == 9
 
-  -- , print $ solve $ ccc $ \ (x :: Double) -> sqr x == 9
-  -- , print $ solve $ ccc $ \ (x :: Double) -> sqr x == 9 && x < 0
-  -- , print $ solve $ ccc $ pred1 @Double
-  -- , print $ solve $ ccc $ \ b -> (if b then 3 else 5 :: Int) > 4
-  -- , print $ solve $ ccc $ \ (x::R,y) -> x + y == 15 && x == 2 * y
+  -- , runSolve $ ccc $ \ (x :: Double) -> sqr x == 9
+  -- , runSolve $ ccc $ \ (x :: Double) -> sqr x == 9 && x < 0
+  -- , runSolve $ ccc $ pred1 @Double
+  -- , runSolve $ ccc $ \ b -> (if b then 3 else 5 :: Int) > 4
+  -- , runSolve $ ccc $ \ (x::R,y) -> x + y == 15 && x == 2 * y
 
-  -- , print $ solve $ ccc $ fermat @Int             -- Just (12,9,15)
-  -- , print $ solve $ ccc $ fermatUnder @Int 10     -- Just (4,3,5)
-  -- , print $ solve $ ccc $ fermatUnder @Int 100    -- Just (45,60,75)
-  -- , print $ solve $ ccc $ fermatUnder @Int 1000   -- Just (975,140,985)
-  -- , print $ solve $ ccc $ fermatUnder @Int 10000  -- Just (7635,4072,8653)
+  -- , runSolve $ ccc $ fermat      @Int        -- Just (12,9,15)
+  -- , runSolve $ ccc $ fermatUnder @Int 10     -- Just (4,3,5)
+  -- , runSolve $ ccc $ fermatUnder @Int 100    -- Just (45,60,75)
+  -- , runSolve $ ccc $ fermatUnder @Int 1000   -- Just (975,140,985)
+  -- , runSolve $ ccc $ fermatUnder @Int 10000  -- Just (7635,4072,8653)
 
-  -- , print $ solve $ ccc $ fermatUnder @Int 100    -- Just (45,60,75)
+  -- , runSolve $ ccc $ fermatMax @Int -- Just ((3,4,5),5)
 
-  -- , print $ solve $ ccc $ fermatMax @Int -- Just ((3,4,5),5)
+  -- , runSolveAsc $ ccc $ fermatMax @Int  -- hangs
 
-  -- , print $ solveAscending $ ccc $ fermatMax @Int  -- hangs
+  -- , runSolveAsc $ ccc $ fermatMaxUnder @Int 10
+  -- , runSolveAsc $ ccc $ fermatMaxUnder @Int 100
+  -- , runSolveAsc $ ccc $ fermatMaxUnder @Int 1000
+  -- , runSolveAsc $ ccc $ fermatMaxUnder @Int 10000
 
-  -- , print $ solveAscending $ ccc $ fermatMaxUnder @Int 10
-  -- , print $ solveAscending $ ccc $ fermatMaxUnder @Int 100
-  -- , print $ solveAscending $ ccc $ fermatMaxUnder @Int 1000
-  -- , print $ solveAscending $ ccc $ fermatMaxUnder @Int 10000
-
-  -- , print $ solveAscendingFrom 500 $ ccc $ fermatMaxUnder @Int 1000
-
-  , print $ solveAscendingFrom' 500 $ ccc $ (\ (x :: Int,y) -> x < 1000 && x == y)
-
-  -- , print $ solveAscendingFrom' 500 $ ccc $ fermatMaxUnder @Int 1000
+  -- , runSolveAscFrom 500 $ ccc $ (\ (x :: Int,y) -> x == y)
 
   -- -- Broken
-  -- , runSMT $ ccc $ (\ (x::R,y) -> x + y == 15 && x * y == 20)  -- "illegal argument" ??
+  -- , runSolve $ ccc $ (\ (x::R,y) -> x + y == 15 && x * y == 20)  -- "illegal argument" ??
   -- , runSyn $ ccc $ (\ (x :: Int) -> x == 9)
 
   -- Recursion experiments
@@ -348,11 +343,23 @@ runCirc nm circ = RC.run nm [] circ
 runCircGlsl :: String -> CAnim -> IO ()
 runCircGlsl nm circ = runCirc nm circ >> genGlsl nm circ
 
-runSMT :: (GenBuses a, Show a, EvalE a) => (a :> Bool) -> IO ()
-runSMT = print . solve
+runSolve :: (GenBuses a, Show a, EvalE a) => (a :> Bool) -> IO ()
+runSolve = print . solve
+-- runSolve = print <=< solve
+
+runSolveAscFrom :: ( GenBuses a, Show a, EvalE a, GenBuses r, EvalE r
+                   , OrdCat (:>) r, ConstCat (:>) r, Show r )
+  => r -> (a :* r :> Bool) -> IO ()
+-- runSolveAscFrom r = print . solveAscendingFrom r
+-- runSolveAscFrom r = putStrLn . take 25 . show . solveAscendingFrom r
+-- runSolveAscFrom r = print . null . solveAscendingFrom r
+-- runSolveAscFrom r = print . (> 3) . length . take 4 . solveAscendingFrom r
+runSolveAscFrom r = mapM_ print . solveAscendingFrom r
+
+-- runSolve = print <=< solve
 
 runCircSMT :: (GenBuses a, Show a, EvalE a) => String -> (a :> Bool) -> IO ()
-runCircSMT nm circ = runCirc nm circ >> runSMT circ
+runCircSMT nm circ = runCirc nm circ >> runSolve circ
 
 -- TODO: rework runCircGlsl and runCircSMT to generate the circuit graph once
 -- rather than twice.
@@ -360,7 +367,15 @@ runCircSMT nm circ = runCirc nm circ >> runSMT circ
 runSolveAsc :: ( GenBuses a, Show a, GenBuses r, Show r, EvalE a, EvalE r
                , OrdCat (:>) r, ConstCat (:>) r )
             => (a :* r :> Bool) -> IO ()
-runSolveAsc = print . solveAscending
+runSolveAsc = mapM_ print . solveAscending
+
+-- The following definition hangs with infinite lists. More generally, it
+-- produces no list output until all of the list elements have been constructed.
+-- I'm stumped as to why.
+
+-- runSolveAsc = print . solveAscending 
+
+-- runSolveAsc = print <=< solveAscending
 
 runPrint :: Show b => a -> (a -> b) -> IO ()
 runPrint a f = print (f a)
