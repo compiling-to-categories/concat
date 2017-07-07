@@ -193,7 +193,9 @@ instance {-# overlapping #-} (Foldable (Arr a), Foldable ((->) b))
   -- foldMap f = fold . array . fmap (foldMap f . array) . curry . curry arrAt
   -- foldMap f = foldMap (foldMap f) . array . curry . at
 
-  foldMap f = fold . array . fmap (foldMap f) . curry . at
+  foldMap f = fold . array . fmap (foldMap f . array) . curry . at
+
+  -- foldMap f = fold . array . fmap (foldMap f) . curry . at
 
   {-# INLINE foldMap #-}
   -- sum = getSum . foldMap Sum
