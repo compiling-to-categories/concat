@@ -125,9 +125,7 @@ import Data.Sequence (Seq,singleton)
 import Text.Printf (printf)
 import Debug.Trace (trace)
 -- import Data.Coerce                      -- TODO: imports
-#if !defined NoHashCons
-import Unsafe.Coerce -- experiment
-#endif
+import Unsafe.Coerce
 -- import GHC.Exts (Coercible) -- ,coerce
 import Data.Typeable (TypeRep,Typeable,eqT,cast) -- ,Proxy(..),typeRep
 import Data.Type.Equality ((:~:)(..))
@@ -544,9 +542,10 @@ genComp templ a =
 #else
 genComp templ a = -- trace (printf "genComp %s %s --> %s"
                   --         (show templ) (show a) (show (ty (undefined :: b)))) $
-                  do b <- genBuses templ (flattenBHack "genComp" templ a)
+                  do b <- genBuses templ (flattenB a)
                      -- trace (printf "gen'd buses %s" (show b)) (return ())
-                     M.modify (second (Comp templ a b :))
+                     c <- genId
+                     M.modify (second (Comp c templ a b :))
                      -- trace (printf "added comp %s" (show (Comp templ a b))) (return ())
                      return b
 #endif
@@ -1474,7 +1473,7 @@ runU' cir supply = (getComps compInfo, supply')
 #if !defined NoHashCons
    getComps = M.elems 
 #else
-   getComps = map (,0)
+   getComps = id
 #endif
 
 -- Wrap a circuit with fake input and output
