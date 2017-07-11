@@ -185,17 +185,24 @@ instance {-# overlapping #-} (Foldable (Arr a), Foldable ((->) b))
       => Foldable (Arr (a :* b)) where
   -- foldMap f = foldMap f . Comp1 . array . curry . at
   -- foldMap f = foldMap f . Comp1 . array . fmap array . curry . at
-  -- foldMap f = (foldMap.foldMap) f . array . curry . curry arrAt
-  -- foldMap f = foldMap f . Comp1 . array . curry . curry arrAt
-  -- foldMap f = (foldMap.foldMap) f . array . curry . curry arrAt
+  -- foldMap f = (foldMap.foldMap) f . array . curry . at
+  -- foldMap f = foldMap f . Comp1 . array . curry . at
+  -- foldMap f = (foldMap.foldMap) f . array . curry . at
   -- foldMap f = fold . fmap f
-  -- foldMap f arr = fold (array (fmap (foldMap f) (curry (curry arrAt arr))))
-  -- foldMap f = fold . array . fmap (foldMap f . array) . curry . curry arrAt
+  -- foldMap f arr = fold (array (fmap (foldMap f) (curry (at arr))))
+
   -- foldMap f = foldMap (foldMap f) . array . curry . at
 
-  foldMap f = fold . array . fmap (foldMap f . array) . curry . at
+  -- Best so far *for bottom-up trees*
+  foldMap f = fold . array . fmap (foldMap f) . curry . at
 
-  -- foldMap f = fold . array . fmap (foldMap f) . curry . at
+  -- -- Less biased version. Terrible for both top-down and bottom-up.
+  -- foldMap f = fold . array . fmap (foldMap f . array) . curry . at
+
+  -- foldMap f = (foldMap . foldMap) f . array . fmap array .  curry . at
+  -- foldMap f = foldMap f . Comp1 . array . fmap array .  curry . at
+
+  -- foldMap f = (foldMap . foldMap) f . fmap array .  array . curry . at
 
   {-# INLINE foldMap #-}
   -- sum = getSum . foldMap Sum
@@ -228,11 +235,11 @@ fold             :: Arr a m        -> m
 #endif
 
 #if 0
-                                               arr     :: Arr (a :* b) c
-                                   curry arrAt arr     :: a :* b -> c
-                            curry (curry arrAt arr)    :: a -> b -> c
-                     array (curry (curry arrAt arr))   :: Arr a (b -> c)
-(foldMap.foldMap) f (array (curry (curry arrAt arr)))  :: Arr a m
+                                      arr     :: Arr (a :* b) c
+                                   at arr     :: a :* b -> c
+                            curry (at arr)    :: a -> b -> c
+                     array (curry (at arr))   :: Arr a (b -> c)
+(foldMap.foldMap) f (array (curry (at arr)))  :: Arr a m
 #endif
 
 
