@@ -185,7 +185,7 @@ instance Show Ty where
   showsPrec _ Bool   = showString "Bool"
   showsPrec _ Int    = showString "Int"
   showsPrec _ Float  = showString "Float"
-  showsPrec _ Double = showString "Double"
+  showsPrec _ Double = showString "R" -- "Double"
   showsPrec p (Sum a b) = showParen (p >= 6) $
     showsPrec 6 a . showString " + " . showsPrec 6 b
   showsPrec p (Prod a b) = showParen (p >= 7) $
