@@ -48,7 +48,7 @@ import ConCat.Misc ((:*),(:+),PseudoFun(..),oops)
 
 import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5,type (&+&)
-  , ProductCat, Prod, twiceP, inLassocP, inRassocP, transposeP, unfork
+  , ProductCat, Prod, twiceP, inLassocP, inRassocP, transposeP --, unfork
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
   , DistribCat, undistl, undistr
   , ClosedCat, Exp
@@ -136,6 +136,8 @@ Op1(first,forall k a aa b. (ProductCat k, Ok3 k a b aa) => (a `k` aa) -> (Prod k
 Op2(second,forall k a b bb. (ProductCat k, Ok3 k a b bb) => (b `k` bb) -> (Prod k a b `k` Prod k a bb))
 Op1(lassocP,forall k a b c. (ProductCat k, Ok3 k a b c) => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c)
 Op1(rassocP,forall k a b c. (ProductCat k, Ok3 k a b c) => Prod k (Prod k a b) c `k` Prod k a (Prod k b c))
+
+Op1(unfork, forall k a c d. (ProductCat k, Ok3 k a c d) => (a `k` Prod k c d) -> (a `k` c, a `k` d))
 
 infixr 2 +++, |||
 Op0(inl,(CoproductCat k, Ok2 k a b) => a `k` Coprod k a b)
@@ -407,12 +409,16 @@ ccc _ = oops "ccc"
 -- "foo2" forall (g :: a `k` d) h.
 --   apply . (curry h &&& g) = h . (id &&& g) <+ okProd @k @a @d
 
-"foo1" forall (f :: a `k` c) (g :: a `k` d) h.
-  apply . (h . f &&& g) = uncurry h . (f &&& g) <+ okProd @k @c @d
+-- "ccc apply-compose-fork1" forall (f :: a `k` c) (g :: a `k` d) h.
+--   apply . (h . f &&& g) = uncurry h . (f &&& g) <+ okProd @k @c @d
 
--- The next one leads to a role error when I chain ccc calls. To investigate.
-"foo2" forall (g :: a `k` d) h.
-  apply . (h &&& g) = uncurry h . (id &&& g) <+ okProd @k @a @d
+-- -- This rule is especially helpful in eliminating uses of apply and curry.
+-- "apply-compose-fork2" forall (g :: a `k` d) h.
+--   apply . (h &&& g) = uncurry h . (id &&& g) <+ okProd @k @a @d
+
+-- Warning: this rule may be dangerous. Note that `apply == uncurry id`, so if
+-- `h == id`, then we aren't making progress.
+
 
 -- "uncurry . constFun" forall (f :: p -> q). uncurry (constFun f) = f . exr
 
