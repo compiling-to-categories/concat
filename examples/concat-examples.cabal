@@ -62,6 +62,7 @@ library
                        ConCat.GLSL
                        ConCat.GAD
                        ConCat.AD
+                       ConCat.ADFun
                        ConCat.Incremental
                        ConCat.Interval
                        ConCat.GradientDescent
@@ -74,6 +75,37 @@ library
                        ConCat.SMT
   ghc-options:      -O2
   -- cpp-options:      -DVectorSized
+
+-- Flag trace
+--   Description: Trace transformations performed by the GHC plugin
+--   Default:     False
+
+-- Test-Suite examples
+--   type:             exitcode-stdio-1.0
+--   default-language: Haskell98
+--   hs-Source-Dirs:   test
+--   main-is:          Examples.hs
+--   Build-Depends:    Cabal >= 1.24.0.0
+--                   , newtype-generics
+--                   , NumInstances >= 1.4
+--                   , array >= 0.5.1.1
+--                   , base<5
+--                   , concat-classes
+--                   , concat-plugin
+--                   , concat-examples
+--                   , ghc-prim
+--                   , language-glsl >= 0.2.0
+--                   , parsec >= 3.1.11
+--                   , prettyclass
+--                   -- Array/vector experiments
+--                   , vector
+--   ghc-options:      -O2
+--   if flag(trace)
+--     ghc-options: -fplugin-opt=ConCat.Plugin:trace
+
+-- Stack apparently only allows per-package flags, not per-component, so the
+-- whole library gets recompiled. For now, duplicate the test-suite. See
+-- <https://stackoverflow.com/questions/45015821/setting-component-specific-cabal-flag-from-stack-build>
 
 Test-Suite examples
   type:             exitcode-stdio-1.0
@@ -95,3 +127,27 @@ Test-Suite examples
                   -- Array/vector experiments
                   , vector
   ghc-options:      -O2
+                    -fplugin=ConCat.Plugin
+
+Test-Suite examples-trace
+  type:             exitcode-stdio-1.0
+  default-language: Haskell98
+  hs-Source-Dirs:   test
+  main-is:          Examples.hs
+  Build-Depends:    Cabal >= 1.24.0.0
+                  , newtype-generics
+                  , NumInstances >= 1.4
+                  , array >= 0.5.1.1
+                  , base<5
+                  , concat-classes
+                  , concat-plugin
+                  , concat-examples
+                  , ghc-prim
+                  , language-glsl >= 0.2.0
+                  , parsec >= 3.1.11
+                  , prettyclass
+                  -- Array/vector experiments
+                  , vector
+  ghc-options:      -O2
+                    -fplugin=ConCat.Plugin
+                    -fplugin-opt=ConCat.Plugin:trace

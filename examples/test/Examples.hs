@@ -3,6 +3,12 @@
 -- stack build :examples
 --
 -- stack build && stack build :examples >& ~/Haskell/concat/out/o1
+--
+-- stack build :examples --flag concat-examples:trace >& ~/Haskell/concat/out/o1
+--
+-- stack build && stack build :examples-trace >& ~/Haskell/concat/out/o1
+-- 
+-- You might also want to use stack's --file-watch flag for automatic recompilation.
 
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
@@ -22,10 +28,10 @@
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
--- To keep ghci happy, it appears that the plugin flag must be in the test module.
-{-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
-
+-- Now in concat-examples.cabal
+-- {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
 
@@ -40,7 +46,7 @@
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
-{-# OPTIONS_GHC -dsuppress-uniques #-}
+-- {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
 
@@ -67,6 +73,8 @@ import Data.List (unfoldr)  -- TEMP
 import ConCat.Misc ((:*),R,sqr,magSqr,Binop,inNew,inNew2)
 import ConCat.Incremental (inc)
 import ConCat.AD
+import ConCat.ADFun (andDerF)
+import ConCat.ADFun
 import ConCat.GradientDescent (maximize,minimize)
 import ConCat.Interval
 import ConCat.Syntactic (Syn,render)
@@ -90,17 +98,18 @@ import qualified ConCat.Free.LinearRow
 
 import Control.Newtype (Newtype(..))
 
-default (Int, Double)
+-- default (Int, Double)
 
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- -- Circuit graphs
-  -- , runSynCirc "magSqr"    $ ccc $ magSqr @Double
+  -- Circuit graphs
+  -- , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
+  -- , runSynCirc "magSqr"    $ ccc $ magSqr @R
   -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
   -- , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"    $ ccc $ horner @Double [1,3,5]
+  -- , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
 
   -- -- GLSL/WebGL code for GPU-accelerated graphics
   -- , runCircGlsl "wobbly-disk" $ ccc $
@@ -118,6 +127,8 @@ main = sequence_
   -- , runCircGlsl "diag-disk-turning-sizing" $ ccc $
   --     \ t -> disk' (cos t) `xorR` rotate t xyPos
 
+  -- , runSynCirc "minMax2-b" $ ccc $ uncurry (minMax2 @Int)
+
   -- -- Interval analysis
   -- , runSynCirc "add-iv"    $ ccc $ ivFun $ uncurry ((+) @Int)
   -- , runSynCirc "mul-iv"    $ ccc $ ivFun $ uncurry ((*) @Int)
@@ -126,11 +137,12 @@ main = sequence_
   -- , runSynCirc "magSqr-iv" $ ccc $ ivFun $ magSqr @Int
   -- , runSynCirc "xp3y-iv"   $ ccc $ ivFun $ \ ((x,y) :: R2) -> x + 3 * y
   -- , runSynCirc "xyp3-iv"   $ ccc $ ivFun $ \ (x,y) -> x * y + 3 :: R
-  -- , runSynCirc "horner-iv" $ ccc $ ivFun $ horner @Double [1,3,5]
+  -- , runSynCirc "horner-iv" $ ccc $ ivFun $ horner @R [1,3,5]
 
-  -- -- Automatic differentiation
+  -- Automatic differentiation
   -- , runSynCirc "sin-ad"       $ ccc $ andDer $ sin @R
   -- , runSynCirc "cos-ad"       $ ccc $ andDer $ cos @R
+  -- , runSynCirc "twice-ad"     $ ccc $ andDer $ twice @R
   -- , runSynCirc "sqr-ad"       $ ccc $ andDer $ sqr @R
   -- , runSynCirc "magSqr-ad"    $ ccc $ andDer $ magSqr @R
   -- , runSynCirc "cos-2x-ad"    $ ccc $ andDer $ \ x -> cos (2 * x) :: R
@@ -140,6 +152,27 @@ main = sequence_
 
   -- -- Dies with "Oops --- ccc called!", without running the plugin.
   -- , print $ andDer sin (1 :: R)
+
+  -- -- -- Automatic differentiation with ADFun
+  -- , runSynCirc "sin-adf"      $ ccc $ andDerF $ sin @R
+  -- , runSynCirc "cos-adf"      $ ccc $ andDerF $ cos @R
+  , runSynCirc "twice-adf"    $ ccc $ andDerF $ twice @R
+  -- , runSynCirc "sqr-adf"      $ ccc $ andDerF $ sqr @R
+  -- , runSynCirc "magSqr-adf"   $ ccc $ andDerF $ magSqr @R
+  -- , runSynCirc "cos-2x-adf"   $ ccc $ andDerF $ \ x -> cos (2 * x) :: R
+  -- , runSynCirc "cos-2xx-adf"  $ ccc $ andDerF $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "cos-xpy-adf"  $ ccc $ andDerF $ \ (x,y) -> cos (x + y) :: R
+  -- , runSynCirc "cosSin-xy-adf"$ ccc $ andDerF $ cosSinProd @R
+
+  -- -- -- Automatic differentiation with ADFun + linear
+  -- , runSynCirc "sin-adfl"      $ ccc $ andDerFL $ sin @R
+  -- , runSynCirc "cos-adfl"      $ ccc $ andDerFL $ cos @R
+  -- , runSynCirc "sqr-adfl"      $ ccc $ andDerFL $ sqr @R
+  -- , runSynCirc "magSqr-adfl-b"   $ ccc $ andDerFL $ magSqr @R
+  -- , runSynCirc "cos-2x-adfl"   $ ccc $ andDerFL $ \ x -> cos (2 * x) :: R
+  -- , runSynCirc "cos-2xx-adfl"  $ ccc $ andDerFL $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "cos-xpy-adfl"  $ ccc $ andDerFL $ \ (x,y) -> cos (x + y) :: R
+  -- , runSynCirc "cosSin-xy-adfl"$ ccc $ andDerFL $ cosSinProd @R
 
   -- -- (0.8414709848078965,[[0.5403023058681398]]), i.e., (sin 1, [[cos 1]]),
   -- -- where the "[[ ]]" is matrix-style presentation of the underlying
@@ -159,13 +192,13 @@ main = sequence_
   -- -- Incremental differentiation. Currently broken.
   -- , runSynCirc "magSqr-inc" $ ccc $ inc $ andDer $ magSqr @R
 
-  -- , runCirc "smt-a" $ ccc $ (\ (x :: Double) -> sqr x == 9)
+  -- , runCirc "smt-a" $ ccc $ (\ (x :: R) -> sqr x == 9)
 
-  -- , runCircSMT "smt-a" $ ccc $ \ (x :: Double) -> sqr x == 9
+  -- , runCircSMT "smt-a" $ ccc $ \ (x :: R) -> sqr x == 9
 
-  -- , runSolve $ ccc $ \ (x :: Double) -> sqr x == 9
-  -- , runSolve $ ccc $ \ (x :: Double) -> sqr x == 9 && x < 0
-  -- , runSolve $ ccc $ pred1 @Double
+  -- , runSolve $ ccc $ \ (x :: R) -> sqr x == 9
+  -- , runSolve $ ccc $ \ (x :: R) -> sqr x == 9 && x < 0
+  -- , runSolve $ ccc $ pred1 @R
   -- , runSolve $ ccc $ \ b -> (if b then 3 else 5 :: Int) > 4
   -- , runSolve $ ccc $ \ (x::R,y) -> x + y == 15 && x == 2 * y
 
@@ -227,9 +260,15 @@ main = sequence_
 
   -- , runSynCirc "sum-arr-lb1" $ ccc $ sum @(Arr (LB N1)) @Int
   -- , runSynCirc "sum-arr-lb2" $ ccc $ sum @(Arr (LB N2)) @Int
-  , runSynCirc "sum-arr-lb3-b" $ ccc $ sum @(Arr (LB N3)) @Int
-  , runSynCirc "sum-arr-lb4-b" $ ccc $ sum @(Arr (LB N4)) @Int
+  -- , runSynCirc "sum-arr-lb3" $ ccc $ sum @(Arr (LB N3)) @Int
+  -- , runSynCirc "sum-arr-lb4" $ ccc $ sum @(Arr (LB N4)) @Int
   -- , runSynCirc "sum-arr-lb8" $ ccc $ sum @(Arr (LB N8)) @Int
+
+  -- , runSynCirc "sum-arr-rb1" $ ccc $ sum @(Arr (RB N1)) @Int
+  -- , runSynCirc "sum-arr-rb2" $ ccc $ sum @(Arr (RB N2)) @Int
+  -- , runSynCirc "sum-arr-rb3" $ ccc $ sum @(Arr (RB N3)) @Int
+  -- , runSynCirc "sum-arr-rb4" $ ccc $ sum @(Arr (RB N4)) @Int
+  -- , runSynCirc "sum-arr-rb8" $ ccc $ sum @(Arr (RB N8)) @Int
 
   -- , runSynCirc "fmap-fun-bool-plus" $ ccc $ fmap   @((->) Bool) ((+) @Int)
   -- , runSynCirc "app-fun-bool"       $ ccc $ (<*>)  @((->) Bool) @Int @Int
@@ -398,6 +437,14 @@ type family LVec n a where
 
 type LB n = LVec n Bool
 
+type family RVec n a where
+  RVec Zero a = ()
+  -- RVec (Succ n) a = a :* RVec n a
+  RVec N1 a = a
+  RVec (Succ (Succ n)) a = a :* RVec (Succ n) a
+
+type RB n = RVec n Bool
+
 type N0  = Zero
 -- Generated code
 -- 
@@ -423,6 +470,9 @@ type N16 = Succ N15
 {--------------------------------------------------------------------
     Misc definitions
 --------------------------------------------------------------------}
+
+twice :: Num a => a -> a
+twice x = x + x
 
 cosSin :: Floating a => a -> a :* a
 cosSin a = (cos a, sin a)
