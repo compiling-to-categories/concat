@@ -106,10 +106,15 @@ instance (Ok (L s) s, Floating s) => FloatingCat (D s) s where
 --------------------------------------------------------------------}
 
 andDer :: forall a b . (a -> b) -> (a -> b :* LR a b)
+#if 1
+andDer f = andDeriv (ccc f)
+{-# NOINLINE andDer #-}
+{-# RULES "andDer" forall f. andDer f = andDeriv (ccc f) #-}
+#else
 andDer = andDeriv
 {-# NOINLINE andDer #-}
 {-# RULES "andDer" andDer = andDeriv #-}
--- {-# ANN andDer PseudoFun #-}
+#endif
 
 der :: forall a b . (a -> b) -> (a -> LR a b)
 der = deriv
