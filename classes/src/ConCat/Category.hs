@@ -483,7 +483,7 @@ transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
   <+ okProd @k @a @c
 
 -- | Inverse to '(&&&)'
-unfork :: forall k a c d. (ProductCat k, Oks k [a,c,d]) 
+unfork :: forall k a c d. (ProductCat k, Ok3 k a c d) 
        => (a `k` Prod k c d) -> (a `k` c, a `k` d)
 unfork f = (exl . f, exr . f)  <+ okProd @k @c @d
 
@@ -750,7 +750,7 @@ class (OpCon (Exp k) (Ok' k), ProductCat k) => ClosedCat k where
   uncurry g = apply . first g
               <+ okProd @k @(Exp k b c) @b
               <+ okProd @k @a @b
-              <+ okExp @k @b @c
+              <+ okExp  @k @b @c
   {-# MINIMAL curry, (apply | uncurry) #-}
 
 --   apply   :: (Oks k [a,b], p ~ Prod k, e ~ Exp k) => ((a `e` b) `p` a) `k` b
