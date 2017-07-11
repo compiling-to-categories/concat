@@ -127,6 +127,9 @@ instance (Iv a ~ (a :* a), Num a, Ord a) => NumCat IF a where
   mulC = pack (\ ((al,ah),(bl,bh)) ->
                let cs = ((al*bl,al*bh),(ah*bl,ah*bh)) in
                  (min4 cs, max4 cs))
+
+  -- mulC = pack (\ ((al,ah),(bl,bh)) -> minMax4 (al*bl) (al*bh) (ah*bl) (ah*bh))
+
   powIC = error "powIC: not yet defined on IF"
   {-# INLINE negateC #-}
   {-# INLINE addC #-}
@@ -136,6 +139,17 @@ instance (Iv a ~ (a :* a), Num a, Ord a) => NumCat IF a where
 min4,max4 :: Ord a => ((a :* a) :* (a :* a)) -> a
 min4 ((a,b),(c,d)) = min (min a b) (min c d)
 max4 ((a,b),(c,d)) = max (max a b) (max c d)
+
+minMax2 :: Ord a => a -> a -> a :* a
+-- minMax2 a b = (min a b, max a b)
+minMax2 a b | a <= b    = (a,b)
+            | otherwise = (b,a)
+
+minMax4 :: Ord a => a -> a -> a -> a -> a :* a
+minMax4 a b c d = minMax2 p q
+ where
+   (p,_) = minMax2 a b
+   (_,q) = minMax2 c d
 
 -- class CoerceCat k a b where coerceC :: a `k` b
 
