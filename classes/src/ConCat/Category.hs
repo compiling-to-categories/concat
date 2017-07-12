@@ -736,8 +736,13 @@ okExp :: forall k a b. OpCon (Exp k) (Ok' k)
 okExp = inOp
 {-# INLINE okExp #-}
 
+-- #define ExpAsCat
+
+#ifdef ExpAsCat
+type Exp k = k
+#else
 type Exp k = (->)
--- type Exp k = k
+#endif
 
 class (OpCon (Exp k) (Ok' k), ProductCat k) => ClosedCat k where
   -- type Exp k :: u -> u -> u
@@ -782,6 +787,21 @@ instance ClosedCat U2 where
   curry U2 = U2
   uncurry U2 = U2
 
+#ifdef ExpAsCat
+instance (ClosedCat k, ClosedCat k') => ClosedCat (k :**: k') where
+  apply = (apply . first exl) :**: undefined
+  -- apply = (apply . first exl) :**: (apply . first exr)
+
+  -- apply = (apply . exl) :**: (apply . exr)
+  -- apply :: forall a b. (Ok2 k a b, Ok2 k' a b)
+  --       => (k :**: k') ((k :**: k') a b :* a) b
+  -- apply = undefined -- (apply . exl) :**: _
+  curry (f :**: f') = curry f :**: curry f'
+  uncurry (g :**: g') = uncurry g :**: uncurry g'
+  PINLINER(apply)
+  PINLINER(curry)
+  PINLINER(uncurry)
+#else
 instance (ClosedCat k, ClosedCat k') => ClosedCat (k :**: k') where
   apply = apply :**: apply
   -- apply = (apply . exl) :**: (apply . exr)
@@ -793,6 +813,7 @@ instance (ClosedCat k, ClosedCat k') => ClosedCat (k :**: k') where
   PINLINER(apply)
   PINLINER(curry)
   PINLINER(uncurry)
+#endif
 
 type Unit k = ()
 
