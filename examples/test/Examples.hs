@@ -105,11 +105,11 @@ main = sequence_
   [ putChar '\n' -- return ()
 
   -- Circuit graphs
-  -- , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
-  -- , runSynCirc "magSqr"    $ ccc $ magSqr @R
-  -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
-  -- , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
+  , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
+  , runSynCirc "magSqr"    $ ccc $ magSqr @R
+  , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
+  , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
 
   -- -- GLSL/WebGL code for GPU-accelerated graphics
   -- , runCircGlsl "wobbly-disk" $ ccc $
@@ -139,7 +139,7 @@ main = sequence_
   -- , runSynCirc "xyp3-iv"   $ ccc $ ivFun $ \ (x,y) -> x * y + 3 :: R
   -- , runSynCirc "horner-iv" $ ccc $ ivFun $ horner @R [1,3,5]
 
-  -- Automatic differentiation
+  -- -- Automatic differentiation
   -- , runSynCirc "sin-ad"       $ ccc $ andDer $ sin @R
   -- , runSynCirc "cos-ad"       $ ccc $ andDer $ cos @R
   -- , runSynCirc "twice-ad"     $ ccc $ andDer $ twice @R
@@ -156,7 +156,7 @@ main = sequence_
   -- -- -- Automatic differentiation with ADFun
   -- , runSynCirc "sin-adf"      $ ccc $ andDerF $ sin @R
   -- , runSynCirc "cos-adf"      $ ccc $ andDerF $ cos @R
-  , runSynCirc "twice-adf"    $ ccc $ andDerF $ twice @R
+  -- , runSynCirc "twice-adf"    $ ccc $ andDerF $ twice @R
   -- , runSynCirc "sqr-adf"      $ ccc $ andDerF $ sqr @R
   -- , runSynCirc "magSqr-adf"   $ ccc $ andDerF $ magSqr @R
   -- , runSynCirc "cos-2x-adf"   $ ccc $ andDerF $ \ x -> cos (2 * x) :: R
