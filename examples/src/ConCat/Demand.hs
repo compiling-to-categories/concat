@@ -276,8 +276,9 @@ instance FloatingCat (->) a => FloatingCat (:-?) a where
   sinC = hyperStrict
 
 instance RealFracCat (->) a b => RealFracCat (:-?) a b where
-  floorC   = hyperStrict
-  ceilingC = hyperStrict
+  floorC    = hyperStrict
+  ceilingC  = hyperStrict
+  truncateC = hyperStrict
 
 instance FromIntegralCat (->) a b => FromIntegralCat (:-?) a b where
   fromIntegralC = hyperStrict

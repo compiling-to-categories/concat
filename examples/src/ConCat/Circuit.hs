@@ -1297,8 +1297,9 @@ instance (Fractional a, Read a, Eq a, GS a, SourceToBuses a)
 
 instance (RealFrac a, Integral b, GS a, GS b, Read a)
       => RealFracCat (:>) a b where
-  floorC   = primNoOpt1 "floor"   floor
-  ceilingC = primNoOpt1 "ceiling" ceiling
+  floorC    = primNoOpt1 "floor"   floor
+  ceilingC  = primNoOpt1 "ceiling" ceiling
+  truncateC = primNoOpt1 "truncate" truncate
 
 instance (Floating a, Read a, GS a) => FloatingCat (:>) a where
   expC = primNoOpt1 "exp" exp

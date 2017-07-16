@@ -279,6 +279,14 @@ instance FractionalCat Syn a where
   INLINER(recipC)
   INLINER(divideC)
 
+instance RealFracCat Syn a b where
+  floorC    = app0 "floorC"
+  ceilingC  = app0 "ceilingC"
+  truncateC = app0 "truncateC"
+  INLINER(floorC)
+  INLINER(ceilingC)
+  INLINER(truncateC)
+
 instance FloatingCat Syn a where
   expC = app0 "expC"
   cosC = app0 "cosC"

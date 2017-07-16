@@ -136,8 +136,9 @@ instance (HasStandard a, Floating (Standard a)) =>  FloatingCat StdFun a where
 
 instance (HasStandard a, RealFracCat (->) (Standard a) (Standard b))
       => RealFracCat StdFun a b where
-  floorC   = StdFun floorC
-  ceilingC = StdFun ceilingC
+  floorC    = StdFun floorC
+  ceilingC  = StdFun ceilingC
+  truncateC = StdFun truncateC
 
 {--------------------------------------------------------------------
     CCC interface
