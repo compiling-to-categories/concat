@@ -224,6 +224,11 @@ oops str = unsafeCoerce ("Oops --- "++str++" called!")
 {-# NOINLINE oops #-}
 -- {-# RULES "oops" [0] forall str. oops str = error ("Oops --- "++str++" called!") #-}
 
+-- | Hack: delay inlining to thwart some of GHC's rewrites
+delay :: a -> a
+delay a = a
+{-# INLINE [0] delay #-}
+
 bottom :: a
 bottom = error "bottom evaluated"
 {-# NOINLINE bottom #-}
