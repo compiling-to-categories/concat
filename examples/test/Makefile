@@ -1,2 +1,0 @@
-default:
-	stack test
