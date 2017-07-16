@@ -93,12 +93,14 @@ boxIB i = tagToEnum# i
 
 -- /## 1.0## (cosDouble# x)
 
-"boxD /" forall u v. u /## v            = unD (divideC (boxD u, boxD v))
-"boxF /" forall u v. u `divideFloat#` v = unF (divideC (boxF u, boxF v))
+"boxD /" [~0] forall u v. u /## v            = unD (divideC (boxD u, boxD v))
+"boxF /" [~0] forall u v. u `divideFloat#` v = unF (divideC (boxF u, boxF v))
 
 -- TODO: Maybe change all the the reboxing rules to this style. Or maybe not,
 -- since it's not driven by ccc, and hence could easily degrade all numeric
 -- performance.
+
+-- TODO: maybe change all of the rules to [~0].
 
  #-}
 
