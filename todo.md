@@ -1,5 +1,8 @@
 # To do
 
+*   Failure with unboxed `let` bindings.
+    See notes from 2017-07-15.
+*   Principled replacement for the `delay` hack (defined in `ConCat.Misc`).
 *   SMT depends on z3, which takes some work to install.
     Maybe disable SMT by default in concat-examples.cabal, with a flag to enable it.
 *   I think the ghc-typelits-knownnat plugin works in GHCi.
@@ -7,19 +10,13 @@
 *   Automated testing.
 *   Associated types for product, coproduct, exponential, `Bool`, `Int`, etc.
     The type of `ccc` will have to change, moving closer to the categorical notion of functor (and cartesian functor, closed cartesian functor, etc)
-*   Split concat into a few packages/repos:
-    *   Constrained categories ("concat")
-    *   The compiler plugin
-    *   Example categories and uses
-
-    Make sure that it's easy & quick to build and run examples after the other packages change, without having to check in.
-    For instance, use a stack.yaml with local package references.
 *   Users' guide / misc notes.
 *   Document and begin fixing robustness issues.
 *   Study performance, and begin improving:
     *   AD seems rather slow.
         Perhaps due to lots of inlining and simplification.
 *   Clean up & simplify implementation (once automated testing is in place), particularly `ConCat.Plugin`.
+*   Translate case to `DistribCat`.
 *   Categories/back-ends:
     *   Verilog back-end, starting with the circuit graph category in `ConCat.Circuit` from concat and `Circat.Netlist` from circat.
         We'll need `Float` and `Double` literals, not currently supported by the KU netlist libraries.
@@ -29,7 +26,7 @@
     *   Polynomials
     *   Probabilistic computation
     *   Other Kleisli categories
-    *   Javascript generation
+    *   JavaScript generation
     *   Circuit graphs: rework with statically typed primitives.
         *   Cleaner optimization
         *   How to hash-cons?
@@ -44,7 +41,8 @@
     (I've not managed to do so.)
 *   `CoproductCat` instance in `ConCat.Circuit`.
 *   Better use of GHC optimizations so that need less (ideally none) in `ConCat.Circuit`.
-*   Recursion
+*   Recursion.
+    Would help make a compelling case for compiling-to-categories vs deep DSLs.
 *   Get rewrite rules to work better.
     Coercions and `let` bindings sometimes interfere.
 *   Use [dump-core](https://hackage.haskell.org/package/dump-core) ([GitHub](https://github.com/yav/dump-core)) to view generated Core.
@@ -116,6 +114,13 @@
 
 # Done
 
+*   Split concat into a few packages/repos:
+    *   Constrained categories ("concat")
+    *   The compiler plugin
+    *   Example categories and uses
+
+    Make sure that it's easy & quick to build and run examples after the other packages change, without having to check in.
+    For instance, use a stack.yaml with local package references.
 *   Matches on `Int` literals lead to an error: "lam Case of boxer: bare unboxed var".
 *   Fix the problem with finding numeric and show instances for `Float` & `Double`, and then simplify `Circuit` again to use 0 instead of `Eql(fromIntegerZ 0)`, `negate` instead of `negateZ`, etc.
 *   Remove `ConCat.Float`.
