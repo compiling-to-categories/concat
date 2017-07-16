@@ -25,7 +25,7 @@ import GHC.Exts (Constraint)
 -- import GHC.Generics (Par1(..),(:.:)(..),(:*:)())
 -- import Control.Newtype
 
-import ConCat.Misc ((:*),PseudoFun(..))
+import ConCat.Misc ((:*),PseudoFun(..),oops)
 -- import ConCat.Free.VectorSpace
 -- import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
@@ -33,8 +33,8 @@ import qualified ConCat.Category as C
 import ConCat.AltCat
 import ConCat.Rep
 
-newtype GD k a b = D { unD :: a -> b :* (a `k` b) }
--- data GD k a b = D { unD :: a -> b :* (a `k` b) }
+-- newtype GD k a b = D { unD :: a -> b :* (a `k` b) }
+data GD k a b = D { unD :: a -> b :* (a `k` b) }
 
 -- Differentiable linear function, given the function and linear map version
 linearD :: (a -> b) -> (a `k` b) -> GD k a b
@@ -141,12 +141,19 @@ instance ( CoerceCat (->) a b
 --------------------------------------------------------------------}
 
 andDeriv :: forall k a b . (a -> b) -> (a -> b :* (a `k` b))
-andDeriv _ = error "andDeriv called"
+#if 0
+-- Experiment with inlining.
+andDeriv h = unD (ccc h)
+{-# INLINE andDeriv #-}
+#else
+-- andDeriv _ = error "andDeriv called"
+andDeriv _ = oops "andDeriv"
 {-# NOINLINE andDeriv #-}
 -- {-# RULES "andDeriv" forall h. andDeriv h = unD (reveal (ccc h)) #-}
--- {-# RULES "andDeriv" forall h. andDeriv h = unD (ccc h) #-}
-{-# RULES "andDeriv" forall h. andDeriv h = unD (ccc (ccc h)) #-}
+{-# RULES "andDeriv" forall h. andDeriv h = unD (ccc h) #-}
+-- {-# RULES "andDeriv" forall h. andDeriv h = unD (ccc (ccc h)) #-}
 {-# ANN andDeriv PseudoFun #-}
+#endif
 
 -- The extra ccc allows us to use ClosedCat (->) and then apply rewrite rules to
 -- eliminate the closed operations.
@@ -155,7 +162,8 @@ andDeriv _ = error "andDeriv called"
 -- Try removing, and retest.
 
 deriv :: forall k a b . (a -> b) -> (a -> (a `k` b))
-deriv _ = error "deriv called"
+-- deriv _ = error "deriv called"
+deriv _ = oops "deriv called"
 {-# NOINLINE deriv #-}
 -- {-# RULES "deriv" forall h. deriv h = snd . andDeriv h #-}
 -- {-# RULES "deriv" forall h. deriv h = snd P.. andDeriv h #-}
