@@ -24,13 +24,14 @@ library
   include-dirs:        src
   install-includes:    ConCat/AbsTy.inc
   build-depends:       base >=4.9 && <4.10
+                     , concat-classes
+                     , concat-plugin
                      , constraints >= 0.8
                      , containers >= 0.5.7.1
                      , keys >= 3.11
                      , newtype-generics
                      , pointed >= 5
                      , prettyclass
-                     , concat-classes, concat-plugin
                      -- For Complex
                      , QuickCheck >= 2.8.2
                      -- For Circuit
@@ -42,11 +43,6 @@ library
                      -- , ghc-typelits-knownnat
                      -- For Incremental		
                      , transformers >= 0.5.2.0, mtl >= 2.2.1		
-                     -- For GenGLSL 
-                     , language-glsl >= 0.2.0
-                     , parsec >= 3.1.11
-                     -- For Image
-                     , NumInstances >= 1.4
                      -- For SMT
                      , z3
   exposed-modules:     
@@ -59,7 +55,6 @@ library
                        ConCat.Syntactic
                        ConCat.Circuit
                        ConCat.RunCircuit
-                       ConCat.GLSL
                        ConCat.GAD
                        ConCat.AD
                        ConCat.ADFun
@@ -69,7 +64,6 @@ library
                        ConCat.Synchronous
                        ConCat.Additive
                        ConCat.Polynomial
-                       ConCat.Image
                        ConCat.Demand
                        ConCat.Arr
                        ConCat.SMT
@@ -94,7 +88,6 @@ library
 --                   , concat-plugin
 --                   , concat-examples
 --                   , ghc-prim
---                   , language-glsl >= 0.2.0
 --                   , parsec >= 3.1.11
 --                   , prettyclass
 --                   -- Array/vector experiments
@@ -121,9 +114,6 @@ Test-Suite examples
                   , concat-plugin
                   , concat-examples
                   , ghc-prim
-                  , language-glsl >= 0.2.0
-                  , parsec >= 3.1.11
-                  , prettyclass
                   -- Array/vector experiments
                   , vector
   ghc-options:      -O2
@@ -143,9 +133,6 @@ Test-Suite examples-trace
                   , concat-plugin
                   , concat-examples
                   , ghc-prim
-                  , language-glsl >= 0.2.0
-                  , parsec >= 3.1.11
-                  , prettyclass
                   -- Array/vector experiments
                   , vector
   ghc-options:      -O2
