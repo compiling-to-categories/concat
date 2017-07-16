@@ -61,6 +61,7 @@ boxIB i = tagToEnum# i
 "boxI +" forall u v    . boxI (u +# v)            = addC (boxI u,boxI v)
 "boxI -" forall u v    . boxI (u -# v)            = subC (boxI u,boxI v)
 "boxI *" forall u v    . boxI (u *# v)            = mulC (boxI u,boxI v)
+"boxI trunc" forall u  . boxI (double2Int# u)     = truncateC (boxD u)
 
 "boxF negate" forall u . boxF (negateFloat# u)    = negateC (boxF u)
 "boxF +" forall u v    . boxF (u `plusFloat#`  v) = addC (boxF u,boxF v)
@@ -70,6 +71,7 @@ boxIB i = tagToEnum# i
 "boxF cos" forall u    . boxF (cosFloat# u)       = cosC (boxF u)
 "boxF sin" forall u    . boxF (sinFloat# u)       = sinC (boxF u)
 
+"boxD i2D"    forall n . boxD (int2Double# n)     = fromIntegralC (boxI n)
 "boxD negate" forall u . boxD (negateDouble# u)   = negateC (boxD u)
 "boxD +" forall u v    . boxD (u +## v)           = addC (boxD u,boxD v)
 "boxD -" forall u v    . boxD (u -## v)           = subC (boxD u,boxD v)
