@@ -69,6 +69,7 @@ import Data.Foldable (fold)
 import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
 import Data.List (unfoldr)  -- TEMP
+import GHC.Float (int2Double)
 
 import ConCat.Misc ((:*),R,sqr,magSqr,Binop,inNew,inNew2)
 import ConCat.Incremental (inc)
@@ -79,9 +80,7 @@ import ConCat.GradientDescent (maximize,minimize)
 import ConCat.Interval
 import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses,(:>))
-import ConCat.Image
 import qualified ConCat.RunCircuit as RC
-import ConCat.GLSL (genGlsl,CAnim)
 import ConCat.AltCat (ccc,U2(..),(:**:)(..),Ok2, Arr, array,arrAt,OrdCat,ConstCat) --, Ok, Ok3
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Arr -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
@@ -104,30 +103,12 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- Circuit graphs
-  , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
-  , runSynCirc "magSqr"    $ ccc $ magSqr @R
-  , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
-  , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
+  -- -- Circuit graphs
+  -- , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
+  -- , runSynCirc "magSqr"    $ ccc $ magSqr @R
+  -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
+  -- , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
   , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
-
-  -- -- GLSL/WebGL code for GPU-accelerated graphics
-  -- , runCircGlsl "wobbly-disk" $ ccc $
-  --     \ t -> disk' (0.75 + 0.25 * cos t)
-  -- , runCircGlsl "diag-plus-im" $ ccc $
-  --     \ t ((x,y) :: R2) -> x + sin t > y
-  -- , runCircGlsl "disk-sizing" $ ccc $
-  --     disk . cos
-  -- , runCircGlsl "disk-sizing-p" $ ccc $
-  --     disk' . cos
-  -- , runCircGlsl "diag-disk-turning" $ ccc $
-  --     \ t -> udisk `intersectR` rotate t xPos
-  -- , runCircGlsl "sqr-sqr-anim" $ ccc $
-  --     \ t ((x,y) :: R2) -> sqr (sqr x) > y + sin t
-  -- , runCircGlsl "diag-disk-turning-sizing" $ ccc $
-  --     \ t -> disk' (cos t) `xorR` rotate t xyPos
-
-  -- , runSynCirc "minMax2-b" $ ccc $ uncurry (minMax2 @Int)
 
   -- -- Interval analysis
   -- , runSynCirc "add-iv"    $ ccc $ ivFun $ uncurry ((+) @Int)
@@ -379,9 +360,6 @@ runSynCirc nm (syn :**: circ) = runSyn syn >> runCirc nm circ
 runCirc :: GO a b => String -> (a :> b) -> IO ()
 runCirc nm circ = RC.run nm [] circ
 
-runCircGlsl :: String -> CAnim -> IO ()
-runCircGlsl nm circ = runCirc nm circ >> genGlsl nm circ
-
 runSolve :: (GenBuses a, Show a, EvalE a) => (a :> Bool) -> IO ()
 runSolve = print . solve
 -- runSolve = print <=< solve
@@ -400,7 +378,7 @@ runSolveAscFrom r = mapM_ print . solveAscendingFrom r
 runCircSMT :: (GenBuses a, Show a, EvalE a) => String -> (a :> Bool) -> IO ()
 runCircSMT nm circ = runCirc nm circ >> runSolve circ
 
--- TODO: rework runCircGlsl and runCircSMT to generate the circuit graph once
+-- TODO: rework runCircSMT to generate the circuit graph once
 -- rather than twice.
 
 runSolveAsc :: ( GenBuses a, Show a, GenBuses r, Show r, EvalE a, EvalE r
