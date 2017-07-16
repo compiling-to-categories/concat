@@ -1332,32 +1332,39 @@ instance (FloatingCat k a, FloatingCat k' a) => FloatingCat (k :**: k') a where
 
 class Ok k a => RealFracCat k a b where
   floorC, ceilingC :: a `k` b
+  truncateC :: a `k` b
 
 instance (RealFrac a, Integral b) => RealFracCat (->) a b where
   floorC = floor
   ceilingC = ceiling
+  truncateC = truncate
 
 #ifdef KleisliInstances
 instance (Monad m, RealFrac a, Integral b) => RealFracCat (Kleisli m) a b where
-  -- floorC, ceilingC :: forall b. Integral b => Kleisli m a b
-  floorC   = arr floorC
-  ceilingC = arr ceilingC
+  floorC    = arr floorC
+  ceilingC  = arr ceilingC
+  truncateC = arr truncateC
 #endif
 
 instance Integral b => RealFracCat U2 a b where
-  floorC  = U2
-  ceilingC = U2
+  floorC    = U2
+  ceilingC  = U2
+  truncateC = U2
 
 instance (RealFracCat k a b, RealFracCat k' a b) => RealFracCat (k :**: k') a b where
-  floorC  = floorC  :**: floorC
+  floorC = floorC  :**: floorC
   ceilingC = ceilingC :**: ceilingC
+  truncateC = truncateC :**: truncateC
   PINLINER(floorC)
   PINLINER(ceilingC)
+  PINLINER(truncateC)
 
 -- Stand-in for fromIntegral, avoiding the intermediate Integer in the Prelude
 -- definition.
 class FromIntegralCat k a b where
   fromIntegralC :: a `k` b
+  foo_FromIntegralCat :: ()  -- experiment
+  foo_FromIntegralCat = ()
 
 instance (Integral a, Num b) => FromIntegralCat (->) a b where
   fromIntegralC = fromIntegral
@@ -1373,6 +1380,7 @@ instance FromIntegralCat U2 a b where
 instance (FromIntegralCat k a b, FromIntegralCat k' a b) => FromIntegralCat (k :**: k') a b where
   fromIntegralC = fromIntegralC :**: fromIntegralC
   PINLINER(fromIntegralC)
+
 
 class BottomCat k a b where
   bottomC :: a `k` b

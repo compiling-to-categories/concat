@@ -214,6 +214,7 @@ Op0(divideC,FractionalCat k a => Prod k a a `k` a)
 
 Op0(floorC,RealFracCat k a b => a `k` b)
 Op0(ceilingC,RealFracCat k a b => a `k` b)
+Op0(truncateC,RealFracCat k a b => a `k` b)
 
 Op0(expC,FloatingCat k a => a `k` a)
 Op0(cosC,FloatingCat k a => a `k` a)
