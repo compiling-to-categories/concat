@@ -458,7 +458,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           let wild' = setIdOccInfo wild NoOccInfo
               tweak :: Unop CoreExpr
               tweak (Var v) | v == unboxedV =
-                pprPanic "lam Case of boxer: bare unboxed var" (ppr e)
+                pprPanic ("lam Case of boxer: bare unboxed var") (ppr e)
               tweak (App (Var f) (Var v)) | f == boxV, v == unboxedV = Var wild'
               tweak e' = e'
           in
@@ -791,6 +791,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    -- unfoldMaybe = -- traceRewrite "unfoldMaybe" $
    --               onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe)
    inlineMaybe :: Id -> Maybe CoreExpr
+   -- inlineMaybe v | dtrace ("inlineMaybe " ++ fqVarName v) (ppr ()) False = undefined
    -- inlineMaybe v | dtrace "inlineMaybe" (ppr v) False = undefined
    inlineMaybe v = (inlineId <+ -- onInlineFail <+ traceRewrite "inlineClassOp"
                                 inlineClassOp) v
@@ -1557,6 +1558,9 @@ monoInfo =
      , ("predC",[("GHC.Enum.$fEnumInt_$cpred",[intTy])])
      , ("divC",[("GHC.Real.$fIntegralInt_$cdiv",[intTy])])
      , ("modC",[("GHC.Real.$fIntegralInt_$cmod",[intTy])])
+     --
+     , ("floorC",[("GHC.Float.RealFracMethods.floorDoubleInt",[doubleTy,intTy])])
+     , ("ceilingC",[("GHC.Float.RealFracMethods.ceilingDoubleInt",[doubleTy,intTy])])
      ]
     where
       ifd = intTy : fd
