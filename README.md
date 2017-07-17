@@ -2,13 +2,19 @@
 
 Experimenting (again) with constrained categories, as well as Haskell to hardware, automatic differentiation, interval analysis, and other interpretations. See the paper [*Compiling to categories*](http://conal.net/papers/compiling-to-categories).
 
-To run:
+To run miscellaneous examples:
 
-    stack build :examples
+    stack build :misc-examples
 
-There are several more commented-out examples in test/Examples.hs.
+There are several more commented-out examples in examples/test/Examples.hs.
 You can fiddle with comments to change the collection of examples compiled.
 That module also serves as an example to copy and make your own examples.
+
+For the graphics examples, instead run
+
+    stack build :graphics-examples
+
+There are more examples in graphics/test/Examples.hs.
 
 ## Some applications
 

@@ -1,12 +1,8 @@
--- -*- flycheck-disabled-checkers: '(haskell-ghc haskell-stack-ghc); -*-
-
--- stack build :examples
+-- To run:
+-- 
+--   stack build :misc-examples
 --
--- stack build && stack build :examples >& ~/Haskell/concat/out/o1
---
--- stack build :examples --flag concat-examples:trace >& ~/Haskell/concat/out/o1
---
--- stack build && stack build :examples-trace >& ~/Haskell/concat/out/o1
+--   stack build :misc-trace >& ~/Haskell/concat/out/o1
 -- 
 -- You might also want to use stack's --file-watch flag for automatic recompilation.
 

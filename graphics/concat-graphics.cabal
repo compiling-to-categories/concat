@@ -28,10 +28,10 @@ library
                      , concat-examples
   default-language:    Haskell2010
 
-test-suite graphics-run
+test-suite graphics-examples
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             Run.hs
+  main-is:             Examples.hs
   build-depends:       base
                      , ghc-prim
                      , language-glsl >= 0.2.1
@@ -47,7 +47,7 @@ test-suite graphics-run
 test-suite graphics-trace
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             Run.hs
+  main-is:             Examples.hs
   build-depends:       base
                      , ghc-prim
                      , language-glsl >= 0.2.1
