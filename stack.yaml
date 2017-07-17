@@ -4,6 +4,8 @@ packages:
 - classes
 - plugin
 - examples
+- graphics
 
 extra-deps:
 - z3-4.1.0
+- language-glsl-0.2.1

@@ -1,0 +1,61 @@
+name:                concat-graphics
+version:             0.1.0.0
+synopsis:            Graphics via compiling-to-categories
+description:         Graphics via compiling-to-categories
+license:             BSD3
+license-file:        LICENSE
+author:              Conal Elliott
+maintainer:          conal@conal.net
+copyright:           2017 Conal Elliott
+category:            graphics
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+source-repository head
+  type:     git
+  location: https://github.com/conal/concat
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     ConCat.Graphics.GLSL
+                       ConCat.Graphics.Image
+  build-depends:       base >= 4.7 && < 5
+                     , containers, directory, parsec, prettyclass
+                     , language-glsl >= 0.2.1
+                     , NumInstances
+                     , concat-classes
+                     , concat-examples
+  default-language:    Haskell2010
+
+test-suite graphics-run
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Run.hs
+  build-depends:       base
+                     , ghc-prim
+                     , language-glsl >= 0.2.1
+                     , concat-graphics
+                     , concat-classes
+                     , concat-plugin
+                     , concat-examples
+                     , newtype-generics
+
+  default-language:    Haskell2010
+  ghc-options:         -fplugin=ConCat.Plugin
+
+test-suite graphics-trace
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Run.hs
+  build-depends:       base
+                     , ghc-prim
+                     , language-glsl >= 0.2.1
+                     , concat-graphics
+                     , concat-classes
+                     , concat-plugin
+                     , concat-examples
+                     , newtype-generics
+  default-language:    Haskell2010
+  ghc-options:      -fplugin=ConCat.Plugin
+                    -fplugin-opt=ConCat.Plugin:trace
