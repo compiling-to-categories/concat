@@ -467,16 +467,15 @@ data Template :: * -> * -> * where
 -- TODO: maybe add (a :> b) as a Subgraph argument for easier optimization later.
 -- If so, change the Show instance to show only the graph.
 
--- deriving instance Show (Template a b)
-
 instance Show (Template a b) where
   show (Prim p) = p
-  show (Subgraph comps _) = show comps
+  show (Subgraph comps _) = "Template:" ++ show comps
 
 -- Transform a subgraph if any. Must preserve meaning, since we leave the
 -- generator unchanged.
 onCompSubgraph :: Unop Graph -> Unop Comp
-onCompSubgraph h (Comp nc (Subgraph g circ) a b) = Comp nc (Subgraph (h g) circ) a b
+onCompSubgraph h (Comp nc (Subgraph g circ) a b) =
+  Comp nc (Subgraph (h g) circ) a b
 onCompSubgraph _ c = c
 
 type Id = Int
