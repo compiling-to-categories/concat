@@ -34,12 +34,12 @@ test-suite graphics-examples
   main-is:             Examples.hs
   build-depends:       base
                      , ghc-prim
+                     , newtype-generics
                      , language-glsl >= 0.2.1
-                     , concat-graphics
                      , concat-classes
                      , concat-plugin
                      , concat-examples
-                     , newtype-generics
+                     , concat-graphics
 
   default-language:    Haskell2010
   ghc-options:         -fplugin=ConCat.Plugin
@@ -50,12 +50,12 @@ test-suite graphics-trace
   main-is:             Examples.hs
   build-depends:       base
                      , ghc-prim
+                     , newtype-generics
                      , language-glsl >= 0.2.1
-                     , concat-graphics
                      , concat-classes
                      , concat-plugin
                      , concat-examples
-                     , newtype-generics
+                     , concat-graphics
   default-language:    Haskell2010
   ghc-options:      -fplugin=ConCat.Plugin
                     -fplugin-opt=ConCat.Plugin:trace
