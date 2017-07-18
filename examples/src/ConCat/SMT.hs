@@ -42,7 +42,7 @@ import Z3.Monad
 import ConCat.Misc ((:*))
 import ConCat.Rep (HasRep(..))
 import ConCat.AltCat
-import ConCat.Circuit (Comp(..),Bus(..),Ty(..),busTy,GenBuses(..),(:>),mkGraph,pattern CompS)
+import ConCat.Circuit (CompS(..),simpleComp,Bus(..),Ty(..),busTy,GenBuses(..),(:>),mkGraph)
 
 type E = AST
 
@@ -62,9 +62,9 @@ solve p = unsafePerformIO $ -- Assuming that evalZ3 is deterministic
      snd <$> withModel (`evalEs` is) -- Extract argument value
  where
    (CompS _ "In" [] busesIn,mids, CompS _ "Out" [res] _) =
-     splitComps (sort (mkGraph p))
+     splitComps (simpleComp <$> sort (mkGraph p))
 
-addComp :: Comp -> M ()
+addComp :: CompS -> M ()
 addComp (CompS _ prim ins [o]) = do es <- mapM busE ins
                                     e  <- lift $ app prim es (busTy o)
                                     modify (M.insert o e)
@@ -252,7 +252,7 @@ solveAscendingFrom' r q = unfoldr (fmap (id &&& exr) . solve' . andAbove' q) r
 -- Extract input, middle, output components. 
 -- TODO: move sort & mkGraph calls here so that we start with a (:>).
 
-splitComps :: [Comp] -> (Comp,[Comp],Comp)
+splitComps :: [CompS] -> (CompS,[CompS],CompS)
 splitComps (i@(CompS _ "In" [] _)
             : (unsnoc -> (mid,o@(CompS _ "Out" _ [])))) = (i,mid,o)
 splitComps comps = error ("ConCat.GLSL.splitComps: Oops: " ++ show comps)
