@@ -20,7 +20,7 @@ import qualified Data.Map as M
 import Text.Printf (printf)
 import System.Directory (createDirectoryIfMissing)
 import qualified System.Info as SI
--- import qualified Debug.Trace as T
+import qualified Debug.Trace as T
 
 import Text.ParserCombinators.Parsec (runParser,ParseError)
 import Text.PrettyPrint.HughesPJClass -- (Pretty,prettyShow)
@@ -28,25 +28,15 @@ import Language.GLSL.Syntax
 import Language.GLSL.Pretty ()
 import Language.GLSL.Parser hiding (parse)
 
--- import NeatInterpolation
--- import Data.Text (Text)
-
 import ConCat.Misc ((:*),R)
 import qualified ConCat.AltCat as A
-import ConCat.Circuit (Comp(..),Bus(..),busTy,(:>),mkGraph,pattern CompS,systemSuccess)
+import ConCat.Circuit (Bus(..),busTy,(:>),simpleComp,mkGraph,CompS(..),systemSuccess)
 import qualified ConCat.Circuit as C
 
 type Image = R :* R -> Bool     -- TODO: color etc
 
 type  Anim = R -> Image
 type CAnim = R :> Image
-
--- genGlsl :: String -> CAnim -> IO ()
--- genGlsl name anim =
---   do createDirectoryIfMissing False outDir
---      writeFile (outDir++"/"++name++".frag") (glsl anim)
---  where
---    outDir = "out/shaders"
 
 animHtml :: CAnim -> String
 animHtml anim = unlines $
@@ -92,7 +82,16 @@ open = case SI.os of
 -- Also the writeFile and putStrLn.
 
 glsl :: CAnim -> String
-glsl = prettyShow . fromComps . sort . mkGraph {- . T.traceShowId -} . A.uncurry {- . T.traceShowId -}
+glsl = prettyShow
+     . fromComps
+     . fmap simpleComp
+     . sort
+     . mkGraph
+     -- . T.traceShowId
+     . A.uncurry
+     -- . T.traceShowId
+
+-- TODO: refactor the fmap simpleComp . sort . mkGraph, which also appears in SMT.
 
 constExpr :: C.Ty -> String -> Expr
 constExpr C.Bool   = BoolConstant        . read
@@ -101,7 +100,7 @@ constExpr C.Float  = FloatConstant       . read
 constExpr C.Double = FloatConstant       . read
 constExpr ty = error ("ConCat.GLSL.constExpr: unexpected literal type: " ++ show ty)
 
-fromComps :: [Comp] -> ExternalDeclaration
+fromComps :: [CompS] -> ExternalDeclaration
 -- fromComps comps | trace ("fromComps " ++ show comps) False = undefined
 fromComps comps
   | (CompS _ "In" [] inputs,mid, CompS _ "Out" [res] _) <- splitComps comps
@@ -112,25 +111,25 @@ fromComps comps
 fromComps comps = error ("ConCat.GLSL.fromComps: unexpected subgraph comp " ++ show comps)
 
 -- Count uses of each output
-uses :: [Comp] -> M.Map Bus Int
+uses :: [CompS] -> M.Map Bus Int
 uses = M.unionsWith (+) . map uses1
 
 -- Uses map for a single component
-uses1 :: Comp -> M.Map Bus Int
+uses1 :: CompS -> M.Map Bus Int
 uses1 (CompS _ _ ins _) = M.unionsWith (+) (flip M.singleton 1 <$> ins)
-uses1 comp = error ("ConCat.GLSL.uses1: unexpected subgraph comp " ++ show comp)
+-- uses1 comp = error ("ConCat.GLSL.uses1: unexpected subgraph comp " ++ show comp)
 
 nestExpressions :: Bool
 nestExpressions = True -- False
 
 -- Given usage counts, generate delayed bindings and assignments
-accumComps :: M.Map Bus Int -> [Comp] -> (M.Map Bus Expr, [(Bus,Expr)])
+accumComps :: M.Map Bus Int -> [CompS] -> (M.Map Bus Expr, [(Bus,Expr)])
 -- accumComps counts | trace ("accumComps: counts = " ++ show counts) False = undefined
 accumComps counts = go M.empty
  where
    -- Generate bindings for outputs used more than once,
    -- and accumulate a map of the others.
-   go :: M.Map Bus Expr -> [Comp] -> (M.Map Bus Expr, [(Bus,Expr)])
+   go :: M.Map Bus Expr -> [CompS] -> (M.Map Bus Expr, [(Bus,Expr)])
    -- go saved comps | trace ("accumComps/go " ++ show saved ++ " " ++ show comps) False = undefined
    go saved [] = (saved, [])
    go saved (c@(CompS _ _ _ [o]) : comps) 
@@ -142,7 +141,7 @@ accumComps counts = go M.empty
       e = compExpr saved c
    go _ c = error ("ConCat.GLSL.accumComps: oops: " ++ show c)
 
-compExpr :: M.Map Bus Expr -> Comp -> Expr
+compExpr :: M.Map Bus Expr -> CompS -> Expr
 compExpr _ (CompS _ str [] [Bus _ _ ty]) = constExpr ty str
 compExpr saved (CompS _ prim ins [Bus _ _ ty]) = app ty prim (inExpr <$> ins)
  where
@@ -216,7 +215,7 @@ bToE :: Bus -> Expr
 bToE = Variable . varName
 
 -- Extract input, middle, output components. 
-splitComps :: [Comp] -> (Comp,[Comp],Comp)
+splitComps :: [CompS] -> (CompS,[CompS],CompS)
 splitComps (i@(CompS _ "In" [] _)
             : (unsnoc -> (mid,o@(CompS _ "Out" _ [])))) = (i,mid,o)
 splitComps comps = error ("ConCat.GLSL.splitComps: Oops: " ++ show comps)
