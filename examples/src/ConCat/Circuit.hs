@@ -87,7 +87,7 @@ module ConCat.Circuit
   -- , delayCRep, unDelayName
   , namedC, constC -- , constS
   , genUnflattenB'
-  , SourceToBuses(..), pattern CompS
+  , SourceToBuses(..), CompS(..), simpleComp
   , mkGraph
   , Attr
   , writeDot, displayDot,Name,Report,Graph
@@ -1750,14 +1750,16 @@ subgraphDot nc comps =
 
 type Statement = String
 
--- simpleComp :: Comp -> CompS
--- simpleComp (Comp n prim a b,reuses) = CompS n (show prim) (flatB a) (flatB b) reuses
+data CompS = CompS CompId PrimName [Input] [Output] deriving Show
+
+simpleComp :: Comp -> CompS
+simpleComp (Comp n prim a b) = CompS n (show prim) (flatB a) (flatB b)
+
+-- pattern CompS :: CompId -> String -> [Bus] -> [Bus] -> Comp
+-- pattern CompS cid name ins outs <- Comp cid (Prim name) (flatB -> ins) (flatB -> outs)
 
 flatB :: GenBuses c => Buses c -> [Bus]
 flatB = fmap sourceBus . flattenB
-
-pattern CompS :: CompId -> String -> [Bus] -> [Bus] -> Comp
-pattern CompS cid name ins outs <- Comp cid (Prim name) (flatB -> ins) (flatB -> outs)
 
 data Dir = In | Out deriving Show
 type PortNum = Int
@@ -1806,7 +1808,8 @@ recordDots comps = nodes ++ edges
    nodes = concatMap node comps
     where
       node :: Comp -> [Statement]
-      node (CompS nc (prettyName -> prim) ins outs) =
+      node (Comp nc (Subgraph g _) UnitB (PrimB _)) = subgraphDot nc g
+      node (simpleComp -> CompS nc (prettyName -> prim) ins outs) =
         [prefix ++ mbCluster 
          (printf "%s [label=\"{%s%s%s}\"%s]"
            (compLab nc) 
@@ -1843,8 +1846,7 @@ recordDots comps = nodes ++ edges
           where
              mbEsc | (c `elem` "<>|{}") || not (isAscii c)  = ('\\' :)
                    | otherwise     = id
-      node (Comp nc (Subgraph g _) UnitB (PrimB _)) = subgraphDot nc g
-      node comp = error ("recordDots/node: unexpected comp " ++ show comp)
+      -- node comp = error ("recordDots/node: unexpected comp " ++ show comp)
    bracket = ("<"++) . (++">")
    edges = concatMap compEdges comps
     where
