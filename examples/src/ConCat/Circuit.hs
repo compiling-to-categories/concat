@@ -1450,7 +1450,8 @@ instance (GenBuses a, GenBuses b) => ArrayCat (:>) a b where
 --------------------------------------------------------------------}
 
 instance (GenBuses a, Ok2 (:>) a b) => Show (a :> b) where
-  show = show . mkGraph -- runC
+  -- show = show . mkGraph -- runC
+  show = show . fmap simpleComp . mkGraph
 
 --     Application is no smaller than the instance head
 --       in the type family application: RepT :> a
@@ -1494,7 +1495,7 @@ uuGraph' :: UU -> IdSupply -> (Graph,IdSupply)
 uuGraph' = runU'  -- for now
 
 mkGraph :: Ok2 (:>) a b => (a :> b) -> Graph
-mkGraph g = trimGraph (fst (mkGraph' g 0))
+mkGraph g = sort $ trimGraph $ fst (mkGraph' g 0)
 
 mkGraph' :: Ok2 (:>) a b => (a :> b) -> IdSupply -> (Graph,IdSupply)
 mkGraph' g n = uuGraph' (unitize g) n
@@ -1531,6 +1532,9 @@ renameC = id
 #else
 #if defined NoIdempotence
         . (++"-no-idem")
+#endif
+#if defined NoCommute
+        . (++"-no-commute")
 #endif
 #if defined NoIfBotOpt
         . (++"-no-ifbot")
