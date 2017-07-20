@@ -15,12 +15,11 @@
 
 module ConCat.Graphics.GLSL (Anim,CAnim,genHtml,runHtml) where
 
-import Data.List (sort)
 import qualified Data.Map as M
 import Text.Printf (printf)
 import System.Directory (createDirectoryIfMissing)
 import qualified System.Info as SI
-import qualified Debug.Trace as T
+-- import qualified Debug.Trace as T
 
 import Text.ParserCombinators.Parsec (runParser,ParseError)
 import Text.PrettyPrint.HughesPJClass -- (Pretty,prettyShow)
@@ -33,10 +32,12 @@ import qualified ConCat.AltCat as A
 import ConCat.Circuit (Bus(..),busTy,(:>),simpleComp,mkGraph,CompS(..),systemSuccess)
 import qualified ConCat.Circuit as C
 
-type Image = R :* R -> Bool     -- TODO: color etc
+type Image c = R :* R -> c
 
-type  Anim = R -> Image
-type CAnim = R :> Image
+type Region = Image Bool
+
+type  Anim = R -> Region
+type CAnim = R :> Region
 
 animHtml :: CAnim -> String
 animHtml anim = unlines $
@@ -85,13 +86,12 @@ glsl :: CAnim -> String
 glsl = prettyShow
      . fromComps
      . fmap simpleComp
-     . sort
      . mkGraph
      -- . T.traceShowId
      . A.uncurry
      -- . T.traceShowId
 
--- TODO: refactor the fmap simpleComp . sort . mkGraph, which also appears in SMT.
+-- TODO: Abstract fmap simpleComp . mkGraph, which also appears in Show (a :> b) and SMT.
 
 constExpr :: C.Ty -> String -> Expr
 constExpr C.Bool   = BoolConstant        . read
