@@ -62,7 +62,7 @@ solve p = unsafePerformIO $ -- Assuming that evalZ3 is deterministic
      snd <$> withModel (`evalEs` is) -- Extract argument value
  where
    (CompS _ "In" [] busesIn,mids, CompS _ "Out" [res] _) =
-     splitComps (simpleComp <$> sort (mkGraph p))
+     splitComps (simpleComp <$> mkGraph p)
 
 addComp :: CompS -> M ()
 addComp (CompS _ prim ins [o]) = do es <- mapM busE ins
@@ -250,7 +250,6 @@ solveAscendingFrom' r q = unfoldr (fmap (id &&& exr) . solve' . andAbove' q) r
 --------------------------------------------------------------------}
 
 -- Extract input, middle, output components. 
--- TODO: move sort & mkGraph calls here so that we start with a (:>).
 
 splitComps :: [CompS] -> (CompS,[CompS],CompS)
 splitComps (i@(CompS _ "In" [] _)
