@@ -30,7 +30,7 @@ import Prelude hiding (id,(.),const)
 import Data.Monoid ((<>))
 import Data.Foldable (toList)
 import Control.Applicative (liftA2)
-import Data.List (sort,unfoldr)
+import Data.List (unfoldr)
 import qualified Data.Map as M
 import Data.Sequence (Seq,singleton)
 import System.IO.Unsafe (unsafePerformIO)
