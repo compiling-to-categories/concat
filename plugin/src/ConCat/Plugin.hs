@@ -1860,7 +1860,8 @@ isMonoTy (AppTy u v)           = isMonoTy u && isMonoTy v
 isMonoTy (ForAllTy (Anon u) v) = isMonoTy u && isMonoTy v
 isMonoTy _                     = False
 
--- | Number of occurrences of a given Id in an expression
+-- | Number of occurrences of a given Id in an expression.
+-- Gives a large value if the Id appears under a lambda.
 idOccs :: Id -> CoreExpr -> Int
 idOccs x = go
  where
@@ -1875,7 +1876,7 @@ idOccs x = go
    go (Tick _ e)               = go e
    go (Cast e _)               = go e
    go (Lam y body) | y == x    = 0
-                   | otherwise = go body
+                   | otherwise = 100 * go body
    go (Let bind body)          = goBind bind + go body
    go (Case e _ _ alts)        = go e + sum (goAlt <$> alts)
    goBind (NonRec y rhs) = goB (y,rhs)
