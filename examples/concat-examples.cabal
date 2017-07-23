@@ -42,7 +42,9 @@ library
                      -- -- For NatArr
                      -- , ghc-typelits-knownnat
                      -- For Incremental		
-                     , transformers >= 0.5.2.0, mtl >= 2.2.1		
+                     , transformers >= 0.5.2.0, mtl >= 2.2.1
+                     -- For Gui
+                     , data-default
                      -- For SMT
                      , z3
   exposed-modules:     
