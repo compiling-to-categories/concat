@@ -42,7 +42,7 @@
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
--- {-# OPTIONS_GHC -dsuppress-uniques #-}
+{-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
 
@@ -99,11 +99,11 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- -- Circuit graphs
-  -- , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
-  -- , runSynCirc "magSqr"    $ ccc $ magSqr @R
-  -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
-  -- , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
+  -- Circuit graphs
+  , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
+  , runSynCirc "magSqr"    $ ccc $ magSqr @R
+  , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
+  , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
   , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
 
   -- -- Interval analysis
@@ -187,7 +187,7 @@ main = sequence_
 
   -- , runSolve $ ccc $ fermatMax @Int -- Just ((3,4,5),5)
 
-  -- , runSolveAsc $ ccc $ fermatMax @Int  -- hangs
+  -- , runSolveAsc $ ccc $ fermatMax @Int
 
   -- , runSolveAsc $ ccc $ fermatMaxUnder @Int 10
   -- , runSolveAsc $ ccc $ fermatMaxUnder @Int 100
@@ -198,7 +198,6 @@ main = sequence_
 
   -- -- Broken
   -- , runSolve $ ccc $ (\ (x::R,y) -> x + y == 15 && x * y == 20)  -- "illegal argument" ??
-  -- , runSyn $ ccc $ (\ (x :: Int) -> x == 9)
 
   -- Recursion experiments
   -- , runSynCirc "fac1" $ ccc $ fac1  -- bare unboxed var
