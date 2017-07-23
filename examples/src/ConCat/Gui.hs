@@ -11,6 +11,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
@@ -51,6 +52,9 @@ unPairI :: {- (Show a, Show b) => -} In (a :* b) -> In a :* In b
 unPairI (PairI a b) = (a,b)
 unPairI i = (NoI a,NoI b) where (a,b) = initI i
 
+pattern PairI' :: In a -> In b -> In (a :* b)
+pattern PairI' a b <- (unPairI -> (a,b))
+
 instance Monoid (Out a) where
   mempty = NoO
   NoO `mappend` b = b
@@ -74,6 +78,12 @@ unFunO (a :--> b) = (a,b)
 unFunO _o = error ("unFunO: given a non-lambda " {- ++ show _o -})
 -- unFunO ab = (NoI ?,NoO)
 
+pattern PairO' :: Out a -> Out b -> Out (a :* b)
+pattern PairO' a b <- (unPairO -> (a,b))
+
+pattern (::->) :: In a -> Out b -> Out (a -> b)
+pattern (::->) a b <- (unFunO -> (a,b))
+
 -- deriving instance Show (Out a)
 
 data Gui a b = Gui (In a) (Out b) -- deriving Show
@@ -84,7 +94,7 @@ instance Newtype (Gui a b) where
   unpack (Gui a b) = (a,b)
 
 input :: In a -> Gui a a
-input = pack . (,NoO)
+input = pack . (,mempty)
 
 instance Default a => Monoid (In a) where
   mempty = NoI def
@@ -115,8 +125,10 @@ instance OpCon (Exp Gui) (Sat Default) where inOp = Entail (Sub Dict)
 
 instance ClosedCat Gui where
   apply = noGui
-  curry (Gui (unPairI -> (a,b)) c) = Gui a (b :--> c)
-  uncurry (Gui a (unFunO -> (b,c))) = Gui (PairI a b) c
+  -- curry   (Gui (unPairI -> (a,b)) c) = Gui a (b :--> c)
+  -- uncurry (Gui a (unFunO -> (b,c)))  = Gui (PairI a b) c
+  curry (Gui (PairI' a b) c) = Gui a (b :--> c)
+  uncurry (Gui a (b ::-> c)) = Gui (PairI a b) c
 
 {--------------------------------------------------------------------
     Instantiating GUIs --- a sketch for now
