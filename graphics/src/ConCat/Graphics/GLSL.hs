@@ -13,7 +13,7 @@
 
 -- | Generate GLSL code from a circuit graph
 
-module ConCat.Graphics.GLSL (Anim,CAnim,genHtml,runHtml) where
+module ConCat.Graphics.GLSL (genHtml,runHtml) where
 
 import qualified Data.Map as M
 import Text.Printf (printf)
@@ -25,21 +25,19 @@ import Text.ParserCombinators.Parsec (runParser,ParseError)
 import Text.PrettyPrint.HughesPJClass -- (Pretty,prettyShow)
 import Language.GLSL.Syntax
 import Language.GLSL.Pretty ()
-import Language.GLSL.Parser hiding (parse)
+import Language.GLSL.Parser
 
 import ConCat.Misc ((:*),R)
 import qualified ConCat.AltCat as A
-import ConCat.Circuit (Bus(..),busTy,(:>),simpleComp,mkGraph,CompS(..),systemSuccess)
+import ConCat.Circuit
+  (Bus(..),GenBuses,busTy,(:>),simpleComp,mkGraph,CompS(..),systemSuccess)
 import qualified ConCat.Circuit as C
 
 type Image c = R :* R -> c
 
 type Region = Image Bool
 
-type  Anim = R -> Region
-type CAnim = R :> Region
-
-animHtml :: CAnim -> String
+animHtml :: GenBuses a => (a :> Region) -> String
 animHtml anim = unlines $
   [ "<!DOCTYPE html>" , "<html>" , "<head>"
   , "<meta charset='utf-8'/>"
@@ -54,14 +52,14 @@ animHtml anim = unlines $
   , "`;"
   , "</script>" ]
 
-genHtml :: String -> CAnim -> IO ()
+genHtml :: GenBuses a => String -> (a :> Region) -> IO ()
 genHtml name anim =
   do createDirectoryIfMissing False outDir
      let o = outFile name
      writeFile o (animHtml anim)
      putStrLn ("Wrote " ++ o)
 
-runHtml :: String -> CAnim -> IO ()
+runHtml :: GenBuses a => String -> (a :> Region) -> IO ()
 runHtml name anim =
   do genHtml name anim
      systemSuccess $ printf "%s %s" open (outFile name)
@@ -82,7 +80,7 @@ open = case SI.os of
 -- Move the createDirectoryIfMissing logic there as well.
 -- Also the writeFile and putStrLn.
 
-glsl :: CAnim -> String
+glsl :: GenBuses a => (a :> Region) -> String
 glsl = prettyShow
      . fromComps
      . fmap simpleComp
@@ -93,22 +91,19 @@ glsl = prettyShow
 
 -- TODO: Abstract fmap simpleComp . mkGraph, which also appears in Show (a :> b) and SMT.
 
-constExpr :: C.Ty -> String -> Expr
-constExpr C.Bool   = BoolConstant        . read
-constExpr C.Int    = IntConstant Decimal . read
-constExpr C.Float  = FloatConstant       . read
-constExpr C.Double = FloatConstant       . read
-constExpr ty = error ("ConCat.GLSL.constExpr: unexpected literal type: " ++ show ty)
-
-fromComps :: [CompS] -> ExternalDeclaration
+fromComps :: [CompS] -> TranslationUnit
 -- fromComps comps | trace ("fromComps " ++ show comps) False = undefined
 fromComps comps
   | (CompS _ "In" [] inputs,mid, CompS _ "Out" [res] _) <- splitComps comps
   , let (bindings, assignments) = accumComps (uses mid) mid
-  = funDef Bool "effect" (paramDecl <$> inputs)
-           (map (uncurry initBus) assignments
-            ++ [Return (Just (bindings M.! res))])
-fromComps comps = error ("ConCat.GLSL.fromComps: unexpected subgraph comp " ++ show comps)
+        (uniforms,varyings) = splitAt' 2 inputs
+  = TranslationUnit $
+      map (Declaration . uniformDecl) uniforms ++
+      [funDef Bool "effect" (paramDecl <$> varyings)
+              (map (uncurry initBus) assignments
+               ++ [Return (Just (bindings M.! res))])]
+fromComps comps =
+  error ("ConCat.GLSL.fromComps: unexpected subgraph comp " ++ show comps)
 
 -- Count uses of each output
 uses :: [CompS] -> M.Map Bus Int
@@ -150,11 +145,18 @@ compExpr saved (CompS _ prim ins [Bus _ _ ty]) = app ty prim (inExpr <$> ins)
             | otherwise = bToE b
 compExpr _ comp = error ("ConCat.GLSL.compExpr: unexpected subgraph comp " ++ show comp)
 
+constExpr :: C.Ty -> String -> Expr
+constExpr C.Bool   = BoolConstant        . read
+constExpr C.Int    = IntConstant Decimal . read
+constExpr C.Float  = FloatConstant       . read
+constExpr C.Double = FloatConstant       . read
+constExpr ty = error ("ConCat.GLSL.constExpr: unexpected literal type: " ++ show ty)
+
 busType :: Bus -> TypeSpecifierNonArray
 busType = glslTy . busTy
 
 initBus :: Bus -> Expr -> Statement
-initBus b e = initDecl (busType b) (varName b) e
+initBus b e = DeclarationStatement (decl Nothing (busType b) (varName b) (Just e))
 
 glslTy :: C.Ty -> TypeSpecifierNonArray
 glslTy C.Int    = Int
@@ -221,7 +223,12 @@ splitComps (i@(CompS _ "In" [] _)
 splitComps comps = error ("ConCat.GLSL.splitComps: Oops: " ++ show comps)
 
 unsnoc :: [a] -> ([a],a)
-unsnoc as = (mid,o) where (mid,[o]) = splitAt (length as - 1) as
+-- unsnoc as = (mid,o) where (mid,[o]) = splitAt (length as - 1) as
+unsnoc as = (mid,o) where (mid,[o]) = splitAt' 1 as
+
+-- Like splitAt but where count is from the end
+splitAt' :: Int -> [a] -> ([a], [a])
+splitAt' n as = splitAt (length as - n) as
 
 {--------------------------------------------------------------------
     GLSL syntax utilities
@@ -231,19 +238,27 @@ unsnoc as = (mid,o) where (mid,[o]) = splitAt (length as - 1) as
 _parse :: P a -> String -> Either ParseError a
 _parse p = runParser p S "GLSL"
 
-initDecl :: TypeSpecifierNonArray -> String -> Expr -> Statement
-initDecl ty var e =
- DeclarationStatement (
+decl :: Maybe TypeQualifier -> TypeSpecifierNonArray -> String -> Maybe Expr -> Declaration
+decl mbTq ty var mbe =
   InitDeclaration (
       TypeDeclarator (
-          FullType Nothing (TypeSpec Nothing (TypeSpecNoPrecision ty Nothing))))
-  [InitDecl var Nothing (Just e)])
+          FullType mbTq (TypeSpec Nothing (TypeSpecNoPrecision ty Nothing))))
+   [InitDecl var Nothing mbe]
 
 paramDecl :: Bus -> ParameterDeclaration
 paramDecl b =
   ParameterDeclaration Nothing Nothing 
     (TypeSpec Nothing (TypeSpecNoPrecision (busType b) Nothing))
     (Just (varName b,Nothing))
+
+uniformDecl :: Bus -> Declaration
+uniformDecl b =
+  decl (Just (TypeQualSto Uniform)) (busType b) (varName b) Nothing
+
+#if 0
+λ> parse "uniform float time;"
+Right (TranslationUnit [Declaration (InitDeclaration (TypeDeclarator (FullType (Just (TypeQualSto Uniform)) (TypeSpec Nothing (TypeSpecNoPrecision Float Nothing)))) [InitDecl "time" Nothing Nothing])])
+#endif
 
 funDef :: TypeSpecifierNonArray -> String -> [ParameterDeclaration]
        -> [Statement] -> ExternalDeclaration
@@ -259,6 +274,7 @@ funcall fun args = FunctionCall (FuncId fun) (Params args)
 
 -- funcall1 :: String -> Expr -> Expr
 -- funcall1 fun = funcall fun . (:[])
+
 
 #if 0
 selectField :: String -> String -> Expr
