@@ -1,8 +1,9 @@
+{-# LANGUAGE FlexibleContexts #-}
 -- To run:
 -- 
 --   stack build :graphics-examples
 --
---   stack build :graphics-trace >& ~/Haskell/concat/out/o1
+--   stack build :graphics-trace >& ~/Haskell/concat/graphics/out/o1
 -- 
 -- You might also want to use stack's --file-watch flag for automatic recompilation.
 
@@ -21,8 +22,14 @@
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
+-- {-# OPTIONS_GHC -ddump-simpl #-}
+
 -- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}  -- default 100
+
+-- {-# OPTIONS -fplugin-opt=ConCat.Plugin:trace #-}
+
+{-# OPTIONS_GHC -fno-do-lambda-eta-expansion #-}
 
 module Main where
 
@@ -31,11 +38,12 @@ import GHC.Float (int2Double)   -- TEMP
 
 import ConCat.Misc ((:*),R,sqr,magSqr,Unop,Binop,inNew,inNew2)
 import ConCat.Circuit (GenBuses,(:>))
-import ConCat.Graphics.GLSL (CAnim,genHtml,runHtml)
+import ConCat.Graphics.GLSL (genHtml,runHtml)
 import ConCat.Graphics.Image
 import qualified ConCat.RunCircuit as RC
 import ConCat.Syntactic (Syn,render)
 import ConCat.AltCat (Ok2,ccc,(:**:)(..))
+import qualified ConCat.AltCat as A
 
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 
@@ -43,9 +51,29 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- , runHtml "foo" $ ccc $ \ t (x,y) -> x > y + sin t
+  -- , runSynCirc "example-a" $ ccc $ \ t (x::R,y) -> x > y + sin t
 
-  -- , genHtml "disk-sizing"   $ ccc $ disk . cos
+  -- , runSynCirc "example-a2" $ ccc $
+  --     \ (t :: R) -> let s = sin t in \ (x,y) -> x > y + s
+
+  -- , runSynCirc "example-a2-uncurry" $ ccc $
+  --     uncurry (\ (t :: R) -> let s = sin t in \ (x,y) -> x > y + s)
+
+  -- , runSynCirc "example-b" $ ccc $ \ (t :: R) -> let s = sin t in \ (x,y) -> x > y + s
+
+  -- , runSynCirc "example-c" $ ccc exampleC
+
+  -- , runSynCirc "example-d" $ ccc exampleD
+
+  -- , runSynCirc "example-c2" $ exampleC2
+
+  -- , runSynCirc "example-c3p" $ exampleC3'
+
+  -- , runHtml "example-a" $ ccc $ \ t (x,y) -> x > y + sin t
+
+  -- , runSynCirc "disk-sizing-uncurry"   $ ccc $ uncurry (disk . cos)
+
+  , runHtml "disk-sizing"   $ ccc $ disk . cos
   -- , genHtml "wobbly-disk" $ ccc $
   --     \ t -> disk' (0.75 + 0.25 * cos t)
   -- , genHtml "diag-plus-im"  $ ccc $ \ t ((x,y) :: R2) -> x + sin t > y
@@ -66,9 +94,9 @@ main = sequence_
   --     orbits1 t `intersectR` translate (t/10,0) checker13
   -- , genHtml "checker-orbits5" $ ccc $ \ t -> 
   --     orbits1 t `intersectR` rotate (t/10) checker13
-  , runHtml "orbits2" $ ccc $ orbits2
-  , runHtml "checker-orbits6" $ ccc $ \ t ->
-      orbits2 t `intersectR` rotate (t/10) checker13
+  -- , runHtml "orbits2" $ ccc $ orbits2
+  -- , runHtml "checker-orbits6" $ ccc $ \ t ->
+  --     orbits2 t `intersectR` rotate (t/10) checker13
 
   ]
 
@@ -89,7 +117,7 @@ runCirc nm circ = RC.run nm [] circ
 runSynCirc :: GO a b => String -> EC a b -> IO ()
 runSynCirc nm (syn :**: circ) = runSyn syn >> runCirc nm circ
 
-runCircHtml :: String -> CAnim -> IO ()
+runCircHtml :: GenBuses a => String -> (a :> Region) -> IO ()
 runCircHtml nm circ = runCirc nm circ >> runHtml nm circ
 
 -- TODO: Fix runCircHtml to construct the graph once instead of twice.
@@ -117,3 +145,24 @@ orbits2 z =
 
 checker13 :: Region
 checker13 = uscale (1/3) checker
+
+exampleB :: R -> Region
+exampleB = \ t -> let s = sin t in \ (x,y) -> x > y + s
+
+exampleC :: Double -> Double -> Double
+exampleC = \ t -> let s = sin t in \ x -> x + s
+
+exampleC2 :: EC R (R -> R)
+exampleC2 = A.curry (A.addC A.. (A.exr A.&&& A.sinC A.. A.exl))
+
+exampleC3 :: EC R (R -> R)
+exampleC3 = A.curry (A.addC A.. (A.exr A.&&& A.exl)) A.. A.sinC
+
+exampleC3' :: ( A.ClosedCat k, A.FloatingCat k R, A.NumCat k R
+              , A.Ok k (R :* R), A.Ok k (R -> R) )
+           => R `k` (R -> R)
+exampleC3' = A.curry (A.addC A.. (A.exr A.&&& A.exl)) A.. A.sinC
+
+-- Swap addends
+exampleD :: Double -> Double -> Double
+exampleD = \ t -> let s = sin t in \ x -> s + x
