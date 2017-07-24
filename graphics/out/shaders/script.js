@@ -167,9 +167,11 @@ function shaderString(shader) {
     return shader.uvars.map(uvarString).join() + shader.def;
 }
 
-// Assumes a canvas element with id "effect_canvas" and a global variable named "effect_source"
+// Assumes a canvas element with id "effect_canvas" and a global variable named "effect"
 function go() {
     var canvas = document.getElementById("effect_canvas");
+    var effect_source = shaderString(effect)
+    // console.log("effect object:\n\n" + JSON.stringify(effect) );
     // console.log("effect source:\n\n" + effect_source );
     install_effect(canvas,effect_source);
     window.onresize = function() {

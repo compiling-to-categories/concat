@@ -65,8 +65,7 @@ effectHtml effect = unlines $
   , "<canvas id='effect_canvas' style='background-color:green'></canvas>"
   , "</body>" , "</html>"
   , "<script>"
-  -- , "var effect_source = `" , "", glsl effect, "" , "`;"
-  , "var effect_source = shaderString(", glsl effect, ");"
+  , "var effect = ", glsl effect, ";"
   , "</script>" ]
 
 genHtml :: GenBuses a => String -> (a :> Region) -> IO ()
