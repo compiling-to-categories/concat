@@ -12,7 +12,8 @@
 {-# LANGUAGE ParallelListComp #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
--- {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
 
 {-# OPTIONS_GHC -Wall #-}
 -- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
@@ -21,20 +22,18 @@
 
 -- | Generate GLSL code from a circuit graph
 
-module ConCat.Graphics.GLSL (genHtml,runHtml) where
+module ConCat.Graphics.GLSL (genHtml,runHtml,Widget(..),Widgets(..)) where
 
-import Control.Applicative (liftA2)
+-- import Control.Applicative (liftA2)
 import qualified Data.Map as M
 import Text.Printf (printf)
 import System.Directory (createDirectoryIfMissing)
 import qualified System.Info as SI
 -- import qualified Debug.Trace as DT
 
-import Control.Monad.State (State,runState,get,put)
-
 import qualified Data.Aeson as J
 import Data.Aeson (ToJSON(..),object,(.=))
-import Data.Aeson.Encode.Pretty (encodePretty)
+import Data.Aeson.Encode.Pretty (encodePretty',Config(..),defConfig,keyOrder)
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy.Char8 as BS
 
@@ -54,8 +53,8 @@ type Image c = R :* R -> c
 
 type Region = Image Bool
 
-effectHtml :: GenBuses a => (a :> Region) -> String
-effectHtml effect = unlines $
+effectHtml :: GenBuses a => Widgets a -> (a :> Region) -> String
+effectHtml unifs effect = unlines $
   [ "<!DOCTYPE html>" , "<html>" , "<head>"
   , "<meta charset='utf-8'/>"
   , "<script type='text/javascript' src='script.js'></script>"
@@ -64,20 +63,22 @@ effectHtml effect = unlines $
   , "<canvas id='effect_canvas' style='background-color:green'></canvas>"
   , "</body>" , "</html>"
   , "<script>"
-  , "var effect = ", glsl effect, ";"
+  , "var effect = ", glsl unifs effect, ";"
   , "</script>" ]
 
-genHtml :: GenBuses a => String -> (a :> Region) -> IO ()
-genHtml name anim =
+genHtml :: GenBuses a => String -> Widgets a -> (a :> Region) -> IO ()
+genHtml name unifs effect =
   do createDirectoryIfMissing False outDir
      let o = outFile name
-     writeFile o (effectHtml anim)
+     writeFile o (effectHtml unifs effect)
      putStrLn ("Wrote " ++ o)
 
-runHtml :: GenBuses a => String -> (a :> Region) -> IO ()
-runHtml name anim =
-  do genHtml name anim
+runHtml :: GenBuses a => String -> Widgets a -> (a :> Region) -> IO ()
+runHtml name unifs effect =
+  do genHtml name unifs effect
      systemSuccess $ printf "%s %s" open (outFile name)
+
+-- TODO: Do we still need GenBuses?
 
 outDir :: String
 outDir = "out/shaders"
@@ -96,29 +97,29 @@ open = case SI.os of
 -- Also the writeFile and putStrLn.
 
 -- Generate JavaScript code for a JSON shader object.
-glsl :: GenBuses a => (a :> Region) -> String
-glsl = BS.unpack
-     . encodePretty
-     . compsShader
-     . fmap simpleComp
-     . mkGraph
-     -- . DT.traceShowId
-     . A.uncurry
-     -- . DT.traceShowId
+glsl :: GenBuses a => Widgets a -> (a :> Region) -> String
+glsl unifs = BS.unpack
+           . encodePretty' prettyConfig
+           . compsShader unifs
+           . fmap simpleComp
+           . mkGraph
+           -- . DT.traceShowId
+           . A.uncurry
+           -- . DT.traceShowId
 
 -- TODO: Abstract fmap simpleComp . mkGraph, which also appears in Show (a :> b) and SMT.
 
-compsShader :: [CompS] -> Shader
+compsShader :: Widgets a -> [CompS] -> Shader a
 -- compsShader comps | trace ("compsShader " ++ show comps) False = undefined
-compsShader comps
+compsShader unifs comps
   | (CompS _ "In" [] inputs,mid, CompS _ "Out" [res] _) <- splitComps comps
   , let (bindings, assignments) = accumComps (uses mid) mid
         (uniforms,varyings) = splitAt' 2 inputs
-  = Shader (map busUVar uniforms)
+  = Shader (zipWith busUVar uniforms (uWidgets unifs))
       (funDef Bool "effect" (paramDecl <$> varyings)
               (map (uncurry initBus) assignments
                ++ [Return (Just (bindings M.! res))]))
-compsShader comps =
+compsShader _ comps =
   error ("ConCat.GLSL.compsShader: unexpected subgraph comp " ++ show comps)
 
 -- Count uses of each output
@@ -300,27 +301,36 @@ assign v e = ExpressionStatement (Just (Equal (Variable v) e))
     Shader representation for conversion to JSON and String
 --------------------------------------------------------------------}
 
-data Widget = Time | Slider String (R,R) R deriving Show
+data Widget = Time | Slider String (R,R) R
+
+instance Show Widget where
+  show Time = "Time"
+  show (Slider lab bounds start) =
+    printf "Slider %s %s %s" lab (show bounds) (show start)
 
 instance ToJSON Widget where
-  toJSON Time = object ["widgetType" .= T.pack "time"]
+  toJSON Time = object ["type" .= T.pack "time"]
   toJSON (Slider label (lo,hi) start) =
-    object [ "widgetType" .= T.pack "slider"
-           , "label"      .= label
-           , "low"        .= lo
-           , "high"       .= hi
-           , "start"      .= start
+    object [ "type"  .= T.pack "slider"
+           , "label" .= label
+           , "low"   .= lo
+           , "high"  .= hi
+           , "start" .= start
            ]
+
+prettyConfig :: Config
+prettyConfig = defConfig { confCompare = keyOrder keys }
+ where
+   keys = ["type","name","widget","label","low","high","start"]
 
 -- | Uniform variable
 data UVar = UVar TypeSpecifierNonArray String Widget deriving Show
 
-busUVar :: Bus -> UVar
-busUVar b = UVar (busType b) (varName b) Time
--- Working here. Replace Time
+busUVar :: Bus -> Widget -> UVar
+busUVar b = UVar (busType b) (varName b)
 
 -- | Fragment shader with uniform parameters and code.
-data Shader = Shader [UVar] ExternalDeclaration deriving Show
+data Shader a = Shader [UVar] ExternalDeclaration deriving Show
 
 -- Orphan
 instance ToJSON C.Ty where toJSON = showJSON
@@ -339,32 +349,34 @@ instance ToJSON UVar where
   toJSON (UVar ty name widget) =
     object ["type" .= ty, "name" .= name, "widget" .= widget]
 
-instance ToJSON Shader where
+instance ToJSON (Shader a) where
   toJSON (Shader vars def) = object ["uvars" .= vars, "def" .= def]
 
-#if 1
-
 -- Input descriptions for uniform parameters
-data Uniforms :: * -> * where
-  UnitU :: Uniforms ()
-  PrimU :: GenBuses a => String -> Uniforms a
-  PairU :: Uniforms a -> Uniforms b -> Uniforms (a :* b)
+data Widgets :: * -> * where
+  UnitU :: Widgets ()
+  PrimU :: GenBuses a => Widget -> Widgets a
+  PairU :: Widgets a -> Widgets b -> Widgets (a :* b)
 
--- flattenU :: forall a. Uniforms a -> [UVar]
--- flattenU UnitU = []
--- flattenU (PrimU nm) = [UVar (glslTy (C.ty @a)) nm]
--- flattenU (PairU a b) = flattenU a ++ flattenU b
+deriving instance Show (Widgets a)
 
--- TODO: rework flattenU for efficiency, taking an accumulation argument,
+uWidgets :: Widgets a -> [Widget]
+uWidgets UnitU       = []
+uWidgets (PrimU wid) = [wid]
+uWidgets (PairU a b) = uWidgets a ++ uWidgets b
+
+-- TODO: rework uWidgets for efficiency, taking an accumulation argument,
 -- (equivalently) generating a difference list, or generating a Seq.
 
-class HasUniform a where
-  mkU :: State [String] (Uniforms a)
+#if 0
 
-primMkU :: GenBuses a => State [String] (Uniforms a)
-primMkU = do nm : nms' <- get
-             put nms'
-             return (PrimU nm)
+class HasUniform a where
+  mkU :: State [UVar] (Widgets a)
+
+primMkU :: GenBuses a => State [UVar] (Widgets a)
+primMkU = do v : vs' <- get
+             put vs'
+             return (PrimU v)
 
 instance HasUniform Int    where mkU = primMkU
 instance HasUniform Float  where mkU = primMkU
@@ -375,7 +387,7 @@ instance HasUniform () where mkU = return UnitU
 instance (HasUniform a, HasUniform b) => HasUniform (a :* b) where
   mkU = liftA2 PairU mkU mkU
 
-mkUniforms :: HasUniform a => [String] -> Uniforms a
-mkUniforms = fst . runState mkU
+mkWidgets :: HasUniform a => [UVar] -> Widgets a
+mkWidgets = fst . runState mkU
 
 #endif

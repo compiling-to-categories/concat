@@ -38,7 +38,7 @@ import GHC.Float (int2Double)   -- TEMP
 
 import ConCat.Misc ((:*),R,sqr,magSqr,Unop,Binop,inNew,inNew2)
 import ConCat.Circuit (GenBuses,(:>))
-import ConCat.Graphics.GLSL (genHtml,runHtml)
+import ConCat.Graphics.GLSL
 import ConCat.Graphics.Image
 import qualified ConCat.RunCircuit as RC
 import ConCat.Syntactic (Syn,render)
@@ -73,29 +73,29 @@ main = sequence_
 
   -- , runSynCirc "disk-sizing-uncurry"   $ ccc $ uncurry (disk . cos)
 
-  , runHtml "disk-sizing"   $ ccc $ disk . cos
-  -- , genHtml "wobbly-disk" $ ccc $
+  , runHtmlT "disk-sizing"  $ ccc $ disk . cos
+  -- , runHtmlT "wobbly-disk" $ ccc $
   --     \ t -> disk' (0.75 + 0.25 * cos t)
-  -- , genHtml "diag-plus-im"  $ ccc $ \ t ((x,y) :: R2) -> x + sin t > y
-  -- , genHtml "diag-disk-turning" $ ccc $
+  -- , runHtmlT "diag-plus-im"  $ ccc $ \ t ((x,y) :: R2) -> x + sin t > y
+  -- , runHtmlT "diag-disk-turning" $ ccc $
   --     \ t -> udisk `intersectR` rotate t xPos
-  -- , genHtml "checker-rotate" $ ccc $ \ t -> rotate t checker13
-  -- , genHtml "diag-disk-turning-sizing" $ ccc $
+  -- , runHtmlT "checker-rotate" $ ccc $ \ t -> rotate t checker13
+  -- , runHtmlT "diag-disk-turning-sizing" $ ccc $
   --     \ t -> disk' (cos t) `xorR` rotate t xyPos
 
-  -- , genHtml "orbits1" $ ccc $ orbits1
-  -- , genHtml "checker-orbits1" $ ccc $
+  -- , genHtmlT "orbits1" $ ccc $ orbits1
+  -- , genHtmlT "checker-orbits1" $ ccc $
   --     liftA2 xorR (const checker13) orbits1
-  -- , genHtml "checker-orbits2" $ ccc $ \ t ->
+  -- , genHtmlT "checker-orbits2" $ ccc $ \ t ->
   --     uscale (sin t + 1.05) checker `xorR` orbits1 t
-  -- , genHtml "checker-orbits3" $ ccc $ \ t -> 
+  -- , genHtmlT "checker-orbits3" $ ccc $ \ t -> 
   --     orbits1 t `intersectR` checker13
-  -- , genHtml "checker-orbits4" $ ccc $ \ t -> 
+  -- , genHtmlT "checker-orbits4" $ ccc $ \ t -> 
   --     orbits1 t `intersectR` translate (t/10,0) checker13
-  -- , genHtml "checker-orbits5" $ ccc $ \ t -> 
+  -- , genHtmlT "checker-orbits5" $ ccc $ \ t -> 
   --     orbits1 t `intersectR` rotate (t/10) checker13
-  -- , runHtml "orbits2" $ ccc $ orbits2
-  -- , runHtml "checker-orbits6" $ ccc $ \ t ->
+  -- , runHtmlT "orbits2" $ ccc $ orbits2
+  -- , runHtmlT "checker-orbits6" $ ccc $ \ t ->
   --     orbits2 t `intersectR` rotate (t/10) checker13
 
   ]
@@ -117,8 +117,23 @@ runCirc nm circ = RC.run nm [] circ
 runSynCirc :: GO a b => String -> EC a b -> IO ()
 runSynCirc nm (syn :**: circ) = runSyn syn >> runCirc nm circ
 
-runCircHtml :: GenBuses a => String -> (a :> Region) -> IO ()
-runCircHtml nm circ = runCirc nm circ >> runHtml nm circ
+timeW :: Widgets R
+timeW = PrimU Time
+
+sliderW :: Widgets R
+sliderW = PrimU (Slider "arg" (0,5) 1)
+
+-- runCirc and runHtml specialized to time
+runCircHtmlT :: String -> (R :> Region) -> IO ()
+runCircHtmlT nm circ = runCirc nm circ >> runHtmlT nm circ
+
+-- genHtml specialized to time
+genHtmlT :: String -> (R :> Region) -> IO ()
+genHtmlT nm = genHtml nm sliderW
+
+-- runHtml specialized to time
+runHtmlT :: String -> (R :> Region) -> IO ()
+runHtmlT nm = runHtml nm sliderW
 
 -- TODO: Fix runCircHtml to construct the graph once instead of twice.
 
