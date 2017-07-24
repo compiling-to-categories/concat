@@ -29,13 +29,15 @@ import Text.Printf (printf)
 import System.Directory (createDirectoryIfMissing)
 import qualified System.Info as SI
 -- import GHC.Generics (Generic(..))
--- import qualified Debug.Trace as T
+import qualified Debug.Trace as DT
 
 -- import Control.Monad.State (State,runState,get,put)
 
 import qualified Data.Aeson as J
 import Data.Aeson (ToJSON(..),object,(.=))
+import Data.Aeson.Encode.Pretty (encodePretty)
 import qualified Data.Text as T
+import qualified Data.ByteString.Lazy.Char8 as BS
 
 import Text.ParserCombinators.Parsec (runParser,ParseError)
 import Text.PrettyPrint.HughesPJClass -- (Pretty,prettyShow)
@@ -101,11 +103,31 @@ glsl = prettyShow
      . fromComps
      . fmap simpleComp
      . mkGraph
-     -- . T.traceShowId
+     -- . DT.traceShowId
      . A.uncurry
-     -- . T.traceShowId
+     -- . DT.traceShowId
 
 -- TODO: Abstract fmap simpleComp . mkGraph, which also appears in Show (a :> b) and SMT.
+
+#if 1
+
+fromComps :: [CompS] -> TranslationUnit
+fromComps = shaderTranslation . traceJsonId . compsShader
+
+compsShader :: [CompS] -> Shader
+-- compsShader comps | trace ("compsShader " ++ show comps) False = undefined
+compsShader comps
+  | (CompS _ "In" [] inputs,mid, CompS _ "Out" [res] _) <- splitComps comps
+  , let (bindings, assignments) = accumComps (uses mid) mid
+        (uniforms,varyings) = splitAt' 2 inputs
+  = Shader (map busUVar uniforms)
+      (funDef Bool "effect" (paramDecl <$> varyings)
+              (map (uncurry initBus) assignments
+               ++ [Return (Just (bindings M.! res))]))
+compsShader comps =
+  error ("ConCat.GLSL.compsShader: unexpected subgraph comp " ++ show comps)
+
+#else
 
 fromComps :: [CompS] -> TranslationUnit
 -- fromComps comps | trace ("fromComps " ++ show comps) False = undefined
@@ -120,6 +142,12 @@ fromComps comps
                ++ [Return (Just (bindings M.! res))])]
 fromComps comps =
   error ("ConCat.GLSL.fromComps: unexpected subgraph comp " ++ show comps)
+
+uniformDecl :: Bus -> Declaration
+uniformDecl b =
+  decl (Just (TypeQualSto Uniform)) (busType b) (varName b) Nothing
+
+#endif
 
 -- Count uses of each output
 uses :: [CompS] -> M.Map Bus Int
@@ -267,10 +295,6 @@ paramDecl b =
     (TypeSpec Nothing (TypeSpecNoPrecision (busType b) Nothing))
     (Just (varName b,Nothing))
 
-uniformDecl :: Bus -> Declaration
-uniformDecl b =
-  decl (Just (TypeQualSto Uniform)) (busType b) (varName b) Nothing
-
 #if 0
 λ> parse "uniform float time;"
 Right (TranslationUnit [Declaration (InitDeclaration (TypeDeclarator (FullType (Just (TypeQualSto Uniform)) (TypeSpec Nothing (TypeSpecNoPrecision Float Nothing)))) [InitDecl "time" Nothing Nothing])])
@@ -305,10 +329,13 @@ assign v e = ExpressionStatement (Just (Equal (Variable v) e))
 --------------------------------------------------------------------}
 
 -- | Uniform variable
-data UVar = UVar TypeSpecifierNonArray String
+data UVar = UVar TypeSpecifierNonArray String deriving Show
 
--- Fragment shader with uniform parameters and code.
-data Shader = Shader [UVar] ExternalDeclaration
+busUVar :: Bus -> UVar
+busUVar b = UVar (busType b) (varName b)
+
+-- | Fragment shader with uniform parameters and code.
+data Shader = Shader [UVar] ExternalDeclaration deriving Show
 
 -- Orphan
 instance ToJSON C.Ty where toJSON = J.String . T.pack . show
@@ -321,7 +348,7 @@ instance ToJSON TypeSpecifierNonArray where toJSON = prettyJSON
 instance ToJSON ExternalDeclaration   where toJSON = prettyJSON
 
 instance ToJSON UVar where
-  toJSON (UVar ty name) = object ["type" .= ty, "age" .= name]
+  toJSON (UVar ty name) = object ["type" .= ty, "name" .= name]
 
 instance ToJSON Shader where
   toJSON (Shader vars def) = object ["vars" .= vars, "def" .= def]
@@ -329,15 +356,8 @@ instance ToJSON Shader where
 -- shaderToString :: Shader -> TranslationUnit
 
 shaderTranslation :: Shader -> TranslationUnit
-shaderTranslation (Shader uvars decl) =
-  TranslationUnit (map (Declaration . uvarDecl) uvars ++ [decl])
-
-
-
-
-  -- [funDef Bool "effect" (paramDecl <$> varyings)
-  --         (map (uncurry initBus) assignments
-  --          ++ [Return (Just (bindings M.! res))])]
+shaderTranslation (Shader uvars dec) =
+  TranslationUnit (map (Declaration . uvarDecl) uvars ++ [dec])
 
 uvarDecl :: UVar -> Declaration
 uvarDecl (UVar ty name) = decl (Just (TypeQualSto Uniform)) ty name Nothing
@@ -380,3 +400,7 @@ uniform :: HasUniform a => [String] -> Uniforms a
 uniform = fst . runState mkU
 
 #endif
+
+traceJsonId :: ToJSON a => a -> a
+-- traceJsonId a = DT.trace (show (toJSON a)) a
+traceJsonId a = DT.trace (BS.unpack (encodePretty a)) a
