@@ -65,9 +65,8 @@ effectHtml effect = unlines $
   , "<canvas id='effect_canvas' style='background-color:green'></canvas>"
   , "</body>" , "</html>"
   , "<script>"
-  , "var effect_source = `"
-  , "", glsl effect, ""
-  , "`;"
+  -- , "var effect_source = `" , "", glsl effect, "" , "`;"
+  , "var effect_source = shaderString(", glsl effect, ");"
   , "</script>" ]
 
 genHtml :: GenBuses a => String -> (a :> Region) -> IO ()
@@ -99,6 +98,18 @@ open = case SI.os of
 -- Also the writeFile and putStrLn.
 
 glsl :: GenBuses a => (a :> Region) -> String
+#if 1
+
+glsl = BS.unpack
+     . encodePretty
+     . compsShader
+     . fmap simpleComp
+     . mkGraph
+     -- . DT.traceShowId
+     . A.uncurry
+     -- . DT.traceShowId
+
+#else
 glsl = prettyShow
      . fromComps
      . fmap simpleComp
@@ -106,6 +117,7 @@ glsl = prettyShow
      -- . DT.traceShowId
      . A.uncurry
      -- . DT.traceShowId
+#endif
 
 -- TODO: Abstract fmap simpleComp . mkGraph, which also appears in Show (a :> b) and SMT.
 
@@ -351,7 +363,7 @@ instance ToJSON UVar where
   toJSON (UVar ty name) = object ["type" .= ty, "name" .= name]
 
 instance ToJSON Shader where
-  toJSON (Shader vars def) = object ["vars" .= vars, "def" .= def]
+  toJSON (Shader vars def) = object ["uvars" .= vars, "def" .= def]
 
 -- shaderToString :: Shader -> TranslationUnit
 
