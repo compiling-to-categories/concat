@@ -321,7 +321,7 @@ instance ToJSON Widget where
 prettyConfig :: Config
 prettyConfig = defConfig { confCompare = keyOrder keys }
  where
-   keys = ["type","name","widget","label","low","high","start"]
+   keys = ["uniforms","definition","type","name","widget","label","low","high","start"]
 
 -- | Uniform variable
 data UVar = UVar TypeSpecifierNonArray String Widget deriving Show
@@ -350,7 +350,7 @@ instance ToJSON UVar where
     object ["type" .= ty, "name" .= name, "widget" .= widget]
 
 instance ToJSON (Shader a) where
-  toJSON (Shader vars def) = object ["uniforms" .= vars, "def" .= def]
+  toJSON (Shader vars def) = object ["uniforms" .= vars, "definition" .= def]
 
 -- Input descriptions for uniform parameters
 data Widgets :: * -> * where

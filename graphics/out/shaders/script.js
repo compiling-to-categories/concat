@@ -164,7 +164,7 @@ function uniformString(uniform) { return "uniform " + uniform.type + " " + unifo
 
 // Render a shader object from JSON to string
 function shaderString(shader) {
-    return shader.uniforms.map(uniformString).join() + shader.def;
+    return shader.uniforms.map(uniformString).join() + shader.definition;
 }
 
 // Assumes a canvas element with id "effect_canvas" and a global variable named "effect"
