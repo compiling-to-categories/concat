@@ -350,7 +350,7 @@ instance ToJSON UVar where
     object ["type" .= ty, "name" .= name, "widget" .= widget]
 
 instance ToJSON (Shader a) where
-  toJSON (Shader vars def) = object ["uvars" .= vars, "def" .= def]
+  toJSON (Shader vars def) = object ["uniforms" .= vars, "def" .= def]
 
 -- Input descriptions for uniform parameters
 data Widgets :: * -> * where

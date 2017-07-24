@@ -160,11 +160,11 @@ void main(void) {
 `
 
 // Render a uniform variable from JSON to string
-function uvarString(uvar) { return "uniform " + uvar.type + " " + uvar.name + ";\n"; }
+function uniformString(uniform) { return "uniform " + uniform.type + " " + uniform.name + ";\n"; }
 
 // Render a shader object from JSON to string
 function shaderString(shader) {
-    return shader.uvars.map(uvarString).join() + shader.def;
+    return shader.uniforms.map(uniformString).join() + shader.def;
 }
 
 // Assumes a canvas element with id "effect_canvas" and a global variable named "effect"
