@@ -1,3 +1,6 @@
+{-# LANGUAGE OverloadedStrings #-}
+-- {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -7,24 +10,32 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE ParallelListComp #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 -- {-# LANGUAGE QuasiQuotes #-}
 
 {-# OPTIONS_GHC -Wall #-}
 -- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 -- {-# OPTIONS_GHC -fdefer-typed-holes #-} -- TEMP
+{-# OPTIONS_GHC -Wno-orphans #-} -- TEMP
 
 -- | Generate GLSL code from a circuit graph
 
 module ConCat.Graphics.GLSL (genHtml,runHtml) where
 
-import Control.Applicative (liftA2)
+-- import Control.Applicative (liftA2)
 import qualified Data.Map as M
 import Text.Printf (printf)
 import System.Directory (createDirectoryIfMissing)
 import qualified System.Info as SI
+-- import GHC.Generics (Generic(..))
 -- import qualified Debug.Trace as T
 
-import Control.Monad.State (State,runState,get,put)
+-- import Control.Monad.State (State,runState,get,put)
+
+import qualified Data.Aeson as J
+import Data.Aeson (ToJSON(..),object,(.=))
+import qualified Data.Text as T
 
 import Text.ParserCombinators.Parsec (runParser,ParseError)
 import Text.PrettyPrint.HughesPJClass -- (Pretty,prettyShow)
@@ -290,18 +301,68 @@ assign v e = ExpressionStatement (Just (Equal (Variable v) e))
 #endif
 
 {--------------------------------------------------------------------
-    Input descriptions for uniform parameters
+    Shader representation for conversion to JSON and String
 --------------------------------------------------------------------}
 
-data Uniform :: * -> * where
-  UnitU :: Uniform ()
-  PrimU :: GenBuses a => String -> Uniform a
-  PairU :: Uniform a -> Uniform b -> Uniform (a :* b)
+-- | Uniform variable
+data UVar = UVar TypeSpecifierNonArray String
+
+-- Fragment shader with uniform parameters and code.
+data Shader = Shader [UVar] ExternalDeclaration
+
+-- Orphan
+instance ToJSON C.Ty where toJSON = J.String . T.pack . show
+
+prettyJSON :: Pretty a => a -> J.Value
+prettyJSON a = J.String . T.pack . prettyShow $ a
+
+-- Orphans
+instance ToJSON TypeSpecifierNonArray where toJSON = prettyJSON
+instance ToJSON ExternalDeclaration   where toJSON = prettyJSON
+
+instance ToJSON UVar where
+  toJSON (UVar ty name) = object ["type" .= ty, "age" .= name]
+
+instance ToJSON Shader where
+  toJSON (Shader vars def) = object ["vars" .= vars, "def" .= def]
+
+-- shaderToString :: Shader -> TranslationUnit
+
+shaderTranslation :: Shader -> TranslationUnit
+shaderTranslation (Shader uvars decl) =
+  TranslationUnit (map (Declaration . uvarDecl) uvars ++ [decl])
+
+
+
+
+  -- [funDef Bool "effect" (paramDecl <$> varyings)
+  --         (map (uncurry initBus) assignments
+  --          ++ [Return (Just (bindings M.! res))])]
+
+uvarDecl :: UVar -> Declaration
+uvarDecl (UVar ty name) = decl (Just (TypeQualSto Uniform)) ty name Nothing
+-- TODO: refactor with uniformDecl, or delete the latter.
+
+#if 0
+
+-- Input descriptions for uniform parameters
+data Uniforms :: * -> * where
+  UnitU :: Uniforms ()
+  PrimU :: GenBuses a => String -> Uniforms a
+  PairU :: Uniforms a -> Uniforms b -> Uniforms (a :* b)
+
+-- flattenU :: forall a. Uniforms a -> [UVar]
+-- flattenU UnitU = []
+-- flattenU (PrimU nm) = [UVar (glslTy (C.ty @a)) nm]
+-- flattenU (PairU a b) = flattenU a ++ flattenU b
+
+-- TODO: rework flattenU for efficiency, taking an accumulation argument,
+-- (equivalently) generating a difference list, or generating a Seq.
 
 class HasUniform a where
-  mkU :: State [String] (Uniform a)
+  mkU :: State [String] (Uniforms a)
 
-primMkU :: GenBuses a => State [String] (Uniform a)
+primMkU :: GenBuses a => State [String] (Uniforms a)
 primMkU = do nm : nms' <- get
              put nms'
              return (PrimU nm)
@@ -315,5 +376,7 @@ instance HasUniform () where mkU = return UnitU
 instance (HasUniform a, HasUniform b) => HasUniform (a :* b) where
   mkU = liftA2 PairU mkU mkU
 
-uniform :: HasUniform a => [String] -> Uniform a
+uniform :: HasUniform a => [String] -> Uniforms a
 uniform = fst . runState mkU
+
+#endif
