@@ -20,10 +20,10 @@ library
   hs-source-dirs:      src
   exposed-modules:     ConCat.Graphics.GLSL
                        ConCat.Graphics.Image
-  build-depends:       NumInstances
-                     , aeson >= 1.0, aeson-pretty >= 0.8.5
-                     , base >= 4.7 && < 5
+  build-depends:       base >= 4.7 && < 5
                      , bytestring >= 0.10.8.1
+                     , aeson >= 1.0, aeson-pretty >= 0.8.5
+                     , NumInstances
                      , concat-classes
                      , concat-examples
                      , containers
@@ -38,9 +38,9 @@ test-suite graphics-examples
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Examples.hs
-  build-depends:       aeson >= 1.0, aeson-pretty >= 0.8.5
-                     , base
+  build-depends:       base
                      , bytestring >= 0.10.8.1
+                     , aeson >= 1.0, aeson-pretty >= 0.8.5
                      , concat-classes
                      , concat-examples
                      , concat-graphics
@@ -57,9 +57,9 @@ test-suite graphics-trace
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Examples.hs
-  build-depends:       aeson >= 1.0, aeson-pretty >= 0.8.5
-                     , base
+  build-depends:       base
                      , bytestring >= 0.10.8.1
+                     , aeson >= 1.0, aeson-pretty >= 0.8.5
                      , concat-classes
                      , concat-examples
                      , concat-graphics
