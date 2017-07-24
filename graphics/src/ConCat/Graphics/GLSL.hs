@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeOperators #-}
@@ -15,11 +17,14 @@
 
 module ConCat.Graphics.GLSL (genHtml,runHtml) where
 
+import Control.Applicative (liftA2)
 import qualified Data.Map as M
 import Text.Printf (printf)
 import System.Directory (createDirectoryIfMissing)
 import qualified System.Info as SI
 -- import qualified Debug.Trace as T
+
+import Control.Monad.State (State,runState,get,put)
 
 import Text.ParserCombinators.Parsec (runParser,ParseError)
 import Text.PrettyPrint.HughesPJClass -- (Pretty,prettyShow)
@@ -37,8 +42,8 @@ type Image c = R :* R -> c
 
 type Region = Image Bool
 
-animHtml :: GenBuses a => (a :> Region) -> String
-animHtml anim = unlines $
+effectHtml :: GenBuses a => (a :> Region) -> String
+effectHtml effect = unlines $
   [ "<!DOCTYPE html>" , "<html>" , "<head>"
   , "<meta charset='utf-8'/>"
   , "<script type='text/javascript' src='script.js'></script>"
@@ -48,7 +53,7 @@ animHtml anim = unlines $
   , "</body>" , "</html>"
   , "<script>"
   , "var effect_source = `"
-  , "", glsl anim, ""
+  , "", glsl effect, ""
   , "`;"
   , "</script>" ]
 
@@ -56,7 +61,7 @@ genHtml :: GenBuses a => String -> (a :> Region) -> IO ()
 genHtml name anim =
   do createDirectoryIfMissing False outDir
      let o = outFile name
-     writeFile o (animHtml anim)
+     writeFile o (effectHtml anim)
      putStrLn ("Wrote " ++ o)
 
 runHtml :: GenBuses a => String -> (a :> Region) -> IO ()
@@ -283,3 +288,32 @@ selectField var field = FieldSelection (Variable var) field
 assign :: String -> Expr -> Statement
 assign v e = ExpressionStatement (Just (Equal (Variable v) e))
 #endif
+
+{--------------------------------------------------------------------
+    Input descriptions for uniform parameters
+--------------------------------------------------------------------}
+
+data Uniform :: * -> * where
+  UnitU :: Uniform ()
+  PrimU :: GenBuses a => String -> Uniform a
+  PairU :: Uniform a -> Uniform b -> Uniform (a :* b)
+
+class HasUniform a where
+  mkU :: State [String] (Uniform a)
+
+primMkU :: GenBuses a => State [String] (Uniform a)
+primMkU = do nm : nms' <- get
+             put nms'
+             return (PrimU nm)
+
+instance HasUniform Int    where mkU = primMkU
+instance HasUniform Float  where mkU = primMkU
+instance HasUniform Double where mkU = primMkU
+
+instance HasUniform () where mkU = return UnitU
+
+instance (HasUniform a, HasUniform b) => HasUniform (a :* b) where
+  mkU = liftA2 PairU mkU mkU
+
+uniform :: HasUniform a => [String] -> Uniform a
+uniform = fst . runState mkU
