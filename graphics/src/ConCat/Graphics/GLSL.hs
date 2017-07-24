@@ -23,14 +23,14 @@
 
 module ConCat.Graphics.GLSL (genHtml,runHtml) where
 
--- import Control.Applicative (liftA2)
+import Control.Applicative (liftA2)
 import qualified Data.Map as M
 import Text.Printf (printf)
 import System.Directory (createDirectoryIfMissing)
 import qualified System.Info as SI
 -- import qualified Debug.Trace as DT
 
--- import Control.Monad.State (State,runState,get,put)
+import Control.Monad.State (State,runState,get,put)
 
 import qualified Data.Aeson as J
 import Data.Aeson (ToJSON(..),object,(.=))
@@ -95,6 +95,7 @@ open = case SI.os of
 -- Move the createDirectoryIfMissing logic there as well.
 -- Also the writeFile and putStrLn.
 
+-- Generate JavaScript code for a JSON shader object.
 glsl :: GenBuses a => (a :> Region) -> String
 glsl = BS.unpack
      . encodePretty
@@ -299,32 +300,49 @@ assign v e = ExpressionStatement (Just (Equal (Variable v) e))
     Shader representation for conversion to JSON and String
 --------------------------------------------------------------------}
 
+data Widget = Time | Slider String (R,R) R deriving Show
+
+instance ToJSON Widget where
+  toJSON Time = object ["widgetType" .= T.pack "time"]
+  toJSON (Slider label (lo,hi) start) =
+    object [ "widgetType" .= T.pack "slider"
+           , "label"      .= label
+           , "low"        .= lo
+           , "high"       .= hi
+           , "start"      .= start
+           ]
+
 -- | Uniform variable
-data UVar = UVar TypeSpecifierNonArray String deriving Show
+data UVar = UVar TypeSpecifierNonArray String Widget deriving Show
 
 busUVar :: Bus -> UVar
-busUVar b = UVar (busType b) (varName b)
+busUVar b = UVar (busType b) (varName b) Time
+-- Working here. Replace Time
 
 -- | Fragment shader with uniform parameters and code.
 data Shader = Shader [UVar] ExternalDeclaration deriving Show
 
 -- Orphan
-instance ToJSON C.Ty where toJSON = J.String . T.pack . show
+instance ToJSON C.Ty where toJSON = showJSON
+
+showJSON :: Show a => a -> J.Value
+showJSON = J.String . T.pack . show
 
 prettyJSON :: Pretty a => a -> J.Value
-prettyJSON a = J.String . T.pack . prettyShow $ a
+prettyJSON = J.String . T.pack . prettyShow
 
 -- Orphans
 instance ToJSON TypeSpecifierNonArray where toJSON = prettyJSON
 instance ToJSON ExternalDeclaration   where toJSON = prettyJSON
 
 instance ToJSON UVar where
-  toJSON (UVar ty name) = object ["type" .= ty, "name" .= name]
+  toJSON (UVar ty name widget) =
+    object ["type" .= ty, "name" .= name, "widget" .= widget]
 
 instance ToJSON Shader where
   toJSON (Shader vars def) = object ["uvars" .= vars, "def" .= def]
 
-#if 0
+#if 1
 
 -- Input descriptions for uniform parameters
 data Uniforms :: * -> * where
@@ -357,7 +375,7 @@ instance HasUniform () where mkU = return UnitU
 instance (HasUniform a, HasUniform b) => HasUniform (a :* b) where
   mkU = liftA2 PairU mkU mkU
 
-uniform :: HasUniform a => [String] -> Uniforms a
-uniform = fst . runState mkU
+mkUniforms :: HasUniform a => [String] -> Uniforms a
+mkUniforms = fst . runState mkU
 
 #endif
