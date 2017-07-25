@@ -17,7 +17,7 @@ instance (OkCAR (abs), ConCat.Category.IfCat (:>) (Rep (abs))) => ConCat.Categor
 --   { const = repConst } ; \
 
 #define AbsTyPragmas \
-{-# LANGUAGE MultiParamTypeClasses, UndecidableInstances, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, UndecidableInstances, FlexibleInstances, TypeApplications #-}
 
 #define AbsTyImports \
 import qualified ConCat.Category ;\
