@@ -13,6 +13,7 @@ import Control.Applicative (liftA2)
 import Data.NumInstances ()
 
 import ConCat.Misc ((:*),delay,R,Unop,Binop,sqr,magSqr)
+import ConCat.Graphics.Color (Color,ToColor(..))
 
 type R2 = R :* R
 
@@ -48,9 +49,16 @@ uscaleP = uniform scaleP
 
 type Image c = R2 -> c
 
+type ImageC = Image Color
 type Region = Image Bool
 
 type Filter c = Unop (Image c)
+
+toImageC :: ToColor c => (p -> c) -> (p -> Color)
+toImageC = (toColor .)
+
+toPImageC :: ToColor c => (a -> p -> c) -> (a -> p -> Color)
+toPImageC = (toImageC .)
 
 translate :: R2 -> Filter c
 translate v im = im . subtract v

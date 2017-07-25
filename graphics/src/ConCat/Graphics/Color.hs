@@ -1,6 +1,10 @@
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+
 {-# OPTIONS_GHC -Wall #-}
+
 ----------------------------------------------------------------------
 -- |
 -- Module      :  ConCat.Graphics.Color
@@ -8,8 +12,11 @@
 -- Maintainer  :  conal@conal.net
 -- Stability   :  experimental
 --
--- Simple colors
+-- Colors
 ----------------------------------------------------------------------
+
+#include "ConCat/AbsTy.inc"
+AbsTyPragmas
 
 module ConCat.Graphics.Color
   (
@@ -20,13 +27,14 @@ module ConCat.Graphics.Color
   -- * Some colors
   , black, white, red, green, blue, clear, grey, gray
   -- * Conversion to color
-  , HasColor(..)
+  , ToColor(..)
   ) where
 
 import Data.Monoid (Monoid(..))
 import Control.Applicative (liftA2)
 
 import ConCat.Misc (R)
+import ConCat.Rep
 
 -- import Control.Compose ((~>))
 
@@ -34,7 +42,9 @@ import ConCat.Misc (R)
 
 -- import Data.Boolean
 
-import ConCat.Misc (Unop, Binop)
+import ConCat.Misc (Binop)
+
+AbsTyImports
 
 {--------------------------------------------------------------------
     Basics
@@ -42,6 +52,13 @@ import ConCat.Misc (Unop, Binop)
 
 -- | Color
 data Color = Color R R R R
+
+instance HasRep Color where
+  type Rep Color = (R,R,R,R)
+  abst (r,g,b,a) = Color r g b a
+  repr (Color r g b a) = (r,g,b,a)
+
+AbsTy(Color)
 
 -- | Color from red, green, blue, alpha components
 rgba :: R -> R -> R -> R -> Color
@@ -111,7 +128,8 @@ instance Monoid Color where
     Conversion to color
 --------------------------------------------------------------------}
 
-class HasColor a where toColor :: a -> Color
+class ToColor a where toColor :: a -> Color
 
-instance HasColor Color where toColor = id
-instance HasColor Bool  where toColor b = if b then clear else white  -- or black & white
+instance ToColor Color where toColor = id
+instance ToColor R     where toColor = gray -- or partly transparent black
+instance ToColor Bool  where toColor b = if b then clear else white  -- or black & white

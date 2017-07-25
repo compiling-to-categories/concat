@@ -130,19 +130,12 @@ var utils_glsl =
 // Misc common definitions
 precision mediump float;
 
-// vec4 gray (float q) { return vec4(q,q,q,1.0); }
-vec4 gray (float q) {
-    const float alpha = 1.0;
-    return vec4(alpha*q,alpha*q,alpha*q,alpha);
-}
-vec4 bw (bool b) { return gray(b?1.0:0.0); }
-
 uniform float zoom;
 uniform vec2 pan;
 varying vec2 v_position;
 
-bool effect (float in1, float in2);
-vec4 effectV (vec2 p) { return bw(effect(p.x,p.y)); }
+vec4 effect (float in1, float in2);
+vec4 effectV (vec2 p) { return effect(p.x,p.y); }
 
 // void main () { gl_FragColor = effect(v_position / zoom - pan); }
 void main () { gl_FragColor = effectV((v_position - pan) / zoom); }

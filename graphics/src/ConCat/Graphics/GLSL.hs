@@ -25,6 +25,7 @@
 module ConCat.Graphics.GLSL (genHtml,runHtml,Widget(..),Widgets(..)) where
 
 -- import Control.Applicative (liftA2)
+import Data.Maybe (fromMaybe)
 import qualified Data.Map as M
 import Text.Printf (printf)
 import System.Directory (createDirectoryIfMissing)
@@ -48,12 +49,9 @@ import qualified ConCat.AltCat as A
 import ConCat.Circuit
   (Bus(..),GenBuses,busTy,(:>),simpleComp,mkGraph,CompS(..),systemSuccess)
 import qualified ConCat.Circuit as C
+import ConCat.Graphics.Image (ImageC)
 
-type Image c = R :* R -> c
-
-type Region = Image Bool
-
-effectHtml :: GenBuses a => Widgets a -> (a :> Region) -> String
+effectHtml :: GenBuses a => Widgets a -> (a :> ImageC) -> String
 effectHtml widgets effect = unlines $
   [ "<!DOCTYPE html>" , "<html>" , "<head>"
   , "<meta charset='utf-8'/>"
@@ -72,14 +70,14 @@ shaderDefs (Shader uniforms def) =
   "var effect = `\n" ++ prettyShow def ++ "`;"
 
 
-genHtml :: GenBuses a => String -> Widgets a -> (a :> Region) -> IO ()
+genHtml :: GenBuses a => String -> Widgets a -> (a :> ImageC) -> IO ()
 genHtml name widgets effect =
   do createDirectoryIfMissing False outDir
      let o = outFile name
      writeFile o (effectHtml widgets effect)
      putStrLn ("Wrote " ++ o)
 
-runHtml :: GenBuses a => String -> Widgets a -> (a :> Region) -> IO ()
+runHtml :: GenBuses a => String -> Widgets a -> (a :> ImageC) -> IO ()
 runHtml name widgets effect =
   do genHtml name widgets effect
      systemSuccess $ printf "%s %s" open (outFile name)
@@ -103,7 +101,7 @@ open = case SI.os of
 -- Also the writeFile and putStrLn.
 
 -- Generate JavaScript code for a JSON shader object.
-glsl :: GenBuses a => Widgets a -> (a :> Region) -> Shader a
+glsl :: GenBuses a => Widgets a -> (a :> ImageC) -> Shader a
 glsl widgets = compsShader widgets
              . fmap simpleComp
              . mkGraph
@@ -111,20 +109,25 @@ glsl widgets = compsShader widgets
              . A.uncurry
              -- . DT.traceShowId
 
--- TODO: Abstract fmap simpleComp . mkGraph, which also appears in Show (a :> b) and SMT.
+-- TODO: Abstract fmap simpleComp . mkGraph, which also appears in Show (a :> b)
+-- and SMT.
 
 compsShader :: Widgets a -> [CompS] -> Shader a
 -- compsShader comps | trace ("compsShader " ++ show comps) False = undefined
 compsShader widgets comps
-  | (CompS _ "In" [] inputs,mid, CompS _ "Out" [res] _) <- splitComps comps
-  , let (bindings, assignments) = accumComps (uses mid) mid
+  | (CompS _ "In" [] inputs,mid, (CompS _ "Out" rgba _)) <- splitComps comps
+  , let (bindings, assignments) = accumComps (uses comps) mid
         (uniforms,varyings) = splitAt' 2 inputs
+  -- , DT.trace ("compsShader: " ++ show (bindings, assignments, rgba)) True
   = Shader (zipWith busUVar uniforms (flattenWidgets widgets))
-      (funDef Bool "effect" (paramDecl <$> varyings)
+      (funDef Vec4 "effect" (paramDecl <$> varyings)
               (map (uncurry initBus) assignments
-               ++ [Return (Just (bindings M.! res))]))
+               ++ [Return (Just (app (error "compsShader: app ty oops") "vec4" (simpleE bindings <$> rgba)))]))
 compsShader _ comps =
   error ("ConCat.GLSL.compsShader: unexpected subgraph comp " ++ show comps)
+
+simpleE :: M.Map Bus Expr -> Bus -> Expr
+simpleE bindings b = fromMaybe (bToE b) (M.lookup b bindings)
 
 -- Count uses of each output
 uses :: [CompS] -> M.Map Bus Int
@@ -140,21 +143,23 @@ nestExpressions = True -- False
 
 -- Given usage counts, generate delayed bindings and assignments
 accumComps :: M.Map Bus Int -> [CompS] -> (M.Map Bus Expr, [(Bus,Expr)])
--- accumComps counts | trace ("accumComps: counts = " ++ show counts) False = undefined
+-- accumComps counts | DT.trace ("accumComps: counts = " ++ show counts) False = undefined
 accumComps counts = go M.empty
  where
-   -- Generate bindings for outputs used more than once,
+   -- Generate assignments for outputs used more than once,
    -- and accumulate a map of the others.
    go :: M.Map Bus Expr -> [CompS] -> (M.Map Bus Expr, [(Bus,Expr)])
-   -- go saved comps | trace ("accumComps/go " ++ show saved ++ " " ++ show comps) False = undefined
+   -- go saved comps | DT.trace ("accumComps/go " ++ show saved ++ " " ++ show comps) False = undefined
    go saved [] = (saved, [])
    go saved (c@(CompS _ _ _ [o]) : comps) 
      | Just n <- M.lookup o counts, (n > 1 || not nestExpressions) =
-         let (saved',bindings') = go saved comps in
-           (saved', (o,e) : bindings')
+         let (saved',assignments') = go saved comps in
+           (saved', (o,e) : assignments')
      | otherwise = go (M.insert o e saved) comps
     where
       e = compExpr saved c
+   go _saved [CompS _ "Out" _ _ ] = error "accumComps: Out"
+                                   -- (_saved,[])
    go _ c = error ("ConCat.GLSL.accumComps: oops: " ++ show c)
 
 compExpr :: M.Map Bus Expr -> CompS -> Expr
@@ -216,6 +221,7 @@ app ty nm es =
     "/"      -> app2 Div
     "mod"    -> app2 Mod
     "xor"    -> app2 Neq
+    "if"     -> app3 Selection
     "fromIntegral" -> funcall (castFun (glslTy ty)) es
     _ | Just fun <- M.lookup nm knownFuncs -> funcall fun es
       | otherwise -> error ("ConCat.GLSL.app: not supported: " ++ show (nm,es))
@@ -226,13 +232,15 @@ app ty nm es =
            | otherwise = err "one argument"
    app2 op | [e1,e2] <- es = op e1 e2
            | otherwise = err "two arguments"
+   app3 op | [e1,e2,e3] <- es = op e1 e2 e3
+           | otherwise = err "three arguments"
    castFun Float = "float"
    castFun t = error ("ConCat.GLSL.app: fromIntegral on type " ++ show t)
 
 knownFuncs :: M.Map String String
 knownFuncs = M.fromList $
   [("ceiling","ceil")]
-  ++ ((\ s -> (s,s)) <$> ["exp","cos","sin","floor"])
+  ++ ((\ s -> (s,s)) <$> ["exp","cos","sin","floor","vec4"])
 
 bToE :: Bus -> Expr
 bToE = Variable . varName
@@ -359,7 +367,7 @@ instance ToJSON (Shader a) where
 -- Input descriptions for uniform parameters
 data Widgets :: * -> * where
   UnitU :: Widgets ()
-  PrimU :: GenBuses a => Widget -> Widgets a
+  PrimU :: {- GenBuses a => -} Widget -> Widgets a
   PairU :: Widgets a -> Widgets b -> Widgets (a :* b)
 
 deriving instance Show (Widgets a)
