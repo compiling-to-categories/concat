@@ -163,14 +163,14 @@ void main(void) {
 function uniformString(uniform) { return "uniform " + uniform.type + " " + uniform.name + ";\n"; }
 
 // Render a shader object from JSON to string
-function shaderString(shader) {
-    return shader.uniforms.map(uniformString).join() + shader.definition;
+function shaderString(uniforms,effect) {
+    return uniforms.map(uniformString).join() + effect;
 }
 
 // Assumes a canvas element with id "effect_canvas" and a global variable named "effect"
 function go() {
     var canvas = document.getElementById("effect_canvas");
-    var effect_source = shaderString(effect)
+    var effect_source = shaderString(uniforms,effect)
     // console.log("effect object:\n\n" + JSON.stringify(effect) );
     // console.log("effect source:\n\n" + effect_source );
     install_effect(canvas,effect_source);

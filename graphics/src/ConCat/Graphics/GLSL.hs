@@ -54,7 +54,7 @@ type Image c = R :* R -> c
 type Region = Image Bool
 
 effectHtml :: GenBuses a => Widgets a -> (a :> Region) -> String
-effectHtml unifs effect = unlines $
+effectHtml widgets effect = unlines $
   [ "<!DOCTYPE html>" , "<html>" , "<head>"
   , "<meta charset='utf-8'/>"
   , "<script type='text/javascript' src='script.js'></script>"
@@ -63,19 +63,23 @@ effectHtml unifs effect = unlines $
   , "<canvas id='effect_canvas' style='background-color:green'></canvas>"
   , "</body>" , "</html>"
   , "<script>"
-  , "var effect = ", glsl unifs effect, ";"
+  , "var uniforms = " ++ BS.unpack (encodePretty' prettyConfig uniforms) ++ ";"
+  , "var effect = `", prettyShow def, "`;"
   , "</script>" ]
+ where
+   Shader uniforms def = glsl widgets effect
+
 
 genHtml :: GenBuses a => String -> Widgets a -> (a :> Region) -> IO ()
-genHtml name unifs effect =
+genHtml name widgets effect =
   do createDirectoryIfMissing False outDir
      let o = outFile name
-     writeFile o (effectHtml unifs effect)
+     writeFile o (effectHtml widgets effect)
      putStrLn ("Wrote " ++ o)
 
 runHtml :: GenBuses a => String -> Widgets a -> (a :> Region) -> IO ()
-runHtml name unifs effect =
-  do genHtml name unifs effect
+runHtml name widgets effect =
+  do genHtml name widgets effect
      systemSuccess $ printf "%s %s" open (outFile name)
 
 -- TODO: Do we still need GenBuses?
@@ -97,25 +101,23 @@ open = case SI.os of
 -- Also the writeFile and putStrLn.
 
 -- Generate JavaScript code for a JSON shader object.
-glsl :: GenBuses a => Widgets a -> (a :> Region) -> String
-glsl unifs = BS.unpack
-           . encodePretty' prettyConfig
-           . compsShader unifs
-           . fmap simpleComp
-           . mkGraph
-           -- . DT.traceShowId
-           . A.uncurry
-           -- . DT.traceShowId
+glsl :: GenBuses a => Widgets a -> (a :> Region) -> Shader a
+glsl widgets = compsShader widgets
+             . fmap simpleComp
+             . mkGraph
+             -- . DT.traceShowId
+             . A.uncurry
+             -- . DT.traceShowId
 
 -- TODO: Abstract fmap simpleComp . mkGraph, which also appears in Show (a :> b) and SMT.
 
 compsShader :: Widgets a -> [CompS] -> Shader a
 -- compsShader comps | trace ("compsShader " ++ show comps) False = undefined
-compsShader unifs comps
+compsShader widgets comps
   | (CompS _ "In" [] inputs,mid, CompS _ "Out" [res] _) <- splitComps comps
   , let (bindings, assignments) = accumComps (uses mid) mid
         (uniforms,varyings) = splitAt' 2 inputs
-  = Shader (zipWith busUVar uniforms (uWidgets unifs))
+  = Shader (zipWith busUVar uniforms (flattenWidgets widgets))
       (funDef Bool "effect" (paramDecl <$> varyings)
               (map (uncurry initBus) assignments
                ++ [Return (Just (bindings M.! res))]))
@@ -360,12 +362,12 @@ data Widgets :: * -> * where
 
 deriving instance Show (Widgets a)
 
-uWidgets :: Widgets a -> [Widget]
-uWidgets UnitU       = []
-uWidgets (PrimU wid) = [wid]
-uWidgets (PairU a b) = uWidgets a ++ uWidgets b
+flattenWidgets :: Widgets a -> [Widget]
+flattenWidgets UnitU       = []
+flattenWidgets (PrimU wid) = [wid]
+flattenWidgets (PairU a b) = flattenWidgets a ++ flattenWidgets b
 
--- TODO: rework uWidgets for efficiency, taking an accumulation argument,
+-- TODO: rework flattenWidgets for efficiency, taking an accumulation argument,
 -- (equivalently) generating a difference list, or generating a Seq.
 
 #if 0
