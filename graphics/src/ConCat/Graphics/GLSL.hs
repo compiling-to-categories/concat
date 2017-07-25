@@ -63,11 +63,13 @@ effectHtml widgets effect = unlines $
   , "<canvas id='effect_canvas' style='background-color:green'></canvas>"
   , "</body>" , "</html>"
   , "<script>"
-  , "var uniforms = " ++ BS.unpack (encodePretty' prettyConfig uniforms) ++ ";"
-  , "var effect = `", prettyShow def, "`;"
+  , shaderDefs (glsl widgets effect)
   , "</script>" ]
- where
-   Shader uniforms def = glsl widgets effect
+
+shaderDefs :: Shader a -> String
+shaderDefs (Shader uniforms def) = 
+  "var uniforms = " ++ BS.unpack (encodePretty' prettyConfig uniforms) ++ ";\n" ++
+  "var effect = `\n" ++ prettyShow def ++ "`;"
 
 
 genHtml :: GenBuses a => String -> Widgets a -> (a :> Region) -> IO ()
