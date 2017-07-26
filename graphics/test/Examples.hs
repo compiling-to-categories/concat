@@ -78,14 +78,13 @@ main = sequence_
   -- , runCirc "foo2"  $ A.uncurry $ ccc $ toImageC . disk . cos
   -- , runCirc "foo"  $ ccc $ toImageC . disk . cos
 
-  -- , runHtml "disk-sizing" timeW  $ ccc $ toPImageC $ disk . cos
-  -- , runHtmlT "disk-sizing"  $ ccc $ toPImageC $ disk . cos
+  , runHtml "disk-sizing-a" sliderW $ ccc $ toPImageC $ disk
+  , runHtmlT "disk-sizing-b"  $ ccc $ toPImageC $ disk . cos
 
-  -- , runHtml "annulus1" (PairU sliderW sliderW) $ ccc $ toPImageC $
-  --     uncurry annulus
-
+  , runHtml "annulus1" (PairU sliderW sliderW) $ ccc $ toPImageC $
+      uncurry annulus
   , runHtml "annulus2" (PairU sliderW timeW) $ ccc $ toPImageC $
-      \ (o,i) -> annulus o ((sin i + 1) / 3)
+      \ (o,i) -> annulus o ((sin i + 1) / 2)
 
   -- , runHtmlT "wobbly-disk" $ ccc $ toPImageC $ \ t ->
   --     disk' (0.75 + 0.25 * cos t)
@@ -144,11 +143,11 @@ runCircHtmlT nm circ = runCirc nm circ >> runHtmlT nm circ
 
 -- genHtml specialized to slider (for now time)
 genHtmlT :: String -> (R :> ImageC) -> IO ()
-genHtmlT nm = genHtml nm sliderW
+genHtmlT nm = genHtml nm timeW
 
 -- runHtml specialized to time (for now time)
 runHtmlT :: String -> (R :> ImageC) -> IO ()
-runHtmlT nm = runHtml nm sliderW
+runHtmlT nm = runHtml nm timeW
 
 -- TODO: Fix runCircHtml to construct the graph once instead of twice.
 
