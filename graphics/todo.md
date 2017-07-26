@@ -1,5 +1,8 @@
 ## To do
 
+*   Put examples on [GitHub pages](https://pages.github.com/).
+    I'd have to somehow put script.js and the examples into a GitHub repo.
+*   Colorful examples.
 *   Start re-populating `ConCat.Graphics.Image`
 *   Add some 3D as well from [Vertigo](http://conal.net/papers/Vertigo), shaders, etc from the Shady source code, improving things along the way.
     Use CCC-based automatic differentiation for computing normal vectors (for shading).
