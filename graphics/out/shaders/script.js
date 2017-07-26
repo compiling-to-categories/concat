@@ -166,7 +166,7 @@ function mkSlider(props,onChange) {
    function to_rval (ival) { return ival / 10000 * width + props.min; };
    // map [min,max] to [0,10000]
    function to_ival (rval) { return (rval - props.min) / width * 10000; };
-   var div = $("<div><p class=sliderLabel>"+props.label+": <input type=text class=param></p><p></p></div>");
+   var div = $("<div><p class=sliderLabel>"+props.label+": <input type=text class=param></p><p class=slider></p></div>");
    var input = div.find("input");
    var slider = div.find("p").filter(":last");
    slider.slider({
@@ -191,7 +191,7 @@ function mkTime(props,onChange) {
 var widgetMakers = { "slider": mkSlider, "time": mkTime };
 
 function go(uniforms,effect) {
-    var canvas = document.getElementById("effect_canvas");
+    var canvas = document.getElementById("effect");
     var effect_source = shaderString(uniforms,effect)
     // console.log("effect object:\n\n" + JSON.stringify(effect) );
     // console.log("effect source:\n\n" + effect_source );

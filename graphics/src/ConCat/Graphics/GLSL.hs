@@ -14,10 +14,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
-
 {-# OPTIONS_GHC -Wall #-}
--- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
--- {-# OPTIONS_GHC -fdefer-typed-holes #-} -- TEMP
 {-# OPTIONS_GHC -Wno-orphans #-} -- TEMP
 
 -- | Generate GLSL code from a circuit graph
@@ -62,15 +59,11 @@ effectHtml widgets effect = unlines $
   , "<script src='https://code.jquery.com/jquery-1.10.2.js'></script>"
   , "<script src='https://code.jquery.com/ui/1.10.4/jquery-ui.js'></script>"
   , "<script type='text/javascript' src='script.js'></script>"
-  , "<style>"
-  , "  input.param { border:10; font-weight:bold; width:20%; }"
-  , "  div#ui { width:25%; opacity:0.75; position:absolute; }"
-  , "  p.sliderLabel { margin-bottom:-2ex; }"
-  , "</style>"
+  , "<link rel=stylesheet type=text/css href=style.css>"
   , "</head>"
-  , "<body style='margin:0px' onload='go(uniforms,effect)'>"
-  , "<div id=ui> </div>"
-  , "<canvas id='effect_canvas' style='background-color:green'></canvas>"
+  , "<body onload='go(uniforms,effect)'>"
+  , "<div id=ui></div>"
+  , "<canvas id=effect></canvas>"
   , "</body>" , "</html>"
   , "<script>"
   , shaderDefs (glsl widgets effect)
@@ -80,7 +73,6 @@ shaderDefs :: Shader a -> String
 shaderDefs (Shader uniforms def) = 
   "var uniforms = " ++ BS.unpack (encodePretty' prettyConfig uniforms) ++ ";\n" ++
   "var effect = `\n" ++ prettyShow def ++ "`;"
-
 
 genHtml :: GenBuses a => String -> Widgets a -> (a :> ImageC) -> IO ()
 genHtml name widgets effect =
@@ -93,8 +85,6 @@ runHtml :: GenBuses a => String -> Widgets a -> (a :> ImageC) -> IO ()
 runHtml name widgets effect =
   do genHtml name widgets effect
      systemSuccess $ printf "%s %s" open (outFile name)
-
--- TODO: Do we still need GenBuses?
 
 outDir :: String
 outDir = "out/shaders"
@@ -292,11 +282,6 @@ paramDecl b =
     (TypeSpec Nothing (TypeSpecNoPrecision (busType b) Nothing))
     (Just (varName b,Nothing))
 
-#if 0
-λ> parse "uniform float time;"
-Right (TranslationUnit [Declaration (InitDeclaration (TypeDeclarator (FullType (Just (TypeQualSto Uniform)) (TypeSpec Nothing (TypeSpecNoPrecision Float Nothing)))) [InitDecl "time" Nothing Nothing])])
-#endif
-
 funDef :: TypeSpecifierNonArray -> String -> [ParameterDeclaration]
        -> [Statement] -> ExternalDeclaration
 funDef resultTy name params statements =
@@ -308,18 +293,6 @@ funDef resultTy name params statements =
 
 funcall :: String -> [Expr] -> Expr
 funcall fun args = FunctionCall (FuncId fun) (Params args)
-
--- funcall1 :: String -> Expr -> Expr
--- funcall1 fun = funcall fun . (:[])
-
-
-#if 0
-selectField :: String -> String -> Expr
-selectField var field = FieldSelection (Variable var) field
-
-assign :: String -> Expr -> Statement
-assign v e = ExpressionStatement (Just (Equal (Variable v) e))
-#endif
 
 {--------------------------------------------------------------------
     Shader representation for conversion to JSON and String
