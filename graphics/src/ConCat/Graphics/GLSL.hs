@@ -325,15 +325,15 @@ instance ToJSON Widget where
   toJSON (Slider label (lo,hi) start) =
     object [ "type"  .= T.pack "slider"
            , "label" .= label
-           , "low"   .= lo
-           , "high"  .= hi
-           , "start" .= start
+           , "min"   .= lo
+           , "max"   .= hi
+           , "value" .= start
            ]
 
 prettyConfig :: Config
 prettyConfig = defConfig { confCompare = keyOrder keys }
  where
-   keys = ["uniforms","definition","type","name","widget","label","low","high","start"]
+   keys = ["uniforms","definition","type","name","widget","label","min","max","value"]
 
 -- | Uniform variable
 data UVar = UVar TypeSpecifierNonArray String Widget deriving Show
