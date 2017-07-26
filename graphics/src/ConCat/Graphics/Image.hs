@@ -113,6 +113,7 @@ disk' r p = magSqr p <= sqr r
 -- | Annulus, given outer & inner radii
 annulus :: R -> R -> Region
 annulus o i = disk o `diffR` disk i
+{-# INLINE annulus #-}
 
 -- | Checker-board
 checker :: Region
