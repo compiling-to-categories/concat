@@ -10,6 +10,8 @@ function get_shader(gl,source,type) {
     return shader;
 };
 
+var timerCallbacks = [];
+
 function install_effect(canvas,effect_frag_source) {
   // var effect = canvas.innerHTML;
   // console.dir("canvas effect == " + effect);
@@ -52,7 +54,7 @@ function install_effect(canvas,effect_frag_source) {
       queue_draw();
   }
 
-  var _position, _time, _zoom, _pan; // Attributes & uniforms
+  var _position, _zoom, _pan; // Attributes & uniforms
   var program = null;
   var choose_effect = function (frag) {
       // console.log("choose_effect: " + frag);
@@ -68,8 +70,6 @@ function install_effect(canvas,effect_frag_source) {
       gl.linkProgram(program);
       // Attributes & uniforms
       _position = gl.getAttribLocation(program, "position");
-      _time = gl.getUniformLocation(program, "time"); // "in0"   // to eliminate
-      if (!_time) console.log("non-animated");
       _zoom = gl.getUniformLocation(program, "zoom");
       _pan  = gl.getUniformLocation(program, "pan");
       gl.enableVertexAttribArray(_position);
@@ -79,11 +79,10 @@ function install_effect(canvas,effect_frag_source) {
       canvas.onresize();
       tweak_pan(0,0);
   };
-
   var redraw = function(t) {
-      if (_time) {
-          gl.uniform1f(_time, t/1000);
-          queue_draw();
+      if (timerCallbacks.length > 0) {
+          timerCallbacks.forEach(function (cb) { cb(t/1000) });
+	  // queue_draw(); // in cb
       }
       // gl.clear(gl.COLOR_BUFFER_BIT);
       // gl.clear(0);
@@ -158,7 +157,7 @@ function uniformString(uniform) { return "uniform " + uniform.type + " " + unifo
 
 // Render a shader object from JSON to string
 function shaderString(uniforms,effect) {
-    return uniforms.map(uniformString).join() + effect;
+    return uniforms.map(uniformString).join("") + effect;
 }
 
 function mkSlider(props,onChange) {
@@ -182,26 +181,32 @@ function mkSlider(props,onChange) {
    return div;
 };
 
-// Assumes a canvas element with id "effect_canvas" and a global variable named "effect"
-function go() {
+function mkTime(props,onChange) {
+    // console.log("mkTime");
+    timerCallbacks.push(onChange);
+    return $("<div>(time)</div>");
+}
+
+var widgetMakers = { "slider": mkSlider, "time": mkTime };
+
+function go(uniforms,effect) {
     var canvas = document.getElementById("effect_canvas");
     var effect_source = shaderString(uniforms,effect)
     // console.log("effect object:\n\n" + JSON.stringify(effect) );
     // console.log("effect source:\n\n" + effect_source );
     effect_info = install_effect(canvas,effect_source); // gl, program
-    var gl = effect_info.gl, program = effect_info.program, queue_draw = effect_info.queue_draw;
+    var gl  = effect_info.gl,
+	program = effect_info.program,
+	queue_draw = effect_info.queue_draw;
     uniforms.forEach(function (uniform) {
-	var widget = uniform.widget;
-	switch (widget.type) {
-	    case "slider":
-	      console.log("Found slider for " + uniform.name);
-	      var loc = gl.getUniformLocation(program, uniform.name);
-	      $("div#ui").append(mkSlider(widget, function (val) { gl.uniform1f(loc,val); queue_draw();}));
-	      break;
-	}
+	var widget = uniform.widget,
+	    loc = gl.getUniformLocation(program, uniform.name),
+	    setVal = function (val) { gl.uniform1f(loc,val); queue_draw(); },
+	    mk = widgetMakers[widget.type];
+	$("div#ui").append(mk(widget, setVal));
     });
     window.onresize = function() {
-	canvas.width = window.innerWidth;
+	canvas.width  = window.innerWidth;
 	canvas.height = window.innerHeight;
 	canvas.onresize();
     };
