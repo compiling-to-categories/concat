@@ -78,7 +78,14 @@ main = sequence_
   -- , runCirc "foo2"  $ A.uncurry $ ccc $ toImageC . disk . cos
   -- , runCirc "foo"  $ ccc $ toImageC . disk . cos
 
-  , runHtmlT "disk-sizing"  $ ccc $ toPImageC $ disk . cos
+  -- , runHtml "disk-sizing" timeW  $ ccc $ toPImageC $ disk . cos
+  -- , runHtmlT "disk-sizing"  $ ccc $ toPImageC $ disk . cos
+
+  -- , runHtml "annulus1" (PairU sliderW sliderW) $ ccc $ toPImageC $
+  --     uncurry annulus
+
+  , runHtml "annulus2" (PairU sliderW timeW) $ ccc $ toPImageC $
+      \ (o,i) -> annulus o ((sin i + 1) / 3)
 
   -- , runHtmlT "wobbly-disk" $ ccc $ toPImageC $ \ t ->
   --     disk' (0.75 + 0.25 * cos t)
@@ -129,7 +136,7 @@ timeW :: Widgets R
 timeW = PrimU Time
 
 sliderW :: Widgets R
-sliderW = PrimU (Slider "t" (0,5) 1)
+sliderW = PrimU (Slider "arg" (0,5) 1)
 
 -- runCirc and runHtml specialized to time
 runCircHtmlT :: String -> (R :> ImageC) -> IO ()
