@@ -129,17 +129,17 @@ timeW :: Widgets R
 timeW = PrimU Time
 
 sliderW :: Widgets R
-sliderW = PrimU (Slider "arg" (0,5) 1)
+sliderW = PrimU (Slider "t" (0,5) 1)
 
 -- runCirc and runHtml specialized to time
 runCircHtmlT :: String -> (R :> ImageC) -> IO ()
 runCircHtmlT nm circ = runCirc nm circ >> runHtmlT nm circ
 
--- genHtml specialized to time
+-- genHtml specialized to slider (for now time)
 genHtmlT :: String -> (R :> ImageC) -> IO ()
 genHtmlT nm = genHtml nm sliderW
 
--- runHtml specialized to time
+-- runHtml specialized to time (for now time)
 runHtmlT :: String -> (R :> ImageC) -> IO ()
 runHtmlT nm = runHtml nm sliderW
 

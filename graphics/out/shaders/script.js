@@ -68,7 +68,7 @@ function install_effect(canvas,effect_frag_source) {
       gl.linkProgram(program);
       // Attributes & uniforms
       _position = gl.getAttribLocation(program, "position");
-      _time = gl.getUniformLocation(program, "in0"); // "time"
+      _time = gl.getUniformLocation(program, "time"); // "in0"   // to eliminate
       if (!_time) console.log("non-animated");
       _zoom = gl.getUniformLocation(program, "zoom");
       _pan  = gl.getUniformLocation(program, "pan");
@@ -123,6 +123,7 @@ function install_effect(canvas,effect_frag_source) {
       }
   };
   choose_effect(effect_frag_source);
+  return { gl:gl, program:program, queue_draw:queue_draw };
 };
 
 var utils_glsl =
@@ -160,13 +161,45 @@ function shaderString(uniforms,effect) {
     return uniforms.map(uniformString).join() + effect;
 }
 
+function mkSlider(props,onChange) {
+   var width = props.max - props.min;
+   // map [0,10000] to [min,max]
+   function to_rval (ival) { return ival / 10000 * width + props.min; };
+   // map [min,max] to [0,10000]
+   function to_ival (rval) { return (rval - props.min) / width * 10000; };
+   var div = $("<div><p class=sliderLabel>"+props.label+": <input type=text class=param></p><p></p></div>");
+   var input = div.find("input");
+   var slider = div.find("p").filter(":last");
+   slider.slider({
+      value: to_ival(props.value), min: 0, max: 10000,
+      slide: function(event, ui) {
+        var rval = to_rval(ui.value);
+        input.val(rval);
+        if (onChange) onChange(rval);
+      }
+   });
+   input.val(to_rval(slider.slider("value")));
+   return div;
+};
+
 // Assumes a canvas element with id "effect_canvas" and a global variable named "effect"
 function go() {
     var canvas = document.getElementById("effect_canvas");
     var effect_source = shaderString(uniforms,effect)
     // console.log("effect object:\n\n" + JSON.stringify(effect) );
     // console.log("effect source:\n\n" + effect_source );
-    install_effect(canvas,effect_source);
+    effect_info = install_effect(canvas,effect_source); // gl, program
+    var gl = effect_info.gl, program = effect_info.program, queue_draw = effect_info.queue_draw;
+    uniforms.forEach(function (uniform) {
+	var widget = uniform.widget;
+	switch (widget.type) {
+	    case "slider":
+	      console.log("Found slider for " + uniform.name);
+	      var loc = gl.getUniformLocation(program, uniform.name);
+	      $("div#ui").append(mkSlider(widget, function (val) { gl.uniform1f(loc,val); queue_draw();}));
+	      break;
+	}
+    });
     window.onresize = function() {
 	canvas.width = window.innerWidth;
 	canvas.height = window.innerHeight;
