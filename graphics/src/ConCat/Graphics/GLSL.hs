@@ -22,7 +22,10 @@
 
 -- | Generate GLSL code from a circuit graph
 
-module ConCat.Graphics.GLSL (genHtml,runHtml,Widget(..),Widgets(..)) where
+module ConCat.Graphics.GLSL
+  ( genHtml,runHtml, Widgets -- ,Widget(..),Widgets(..)
+  , timeW, sliderW, pairW
+  ) where
 
 -- import Control.Applicative (liftA2)
 import Data.Maybe (fromMaybe)
@@ -375,40 +378,25 @@ instance ToJSON (Shader a) where
 
 -- Input descriptions for uniform parameters
 data Widgets :: * -> * where
-  UnitU :: Widgets ()
-  PrimU :: {- GenBuses a => -} Widget -> Widgets a
-  PairU :: Widgets a -> Widgets b -> Widgets (a :* b)
+  UnitW :: Widgets ()
+  PrimW :: Widget -> Widgets a
+  PairW :: Widgets a -> Widgets b -> Widgets (a :* b)
 
 deriving instance Show (Widgets a)
 
+timeW :: Widgets R
+timeW = PrimW Time
+
+sliderW :: String -> (R,R) -> R -> Widgets R
+sliderW = (fmap.fmap.fmap) PrimW Slider
+
+pairW :: Widgets a -> Widgets b -> Widgets (a :* b)
+pairW = PairW
+
 flattenWidgets :: Widgets a -> [Widget]
-flattenWidgets UnitU       = []
-flattenWidgets (PrimU wid) = [wid]
-flattenWidgets (PairU a b) = flattenWidgets a ++ flattenWidgets b
+flattenWidgets UnitW       = []
+flattenWidgets (PrimW wid) = [wid]
+flattenWidgets (PairW a b) = flattenWidgets a ++ flattenWidgets b
 
 -- TODO: rework flattenWidgets for efficiency, taking an accumulation argument,
 -- (equivalently) generating a difference list, or generating a Seq.
-
-#if 0
-
-class HasUniform a where
-  mkU :: State [UVar] (Widgets a)
-
-primMkU :: GenBuses a => State [UVar] (Widgets a)
-primMkU = do v : vs' <- get
-             put vs'
-             return (PrimU v)
-
-instance HasUniform Int    where mkU = primMkU
-instance HasUniform Float  where mkU = primMkU
-instance HasUniform Double where mkU = primMkU
-
-instance HasUniform () where mkU = return UnitU
-
-instance (HasUniform a, HasUniform b) => HasUniform (a :* b) where
-  mkU = liftA2 PairU mkU mkU
-
-mkWidgets :: HasUniform a => [UVar] -> Widgets a
-mkWidgets = fst . runState mkU
-
-#endif

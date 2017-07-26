@@ -39,7 +39,7 @@ import GHC.Float (int2Double)   -- TEMP
 import ConCat.Misc ((:*),R,sqr,magSqr,Unop,Binop,inNew,inNew2)
 import ConCat.Circuit (GenBuses,(:>))
 import ConCat.Graphics.GLSL
-import ConCat.Graphics.Color (toColor)
+import ConCat.Graphics.Color (ToColor(..))
 import ConCat.Graphics.Image
 import qualified ConCat.RunCircuit as RC
 import ConCat.Syntactic (Syn,render)
@@ -78,38 +78,38 @@ main = sequence_
   -- , runCirc "foo2"  $ A.uncurry $ ccc $ toImageC . disk . cos
   -- , runCirc "foo"  $ ccc $ toImageC . disk . cos
 
-  , runHtml "disk-sizing-a" sliderW $ ccc $ toPImageC $ disk
-  , runHtmlT "disk-sizing-b"  $ ccc $ toPImageC $ disk . cos
-
-  , runHtml "annulus1" (PairU sliderW sliderW) $ ccc $ toPImageC $
+  , runHtml' "disk-sizing-a" (sliderW "Radius" (0,2) 1) $ disk
+  , runHtml' "disk-sizing-b" timeW $ disk . cos
+  , runHtml' "annulus1"
+      (pairW (sliderW "Outer" (0,2) 1) (sliderW "Inner" (0,1) 0.1)) $
       uncurry annulus
-  , runHtml "annulus2" (PairU sliderW timeW) $ ccc $ toPImageC $
+  , runHtml' "annulus2" (pairW (sliderW "Outer" (0,2) 1) timeW) $
       \ (o,i) -> annulus o ((sin i + 1) / 2)
 
-  -- , runHtmlT "wobbly-disk" $ ccc $ toPImageC $ \ t ->
+  -- , runHtml' "wobbly-disk" timeW $ \ t ->
   --     disk' (0.75 + 0.25 * cos t)
-  -- , runHtmlT "diag-plus-im"  $ ccc $ toPImageC $ \ t ->
+  -- , runHtml' "diag-plus-im" timeW $ ccc $ toPImageC $ \ t ->
   --     \ ((x,y) :: R2) -> x + sin t > y
-  -- , runHtmlT "diag-disk-turning" $ ccc $ toPImageC $ \ t ->
+  -- , runHtml' "diag-disk-turning" timeW $ ccc $ toPImageC $ \ t ->
   --     udisk `intersectR` rotate t xPos
-  -- , runHtmlT "checker-rotate" $ ccc $ toPImageC $ \ t ->
+  -- , runHtml' "checker-rotate" timeW $ ccc $ toPImageC $ \ t ->
   --     rotate t checker13
-  -- , runHtmlT "diag-disk-turning-sizing" $ ccc $ toPImageC $ \ t ->
+  -- , runHtml' "diag-disk-turning-sizing" timeW $ ccc $ toPImageC $ \ t ->
   --     disk' (cos t) `xorR` rotate t xyPos
 
-  -- , genHtmlT "orbits1" $ ccc $ toPImageC $ orbits1
-  -- , genHtmlT "checker-orbits1" $ ccc $ toPImageC $
+  -- , runHtml' "orbits1" timeW $ ccc $ toPImageC $ orbits1
+  -- , runHtml' "checker-orbits1" timeW $ ccc $ toPImageC $
   --     liftA2 xorR (const checker13) orbits1
-  -- , genHtmlT "checker-orbits2" $ ccc $ toPImageC $ \ t ->
+  -- , runHtml' "checker-orbits2" timeW $ ccc $ toPImageC $ \ t ->
   --     uscale (sin t + 1.05) checker `xorR` orbits1 t
-  -- , genHtmlT "checker-orbits3" $ ccc $ toPImageC $ \ t -> 
+  -- , runHtml' "checker-orbits3" timeW $ ccc $ toPImageC $ \ t -> 
   --     orbits1 t `intersectR` checker13
-  -- , genHtmlT "checker-orbits4" $ ccc $ toPImageC $ \ t -> 
+  -- , runHtml' "checker-orbits4" timeW $ ccc $ toPImageC $ \ t -> 
   --     orbits1 t `intersectR` translate (t/10,0) checker13
-  -- , genHtmlT "checker-orbits5" $ ccc $ toPImageC $ \ t -> 
+  -- , runHtml' "checker-orbits5" timeW $ ccc $ toPImageC $ \ t -> 
   --     orbits1 t `intersectR` rotate (t/10) checker13
-  -- , runHtmlT "orbits2" $ ccc $ toPImageC $ orbits2
-  -- , runHtmlT "checker-orbits6" $ ccc $ toPImageC $ \ t ->
+  -- , runHtml' "orbits2" timeW $ ccc $ toPImageC $ orbits2
+  -- , runHtml' "checker-orbits6" timeW $ ccc $ toPImageC $ \ t ->
   --     orbits2 t `intersectR` rotate (t/10) checker13
 
   ]
@@ -131,25 +131,17 @@ runCirc nm circ = RC.run nm [] circ
 runSynCirc :: GO a b => String -> EC a b -> IO ()
 runSynCirc nm (syn :**: circ) = runSyn syn >> runCirc nm circ
 
-timeW :: Widgets R
-timeW = PrimU Time
+runHtml' :: (GenBuses a, ToColor c)
+         => String -> Widgets a -> (a -> Image c) -> IO ()
+runHtml' _ _ _ = error "runHtml' called directly"
+{-# NOINLINE runHtml' #-}
+{-# RULES "runHtml'"
+  forall n w f. runHtml' n w f = runHtml n w $ ccc $ toPImageC f #-}
 
-sliderW :: Widgets R
-sliderW = PrimU (Slider "arg" (0,5) 1)
+-- runHtml' name widgets f =
+--   runHtml name widgets $ ccc $ toPImageC f
+-- {-# INLINE runHtml' #-}
 
--- runCirc and runHtml specialized to time
-runCircHtmlT :: String -> (R :> ImageC) -> IO ()
-runCircHtmlT nm circ = runCirc nm circ >> runHtmlT nm circ
-
--- genHtml specialized to slider (for now time)
-genHtmlT :: String -> (R :> ImageC) -> IO ()
-genHtmlT nm = genHtml nm timeW
-
--- runHtml specialized to time (for now time)
-runHtmlT :: String -> (R :> ImageC) -> IO ()
-runHtmlT nm = runHtml nm timeW
-
--- TODO: Fix runCircHtml to construct the graph once instead of twice.
 
 {--------------------------------------------------------------------
     Misc
