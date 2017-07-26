@@ -177,7 +177,8 @@ function mkSlider(props,onChange) {
         if (onChange) onChange(rval);
       }
    });
-   input.val(to_rval(slider.slider("value")));
+   input.val(props.value);
+   onChange(props.value);
    return div;
 };
 
