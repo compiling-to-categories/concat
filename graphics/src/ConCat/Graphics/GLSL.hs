@@ -54,7 +54,7 @@ import ConCat.Graphics.Image (ImageC)
 effectHtml :: GenBuses a => Widgets a -> (a :> ImageC) -> String
 effectHtml widgets effect = unlines $
   [ "<!DOCTYPE html>" , "<html>" , "<head>"
-  , "<meta charset=utf-8/>"
+  , "<meta charset='utf-8'/>"
   , "<link rel=stylesheet href=https://code.jquery.com/ui/1.12.1/themes/ui-lightness/jquery-ui.css>"
   , "<script src=https://code.jquery.com/jquery-1.12.4.js></script>"
   , "<script src=https://code.jquery.com/ui/1.12.1/jquery-ui.js></script>"
