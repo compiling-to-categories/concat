@@ -1,5 +1,5 @@
 input.param {
-    border: 1px none;
+    border: none;
     font-size: 100%;
     font-family: serif;
     background: none;
@@ -9,8 +9,7 @@ div#ui {
     width: 45ex;
     opacity: 0.75;
     position: absolute;
-    left: 1ex;
-    top: 1ex;
+    top: 1ex; left: 1ex;
     background: rgba(80,120,255,0.7);
     border: 1px solid rgba(80,120,255,0.8);
     padding: 5px;
@@ -19,8 +18,8 @@ div#ui {
 }
 
 p.sliderLabel {
-    margin-top: 0.5ex;
-    margin-bottom: -1ex;
+    margin-top: 0ex;
+    margin-bottom: -1.7ex;
 }
 
 p.slider {
@@ -28,6 +27,7 @@ p.slider {
 }
 
 canvas.effect {
+    /* Visible green means that something broke. Check JavaScript console. */
     background-color: green;
 }
 
