@@ -81,7 +81,7 @@ main = sequence_
   , runHtml' "disk-sizing-a" (sliderW "Radius" (0,2) 1) $ disk
   , runHtml' "disk-sizing-b" timeW $ disk . cos
   , runHtml' "annulus1"
-      (pairW (sliderW "Outer" (0,2) 1) (sliderW "Inner" (0,1) 0.1)) $
+      (pairW (sliderW "Outer" (0,2) 1) (sliderW "Inner" (0,2) 0.1)) $
       uncurry annulus
   , runHtml' "annulus2" (pairW (sliderW "Outer" (0,2) 1) timeW) $
       \ (o,i) -> annulus o ((sin i + 1) / 2)
