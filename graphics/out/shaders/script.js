@@ -195,16 +195,15 @@ function go(uniforms,effect) {
     var effect_source = shaderString(uniforms,effect)
     // console.log("effect object:\n\n" + JSON.stringify(effect) );
     // console.log("effect source:\n\n" + effect_source );
-    effect_info = install_effect(canvas,effect_source); // gl, program
-    var gl  = effect_info.gl,
-	program = effect_info.program,
-	queue_draw = effect_info.queue_draw;
+    install = install_effect(canvas,effect_source); // gl, program
     uniforms.forEach(function (uniform) {
 	var widget = uniform.widget,
-	    loc = gl.getUniformLocation(program, uniform.name),
-	    setVal = function (val) { gl.uniform1f(loc,val); queue_draw(); },
-	    mk = widgetMakers[widget.type];
-	$("div#ui").append(mk(widget, setVal));
+	    loc = install.gl.getUniformLocation(install.program, uniform.name);
+	$("div#ui").append(
+	    widgetMakers[widget.type](
+	       widget,
+	       function (val) {
+		   install.gl.uniform1f(loc,val); install.queue_draw(); }));
     });
     window.onresize = function() {
 	canvas.width  = window.innerWidth;
