@@ -54,12 +54,12 @@ import ConCat.Graphics.Image (ImageC)
 effectHtml :: GenBuses a => Widgets a -> (a :> ImageC) -> String
 effectHtml widgets effect = unlines $
   [ "<!DOCTYPE html>" , "<html>" , "<head>"
-  , "<meta charset='utf-8'/>"
-  , "<link href='https://code.jquery.com/ui/1.10.4/themes/ui-lightness/jquery-ui.css' rel='stylesheet'>"
-  , "<script src='https://code.jquery.com/jquery-1.10.2.js'></script>"
-  , "<script src='https://code.jquery.com/ui/1.10.4/jquery-ui.js'></script>"
-  , "<script type='text/javascript' src='script.js'></script>"
-  , "<link rel=stylesheet type=text/css href=style.css>"
+  , "<meta charset=utf-8/>"
+  , "<link rel=stylesheet href=https://code.jquery.com/ui/1.12.1/themes/ui-lightness/jquery-ui.css>"
+  , "<script src=https://code.jquery.com/jquery-1.12.4.js></script>"
+  , "<script src=https://code.jquery.com/ui/1.12.1/jquery-ui.js></script>"
+  , "<script src=script.js></script>"
+  , "<link rel=stylesheet href=style.css>"
   , "</head>"
   , "<body onload='go(uniforms,effect)'>"
   , "<div id=ui></div>"
