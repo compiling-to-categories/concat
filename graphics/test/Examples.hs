@@ -52,65 +52,45 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- , runSynCirc "example-a" $ ccc $ \ t (x::R,y) -> x > y + sin t
+  -- , runHtml' "disk-sizing-a" (sliderW "Radius" (0,2) 1) $ disk
+  -- , runHtml' "disk-sizing-b" timeW $ disk . cos
+  -- , runHtml' "annulus1"
+  --     (pairW (sliderW "Outer" (0,2) 1) (sliderW "Inner" (0,2) 0.1)) $
+  --     uncurry annulus
+  -- , runHtml' "annulus2" (pairW (sliderW "Outer" (0,2) 1) timeW) $
+  --     \ (o,i) -> annulus o ((sin i + 1) / 2)
 
-  -- , runSynCirc "example-a2" $ ccc $
-  --     \ (t :: R) -> let s = sin t in \ (x,y) -> x > y + s
-
-  -- , runSynCirc "example-a2-uncurry" $ ccc $
-  --     uncurry (\ (t :: R) -> let s = sin t in \ (x,y) -> x > y + s)
-
-  -- , runSynCirc "example-b" $ ccc $ \ (t :: R) -> let s = sin t in \ (x,y) -> x > y + s
-
-  -- , runSynCirc "example-c" $ ccc exampleC
-
-  -- , runSynCirc "example-d" $ ccc exampleD
-
-  -- , runSynCirc "example-c2" $ exampleC2
-
-  -- , runSynCirc "example-c3p" $ exampleC3'
-
-  -- , runHtml "example-a" $ ccc $ \ t (x,y) -> x > y + sin t
-
-  -- , runSynCirc "disk-sizing-uncurry"   $ ccc $ uncurry (disk . cos)
-
-  -- , runCirc "foo1"  $ ccc $ uncurry (toImageC . disk . cos)
-  -- , runCirc "foo2"  $ A.uncurry $ ccc $ toImageC . disk . cos
-  -- , runCirc "foo"  $ ccc $ toImageC . disk . cos
-
-  , runHtml' "disk-sizing-a" (sliderW "Radius" (0,2) 1) $ disk
-  , runHtml' "disk-sizing-b" timeW $ disk . cos
-  , runHtml' "annulus1"
-      (pairW (sliderW "Outer" (0,2) 1) (sliderW "Inner" (0,2) 0.1)) $
-      uncurry annulus
-  , runHtml' "annulus2" (pairW (sliderW "Outer" (0,2) 1) timeW) $
-      \ (o,i) -> annulus o ((sin i + 1) / 2)
+  -- , runSynCirc "wobbly-disk" $ ccc $ \ t ->
+  --     disk' (3/4 + 1/4 * cos t)
+  -- , runSynCirc "wobbly-disk-color" $ ccc $ toPImageC $ \ t ->
+  --     disk' (3/4 + 1/4 * cos t)
 
   -- , runHtml' "wobbly-disk" timeW $ \ t ->
-  --     disk' (0.75 + 0.25 * cos t)
-  -- , runHtml' "diag-plus-im" timeW $ ccc $ toPImageC $ \ t ->
-  --     \ ((x,y) :: R2) -> x + sin t > y
-  -- , runHtml' "diag-disk-turning" timeW $ ccc $ toPImageC $ \ t ->
-  --     udisk `intersectR` rotate t xPos
-  -- , runHtml' "checker-rotate" timeW $ ccc $ toPImageC $ \ t ->
-  --     rotate t checker13
-  -- , runHtml' "diag-disk-turning-sizing" timeW $ ccc $ toPImageC $ \ t ->
-  --     disk' (cos t) `xorR` rotate t xyPos
+  --     disk' (3/4 + 1/4 * cos t)
 
-  -- , runHtml' "orbits1" timeW $ ccc $ toPImageC $ orbits1
-  -- , runHtml' "checker-orbits1" timeW $ ccc $ toPImageC $
-  --     liftA2 xorR (const checker13) orbits1
-  -- , runHtml' "checker-orbits2" timeW $ ccc $ toPImageC $ \ t ->
+  , runHtml' "diag-plus-im" timeW $ \ t ->
+      \ ((x,y) :: R2) -> x + sin t > y
+  , runHtml' "diag-disk-turning" timeW $ \ t ->
+      udisk `intersectR` rotate t xPos
+  , runHtml' "checker-rotate" timeW $ \ t ->
+      rotate t checker15
+  , runHtml' "diag-disk-turning-sizing" timeW $ \ t ->
+      disk' (cos t) `xorR` rotate t xyPos
+
+  -- , runHtml' "orbits1" timeW $ orbits1
+  -- , runHtml' "checker-orbits1" timeW $
+  --     liftA2 xorR (const checker15) orbits1
+  -- , runHtml' "checker-orbits2" timeW $ \ t ->
   --     uscale (sin t + 1.05) checker `xorR` orbits1 t
-  -- , runHtml' "checker-orbits3" timeW $ ccc $ toPImageC $ \ t -> 
-  --     orbits1 t `intersectR` checker13
-  -- , runHtml' "checker-orbits4" timeW $ ccc $ toPImageC $ \ t -> 
-  --     orbits1 t `intersectR` translate (t/10,0) checker13
-  -- , runHtml' "checker-orbits5" timeW $ ccc $ toPImageC $ \ t -> 
-  --     orbits1 t `intersectR` rotate (t/10) checker13
-  -- , runHtml' "orbits2" timeW $ ccc $ toPImageC $ orbits2
-  -- , runHtml' "checker-orbits6" timeW $ ccc $ toPImageC $ \ t ->
-  --     orbits2 t `intersectR` rotate (t/10) checker13
+  -- , runHtml' "checker-orbits3" timeW $ \ t -> 
+  --     orbits1 t `intersectR` checker15
+  -- , runHtml' "checker-orbits4" timeW $ \ t -> 
+  --     orbits1 t `intersectR` translate (t/10,0) checker15
+  -- , runHtml' "checker-orbits5" timeW $ \ t -> 
+  --     orbits1 t `intersectR` rotate (t/10) checker15
+  -- , runHtml' "orbits2" timeW $ orbits2
+  -- , runHtml' "checker-orbits6" timeW $ \ t ->
+  --     orbits2 t `intersectR` rotate (t/10) checker15
 
   ]
 
@@ -164,8 +144,8 @@ orbits2 z =
    r2 = 1 - r1
    theta = z * 2
 
-checker13 :: Region
-checker13 = uscale (1/3) checker
+checker15 :: Region
+checker15 = uscale (1/5) checker
 
 exampleB :: R -> Region
 exampleB = \ t -> let s = sin t in \ (x,y) -> x > y + s
