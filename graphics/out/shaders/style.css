@@ -11,10 +11,11 @@ div#ui {
     position: absolute;
     top: 1ex; left: 1ex;
     background: rgba(80,120,255,0.7);
-    border: 1px solid rgba(80,120,255,0.8);
     padding: 5px;
-    border-radius: 5px;
     font-size: 90%;
+    border: 1px solid rgba(80,120,255,0.8);
+    border-radius: 5px;
+    /* box-shadow: 10px 10px 35px rgba(80,120,255,0.8); */
 }
 
 p.sliderLabel {
