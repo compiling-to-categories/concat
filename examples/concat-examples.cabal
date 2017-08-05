@@ -18,12 +18,16 @@ source-repository head
   type:             git
   location:         git://github.com/conal/concat
 
+Flag smt
+  Description:          Enable SMT
+  Default:              False
+
 library
   default-language:    Haskell2010
   hs-source-dirs:      src
   include-dirs:        src
   install-includes:    ConCat/AbsTy.inc
-  build-depends:       base >=4.9 && <4.10
+  build-depends:       base >=4.9
                      , concat-classes
                      , concat-plugin
                      , constraints >= 0.8
@@ -45,8 +49,12 @@ library
                      , transformers >= 0.5.2.0, mtl >= 2.2.1
                      -- For Gui
                      , data-default
-                     -- For SMT
-                     , z3
+                     -- For Polynomial
+                     , free
+  if flag(smt)
+    build-depends: z3
+    cpp-options:        -DCONCAT_SMT
+
   exposed-modules:     
                        ConCat.Orphans
                        ConCat.Free.VectorSpace
@@ -68,7 +76,8 @@ library
                        ConCat.Polynomial
                        ConCat.Demand
                        ConCat.Arr
-                       ConCat.SMT
+  if flag(smt)
+    exposed-modules: ConCat.SMT
   ghc-options:      -O2
   -- cpp-options:      -DVectorSized
 
@@ -120,6 +129,8 @@ Test-Suite misc-examples
                   , vector
   ghc-options:      -O2
                     -fplugin=ConCat.Plugin
+  if flag(smt)
+    cpp-options:        -DCONCAT_SMT
 
 Test-Suite misc-trace
   type:             exitcode-stdio-1.0
@@ -140,3 +151,5 @@ Test-Suite misc-trace
   ghc-options:      -O2
                     -fplugin=ConCat.Plugin
                     -fplugin-opt=ConCat.Plugin:trace
+  if flag(smt)
+    cpp-options:        -DCONCAT_SMT
