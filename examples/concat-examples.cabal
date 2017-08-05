@@ -46,7 +46,7 @@ library
                      -- For Gui
                      , data-default
                      -- For SMT
-                     , z3
+                     -- , z3
   exposed-modules:     
                        ConCat.Orphans
                        ConCat.Free.VectorSpace
@@ -68,7 +68,7 @@ library
                        ConCat.Polynomial
                        ConCat.Demand
                        ConCat.Arr
-                       ConCat.SMT
+                       -- ConCat.SMT
   ghc-options:      -O2
   -- cpp-options:      -DVectorSized
 

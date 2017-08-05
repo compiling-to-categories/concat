@@ -5,7 +5,17 @@ packages:
 - plugin
 - examples
 - graphics
+- hardware
+- location:
+    git: https://github.com/ku-fpg/netlist
+    commit: 9869fe5eca7b0478bb352d2f14b2d46a01e46938
+  extra-dep: true
+  subdirs:
+  - netlist
+  - verilog
+  - netlist-to-verilog
 
 extra-deps:
-- z3-4.1.0
+# - z3-4.1.0
 - language-glsl-0.2.1
+

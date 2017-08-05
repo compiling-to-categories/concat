@@ -1,0 +1,11 @@
+#! /usr/bin/env sh
+
+# make_tags
+#
+# Makes the Vim tags for the concat project.
+#
+# Original author: David Banas <capn.freako@gmail.com>
+# Original date:   August 3, 2017
+
+find . -not \( -path '*/.*' -prune \) -name '*.hs' -print0 | xargs -0 hothasktags > tags
+

@@ -1,0 +1,81 @@
+name:                concat-hardware
+version:             0.1.0.0
+synopsis:            Circuit description (HDL) via compiling-to-categories
+description:         Circuit description (HDL) via compiling-to-categories
+license:             BSD3
+license-file:        LICENSE
+author:              Conal Elliott, David Banas
+maintainer:          capn.freako@gmail.com
+copyright:           2017 Conal Elliott, David Banas
+category:            Hardware
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+source-repository head
+  type:     git
+  location: https://github.com/conal/concat
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     ConCat.Hardware.Verilog
+  build-depends:       base >= 4.7 && < 5
+                     , bytestring >= 0.10.8.1
+                     , aeson >= 1.0, aeson-pretty >= 0.8.5
+                     , NumInstances
+                     , concat-classes
+                     , concat-examples
+                     , containers
+                     , directory
+                     , parsec
+                     , prettyclass
+                     , text >= 1.2.2.1
+                     , language-glsl >= 0.2.1
+                     , verilog
+                     , netlist
+                     , netlist-to-verilog
+  default-language:    Haskell2010
+
+test-suite hardware-examples
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Examples.hs
+  build-depends:       base
+                     , bytestring >= 0.10.8.1
+                     , aeson >= 1.0, aeson-pretty >= 0.8.5
+                     , concat-classes
+                     , concat-examples
+                     , concat-hardware
+                     , concat-plugin
+                     , ghc-prim
+                     , newtype-generics
+                     , text >= 1.2.2.1
+                     , language-glsl >= 0.2.1
+                     , verilog
+                     , netlist
+                     , netlist-to-verilog
+  default-language:    Haskell2010
+  ghc-options:         -fplugin=ConCat.Plugin
+
+test-suite hardware-trace
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Examples.hs
+  build-depends:       base
+                     , bytestring >= 0.10.8.1
+                     , aeson >= 1.0, aeson-pretty >= 0.8.5
+                     , concat-classes
+                     , concat-examples
+                     , concat-hardware
+                     , concat-plugin
+                     , ghc-prim
+                     , newtype-generics
+                     , text >= 1.2.2.1
+                     , language-glsl >= 0.2.1
+                     , verilog
+                     , netlist
+                     , netlist-to-verilog
+  default-language:    Haskell2010
+  ghc-options:      -fplugin=ConCat.Plugin
+                    -fplugin-opt=ConCat.Plugin:trace
+

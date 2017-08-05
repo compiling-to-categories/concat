@@ -80,7 +80,7 @@ import qualified ConCat.RunCircuit as RC
 import ConCat.AltCat (ccc,U2(..),(:**:)(..),Ok2, Arr, array,arrAt,OrdCat,ConstCat) --, Ok, Ok3
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Arr -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
-import ConCat.SMT
+-- import ConCat.SMT
 
 -- These imports bring newtype constructors into scope, allowing CoerceCat (->)
 -- dictionaries to be constructed. We could remove the LinearRow import if we
@@ -100,11 +100,11 @@ main = sequence_
   [ putChar '\n' -- return ()
 
   -- Circuit graphs
-  , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
-  , runSynCirc "magSqr"    $ ccc $ magSqr @R
-  , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
-  , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
-  , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
+  -- , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
+  -- , runSynCirc "magSqr"    $ ccc $ magSqr @R
+  -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
+  -- , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
+  -- , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
 
   -- -- Interval analysis
   -- , runSynCirc "add-iv"    $ ccc $ ivFun $ uncurry ((+) @Int)
@@ -118,6 +118,7 @@ main = sequence_
 
   -- -- Automatic differentiation
   -- , runSynCirc "sin-ad"       $ ccc $ andDer $ sin @R
+  , mkCircuit "sin-ad"       $ ccc $ andDer $ sin @R
   -- , runSynCirc "cos-ad"       $ ccc $ andDer $ cos @R
   -- , runSynCirc "twice-ad"     $ ccc $ andDer $ twice @R
   -- , runSynCirc "sqr-ad"       $ ccc $ andDer $ sqr @R
@@ -355,31 +356,31 @@ runSynCirc nm (syn :**: circ) = runSyn syn >> runCirc nm circ
 runCirc :: GO a b => String -> (a :> b) -> IO ()
 runCirc nm circ = RC.run nm [] circ
 
-runSolve :: (GenBuses a, Show a, EvalE a) => (a :> Bool) -> IO ()
-runSolve = print . solve
+-- runSolve :: (GenBuses a, Show a, EvalE a) => (a :> Bool) -> IO ()
+-- runSolve = print . solve
 -- runSolve = print <=< solve
 
-runSolveAscFrom :: ( GenBuses a, Show a, EvalE a, GenBuses r, EvalE r
-                   , OrdCat (:>) r, ConstCat (:>) r, Show r )
-  => r -> (a :* r :> Bool) -> IO ()
+-- runSolveAscFrom :: ( GenBuses a, Show a, EvalE a, GenBuses r, EvalE r
+--                    , OrdCat (:>) r, ConstCat (:>) r, Show r )
+--   => r -> (a :* r :> Bool) -> IO ()
 -- runSolveAscFrom r = print . solveAscendingFrom r
 -- runSolveAscFrom r = putStrLn . take 25 . show . solveAscendingFrom r
 -- runSolveAscFrom r = print . null . solveAscendingFrom r
 -- runSolveAscFrom r = print . (> 3) . length . take 4 . solveAscendingFrom r
-runSolveAscFrom r = mapM_ print . solveAscendingFrom r
+-- runSolveAscFrom r = mapM_ print . solveAscendingFrom r
 
 -- runSolve = print <=< solve
 
-runCircSMT :: (GenBuses a, Show a, EvalE a) => String -> (a :> Bool) -> IO ()
-runCircSMT nm circ = runCirc nm circ >> runSolve circ
+-- runCircSMT :: (GenBuses a, Show a, EvalE a) => String -> (a :> Bool) -> IO ()
+-- runCircSMT nm circ = runCirc nm circ >> runSolve circ
 
 -- TODO: rework runCircSMT to generate the circuit graph once
 -- rather than twice.
 
-runSolveAsc :: ( GenBuses a, Show a, GenBuses r, Show r, EvalE a, EvalE r
-               , OrdCat (:>) r, ConstCat (:>) r )
-            => (a :* r :> Bool) -> IO ()
-runSolveAsc = mapM_ print . solveAscending
+-- runSolveAsc :: ( GenBuses a, Show a, GenBuses r, Show r, EvalE a, EvalE r
+--                , OrdCat (:>) r, ConstCat (:>) r )
+--             => (a :* r :> Bool) -> IO ()
+-- runSolveAsc = mapM_ print . solveAscending
 
 -- The following definition hangs with infinite lists. More generally, it
 -- produces no list output until all of the list elements have been constructed.
