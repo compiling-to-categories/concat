@@ -8,14 +8,16 @@ packages:
 - hardware
 - location:
     git: https://github.com/ku-fpg/netlist
-    commit: 9869fe5eca7b0478bb352d2f14b2d46a01e46938
+    commit: 97340fa97ee972cb7f7735f3dc8aee3186898e6c
   extra-dep: true
   subdirs:
   - netlist
   - verilog
   - netlist-to-verilog
+# - netlist/netlist-to-verilog
 
 extra-deps:
 # - z3-4.1.0
 - language-glsl-0.2.1
+# - lambdabot-utils
 

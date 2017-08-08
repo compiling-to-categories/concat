@@ -1,10 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
 -- To run:
--- 
+--
 --   stack build :netlist-examples
 --
 --   stack build :netlist-trace >& ~/Haskell/concat/graphics/out/o1
--- 
+--
 -- You might also want to use stack's --file-watch flag for automatic recompilation.
 
 {-# LANGUAGE CPP                 #-}
@@ -50,7 +50,8 @@ import ConCat.Hardware.Verilog
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
-  , runVerilog' "top" $ \ (x :: Int) -> x
+  -- , runVerilog' "top" $ \ (x :: Int) -> x
+  , runVerilog' "top" $ \ (x :: Int) (y :: Int) -> x + y
 
   -- , runHtml' "disk-sizing-a" (sliderW "Radius" (0,2) 1) $ disk
   -- , runHtml' "disk-sizing-b" timeW $ disk . cos
@@ -82,11 +83,11 @@ main = sequence_
   --     liftA2 xorR (const checker15) orbits1
   -- , runHtml' "checker-orbits2" timeW $ \ t ->
   --     uscale (sin t + 1.05) checker `xorR` orbits1 t
-  -- , runHtml' "checker-orbits3" timeW $ \ t -> 
+  -- , runHtml' "checker-orbits3" timeW $ \ t ->
   --     orbits1 t `intersectR` checker15
-  -- , runHtml' "checker-orbits4" timeW $ \ t -> 
+  -- , runHtml' "checker-orbits4" timeW $ \ t ->
   --     orbits1 t `intersectR` translate (t/10,0) checker15
-  -- , runHtml' "checker-orbits5" timeW $ \ t -> 
+  -- , runHtml' "checker-orbits5" timeW $ \ t ->
   --     orbits1 t `intersectR` rotate (t/10) checker15
   -- , runHtml' "orbits2" timeW $ orbits2
   -- , runHtml' "checker-orbits6" timeW $ \ t ->
@@ -111,7 +112,7 @@ runCirc nm circ = RC.run nm [] circ
 runSynCirc :: GO a b => String -> EC a b -> IO ()
 runSynCirc nm (syn :**: circ) = runSyn syn >> runCirc nm circ
 
-runVerilog' :: (GenBuses a) => String -> (a -> b) -> IO ()
+runVerilog' :: (GenBuses a, GenBuses b) => String -> (a -> b) -> IO ()
 runVerilog' _ _ = error "runVerilog' called directly"
 {-# NOINLINE runVerilog' #-}
 {-# RULES "runVerilog'"
@@ -137,7 +138,7 @@ later dt f = f . subtract dt
 --  where
 --    d = disk (1/2)
 --    theta = z * 2
--- 
+--
 -- orbits2 :: R -> Region
 -- orbits2 z =
 --   translate (cos theta,0) (disk r1) `xorR` translate (0,sin theta) (disk r2)
@@ -145,27 +146,27 @@ later dt f = f . subtract dt
 --    r1 = (sin (z * 3) + 1) / 2
 --    r2 = 1 - r1
 --    theta = z * 2
--- 
+--
 -- checker15 :: Region
 -- checker15 = uscale (1/5) checker
--- 
+--
 -- exampleB :: R -> Region
 -- exampleB = \ t -> let s = sin t in \ (x,y) -> x > y + s
--- 
+--
 -- exampleC :: Double -> Double -> Double
 -- exampleC = \ t -> let s = sin t in \ x -> x + s
--- 
+--
 -- exampleC2 :: EC R (R -> R)
 -- exampleC2 = A.curry (A.addC A.. (A.exr A.&&& A.sinC A.. A.exl))
--- 
+--
 -- exampleC3 :: EC R (R -> R)
 -- exampleC3 = A.curry (A.addC A.. (A.exr A.&&& A.exl)) A.. A.sinC
--- 
+--
 -- exampleC3' :: ( A.ClosedCat k, A.FloatingCat k R, A.NumCat k R
 --               , A.Ok k (R :* R), A.Ok k (R -> R) )
 --            => R `k` (R -> R)
 -- exampleC3' = A.curry (A.addC A.. (A.exr A.&&& A.exl)) A.. A.sinC
--- 
+--
 -- -- Swap addends
 -- exampleD :: Double -> Double -> Double
 -- exampleD = \ t -> let s = sin t in \ x -> s + x
