@@ -19,7 +19,7 @@ module ConCat.Hardware.Verilog
   ( genVerilog,runVerilog
   ) where
 
-import Data.List        (transpose)
+import Data.List        (intercalate, (\\), intersect)
 import System.Directory (createDirectoryIfMissing)
 import Text.PrettyPrint (render)
 
@@ -69,25 +69,20 @@ verilog name  = mkModule name
 -- and SMT and GLSL.
 
 mkModule :: String -> [CompS] -> Module
-mkModule name cs = Module name (f ins) (f outs) [] ds
+mkModule name cs = Module name (f modIns) (f modOuts) [] (map busToNet modNets ++ map mkAssignment cs)
   where
-    f xs    = [ (x, makeRange Down (if sz == 0 then 1 else sz)) | (x, sz) <- xs ]
-    ins     = map busId' modIns
-    outs    = map busId' modOuts
-    modIns  = [x | x <- allIns,  x `notElem` allOuts]
-    modOuts = [x | x <- allOuts, x `notElem` allIns]
+    f xs    = [ (x, makeRange Down sz) | (x, sz) <- map busId' xs ]
+    modIns  = allIns  \\ allOuts
+    modOuts = allOuts \\ allIns
+    modNets = allIns `intersect` allOuts
     allIns  = concatMap compIns  cs'
     allOuts = concatMap compOuts cs'
     cs'     = filter (\x -> let nm = compName x in nm /= "In" && nm /= "Out") cs
-    ds      = nets ++ comps
-    nets    = map busToNet modNets
-    modNets = [x | x <- allIns,  x `elem` allOuts]
-    comps   = map mkAssignment cs
 
 busId' :: Bus -> (String, Int)
 busId' (Bus cId ix ty) = ('n' : show cId ++ ('_' : show ix), width)
   where width = case ty of
-                  C.Unit     -> 1
+                  C.Unit     -> 0
                   C.Bool     -> 1
                   C.Int      -> 32
                   C.Float    -> 32
@@ -105,12 +100,12 @@ busWidth :: Bus -> Int
 busWidth = snd . busId'
 
 busToNet :: Bus -> Decl
-busToNet b = NetDecl (busName b) (makeRange Down (if width == 0 then 1 else width)) Nothing
+busToNet b = NetDecl (busName b) (makeRange Down width) Nothing
   where width = busWidth b
 
 mkAssignment :: CompS -> Decl
 mkAssignment c | [o] <- outs = assign o prim ins
-               | otherwise   = CommentDecl $ prim ++ ": o: " ++ concatWith ", " outs ++ ", ins: " ++ concatWith ", " ins
+               | otherwise   = CommentDecl $ prim ++ ": o: " ++ intercalate ", " outs ++ ", ins: " ++ intercalate ", " ins
   where prim   = compName c
         ins    = map busName $ compIns  c
         outs   = map busName $ compOuts c
@@ -136,8 +131,8 @@ assign o prim ins =
     "mod"    -> assignBinary Modulo
     "xor"    -> assignBinary Xor
     "if"     -> assignConditional
-    "In"     -> CommentDecl $ "In: o: " ++ o ++ ", ins: " ++ concatWith ", " ins
-    "Out"    -> CommentDecl $ "Out: o: " ++ o ++ ", ins: " ++ concatWith ", " ins
+    "In"     -> CommentDecl $ "In: o: " ++ o ++ ", ins: " ++ intercalate ", " ins
+    "Out"    -> CommentDecl $ "Out: o: " ++ o ++ ", ins: " ++ intercalate ", " ins
     _        -> error $ "ConCat.Hardware.Verilog.assign: Received unrecognized primitive: " ++ prim
   where
     assignUnary op
@@ -150,13 +145,6 @@ assign o prim ins =
       | [p, t, f]  <- ins = NetAssign o $ ExprCond (ExprVar p) (ExprVar t) (ExprVar f)
       | otherwise         = error $ errStr "conditional"
     errStr _ = "ConCat.Hardware.Verilog.assign: I received an incorrect number of inputs.\n"
-
--- Because I can't bring lambdabot-utils in, due to version dependency conflicts.
-concatWith :: String -> [String] -> String
-concatWith s ss = concat $ interleave [ss, replicate (length ss - 1) s]
-
-interleave :: [[a]] -> [a]
-interleave = concat . transpose
 
 -- These are, currently, commented out of ConCat/Circuit.hs.
 -- compId :: CompS -> CompId

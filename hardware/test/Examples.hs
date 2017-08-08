@@ -50,7 +50,15 @@ import ConCat.Hardware.Verilog
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
-  , runVerilog' "top" $ \ (x :: Int, y :: Int) -> x + y
+    -- Unary
+  , runVerilog' "neg" $ \ (x :: Int) -> - x  -- Yields bit inversion, not 2's complement!
+  -- , runVerilog' "odd" $ \ (x :: Int) -> x `mod` 2
+
+    -- Binary
+  , runVerilog' "adder" $ \ (x :: Int, y :: Int) -> x + y
+
+    -- Conditional
+  , runVerilog' "cond" $ \ (p :: Bool, x :: Int, y :: Int) -> if p then x else y
   ]
 
 {--------------------------------------------------------------------
