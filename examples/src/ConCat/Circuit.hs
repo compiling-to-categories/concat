@@ -1615,20 +1615,6 @@ type Dot = String
 
 #if 0
 
-data CompS = CompS CompId PrimName [Input] [Output] deriving Show
-
-compId :: CompS -> CompId
-compId (CompS n _ _ _) = n
-compName :: CompS -> PrimName
-compName (CompS _ nm _ _) = nm
-compIns :: CompS -> [Input]
-compIns (CompS _ _ ins _) = ins
-compOuts :: CompS -> [Output]
-compOuts (CompS _ _ _ outs) = outs
-
-instance Eq CompS where (==) = (==) `on` compId
-instance Ord CompS where compare = compare `on` compId
-
 -- type Depth = Int
 
 type CompDepths = Map CompS Depth
@@ -1755,6 +1741,22 @@ subgraphDot nc comps =
 type Statement = String
 
 data CompS = CompS CompId PrimName [Input] [Output] deriving Show
+
+#if 0
+
+compSId :: CompS -> CompId
+compSId (CompS n _ _ _) = n
+compSName :: CompS -> PrimName
+compSName (CompS _ nm _ _) = nm
+compSIns :: CompS -> [Input]
+compSIns (CompS _ _ ins _) = ins
+compSOuts :: CompS -> [Output]
+compSOuts (CompS _ _ _ outs) = outs
+
+instance Eq  CompS where (==)    = (==)    `on` compSId
+instance Ord CompS where compare = compare `on` compSId
+
+#endif
 
 simpleComp :: Comp -> CompS
 simpleComp (Comp n prim a b) = CompS n (show prim) (flatB a) (flatB b)
