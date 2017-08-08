@@ -19,6 +19,7 @@ module ConCat.Hardware.Verilog
   ( genVerilog,runVerilog
   ) where
 
+import Control.Arrow    (second)
 import Data.List        (intercalate, (\\), intersect)
 import System.Directory (createDirectoryIfMissing)
 import Text.PrettyPrint (render)
@@ -71,7 +72,7 @@ verilog name  = mkModule name
 mkModule :: String -> [CompS] -> Module
 mkModule name cs = Module name (f modIns) (f modOuts) [] (map busToNet modNets ++ map mkAssignment cs)
   where
-    f xs    = [ (x, makeRange Down sz) | (x, sz) <- map busId' xs ]
+    f       = map (second (makeRange Down) . busId')
     modIns  = allIns  \\ allOuts
     modOuts = allOuts \\ allIns
     modNets = allIns `intersect` allOuts
@@ -122,7 +123,7 @@ assign o prim ins =
     ">="     -> assignBinary GreaterEqual
     "=="     -> assignBinary Equals
     "/="     -> assignBinary NotEquals
-    "negate" -> assignUnary  Neg
+    "negate" -> assignUnary  UMinus
     "+"      -> assignBinary Plus
     "-"      -> assignBinary Minus
     "−"      -> assignBinary Minus
