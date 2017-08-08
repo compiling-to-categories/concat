@@ -133,7 +133,8 @@ assign o prim ins =
     "if"     -> assignConditional
     "In"     -> CommentDecl $ "In: o: " ++ o ++ ", ins: " ++ intercalate ", " ins
     "Out"    -> CommentDecl $ "Out: o: " ++ o ++ ", ins: " ++ intercalate ", " ins
-    _        -> error $ "ConCat.Hardware.Verilog.assign: Received unrecognized primitive: " ++ prim
+    _ | i <- fromIntegral (read prim) -> NetAssign o $ ExprLit (Just 32) (ExprNum i)
+      | otherwise -> error $ "ConCat.Hardware.Verilog.assign: Received unrecognized primitive: " ++ prim
   where
     assignUnary op
       | [in1]      <- ins = NetAssign o $ ExprUnary op (ExprVar in1)

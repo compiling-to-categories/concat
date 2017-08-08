@@ -52,7 +52,7 @@ main = sequence_
   [ putChar '\n' -- return ()
     -- Unary
   , runVerilog' "neg" $ \ (x :: Int) -> - x  -- Yields bit inversion, not 2's complement!
-  -- , runVerilog' "odd" $ \ (x :: Int) -> x `mod` 2
+  , runVerilog' "odd" $ \ (x :: Int) -> x `mod` 2
 
     -- Binary
   , runVerilog' "adder" $ \ (x :: Int, y :: Int) -> x + y
