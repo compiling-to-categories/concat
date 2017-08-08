@@ -77,7 +77,7 @@ mkModule name cs = Module name (f modIns) (f modOuts) [] (map busToNet modNets +
     modNets = allIns `intersect` allOuts
     allIns  = concatMap compIns  cs'
     allOuts = concatMap compOuts cs'
-    cs'     = filter (\x -> let nm = compName x in nm /= "In" && nm /= "Out") cs
+    cs'     = filter (flip notElem ["In", "Out"] . compName) cs
 
 busId' :: Bus -> (String, Int)
 busId' (Bus cId ix ty) = ('n' : show cId ++ ('_' : show ix), width)
