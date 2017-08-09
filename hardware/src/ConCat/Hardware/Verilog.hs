@@ -19,7 +19,7 @@ module ConCat.Hardware.Verilog
   ( genVerilog,runVerilog
   ) where
 
-import Control.Arrow    (second)
+import Control.Arrow    (first, second)
 import Data.List        (intercalate, (\\), intersect)
 import System.Directory (createDirectoryIfMissing)
 import Text.PrettyPrint (render)
@@ -69,8 +69,14 @@ verilog name  = mkModule name
 -- TODO: Abstract fmap simpleComp . mkGraph, which also appears in Show (a :> b)
 -- and SMT and GLSL.
 
+-- ProcessDecl Event (Maybe (Event, Stmt)) Stmt
 mkModule :: String -> [CompS] -> Module
-mkModule name cs = Module name (f modIns) (f modOuts) [] (map busToNet modNets ++ map mkAssignment cs)
+mkModule name cs = Module name (("clk", Nothing) : map (first (++ "_d")) (f modIns)) (f modOuts) []
+                          ( map busToReg (modIns  ++ modOuts) ++
+                            map busToNet modNets ++
+                            [ProcessDecl (Event (ExprVar "clk") PosEdge) Nothing
+                              (Seq (map ((\x -> Assign (ExprVar x) (ExprVar (x ++ "_d"))) . busName) modIns ++ map mkAssignment cs'))]
+                          )
   where
     f       = map (second (makeRange Down) . busId')
     modIns  = allIns  \\ allOuts
@@ -104,14 +110,18 @@ busToNet :: Bus -> Decl
 busToNet b = NetDecl (busName b) (makeRange Down width) Nothing
   where width = busWidth b
 
-mkAssignment :: CompS -> Decl
+busToReg :: Bus -> Decl
+busToReg b = MemDecl (busName b) Nothing (makeRange Down width) Nothing
+  where width = busWidth b
+
+mkAssignment :: CompS -> Stmt
 mkAssignment c | [o] <- outs = assign o prim ins
-               | otherwise   = CommentDecl $ prim ++ ": o: " ++ intercalate ", " outs ++ ", ins: " ++ intercalate ", " ins
+               | otherwise   = Seq []
   where prim   = compName c
         ins    = map busName $ compIns  c
         outs   = map busName $ compOuts c
 
-assign :: String -> String -> [String] -> Decl
+assign :: String -> String -> [String] -> Stmt
 assign o prim ins =
   case prim of
     "not"    -> assignUnary  LNeg
@@ -132,19 +142,19 @@ assign o prim ins =
     "mod"    -> assignBinary Modulo
     "xor"    -> assignBinary Xor
     "if"     -> assignConditional
-    "In"     -> CommentDecl $ "In: o: " ++ o ++ ", ins: " ++ intercalate ", " ins
-    "Out"    -> CommentDecl $ "Out: o: " ++ o ++ ", ins: " ++ intercalate ", " ins
-    _ | i <- fromIntegral (read prim) -> NetAssign o $ ExprLit (Just 32) (ExprNum i)
+    "In"     -> Seq []
+    "Out"    -> Seq []
+    _ | i <- fromIntegral (read prim) -> Assign (ExprVar o) $ ExprLit (Just 32) (ExprNum i)
       | otherwise -> error $ "ConCat.Hardware.Verilog.assign: Received unrecognized primitive: " ++ prim
   where
     assignUnary op
-      | [in1]      <- ins = NetAssign o $ ExprUnary op (ExprVar in1)
+      | [in1]      <- ins = Assign (ExprVar o) $ ExprUnary op (ExprVar in1)
       | otherwise         = error $ errStr "unary"
     assignBinary op
-      | [in1, in2] <- ins = NetAssign o $ ExprBinary op (ExprVar in1) (ExprVar in2)
+      | [in1, in2] <- ins = Assign (ExprVar o) $ ExprBinary op (ExprVar in1) (ExprVar in2)
       | otherwise         = error $ errStr "binary"
     assignConditional
-      | [p, t, f]  <- ins = NetAssign o $ ExprCond (ExprVar p) (ExprVar t) (ExprVar f)
+      | [p, t, f]  <- ins = Assign (ExprVar o) $ ExprCond (ExprVar p) (ExprVar t) (ExprVar f)
       | otherwise         = error $ errStr "conditional"
     errStr _ = "ConCat.Hardware.Verilog.assign: I received an incorrect number of inputs.\n"
 
