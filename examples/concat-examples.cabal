@@ -73,7 +73,7 @@ library
                        ConCat.GradientDescent
                        ConCat.Synchronous
                        ConCat.Additive
-                       ConCat.Polynomial
+                       -- ConCat.Polynomial
                        ConCat.Demand
                        ConCat.Arr
   if flag(smt)
