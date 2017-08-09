@@ -65,6 +65,7 @@ import Data.Foldable (fold)
 import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
 import Data.List (unfoldr)  -- TEMP
+import Data.Complex (Complex)
 import GHC.Float (int2Double)
 
 import ConCat.Misc ((:*),R,sqr,magSqr,Binop,inNew,inNew2)
@@ -97,12 +98,15 @@ import Control.Newtype (Newtype(..))
 
 -- default (Int, Double)
 
+type C = Complex R
+
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
   -- Circuit graphs
   , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
+  , runSynCirc "complex-mul" $ ccc $ uncurry ((*) @C)
   , runSynCirc "magSqr"    $ ccc $ magSqr @R
   , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
   , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R

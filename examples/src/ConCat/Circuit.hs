@@ -114,6 +114,7 @@ import Data.Function (on)
 import Data.Maybe (fromMaybe,isJust,maybeToList)
 import Data.List (intercalate,group,sort,stripPrefix)
 import Data.Char (isAscii)
+import Data.Complex (Complex)
 #ifndef MealyToArrow
 import Data.List (partition)
 #endif
@@ -154,7 +155,7 @@ import qualified Control.Monad.State as M
 -- import TypeUnary.Vec hiding (get)
 
 import ConCat.Misc ((:*),(:+),Unop,Binop,Yes1,typeR)
-import ConCat.Complex (Complex)
+-- import ConCat.Complex (Complex(..))
 import ConCat.Rep
 import ConCat.Category
 import qualified ConCat.AltCat as A
