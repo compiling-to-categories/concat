@@ -328,13 +328,11 @@ okProd = inOp
 
 -- | Category with product.
 class (OpCon (Prod k) (Ok' k), Category k) => ProductCat k where
-  -- type Prod k :: u -> u -> u
-  -- type Prod k = (:*)
   exl :: Ok2 k a b => Prod k a b `k` a
   exr :: Ok2 k a b => Prod k a b `k` b
   dup :: Ok  k a => a `k` Prod k a a
   dup = id &&& id
-  swapP :: forall a b. Oks k [a,b] => Prod k a b `k` Prod k b a
+  swapP :: forall a b. Ok2 k a b => Prod k a b `k` Prod k b a
   swapP = exr &&& exl
           <+ okProd @k @a @b
   (***) :: forall a b c d. Ok4 k a b c d
@@ -349,18 +347,18 @@ class (OpCon (Prod k) (Ok' k), Category k) => ProductCat k where
     <+ okProd @k @a @a
     <+ okProd @k @c @d
 #endif
-  first :: forall a a' b. Oks k [a,b,a'] 
+  first :: forall a a' b. Ok3 k a b a' 
         => (a `k` a') -> (Prod k a b `k` Prod k a' b)
   first = (*** id)
-  second :: forall a b b'. Oks k [a,b,b'] 
+  second :: forall a b b'. Ok3 k a b b' 
          => (b `k` b') -> (Prod k a b `k` Prod k a b')
   second = (id ***)
-  lassocP :: forall a b c. Oks k [a,b,c]
+  lassocP :: forall a b c. Ok3 k a b c
           => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
   lassocP = second exl &&& (exr . exr)
             <+ okProd @k @a @b
             <+ inOpR' @(Prod k) @(Ok' k) @a @b @c
-  rassocP :: forall a b c. Oks k [a,b,c]
+  rassocP :: forall a b c. Ok3 k a b c
           => Prod k (Prod k a b) c `k` Prod k a (Prod k b c)
   rassocP = (exl . exl) &&& first  exr
             <+ okProd @k    @b @c

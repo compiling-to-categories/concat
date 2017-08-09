@@ -1,9 +1,9 @@
 -- To run:
--- 
+--
 --   stack build :misc-examples
 --
 --   stack build :misc-trace >& ~/Haskell/concat/out/o1
--- 
+--
 -- You might also want to use stack's --file-watch flag for automatic recompilation.
 
 {-# LANGUAGE CPP                 #-}
@@ -54,7 +54,7 @@
 --
 -- Maintainer  :  conal@conal.net
 -- Stability   :  experimental
--- 
+--
 -- Suite of automated tests
 ----------------------------------------------------------------------
 
@@ -65,10 +65,11 @@ import Data.Foldable (fold)
 import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
 import Data.List (unfoldr)  -- TEMP
+import Data.Complex (Complex)
 import GHC.Float (int2Double)
 
 import ConCat.Misc ((:*),R,sqr,magSqr,Binop,inNew,inNew2)
-import ConCat.Incremental (inc)
+import ConCat.Incremental (andInc,inc)
 import ConCat.AD
 import ConCat.ADFun (andDerF)
 import ConCat.ADFun
@@ -80,13 +81,15 @@ import qualified ConCat.RunCircuit as RC
 import ConCat.AltCat (ccc,U2(..),(:**:)(..),Ok2, Arr, array,arrAt,OrdCat,ConstCat) --, Ok, Ok3
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Arr -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
--- import ConCat.SMT
+#ifdef CONCAT_SMT
+import ConCat.SMT
+#endif
 
 -- These imports bring newtype constructors into scope, allowing CoerceCat (->)
 -- dictionaries to be constructed. We could remove the LinearRow import if we
 -- changed L from a newtype to data, but we still run afoul of coercions for
 -- GHC.Generics newtypes.
--- 
+--
 -- TODO: Find a better solution!
 import qualified GHC.Generics as G
 import qualified ConCat.Free.LinearRow
@@ -95,16 +98,19 @@ import Control.Newtype (Newtype(..))
 
 -- default (Int, Double)
 
+type C = Complex R
+
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
   -- Circuit graphs
-  -- , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
-  -- , runSynCirc "magSqr"    $ ccc $ magSqr @R
-  -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
-  -- , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
+  , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
+  , runSynCirc "complex-mul" $ ccc $ uncurry ((*) @C)
+  , runSynCirc "magSqr"    $ ccc $ magSqr @R
+  , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
+  , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
 
   -- -- Interval analysis
   -- , runSynCirc "add-iv"    $ ccc $ ivFun $ uncurry ((+) @Int)
@@ -126,7 +132,7 @@ main = sequence_
   -- , runSynCirc "cos-2x-ad"    $ ccc $ andDer $ \ x -> cos (2 * x) :: R
   -- , runSynCirc "cos-2xx-ad"   $ ccc $ andDer $ \ x -> cos (2 * x * x) :: R
   -- , runSynCirc "cos-xpy-ad"   $ ccc $ andDer $ \ (x,y) -> cos (x + y) :: R
-  -- , runSynCirc "cosSin-xy-ad" $ ccc $ andDer $ cosSinProd @R
+  -- , runSynCirc "cosSinProd-ad" $ ccc $ andDer $ cosSinProd @R
 
   -- -- Dies with "Oops --- ccc called!", without running the plugin.
   -- , print $ andDer sin (1 :: R)
@@ -134,13 +140,15 @@ main = sequence_
   -- -- -- Automatic differentiation with ADFun
   -- , runSynCirc "sin-adf"      $ ccc $ andDerF $ sin @R
   -- , runSynCirc "cos-adf"      $ ccc $ andDerF $ cos @R
+
   -- , runSynCirc "twice-adf"    $ ccc $ andDerF $ twice @R
   -- , runSynCirc "sqr-adf"      $ ccc $ andDerF $ sqr @R
+
   -- , runSynCirc "magSqr-adf"   $ ccc $ andDerF $ magSqr @R
   -- , runSynCirc "cos-2x-adf"   $ ccc $ andDerF $ \ x -> cos (2 * x) :: R
   -- , runSynCirc "cos-2xx-adf"  $ ccc $ andDerF $ \ x -> cos (2 * x * x) :: R
   -- , runSynCirc "cos-xpy-adf"  $ ccc $ andDerF $ \ (x,y) -> cos (x + y) :: R
-  -- , runSynCirc "cosSin-xy-adf"$ ccc $ andDerF $ cosSinProd @R
+  -- , runSynCirc "cosSinProd-adf"$ ccc $ andDerF $ cosSinProd @R
 
   -- -- -- Automatic differentiation with ADFun + linear
   -- , runSynCirc "sin-adfl"      $ ccc $ andDerFL $ sin @R
@@ -150,7 +158,7 @@ main = sequence_
   -- , runSynCirc "cos-2x-adfl"   $ ccc $ andDerFL $ \ x -> cos (2 * x) :: R
   -- , runSynCirc "cos-2xx-adfl"  $ ccc $ andDerFL $ \ x -> cos (2 * x * x) :: R
   -- , runSynCirc "cos-xpy-adfl"  $ ccc $ andDerFL $ \ (x,y) -> cos (x + y) :: R
-  -- , runSynCirc "cosSin-xy-adfl"$ ccc $ andDerFL $ cosSinProd @R
+  -- , runSynCirc "cosSinProd-adfl"$ ccc $ andDerFL $ cosSinProd @R
 
   -- -- (0.8414709848078965,[[0.5403023058681398]]), i.e., (sin 1, [[cos 1]]),
   -- -- where the "[[ ]]" is matrix-style presentation of the underlying
@@ -168,8 +176,11 @@ main = sequence_
   -- , runSynCirc "gradient-sin" $ ccc $ gradient sin
 
   -- -- Incremental differentiation. Currently broken.
+  -- , runSynCirc "prod-ai" $ ccc $ andInc $ uncurry ((*) @R)
+  -- , runSynCirc "sop1-ai" $ ccc $ andInc $ \ (x,y,z) -> x * y + y * z + x * z :: R
   -- , runSynCirc "magSqr-inc" $ ccc $ inc $ andDer $ magSqr @R
 
+#ifdef CONCAT_SMT
   -- , runCirc "smt-a" $ ccc $ (\ (x :: R) -> sqr x == 9)
 
   -- , runCircSMT "smt-a" $ ccc $ \ (x :: R) -> sqr x == 9
@@ -178,6 +189,7 @@ main = sequence_
   -- , runSolve $ ccc $ \ (x :: R) -> sqr x == 9 && x < 0
   -- , runSolve $ ccc $ pred1 @R
   -- , runSolve $ ccc $ \ b -> (if b then 3 else 5 :: Int) > 4
+
   -- , runSolve $ ccc $ \ (x::R,y) -> x + y == 15 && x == 2 * y
 
   -- , runSolve $ ccc $ fermat      @Int        -- Just (12,9,15)
@@ -199,6 +211,7 @@ main = sequence_
 
   -- -- Broken
   -- , runSolve $ ccc $ (\ (x::R,y) -> x + y == 15 && x * y == 20)  -- "illegal argument" ??
+#endif
 
   -- Recursion experiments
   -- , runSynCirc "fac1" $ ccc $ fac1  -- bare unboxed var
@@ -356,8 +369,9 @@ runSynCirc nm (syn :**: circ) = runSyn syn >> runCirc nm circ
 runCirc :: GO a b => String -> (a :> b) -> IO ()
 runCirc nm circ = RC.run nm [] circ
 
--- runSolve :: (GenBuses a, Show a, EvalE a) => (a :> Bool) -> IO ()
--- runSolve = print . solve
+#ifdef CONCAT_SMT
+runSolve :: (GenBuses a, Show a, EvalE a) => (a :> Bool) -> IO ()
+runSolve = print . solve
 -- runSolve = print <=< solve
 
 -- runSolveAscFrom :: ( GenBuses a, Show a, EvalE a, GenBuses r, EvalE r
@@ -386,9 +400,11 @@ runCirc nm circ = RC.run nm [] circ
 -- produces no list output until all of the list elements have been constructed.
 -- I'm stumped as to why.
 
--- runSolveAsc = print . solveAscending 
+-- runSolveAsc = print . solveAscending
 
 -- runSolveAsc = print <=< solveAscending
+
+#endif
 
 runPrint :: Show b => a -> (a -> b) -> IO ()
 runPrint a f = print (f a)
@@ -421,7 +437,7 @@ type RB n = RVec n Bool
 
 type N0  = Zero
 -- Generated code
--- 
+--
 --   putStrLn $ unlines ["type N" ++ show (n+1) ++ " = S N" ++ show n | n <- [0..31]]
 type N1  = Succ N0
 type N2  = Succ N1

@@ -31,6 +31,7 @@ import Data.Monoid
 -- import Data.Newtypes.PrettyDouble
 import Control.Applicative (WrappedMonad(..))
 import qualified GHC.Generics as G
+import Data.Complex (Complex(..))
 
 import Data.Functor.Identity (Identity(..))
 import Control.Monad.Trans.Reader (ReaderT(..))
@@ -162,11 +163,11 @@ instance HasRep (Maybe a) where
 -- type instance Rep (Maybe a) = Unit :+ a
 -- ...
 
--- instance HasRep (Complex a) where
---   type Rep (Complex a) = a :* a
---   repr (a :+ a') = (a,a')
---   abst (a,a') = (a :+ a')
---   INLINES
+instance HasRep (Complex a) where
+  type Rep (Complex a) = a :* a
+  repr (a :+ a') = (a,a')
+  abst (a,a') = (a :+ a')
+  INLINES
 
 -- instance HasRep (G.V1 p) where
 --   type Rep (G.V1 p) = Void

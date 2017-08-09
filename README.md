@@ -16,6 +16,11 @@ For the graphics examples, instead run
 
 There are more examples in graphics/test/Examples.hs.
 
+The SMT examples are disabled by default, because they rely on installing the [Z3 SMT solver](https://github.com/Z3Prover/z3) (with installation etc described [here](https://github.com/Z3Prover/z3/wiki)).
+To enable some of those examples, install Z3, uncomment them in examples/test/Examples.hs, and run as follows:
+
+    stack build :misc-examples --flag concat-examples:smt
+
 ## Some applications
 
 Working:

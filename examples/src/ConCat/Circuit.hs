@@ -114,6 +114,7 @@ import Data.Function (on)
 import Data.Maybe (fromMaybe,isJust,maybeToList)
 import Data.List (intercalate,group,sort,stripPrefix)
 import Data.Char (isAscii)
+import Data.Complex (Complex)
 #ifndef MealyToArrow
 import Data.List (partition)
 #endif
@@ -154,7 +155,7 @@ import qualified Control.Monad.State as M
 -- import TypeUnary.Vec hiding (get)
 
 import ConCat.Misc ((:*),(:+),Unop,Binop,Yes1,typeR)
-import ConCat.Complex (Complex)
+-- import ConCat.Complex (Complex(..))
 import ConCat.Rep
 import ConCat.Category
 import qualified ConCat.AltCat as A
@@ -1615,20 +1616,6 @@ type Dot = String
 
 #if 0
 
-data CompS = CompS CompId PrimName [Input] [Output] deriving Show
-
-compId :: CompS -> CompId
-compId (CompS n _ _ _) = n
-compName :: CompS -> PrimName
-compName (CompS _ nm _ _) = nm
-compIns :: CompS -> [Input]
-compIns (CompS _ _ ins _) = ins
-compOuts :: CompS -> [Output]
-compOuts (CompS _ _ _ outs) = outs
-
-instance Eq CompS where (==) = (==) `on` compId
-instance Ord CompS where compare = compare `on` compId
-
 -- type Depth = Int
 
 type CompDepths = Map CompS Depth
@@ -1755,6 +1742,22 @@ subgraphDot nc comps =
 type Statement = String
 
 data CompS = CompS CompId PrimName [Input] [Output] deriving Show
+
+#if 0
+
+compSId :: CompS -> CompId
+compSId (CompS n _ _ _) = n
+compSName :: CompS -> PrimName
+compSName (CompS _ nm _ _) = nm
+compSIns :: CompS -> [Input]
+compSIns (CompS _ _ ins _) = ins
+compSOuts :: CompS -> [Output]
+compSOuts (CompS _ _ _ outs) = outs
+
+instance Eq  CompS where (==)    = (==)    `on` compSId
+instance Ord CompS where compare = compare `on` compSId
+
+#endif
 
 simpleComp :: Comp -> CompS
 simpleComp (Comp n prim a b) = CompS n (show prim) (flatB a) (flatB b)
