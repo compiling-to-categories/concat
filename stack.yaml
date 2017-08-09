@@ -6,6 +6,7 @@ packages:
 - examples
 - graphics
 - hardware
+# - shaped-types
 - location:
     git: https://github.com/ku-fpg/netlist
     commit: 97340fa97ee972cb7f7735f3dc8aee3186898e6c

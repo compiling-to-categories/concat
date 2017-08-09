@@ -19,11 +19,11 @@
 --
 -- Maintainer  :  conal@conal.net
 -- Stability   :  experimental
--- 
+--
 -- Simplified Complex type
 ----------------------------------------------------------------------
 
-module ConCat.Complex (Complex(..)) where
+module ConCat.Complex (Complex(..),cis) where
 
 #if defined CustomComplex
 import Control.Applicative (liftA2)
@@ -58,6 +58,13 @@ magnitude (x:+y) = sqrt (x*x + y*y)
 phase :: (RealFloat a) => Complex a -> a
 phase (0 :+ 0)   = 0            -- SLPJ July 97 from John Peterson
 phase (x:+y)     = atan2 y x
+
+-- | Complex Identity Scaler
+-- Returns a point on the unit circle, such that the angle between the
+-- vector to that point and the positive x-axis is equal to the function
+-- argument, given in radians.
+cis :: (RealFloat a) => a -> Complex a
+cis w = cos w :+ sin w
 
 instance  (RealFloat a) => Num (Complex a)  where
     -- {-# SPECIALISE instance Num (Complex Float) #-}

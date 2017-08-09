@@ -25,6 +25,7 @@ library
                      -- , NumInstances
                      , concat-classes
                      , concat-examples
+                     -- , shaped-types
                      , containers
                      , directory
                      -- , parsec
@@ -49,6 +50,7 @@ test-suite hardware-examples
                      , concat-examples
                      , concat-hardware
                      , concat-plugin
+                     -- , shaped-types
                      , ghc-prim
                      , newtype-generics
                      , text >= 1.2.2.1
@@ -71,6 +73,7 @@ test-suite hardware-trace
                      , concat-examples
                      , concat-hardware
                      , concat-plugin
+                     -- , shaped-types
                      , ghc-prim
                      , newtype-generics
                      , text >= 1.2.2.1
