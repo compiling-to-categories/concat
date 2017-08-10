@@ -48,6 +48,7 @@ import Data.Complex
 import Data.List           (mapAccumL)
 import GHC.Float (int2Double)   -- TEMP
 import GHC.Generics hiding (S)
+-- import ShapedTypes.FFT
 
 import ConCat.Misc ((:*),R,sqr,magSqr,Unop,Binop,inNew,inNew2,(:+))
 import ConCat.Circuit (GenBuses(..),(:>),Ty(..),Buses(..))

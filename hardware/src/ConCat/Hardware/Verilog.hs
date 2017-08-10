@@ -20,7 +20,7 @@ module ConCat.Hardware.Verilog
   ) where
 
 import Control.Arrow    (first, second)
-import Data.List        (intercalate, (\\), intersect)
+import Data.List        (intercalate, (\\), intersect, nub)
 import System.Directory (createDirectoryIfMissing)
 import Text.PrettyPrint (render)
 
@@ -82,7 +82,7 @@ mkModule name cs = Module name (("clk", Nothing) : map (first (++ "_d")) (f modI
     modIns  = allIns  \\ allOuts
     modOuts = allOuts \\ allIns
     modNets = allIns `intersect` allOuts
-    allIns  = concatMap compIns  cs'
+    allIns  = nub $ concatMap compIns  cs'
     allOuts = concatMap compOuts cs'
     cs'     = filter (flip notElem ["In", "Out"] . compName) cs
 
