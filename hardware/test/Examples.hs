@@ -109,7 +109,7 @@ instance FFT UPair where
   fft (x :# y) = (x + y) :# (x - y)
 
 instance Sized Par1 where
-  size = ???
+  size = 1
 
 instance (Sized f, Sized g) => Sized (g :*: f) where
     size = size @f + size @g
@@ -122,7 +122,8 @@ instance ( Traversable f, Traversable g, Traversable (Reverse g)
          , FFT f, FFT g
          , Sized f , Sized (Reverse g) ) => FFT (g :.: f) where
   type Reverse (g :.: f) = Reverse f :.: Reverse g
-  fft (Comp1 f) = Comp1 $ unO $ fft $ O f
+  -- fft (Comp1 f) = Comp1 $ unO $ fft $ O f
+  fft = Comp1 . fft' . transpose . twiddle . fft' . unComp1
 
 -- Concrete
 newtype (g :. f) a = O (g (f a))
