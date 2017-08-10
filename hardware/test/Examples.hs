@@ -11,11 +11,12 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DeriveFoldable      #-}
 {-# LANGUAGE DeriveFunctor       #-}
--- {-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DeriveTraversable   #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE KindSignatures      #-}
+{-# LANGUAGE PatternSynonyms     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeFamilies        #-}
@@ -43,6 +44,7 @@
 module Main where
 
 import Control.Applicative (liftA2,liftA3)
+import Data.Complex
 import Data.List           (mapAccumL)
 import GHC.Float (int2Double)   -- TEMP
 import GHC.Generics hiding (S)
@@ -57,10 +59,7 @@ import qualified ConCat.AltCat as A
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 
 import ConCat.Hardware.Verilog
-import ConCat.Complex
 import ConCat.Rep
-
--- import ShapedTypes.Fams (UPair)
 
 main :: IO ()
 main = sequence_
@@ -76,8 +75,12 @@ main = sequence_
   , runVerilog' "cond" $ \ (p :: Bool, x :: Int, y :: Int) -> if p then x else y
 
     -- FFT, via functor composition
-  -- , runVerilog' "fft_fc_pair" $ \ ( (x0::Int), (x1::Int), (x2::Int), (x3::Int) ) -> fft ( (x0 :+ x1) :# (x2 :+ x3) )
-  , runVerilog' "fft_fc_pair" $ \ (pr :: (UPair (Complex Double))) -> fft pr
+  , runVerilog' "fft_fc_pair" $ \ ( pr :: (UPair (Complex Double)) ) -> fft pr
+  -- , runVerilog' "fft_fc_quad" $ \ ( fc :: ( (UPair :. UPair) (Complex Double) ) ) -> fft fc
+  -- , runVerilog' "fft_fc_quad" $ \ ( fc :: ( (UPair :.: UPair) (Complex Double) ) ) -> fft fc
+  -- , runVerilog' "fft_fc_quad" $ \ (x0::(Complex Double),x1,x2,x3) -> fft $ O (Comp1 ( (x0 :# x1) :# (x2 :# x3) ))
+  -- , runVerilog' "fft_fc_quad" $ \ (Par1 x0, Par1 x1, Par1 x2, Par1 x3) -> fft $ O (Comp1 ( (x0 :# x1) :# (x2 :# x3) ))
+  , runVerilog' "fft_fc_quad" $ \ (Par1 (x0::(Complex Double)), Par1 x1, Par1 x2, Par1 x3) -> fft $ Comp1 ( (x0 :# x1) :# (x2 :# x3) )
   ]
 
 {--------------------------------------------------------------------
@@ -95,12 +98,33 @@ runVerilog' _ _ = error "runVerilog' called directly"
 --------------------------------------------------------------------}
 -- TODO: Does Conal maintain this in a library, which I should import from?
 
-type UPair = Par1 :*: Par1
+-- Generic
+type UPair = Par1  :*: Par1
+type UQuad = UPair :.: UPair
+
+pattern x :# y = Par1 x :*: Par1 y
 
 instance FFT UPair where
   type Reverse UPair = UPair
-  fft (x :*: y) = (x + y) :*: (x - y)
+  fft (x :# y) = (x + y) :# (x - y)
 
+instance Sized Par1 where
+  size = ???
+
+instance (Sized f, Sized g) => Sized (g :*: f) where
+    size = size @f + size @g
+
+instance (Sized f, Sized g) => Sized (g :.: f) where
+    size = size @f * size @g
+
+instance ( Traversable f, Traversable g, Traversable (Reverse g)
+         , Applicative f, Applicative (Reverse f) , Applicative (Reverse g)
+         , FFT f, FFT g
+         , Sized f , Sized (Reverse g) ) => FFT (g :.: f) where
+  type Reverse (g :.: f) = Reverse f :.: Reverse g
+  fft (Comp1 f) = Comp1 $ unO $ fft $ O f
+
+-- Concrete
 newtype (g :. f) a = O (g (f a))
   deriving (Eq, Functor, Foldable, Traversable)
 
@@ -161,42 +185,4 @@ unO (O x) = x
 
 transpose :: (Traversable g, Applicative f) => g (f a) -> f (g a)
 transpose = sequenceA
-
--- data  Pair a = a :# a
---   deriving ( Show, Eq, Functor, Foldable, Traversable )
---
--- instance Applicative Pair where
---   pure x = x :# x
---   g :# h <*> (x :# y) = g x :# h y
---
--- instance Sized Pair where
---   size = 2
---
--- instance FFT Pair where
---   type Reverse Pair = Pair
---   fft (x :# y) = (x + y) :# (x - y)
-
-#define INLINES {-# INLINE repr #-};{-# INLINE abst #-}
--- I found the following, commented out, in ConCat/HasRep.hs
-instance HasRep (Complex a) where
-  type Rep (Complex a) = a :* a
-  repr (a :+ a') = (a,a')
-  abst (a,a') = (a :+ a')
-  INLINES
-
-{-
-instance GenBuses a => GenBuses (Pair a) where
-  -- This didn't work:
-  -- genBuses'   = genBuses'   @(a :* a)
-  -- ty          = ty          @(a :* a)
-  -- unflattenB' = unflattenB' @(a :* a)
-  -- yielding 3 errors like this: Couldn't match type ‘(a, a)’ with ‘Pair a’
-  -- So, I just copied the (:*) instance, replacing 'b' with 'a':
-  genBuses' templ ins =
-    -- trace ("genBuses' @ " ++ show (ty (undefined :: a :* b))) $
-    ProdB <$> genBuses' templ ins <*> genBuses' templ ins
-  -- delay (a,b) = delay a *** delay b
-  ty = Prod (ty @a) (ty @a)
-  unflattenB' = liftA2 ProdB unflattenB' unflattenB'
--}
 
