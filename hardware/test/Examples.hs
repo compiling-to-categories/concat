@@ -66,17 +66,17 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
     -- Unary
-  , runVerilog' "neg" $ \ (x :: Int) -> - x  -- Yields bit inversion, not 2's complement!
-  , runVerilog' "odd" $ \ (x :: Int) -> x `mod` 2
+  -- , runVerilog' "neg" $ \ (x :: Int) -> - x  -- Yields bit inversion, not 2's complement!
+  -- , runVerilog' "odd" $ \ (x :: Int) -> x `mod` 2
 
     -- Binary
-  , runVerilog' "adder" $ \ (x :: Int, y :: Int) -> x + y
+  -- , runVerilog' "adder" $ \ (x :: Int, y :: Int) -> x + y
 
     -- Conditional
-  , runVerilog' "cond" $ \ (p :: Bool, x :: Int, y :: Int) -> if p then x else y
+  -- , runVerilog' "cond" $ \ (p :: Bool, x :: Int, y :: Int) -> if p then x else y
 
     -- FFT, via functor composition
-  , runVerilog' "fft_fc_pair" $ \ ( pr :: (UPair (Complex Double)) ) -> fft pr
+  -- , runVerilog' "fft_fc_pair" $ \ ( pr :: (UPair (Complex Double)) ) -> fft pr
   -- , runVerilog' "fft_fc_quad" $ \ ( fc :: ( (UPair :. UPair) (Complex Double) ) ) -> fft fc
   -- , runVerilog' "fft_fc_quad" $ \ ( fc :: ( (UPair :.: UPair) (Complex Double) ) ) -> fft fc
   -- , runVerilog' "fft_fc_quad" $ \ (x0::(Complex Double),x1,x2,x3) -> fft $ O (Comp1 ( (x0 :# x1) :# (x2 :# x3) ))
@@ -103,11 +103,13 @@ runVerilog' _ _ = error "runVerilog' called directly"
 type UPair = Par1  :*: Par1
 type UQuad = UPair :.: UPair
 
+pattern (:#) :: forall t. t -> t -> (:*:) Par1 Par1 t
 pattern x :# y = Par1 x :*: Par1 y
 
 instance FFT UPair where
   type Reverse UPair = UPair
   fft (x :# y) = (x + y) :# (x - y)
+  fft _        = undefined
 
 instance Sized Par1 where
   size = 1
@@ -123,7 +125,6 @@ instance ( Traversable f, Traversable g, Traversable (Reverse g)
          , FFT f, FFT g
          , Sized f , Sized (Reverse g) ) => FFT (g :.: f) where
   type Reverse (g :.: f) = Reverse f :.: Reverse g
-  -- fft (Comp1 f) = Comp1 $ unO $ fft $ O f
   fft = Comp1 . fft' . transpose . twiddle . fft' . unComp1
 
 -- Concrete
