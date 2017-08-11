@@ -50,6 +50,8 @@ import GHC.Float (int2Double)   -- TEMP
 import GHC.Generics hiding (S)
 -- import ShapedTypes.FFT
 
+import ConCat.Pair
+import ConCat.FFT
 import ConCat.Misc ((:*),R,sqr,magSqr,Unop,Binop,inNew,inNew2,(:+))
 import ConCat.Circuit (GenBuses(..),(:>),Ty(..),Buses(..))
 import qualified ConCat.RunCircuit as RC
@@ -77,11 +79,13 @@ main = sequence_
 
     -- FFT, via functor composition
   -- , runVerilog' "fft_fc_pair" $ \ ( pr :: (UPair (Complex Double)) ) -> fft pr
+  -- , runVerilog' "fft_fc_pair" $ \ ( (x0::(Complex Double)) :# x1 ) -> fft (x0 :# x1)
   -- , runVerilog' "fft_fc_quad" $ \ ( fc :: ( (UPair :. UPair) (Complex Double) ) ) -> fft fc
   -- , runVerilog' "fft_fc_quad" $ \ ( fc :: ( (UPair :.: UPair) (Complex Double) ) ) -> fft fc
   -- , runVerilog' "fft_fc_quad" $ \ (x0::(Complex Double),x1,x2,x3) -> fft $ O (Comp1 ( (x0 :# x1) :# (x2 :# x3) ))
   -- , runVerilog' "fft_fc_quad" $ \ (Par1 x0, Par1 x1, Par1 x2, Par1 x3) -> fft $ O (Comp1 ( (x0 :# x1) :# (x2 :# x3) ))
-  , runVerilog' "fft_fc_quad" $ \ (Par1 (x0::(Complex Double)), Par1 x1, Par1 x2, Par1 x3) -> fft $ Comp1 ( (x0 :# x1) :# (x2 :# x3) )
+  -- , runVerilog' "fft_fc_quad" $ \ (Par1 (x0::(Complex Double)), Par1 x1, Par1 x2, Par1 x3) -> fft $ Comp1 ( (x0 :# x1) :# (x2 :# x3) )
+  , runVerilog' "fft_fc_quad" $ \ ( fc :: ( (Pair :.: Pair) (Complex Double) )) -> fft fc
   ]
 
 {--------------------------------------------------------------------
@@ -98,7 +102,7 @@ runVerilog' _ _ = error "runVerilog' called directly"
     FFT, via functor composition, machinery.
 --------------------------------------------------------------------}
 -- TODO: Does Conal maintain this in a library, which I should import from?
-
+{-
 -- Generic
 type UPair = Par1  :*: Par1
 type UQuad = UPair :.: UPair
@@ -188,4 +192,5 @@ unO (O x) = x
 
 transpose :: (Traversable g, Applicative f) => g (f a) -> f (g a)
 transpose = sequenceA
+-}
 
