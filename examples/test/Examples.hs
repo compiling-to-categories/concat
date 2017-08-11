@@ -15,6 +15,7 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE ViewPatterns        #-}
+{-# LANGUAGE PatternSynonyms     #-}
 {-# LANGUAGE DataKinds           #-}
 
 {-# OPTIONS_GHC -Wall #-}
@@ -38,7 +39,8 @@
 
 -- Tweak simpl-tick-factor from default of 100
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=2800 #-}
-{-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
+{-# OPTIONS_GHC -fsimpl-tick-factor=500 #-}
+-- {-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
@@ -80,6 +82,11 @@ import ConCat.Circuit (GenBuses,(:>))
 import qualified ConCat.RunCircuit as RC
 import ConCat.AltCat (ccc,U2(..),(:**:)(..),Ok2, Arr, array,arrAt,OrdCat,ConstCat) --, Ok, Ok3
 import ConCat.Rebox () -- necessary for reboxing rules to fire
+import ConCat.Nat
+import ConCat.Shaped
+import ConCat.Scan
+import ConCat.FFT
+
 import ConCat.Arr -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
 #ifdef CONCAT_SMT
 import ConCat.SMT
@@ -94,6 +101,9 @@ import ConCat.SMT
 import qualified GHC.Generics as G
 import qualified ConCat.Free.LinearRow
 
+-- For FFT
+import GHC.Generics hiding (R)
+
 import Control.Newtype (Newtype(..))
 
 -- default (Int, Double)
@@ -104,13 +114,27 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- Circuit graphs
-  , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
-  , runSynCirc "complex-mul" $ ccc $ uncurry ((*) @C)
-  , runSynCirc "magSqr"    $ ccc $ magSqr @R
-  , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
-  , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
-  , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
+  -- -- Circuit graphs
+  -- , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
+  -- , runSynCirc "complex-mul" $ ccc $ uncurry ((*) @C)
+  -- , runSynCirc "magSqr"    $ ccc $ magSqr @R
+  -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
+  -- , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
+  -- , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
+
+  -- -- Circuit graphs on trees etc
+  -- , runSynCirc "sum-pair"$ ccc $ sum @Pair @Int
+  -- , runSynCirc "sum-rb4"$ ccc $ sum @(RBin N4) @Int
+  -- , runSynCirc "lsums-pair"$ ccc $ lsums @Pair @Int
+  -- , runSynCirc "lsums-rb2"$ ccc $ lsums @(RBin N2) @Int
+  -- , runSynCirc "lsums-rb3"$ ccc $ lsums @(RBin N3) @Int
+  -- , runSynCirc "lsums-rb4"$ ccc $ lsums @(RBin N4) @Int
+
+  -- , runCirc "fft-pair" $ ccc $ fft @Pair @Double
+  -- , runCirc "fft-rb1" $ ccc $ fft @(RBin N1) @Double
+  , runCirc "fft-rb2" $ ccc $ fft @(RBin N2) @Double
+  -- , runCirc "fft-rb3" $ ccc $ fft @(RBin N3) @Double
+  -- , runCirc "fft-rb4" $ ccc $ fft @(RBin N4) @Double
 
   -- -- Interval analysis
   -- , runSynCirc "add-iv"    $ ccc $ ivFun $ uncurry ((+) @Int)

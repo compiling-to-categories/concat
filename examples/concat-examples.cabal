@@ -76,6 +76,12 @@ library
                        -- ConCat.Polynomial
                        ConCat.Demand
                        ConCat.Arr
+                       ConCat.Nat
+                       ConCat.Sized
+                       ConCat.Pair
+                       ConCat.Shaped
+                       ConCat.Scan
+                       ConCat.FFT
   if flag(smt)
     exposed-modules: ConCat.SMT
   ghc-options:      -O2

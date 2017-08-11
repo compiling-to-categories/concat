@@ -11,6 +11,8 @@
 {-# LANGUAGE UndecidableSuperClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE LambdaCase    #-}
+{-# LANGUAGE EmptyCase #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -25,6 +27,7 @@ module ConCat.Misc where
 import Data.Typeable (Typeable,TypeRep,typeRep,Proxy(..))
 import Data.Data (Data)
 import Unsafe.Coerce (unsafeCoerce)  -- for oops
+import GHC.Generics hiding (R)
 
 import Control.Newtype
 
@@ -44,16 +47,32 @@ type (:=>) = (->)
     Helpers for GHC.Generics
 --------------------------------------------------------------------}
 
-infixr 1 +->
-data (a +-> b) p = Fun1 { unFun1 :: a p -> b p }
+-- | Operate inside a Generic1
+inGeneric1 :: (Generic1 f, Generic1 g) => (Rep1 f a -> Rep1 g b) -> (f a -> g b)
+inGeneric1 = to1 <~ from1
 
--- TODO: resolve name conflict with tries. Using ":->:" for functors fits with
--- other type constructors in GHC.Generics.
+-- | Apply a unary function within the 'Comp1' constructor.
+inComp :: (g (f a) -> g' (f' a')) -> ((g :.: f) a -> (g' :.: f') a')
+inComp = Comp1 <~ unComp1
 
-instance Newtype ((a +-> b) t) where
-  type O ((a +-> b) t) = a t -> b t
-  pack = Fun1
-  unpack = unFun1
+-- | Apply a binary function within the 'Comp1' constructor.
+inComp2 :: (  g (f a)   -> g' (f' a')     -> g'' (f'' a''))
+        -> ((g :.: f) a -> (g' :.: f') a' -> (g'' :.: f'') a'')
+inComp2 = inComp <~ unComp1
+
+absurdF :: V1 a -> b
+absurdF = \ case
+
+-- infixr 1 +->
+-- data (a +-> b) p = Fun1 { unFun1 :: a p -> b p }
+
+-- -- TODO: resolve name conflict with tries. Using ":->:" for functors fits with
+-- -- other type constructors in GHC.Generics.
+
+-- instance Newtype ((a +-> b) t) where
+--   type O ((a +-> b) t) = a t -> b t
+--   pack = Fun1
+--   unpack = unFun1
 
 {--------------------------------------------------------------------
     Evaluation
@@ -244,3 +263,27 @@ sqr a = a * a
 
 magSqr :: Num a => a :* a -> a
 magSqr (a,b) = sqr a + sqr b
+
+transpose :: (Traversable t, Applicative f) => t (f a) -> f (t a)
+transpose = sequenceA
+
+inTranspose :: (Applicative f, Traversable t, Applicative f', Traversable t')
+            => (f (t a) -> t' (f' a)) -> (t (f a) -> f' (t' a))
+inTranspose = transpose <~ transpose
+-- inTranspose h = transpose . h . transpose
+
+{--------------------------------------------------------------------
+    Newtype
+--------------------------------------------------------------------}
+
+-- See <https://github.com/jcristovao/newtype-generics/pull/5>
+
+-- Type generalization of underF from newtype-generics.
+underF :: (Newtype n, Newtype n', o' ~ O n', o ~ O n, Functor f, Functor g)
+       => (o -> n) -> (f n -> g n') -> (f o -> g o')
+underF _ f = fmap unpack . f . fmap pack
+
+-- Type generalization of overF from newtype-generics.
+overF :: (Newtype n, Newtype n', o' ~ O n', o ~ O n, Functor f, Functor g)
+      => (o -> n) -> (f o -> g o') -> (f n -> g n')
+overF _ f = fmap pack . f . fmap unpack
