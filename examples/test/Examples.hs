@@ -15,6 +15,7 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE ViewPatterns        #-}
+{-# LANGUAGE PatternSynonyms     #-}
 {-# LANGUAGE DataKinds           #-}
 
 {-# OPTIONS_GHC -Wall #-}
@@ -38,7 +39,8 @@
 
 -- Tweak simpl-tick-factor from default of 100
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=2800 #-}
-{-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
+{-# OPTIONS_GHC -fsimpl-tick-factor=500 #-}
+-- {-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
@@ -80,6 +82,11 @@ import ConCat.Circuit (GenBuses,(:>))
 import qualified ConCat.RunCircuit as RC
 import ConCat.AltCat (ccc,U2(..),(:**:)(..),Ok2, Arr, array,arrAt,OrdCat,ConstCat) --, Ok, Ok3
 import ConCat.Rebox () -- necessary for reboxing rules to fire
+import ConCat.Nat
+import ConCat.Shaped
+import ConCat.Scan
+import ConCat.FFT
+
 import ConCat.Arr -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
 #ifdef CONCAT_SMT
 import ConCat.SMT
@@ -94,6 +101,9 @@ import ConCat.SMT
 import qualified GHC.Generics as G
 import qualified ConCat.Free.LinearRow
 
+-- For FFT
+import GHC.Generics hiding (R)
+
 import Control.Newtype (Newtype(..))
 
 -- default (Int, Double)
@@ -104,13 +114,27 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- Circuit graphs
-  , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
-  , runSynCirc "complex-mul" $ ccc $ uncurry ((*) @C)
-  , runSynCirc "magSqr"    $ ccc $ magSqr @R
-  , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
-  , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
-  , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
+  -- -- Circuit graphs
+  -- , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
+  -- , runSynCirc "complex-mul" $ ccc $ uncurry ((*) @C)
+  -- , runSynCirc "magSqr"    $ ccc $ magSqr @R
+  -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
+  -- , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
+  -- , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
+
+  -- -- Circuit graphs on trees etc
+  -- , runSynCirc "sum-pair"$ ccc $ sum @Pair @Int
+  -- , runSynCirc "sum-rb4"$ ccc $ sum @(RBin N4) @Int
+  -- , runSynCirc "lsums-pair"$ ccc $ lsums @Pair @Int
+  -- , runSynCirc "lsums-rb2"$ ccc $ lsums @(RBin N2) @Int
+  -- , runSynCirc "lsums-rb3"$ ccc $ lsums @(RBin N3) @Int
+  -- , runSynCirc "lsums-rb4"$ ccc $ lsums @(RBin N4) @Int
+
+  -- , runCirc "fft-pair" $ ccc $ fft @Pair @Double
+  -- , runCirc "fft-rb1" $ ccc $ fft @(RBin N1) @Double
+  , runCirc "fft-rb2" $ ccc $ fft @(RBin N2) @Double
+  -- , runCirc "fft-rb3" $ ccc $ fft @(RBin N3) @Double
+  -- , runCirc "fft-rb4" $ ccc $ fft @(RBin N4) @Double
 
   -- -- Interval analysis
   -- , runSynCirc "add-iv"    $ ccc $ ivFun $ uncurry ((+) @Int)
@@ -407,54 +431,6 @@ runSolveAsc = mapM_ print . solveAscending
 
 runPrint :: Show b => a -> (a -> b) -> IO ()
 runPrint a f = print (f a)
-
-{--------------------------------------------------------------------
-    Vectors
---------------------------------------------------------------------}
-
-data Nat = Zero | Succ Nat
-
--- So we don't need -Wno-unticked-promoted-constructors
-type Zero = 'Zero
-type Succ = 'Succ
-
-type family LVec n a where
-  LVec Zero a = ()
-  -- LVec (Succ n) a = LVec n a :* a
-  LVec N1 a = a
-  LVec (Succ (Succ n)) a = LVec (Succ n) a :* a
-
-type LB n = LVec n Bool
-
-type family RVec n a where
-  RVec Zero a = ()
-  -- RVec (Succ n) a = a :* RVec n a
-  RVec N1 a = a
-  RVec (Succ (Succ n)) a = a :* RVec (Succ n) a
-
-type RB n = RVec n Bool
-
-type N0  = Zero
--- Generated code
--- 
---   putStrLn $ unlines ["type N" ++ show (n+1) ++ " = S N" ++ show n | n <- [0..31]]
-type N1  = Succ N0
-type N2  = Succ N1
-type N3  = Succ N2
-type N4  = Succ N3
-type N5  = Succ N4
-type N6  = Succ N5
-type N7  = Succ N6
-type N8  = Succ N7
-type N9  = Succ N8
-type N10 = Succ N9
-type N11 = Succ N10
-type N12 = Succ N11
-type N13 = Succ N12
-type N14 = Succ N13
-type N15 = Succ N14
-type N16 = Succ N15
--- ...
 
 {--------------------------------------------------------------------
     Misc definitions
