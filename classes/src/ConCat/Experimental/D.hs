@@ -36,7 +36,7 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
--- | Like C, but with Ok k a
+-- | Like C, but with Ok k a (discriminating on a)
 
 module ConCat.Experimental.D where
 
@@ -94,15 +94,20 @@ type Ok2 k a b         = (Ok k a, Ok k b)
 type Ok3 k a b c       = (Ok k a, Ok k b, Ok k c)
 type Ok4 k a b c d     = (Ok k a, Ok k b, Ok k c, Ok k d)
 
+infixl 1 <+
+-- | Wrapper
+(<+) :: (b => r) -> (a :- b) -> (a => r)
+(<+) = (\\)
+-- r <+ Sub Dict = r
+{-# INLINE (<+) #-}
+
 {--------------------------------------------------------------------
     Categories
 --------------------------------------------------------------------}
 
 type Arr k a b = F k a `k` F k b
 
-type B u = u -> u -> Type
-
-class Category (k :: B u) where
+class Category k where
   type F k (t :: Type) :: u
   type Ok k (t :: Type) :: Constraint
   type Ok k t = ()
@@ -113,9 +118,9 @@ class Category (k :: B u) where
 
 infixl 1 <~
 -- | Add post- and pre-processing
-(<~) :: forall u (k :: B u) a b a' b'. (Category k, Ok4 k a b a' b')
+(<~) :: forall k a b a' b'. (Category k, Ok4 k a b a' b')
      => Arr k b b' -> Arr k a' a -> (Arr k a b -> Arr k a' b')
-(h <~ f) g = (.) @u @k @a' @b @b' h ((.) @u @k @a' @a @b g f)
+(h <~ f) g = (.) @k @a' @b @b' h ((.) @k @a' @a @b g f)
 -- (h <~ f) g = h . g . f
 
 -- h :: Arr k b b'
@@ -128,9 +133,9 @@ infixl 1 <~
 
 infixr 1 ~>
 -- | Add pre- and post-processing
-(~>) :: forall u (k :: B u) a b a' b'. (Category k, Ok4 k a b a' b')
+(~>) :: forall k a b a' b'. (Category k, Ok4 k a b a' b')
      => Arr k a' a -> Arr k b b' -> (Arr k a b -> Arr k a' b')
-f ~> h = (<~) @u @k @a @b @a' @b' h f
+f ~> h = (<~) @k @a @b @a' @b' h f
 
 class OkProd k where okProd :: Ok2 k a b :- Ok k (a :* b)
 
@@ -142,22 +147,22 @@ class (Category k, OkProd k) => Cartesian k where
         => Arr k a c -> Arr k a d -> Arr k a (c :* d)
 
 infixr 3 ***
-(***) :: forall u (k :: B u) a b c d. (Cartesian k, Ok4 k a b c d)
+(***) :: forall k a b c d. (Cartesian k, Ok4 k a b c d)
       => Arr k a c -> Arr k b d -> Arr k (a :* b) (c :* d)
 f *** g = (&&&) @k @(a :* b) @c @d
-            (((.) @u @k @(a :* b) @a @c) f (exl @k @a @b))
-            (((.) @u @k @(a :* b) @b @d) g (exr @k @a @b))
-  \\ okProd @k @a @b
+            (((.) @k @(a :* b) @a @c) f (exl @k @a @b))
+            (((.) @k @(a :* b) @b @d) g (exr @k @a @b))
+  <+ okProd @k @a @b
 
-first :: forall u (k :: B u) a b c. (Cartesian k, Ok3 k a b c)
+first :: forall k a b c. (Cartesian k, Ok3 k a b c)
       => Arr k a c -> Arr k (a :* b) (c :* b)
 -- first f = f *** id
-first f = (***) @u @k @a @b @c @b f (id @u @k @b)
+first f = (***) @k @a @b @c @b f (id @k @b)
 
-second :: forall u (k :: B u) a b d. (Cartesian k, Ok3 k a b d)
+second :: forall k a b d. (Cartesian k, Ok3 k a b d)
        => Arr k b d -> Arr k (a :* b) (a :* d)
 -- second g = id *** g
-second g = (***) @u @k @a @b @a @d (id @u @k @a) g
+second g = (***) @k @a @b @a @d (id @k @a) g
 
 class OkCoprod k where okCoprod :: Ok2 k a b :- Ok k (a :+ b)
 
@@ -169,12 +174,12 @@ class (Category k, OkCoprod k) => Cocartesian k where
   (|||) :: Ok3 k a c d => Arr k c a -> Arr k d a -> Arr k (c :+ d) a
 
 infixr 3 +++
-(+++) :: forall (k :: B u) a b c d. (Cocartesian k, Ok4 k a b c d)
+(+++) :: forall k a b c d. (Cocartesian k, Ok4 k a b c d)
       => Arr k c a -> Arr k d b -> Arr k (c :+ d) (a :+ b)
 f +++ g = (|||) @k @(a :+ b) @c @d
-            (((.) @u @k @c @a @(a :+ b)) (inl @k @a @b) f)
-            (((.) @u @k @d @b @(a :+ b)) (inr @k @a @b) g)
-  \\ okCoprod @k @a @b
+            (((.) @k @c @a @(a :+ b)) (inl @k @a @b) f)
+            (((.) @k @d @b @(a :+ b)) (inr @k @a @b) g)
+  <+ okCoprod @k @a @b
 
 -- f +++ g = inl . f ||| inr . g <+ okCoprod @k @a @b
 
@@ -187,15 +192,15 @@ f +++ g = (|||) @k @(a :+ b) @c @d
 -- inl . f :: c `k` (a :+ b)
 -- inr . g :: d `k` (a :+ b)
 
-left :: forall u (k :: B u) a b c. (Cocartesian k, Ok3 k a b c)
+left :: forall k a b c. (Cocartesian k, Ok3 k a b c)
      => Arr k c a -> Arr k (c :+ b) (a :+ b)
 -- left f = f +++ id
-left f = (+++) @u @k @a @b @c @b f (id @u @k @b)
+left f = (+++) @k @a @b @c @b f (id @k @b)
 
-right :: forall u (k :: B u) a b d. (Cocartesian k, Ok3 k a b d)
+right :: forall k a b d. (Cocartesian k, Ok3 k a b d)
       => Arr k d b -> Arr k (a :+ d) (a :+ b)
 -- right g = id +++ g
-right g = (+++) @u @k @a @b @a @d (id @u @k @a) g
+right g = (+++) @k @a @b @a @d (id @k @a) g
 
 
 class (Cartesian k, Cocartesian k) => Distributive k where
@@ -203,21 +208,21 @@ class (Cartesian k, Cocartesian k) => Distributive k where
 
 class OkExp k where okExp :: Ok2 k a b :- Ok k (a -> b)
 
-class (Cartesian k, OkExp k) => CartesianClosed (k :: B u) where
+class (Cartesian k, OkExp k) => CartesianClosed k where
   apply :: forall a b. Ok2 k a b => Arr k ((a -> b) :* a) b
   -- apply = uncurry id
-  apply = uncurry @u @k @(a -> b) @a @b (id @u @k @(a -> b))
-            \\ okExp @k @a @b
+  apply = uncurry @k @(a -> b) @a @b (id @k @(a -> b))
+            <+ okExp @k @a @b
   curry   :: forall a b c. Ok3 k a b c => Arr k (a :* b) c -> Arr k a (b -> c)
   uncurry :: forall a b c. Ok3 k a b c
           => Arr k a (b -> c) -> Arr k (a :* b) c
   -- uncurry g = apply . first g
-  uncurry g = (.) @u @k @(a :* b) @((b -> c) :* b) @c
-                (apply @u @k @b @c)
-                (first @u @k @a @b @(b -> c) g)
-             \\ okProd @k @(b -> c) @b
-             \\ okProd @k @a @b
-             \\ okExp  @k @b @c
+  uncurry g = (.) @k @(a :* b) @((b -> c) :* b) @c
+                (apply @k @b @c)
+                (first @k @a @b @(b -> c) g)
+             <+ okProd @k @(b -> c) @b
+             <+ okProd @k @a @b
+             <+ okExp  @k @b @c
   {-# MINIMAL curry, (apply | uncurry) #-}
 
 --         id :: Arr k (a -> b) (a -> b)
@@ -361,7 +366,7 @@ instance CartesianClosed StdFun where
 -- The specialized and generalized catgories both work. I don't know what value the
 -- more general version (StdArr) adds, since we could start by converting to StdFun.
 
-class (Category k) => RepCat (k :: B u) a r | a -> r where
+class (Category k) => RepCat k a r | a -> r where
   reprC :: Ok2 k a r => Arr k a r
   abstC :: Ok2 k a r => Arr k r a
 
@@ -369,16 +374,16 @@ instance (HasRep a, r ~ Rep a) => RepCat (->) a r where
   reprC = repr
   abstC = abst
 
-class {- Ok2 k a (Standard k a) => -} HasStd (k :: B u) a where
+class {- Ok2 k a (Standard k a) => -} HasStd k a where
   type Standard k a
   toStd :: Ok2 k a (Standard k a) => Arr k a (Standard k a)
   unStd :: Ok2 k a (Standard k a) => Arr k (Standard k a) a
   default toStd :: forall r. (RepCat k a r, HasStd k r, Standard k a ~ Standard k r, Ok3 k a r (Standard k r))
                 => Arr k a (Standard k a)
-  toStd = (.) @u @k @a @r @(Standard k r) (toStd @k @r) (reprC @k @a @r)
+  toStd = (.) @k @a @r @(Standard k r) (toStd @k @r) (reprC @k @a @r)
   default unStd :: forall r. (RepCat k a r, HasStd k r, Standard k a ~ Standard k r, Ok3 k a r (Standard k r))
                 => Arr k (Standard k a) a
-  unStd = (.) @u @k @(Standard k r) @r @a (abstC @k @a @r) (unStd @k @r)
+  unStd = (.) @k @(Standard k r) @r @a (abstC @k @a @r) (unStd @k @r)
 
 -- instance (Cartesian k, HasStd k a, HasStd k b) =>
 --          HasStd k (a :* b) where
@@ -396,7 +401,7 @@ class {- Ok2 k a (Standard k a) => -} HasStd (k :: B u) a where
 --   toStd = toStd <~ unStd
 --   unStd = unStd <~ toStd
 
-newtype StdArr (k :: B u) a b = StdArr (Arr k (Standard k a) (Standard k b))
+newtype StdArr k a b = StdArr (Arr k (Standard k a) (Standard k b))
 
 instance Newtype (StdArr k a b) where
   type O (StdArr k a b) = Arr k (Standard k a) (Standard k b)
@@ -406,14 +411,14 @@ instance Newtype (StdArr k a b) where
 class    Ok k (Standard k a) => OkStd k a
 instance Ok k (Standard k a) => OkStd k a
 
-instance Category (k :: B u) => Category (StdArr (k :: B u)) where
+instance Category k => Category (StdArr k) where
   type Ok (StdArr k) a = OkStd k a
   type F (StdArr k) a = a
   id :: forall a. Ok (StdArr k) a => Arr (StdArr k) a a
-  id = pack (id @u @k @(Standard k a))
+  id = pack (id @k @(Standard k a))
   (.) :: forall a b c. Ok3 (StdArr k) a b c
       => Arr (StdArr k) b c -> Arr (StdArr k) a b -> Arr (StdArr k) a c
-  (.) = inNew2 ((.) @u @k @(Standard k a) @(Standard k b) @(Standard k c))
+  (.) = inNew2 ((.) @k @(Standard k a) @(Standard k b) @(Standard k c))
 
 -- Continue here when the HasStd instances are in place.
 
@@ -497,20 +502,41 @@ instance Category (LMap s) where
 -- instance Cartesian (LMap s) where
   
 
------------------------------------------------------------------
+{--------------------------------------------------------------------
     Product categories
--------------------------------------------------------------------
+--------------------------------------------------------------------}
 
 infixr 7 :**:
 -- | Category of products
 data (k :**: k') a b = Arr k a b :**: Arr k' a b
 
-instance (Category (k :: B u), Category (k' :: B u')) => Category (k :**: k') where
+instance (Category k, Category k') => Category (k :**: k') where
   type Ok (k :**: k') a = (Ok k a, Ok k' a)
   type F (k :**: k') a = a  -- guess, since rep has Fs
   id :: forall a. Ok (k :**: k') a => Arr (k :**: k') a a
-  id = id @u @k @a :**: id @u' @k' @a
+  id = id @k @a :**: id @k' @a
   (.) :: forall a b c. Ok3 (k :**: k') a b c => Arr (k :**: k') b c -> Arr (k :**: k') a b -> Arr (k :**: k') a c
   -- (g :**: g') . (f :**: f') = (g . f) :**: (g' . f')
-  (g :**: g') . (f :**: f') = (.) @u @k @a @b @c g f :**: (.) @u' @k' @a @b @c g' f'
+  (g :**: g') . (f :**: f') = (.) @k @a @b @c g f :**: (.) @k' @a @b @c g' f'
 
+okProdP :: forall k k' a b. (OkProd k, OkProd k', Ok2 k a b, Ok2 k' a b)
+        => Ok2 (k :**: k') a b :- Ok (k :**: k') (a :* b)
+okProdP = Sub Dict
+    <+ okProd @k  @a @b
+    <+ okProd @k' @a @b
+
+type B u = u -> u -> Type
+
+-- instance (OkProd (k :: B u), OkProd (k' :: B u')) => OkProd (k :**: k') where
+--   -- okProd :: Bool
+--   okProd :: forall a b. Ok2 (k :**: k') a b :- Ok (k :**: k') (a :* b)
+--   -- okProd :: forall a b. (Ok2 k a b, Ok2 k' a b) :- Ok (k :**: k') (a :* b)
+--   -- okProd = undefined
+--   -- okProd = okProdP @k @k' @a @b
+--   okProd = Sub $ Dict
+--     \\ okProd @k  @a @b
+--     \\ okProd @k' @a @b
+
+-- instance (Cartesian k, Cartesian k') => Cartesian (k :**: k') where
+--   exl :: Ok2 (k :**: k') a b => Arr (k :**: k') (a :* b) a
+--   exl = undefined
