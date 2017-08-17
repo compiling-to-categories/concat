@@ -55,7 +55,7 @@ main = sequence_
   -- , runHtml' "disk-sizing-a" (sliderW "Radius" (0,2) 1) $ disk
   -- , runHtml' "disk-sizing-b" timeW $ disk . cos
   -- , runHtml' "annulus1"
-  --     (pairW (sliderW "Outer" (0,2) 1) (sliderW "Inner" (0,2) 0.1)) $
+  --     (pairW (sliderW "Outer radius" (0,2) 1) (sliderW "Inner radius" (0,2) 0.1)) $
   --     uncurry annulus
   -- , runHtml' "annulus2" (pairW (sliderW "Outer" (0,2) 1) timeW) $
   --     \ (o,i) -> annulus o ((sin i + 1) / 2)
@@ -68,12 +68,13 @@ main = sequence_
   -- , runHtml' "wobbly-disk" timeW $ \ t ->
   --     disk' (3/4 + 1/4 * cos t)
 
-  , runHtml' "diag-plus-im" timeW $ \ t ->
-      \ ((x,y) :: R2) -> x + sin t > y
-  , runHtml' "diag-disk-turning" timeW $ \ t ->
-      udisk `intersectR` rotate t xPos
-  , runHtml' "checker-rotate" timeW $ \ t ->
-      rotate t checker15
+  -- , runHtml' "diag-plus-im" timeW $ \ t ->
+  --     \ ((x,y) :: R2) -> x + sin t > y
+  -- , runHtml' "diag-disk-turning" timeW $ \ t ->
+  --     udisk `intersectR` rotate t xPos
+  -- , runHtml' "checker-rotate" timeW $ \ t ->
+  --     rotate t checker15
+
   , runHtml' "diag-disk-turning-sizing" timeW $ \ t ->
       disk' (cos t) `xorR` rotate t xyPos
 
@@ -111,15 +112,20 @@ runCirc nm circ = RC.run nm [] circ
 runSynCirc :: GO a b => String -> EC a b -> IO ()
 runSynCirc nm (syn :**: circ) = runSyn syn >> runCirc nm circ
 
+runH :: (GenBuses a)
+     => String -> Widgets a -> (a :> ImageC) -> IO ()
+-- runH n w f = runHtml n w f
+runH n w f = runHtml n w f >> runCirc n f
+
 runHtml' :: (GenBuses a, ToColor c)
          => String -> Widgets a -> (a -> Image c) -> IO ()
 runHtml' _ _ _ = error "runHtml' called directly"
 {-# NOINLINE runHtml' #-}
 {-# RULES "runHtml'"
-  forall n w f. runHtml' n w f = runHtml n w $ ccc $ toPImageC f #-}
+  forall n w f. runHtml' n w f = runH n w $ ccc $ toPImageC f #-}
 
 -- runHtml' name widgets f =
---   runHtml name widgets $ ccc $ toPImageC f
+--   runH name widgets $ ccc $ toPImageC f
 -- {-# INLINE runHtml' #-}
 
 
