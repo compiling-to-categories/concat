@@ -602,6 +602,8 @@ type a :+> b = Kleisli CircuitM (Buses a) (Buses b)
 -- | Circuit category
 newtype a :> b = C { unC :: a :+> b }
 
+-- type a :> b =~ Buses a -> CircuitM (Buses b)
+
 instance (OkCAR a, r ~ Rep a) => RepCat (:>) a r where
   reprC = C (arr reprB)
   abstC = C (arr abstB)
@@ -1877,7 +1879,7 @@ recordDots comps = nodes ++ edges
             constraint = []
 #endif
 #ifdef NoBusLabel
-            label = []
+            label = const [] t -- []
 #else
             -- Show the type per edge. I think I'd rather show in the output
             -- ports, but I don't know how to use a small font for those port
