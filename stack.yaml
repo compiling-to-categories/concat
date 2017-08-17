@@ -1,4 +1,7 @@
+# resolver: nightly-2017-08-15
+
 resolver: lts-8.21
+# resolver: nightly-2017-07-31
 
 packages:
 - classes
@@ -9,3 +12,8 @@ packages:
 extra-deps:
 - z3-4.1.0
 - language-glsl-0.2.1
+# - NumInstances-1.4
+# - newtype-generics-0.5.0.1
+
+## We'll need the NumInstances and newtype-generics deps for GHC 8.2.1, but
+## first must adapt to some GHC API changes. See personal notes 2017-08-16.
