@@ -47,7 +47,7 @@ instance OpCon (->) (Sat Additive) where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
 
-#if 1
+#if 0
 instance ClosedCat D where
   apply = D (\ (f,a) -> (f a, \ (df,da) -> df a ^+^ deriv f a da))
   curry (D h) = D (\ a -> (curry f a, \ da -> \ b -> f' (a,b) (da,zero)))
