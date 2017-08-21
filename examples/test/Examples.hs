@@ -102,7 +102,7 @@ import qualified GHC.Generics as G
 import qualified ConCat.Free.LinearRow
 
 -- For FFT
-import GHC.Generics hiding (R)
+import GHC.Generics hiding (C,R)
 
 import Control.Newtype (Newtype(..))
 
