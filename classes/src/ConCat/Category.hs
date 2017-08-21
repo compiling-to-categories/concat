@@ -996,6 +996,20 @@ instance (ConstCat k a, ConstCat k' a) => ConstCat (k :**: k') a where
 -- about this kind restriction, which would preclude some useful categories,
 -- including linear maps and entailment. Revisit this issue later.
 
+class DelayCat k where
+  delay :: a -> (a `k` a)
+
+instance DelayCat (->) where
+  delay = error "delay: not really defined for functions"
+  -- Will I need to use oops instead?
+
+class ProductCat k => LoopCat k where
+  loop :: ((a :* s) `k` (b :* s)) -> (a `k` b)
+
+instance LoopCat (->) where
+  loop = error "loop: not really defined for functions"
+  -- Will I need to use oops instead?
+
 {--------------------------------------------------------------------
     Class aggregates
 --------------------------------------------------------------------}
