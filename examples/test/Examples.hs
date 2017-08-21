@@ -1,9 +1,9 @@
 -- To run:
---
+-- 
 --   stack build :misc-examples
 --
 --   stack build :misc-trace >& ~/Haskell/concat/out/o1
---
+-- 
 -- You might also want to use stack's --file-watch flag for automatic recompilation.
 
 {-# LANGUAGE CPP                 #-}
@@ -56,7 +56,7 @@
 --
 -- Maintainer  :  conal@conal.net
 -- Stability   :  experimental
---
+-- 
 -- Suite of automated tests
 ----------------------------------------------------------------------
 
@@ -96,7 +96,7 @@ import ConCat.SMT
 -- dictionaries to be constructed. We could remove the LinearRow import if we
 -- changed L from a newtype to data, but we still run afoul of coercions for
 -- GHC.Generics newtypes.
---
+-- 
 -- TODO: Find a better solution!
 import qualified GHC.Generics as G
 import qualified ConCat.Free.LinearRow
@@ -150,7 +150,6 @@ main = sequence_
 
   -- -- Automatic differentiation
   -- , runSynCirc "sin-ad"       $ ccc $ andDer $ sin @R
-  , mkCircuit "sin-ad"       $ ccc $ andDer $ sin @R
   -- , runSynCirc "cos-ad"       $ ccc $ andDer $ cos @R
   -- , runSynCirc "twice-ad"     $ ccc $ andDer $ twice @R
   -- , runSynCirc "sqr-ad"       $ ccc $ andDer $ sqr @R
@@ -400,33 +399,33 @@ runSolve :: (GenBuses a, Show a, EvalE a) => (a :> Bool) -> IO ()
 runSolve = print . solve
 -- runSolve = print <=< solve
 
--- runSolveAscFrom :: ( GenBuses a, Show a, EvalE a, GenBuses r, EvalE r
---                    , OrdCat (:>) r, ConstCat (:>) r, Show r )
---   => r -> (a :* r :> Bool) -> IO ()
+runSolveAscFrom :: ( GenBuses a, Show a, EvalE a, GenBuses r, EvalE r
+                   , OrdCat (:>) r, ConstCat (:>) r, Show r )
+  => r -> (a :* r :> Bool) -> IO ()
 -- runSolveAscFrom r = print . solveAscendingFrom r
 -- runSolveAscFrom r = putStrLn . take 25 . show . solveAscendingFrom r
 -- runSolveAscFrom r = print . null . solveAscendingFrom r
 -- runSolveAscFrom r = print . (> 3) . length . take 4 . solveAscendingFrom r
--- runSolveAscFrom r = mapM_ print . solveAscendingFrom r
+runSolveAscFrom r = mapM_ print . solveAscendingFrom r
 
 -- runSolve = print <=< solve
 
--- runCircSMT :: (GenBuses a, Show a, EvalE a) => String -> (a :> Bool) -> IO ()
--- runCircSMT nm circ = runCirc nm circ >> runSolve circ
+runCircSMT :: (GenBuses a, Show a, EvalE a) => String -> (a :> Bool) -> IO ()
+runCircSMT nm circ = runCirc nm circ >> runSolve circ
 
 -- TODO: rework runCircSMT to generate the circuit graph once
 -- rather than twice.
 
--- runSolveAsc :: ( GenBuses a, Show a, GenBuses r, Show r, EvalE a, EvalE r
---                , OrdCat (:>) r, ConstCat (:>) r )
---             => (a :* r :> Bool) -> IO ()
--- runSolveAsc = mapM_ print . solveAscending
+runSolveAsc :: ( GenBuses a, Show a, GenBuses r, Show r, EvalE a, EvalE r
+               , OrdCat (:>) r, ConstCat (:>) r )
+            => (a :* r :> Bool) -> IO ()
+runSolveAsc = mapM_ print . solveAscending
 
 -- The following definition hangs with infinite lists. More generally, it
 -- produces no list output until all of the list elements have been constructed.
 -- I'm stumped as to why.
 
--- runSolveAsc = print . solveAscending
+-- runSolveAsc = print . solveAscending 
 
 -- runSolveAsc = print <=< solveAscending
 
@@ -434,54 +433,6 @@ runSolve = print . solve
 
 runPrint :: Show b => a -> (a -> b) -> IO ()
 runPrint a f = print (f a)
-
-{--------------------------------------------------------------------
-    Vectors
---------------------------------------------------------------------}
-
-data Nat = Zero | Succ Nat
-
--- So we don't need -Wno-unticked-promoted-constructors
-type Zero = 'Zero
-type Succ = 'Succ
-
-type family LVec n a where
-  LVec Zero a = ()
-  -- LVec (Succ n) a = LVec n a :* a
-  LVec N1 a = a
-  LVec (Succ (Succ n)) a = LVec (Succ n) a :* a
-
-type LB n = LVec n Bool
-
-type family RVec n a where
-  RVec Zero a = ()
-  -- RVec (Succ n) a = a :* RVec n a
-  RVec N1 a = a
-  RVec (Succ (Succ n)) a = a :* RVec (Succ n) a
-
-type RB n = RVec n Bool
-
-type N0  = Zero
--- Generated code
---
---   putStrLn $ unlines ["type N" ++ show (n+1) ++ " = S N" ++ show n | n <- [0..31]]
-type N1  = Succ N0
-type N2  = Succ N1
-type N3  = Succ N2
-type N4  = Succ N3
-type N5  = Succ N4
-type N6  = Succ N5
-type N7  = Succ N6
-type N8  = Succ N7
-type N9  = Succ N8
-type N10 = Succ N9
-type N11 = Succ N10
-type N12 = Succ N11
-type N13 = Succ N12
-type N14 = Succ N13
-type N15 = Succ N14
-type N16 = Succ N15
--- ...
 
 {--------------------------------------------------------------------
     Misc definitions
