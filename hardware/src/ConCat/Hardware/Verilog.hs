@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+-- {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE GADTs #-}
@@ -20,7 +20,7 @@ module ConCat.Hardware.Verilog
   ) where
 
 import Control.Arrow    (first, second)
-import Data.List        (intercalate, (\\), intersect, nub)
+import Data.List        ({-intercalate,-} (\\), intersect, nub)
 import System.Directory (createDirectoryIfMissing)
 -- import Text.PrettyPrint (render)
 import Text.PrettyPrint.HughesPJClass hiding (first)
@@ -31,7 +31,7 @@ import Language.Netlist.GenVerilog
 import Language.Verilog.PrettyPrint
 
 import ConCat.Circuit
-  (Bus(..),GenBuses,busTy,(:>),simpleComp,mkGraph,CompS(..),systemSuccess)
+  (Bus(..),GenBuses,(:>),simpleComp,mkGraph,CompS(..))  -- ,systemSuccess,busTy)
 import qualified ConCat.Circuit as C
 
 effectVerilog :: (GenBuses a, GenBuses b) => String -> (a :> b) -> String
