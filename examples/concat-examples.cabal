@@ -33,7 +33,7 @@ library
                      , constraints >= 0.8
                      , containers >= 0.5.7.1
                      , keys >= 3.11
-                     , newtype-generics
+                     , newtype-generics >= 0.5.0.1
                      , pointed >= 5
                      , prettyclass
                      -- For Complex
@@ -97,7 +97,7 @@ library
 --   hs-Source-Dirs:   test
 --   main-is:          Examples.hs
 --   Build-Depends:    Cabal >= 1.24.0.0
---                   , newtype-generics
+--                   , newtype-generics >= 0.5.0.1
 --                   , NumInstances >= 1.4
 --                   , array >= 0.5.1.1
 --                   , base<5
@@ -123,7 +123,7 @@ Test-Suite misc-examples
   hs-Source-Dirs:   test
   main-is:          Examples.hs
   Build-Depends:    Cabal >= 1.24.0.0
-                  , newtype-generics
+                  , newtype-generics >= 0.5.0.1
                   , NumInstances >= 1.4
                   , array >= 0.5.1.1
                   , base<5
@@ -144,7 +144,7 @@ Test-Suite misc-trace
   hs-Source-Dirs:   test
   main-is:          Examples.hs
   Build-Depends:    Cabal >= 1.24.0.0
-                  , newtype-generics
+                  , newtype-generics >= 0.5.0.1
                   , NumInstances >= 1.4
                   , array >= 0.5.1.1
                   , base<5

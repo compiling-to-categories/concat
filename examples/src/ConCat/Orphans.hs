@@ -21,6 +21,8 @@ import Data.Void
 import Data.Key
 import Data.Pointed
 import Data.Copointed
+import Control.Comonad.Cofree
+
 -- import Data.Stream (Stream(..))
 import Control.Newtype
 import Text.PrettyPrint.HughesPJClass
@@ -192,6 +194,11 @@ instance (Copointed f, Copointed g) => Copointed (g :.: f) where
 -- TODO: many Pointed and Copointed instances for GHC.Generics types.
 -- Offer as a pointed patch, as I did with keys.
 
+instance Pointed f => Pointed (Cofree f) where
+  point a = z where z = a :< point z
+
+instance Copointed (Cofree f) where
+  copoint (a :< _) = a
 
 {--------------------------------------------------------------------
     Control.Newtype and keys

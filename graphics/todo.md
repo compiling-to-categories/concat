@@ -1,6 +1,7 @@
 ## To do
 
 *   Try [side-by-side divs](https://www.google.com/search?q=html+side+by+side+divs) for widgets, and place min & max values and perhaps the name and value.
+    See the commented-out section at the end of style.css.
 *   Put examples on [GitHub pages](https://pages.github.com/).
     I'd have to somehow put script.js and the examples into a GitHub repo.
 *   Colorful examples.

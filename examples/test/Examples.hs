@@ -114,13 +114,13 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- -- Circuit graphs
-  -- , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
-  -- , runSynCirc "complex-mul" $ ccc $ uncurry ((*) @C)
-  -- , runSynCirc "magSqr"    $ ccc $ magSqr @R
-  -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
-  -- , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
+  -- Circuit graphs
+  , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
+  , runSynCirc "complex-mul" $ ccc $ uncurry ((*) @C)
+  , runSynCirc "magSqr"    $ ccc $ magSqr @R
+  , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
+  , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
 
   -- -- Circuit graphs on trees etc
   -- , runSynCirc "sum-pair"$ ccc $ sum @Pair @Int
@@ -132,9 +132,11 @@ main = sequence_
 
   -- , runCirc "fft-pair" $ ccc $ fft @Pair @Double
   -- , runCirc "fft-rb1" $ ccc $ fft @(RBin N1) @Double
-  , runCirc "fft-rb2" $ ccc $ fft @(RBin N2) @Double
+  -- , runCirc "fft-rb2" $ ccc $ fft @(RBin N2) @Double
   -- , runCirc "fft-rb3" $ ccc $ fft @(RBin N3) @Double
   -- , runCirc "fft-rb4" $ ccc $ fft @(RBin N4) @Double
+
+  -- , runCirc "foo" $ ccc $ \ ( fc :: ( (Pair :.: Pair) (Complex Double) )) -> fft fc
 
   -- -- Interval analysis
   -- , runSynCirc "add-iv"    $ ccc $ ivFun $ uncurry ((+) @Int)

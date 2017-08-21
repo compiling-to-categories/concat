@@ -299,7 +299,9 @@ class Uncurriable k a b where
   type UncDom a b = a
   type UncRan a b = b
   uncurries :: (a `k` b) -> (UncDom a b `k` UncRan a b)
-  default uncurries :: (a `k` b) -> (a `k` b)
+  -- default uncurries :: (a `k` b) -> (a `k` b)
+  default uncurries :: (UncDom a b ~ a, UncRan a b ~ b) =>
+                       (a `k` b) -> (UncDom a b `k` UncRan a b)
   -- uncurries = id
   -- uncurries = P.id
   uncurries f = f

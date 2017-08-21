@@ -909,8 +909,10 @@ class (Category k, Ok k (ConstObj k b)) => ConstCat k b where
   -- const = repConst
   unitArrow :: Ok k (Unit k) => b -> (Unit k `k` ConstObj k b)
   unitArrow = const
-  default const :: (TerminalCat k, Ok k (Unit k))
-                => b -> (Unit k `k` ConstObj k b)
+  -- default const :: (TerminalCat k, Ok k (Unit k))
+  --               => b -> (Unit k `k` ConstObj k b)
+  default const :: (TerminalCat k, Ok k a)
+                => b -> (a `k` ConstObj k b)
   const b = unitArrow b . it
 
 #endif
