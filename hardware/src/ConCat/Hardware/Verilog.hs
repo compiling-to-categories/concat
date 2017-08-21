@@ -22,7 +22,8 @@ module ConCat.Hardware.Verilog
 import Control.Arrow    (first, second)
 import Data.List        (intercalate, (\\), intersect, nub)
 import System.Directory (createDirectoryIfMissing)
-import Text.PrettyPrint (render)
+-- import Text.PrettyPrint (render)
+import Text.PrettyPrint.HughesPJClass hiding (first)
 
 import Language.Netlist.AST
 import Language.Netlist.Util
@@ -144,7 +145,9 @@ assign o prim ins =
     "if"     -> assignConditional
     "In"     -> Seq []
     "Out"    -> Seq []
-    _ | i <- fromIntegral (read prim) -> Assign (ExprVar o) $ ExprLit (Just 32) (ExprNum i)
+    -- _ | i <- fromIntegral (read prim) -> Assign (ExprVar o) $ ExprLit (Just 32) (ExprNum i)
+    _ | [(i,[])] <- reads prim -> Assign (ExprVar o) $ ExprLit (Just 32) (ExprNum i)
+
       | otherwise -> error $ "ConCat.Hardware.Verilog.assign: Received unrecognized primitive: " ++ prim
   where
     assignUnary op

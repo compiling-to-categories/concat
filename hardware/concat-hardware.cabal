@@ -29,8 +29,8 @@ library
                      , containers
                      , directory
                      -- , parsec
-                     -- , prettyclass
-                     , pretty
+                     , prettyclass
+                     -- , pretty
                      , text >= 1.2.2.1
                      -- , lambdabot-utils
                      -- , language-glsl >= 0.2.1
