@@ -24,7 +24,7 @@ import GHC.Types (Constraint)
 import ConCat.Category
 
 data ND k a b = forall p. Ok k p => ND (p -> (a `k` b))
-  
+
 exactly :: OkUnit k => (a `k` b) -> ND k a b
 exactly f = ND (\ () -> f)
 
@@ -64,10 +64,66 @@ instance (TerminalCat k, OkProd k, OkUnit k) => TerminalCat (ND k) where
 instance (ConstCat k b, OkProd k, OkUnit k) => ConstCat (ND k) b where
   const b = exactly (const b)
 
+instance (BoolCat k, OkProd k, OkUnit k) => BoolCat (ND k) where
+  notC = exactly notC
+  andC = exactly andC
+  orC  = exactly orC
+  xorC = exactly xorC
+
+instance (EqCat k a, OkProd k, OkUnit k) => EqCat (ND k) a where
+  equal    = exactly equal
+  notEqual = exactly notEqual
+
+instance (OrdCat k a, OkProd k, OkUnit k) => OrdCat (ND k) a where
+  lessThan           = exactly lessThan
+  greaterThan        = exactly greaterThan
+  lessThanOrEqual    = exactly lessThanOrEqual
+  greaterThanOrEqual = exactly greaterThanOrEqual
+
+instance (EnumCat k a, OkProd k, OkUnit k) => EnumCat (ND k) a where
+  succC = exactly succC
+  predC = exactly predC
+
 instance (NumCat k a, ProductCat k, OkUnit k) => NumCat (ND k) a where
   addC    = exactly addC
   mulC    = exactly mulC
   negateC = exactly negateC
   powIC   = exactly powIC
 
--- Etc
+instance (IntegralCat k a, ProductCat k, OkUnit k) => IntegralCat (ND k) a where
+  divC = exactly divC
+  modC = exactly modC
+
+instance (FractionalCat k a, ProductCat k, OkUnit k) => FractionalCat (ND k) a where
+  recipC  = exactly recipC
+  divideC = exactly divideC
+
+instance (FloatingCat k a, ProductCat k, OkUnit k) => FloatingCat (ND k) a where
+  expC = exactly expC
+  cosC = exactly cosC
+  sinC = exactly sinC
+
+instance (RealFracCat k a b, ProductCat k, OkUnit k) => RealFracCat (ND k) a b where
+  floorC    = exactly floorC
+  ceilingC  = exactly ceilingC
+  truncateC = exactly truncateC
+
+instance (FromIntegralCat k a b, ProductCat k, OkUnit k) => FromIntegralCat (ND k) a b where
+  fromIntegralC = exactly fromIntegralC
+
+instance (BottomCat k a b, ProductCat k, OkUnit k) => BottomCat (ND k) a b where
+  bottomC = exactly bottomC
+
+instance (IfCat k a, ProductCat k, OkUnit k) => IfCat (ND k) a where
+  ifC = exactly ifC
+
+instance (UnknownCat k a b, ProductCat k, OkUnit k) => UnknownCat (ND k) a b where
+  unknownC = exactly unknownC
+
+instance (RepCat k a r, ProductCat k, OkUnit k) => RepCat (ND k) a r where
+  reprC = exactly reprC
+  abstC = exactly abstC
+
+instance (ArrayCat k a b, ProductCat k, OkUnit k) => ArrayCat (ND k) a b where
+  array = exactly array
+  arrAt = exactly arrAt
