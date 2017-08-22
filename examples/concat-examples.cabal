@@ -51,6 +51,8 @@ library
                      , data-default
                      -- For Polynomial
                      , free
+                     -- For Nondet
+                     , ghc-prim
   if flag(smt)
     build-depends: z3
     cpp-options:        -DCONCAT_SMT
@@ -65,9 +67,11 @@ library
                        ConCat.Syntactic
                        ConCat.Circuit
                        ConCat.RunCircuit
+                       -- ConCat.Mealy
                        ConCat.GAD
                        ConCat.AD
                        ConCat.ADFun
+                       ConCat.Nondet
                        ConCat.Incremental
                        ConCat.Interval
                        ConCat.GradientDescent
