@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -18,41 +20,42 @@ import ConCat.Category
 
 type C p = (() :: Constraint)
 
-data ND a b = forall p. C p => ND (p -> a -> b)  -- for some constraint C
+data ND k a b = forall p. C p => ND (p -> (a `k` b))  -- for some constraint C
 
-exactly :: (a -> b) -> ND a b
+exactly :: (a `k` b) -> ND k a b
 exactly f = ND (\ () -> f)
 
-instance Category ND where
+instance Category k => Category (ND k) where
+  type Ok (ND k) = Ok k
   id = exactly id
   ND g . ND f = ND (\ (p,q) -> g q . f p)
 
-instance ProductCat ND where
+instance ProductCat k => ProductCat (ND k) where
   exl = exactly exl
   exr = exactly exr 
   ND f &&& ND g = ND (\ (p,q) -> f p &&& g q)
 
-instance CoproductCat ND where
+instance CoproductCat k => CoproductCat (ND k) where
   inl = exactly inl
   inr = exactly inr 
   ND f ||| ND g = ND (\ (p,q) -> f p ||| g q)
 
-instance DistribCat ND where
+instance DistribCat k => DistribCat (ND k) where
   distl = exactly distl
   distr = exactly distr 
 
-instance ClosedCat ND where
+instance ClosedCat k => ClosedCat (ND k) where
   apply = exactly apply
   curry (ND f) = ND (curry . f)
   uncurry (ND g) = ND (uncurry . g)
 
-instance TerminalCat ND where
+instance TerminalCat k => TerminalCat (ND k) where
   it = exactly it
 
-instance ConstCat ND b where
+instance ConstCat k b => ConstCat (ND k) b where
   const b = exactly (const b)
 
-instance Num a => NumCat ND a where
+instance (NumCat k a, ProductCat k) => NumCat (ND k) a where
   addC    = exactly addC
   mulC    = exactly mulC
   negateC = exactly negateC
