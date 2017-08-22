@@ -10,15 +10,17 @@ packages:
 - graphics
 - hardware
 # - shaped-types
-- location:
-    git: https://github.com/ku-fpg/netlist
-    commit: 97340fa97ee972cb7f7735f3dc8aee3186898e6c
-  extra-dep: true
-  subdirs:
-  - netlist
-  - verilog
-  - netlist-to-verilog
-# - netlist/netlist-to-verilog
+#- location:
+#    git: https://github.com/ku-fpg/netlist
+#    commit: 97340fa97ee972cb7f7735f3dc8aee3186898e6c
+#  extra-dep: true
+#  subdirs:
+#  - netlist
+#  - verilog
+#  - netlist-to-verilog
+- netlist/netlist
+- netlist/verilog
+- netlist/netlist-to-verilog
 
 extra-deps:
 # - z3-4.1.0

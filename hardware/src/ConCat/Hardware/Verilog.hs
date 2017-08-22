@@ -31,7 +31,7 @@ import Language.Netlist.GenVerilog
 import Language.Verilog.PrettyPrint
 
 import ConCat.Circuit
-  (Bus(..),GenBuses,(:>),simpleComp,mkGraph,CompS(..))  -- ,systemSuccess,busTy)
+  (Bus(..),GenBuses,(:>),simpleComp,mkGraph,CompS(..),busTy)  -- ,systemSuccess,)
 import qualified ConCat.Circuit as C
 
 effectVerilog :: (GenBuses a, GenBuses b) => String -> (a :> b) -> String
@@ -115,15 +115,19 @@ busToReg :: Bus -> Decl
 busToReg b = MemDecl (busName b) Nothing (makeRange Down width) Nothing
   where width = busWidth b
 
+-- data CompS = CompS CompId PrimName [Input] [Output] deriving Show
+-- data Bus = Bus CompId Int Ty deriving Show
+-- busTy :: Bus -> Ty
 mkAssignment :: CompS -> Stmt
-mkAssignment c | [o] <- outs = assign o prim ins
+mkAssignment c | [o] <- outs = assign o prim ins ty
                | otherwise   = Seq []
   where prim   = compName c
         ins    = map busName $ compIns  c
         outs   = map busName $ compOuts c
+        ty     = busTy . head . compOuts $ c
 
-assign :: String -> String -> [String] -> Stmt
-assign o prim ins =
+assign :: String -> String -> [String] -> C.Ty -> Stmt
+assign o prim ins ty =
   case prim of
     "not"    -> assignUnary  LNeg
     "&&"     -> assignBinary LAnd
@@ -145,10 +149,7 @@ assign o prim ins =
     "if"     -> assignConditional
     "In"     -> Seq []
     "Out"    -> Seq []
-    -- _ | i <- fromIntegral (read prim) -> Assign (ExprVar o) $ ExprLit (Just 32) (ExprNum i)
-    _ | [(i,[])] <- reads prim -> Assign (ExprVar o) $ ExprLit (Just 32) (ExprNum i)
-
-      | otherwise -> error $ "ConCat.Hardware.Verilog.assign: Received unrecognized primitive: " ++ prim
+    _        -> Assign (ExprVar o) $ constExpr ty prim
   where
     assignUnary op
       | [in1]      <- ins = Assign (ExprVar o) $ ExprUnary op (ExprVar in1)
@@ -160,6 +161,20 @@ assign o prim ins =
       | [p, t, f]  <- ins = Assign (ExprVar o) $ ExprCond (ExprVar p) (ExprVar t) (ExprVar f)
       | otherwise         = error $ errStr "conditional"
     errStr _ = "ConCat.Hardware.Verilog.assign: I received an incorrect number of inputs.\n"
+
+constExpr :: C.Ty -> String -> Expr
+constExpr ty prim = case ty of
+                      C.Bool   -> ExprLit (Just   1) (ExprBit . boolToBit    $ rp)
+                      C.Int    -> ExprLit (Just  32) (ExprNum                $ rp)
+                      C.Float  -> ExprLit (Just  64) (ExprFloat              $ rp)
+                      C.Double -> ExprLit (Just 128) (ExprDouble             $ rp)
+                      _        -> error $ "ConCat.Hardware.Verilog.constExpr: Unrecognized type: " ++ show ty
+  where rp :: Read a => a
+        rp = read prim
+
+boolToBit :: Bool -> Bit
+boolToBit True  = T
+boolToBit False = F
 
 -- These are, currently, commented out of ConCat/Circuit.hs.
 -- compId :: CompS -> CompId

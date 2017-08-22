@@ -85,7 +85,7 @@ main = sequence_
   -- , runVerilog' "fft_fc_quad" $ \ (x0::(Complex Double),x1,x2,x3) -> fft $ O (Comp1 ( (x0 :# x1) :# (x2 :# x3) ))
   -- , runVerilog' "fft_fc_quad" $ \ (Par1 x0, Par1 x1, Par1 x2, Par1 x3) -> fft $ O (Comp1 ( (x0 :# x1) :# (x2 :# x3) ))
   -- , runVerilog' "fft_fc_quad" $ \ (Par1 (x0::(Complex Double)), Par1 x1, Par1 x2, Par1 x3) -> fft $ Comp1 ( (x0 :# x1) :# (x2 :# x3) )
-  -- , runVerilog' "fft_fc_quad" $ \ ( fc :: ( (Pair :.: Pair) (Complex Double) )) -> fft fc
+  , runVerilog' "fft_fc_quad" $ \ ( fc :: ( (Pair :.: Pair) (Complex Double) )) -> fft fc
   ]
 
 {--------------------------------------------------------------------
