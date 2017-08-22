@@ -1,0 +1,9 @@
+.*
+*.stackwork
+*out/
+*.tmp
+*.swp
+*.hi
+*.o
+*.pdf
+
