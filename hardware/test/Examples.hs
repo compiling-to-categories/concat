@@ -63,6 +63,8 @@ import ConCat.Rebox () -- necessary for reboxing rules to fire
 
 import ConCat.Hardware.Verilog
 import ConCat.Rep
+import ConCat.Nat
+import ConCat.Shaped
 
 main :: IO ()
 main = sequence_
@@ -80,12 +82,13 @@ main = sequence_
     -- FFT, via functor composition
   -- , runVerilog' "fft_fc_pair" $ \ ( pr :: (UPair (Complex Double)) ) -> fft pr
   , runVerilog' "fft_fc_pair" $ \ ( (x0::(Complex Double)) :# x1 ) -> fft (x0 :# x1)
-  -- , runVerilog' "fft_fc_quad" $ \ ( fc :: ( (UPair :. UPair) (Complex Double) ) ) -> fft fc
-  -- , runVerilog' "fft_fc_quad" $ \ ( fc :: ( (UPair :.: UPair) (Complex Double) ) ) -> fft fc
-  -- , runVerilog' "fft_fc_quad" $ \ (x0::(Complex Double),x1,x2,x3) -> fft $ O (Comp1 ( (x0 :# x1) :# (x2 :# x3) ))
-  -- , runVerilog' "fft_fc_quad" $ \ (Par1 x0, Par1 x1, Par1 x2, Par1 x3) -> fft $ O (Comp1 ( (x0 :# x1) :# (x2 :# x3) ))
-  -- , runVerilog' "fft_fc_quad" $ \ (Par1 (x0::(Complex Double)), Par1 x1, Par1 x2, Par1 x3) -> fft $ Comp1 ( (x0 :# x1) :# (x2 :# x3) )
-  , runVerilog' "fft_fc_quad" $ \ ( fc :: ( (Pair :.: Pair) (Complex Double) )) -> fft fc
+  -- , runVerilog' "fft_fc_quad" $ \ ( fc :: ( (Pair :.: Pair) (Complex Float) )) -> fft fc
+  -- TODO: Understand why only the second alternative, below, works.
+  --       (The other two cause a compilation time-out error.)
+  -- , runVerilog' "fft_fc_octet" $ \ ( fc :: ( ((Pair :.: Pair) :.: (Pair :.: Pair)) (Complex Float) )) -> fft fc
+  , runVerilog' "fft_fc_rb3" $ fft @(RBin N3) @Float
+  -- , runVerilog' "fft_fc_rb3" $ fft @((Pair :.: Pair) :.: (Pair :.: Pair)) @Float
+  -- , runCirc "fft-rb3" $ ccc $ fft @(RBin N3) @Double
   ]
 
 {--------------------------------------------------------------------

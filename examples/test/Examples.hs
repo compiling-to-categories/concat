@@ -1,9 +1,9 @@
 -- To run:
--- 
+--
 --   stack build :misc-examples
 --
 --   stack build :misc-trace >& ~/Haskell/concat/out/o1
--- 
+--
 -- You might also want to use stack's --file-watch flag for automatic recompilation.
 
 {-# LANGUAGE CPP                 #-}
@@ -56,7 +56,7 @@
 --
 -- Maintainer  :  conal@conal.net
 -- Stability   :  experimental
--- 
+--
 -- Suite of automated tests
 ----------------------------------------------------------------------
 
@@ -96,7 +96,7 @@ import ConCat.SMT
 -- dictionaries to be constructed. We could remove the LinearRow import if we
 -- changed L from a newtype to data, but we still run afoul of coercions for
 -- GHC.Generics newtypes.
--- 
+--
 -- TODO: Find a better solution!
 import qualified GHC.Generics as G
 import qualified ConCat.Free.LinearRow
@@ -115,12 +115,12 @@ main = sequence_
   [ putChar '\n' -- return ()
 
   -- Circuit graphs
-  , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
-  , runSynCirc "complex-mul" $ ccc $ uncurry ((*) @C)
-  , runSynCirc "magSqr"    $ ccc $ magSqr @R
-  , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
-  , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
-  , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
+  -- , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
+  -- , runSynCirc "complex-mul" $ ccc $ uncurry ((*) @C)
+  -- , runSynCirc "magSqr"    $ ccc $ magSqr @R
+  -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
+  -- , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
+  -- , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
 
   -- -- Circuit graphs on trees etc
   -- , runSynCirc "sum-pair"$ ccc $ sum @Pair @Int
@@ -133,7 +133,7 @@ main = sequence_
   -- , runCirc "fft-pair" $ ccc $ fft @Pair @Double
   -- , runCirc "fft-rb1" $ ccc $ fft @(RBin N1) @Double
   -- , runCirc "fft-rb2" $ ccc $ fft @(RBin N2) @Double
-  -- , runCirc "fft-rb3" $ ccc $ fft @(RBin N3) @Double
+  , runCirc "fft-rb3" $ ccc $ fft @(RBin N3) @Double
   -- , runCirc "fft-rb4" $ ccc $ fft @(RBin N4) @Double
 
   -- , runCirc "foo" $ ccc $ \ ( fc :: ( (Pair :.: Pair) (Complex Double) )) -> fft fc
@@ -425,7 +425,7 @@ runSolveAsc = mapM_ print . solveAscending
 -- produces no list output until all of the list elements have been constructed.
 -- I'm stumped as to why.
 
--- runSolveAsc = print . solveAscending 
+-- runSolveAsc = print . solveAscending
 
 -- runSolveAsc = print <=< solveAscending
 

@@ -50,11 +50,11 @@
 
 -- This module compiles pretty slowly. Some of my pattern matching style led to
 -- the following warning:
--- 
+--
 --        Pattern match checker exceeded (2000000) iterations in
 --        a case alternative. (Use -fmax-pmcheck-iterations=n
 --        to set the maximun number of iterations to n)
--- 
+--
 -- I've simplified my style by replacing uses of the Eql macro by explicit
 -- equality checks. To find at least some problematic definitions, lower
 -- -fmax-pmcheck-iterations from default of 2000000. I'd like to simplify
@@ -71,10 +71,10 @@
 -- Module      :  ConCat.Circuit
 -- Copyright   :  (c) 2016 Conal Elliott
 -- License     :  BSD3
--- 
+--
 -- Maintainer  :  conal@conal.net
 -- Stability   :  experimental
--- 
+--
 -- Circuit representation
 ----------------------------------------------------------------------
 
@@ -169,7 +169,7 @@ import qualified ConCat.Free.LinearCol as LC
 --------------------------------------------------------------------}
 
 -- Component (primitive) type
-data Ty = Unit | Bool | Int | Float | Double 
+data Ty = Unit | Bool | Int | Float | Double
 #ifdef VectorSized
         | Finite Integer
         | Arr Integer Ty
@@ -186,7 +186,7 @@ instance Show Ty where
   showsPrec _ Bool   = showString "Bool"
   showsPrec _ Int    = showString "Int"
   showsPrec _ Float  = showString "Float"
-  showsPrec _ Double = showString "R" -- "Double"
+  showsPrec _ Double = showString "Double" -- "R"
   showsPrec p (Sum a b) = showParen (p >= 6) $
     showsPrec 6 a . showString " + " . showsPrec 6 b
   showsPrec p (Prod a b) = showParen (p >= 7) $
@@ -704,7 +704,7 @@ primOptSort = primOpt
 
 primNoOpt1 :: (Ok2 (:>) a b, Read a, Show b)
            => PrimName -> (a -> b) -> a :> b
-primNoOpt1 name fun = 
+primNoOpt1 name fun =
   primOpt name $
     \ case [Val x] -> newVal (fun x)
            _       -> nothingA
@@ -967,14 +967,14 @@ instance BoolCat (:>) where
            [Val x]   -> newVal (not x)
            _         -> nothingA
   -- TODO: I want to add more like the following:
-  -- 
+  --
   --      [EqS a b] -> newComp2 notEqual a b
-  --      
+  --
   -- But
-  -- 
+  --
   --   Ambiguous type variable ‘b0’ arising from a use of ‘newComp2’
   --   prevents the constraint ‘(SourceToBuses b0)’ from being solved.
-  -- 
+  --
   -- Optimizations are limited by not having static access to source types. I
   -- think I can fix it by adding a statically typed type GADT to
   -- `Source`. Or maybe a simpler version for primitive types only.
@@ -1079,7 +1079,7 @@ eqOptB = \ case
 
 --   [x `EqS` y, Eql(x)]  -> sourceB y
 --   [y `EqS` x, Eql(x)]  -> sourceB y
--- 
+--
 --     Pattern match checker exceeded (2000000) iterations in
 --     a case alternative.
 
@@ -1107,7 +1107,7 @@ neOptB = \ case
 
 --   [x `EqS` y, Eql(x)]  -> newComp1 notC y
 --   [y `EqS` x, Eql(x)]  -> newComp1 notC y
--- 
+--
 --     Pattern match checker exceeded (2000000) iterations in
 --     a case alternative.
 
@@ -1174,7 +1174,7 @@ instance OrdCat (:>) () where
   lessThan = constC False
 
 -- TODO:
--- 
+--
 -- instance (OrdCat (:>) a, OrdCat (:>) b) => OrdCat (:>) (a,b) where
 --   ...
 
@@ -1317,7 +1317,7 @@ instance (Ok (:>) a, Integral a, Num b, Read a, GS b)
 instance (ConstCat (:>) a, NumCat (:>) a, Num a) => EnumCat (:>) a
 
 -- Simplifications for all types:
--- 
+--
 --   if' (False,(_,a))     = a
 --   if' (True ,(b,_))     = b
 --   if' (not a,(b,c))     = if' (a,(c,b))
@@ -1326,7 +1326,7 @@ instance (ConstCat (:>) a, NumCat (:>) a, Num a) => EnumCat (:>) a
 --   if' (a,(bottom,c))    = c
 --
 -- Simplifications for Bool values:
--- 
+--
 --   if' (c,(True,False))  = c
 --   if' (c,(False,True))  = not c
 --   if' (a,(b,False))     =     a && b
@@ -1387,10 +1387,10 @@ pattern BToIS a <- PSource _ BooloInt [a]
 
 -- if c then 0 else b == if c then boolToInt False else b
 -- if c then 1 else b == if c then boolToInt True  else b
--- 
+--
 -- if c then a else 0 == if c then a else boolToInt False
 -- if c then a else 1 == if c then a else boolToInt True
--- 
+--
 -- if c then boolToInt a else boolToInt b = boolToInt (if c then a else b)
 ifOptI = \ case
   [c,BitS x,b]         -> newComp2 (ifC . second (bToIConst x &&& id)) c b
@@ -1475,7 +1475,7 @@ runU' cir supply = (getComps compInfo, supply')
    compInfo :: CompInfo
    (supply',compInfo) = execState (unmkCK cir UnitB) (supply,mempty)
 #if !defined NoHashCons
-   getComps = M.elems 
+   getComps = M.elems
 #else
    getComps = id
 #endif
@@ -1512,7 +1512,7 @@ mkGraph' g n = uuGraph' (unitize g) n
 -- TODO: Revisit this choice if the string manipulation gets complicated.
 
 systemSuccess :: String -> IO ()
-systemSuccess cmd = 
+systemSuccess cmd =
   do status <- system cmd
      case status of
        ExitSuccess -> return ()
@@ -1522,7 +1522,7 @@ systemSuccess cmd =
 type Attr = (String,String)
 
 -- Some options:
--- 
+--
 -- ("pdf","")
 -- ("svg","")
 -- ("png","-Gdpi=200")
@@ -1566,7 +1566,7 @@ outFile :: String -> String -> String
 outFile name suff = outDir++"/"++name++"."++suff
 
 writeDot :: String -> [Attr] -> Graph -> IO ()
-writeDot (renameC -> name) attrs g = 
+writeDot (renameC -> name) attrs g =
   do createDirectoryIfMissing False outDir
      writeFile (outFile name "dot")
        (graphDot name attrs g {- ++"// "++ report -})
@@ -1574,7 +1574,7 @@ writeDot (renameC -> name) attrs g =
      -- putStr report
 
 displayDot :: (String,String) -> String -> IO ()
-displayDot (outType,res) (renameC -> name) = 
+displayDot (outType,res) (renameC -> name) =
   do putStrLn dotCommand
      systemSuccess dotCommand
      -- printf "Wrote %s\n" picFile
@@ -1687,7 +1687,7 @@ compUses g = -- trace (printf "compUses: gmap == %s" (show gmap))
   where
     gmap = graphMap g
     preds (Comp _ templ (flatB -> ins) _) =
-      [c | Bus c _ _ <- ins] ++ 
+      [c | Bus c _ _ <- ins] ++
       case templ of Prim _ -> []
                     Subgraph g' _ -> [outId g']
 
@@ -1819,9 +1819,9 @@ recordDots comps = nodes ++ edges
       node :: Comp -> [Statement]
       node (Comp nc (Subgraph g _) UnitB (PrimB _)) = subgraphDot nc g
       node (simpleComp -> CompS nc (prettyName -> prim) ins outs) =
-        [prefix ++ mbCluster 
+        [prefix ++ mbCluster
          (printf "%s [label=\"{%s%s%s}\"%s]"
-           (compLab nc) 
+           (compLab nc)
            (ports "" (labs In ins) "|")
            (escape prim)
            (ports "|" (labs Out outs) "")

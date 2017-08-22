@@ -20,9 +20,8 @@ module ConCat.Hardware.Verilog
   ) where
 
 import Control.Arrow    (first, second)
-import Data.List        ({-intercalate,-} (\\), intersect, nub)
+import Data.List        ({-intercalate,(\\),-}  intersect, nub)
 import System.Directory (createDirectoryIfMissing)
--- import Text.PrettyPrint (render)
 import Text.PrettyPrint.HughesPJClass hiding (first)
 
 import Language.Netlist.AST
@@ -35,7 +34,7 @@ import ConCat.Circuit
 import qualified ConCat.Circuit as C
 
 effectVerilog :: (GenBuses a, GenBuses b) => String -> (a :> b) -> String
-effectVerilog name circ = unlines $
+effectVerilog name circ = unlines
   [ "/***"
   , "* Automatically generated Verilog code. Do not edit."
   , "*"
@@ -80,12 +79,15 @@ mkModule name cs = Module name (("clk", Nothing) : map (first (++ "_d")) (f modI
                           )
   where
     f       = map (second (makeRange Down) . busId')
-    modIns  = allIns  \\ allOuts
-    modOuts = allOuts \\ allIns
+    modIns  = compOuts inComp
+    modOuts = compIns  outComp
     modNets = allIns `intersect` allOuts
     allIns  = nub $ concatMap compIns  cs'
     allOuts = concatMap compOuts cs'
     cs'     = filter (flip notElem ["In", "Out"] . compName) cs
+    inComp  = firstCompNamed "In"
+    outComp = firstCompNamed "Out"
+    firstCompNamed nm = head $ filter ((== nm) . compName) cs
 
 busId' :: Bus -> (String, Int)
 busId' (Bus cId ix ty) = ('n' : show cId ++ ('_' : show ix), width)
@@ -115,16 +117,13 @@ busToReg :: Bus -> Decl
 busToReg b = MemDecl (busName b) Nothing (makeRange Down width) Nothing
   where width = busWidth b
 
--- data CompS = CompS CompId PrimName [Input] [Output] deriving Show
--- data Bus = Bus CompId Int Ty deriving Show
--- busTy :: Bus -> Ty
 mkAssignment :: CompS -> Stmt
 mkAssignment c | [o] <- outs = assign o prim ins ty
                | otherwise   = Seq []
   where prim   = compName c
         ins    = map busName $ compIns  c
         outs   = map busName $ compOuts c
-        ty     = busTy . head . compOuts $ c
+        ty     = busTy . head $ compOuts c
 
 assign :: String -> String -> [String] -> C.Ty -> Stmt
 assign o prim ins ty =
@@ -166,8 +165,8 @@ constExpr :: C.Ty -> String -> Expr
 constExpr ty prim = case ty of
                       C.Bool   -> ExprLit (Just   1) (ExprBit . boolToBit    $ rp)
                       C.Int    -> ExprLit (Just  32) (ExprNum                $ rp)
-                      C.Float  -> ExprLit (Just  64) (ExprFloat              $ rp)
-                      C.Double -> ExprLit (Just 128) (ExprDouble             $ rp)
+                      C.Float  -> ExprLit Nothing    (ExprFloat              $ rp)
+                      -- C.Double -> ExprLit (Just 128) (ExprDouble             $ rp)
                       _        -> error $ "ConCat.Hardware.Verilog.constExpr: Unrecognized type: " ++ show ty
   where rp :: Read a => a
         rp = read prim

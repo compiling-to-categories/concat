@@ -1,5 +1,6 @@
 # To do
 
+*   (See line 86 in hardware/test/Examples.hs.)
 *   Failure with unboxed `let` bindings.
     See notes from 2017-07-15.
 *   Principled replacement for the `delay` hack (defined in `ConCat.Misc`).
