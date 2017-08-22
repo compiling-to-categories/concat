@@ -321,13 +321,15 @@ type Prod k = (:*)
 
 infixr 3 ***, &&&
 
-okProd :: forall k a b. OpCon (Prod k) (Ok' k)
+type OkProd k = OpCon (Prod k) (Ok' k)
+
+okProd :: forall k a b. OkProd k
        => Ok' k a && Ok' k b |- Ok' k (Prod k a b)
 okProd = inOp
 {-# INLINE okProd #-}
 
 -- | Category with product.
-class (OpCon (Prod k) (Ok' k), Category k) => ProductCat k where
+class (OkProd k, Category k) => ProductCat k where
   exl :: Ok2 k a b => Prod k a b `k` a
   exr :: Ok2 k a b => Prod k a b `k` b
   dup :: Ok  k a => a `k` Prod k a a
@@ -815,7 +817,9 @@ instance (ClosedCat k, ClosedCat k') => ClosedCat (k :**: k') where
 
 type Unit k = ()
 
-class (Category k, Ok k (Unit k)) => TerminalCat k where
+type OkUnit k = Ok k (Unit k)
+
+class (Category k, OkUnit k) => TerminalCat k where
   -- type Unit k :: u
   it :: Ok k a => a `k` Unit k
 
@@ -907,9 +911,9 @@ class (Category k, Ok k (ConstObj k b)) => ConstCat k b where
   -- default const :: (HasRep (ConstObj k b), ConstCat k (Rep b), RepCat k, Ok k a)
   --               => b -> (a `k` ConstObj k b)
   -- const = repConst
-  unitArrow :: Ok k (Unit k) => b -> (Unit k `k` ConstObj k b)
+  unitArrow :: OkUnit k => b -> (Unit k `k` ConstObj k b)
   unitArrow = const
-  -- default const :: (TerminalCat k, Ok k (Unit k))
+  -- default const :: (TerminalCat k, OkUnit k)
   --               => b -> (Unit k `k` ConstObj k b)
   default const :: (TerminalCat k, Ok k a)
                 => b -> (a `k` ConstObj k b)
@@ -997,14 +1001,14 @@ instance (ConstCat k a, ConstCat k' a) => ConstCat (k :**: k') a where
 -- including linear maps and entailment. Revisit this issue later.
 
 class DelayCat k where
-  delay :: a -> (a `k` a)
+  delay :: Ok k a => a -> (a `k` a)
 
 instance DelayCat (->) where
   delay = error "delay: not really defined for functions"
   -- Will I need to use oops instead?
 
 class ProductCat k => LoopCat k where
-  loop :: ((a :* s) `k` (b :* s)) -> (a `k` b)
+  loop :: Ok3 k s a b => ((a :* s) `k` (b :* s)) -> (a `k` b)
 
 instance LoopCat (->) where
   loop = error "loop: not really defined for functions"
@@ -1128,7 +1132,7 @@ instance (BoolCat k, BoolCat k') => BoolCat (k :**: k') where
   PINLINER(orC)
   PINLINER(xorC)
 
-okTT :: forall k a. OpCon (Prod k) (Ok' k) => Ok' k a |- Ok' k (Prod k a a)
+okTT :: forall k a. OkProd k => Ok' k a |- Ok' k (Prod k a a)
 okTT = okProd @k @a @a . dup
 
 class (BoolCat k, Ok k a) => EqCat k a where

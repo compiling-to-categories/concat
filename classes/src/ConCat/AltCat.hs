@@ -164,9 +164,9 @@ Op0(it,(TerminalCat k, Ok k a) => a `k` Unit k)
 Op(const,(ConstCat k b, Ok k a) => b -> (a `k` ConstObj k b))
 -- Op(unitArrow,ConstCat k b => b -> (Unit k `k` ConstObj k b))
 
-Op(delay,DelayCat k => a -> (a `k` a))
+Op(delay,(DelayCat k, Ok k a) => a -> (a `k` a))
 
-Op(loop,LoopCat k => ((a :* s) `k` (b :* s)) -> (a `k` b))
+Op(loop,(LoopCat k, Ok3 k s a b) => ((a :* s) `k` (b :* s)) -> (a `k` b))
 
 {-# RULES
 -- "inOp unitArrow" forall b. reveal (unitArrow b) = C.unitArrow b
