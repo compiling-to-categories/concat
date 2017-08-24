@@ -34,10 +34,6 @@ exactly f = ND (\ () -> f)
 class ChooseCat k p where
   choose' :: Ok k p => () `k` p
 
--- "choose'" vs "choose", since GHC eagerly inlines all methods to their
--- dictionary selectors, defeating translation across categories. Look for a
--- tidier alternative.
-
 -- | Generate any value of type @p@.
 choose :: (ChooseCat k' p, Ok k' p) => k' () p
 choose = choose'
@@ -45,6 +41,10 @@ choose = choose'
 
 instance (ConstCat k p, Ok k ()) => ChooseCat (ND k) p where
   choose' = ND const
+
+-- "choose'" vs "choose", since GHC eagerly inlines all methods to their
+-- dictionary selectors, defeating translation across categories. Look for a
+-- tidier alternative.
 
 instance (Category k, OkProd k, OkUnit k) => Category (ND k) where
   type Ok (ND k) = Ok k
