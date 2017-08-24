@@ -67,7 +67,6 @@ library
                        ConCat.Syntactic
                        ConCat.Circuit
                        ConCat.RunCircuit
-                       -- ConCat.Mealy
                        ConCat.GAD
                        ConCat.AD
                        ConCat.ADFun
