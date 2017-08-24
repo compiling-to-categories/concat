@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -7,7 +8,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
--- {-# LANGUAGE AllowAmbiguousTypes #-}  -- for Sized
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -37,6 +38,7 @@ import ConCat.Rep (HasRep(..))
 import ConCat.Sized
 import ConCat.Scan
 import ConCat.Circuit (GenBuses(..),Buses(..),BusesM,Ty(..),abstB)
+import ConCat.Free.VectorSpace (HasV(..))
 #endif
 
 #ifndef SpecialPair
@@ -83,6 +85,8 @@ deriving instance Foldable Pair
 deriving instance Traversable Pair
 
 deriving instance Pointed Pair
+
+instance HasV s a => HasV s (Pair a)
 
 -- -- "Ambiguous type variable ‘f0’ arising from a use of ‘size’"
 -- deriving instance Sized Pair
