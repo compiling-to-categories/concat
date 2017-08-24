@@ -75,7 +75,7 @@ import ConCat.Incremental (andInc,inc)
 import ConCat.AD
 import ConCat.ADFun (andDerF)
 import ConCat.ADFun
-import ConCat.GradientDescent (maximize,minimize)
+import ConCat.GradientDescent (maximizeN,minimizeN)
 import ConCat.Interval
 import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses,(:>))
@@ -115,12 +115,14 @@ main = sequence_
   [ putChar '\n' -- return ()
 
   -- Circuit graphs
-  -- , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
-  -- , runSynCirc "complex-mul" $ ccc $ uncurry ((*) @C)
-  -- , runSynCirc "magSqr"    $ ccc $ magSqr @R
-  -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
-  -- , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
+  , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
+  , runSynCirc "complex-mul" $ ccc $ uncurry ((*) @C)
+  , runSynCirc "magSqr"    $ ccc $ magSqr @R
+  , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
+  , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
+
+  -- , runSynCirc "foo" $ ccc $ twice @R
 
   -- -- Circuit graphs on trees etc
   -- , runSynCirc "sum-pair"$ ccc $ sum @Pair @Int
@@ -133,7 +135,7 @@ main = sequence_
   -- , runCirc "fft-pair" $ ccc $ fft @Pair @Double
   -- , runCirc "fft-rb1" $ ccc $ fft @(RBin N1) @Double
   -- , runCirc "fft-rb2" $ ccc $ fft @(RBin N2) @Double
-  , runCirc "fft-rb3" $ ccc $ fft @(RBin N3) @Double
+  -- , runCirc "fft-rb3" $ ccc $ fft @(RBin N3) @Double
   -- , runCirc "fft-rb4" $ ccc $ fft @(RBin N4) @Double
 
   -- , runCirc "foo" $ ccc $ \ ( fc :: ( (Pair :.: Pair) (Complex Double) )) -> fft fc
@@ -195,8 +197,8 @@ main = sequence_
   -- , runPrint 1     $ gradient $ sin @R
   -- , runPrint (1,1) $ gradient $ \ (x,y) -> cos (x + y) :: R
 
-  -- , print (minimize 1 cos 5)  -- (3.141592653589793,6)
-  -- , print (maximize 1 cos 5)  -- (6.283185307179586,5)
+  -- , print (minimizeN 1 cos 5)  -- (3.141592653589793,6)
+  -- , print (maximizeN 1 cos 5)  -- (6.283185307179586,5)
 
   -- , runSynCirc "gradient-sin" $ ccc $ gradient sin
 
