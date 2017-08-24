@@ -31,11 +31,12 @@ exactly :: OkUnit k => (a `k` b) -> ND k a b
 exactly f = ND (\ () -> f)
 
 -- | Generate any value of type @p@.
-class ChooseCat k' p where
-  choose' :: Ok k' p => k' () p
+class ChooseCat k p where
+  choose' :: Ok k p => () `k` p
 
 -- "choose'" vs "choose", since GHC eagerly inlines all methods to their
--- dictionary selectors, defeating translation across categories.
+-- dictionary selectors, defeating translation across categories. Look for a
+-- tidier alternative.
 
 -- | Generate any value of type @p@.
 choose :: (ChooseCat k' p, Ok k' p) => k' () p
