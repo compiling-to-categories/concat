@@ -23,10 +23,16 @@ import GHC.Types (Constraint)
 
 import ConCat.Category
 
+-- | Nondeterministic arrows
 data ND k a b = forall p. Ok k p => ND (p -> (a `k` b))
 
+-- | Deterministic (trivially nondeterministic) arrow
 exactly :: OkUnit k => (a `k` b) -> ND k a b
 exactly f = ND (\ () -> f)
+
+-- | Generate any value of type @p@.
+choose :: (ConstCat k p, Ok k ()) => ND k () p
+choose = ND const
 
 instance (Category k, OkProd k, OkUnit k) => Category (ND k) where
   type Ok (ND k) = Ok k
