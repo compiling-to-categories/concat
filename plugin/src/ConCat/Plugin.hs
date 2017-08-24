@@ -370,7 +370,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        Nothing
      Trying("lam Pair")
      (collectArgs -> (PairVar,(Type a : Type b : rest))) ->
-       -- | dtrace "Pair" (ppr rest) False -> undefined
+       --  | dtrace "Pair" (ppr rest) False -> undefined
        case rest of
          []    -> -- (,) == curry id
                   -- Do we still need this case, or is it handled by catFun?
@@ -516,7 +516,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      --   -> Doing("lam Case cast")
      --           Trying("lam Case cast")
      Case scrut v altsTy alts
-       -- | pprTrace "lam Case unfold" (ppr (scrut,unfoldMaybe' scrut)) False -> undefined
+       --  | pprTrace "lam Case unfold" (ppr (scrut,unfoldMaybe' scrut)) False -> undefined
        | Just scrut' <- unfoldMaybe' scrut
        -> Doing("lam Case unfold")
           return $ mkCcc $ Lam x $
@@ -582,7 +582,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
 #endif
      Trying("lam App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
-     u `App` v -- | pprTrace "lam App" (ppr (u,v)) False -> undefined
+     u `App` v --  | pprTrace "lam App" (ppr (u,v)) False -> undefined
                | liftedExpr v
                -- , pprTrace "lam App mkApplyMaybe -->" (ppr (mkApplyMaybe cat vty bty, cat)) True
                , Just app <- mkApplyMaybe cat vty bty ->
@@ -782,10 +782,10 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    unfoldMaybe :: ReExpr
    -- unfoldMaybe e | dtrace "unfoldMaybe" (ppr (e,collectArgsPred isTyCoDictArg e)) False = undefined
    unfoldMaybe e | unfoldOkay e
-                 -- | (Var v, _) <- collectArgsPred isTyCoDictArg e
+                 --  | (Var v, _) <- collectArgsPred isTyCoDictArg e
                  -- -- , dtrace "unfoldMaybe" (text (fqVarName v)) True
                  -- , isNothing (catFun (Var v))
-                 -- | True  -- experiment: don't restrict unfolding
+                 --  | True  -- experiment: don't restrict unfolding
                  = onExprHead ({- traceRewrite "inlineMaybe" -} inlineMaybe) e
                  | otherwise = Nothing
    -- unfoldMaybe = -- traceRewrite "unfoldMaybe" $
@@ -822,7 +822,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                        buildDictionary hsc_env dflags guts inScope ty
    catOp :: Cat -> Var -> [Type] -> CoreExpr
    -- catOp k op tys | dtrace "catOp" (ppr (k,op,tys)) False = undefined
-   catOp k op tys -- | dtrace "catOp" (pprWithType (Var op `mkTyApps` (k : tys))) True
+   catOp k op tys --  | dtrace "catOp" (pprWithType (Var op `mkTyApps` (k : tys))) True
                   = onDicts (Var op `mkTyApps` (k : tys))
    -- TODO: refactor catOp and catOpMaybe when the dust settles
    -- catOp :: Cat -> Var -> CoreExpr
@@ -1018,7 +1018,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    catFun (collectTyArgs -> (Var v, tys))
      | True || dtrace "catFun poly" (text (fqVarName v) <+> dcolon <+> ppr (varType v)) True
      , Just op <- Map.lookup (fqVarName v) polyOps
-     = dtrace "catFun poly" (ppr (v,tys,op) <+> text "-->" <+> ppr (onDictMaybe (catOp cat op tys))) $
+     = -- dtrace "catFun poly" (ppr (v,tys,op) <+> text "-->" <+> ppr (onDictMaybe (catOp cat op tys))) $
        return ({- onDict -} (catOp cat op tys))
    -- TODO: handle Prelude.const. Or let it inline.
    catFun _ = Nothing
@@ -1056,7 +1056,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                   Nothing
 #else
    transCatOp (collectArgs -> (Var v, Type (TyConApp (isFunTyCon -> True) []) : rest))
-     -- | dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) False = undefined
+     --  | dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) False = undefined
      | okArgs
      = let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
            addArg :: Maybe CoreExpr -> CoreExpr -> Maybe CoreExpr
@@ -1112,13 +1112,13 @@ substFriendly :: Bool -> CoreExpr -> Bool
  --   ty = exprType rhs
 substFriendly catClosed rhs =
      not (liftedExpr rhs)
-  -- || substFriendlyTy (exprType rhs)
+  --  || substFriendlyTy (exprType rhs)
   || incompleteCatOp rhs
   || -- pprTrace "isTrivial" (ppr rhs <+> text "-->" <+> ppr (isTrivial rhs))
      (isTrivial rhs)
   || isFunTy ty && not catClosed
   || isIntegerTy ty -- TODO: replace with something more general
-  -- || isVarTyCos rhs
+  --  || isVarTyCos rhs
  where
    ty = exprType rhs
 
@@ -1182,7 +1182,7 @@ extModule =  "GHC.Exts"
 isTrivialCatOp :: CoreExpr -> Bool
 -- isTrivialCatOp = liftA2 (||) isSelection isAbstRepr
 isTrivialCatOp (collectArgs -> (Var v,length -> n))
-  -- | pprTrace "isTrivialCatOp" (ppr (v,n,isSelectorId v,isAbstReprId v)) True
+  --  | pprTrace "isTrivialCatOp" (ppr (v,n,isSelectorId v,isAbstReprId v)) True
   =    (isSelectorId v && n == 5)  -- exl cat tya tyb dict ok
     || (isAbstReprId v && n == 4)  -- reprCf cat a r repCat
 isTrivialCatOp _ = False
