@@ -31,15 +31,15 @@ exactly :: OkUnit k => (a `k` b) -> ND k a b
 exactly f = ND (\ () -> f)
 
 -- | Generate any value of type @p@.
-class ChooseCat k p where
+class ChoiceCat k p where
   choose' :: Ok k p => () `k` p
 
 -- | Generate any value of type @p@.
-choose :: (ChooseCat k' p, Ok k' p) => k' () p
+choose :: (ChoiceCat k' p, Ok k' p) => k' () p
 choose = choose'
 {-# INLINE [0] choose #-}
 
-instance (ConstCat k p, Ok k ()) => ChooseCat (ND k) p where
+instance (ConstCat k p, Ok k ()) => ChoiceCat (ND k) p where
   choose' = ND const
 
 -- "choose'" vs "choose", since GHC eagerly inlines all methods to their
