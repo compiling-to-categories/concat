@@ -1,6 +1,12 @@
 # To do
 
-*   (See line 86 in hardware/test/Examples.hs.)
+*   Move (some?) todo items to github repo.
+*   Look for a better solution to the problem of GHC eagerly inlining methods.
+    My current workaround is `ConCat.Category` vs `ConCat.AltCat`.
+    Inconvenient for adding classes (like `ChooseCat` in `ConCat.Nondet`).
+*   Mystery with `RBin N3` vs expanded form.
+    The former terminates, while the latter doesn't.
+    See "`fft_fc_octet`" example in hardware/test/Examples.hs.
 *   Failure with unboxed `let` bindings.
     See notes from 2017-07-15.
 *   Principled replacement for the `delay` hack (defined in `ConCat.Misc`).
