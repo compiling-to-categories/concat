@@ -31,7 +31,7 @@ exactly :: OkUnit k => (a `k` b) -> ND k a b
 exactly f = ND (\ () -> f)
 
 -- | Generate any value of type @p@.
-choose :: (ConstCat k p, Ok k ()) => ND k () p
+choose :: (ConstCat k p, Ok k a) => ND k a p
 choose = ND const
 
 instance (Category k, OkProd k, OkUnit k) => Category (ND k) where
