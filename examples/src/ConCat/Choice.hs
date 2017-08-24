@@ -16,7 +16,7 @@
 
 -- | Indexed sets of morphisms
 
-module ConCat.Nondet where
+module ConCat.Choice where
 
 import Prelude hiding (id,(.),curry,uncurry,const)
 import GHC.Types (Constraint)
@@ -31,8 +31,19 @@ exactly :: OkUnit k => (a `k` b) -> ND k a b
 exactly f = ND (\ () -> f)
 
 -- | Generate any value of type @p@.
-choose :: (ConstCat k p, Ok k ()) => ND k () p
-choose = ND const
+class ChooseCat k' p where
+  choose' :: Ok k' p => k' () p
+
+-- "choose'" vs "choose", since GHC eagerly inlines all methods to their
+-- dictionary selectors, defeating translation across categories.
+
+-- | Generate any value of type @p@.
+choose :: (ChooseCat k' p, Ok k' p) => k' () p
+choose = choose'
+{-# INLINE [0] choose #-}
+
+instance (ConstCat k p, Ok k ()) => ChooseCat (ND k) p where
+  choose' = ND const
 
 instance (Category k, OkProd k, OkUnit k) => Category (ND k) where
   type Ok (ND k) = Ok k
@@ -133,3 +144,4 @@ instance (RepCat k a r, ProductCat k, OkUnit k) => RepCat (ND k) a r where
 instance (ArrayCat k a b, ProductCat k, OkUnit k) => ArrayCat (ND k) a b where
   array = exactly array
   arrAt = exactly arrAt
+
