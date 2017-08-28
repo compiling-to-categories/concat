@@ -110,8 +110,11 @@ lintSteps = True -- False
 type Rewrite a = a -> Maybe a
 type ReExpr = Rewrite CoreExpr
 
--- #define Trying(str) e_ | dtrace ("Trying " ++ (str)) (e_ `seq` empty) False -> undefined
--- #define Trying(str) e_ | pprTrace ("Trying " ++ (str)) (e_ `seq` empty) False -> undefined
+trying :: (String -> SDoc -> Bool -> Bool) -> String -> a -> Bool
+trying tr str a = tr ("Trying " ++ str) (a `seq` empty) False
+{-# NOINLINE trying #-}
+
+-- #define Trying(str) e_ | trying dtrace (str) e_ -> undefined
 #define Trying(str)
 
 #define Doing(str) dtrace "Doing" (text (str)) id $
@@ -143,6 +146,20 @@ ccc (CccEnv {..}) (Ops {..}) cat =
 --        Nothing
      Trying("top Lam")
      Lam x body -> goLam x body
+     Trying("top Let")
+     Let bind@(NonRec v rhs) body ->
+       -- Experiment: always float.
+       if -- dtrace "top Let tests" (ppr (not (isClosed cat), substFriendly (isClosed cat) rhs, idOccs False v body)) $
+          not (isClosed cat) ||  -- experiment
+          substFriendly (isClosed cat) rhs || idOccs False v body <= 1 then
+         Doing("top Let float")
+         return (Let bind (mkCcc body))
+         -- -- Experiment:
+         -- Doing("top Let substitution")
+         -- return (mkCcc (subst1 v rhs body))
+       else
+         Doing("top Let to beta-redex")
+         go (App (Lam v body) rhs)
      Trying("top reCat")
      (reCat -> Just e') ->
        Doing("top reCat")
@@ -159,21 +176,11 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -> dtrace "top ruled var app" (text nm) $
           Nothing
 #endif
-     Trying("top Let")
-     Let bind@(NonRec v rhs) body ->
-       -- Experiment: always float.
-       if {- True || -} substFriendly (isClosed cat) rhs || idOccs v body <= 1 then
-         Doing("top Let float")
-         return (Let bind (mkCcc body))
-         -- -- Experiment:
-         -- Doing("top Let substitution")
-         -- return (mkCcc (subst1 v rhs body))
-       else
-         Doing("top Let to beta-redex")
-         go (App (Lam v body) rhs)
      -- ccc-of-case. Maybe restrict to isTyCoDictArg for all bound variables, but
      -- perhaps I don't need to.
      Trying("top Case unfold")
+     -- Case scrut@(unfoldMaybe -> Nothing) _wild _rhsTy _alts
+     --   | pprTrace "top Case failed to unfold scrutinee" (ppr scrut) False -> undefined
      Case scrut wild rhsTy alts
        | Just scrut' <- unfoldMaybe scrut
        -> Doing("top Case unfold")  --  of dictionary
@@ -183,6 +190,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("top Case")
      Case scrut wild rhsTy alts ->
        Doing("top Case")
+       -- TODO: take care about orphaning regular variables
        return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
 #endif
 #if 1
@@ -311,6 +319,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           return (mkCcc e')
      Trying("top App")
      e@(App u v)
+       -- | dtrace "top App tests" (ppr (exprType v,liftedExpr v, mkConst' cat dom v,mkUncurryMaybe cat (mkCcc u))) False -> undefined
        | liftedExpr v
        , Just v' <- mkConst' cat dom v
        , Just uncU' <- mkUncurryMaybe cat (mkCcc u)
@@ -399,8 +408,9 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam Let")
      -- TODO: refactor with top Let
      _e@(Let bind@(NonRec v rhs) body') ->
-       -- dtrace "lam Let subst criteria" (ppr (substFriendly (isClosed cat) rhs, not xInRhs, idOccs v body')) $
-       if substFriendly (isClosed cat) rhs || not xInRhs || idOccs v body' <= 1 then
+       dtrace "lam Let subst criteria" (ppr (substFriendly (isClosed cat) rhs, not xInRhs, idOccs True v body')) $
+       if not (isClosed cat) || -- experiment
+          substFriendly (isClosed cat) rhs || not xInRhs || idOccs True v body' <= 1 then
          -- TODO: decide whether to float or substitute.
          -- To float, x must not occur freely in rhs
          -- return (mkCcc (Lam x (subst1 v rhs body'))) The simplifier seems to
@@ -1547,13 +1557,11 @@ monoInfo =
      , ("subC",numOps "-"), ("mulC",numOps "*")
 #endif
        -- powIC
-     , ("negateC",fdOps "negate"), ("addC",fdOps "plus")
-     , ("subC",fdOps "minus"), ("mulC",fdOps "times")
-     , ("recipC", fdOps "recip"), ("divideC", fdOps "divide")
-     , ("expC", fdOps "exp")
-     , ("cosC", fdOps "cos")
-     , ("sinC", fdOps "sin")
-     --
+     -- , ("negateC",fdOps "negate"), ("addC",fdOps "plus")
+     -- , ("subC",fdOps "minus"), ("mulC",fdOps "times")
+     -- , ("recipC", fdOps "recip"), ("divideC", fdOps "divide")
+     -- , ("expC", fdOps "exp") , ("cosC", fdOps "cos") , ("sinC", fdOps "sin")
+
      , ("succC",[("GHC.Enum.$fEnumInt_$csucc",[intTy])])
      , ("predC",[("GHC.Enum.$fEnumInt_$cpred",[intTy])])
      , ("divC",[("GHC.Real.$fIntegralInt_$cdiv",[intTy])])
@@ -1862,13 +1870,18 @@ isMonoTy _                     = False
 
 -- | Number of occurrences of a given Id in an expression.
 -- Gives a large value if the Id appears under a lambda.
-idOccs :: Id -> CoreExpr -> Int
-idOccs x = go
+idOccs :: Bool -> Id -> CoreExpr -> Int
+idOccs penalizeUnderLambda x = go
  where
+   lamFactor | penalizeUnderLambda = 100
+             | otherwise           = 1
    -- go e | pprTrace "idOccs go" (ppr e) False = undefined
-   go (Lit _)                  = 0
    go (Type _)                 = 0
    go (Coercion _)             = 0
+   go _e@(exprType -> isPredTy' -> True)
+     -- | pprTrace "idOccs predicate" (pprWithType _e) False = undefined
+     = 0
+   go (Lit _)                  = 0
    go (Var y)      | y == x    = -- pprTrace "idOccs found" (ppr y) $
                                  1
                    | otherwise = 0
@@ -1876,7 +1889,7 @@ idOccs x = go
    go (Tick _ e)               = go e
    go (Cast e _)               = go e
    go (Lam y body) | y == x    = 0
-                   | otherwise = 100 * go body
+                   | otherwise = lamFactor * go body
    go (Let bind body)          = goBind bind + go body
    go (Case e _ _ alts)        = go e + sum (goAlt <$> alts)
    goBind (NonRec y rhs) = goB (y,rhs)
