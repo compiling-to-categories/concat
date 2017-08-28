@@ -31,26 +31,37 @@ import ConCat.Category (dup)
     Minimization via gradient descent
 --------------------------------------------------------------------}
 
-maximize, minimize :: (HasV R a, Zip (V R a), Eq a) => R -> (a -> R) -> a -> a
+maximize, minimize :: (HasV R a, Zip (V R a), Eq a) => R -> D R a R -> a -> a
 maximize = (fmap.fmap.fmap) fst maximizeN
 minimize = maximize . negate
-{-# INLINE maximize #-}
-{-# INLINE minimize #-}
+-- {-# INLINE maximize #-}
+-- {-# INLINE minimize #-}
 
 -- | Optimize a function using gradient ascent, with step count.
-maximizeN, minimizeN :: (HasV R a, Zip (V R a), Eq a) => R -> (a -> R) -> a -> (a,Int)
-maximizeN gamma f = fixN (\ a -> a ^+^ gamma *^ gradient f a)
+maximizeN, minimizeN :: (HasV R a, Zip (V R a), Eq a) => R -> D R a R -> a -> (a,Int)
+-- maximizeN gamma f = fixN (\ a -> a ^+^ gamma *^ gradient' f a)
+-- maximizeN gamma f = chaseN gamma (gradientD f)
+maximizeN gamma = chaseN gamma . gradientD
 minimizeN = maximizeN . negate
-{-# INLINE maximizeN #-}
-{-# INLINE minimizeN #-}
-
--- minimize gamma f = first negateV . maximize gamma (negateV . f)
--- minimize gamma f = fixN (\ a -> a ^-^ gamma *^ f' a) where f' = gradient f
-
--- The INLINE pragmas here are necessary so that the CCC plugin can inline
--- 'gradient', finding the ccc call.
+-- {-# INLINE maximizeN #-}
+-- {-# INLINE minimizeN #-}
 
 -- TODO: adaptive step sizes
+
+chaseN :: (HasV R a, Zip (V R a), Eq a) => R -> (a -> a) -> a -> (a,Int)
+chaseN gamma next = fixN (\ a -> a ^+^ gamma *^ next a)
+
+chase :: (HasV R a, Zip (V R a), Eq a) => R -> Unop (a -> a)
+chase = (fmap.fmap.fmap) fst chaseN
+
+-- Experiment: generate list of approximations
+
+chaseL :: (HasV R a, Zip (V R a), Eq a) => R -> (a -> a) -> a -> [a]
+chaseL gamma next = iterate (\ a -> a ^+^ gamma *^ next a)
+
+maximizeL, minimizeL :: (HasV R a, Zip (V R a), Eq a) => R -> D R a R -> a -> [a]
+maximizeL gamma = chaseL gamma . gradientD
+minimizeL = maximizeL . negate
 
 {--------------------------------------------------------------------
     Fixed points
