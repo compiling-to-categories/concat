@@ -59,6 +59,8 @@ instance Ok (L s) s => NumCat (D s) s where
   {-# INLINE addC    #-}
   {-# INLINE mulC    #-}
   {-# INLINE powIC   #-}
+  -- subC = addC . second negateC -- experiment: same as default
+  -- {-# INLINE subC    #-}
 
 const' :: (a -> c) -> (a -> b -> c)
 const' = (const .)
@@ -106,7 +108,7 @@ instance (Ok (L s) s, Floating s) => FloatingCat (D s) s where
 --------------------------------------------------------------------}
 
 andDer :: forall a b . (a -> b) -> (a -> b :* LR a b)
-#if 1
+#if 0
 andDer f = andDeriv (ccc f)
 {-# NOINLINE andDer #-}
 {-# RULES "andDer" forall f. andDer f = andDeriv (ccc f) #-}
@@ -122,9 +124,11 @@ der = deriv
 {-# RULES "der" der = deriv #-}
 -- {-# ANN der PseudoFun #-}
 
-gradient :: HasV R a => (a -> R) -> a -> a
 -- gradient :: HasV s a => (a -> s) -> a -> a
-gradient f = unV . unpack . unpack . der f
+gradient :: HasV R a => (a -> R) -> a -> a
+-- gradient f = unV . unpack . unpack . der f
+gradient f = gradientD (ccc f)
+
 {-# INLINE gradient #-}
 -- {-# RULES "gradient" forall f. gradient f = unV . unpack . unpack . der f #-}
 
@@ -135,3 +139,6 @@ gradient f = unV . unpack . unpack . der f
 --       unpack . unpack . der f :: a -> V R a R
 -- unV . unpack . unpack . der f :: a -> a
 
+gradientD :: HasV R a => D R a R -> a -> a
+gradientD (D h) = unV . unpack . unpack . snd . h
+{-# INLINE gradientD #-}
