@@ -341,6 +341,7 @@ class (OkProd k, Category k) => ProductCat k where
         => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d)
   f *** g = f . exl &&& g . exr
             <+ okProd @k @a @b
+  {-# INLINE (***) #-}
   (&&&) :: forall a c d. Ok3 k a c d
         => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d)
 #ifndef DefaultCat
@@ -1226,6 +1227,7 @@ class Ok k a => NumCat k a where
   powIC :: Prod k a Int `k` a
   default subC :: ProductCat k => Prod k a a `k` a
   subC = addC . second negateC <+ okProd @k @a @a
+  {-# INLINE subC #-}
 
 instance Num a => NumCat (->) a where
   negateC = negate
@@ -1296,8 +1298,10 @@ class Ok k a => FractionalCat k a where
   divideC :: Prod k a a `k` a
   default recipC :: (ProductCat k, ConstCat k a, Num a) => a `k` a
   recipC = divideC . lconst 1 <+ okProd @k @a @a
+  {-# INLINE recipC #-}
   default divideC :: (ProductCat k, NumCat k a) => Prod k a a `k` a
   divideC = mulC . second recipC <+ okProd @k @a @a
+  {-# INLINE divideC #-}
   {-# MINIMAL recipC | divideC #-}
 
 instance Fractional a => FractionalCat (->) a where
