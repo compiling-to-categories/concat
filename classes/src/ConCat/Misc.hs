@@ -16,18 +16,20 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
+{-# OPTIONS_GHC -Wno-deprecations #-} -- for errorWithStackTrace
+
 -- | Miscellany
 
 module ConCat.Misc where
 
 -- import Control.Arrow ((&&&))
--- import Unsafe.Coerce (unsafeCoerce)
 -- import Data.Type.Equality
 
 import Data.Typeable (Typeable,TypeRep,typeRep,Proxy(..))
 import Data.Data (Data)
-import Unsafe.Coerce (unsafeCoerce)  -- for oops
 import GHC.Generics hiding (R)
+-- import Unsafe.Coerce (unsafeCoerce)  -- for oops
+import GHC.Stack (errorWithStackTrace)  -- for oops
 
 import Control.Newtype
 
@@ -237,11 +239,18 @@ data PseudoFun = PseudoFun deriving (Typeable,Data)
 -- pseudoFun :: PseudoFun
 -- pseudoFun = PseudoFun
 
--- | Pseudo function to fool GHC's divergence checker
+-- | Pseudo function to fool GHC's divergence checker.
 oops :: String -> b
-oops str = unsafeCoerce ("Oops --- "++str++" called!")
+oops str = errorWithStackTrace ("Oops: "++str++" called!")
 {-# NOINLINE oops #-}
--- {-# RULES "oops" [0] forall str. oops str = error ("Oops --- "++str++" called!") #-}
+
+--     In the use of ‘errorWithStackTrace’ (imported from GHC.Stack):
+--     Deprecated: "'error' appends the call stack now"
+
+-- When we use error, the divergence checker eliminates a lot of code early. An
+-- alternative is unsafeCoerce, but it leads to terrible run-time errors. A safe
+-- alternative seems to be errorWithStackTrace. Oddly, the doc for
+-- errorWithStackTrace says "Deprecated: error appends the call stack now."
 
 -- | Hack: delay inlining to thwart some of GHC's rewrites
 delay :: a -> a
