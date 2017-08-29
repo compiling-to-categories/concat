@@ -47,7 +47,6 @@
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
-
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Examples
@@ -70,16 +69,20 @@ import Data.List (unfoldr)  -- TEMP
 import Data.Complex (Complex)
 import GHC.Float (int2Double)
 
+import Data.Key (Zip)
+
 import ConCat.Misc ((:*),R,sqr,magSqr,Binop,inNew,inNew2)
 import ConCat.Incremental (andInc,inc)
 import ConCat.AD
-import ConCat.ADFun (andDerF)
-import ConCat.ADFun
-import ConCat.GradientDescent (maximize,minimize)
+import ConCat.ADFun hiding (D)
+import ConCat.Free.VectorSpace (HasV(..))
+import ConCat.GradientDescent
+import ConCat.Regress
 import ConCat.Interval
 import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses,(:>))
 import qualified ConCat.RunCircuit as RC
+import qualified ConCat.AltCat as A
 import ConCat.AltCat (ccc,U2(..),(:**:)(..),Ok2, Arr, array,arrAt,OrdCat,ConstCat) --, Ok, Ok3
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Nat
@@ -102,7 +105,7 @@ import qualified GHC.Generics as G
 import qualified ConCat.Free.LinearRow
 
 -- For FFT
-import GHC.Generics hiding (C,R)
+import GHC.Generics hiding (C,R,D)
 
 import Control.Newtype (Newtype(..))
 
@@ -115,12 +118,14 @@ main = sequence_
   [ putChar '\n' -- return ()
 
   -- Circuit graphs
-  -- , runSynCirc "xpx" $ ccc $ (\ x -> x + x :: R)
-  -- , runSynCirc "complex-mul" $ ccc $ uncurry ((*) @C)
-  -- , runSynCirc "magSqr"    $ ccc $ magSqr @R
-  -- , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
-  -- , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
+  , runSynCirc "twice" $ ccc $ twice @R
+  , runSynCirc "complex-mul" $ ccc $ uncurry ((*) @C)
+  , runSynCirc "magSqr"    $ ccc $ magSqr @R
+  , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
+  , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
+
+  -- , runSynCirc "cos-2xx"   $ ccc $ \ x -> cos (2 * x * x) :: R
 
   -- -- Circuit graphs on trees etc
   -- , runSynCirc "sum-pair"$ ccc $ sum @Pair @Int
@@ -133,7 +138,7 @@ main = sequence_
   -- , runCirc "fft-pair" $ ccc $ fft @Pair @Double
   -- , runCirc "fft-rb1" $ ccc $ fft @(RBin N1) @Double
   -- , runCirc "fft-rb2" $ ccc $ fft @(RBin N2) @Double
-  , runCirc "fft-rb3" $ ccc $ fft @(RBin N3) @Double
+  -- , runCirc "fft-rb3" $ ccc $ fft @(RBin N3) @Double
   -- , runCirc "fft-rb4" $ ccc $ fft @(RBin N4) @Double
 
   -- , runCirc "foo" $ ccc $ \ ( fc :: ( (Pair :.: Pair) (Complex Double) )) -> fft fc
@@ -149,14 +154,15 @@ main = sequence_
   -- , runSynCirc "horner-iv" $ ccc $ ivFun $ horner @R [1,3,5]
 
   -- -- Automatic differentiation
-  -- , runSynCirc "sin-ad"       $ ccc $ andDer $ sin @R
-  -- , runSynCirc "cos-ad"       $ ccc $ andDer $ cos @R
-  -- , runSynCirc "twice-ad"     $ ccc $ andDer $ twice @R
-  -- , runSynCirc "sqr-ad"       $ ccc $ andDer $ sqr @R
-  -- , runSynCirc "magSqr-ad"    $ ccc $ andDer $ magSqr @R
-  -- , runSynCirc "cos-2x-ad"    $ ccc $ andDer $ \ x -> cos (2 * x) :: R
-  -- , runSynCirc "cos-2xx-ad"   $ ccc $ andDer $ \ x -> cos (2 * x * x) :: R
-  -- , runSynCirc "cos-xpy-ad"   $ ccc $ andDer $ \ (x,y) -> cos (x + y) :: R
+  -- , runSynCirc "sin-ad"        $ ccc $ andDer $ sin    @R
+  -- , runSynCirc "cos-ad"        $ ccc $ andDer $ cos    @R
+  -- , runSynCirc "twice-ad"      $ ccc $ andDer $ twice  @R
+  -- , runSynCirc "sqr-ad"        $ ccc $ andDer $ sqr    @R
+  -- , runSynCirc "magSqr-ad"     $ ccc $ andDer $ magSqr @R
+  -- , runSynCirc "cos-2x-ad"     $ ccc $ andDer $ \ x -> cos (2 * x) :: R
+
+  -- , runSynCirc "cos-2xx-ad"    $ ccc $ andDer $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "cos-xpy-ad"    $ ccc $ andDer $ \ (x,y) -> cos (x + y) :: R
   -- , runSynCirc "cosSinProd-ad" $ ccc $ andDer $ cosSinProd @R
 
   -- -- Dies with "Oops --- ccc called!", without running the plugin.
@@ -192,13 +198,82 @@ main = sequence_
   -- , runPrint (1,1) $ andDer $ \ (x,y) -> cos (x + y) :: R
   -- , runPrint (1,1) $ andDer $ cosSinProd @R
 
-  -- , runPrint 1     $ gradient $ sin @R
-  -- , runPrint (1,1) $ gradient $ \ (x,y) -> cos (x + y) :: R
+  -- , runPrint 1     $ gradient' $ ccc $ sin @R
+  -- , runPrint (1,1) $ gradient' $ ccc $ \ (x,y) -> cos (x + y) :: R
 
-  -- , print (minimize 1 cos 5)  -- (3.141592653589793,6)
-  -- , print (maximize 1 cos 5)  -- (6.283185307179586,5)
+  -- , runChase 1 $ gradient' $ ccc $ sin @R -- 1.5707963267948966
 
-  -- , runSynCirc "gradient-sin" $ ccc $ gradient sin
+  -- , runCircChase "sin-grad" 1 $ ccc $ gradient $ sin @R -- 1.5707963267948966
+
+  -- , print (minimizeN 1 (ccc cos) 5)  -- (3.141592653589793,6)
+  -- , print (maximizeN 1 (ccc cos) 5)  -- (6.283185307179586,5)
+
+  -- , runCircMin "cos-min" 5 $ ccc $ cos  -- (3.141592653589793,6)
+
+  -- , runSynCirc "gradient-sin" $ ccc $ gradient' $ ccc sin
+
+  -- -- Regression tests
+  -- , runCirc "ss"   $ ccc $ ss   @Pair
+  -- , runCirc "rss"  $ ccc $ rss  @Pair
+  -- , runCirc "mean" $ ccc $ mean @Pair @R
+  -- , runCirc "mse"  $ ccc $ mse  @Pair
+  -- , runCirc "r2"   $ ccc $ r2   @Pair
+  -- , runCirc "tss"  $ ccc $ tss  @Pair
+
+  -- , runSynCirc "mse-samples0"  $ ccc $ mse samples0
+
+  -- , runCirc "mse-samples0-ad" $ ccc $ andDer $ mse samples0
+  -- , runCirc "mse-samples0-der" $ ccc $ der $ mse samples0
+
+  -- , runCirc "mse-samples0-grad" $ ccc $ gradient $ mse samples0
+
+  -- , runSynCirc "mse-samples1-ad" $ ccc $ andDer $ mse samples1 
+
+  -- , runCircChase "mse-regress0" (0,0) $ ccc $ gradient $ negate . mse samples0
+
+  -- , runCirc "mse-regress1" $ ccc $ gradient $ negate . mse samples1
+
+  -- , runPrint (0,0) $ take 1000 . drop 10000 . minimizeL 0.01 (ccc (mse samples1))
+
+  -- , runCircChase "mse-regress0b" $ ccc $ regress (0,0) mse samples0
+
+  -- , runSynCirc "foo" $ ccc $ \ (x,y) -> sqr (4 - (y + x * 3)) :: R
+
+  -- , runSyn $ ccc $ andDer $ \ (x,y) -> x - y :: R -- fail 
+  -- , runSyn $ ccc $ andDer $ \ (x,y) -> 4 - (y + x) :: R -- fail
+  -- , runSyn $ ccc $ andDer $ \ (x,y) -> sqr (4 - (y + x)) :: R -- fail
+  -- , runSyn $ ccc $ andDer $ \ (x,y) -> sqr (4 - (y + x * 3)) :: R  -- fail
+
+  -- , runSyn $ ccc $ andDer $ uncurry ((+) @R) -- okay
+
+  -- , runSyn $ ccc $ andDer $ uncurry ((-) @R) -- fail
+
+  -- , runSyn $ ccc $ uncurry ((-) @R) -- okay
+
+  -- , runSyn $ ccc $ \ x -> x - 1 :: R -- okay
+
+  -- , runSyn $ ccc $ andDer $ \ x -> x - 1 :: R -- fail
+
+
+  -- , runSyn $ ccc $ andDer $ uncurry ((+) @R) . A.second negate -- fail
+
+
+  -- , runSyn $ ccc $ andDer $ \ x -> x + negate 1 :: R -- okay
+  -- , runSyn $ ccc $ andDer $ \ (x,y) -> (y + x) :: R -- okay
+
+  -- , runSynCirc "mse-samples1"  $ ccc $ mse samples1
+  -- , runSynCirc "mse-samples1-ad" $ ccc $ andDer $ mse samples1
+
+-- Broken
+
+    -- , runCirc "mse-samples1-der"  $ ccc $ gradient $ mse samples1
+
+  -- , print (minimizeN 0.01 (mse samples1) (0,0))
+
+  -- , print (regress mse samples1)
+
+  -- , print (regress r2 samples1)
+
 
   -- -- Incremental differentiation. Currently broken.
   -- , runSynCirc "prod-ai" $ ccc $ andInc $ uncurry ((*) @R)
@@ -434,6 +509,19 @@ runSolveAsc = mapM_ print . solveAscending
 runPrint :: Show b => a -> (a -> b) -> IO ()
 runPrint a f = print (f a)
 
+runChase :: (HasV R a, Zip (V R a), Eq a, Show a)
+         => a -> (a -> a) -> IO ()
+runChase a0 f = print (chase 1 f a0)
+
+runCircChase :: (GO a R, HasV R a, Zip (V R a), Eq a, Show a)
+             => String -> a -> ((:>) :**: (->)) a a -> IO ()
+runCircChase nm a0 (circ :**: f) = runCirc nm circ >> runChase a0 f
+
+-- gradient :: HasV R a => (a -> R) -> a -> a
+
+-- gradientD :: HasV R a => D R a R -> a -> a
+
+
 {--------------------------------------------------------------------
     Misc definitions
 --------------------------------------------------------------------}
@@ -462,6 +550,17 @@ horner (c:cs) a = c + a * horner cs a
 
 -- foo1 :: R -> L R R R
 -- foo1 = coerce
+
+
+samples0 :: Par1 Sample
+samples0 = Par1 (3,4)
+
+samples1 :: Pair Sample
+-- samples1 = (0,0) :# (1,1)
+samples1 = (3,4) :# (5,6)
+
+samples2 :: [Sample]
+samples2 = [(3,4),(5,6)]
 
 fac1 :: Int -> Int
 fac1 0 = 1

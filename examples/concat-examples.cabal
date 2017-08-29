@@ -67,14 +67,14 @@ library
                        ConCat.Syntactic
                        ConCat.Circuit
                        ConCat.RunCircuit
-                       -- ConCat.Mealy
                        ConCat.GAD
                        ConCat.AD
                        ConCat.ADFun
-                       ConCat.Nondet
+                       ConCat.Choice
                        ConCat.Incremental
                        ConCat.Interval
                        ConCat.GradientDescent
+                       ConCat.Regress
                        ConCat.Synchronous
                        ConCat.Additive
                        -- ConCat.Polynomial
@@ -135,6 +135,7 @@ Test-Suite misc-examples
                   , concat-plugin
                   , concat-examples
                   , ghc-prim
+                  , keys
                   -- Array/vector experiments
                   , vector
   ghc-options:      -O2
@@ -156,6 +157,7 @@ Test-Suite misc-trace
                   , concat-plugin
                   , concat-examples
                   , ghc-prim
+                  , keys
                   -- Array/vector experiments
                   , vector
   ghc-options:      -O2

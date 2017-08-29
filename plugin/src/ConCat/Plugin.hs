@@ -110,8 +110,11 @@ lintSteps = True -- False
 type Rewrite a = a -> Maybe a
 type ReExpr = Rewrite CoreExpr
 
--- #define Trying(str) e_ | dtrace ("Trying " ++ (str)) (e_ `seq` empty) False -> undefined
--- #define Trying(str) e_ | pprTrace ("Trying " ++ (str)) (e_ `seq` empty) False -> undefined
+trying :: (String -> SDoc -> Bool -> Bool) -> String -> a -> Bool
+trying tr str a = tr ("Trying " ++ str) (a `seq` empty) False
+{-# NOINLINE trying #-}
+
+-- #define Trying(str) e_ | trying dtrace (str) e_ -> undefined
 #define Trying(str)
 
 #define Doing(str) dtrace "Doing" (text (str)) id $
@@ -143,6 +146,20 @@ ccc (CccEnv {..}) (Ops {..}) cat =
 --        Nothing
      Trying("top Lam")
      Lam x body -> goLam x body
+     Trying("top Let")
+     Let bind@(NonRec v rhs) body ->
+       -- Experiment: always float.
+       if -- dtrace "top Let tests" (ppr (not (isClosed cat), substFriendly (isClosed cat) rhs, idOccs False v body)) $
+          not (isClosed cat) ||  -- experiment
+          substFriendly (isClosed cat) rhs || idOccs False v body <= 1 then
+         Doing("top Let float")
+         return (Let bind (mkCcc body))
+         -- -- Experiment:
+         -- Doing("top Let substitution")
+         -- return (mkCcc (subst1 v rhs body))
+       else
+         Doing("top Let to beta-redex")
+         go (App (Lam v body) rhs)
      Trying("top reCat")
      (reCat -> Just e') ->
        Doing("top reCat")
@@ -159,21 +176,11 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -> dtrace "top ruled var app" (text nm) $
           Nothing
 #endif
-     Trying("top Let")
-     Let bind@(NonRec v rhs) body ->
-       -- Experiment: always float.
-       if {- True || -} substFriendly (isClosed cat) rhs || idOccs v body <= 1 then
-         Doing("top Let float")
-         return (Let bind (mkCcc body))
-         -- -- Experiment:
-         -- Doing("top Let substitution")
-         -- return (mkCcc (subst1 v rhs body))
-       else
-         Doing("top Let to beta-redex")
-         go (App (Lam v body) rhs)
      -- ccc-of-case. Maybe restrict to isTyCoDictArg for all bound variables, but
      -- perhaps I don't need to.
      Trying("top Case unfold")
+     -- Case scrut@(unfoldMaybe -> Nothing) _wild _rhsTy _alts
+     --   | pprTrace "top Case failed to unfold scrutinee" (ppr scrut) False -> undefined
      Case scrut wild rhsTy alts
        | Just scrut' <- unfoldMaybe scrut
        -> Doing("top Case unfold")  --  of dictionary
@@ -183,6 +190,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("top Case")
      Case scrut wild rhsTy alts ->
        Doing("top Case")
+       -- TODO: take care about orphaning regular variables
        return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
 #endif
 #if 1
@@ -311,6 +319,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           return (mkCcc e')
      Trying("top App")
      e@(App u v)
+       -- | dtrace "top App tests" (ppr (exprType v,liftedExpr v, mkConst' cat dom v,mkUncurryMaybe cat (mkCcc u))) False -> undefined
        | liftedExpr v
        , Just v' <- mkConst' cat dom v
        , Just uncU' <- mkUncurryMaybe cat (mkCcc u)
@@ -370,7 +379,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        Nothing
      Trying("lam Pair")
      (collectArgs -> (PairVar,(Type a : Type b : rest))) ->
-       -- | dtrace "Pair" (ppr rest) False -> undefined
+       --  | dtrace "Pair" (ppr rest) False -> undefined
        case rest of
          []    -> -- (,) == curry id
                   -- Do we still need this case, or is it handled by catFun?
@@ -399,8 +408,9 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam Let")
      -- TODO: refactor with top Let
      _e@(Let bind@(NonRec v rhs) body') ->
-       -- dtrace "lam Let subst criteria" (ppr (substFriendly (isClosed cat) rhs, not xInRhs, idOccs v body')) $
-       if substFriendly (isClosed cat) rhs || not xInRhs || idOccs v body' <= 1 then
+       dtrace "lam Let subst criteria" (ppr (substFriendly (isClosed cat) rhs, not xInRhs, idOccs True v body')) $
+       if not (isClosed cat) || -- experiment
+          substFriendly (isClosed cat) rhs || not xInRhs || idOccs True v body' <= 1 then
          -- TODO: decide whether to float or substitute.
          -- To float, x must not occur freely in rhs
          -- return (mkCcc (Lam x (subst1 v rhs body'))) The simplifier seems to
@@ -516,7 +526,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      --   -> Doing("lam Case cast")
      --           Trying("lam Case cast")
      Case scrut v altsTy alts
-       -- | pprTrace "lam Case unfold" (ppr (scrut,unfoldMaybe' scrut)) False -> undefined
+       --  | pprTrace "lam Case unfold" (ppr (scrut,unfoldMaybe' scrut)) False -> undefined
        | Just scrut' <- unfoldMaybe' scrut
        -> Doing("lam Case unfold")
           return $ mkCcc $ Lam x $
@@ -582,7 +592,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
 #endif
      Trying("lam App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
-     u `App` v -- | pprTrace "lam App" (ppr (u,v)) False -> undefined
+     u `App` v --  | pprTrace "lam App" (ppr (u,v)) False -> undefined
                | liftedExpr v
                -- , pprTrace "lam App mkApplyMaybe -->" (ppr (mkApplyMaybe cat vty bty, cat)) True
                , Just app <- mkApplyMaybe cat vty bty ->
@@ -782,10 +792,10 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    unfoldMaybe :: ReExpr
    -- unfoldMaybe e | dtrace "unfoldMaybe" (ppr (e,collectArgsPred isTyCoDictArg e)) False = undefined
    unfoldMaybe e | unfoldOkay e
-                 -- | (Var v, _) <- collectArgsPred isTyCoDictArg e
+                 --  | (Var v, _) <- collectArgsPred isTyCoDictArg e
                  -- -- , dtrace "unfoldMaybe" (text (fqVarName v)) True
                  -- , isNothing (catFun (Var v))
-                 -- | True  -- experiment: don't restrict unfolding
+                 --  | True  -- experiment: don't restrict unfolding
                  = onExprHead ({- traceRewrite "inlineMaybe" -} inlineMaybe) e
                  | otherwise = Nothing
    -- unfoldMaybe = -- traceRewrite "unfoldMaybe" $
@@ -822,7 +832,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                        buildDictionary hsc_env dflags guts inScope ty
    catOp :: Cat -> Var -> [Type] -> CoreExpr
    -- catOp k op tys | dtrace "catOp" (ppr (k,op,tys)) False = undefined
-   catOp k op tys -- | dtrace "catOp" (pprWithType (Var op `mkTyApps` (k : tys))) True
+   catOp k op tys --  | dtrace "catOp" (pprWithType (Var op `mkTyApps` (k : tys))) True
                   = onDicts (Var op `mkTyApps` (k : tys))
    -- TODO: refactor catOp and catOpMaybe when the dust settles
    -- catOp :: Cat -> Var -> CoreExpr
@@ -1018,7 +1028,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    catFun (collectTyArgs -> (Var v, tys))
      | True || dtrace "catFun poly" (text (fqVarName v) <+> dcolon <+> ppr (varType v)) True
      , Just op <- Map.lookup (fqVarName v) polyOps
-     = dtrace "catFun poly" (ppr (v,tys,op) <+> text "-->" <+> ppr (onDictMaybe (catOp cat op tys))) $
+     = -- dtrace "catFun poly" (ppr (v,tys,op) <+> text "-->" <+> ppr (onDictMaybe (catOp cat op tys))) $
        return ({- onDict -} (catOp cat op tys))
    -- TODO: handle Prelude.const. Or let it inline.
    catFun _ = Nothing
@@ -1056,7 +1066,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                   Nothing
 #else
    transCatOp (collectArgs -> (Var v, Type (TyConApp (isFunTyCon -> True) []) : rest))
-     -- | dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) False = undefined
+     --  | dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) False = undefined
      | okArgs
      = let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
            addArg :: Maybe CoreExpr -> CoreExpr -> Maybe CoreExpr
@@ -1112,13 +1122,13 @@ substFriendly :: Bool -> CoreExpr -> Bool
  --   ty = exprType rhs
 substFriendly catClosed rhs =
      not (liftedExpr rhs)
-  -- || substFriendlyTy (exprType rhs)
+  --  || substFriendlyTy (exprType rhs)
   || incompleteCatOp rhs
   || -- pprTrace "isTrivial" (ppr rhs <+> text "-->" <+> ppr (isTrivial rhs))
      (isTrivial rhs)
   || isFunTy ty && not catClosed
   || isIntegerTy ty -- TODO: replace with something more general
-  -- || isVarTyCos rhs
+  --  || isVarTyCos rhs
  where
    ty = exprType rhs
 
@@ -1182,7 +1192,7 @@ extModule =  "GHC.Exts"
 isTrivialCatOp :: CoreExpr -> Bool
 -- isTrivialCatOp = liftA2 (||) isSelection isAbstRepr
 isTrivialCatOp (collectArgs -> (Var v,length -> n))
-  -- | pprTrace "isTrivialCatOp" (ppr (v,n,isSelectorId v,isAbstReprId v)) True
+  --  | pprTrace "isTrivialCatOp" (ppr (v,n,isSelectorId v,isAbstReprId v)) True
   =    (isSelectorId v && n == 5)  -- exl cat tya tyb dict ok
     || (isAbstReprId v && n == 4)  -- reprCf cat a r repCat
 isTrivialCatOp _ = False
@@ -1547,13 +1557,11 @@ monoInfo =
      , ("subC",numOps "-"), ("mulC",numOps "*")
 #endif
        -- powIC
-     , ("negateC",fdOps "negate"), ("addC",fdOps "plus")
-     , ("subC",fdOps "minus"), ("mulC",fdOps "times")
-     , ("recipC", fdOps "recip"), ("divideC", fdOps "divide")
-     , ("expC", fdOps "exp")
-     , ("cosC", fdOps "cos")
-     , ("sinC", fdOps "sin")
-     --
+     -- , ("negateC",fdOps "negate"), ("addC",fdOps "plus")
+     -- , ("subC",fdOps "minus"), ("mulC",fdOps "times")
+     -- , ("recipC", fdOps "recip"), ("divideC", fdOps "divide")
+     -- , ("expC", fdOps "exp") , ("cosC", fdOps "cos") , ("sinC", fdOps "sin")
+
      , ("succC",[("GHC.Enum.$fEnumInt_$csucc",[intTy])])
      , ("predC",[("GHC.Enum.$fEnumInt_$cpred",[intTy])])
      , ("divC",[("GHC.Real.$fIntegralInt_$cdiv",[intTy])])
@@ -1862,13 +1870,18 @@ isMonoTy _                     = False
 
 -- | Number of occurrences of a given Id in an expression.
 -- Gives a large value if the Id appears under a lambda.
-idOccs :: Id -> CoreExpr -> Int
-idOccs x = go
+idOccs :: Bool -> Id -> CoreExpr -> Int
+idOccs penalizeUnderLambda x = go
  where
+   lamFactor | penalizeUnderLambda = 100
+             | otherwise           = 1
    -- go e | pprTrace "idOccs go" (ppr e) False = undefined
-   go (Lit _)                  = 0
    go (Type _)                 = 0
    go (Coercion _)             = 0
+   go _e@(exprType -> isPredTy' -> True)
+     -- | pprTrace "idOccs predicate" (pprWithType _e) False = undefined
+     = 0
+   go (Lit _)                  = 0
    go (Var y)      | y == x    = -- pprTrace "idOccs found" (ppr y) $
                                  1
                    | otherwise = 0
@@ -1876,7 +1889,7 @@ idOccs x = go
    go (Tick _ e)               = go e
    go (Cast e _)               = go e
    go (Lam y body) | y == x    = 0
-                   | otherwise = 100 * go body
+                   | otherwise = lamFactor * go body
    go (Let bind body)          = goBind bind + go body
    go (Case e _ _ alts)        = go e + sum (goAlt <$> alts)
    goBind (NonRec y rhs) = goB (y,rhs)

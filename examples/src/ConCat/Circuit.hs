@@ -1234,39 +1234,41 @@ pattern RecipS  a <- PSource _ "recip"  [a]
 instance (Num a, Read a, GS a, Eq a, SourceToBuses a)
       => NumCat (:>) a where
   negateC = primOpt "negate" $ \ case
-              [Val x]        -> newVal (negate x)
-              [NegateS x]    -> sourceB x
-              _              -> nothingA
+              [Val x]         -> newVal (negate x)
+              [NegateS x]     -> sourceB x
+              _               -> nothingA
   addC    = primOptSort "+" $ \ case
-              [Val x, Val y] -> newVal (x + y)
-              [ZeroT(a),y]   -> sourceB y
-              [x,ZeroT(a)]   -> sourceB x
-              [x,NegateS y]  -> newComp2 subC x y
-              [NegateS x,y]  -> newComp2 subC y x
-              _              -> nothingA
+              [Val x, Val y]  -> newVal (x + y)
+              [ZeroT(a),y]    -> sourceB y
+              [x,ZeroT(a)]    -> sourceB x
+              [x,NegateS y]   -> newComp2 subC x y
+              [NegateS x,y]   -> newComp2 subC y x
+              _               -> nothingA
   subC    = primOpt     "-" $ \ case
-              [Val x, Val y] -> newVal (x - y)
-              [ZeroT(a),y]   -> newComp1 negateC y
-              [x,ZeroT(a)]   -> sourceB x
-              [x,NegateS y]  -> newComp2 addC x y
-              [NegateS x,y]  -> newComp2 (negateC . addC) x y
-              _              -> nothingA
+              [Val x, Val y]  -> newVal (x - y)
+              [ZeroT(a),y]    -> newComp1 negateC y
+              [x,ZeroT(a)]    -> sourceB x
+              [x,NegateS y]   -> newComp2 addC x y
+              [NegateS x,y]   -> newComp2 (negateC . addC) x y
+              _               -> nothingA
   mulC    = primOptSort "*" $ \ case
-              [Val x, Val y] -> newVal (x * y)
-              [OneT(a),y]    -> sourceB y
-              [x,OneT(a)]    -> sourceB x
-              [x@ZeroT(a),_] -> sourceB x
-              [_,y@ZeroT(a)] -> sourceB y
+              [Val x, Val y]  -> newVal (x * y)
+              [OneT(a),y]     -> sourceB y
+              [x,OneT(a)]     -> sourceB x
+              [x@ZeroT(a),_]  -> sourceB x
+              [_,y@ZeroT(a)]  -> sourceB y
               [NegOneT(a) ,y] -> newComp1 negateC y
               [x,NegOneT(a) ] -> newComp1 negateC x
-              _              -> nothingA
+              [NegateS x,y]   -> newComp2 (negateC . mulC) x y
+              [x,NegateS y]   -> newComp2 (negateC . mulC) x y
+              _               -> nothingA
   powIC   = primOpt     "^" $ \ case
-              [Val x, Val y] -> newVal (x ^ (y :: Int))
-              [x@OneT(a) ,_] -> sourceB x
-              [x,   OneT(a)] -> sourceB x
-              [x@ZeroT(a),_] -> sourceB x
-              [_,  ZeroT(a)] -> newVal (fromInteger 1)
-              _              -> nothingA
+              [Val x, Val y]  -> newVal (x ^ (y :: Int))
+              [x@OneT(a) ,_]  -> sourceB x
+              [x,   OneT(a)]  -> sourceB x
+              [x@ZeroT(a),_]  -> sourceB x
+              [_,  ZeroT(a)]  -> newVal (fromInteger 1)
+              _               -> nothingA
 
 -- instance Integral a => IntegralCat (:>) a where
 --   divC = primNoOpt1 "div" div
@@ -1294,6 +1296,7 @@ instance (Fractional a, Read a, Eq a, GS a, SourceToBuses a)
   divideC = primOpt "/" $ \ case
               [Val x, Val y] -> newVal (x / y)
               [z@ZeroT(a),_] -> sourceB z
+              [x,OneT(a)]    -> sourceB x
               [x,NegateS y]  -> newComp2 (negateC . divideC) x y
               _              -> nothingA
 
