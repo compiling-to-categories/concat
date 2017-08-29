@@ -71,11 +71,20 @@ verilog name  = mkModule name
 
 -- ProcessDecl Event (Maybe (Event, Stmt)) Stmt
 mkModule :: String -> [CompS] -> Module
-mkModule name cs = Module name (("clk", Nothing) : map (first (++ "_d")) (f modIns)) (f modOuts) []
-                          ( map busToReg (modIns  ++ modOuts) ++
-                            map busToNet modNets ++
+mkModule name cs = Module name
+                          (("clk", Nothing) : map (first (++ "_d")) (f modIns))
+                          (map (first (++ "_q")) (f modOuts))
+                          []
+                          ( map (busToReg "")   modIns  ++
+                            map (busToReg "_q") modOuts ++
+                            map busToNet        modNets ++
                             [ProcessDecl (Event (ExprVar "clk") PosEdge) Nothing
-                              (Seq (map ((\x -> Assign (ExprVar x) (ExprVar (x ++ "_d"))) . busName) modIns ++ map mkAssignment cs'))]
+                              (Seq (map ((\x -> Assign (ExprVar x) (ExprVar (x ++ "_d"))) . busName) modIns ++
+                                    map ((\x -> Assign (ExprVar (x ++ "_q")) (ExprVar x)) . busName) modOuts
+                                   )
+                              )
+                            ] ++
+                            map mkAssignment cs'
                           )
   where
     f       = map (second (makeRange Down) . busId')
@@ -109,23 +118,25 @@ busName  = fst . busId'
 busWidth :: Bus -> Int
 busWidth = snd . busId'
 
+busType :: Bus -> C.Ty
+busType (Bus _ _ ty) = ty
+
 busToNet :: Bus -> Decl
-busToNet b = NetDecl (busName b) (makeRange Down width) Nothing
-  where width = busWidth b
+busToNet b = NetDecl (busName b) (makeRange Down (busWidth b)) Nothing
 
-busToReg :: Bus -> Decl
-busToReg b = MemDecl (busName b) Nothing (makeRange Down width) Nothing
-  where width = busWidth b
+busToReg :: String -> Bus -> Decl
+busToReg suf b = MemDecl (busName b ++ suf) Nothing (makeRange Down (busWidth b)) Nothing
 
-mkAssignment :: CompS -> Stmt
+-- NetAssign Ident Expr
+mkAssignment :: CompS -> Decl
 mkAssignment c | [o] <- outs = assign o prim ins ty
-               | otherwise   = Seq []
+               | otherwise   = CommentDecl $ "Concat.Hardware.Verilog.mkAssignment: Component, '" ++ prim ++ "', has no outputs!"
   where prim   = compName c
         ins    = map busName $ compIns  c
         outs   = map busName $ compOuts c
         ty     = busTy . head $ compOuts c
 
-assign :: String -> String -> [String] -> C.Ty -> Stmt
+assign :: String -> String -> [String] -> C.Ty -> Decl
 assign o prim ins ty =
   case prim of
     "not"    -> assignUnary  LNeg
@@ -146,18 +157,18 @@ assign o prim ins ty =
     "mod"    -> assignBinary Modulo
     "xor"    -> assignBinary Xor
     "if"     -> assignConditional
-    "In"     -> Seq []
-    "Out"    -> Seq []
-    _        -> Assign (ExprVar o) $ constExpr ty prim
+    -- "In"     -> Seq []
+    -- "Out"    -> Seq []
+    _        -> NetAssign o $ constExpr ty prim
   where
     assignUnary op
-      | [in1]      <- ins = Assign (ExprVar o) $ ExprUnary op (ExprVar in1)
+      | [in1]      <- ins = NetAssign o $ ExprUnary op (ExprVar in1)
       | otherwise         = error $ errStr "unary"
     assignBinary op
-      | [in1, in2] <- ins = Assign (ExprVar o) $ ExprBinary op (ExprVar in1) (ExprVar in2)
+      | [in1, in2] <- ins = NetAssign o $ ExprBinary op (ExprVar in1) (ExprVar in2)
       | otherwise         = error $ errStr "binary"
     assignConditional
-      | [p, t, f]  <- ins = Assign (ExprVar o) $ ExprCond (ExprVar p) (ExprVar t) (ExprVar f)
+      | [p, t, f]  <- ins = NetAssign o $ ExprCond (ExprVar p) (ExprVar t) (ExprVar f)
       | otherwise         = error $ errStr "conditional"
     errStr _ = "ConCat.Hardware.Verilog.assign: I received an incorrect number of inputs.\n"
 
