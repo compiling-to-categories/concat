@@ -165,3 +165,20 @@ Test-Suite misc-trace
                     -fplugin-opt=ConCat.Plugin:trace
   if flag(smt)
     cpp-options:        -DCONCAT_SMT
+
+Test-Suite tst-dl2
+  type:             exitcode-stdio-1.0
+  default-language: Haskell98
+  hs-Source-Dirs:   test
+  main-is:          ud_dl_2.hs
+  Build-Depends:    Cabal >= 1.24.0.0
+                  , base<5
+                  , concat-classes
+                  , concat-plugin
+                  , concat-examples
+                  , ghc-prim
+  ghc-options:      -O2
+                    -fplugin=ConCat.Plugin
+  if flag(smt)
+    cpp-options:        -DCONCAT_SMT
+
