@@ -16,6 +16,7 @@ module Main where
 
 import ConCat.AD   (gradient)
 import ConCat.Misc (R)
+import System.Directory (createDirectoryIfMissing)
 
 f :: R -> R
 f x = 2 * x + 1
@@ -24,16 +25,16 @@ f x = 2 * x + 1
 --   -- type V R R :: * -> *
 --   type V R R = (->)
 
-runHaskell' :: String -> (a -> b) -> IO ()
-runHaskell' _ _ = error "runHaskell' called directly"
-{-# NOINLINE runHaskell' #-}
-{-# RULES "runHaskell'"
-  forall n f. runHaskell' n f = runHaskell n $ ccc f #-}
+-- runHaskell' :: String -> (a -> b) -> IO ()
+-- runHaskell' _ _ = error "runHaskell' called directly"
+-- {-# NOINLINE runHaskell' #-}
+-- {-# RULES "runHaskell'"
+--   forall n f. runHaskell' n f = runHaskell n $ ccc f #-}
 
-runHaskell :: String -> (a -> b) -> IO ()
+runHaskell :: (Show a, Num a, Enum a, Show b) => String -> (a -> b) -> IO ()
 runHaskell name func = genHaskell name func
 
-effectHaskell :: String -> (a -> b) -> String
+effectHaskell :: (Show a, Num a, Enum a, Show b) => String -> (a -> b) -> String
 effectHaskell name func = unlines
   [ "-- Automatically generated Haskell code. Do not edit."
   , "--"
@@ -44,10 +45,12 @@ effectHaskell name func = unlines
   , showFunc func
   ]
 
-showFunc :: (a -> b) -> String
-showFunc (\x -> expr) = "x = " ++ show expr
+showFunc :: (Show a, Num a, Enum a, Show b) => (a -> b) -> String
+-- showFunc (\x -> expr) = "x = " ++ show expr
+showFunc f = show $ zip xs (map f xs)
+  where xs = [0..2]
 
-genHaskell :: String -> (a -> b) -> IO ()
+genHaskell :: (Show a, Num a, Enum a, Show b) => String -> (a -> b) -> IO ()
 genHaskell name func =
   do createDirectoryIfMissing False outDir
      let o = outFile name

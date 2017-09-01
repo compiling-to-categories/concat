@@ -176,6 +176,7 @@ Test-Suite tst-dl2
                   , concat-classes
                   , concat-plugin
                   , concat-examples
+                  , directory
                   , ghc-prim
   ghc-options:      -O2
                     -fplugin=ConCat.Plugin
