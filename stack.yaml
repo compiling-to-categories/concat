@@ -17,8 +17,11 @@ packages:
 
 extra-deps:
 # - z3-4.1.0
+- hmatrix-0.18.0.0
 - language-glsl-0.2.1
 - newtype-generics-0.5.0.1
+- random-shuffle-0.0.4
+- JuicyPixels-3.2.8.2
 
 ## We'll need a later NumInstances for GHC 8.2.1, but first must adapt to some
 ## GHC API changes. See personal notes 2017-08-16.
