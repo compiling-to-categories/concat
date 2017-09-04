@@ -70,8 +70,15 @@ genOutput :: ([Lbl], [Img]) -> ([Lbl], [Img]) -> String
 genOutput (lbls_trn, samps_trn) (lbls_tst, samps_tst) = unlines
   [ "\nAfter training on " ++ show (length lbls_trn) ++ " sample points,"
   , "my accuracy in classifying the test data is: " ++ show (accuracy (map VS.maxIndex lbls_tst) (map VS.maxIndex lbls_res))
+  , "Mean of first few norm'd test images: " ++ show (take 5 $ map vmean samps_tst')
+  , "Range of first few norm'd test images: " ++ show (take 5 $ map vrange samps_tst')
+  , "Label vectors of first few training samples: " ++ show (take 5 lbls_trn)
+  , "Label vectors of first few test samples: " ++ show (take 5 lbls_tst)
+  , "Label vectors of first few result samples: " ++ show (take 5 lbls_res)
   ]
-    where lbls_res = trainAndClassify (lbls_trn, samps_trn) samps_tst
+    where lbls_res = trainAndClassify (lbls_trn, samps_trn') $ samps_tst'
+          samps_trn' = map vnorm samps_trn
+          samps_tst' = map vnorm samps_tst
 
 accuracy :: Eq a => [a] -> [a] -> Float
 accuracy ref res = fromIntegral (length matches) / (fromIntegral (length ref) :: Float)
@@ -93,6 +100,7 @@ trainAndClassify = map . trainAndClassify'
 --       it will serve well to establish the motivation for taking a machine learning approach.
 trainAndClassify' :: ([Lbl], [Img]) -> Img -> Lbl
 trainAndClassify' trn_set img = VS.map (/ norm) v
+-- trainAndClassify' trn_set img = error $ "func: " ++ show (func init_vec (head in_prs))
   where v        = foldl func init_vec in_prs
         norm     = VS.sum v
         func     :: Lbl -> (Lbl, Img) -> Lbl
@@ -100,16 +108,35 @@ trainAndClassify' trn_set img = VS.map (/ norm) v
         init_vec :: Lbl
         init_vec = VS.replicate (VS.length $ head $ fst trn_set) 0
         in_prs   :: [(Lbl,Img)]
-        in_prs   = uncurry zip trn_set
+        in_prs   = filter (not . or . first (VS.any isNaN) . second (VS.any isNaN)) $ uncurry zip trn_set
+        -- in_prs'  :: [(Lbl,Img)]
+        -- in_prs'  = uncurry zip trn_set
 
+-- | Various needed vector utility functions not provided by Data.Vector.Storable.
 vdot :: (Num a, VS.Storable a) => VS.Vector a -> VS.Vector a -> a
-vdot v1 v2 = VS.sum $ VS.zipWith (*) v1 v2
+-- vdot v1 v2 = VS.sum $ VS.zipWith (*) v1 v2
+vdot v1 = VS.sum . VS.zipWith (*) v1
+-- vdot = VS.sum . VS.zipWith (*)  -- Why doesn't this work?
 
 vscale :: (Num a, VS.Storable a) => a -> VS.Vector a -> VS.Vector a
 vscale s = VS.map (* s)
 
 vadd :: (Num a, VS.Storable a) => VS.Vector a -> VS.Vector a -> VS.Vector a
 vadd = VS.zipWith (+)
+
+vmean :: (Num a, Fractional a, VS.Storable a) => VS.Vector a -> a
+vmean v = VS.sum v / (fromIntegral $ VS.length v)
+
+-- | Normalize a vector to be bounded by [-0.5, +0.5] and have zero mean.
+vnorm :: (Num a, Ord a, Fractional a, VS.Storable a) => VS.Vector a -> VS.Vector a
+vnorm v = vscale (1.0 / vrange v') v'
+  where v' = vbias (-1.0 * vmean v) v
+
+vrange :: (Num a, Ord a, VS.Storable a) => VS.Vector a -> a
+vrange v = VS.maximum v - VS.minimum v
+
+vbias :: (Num a, VS.Storable a) => a -> VS.Vector a -> VS.Vector a
+vbias s = VS.map (+ s)
 
 main :: IO ()
 main = do
