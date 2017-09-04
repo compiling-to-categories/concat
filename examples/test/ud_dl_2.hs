@@ -66,25 +66,24 @@ type Lbl = VS.Vector Double  -- N-element vector of label probabilities
 
 -- | Given a training set and a test set, report the accuracy of test
 -- set classification.
-genOutput :: ([Lbl], [Img]) -> ([Lbl], [Img]) -> String
-genOutput (lbls_trn, samps_trn) (lbls_tst, samps_tst) = unlines
+genOutput :: ([Img], [Lbl]) -> ([Img], [Lbl]) -> String
+genOutput (samps_trn, lbls_trn) (samps_tst, lbls_tst) = unlines
   [ "\nAfter training on " ++ show (length lbls_trn) ++ " sample points,"
-  , "my accuracy in classifying the test data is: " ++ show (accuracy (map VS.maxIndex lbls_tst) (map VS.maxIndex lbls_res))
-  , "Mean of first few norm'd test images: " ++ show (take 5 $ map vmean samps_tst')
-  , "Range of first few norm'd test images: " ++ show (take 5 $ map vrange samps_tst')
-  , "Label vectors of first few training samples: " ++ show (take 5 lbls_trn)
-  , "Label vectors of first few test samples: " ++ show (take 5 lbls_tst)
-  , "Label vectors of first few result samples: " ++ show (take 5 lbls_res)
+  , "my accuracy in classifying the test data is: " ++ show (accuracy (map VS.maxIndex lbls_tst') (map VS.maxIndex lbls_res))
   ]
-    where lbls_res = trainAndClassify (lbls_trn, samps_trn') $ samps_tst'
-          samps_trn' = map vnorm samps_trn
-          samps_tst' = map vnorm samps_tst
+    where lbls_res   = trainAndClassify trn_set samps_tst'
+          samps_tst' = map fst tst_set
+          lbls_tst'  = map snd tst_set
+          trn_set    = precond $ zip samps_trn lbls_trn
+          tst_set    = precond $ zip samps_tst lbls_tst
+          precond    = map (first vnorm) . validate
+          validate   = filter (not . or . first (VS.any isNaN) . second (VS.any isNaN))
 
 accuracy :: Eq a => [a] -> [a] -> Float
 accuracy ref res = fromIntegral (length matches) / (fromIntegral (length ref) :: Float)
   where matches = filter (uncurry (==)) $ zip ref res
 
-trainAndClassify :: ([Lbl], [Img]) -> [Img] -> [Lbl]
+trainAndClassify :: [(Img, Lbl)] -> [Img] -> [Lbl]
 trainAndClassify = map . trainAndClassify'
 
 -- | Train to a pair of lists containing labels and images, respectively, and return a classification function.
@@ -98,19 +97,13 @@ trainAndClassify = map . trainAndClassify'
 --
 -- Note: I'm assuming that the performance of this function will be unacceptable, and that
 --       it will serve well to establish the motivation for taking a machine learning approach.
-trainAndClassify' :: ([Lbl], [Img]) -> Img -> Lbl
-trainAndClassify' trn_set img = VS.map (/ norm) v
--- trainAndClassify' trn_set img = error $ "func: " ++ show (func init_vec (head in_prs))
-  where v        = foldl func init_vec in_prs
-        norm     = VS.sum v
-        func     :: Lbl -> (Lbl, Img) -> Lbl
-        func     = flip (vadd . uncurry (flip vscale) . second (vdot img))
+trainAndClassify' :: [(Img, Lbl)] -> Img -> Lbl
+trainAndClassify' trn_set img = VS.map (/ VS.sum v) v
+  where v        = foldl func init_vec trn_set
+        func     :: Lbl -> (Img, Lbl) -> Lbl
+        func     = flip (vadd . uncurry vscale . first (abs . vdot img))
         init_vec :: Lbl
-        init_vec = VS.replicate (VS.length $ head $ fst trn_set) 0
-        in_prs   :: [(Lbl,Img)]
-        in_prs   = filter (not . or . first (VS.any isNaN) . second (VS.any isNaN)) $ uncurry zip trn_set
-        -- in_prs'  :: [(Lbl,Img)]
-        -- in_prs'  = uncurry zip trn_set
+        init_vec = VS.replicate (VS.length $ snd $ head trn_set) 0
 
 -- | Various needed vector utility functions not provided by Data.Vector.Storable.
 vdot :: (Num a, VS.Storable a) => VS.Vector a -> VS.Vector a -> a
@@ -129,8 +122,11 @@ vmean v = VS.sum v / (fromIntegral $ VS.length v)
 
 -- | Normalize a vector to be bounded by [-0.5, +0.5] and have zero mean.
 vnorm :: (Num a, Ord a, Fractional a, VS.Storable a) => VS.Vector a -> VS.Vector a
-vnorm v = vscale (1.0 / vrange v') v'
-  where v' = vbias (-1.0 * vmean v) v
+vnorm v = let v'  = vbias (-1.0 * vmean v) v
+              rng = vrange v'
+           in case rng of
+                0.0 -> v'
+                _   -> vscale (1.0 / rng) v'
 
 vrange :: (Num a, Ord a, VS.Storable a) => VS.Vector a -> a
 vrange v = VS.maximum v - VS.minimum v
@@ -153,7 +149,7 @@ main = do
       teinputs = take tep . drop trp $ inputs
       telabels = take tep . drop trp $ labels
 
-  putStrLn $ genOutput (trlabels, trinputs) (telabels, teinputs)
+  putStrLn $ genOutput (trinputs, trlabels) (teinputs, telabels)
 #endif
 
 -- | Found this code for reading in the notMNIST images, here:
