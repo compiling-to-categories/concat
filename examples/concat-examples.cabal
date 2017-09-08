@@ -88,6 +88,7 @@ library
                        ConCat.Shaped
                        ConCat.Scan
                        ConCat.FFT
+                       ConCat.Classifier
   if flag(smt)
     exposed-modules: ConCat.SMT
   ghc-options:      -O2
@@ -172,7 +173,7 @@ Test-Suite tst-dl2
   type:             exitcode-stdio-1.0
   default-language: Haskell98
   hs-Source-Dirs:   test
-  main-is:          ud_dl_2A.hs
+  main-is:          ud_dl_2.hs
   Build-Depends:    Cabal >= 1.24.0.0
                   , base<5
                   , bytestring
