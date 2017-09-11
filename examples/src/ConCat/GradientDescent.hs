@@ -56,10 +56,12 @@ chase = (fmap.fmap.fmap) fst chaseN
 
 -- Experiment: generate list of approximations
 
-chaseL :: (HasV R a, Zip (V R a), Eq a) => R -> (a -> a) -> a -> [a]
+-- chaseL :: (HasV R a, Zip (V R a), Eq a) => R -> (a -> a) -> a -> [a]
+chaseL :: (HasV R a, Zip (V R a)) => R -> (a -> a) -> a -> [a]
 chaseL gamma next = iterate (\ a -> a ^+^ gamma *^ next a)
 
-maximizeL, minimizeL :: (HasV R a, Zip (V R a), Eq a) => R -> D R a R -> a -> [a]
+-- maximizeL, minimizeL :: (HasV R a, Zip (V R a), Eq a) => R -> D R a R -> a -> [a]
+maximizeL, minimizeL :: (HasV R a, Zip (V R a)) => R -> D R a R -> a -> [a]
 maximizeL gamma = chaseL gamma . gradientD
 minimizeL = maximizeL . negate
 

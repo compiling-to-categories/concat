@@ -24,8 +24,12 @@ import Prelude hiding (readFile)
 
 import Control.Arrow
 import Data.Either
+import Data.Vector.Random.Mersenne (random)
 import qualified Data.Vector.Storable as VS
+import qualified Data.Vector as V
+import Data.Vector.Generic (convert, (!))
 import System.Directory
+import System.Random.Mersenne hiding (random)
 import System.Random.Shuffle
 
 import Codec.Picture
@@ -64,26 +68,32 @@ main = putStr $ effectHaskell f_name (gradient f)
 
 -- | Given a training set and a test set, report the accuracy of test
 -- set classification.
-genOutput :: ([Img], [Lbl]) -> ([Img], [Lbl]) -> String
-genOutput (samps_trn, lbls_trn) (samps_tst, lbls_tst) = unlines
+genOutput :: ([Img], [Lbl]) -> ([Img], [Lbl]) -> V.Vector Double -> String
+genOutput (samps_trn, lbls_trn) (samps_tst, lbls_tst) rands = unlines
   [ "\n"
-  , "Testing brute force classifier..."
+  -- , "Testing brute force classifier..."
+  -- , "\tAfter training on " ++ show (length trn_set) ++ " sample points,"
+  -- , "\tmy accuracy in classifying the test data is: " ++ show (accuracy bruteForce trn_set tst_set)
+  -- , "Testing pre-averager classifier..."
+  -- , "\tAfter training on " ++ show (length trn_set) ++ " sample points,"
+  -- , "\tmy accuracy in classifying the test data is: " ++ show (accuracy averager trn_set tst_set)
+  , "Testing simple gradient descent classifier..."
   , "\tAfter training on " ++ show (length trn_set) ++ " sample points,"
-  , "\tmy accuracy in classifying the test data is: " ++ show (accuracy bruteForce trn_set tst_set)
-  , "Testing pre-averager classifier..."
-  , "\tAfter training on " ++ show (length trn_set) ++ " sample points,"
-  , "\tmy accuracy in classifying the test data is: " ++ show (accuracy averager trn_set tst_set)
+  , "\tmy accuracy in classifying the test data is: " ++ show (accuracy (sgd rands) trn_set tst_set)
   ]
     where trn_set    = precond $ zip samps_trn lbls_trn
           tst_set    = precond $ zip samps_tst lbls_tst
           precond    = map (first vnorm) . validate
-          validate   = filter (not . or . first (VS.any isNaN) . second (VS.any isNaN))
+          validate   = filter (not . or . first (V.any isNaN) . second (V.any isNaN))
 
 main :: IO ()
 main = do
-  (inputs, labels) <- dataset
+  (inputs', labels') <- dataset  -- Yields Data.Vector.Storable.
 
-  let trp      = length inputs * 70 `div` 100
+  let inputs = map convert inputs'   -- Convert to Data.Vector.
+      labels = map convert labels'
+
+      trp      = length inputs * 70 `div` 100
       tep      = length inputs * 30 `div` 100
 
       -- training data
@@ -94,7 +104,11 @@ main = do
       teinputs = take tep . drop trp $ inputs
       telabels = take tep . drop trp $ labels
 
-  putStrLn $ genOutput (trinputs, trlabels) (teinputs, telabels)
+  g <- newMTGen Nothing
+  rands <- random g (V.length (head inputs) * V.length (head labels)) :: IO (V.Vector Double)
+  print $ rands!0
+
+  putStrLn $ genOutput (trinputs, trlabels) (teinputs, telabels) rands
 #endif
 
 -- | Found this code for reading in the notMNIST images, here:

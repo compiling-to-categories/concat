@@ -188,6 +188,8 @@ Test-Suite tst-dl2
                   , concat-classes
                   , concat-plugin
                   , concat-examples
+                  , vector-random
+                  , mersenne-random
   ghc-options:      -O2
                     -fplugin=ConCat.Plugin
   if flag(smt)
