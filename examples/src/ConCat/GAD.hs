@@ -34,7 +34,7 @@ import ConCat.AltCat
 import ConCat.Rep
 
 -- newtype GD k a b = D { unD :: a -> b :* (a `k` b) }
-data GD k a b = D { unD :: a -> b :* (a `k` b) }
+data GD k a b = D { unD :: a -> (b :* (a `k` b)) }
 
 -- Differentiable linear function, given the function and linear map version
 linearD :: (a -> b) -> (a `k` b) -> GD k a b
