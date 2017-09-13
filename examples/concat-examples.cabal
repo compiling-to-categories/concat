@@ -88,7 +88,6 @@ library
                        ConCat.Shaped
                        ConCat.Scan
                        ConCat.FFT
-                       ConCat.Classifier
   if flag(smt)
     exposed-modules: ConCat.SMT
   ghc-options:      -O2
@@ -163,33 +162,6 @@ Test-Suite misc-trace
                   , keys
                   -- Array/vector experiments
                   , vector
-  ghc-options:      -O2
-                    -fplugin=ConCat.Plugin
-                    -fplugin-opt=ConCat.Plugin:trace
-  if flag(smt)
-    cpp-options:        -DCONCAT_SMT
-
-Test-Suite tst-dl2
-  type:             exitcode-stdio-1.0
-  default-language: Haskell98
-  hs-Source-Dirs:   test
-  main-is:          ud_dl_2.hs
-  Build-Depends:    Cabal >= 1.24.0.0
-                  , base<5
-                  , bytestring
-                  , containers
-                  , directory
-                  , ghc-prim
-                  , hmatrix
-                  , random
-                  , random-shuffle
-                  , vector
-                  , JuicyPixels
-                  , concat-classes
-                  , concat-plugin
-                  , concat-examples
-                  , vector-random
-                  , mersenne-random
   ghc-options:      -O2
                     -fplugin=ConCat.Plugin
                     -fplugin-opt=ConCat.Plugin:trace
