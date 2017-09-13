@@ -89,35 +89,39 @@ instance (Zeroable f, Zeroable g) => Zeroable (g :.: f) where
 
 -- TODO: Replace Num constraints with Ring or SemiRing
 
--- Scale a vector
+-- | Scale a vector
 scaleV, (*^) :: (Functor f, Num s) => s -> f s -> f s
 s *^ v = (s *) <$> v
 scaleV = (*^)
 
--- Negate a vector
+-- | Negate a vector
 negateV :: (Functor f, Num s) => f s -> f s
 negateV = ((-1) *^)
 
--- Add vectors
+-- | Add vectors
 addV, (^+^) :: (Zip f, Num s) => f s -> f s -> f s
 (^+^) = zipWith (+)
 addV = (^+^)
 
--- Subtract vectors
+-- | Subtract vectors
 subV, (^-^) :: (Zip f, Num s) => f s -> f s -> f s
 (^-^) = zipWith (-)
 subV = (^-^)
 
--- Inner product
+-- | Inner product
 dotV, (<.>) :: (Zip f, Foldable f, Num s) => f s -> f s -> s
 x <.> y = sum (zipWith (*) x y)
 dotV = (<.>)
 
--- Norm squared
+-- | Norm squared
 normSqr :: (Zip f, Foldable f, Num s) => f s -> s
 normSqr u = u <.> u
 
--- Outer product
+-- | Distance squared
+distSqr :: (Zip f, Foldable f, Num s) => f s -> f s -> s
+distSqr u v = normSqr (u ^-^ v)
+
+-- | Outer product
 outerV, (>.<) :: (Num s, Functor f, Functor g) => g s -> f s -> g (f s)
 x >.< y = (*^ y) <$> x
 outerV = (>.<)
