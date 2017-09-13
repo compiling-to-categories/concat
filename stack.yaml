@@ -13,8 +13,5 @@ packages:
   - verilog
   - netlist-to-verilog
   extra-dep: true
-extra-deps:
-- mersenne-random-1.0.0.1
-- newtype-generics-0.5.0.1
-- vector-random-0.1
+extra-deps: []
 resolver: lts-9.3

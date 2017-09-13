@@ -47,7 +47,7 @@ class ChoiceCat k p where
   choose' :: Ok k p => () `k` p
 
 -- Or
--- 
+--
 --   choose' :: ((p :* a) `k` b) -> (a `k` b)
 
 instance ChoiceCat (->) p where
@@ -76,19 +76,19 @@ instance (Category k, OkProd k, OkUnit k) => Category (Choice k) where
 
 instance (ProductCat k, OkUnit k) => ProductCat (Choice k) where
   exl = exactly exl
-  exr = exactly exr 
+  exr = exactly exr
   -- Choice f &&& Choice g = Choice (\ (p,q) -> f p &&& g q)
   Choice (f :: p -> (a `k` c)) &&& Choice (g :: q -> (a `k` d)) = Choice (\ (p,q) -> f p &&& g q) <+ okProd @k @p @q
 
 instance (CoproductCat k, OkProd k, OkUnit k) => CoproductCat (Choice k) where
   inl = exactly inl
-  inr = exactly inr 
+  inr = exactly inr
   -- Choice f ||| Choice g = Choice (\ (p,q) -> f p ||| g q)
   Choice (f :: p -> (a `k` c)) ||| Choice (g :: q -> (b `k` c)) = Choice (\ (p,q) -> f p ||| g q) <+ okProd @k @p @q
 
 instance (DistribCat k, OkUnit k) => DistribCat (Choice k) where
   distl = exactly distl
-  distr = exactly distr 
+  distr = exactly distr
 
 instance (ClosedCat k, OkUnit k) => ClosedCat (Choice k) where
   apply = exactly apply
