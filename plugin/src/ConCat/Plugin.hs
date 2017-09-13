@@ -351,9 +351,11 @@ ccc (CccEnv {..}) (Ops {..}) cat =
    -- go _ = Nothing
    -- goLam x body | dtrace "goLam:" (ppr (Lam x body)) False = undefined
    -- goLam x body | dtrace ("goLam body constr: " ++ exprConstr body) (ppr (Lam x body)) False = undefined
+#if 0
    goLam x body | Just e' <- etaReduce_maybe (Lam x body) =
     Doing("lam eta-reduce")
     return (mkCcc e')
+#endif
    goLam x body = case body of
      Trying("lam Id")
      Var y | x == y -> Doing("lam Id")
@@ -489,7 +491,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        | isEmptyVarSet (mkVarSet bs `intersectVarSet` exprFreeVars rhs) ->
        Doing("lam Case to let")
        return (mkCcc (Lam x (Let (NonRec v scrut) rhs)))
-
      Trying("lam Case of Bool")
      e@(Case scrut wild rhsTy [(DataAlt false, [], rhsF),(DataAlt true, [], rhsT)])
          | false == falseDataCon && true == trueDataCon ->
@@ -501,7 +502,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           return $
             mkIfC cat rhsTy (mkCcc (Lam x scrut))
               (mkCcc (Lam x rhsT)) (mkCcc (Lam x rhsF))
-
      Trying("lam Case of product")
      e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
          | isBoxedTupleTyCon (dataConTyCon dc) ->
@@ -521,6 +521,18 @@ ccc (CccEnv {..}) (Ops {..}) cat =
                                   [ NonRec c scrut
                                   , NonRec a (mkEx funCat exlV (Var c))
                                   , NonRec b (mkEx funCat exrV (Var c)) ] rhs)))
+
+#if 0
+     -- Experimental
+     Trying("lam Case of no-use")
+     Case scrut v _altsTy alts
+       | not (x `isFreeIn` scrut)
+       -> Trying("lam Case of no-use")
+          return $
+           mkCase1 scrut v {- (mkAppTys cat [varType v, altsTy]) -} (onAltRhs (mkCcc . Lam x) <$> alts)
+           -- TODO: Compute the alternatives type instead of mkCase1.
+#endif
+
      -- Trying("lam Case cast")
      -- Case (Cast scrut (setNominalRole_maybe -> Just co')) v altsTy alts
      --   -> Doing("lam Case cast")
@@ -2004,3 +2016,9 @@ exprConstr (Coercion {}) = "Coercion"
 hasTyCon :: TyCon -> Type -> Bool
 hasTyCon tc (tcSplitTyConApp_maybe -> Just (tc', _)) = tc' == tc
 hasTyCon _ _ = False
+
+-- Alternative to Case when we don't want to work out the alternatives type, and
+-- we're willing to crash on empty alternatives.
+mkCase1 :: CoreExpr -> Id -> [CoreAlt] -> CoreExpr
+mkCase1 scrut v alts@(alt0:_) = Case scrut v (exprType (altRhs alt0)) alts
+mkCase1 _ _ _ = pprPanic "mkCase1 with empty alts" empty

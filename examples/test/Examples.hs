@@ -227,6 +227,13 @@ main = sequence_
 
   -- , runCirc "mse-samples0-grad" $ ccc $ gradient $ mse samples0
 
+  -- , runSynCirc "q1" $ ccc $ \ (a :: R) -> andDer (\ y -> y * a)
+  -- , runSynCirc "q2" $ ccc $ \ (a :: R) -> andDer (\ y -> a * y)
+
+  -- , runCirc "mse-pair-grad" $ ccc $ \ (samples :: Par1 Sample) -> gradient $ mse samples 
+
+  -- , runCirc "mse-samples0-grad" $ ccc $ gradient $ mse samples0
+
   -- , runSynCirc "mse-samples1-ad" $ ccc $ andDer $ mse samples1 
 
   -- , runCircChase "mse-regress0" (0,0) $ ccc $ gradient $ negate . mse samples0

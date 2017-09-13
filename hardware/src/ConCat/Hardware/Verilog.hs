@@ -118,8 +118,8 @@ busName  = fst . busId'
 busWidth :: Bus -> Int
 busWidth = snd . busId'
 
-busType :: Bus -> C.Ty
-busType (Bus _ _ ty) = ty
+-- busType :: Bus -> C.Ty
+-- busType (Bus _ _ ty) = ty
 
 busToNet :: Bus -> Decl
 busToNet b = NetDecl (busName b) (makeRange Down (busWidth b)) Nothing

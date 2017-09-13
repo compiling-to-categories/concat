@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -26,11 +27,16 @@ import ConCat.Category
 -- | Nondeterminism category. Like a set of morphisms all of the same type, but
 -- represented as a function whose range is that set. The function's domain is
 -- existentially hidden.
+
 data Choice k a b = forall p. Ok k p => Choice (p -> (a `k` b))
 
--- Using GADT syntax, to make the existential type quantification more explicit.
--- data Choice k a b where
---   Choice :: forall p. Ok k p => (p -> (a `k` b)) -> Choice k a b
+-- Equivalently,
+
+-- data Choice :: (* -> * -> *) -> * -> * -> * where
+--   Choice :: Ok k p => (p -> (a `k` b)) -> Choice k a b
+
+-- TODO: maybe revert to wiring in k = (->), transforming to another category
+-- later.
 
 -- | Deterministic (trivially nondeterministic) arrow
 exactly :: OkUnit k => (a `k` b) -> Choice k a b
@@ -39,6 +45,13 @@ exactly f = Choice (\ () -> f)
 -- | Generate any value of type @p@.
 class ChoiceCat k p where
   choose' :: Ok k p => () `k` p
+
+-- Or
+--
+--   choose' :: ((p :* a) `k` b) -> (a `k` b)
+
+instance ChoiceCat (->) p where
+  choose' = error "There isn't really a choose' for (->)"
 
 -- | Generate any value of type @p@.
 choose :: (ChoiceCat k' p, Ok k' p) => k' () p
