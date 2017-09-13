@@ -49,6 +49,7 @@ import ConCat.AD
 import ConCat.Free.VectorSpace
 import ConCat.GAD
 import ConCat.GradientDescent
+import ConCat.AltCat (ccc)
 
 -- | Something that knows how to train itself, to classify data.
 class Classifier a where
@@ -122,6 +123,7 @@ type Clf = Img -> Lbl
 
 cost :: [(Img,Lbl)] -> Clf -> Double
 cost prs clf = sse (map snd prs) (map clf (map fst prs))
+{-# INLINE cost #-}
 
 -- | Compute the sum of the squared magnitudes of the difference vectors.
 --
@@ -162,7 +164,8 @@ sgd = ImgClassifier . train'''
 -- andDer (cost trn_set) :: Clf -> Double :* (Clf `k` Double) ~ D R Clf Double ~ GD (L R) Clf Double
 gamma = 0.1
 
-train''' rands trn_set = head $ drop 10 $ minimizeL gamma (D (andDer (cost trn_set))) initClf
+-- train''' rands trn_set = head $ drop 10 $ minimizeL gamma (D (andDeriv (cost trn_set))) initClf
+train''' rands trn_set = head $ drop 10 $ minimizeL gamma (ccc (cost trn_set)) initClf
   where initClf :: Clf
         initClf img = V.fromList [vdot img (V.take n (V.drop (n * i) rands)) | i <- [0..(m-1)]]
         n           = (V.length . fst . head) trn_set  -- length of image vector

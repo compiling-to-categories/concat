@@ -192,6 +192,7 @@ Test-Suite tst-dl2
                   , mersenne-random
   ghc-options:      -O2
                     -fplugin=ConCat.Plugin
+                    -fplugin-opt=ConCat.Plugin:trace
   if flag(smt)
     cpp-options:        -DCONCAT_SMT
 
