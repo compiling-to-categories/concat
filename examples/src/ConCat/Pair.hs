@@ -21,7 +21,15 @@
 -- | Uniform pairs
 ----------------------------------------------------------------------
 
-module ConCat.Pair (Pair, pattern (:#)) where
+module ConCat.Pair
+  (
+#ifdef SpecialPair
+    Pair(..)
+#else
+    Pair
+#endif
+  , pattern (:#)
+  ) where
 
 import GHC.Generics (Par1(..),(:*:)(..))
 #ifdef SpecialPair
