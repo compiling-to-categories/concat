@@ -65,6 +65,9 @@ infixl 1 :#
 pattern (:#) :: a -> a -> Pair a
 pattern x :# y = Pair (Par1 x :*: Par1 y)
 
+instance Show a => Show (Pair a) where
+  showsPrec p = \ (x :# y) -> showParen (p >= 1) $ showsPrec 1 x . showString " :# " . showsPrec 1 y
+
 instance HasRep (Pair a) where
   type Rep (Pair a) = a :* a
   -- repr (a :# a') = (a,a')  -- *
