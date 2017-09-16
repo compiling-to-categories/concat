@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeOperators #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+-- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
 -- | A convenient class for diagonizations
 
