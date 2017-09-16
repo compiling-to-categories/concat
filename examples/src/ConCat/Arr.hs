@@ -115,6 +115,9 @@ foldMap (foldMap f) (curry h) :: m
 
 #endif
 
+instance Traversable ((->) Void) where
+  traverse :: Applicative g => (a -> g b) -> (Void -> a) -> g (Void -> b)
+  traverse _ _ = pure absurd
 
 instance Traversable ((->) ()) where
   traverse :: Applicative g => (a -> g b) -> (() -> a) -> g (() -> b)
