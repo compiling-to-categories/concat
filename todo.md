@@ -6,7 +6,7 @@
     See personal notes for 2017-08-25.
 *   Look for a better solution to the problem of GHC eagerly inlining methods.
     My current workaround is `ConCat.Category` vs `ConCat.AltCat`.
-    Inconvenient for adding classes (like `ChooseCat` in `ConCat.Nondet`).
+    Inconvenient for adding classes (like `ChoiceCat` in `ConCat.Choice`).
     Could I instead recognize the dictionary selectors?
 *   Mystery with `RBin N3` vs expanded form.
     The former terminates, while the latter doesn't.
