@@ -130,11 +130,13 @@ instance Traversable ((->) Bool) where
   traverse :: Applicative g => (w -> g c) -> (Bool -> w) -> g (Bool -> c)
   traverse f h = bool <$> f (h False) <*> f (h True)
 
-instance (Traversable ((->) a), Traversable ((->) b)) => Traversable ((->) (a :+ b)) where
+instance (Traversable ((->) a), Traversable ((->) b))
+      => Traversable ((->) (a :+ b)) where
   traverse :: Applicative g => (w -> g c) -> (a :+ b -> w) -> g (a :+ b -> c)
   traverse f h = (|||) <$> traverse f (h . Left) <*> traverse f (h . Right)
 
-instance (Traversable ((->) a), Traversable ((->) b)) => Traversable ((->) (a :* b)) where
+instance (Traversable ((->) a), Traversable ((->) b))
+      => Traversable ((->) (a :* b)) where
   traverse :: Applicative g => (w -> g c) -> (a :* b -> w) -> g (a :* b -> c)
   traverse f h = uncurry <$> (traverse.traverse) f (curry h)
 
