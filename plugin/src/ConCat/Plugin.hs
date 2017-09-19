@@ -1323,6 +1323,7 @@ install opts todos =
           -- specialized ccc rules are tried first.
           let addRule, delRule :: ModGuts -> CoreM ModGuts
               addRule guts =
+                -- pprTrace "Program binds before ccc" (ppr (mg_binds guts)) $
                 do allAnns <- liftIO (prepareAnnotations hsc_env (Just guts))
                    let famEnvs = (pkgFamEnv, mg_fam_inst_env guts)
                    return (on_mg_rules (++ cccRules famEnvs env guts allAnns) guts)
@@ -1349,9 +1350,11 @@ install opts todos =
    flagCcc (CccEnv {..}) guts
      --  | pprTrace "ccc residuals:" (ppr (toList remaining)) False = undefined
      --  | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
-     | Seq.null remaining = return guts
+     | Seq.null remaining = -- pprTrace "transformed program binds" (ppr (mg_binds guts)) $
+                            return guts
      | otherwise = -- pprPanic "ccc residuals:" (ppr (toList remaining))
                    pprTrace "ccc residuals:" (ppr (toList remaining)) $
+                   -- pprTrace "transformed program binds" (ppr (mg_binds guts)) $
                    return guts
     where
       remaining :: Seq CoreExpr
