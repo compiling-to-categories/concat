@@ -98,6 +98,7 @@ instance CartCon con => ChoiceCat con (Choice con) where
   chooseC' Dict1 (Choice (f :: p -> q :* a -> b)) =
     Choice @con (uncurry (curry . f))
       <+ inOp @(:*) @(Sat con) @p @q
+  {-# INLINE chooseC' #-}
 
 --           Choice f  :: Choice con (q :* a) b
 --                  f  :: p -> q :* a -> b
