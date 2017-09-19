@@ -91,7 +91,6 @@ import ConCat.FFT
 
 -- import ConCat.Regress
 import ConCat.Choice
-import ConCat.NM
 
 import ConCat.Arr -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
 #ifdef CONCAT_SMT
@@ -132,10 +131,10 @@ main = sequence_
   , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
   , runSynCirc "cos-2xx"   $ ccc $ \ x -> cos (2 * x * x) :: R
 
-  -- Choice
-  -- , onChoice (\ f -> runSynCirc "choose-line" $ ccc f) (ccc (choose @GenBuses (\ p a -> p + a :: R)))
-  , onChoice @GenBuses (runCirc "or-choice" . ccc)
-      (A.reveal (ccc (choose @GenBuses (||))))
+  -- -- Choice
+  -- -- , onChoice (\ f -> runSynCirc "choose-line" $ ccc f) (ccc (choose @GenBuses (\ p a -> p + a :: R)))
+  -- , onChoice @GenBuses (runCirc "or-choice" . ccc)
+  --     (A.reveal (ccc (choose @GenBuses (||))))
 
   -- -- Circuit graphs on trees etc
   -- , runSynCirc "sum-pair"$ ccc $ sum @Pair @Int
