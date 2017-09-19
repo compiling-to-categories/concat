@@ -71,13 +71,12 @@ import GHC.Float (int2Double)
 
 import Data.Key (Zip)
 
-import ConCat.Misc ((:*),R,sqr,magSqr,Binop,inNew,inNew2)
+import ConCat.Misc ((:*),R,sqr,magSqr,Binop,inNew,inNew2,Yes1,oops)
 import ConCat.Incremental (andInc,inc)
 import ConCat.AD
 import ConCat.ADFun hiding (D)
 import ConCat.Free.VectorSpace (HasV(..))
 import ConCat.GradientDescent
-import ConCat.Regress
 import ConCat.Interval
 import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses,(:>))
@@ -89,6 +88,10 @@ import ConCat.Nat
 import ConCat.Shaped
 import ConCat.Scan
 import ConCat.FFT
+
+-- import ConCat.Regress
+import ConCat.Choice
+import ConCat.NM
 
 import ConCat.Arr -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
 #ifdef CONCAT_SMT
@@ -109,6 +112,9 @@ import GHC.Generics hiding (C,R,D)
 
 import Control.Newtype (Newtype(..))
 
+-- Experiments
+import GHC.Exts (Coercible,coerce)
+
 -- default (Int, Double)
 
 type C = Complex R
@@ -124,8 +130,12 @@ main = sequence_
   , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
   , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
   , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
+  , runSynCirc "cos-2xx"   $ ccc $ \ x -> cos (2 * x * x) :: R
 
-  -- , runSynCirc "cos-2xx"   $ ccc $ \ x -> cos (2 * x * x) :: R
+  -- Choice
+  -- , onChoice (\ f -> runSynCirc "choose-line" $ ccc f) (ccc (choose @GenBuses (\ p a -> p + a :: R)))
+  , onChoice @GenBuses (runCirc "or-choice" . ccc)
+      (A.reveal (ccc (choose @GenBuses (||))))
 
   -- -- Circuit graphs on trees etc
   -- , runSynCirc "sum-pair"$ ccc $ sum @Pair @Int
@@ -164,6 +174,12 @@ main = sequence_
   -- , runSynCirc "cos-2xx-ad"    $ ccc $ andDer $ \ x -> cos (2 * x * x) :: R
   -- , runSynCirc "cos-xpy-ad"    $ ccc $ andDer $ \ (x,y) -> cos (x + y) :: R
   -- , runSynCirc "cosSinProd-ad" $ ccc $ andDer $ cosSinProd @R
+
+  -- , runSynCirc "sum-pair-ad"$ ccc $ andDer $ sum @Pair @R
+
+  -- , runSynCirc "sum-4-ad"$ ccc $ andDer $ \ (a,b,c,d) -> a+b+c+d :: R
+
+  -- , runSynCirc "sum-rb2-ad"$ ccc $ andDer $ sum @(RBin N2) @R
 
   -- -- Dies with "Oops --- ccc called!", without running the plugin.
   -- , print $ andDer sin (1 :: R)
@@ -601,3 +617,9 @@ fac9 :: Int -> Int
 fac9 n0 = go (n0,1)
  where
    go (n,acc) = if n < 1 then acc else go (n-1,n * acc)
+
+---------
+    
+-- coerceTest :: Pair R -> (Par1 :*: Par1) R
+-- coerceTest = coerce
+
