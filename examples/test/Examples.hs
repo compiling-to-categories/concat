@@ -89,7 +89,7 @@ import ConCat.Shaped
 import ConCat.Scan
 import ConCat.FFT
 
--- import ConCat.Regress
+import ConCat.Regress
 import ConCat.Choice
 
 import ConCat.Arr -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
@@ -132,9 +132,10 @@ main = sequence_
   , runSynCirc "cos-2xx"   $ ccc $ \ x -> cos (2 * x * x) :: R
 
   -- -- Choice
-  -- -- , onChoice (\ f -> runSynCirc "choose-line" $ ccc f) (ccc (choose @GenBuses (\ p a -> p + a :: R)))
   -- , onChoice @GenBuses (runCirc "or-choice" . ccc)
   --     (A.reveal (ccc (choose @GenBuses (||))))
+  -- , onChoice @GenBuses (runCirc "line-choice" . ccc)
+  --     (A.reveal (ccc (choose @GenBuses (\ (m,b) x -> m * x + b :: R))))
 
   -- -- Circuit graphs on trees etc
   -- , runSynCirc "sum-pair"$ ccc $ sum @Pair @Int
