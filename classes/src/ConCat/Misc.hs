@@ -62,6 +62,8 @@ inComp2 :: (  g (f a)   -> g' (f' a')     -> g'' (f'' a''))
         -> ((g :.: f) a -> (g' :.: f') a' -> (g'' :.: f'') a'')
 inComp2 = inComp <~ unComp1
 
+-- TODO: phase out inComp and inComp2 in favor of inNew and inNew2.
+
 absurdF :: V1 a -> b
 absurdF = \ case
 
@@ -89,6 +91,8 @@ class PrimBasics p where
   pairP :: p (a :=> b :=> a :* b)
 
 class Evalable p where eval :: p a -> a
+
+-- TODO: Are we still using PrimBasics or Evalable?
 
 {--------------------------------------------------------------------
     Other
@@ -120,24 +124,6 @@ instance Yes1 a
 
 class    Yes2 a b
 instance Yes2 a b
-
-inNew :: (Newtype p, Newtype q) =>
-         (O p -> O q) -> (p -> q)
-inNew = pack <~ unpack
-
-inNew2 :: (Newtype p, Newtype q, Newtype r) =>
-          (O p -> O q -> O r) -> (p -> q -> r)
-inNew2 = inNew <~ unpack
-
--- TODO: use inNew and inNew2 in place of ad hoc versions throughout.
-
-exNew :: (Newtype p, Newtype q) =>
-         (p -> q) -> (O p -> O q)
-exNew = unpack <~ pack
-
-exNew2 :: (Newtype p, Newtype q, Newtype r) =>
-          (p -> q -> r) -> (O p -> O q -> O r)
-exNew2 = exNew <~ pack
 
 -- | Compose list of unary transformations
 compose :: [Unop a] -> Unop a
@@ -241,7 +227,7 @@ data PseudoFun = PseudoFun deriving (Typeable,Data)
 
 -- | Pseudo function to fool GHC's divergence checker.
 oops :: String -> b
-oops str = errorWithStackTrace ("Oops: "++str++" called!")
+oops str = errorWithStackTrace ("Oops: "++str)
 {-# NOINLINE oops #-}
 
 --     In the use of ‘errorWithStackTrace’ (imported from GHC.Stack):
@@ -296,3 +282,21 @@ underF _ f = fmap unpack . f . fmap pack
 overF :: (Newtype n, Newtype n', o' ~ O n', o ~ O n, Functor f, Functor g)
       => (o -> n) -> (f o -> g o') -> (f n -> g n')
 overF _ f = fmap pack . f . fmap unpack
+
+inNew :: (Newtype p, Newtype q) =>
+         (O p -> O q) -> (p -> q)
+inNew = pack <~ unpack
+
+inNew2 :: (Newtype p, Newtype q, Newtype r) =>
+          (O p -> O q -> O r) -> (p -> q -> r)
+inNew2 = inNew <~ unpack
+
+-- TODO: use inNew and inNew2 in place of ad hoc versions throughout.
+
+exNew :: (Newtype p, Newtype q) =>
+         (p -> q) -> (O p -> O q)
+exNew = unpack <~ pack
+
+exNew2 :: (Newtype p, Newtype q, Newtype r) =>
+          (p -> q -> r) -> (O p -> O q -> O r)
+exNew2 = exNew <~ pack
