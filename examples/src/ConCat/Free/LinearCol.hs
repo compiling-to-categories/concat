@@ -321,8 +321,7 @@ instance FunctorC (Linear s) (->) (L s) where fmapC = linear
 --------------------------------------------------------------------}
 
 lmap :: forall s a b. (a -> b) -> L s a b
--- lmap _ = error "lmap called"
-lmap _ = oops "lmap"
+lmap _ = oops "lmap called"
 {-# NOINLINE lmap #-}
 {-# RULES "lmap" forall h. lmap h = ccc h #-}
 {-# ANN lmap PseudoFun #-}

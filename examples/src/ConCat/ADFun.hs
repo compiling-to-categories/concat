@@ -172,7 +172,7 @@ derFL = deriv
 -- AD with derivative-as-function, then converted to linear map
 andDerFL :: forall s a b. (OkLM s a, OkLM s b, HasL (V s a), s ~ R)
          => (a -> b) -> (a -> b :* L s a b)
-andDerFL _ = oops "andDerFL"
+andDerFL _ = oops "andDerFL called"
 -- andDerFL = (fmap.fmap.fmap) linear andDeriv
 -- andDerFL = (second linear .) . andDerF
 -- andDerFL f = second linear . andDerF f

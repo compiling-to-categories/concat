@@ -147,7 +147,7 @@ andDeriv h = unD (ccc h)
 {-# INLINE andDeriv #-}
 #else
 -- andDeriv _ = error "andDeriv called"
-andDeriv _ = oops "andDeriv"
+andDeriv _ = oops "andDeriv called"
 {-# NOINLINE andDeriv #-}
 -- {-# RULES "andDeriv" forall h. andDeriv h = unD (reveal (ccc h)) #-}
 {-# RULES "andDeriv" forall h. andDeriv h = unD (ccc h) #-}

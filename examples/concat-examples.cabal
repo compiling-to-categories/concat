@@ -72,7 +72,6 @@ library
                        ConCat.GAD
                        ConCat.AD
                        ConCat.ADFun
-                       ConCat.Choice
                        ConCat.Incremental
                        ConCat.Interval
                        ConCat.GradientDescent
@@ -88,6 +87,8 @@ library
                        ConCat.Shaped
                        ConCat.Scan
                        ConCat.FFT
+                       ConCat.Choice
+                       ConCat.RegressChoice
   if flag(smt)
     exposed-modules: ConCat.SMT
   ghc-options:      -O2

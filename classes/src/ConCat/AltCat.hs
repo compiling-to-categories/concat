@@ -73,7 +73,7 @@ import ConCat.Category
 reveal :: a -> a
 reveal f = f
 {-# INLINE [0] reveal #-}
--- reveal _f = oops "reveal"
+-- reveal _f = oops "reveal called"
 -- {-# NOINLINE reveal #-}
 -- {-# RULES "reveal = id" [0] reveal = id #-}
 -- {-# ANN reveal PseudoFun #-}
@@ -344,7 +344,7 @@ UncId(c :+ d)
 
 -- | Pseudo function to trigger rewriting to CCC form.
 ccc :: forall k a b. (a -> b) -> (a `k` b)
-ccc _ = oops "ccc"
+ccc _ = oops "ccc called"
 {-# NOINLINE ccc #-}
 
 {--------------------------------------------------------------------
