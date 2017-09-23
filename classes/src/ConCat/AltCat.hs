@@ -347,6 +347,18 @@ ccc :: forall k a b. (a -> b) -> (a `k` b)
 ccc _ = oops "ccc called"
 {-# NOINLINE ccc #-}
 
+-- | Pseudo function to trigger rewriting from CCC form.
+unCcc :: forall k a b. (a `k` b) -> (a -> b)
+unCcc _ = oops "unCcc called"
+{-# NOINLINE unCcc #-}
+
+{-# RULES
+
+"ccc/unCcc" forall f. ccc (unCcc f) = f
+"unCcc/ccc" forall f. unCcc (ccc f) = f
+
+ #-}
+
 {--------------------------------------------------------------------
     Rewrite rules
 --------------------------------------------------------------------}
