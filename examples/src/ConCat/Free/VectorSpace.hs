@@ -35,6 +35,8 @@ import ConCat.Orphans ()
 import ConCat.Misc ((:*),(:+),(<~))
 import ConCat.Rep
 -- import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
+import ConCat.AltCat (OpCon(..),Sat,type (|-)(..))
+import Data.Constraint ((:-)(..),Dict(..))
 
 {--------------------------------------------------------------------
     Vector spaces
@@ -202,6 +204,10 @@ instance (HasV s a, HasV s b) => HasV s (a :* b) where
   type V s (a :* b) = V s a :*: V s b
   toV (a,b) = toV a :*: toV b
   unV (f :*: g) = (unV f,unV g)
+
+instance OpCon (:*) (Sat (HasV s)) where
+  inOp = Entail (Sub Dict)
+  {-# INLINE inOp #-}
 
 instance (HasV s a, HasV s b) => HasV s (a :+ b) where
   type V s (a :+ b) = V s a :+: V s b
