@@ -342,6 +342,12 @@ UncId(Double)
 UncId(c :* d)
 UncId(c :+ d)
 
+-- | Pseudo function to trigger rewriting to CCC form, plus a 'reveal' for
+-- inlining.
+toCcc :: forall k a b. (a -> b) -> (a `k` b)
+toCcc f = reveal (ccc f)
+{-# INLINE toCcc #-}
+
 -- | Pseudo function to trigger rewriting to CCC form.
 ccc :: forall k a b. (a -> b) -> (a `k` b)
 ccc _ = oops "ccc called"
