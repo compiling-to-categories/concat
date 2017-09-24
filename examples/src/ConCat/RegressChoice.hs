@@ -20,7 +20,7 @@ import ConCat.Free.VectorSpace
 
 import ConCat.AD (gradient)
 
-import ConCat.Choice (ChoiceCat,choose)
+import ConCat.Choice (choose)
 
 -- First do a simple linear regression
 
