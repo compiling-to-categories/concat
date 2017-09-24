@@ -151,33 +151,33 @@ instance (NumCat (->) a, ProductCat (->), CartCon con)
   negateC = exactly negateC
   powIC   = exactly powIC
 
-instance (IntegralCat (->) a, ProductCat (->), OkUnit (->), con ())
+instance (IntegralCat (->) a, ProductCat (->), con ())
       => IntegralCat (Choice con) a where
   divC = exactly divC
   modC = exactly modC
 
-instance (FractionalCat (->) a, ProductCat (->), OkUnit (->), con ())
+instance (FractionalCat (->) a, ProductCat (->), con ())
       => FractionalCat (Choice con) a where
   recipC  = exactly recipC
   divideC = exactly divideC
 
-instance (FloatingCat (->) a, ProductCat (->), OkUnit (->), con ())
+instance (FloatingCat (->) a, ProductCat (->), con ())
       => FloatingCat (Choice con) a where
   expC = exactly expC
   cosC = exactly cosC
   sinC = exactly sinC
 
-instance (RealFracCat (->) a b, ProductCat (->), OkUnit (->), con ())
+instance (RealFracCat (->) a b, ProductCat (->), con ())
       => RealFracCat (Choice con) a b where
   floorC    = exactly floorC
   ceilingC  = exactly ceilingC
   truncateC = exactly truncateC
 
-instance (FromIntegralCat (->) a b, ProductCat (->), OkUnit (->), con ())
+instance (FromIntegralCat (->) a b, ProductCat (->), con ())
       => FromIntegralCat (Choice con) a b where
   fromIntegralC = exactly fromIntegralC
 
-instance (BottomCat (->) a b, ProductCat (->), OkUnit (->), con ())
+instance (BottomCat (->) a b, ProductCat (->), con ())
       => BottomCat (Choice con) a b where
   bottomC = exactly bottomC
 
@@ -185,11 +185,11 @@ instance (IfCat (->) a, ProductCat (->), CartCon con)
       => IfCat (Choice con) a where
   ifC = exactly ifC
 
-instance (UnknownCat (->) a b, ProductCat (->), OkUnit (->), con ())
+instance (UnknownCat (->) a b, ProductCat (->), con ())
       => UnknownCat (Choice con) a b where
   unknownC = exactly unknownC
 
-instance (RepCat (->) a r, ProductCat (->), OkUnit (->), con ())
+instance (RepCat (->) a r, ProductCat (->), con ())
       => RepCat (Choice con) a r where
   reprC = exactly reprC
   abstC = exactly abstC
