@@ -14,6 +14,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
+{-# LANGUAGE ViewPatterns #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
@@ -28,51 +29,7 @@ import GHC.Types (Constraint)
 
 import ConCat.Misc ((:*),oops)
 import ConCat.Category
-import ConCat.AltCat (reveal)
-
--- | Like Dict from Data.Constraint, but for parametrized constraints.
--- Injectivity in both con and a helps type inference.
-data Dict1 :: (* -> Constraint) -> * -> * where
-  Dict1 :: con a => Dict1 con a
-
--- Alternatively, wrap Dict:
--- 
--- data Dict1 con a = Dict1 (Dict con a)
-
--- | Generate any value of type @p@ out of thin air.
-class ChoiceCat con k where
-  chooseC' :: Ok3 k p a b => Dict1 con p -> ((p :* a) `k` b) -> (a `k` b)
-
--- Needs AllowAmbiguousTypes
-
--- | Generate any value of type @p@.
-chooseC :: forall k con p a b. (ChoiceCat con k, Ok3 k p a b)
-        => Dict1 con p -> ((p :* a) `k` b) -> (a `k` b)
-chooseC = chooseC'
-{-# INLINE [0] chooseC #-}
-
--- "chooseC'" vs "chooseC", since GHC eagerly inlines all methods to their
--- dictionary selectors, defeating translation across categories. Look for a
--- tidier alternative.
-
--- Use chooseC for translation and choose for Haskell-friendliness.
-
--- Placing the category argument k first in chooseC helps the plugin recognize
--- to use reCat.
-
-{-# RULES
-
-"reveal chooseC" forall d f. reveal (chooseC d f) = chooseC' d (reveal f)
-
- #-}
-
--- Use type application and a curried function for the Haskell/(->) version.
-
--- | Generate any value of type @p@.
-choose :: forall con p a b. con p
-       => (p -> a -> b) -> (a -> b)
-choose = chooseC @(->) (Dict1 @con @p) . uncurry
-{-# INLINE choose #-}
+import ConCat.AltCat (reveal,toCcc,ccc,unCcc)
 
 -- | Nondeterminism category. Like a set of morphisms all of the same type, but
 -- represented as a function whose range is that set. The function's domain is
@@ -84,7 +41,8 @@ data Choice :: (* -> Constraint) -> * -> * -> * where
 -- 
 -- data Choice con a b = forall p. con p => Choice (p -> a -> b)
 
-onChoice :: forall con a b q. (forall p. con p => (p -> a -> b) -> q) -> Choice con a b -> q
+onChoice :: forall con a b q.
+            (forall p. con p => (p -> a -> b) -> q) -> Choice con a b -> q
 onChoice h (Choice f) = h f
 {-# INLINE onChoice #-}
 
@@ -94,22 +52,27 @@ exactly f = Choice (\ () -> f)
 
 type CartCon con = (con (), OpCon (:*) (Sat con))
 
-instance CartCon con => ChoiceCat con (Choice con) where
-  chooseC' Dict1 (Choice (f :: p -> q :* a -> b)) =
-    Choice @con (uncurry (curry . f))
-      <+ inOp @(:*) @(Sat con) @p @q
-  {-# INLINE chooseC' #-}
+-- | Generate any value of type @p@.
+chooseC :: forall con p a b. (CartCon con, con p)
+        => Choice con (p :* a) b -> Choice con a b
+chooseC (Choice (f :: q -> p :* a -> b)) =
+  Choice @con (uncurry (curry . f))
+    <+ inOp @(:*) @(Sat con) @q @p
+{-# INLINE chooseC #-}
 
 --           Choice f  :: Choice con (q :* a) b
---                  f  :: p -> q :* a -> b
---          curry . f  :: p -> q -> a -> b
--- uncurry (curry . f) :: p :* q -> a -> b
+--                  f  :: q -> p :* a -> b
+--          curry . f  :: q -> p -> a -> b
+-- uncurry (curry . f) :: q :* p -> a -> b
 
--- Equivalently, \ (p,q) a -> f p (q,a)
+-- Equivalently, \ (q,p) a -> f q (p,a)
 
-instance ChoiceCat con (->) where
-  chooseC' = oops "chooseC on (->): Convert to a category that really has an instance."
-  -- {-# NOINLINE chooseC' #-}   -- remove later
+-- | Generate any value of type @p@.
+choose :: forall con p a b. (CartCon con, con p)
+       => (p -> a -> b) -> (a -> b)
+choose f = unCcc (chooseC @con (reveal (ccc (uncurry f))))
+-- choose f = unCcc (chooseC @con (toCcc (uncurry f)))
+{-# INLINE choose #-}
 
 {--------------------------------------------------------------------
     Category class instances
