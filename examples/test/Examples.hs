@@ -82,7 +82,7 @@ import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses,(:>))
 import qualified ConCat.RunCircuit as RC
 import qualified ConCat.AltCat as A
-import ConCat.AltCat (ccc,U2(..),(:**:)(..),Ok2, Arr, array,arrAt,OrdCat,ConstCat) --, Ok, Ok3
+import ConCat.AltCat (ccc,reveal,U2(..),(:**:)(..),Ok2, Arr, array,arrAt,OrdCat,ConstCat) --, Ok, Ok3
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Nat
 import ConCat.Shaped
@@ -122,20 +122,22 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- Circuit graphs
-  , runSynCirc "twice" $ ccc $ twice @R
-  , runSynCirc "complex-mul" $ ccc $ uncurry ((*) @C)
-  , runSynCirc "magSqr"    $ ccc $ magSqr @R
-  , runSynCirc "cosSin-xy" $ ccc $ cosSinProd @R
-  , runSynCirc "xp3y"      $ ccc $ \ (x,y) -> x + 3 * y :: R
-  , runSynCirc "horner"    $ ccc $ horner @R [1,3,5]
-  , runSynCirc "cos-2xx"   $ ccc $ \ x -> cos (2 * x * x) :: R
+  -- -- Circuit graphs
+  -- , runSynCirc "twice"       $ toCcc $ twice @R
+  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  -- , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
+  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- -- Choice
-  -- , onChoice @GenBuses (runCirc "or-choice" . ccc)
-  --     (A.reveal (ccc (choose @GenBuses (||))))
-  -- , onChoice @GenBuses (runCirc "line-choice" . ccc)
-  --     (A.reveal (ccc (choose @GenBuses (\ (m,b) x -> m * x + b :: R))))
+
+  , onChoice @GenBuses (runCirc "or-choice" . ccc)
+      (ccc (choose @GenBuses (||)))
+
+  , onChoice @GenBuses (runCirc "line-choice" . ccc)
+      (ccc (choose @GenBuses (\ (m,b) x -> m * x + b :: R)))
 
   -- -- Circuit graphs on trees etc
   -- , runSynCirc "sum-pair"$ ccc $ sum @Pair @Int
