@@ -144,57 +144,57 @@ instance (EnumCat (->) a, CartCon con) => EnumCat (Choice con) a where
   succC = exactly succC
   predC = exactly predC
 
-instance (NumCat (->) a, ProductCat (->), CartCon con)
+instance (NumCat (->) a, CartCon con)
       => NumCat (Choice con) a where
   addC    = exactly addC
   mulC    = exactly mulC
   negateC = exactly negateC
   powIC   = exactly powIC
 
-instance (IntegralCat (->) a, ProductCat (->), con ())
+instance (IntegralCat (->) a, con ())
       => IntegralCat (Choice con) a where
   divC = exactly divC
   modC = exactly modC
 
-instance (FractionalCat (->) a, ProductCat (->), con ())
+instance (FractionalCat (->) a, con ())
       => FractionalCat (Choice con) a where
   recipC  = exactly recipC
   divideC = exactly divideC
 
-instance (FloatingCat (->) a, ProductCat (->), con ())
+instance (FloatingCat (->) a, con ())
       => FloatingCat (Choice con) a where
   expC = exactly expC
   cosC = exactly cosC
   sinC = exactly sinC
 
-instance (RealFracCat (->) a b, ProductCat (->), con ())
+instance (RealFracCat (->) a b, con ())
       => RealFracCat (Choice con) a b where
   floorC    = exactly floorC
   ceilingC  = exactly ceilingC
   truncateC = exactly truncateC
 
-instance (FromIntegralCat (->) a b, ProductCat (->), con ())
+instance (FromIntegralCat (->) a b, con ())
       => FromIntegralCat (Choice con) a b where
   fromIntegralC = exactly fromIntegralC
 
-instance (BottomCat (->) a b, ProductCat (->), con ())
+instance (BottomCat (->) a b, con ())
       => BottomCat (Choice con) a b where
   bottomC = exactly bottomC
 
-instance (IfCat (->) a, ProductCat (->), CartCon con)
+instance (IfCat (->) a, CartCon con)
       => IfCat (Choice con) a where
   ifC = exactly ifC
 
-instance (UnknownCat (->) a b, ProductCat (->), con ())
+instance (UnknownCat (->) a b, con ())
       => UnknownCat (Choice con) a b where
   unknownC = exactly unknownC
 
-instance (RepCat (->) a r, ProductCat (->), con ())
+instance (RepCat (->) a r, con ())
       => RepCat (Choice con) a r where
   reprC = exactly reprC
   abstC = exactly abstC
 
-instance (ArrayCat (->) a b, ProductCat (->), CartCon con)
+instance (ArrayCat (->) a b, CartCon con)
       => ArrayCat (Choice con) a b where
   array = exactly array
   arrAt = exactly arrAt
