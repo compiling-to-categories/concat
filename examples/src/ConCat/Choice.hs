@@ -29,7 +29,7 @@ import GHC.Types (Constraint)
 
 import ConCat.Misc ((:*),oops)
 import ConCat.Category
-import ConCat.AltCat (reveal,toCcc,ccc,unCcc)
+import ConCat.AltCat (reveal,conceal,toCcc,ccc,unCcc) -- (reveal,conceal)
 
 -- | Nondeterminism category. Like a set of morphisms all of the same type, but
 -- represented as a function whose range is that set. The function's domain is
@@ -70,7 +70,7 @@ chooseC (Choice (f :: q -> p :* a -> b)) =
 -- | Generate any value of type @p@.
 choose :: forall con p a b. (CartCon con, con p)
        => (p -> a -> b) -> (a -> b)
-choose f = unCcc (chooseC @con (reveal (ccc (uncurry f))))
+choose f = unCcc (conceal (chooseC @con (reveal (ccc (uncurry f)))))
 -- choose f = unCcc (chooseC @con (toCcc (uncurry f)))
 {-# INLINE choose #-}
 
@@ -117,73 +117,72 @@ instance (CartCon con) => ClosedCat (Choice con) where
   curry (Choice f) = Choice (curry . f)
   uncurry (Choice g) = Choice (uncurry . g)
 
-instance (TerminalCat (->), CartCon con)
-      => TerminalCat (Choice con) where
+instance CartCon con => TerminalCat (Choice con) where
   it = exactly it
 
-instance (ConstCat (->) b, CartCon con) => ConstCat (Choice con) b where
+instance CartCon con => ConstCat (Choice con) b where
   const b = exactly (const b)
 
-instance (BoolCat (->), CartCon con) => BoolCat (Choice con) where
+instance CartCon con => BoolCat (Choice con) where
   notC = exactly notC
   andC = exactly andC
   orC  = exactly orC
   xorC = exactly xorC
 
-instance (EqCat (->) a, CartCon con) => EqCat (Choice con) a where
+instance (Eq a, CartCon con) => EqCat (Choice con) a where
   equal    = exactly equal
   notEqual = exactly notEqual
 
-instance (OrdCat (->) a, CartCon con) => OrdCat (Choice con) a where
+instance (Ord a, CartCon con) => OrdCat (Choice con) a where
   lessThan           = exactly lessThan
   greaterThan        = exactly greaterThan
   lessThanOrEqual    = exactly lessThanOrEqual
   greaterThanOrEqual = exactly greaterThanOrEqual
 
-instance (EnumCat (->) a, CartCon con) => EnumCat (Choice con) a where
+instance (Enum a, CartCon con) => EnumCat (Choice con) a where
   succC = exactly succC
   predC = exactly predC
 
-instance (NumCat (->) a, CartCon con) => NumCat (Choice con) a where
+instance (Num a, CartCon con) => NumCat (Choice con) a where
   addC    = exactly addC
   mulC    = exactly mulC
   negateC = exactly negateC
   powIC   = exactly powIC
 
-instance (IntegralCat (->) a, con ()) => IntegralCat (Choice con) a where
+instance (Integral a, con ()) => IntegralCat (Choice con) a where
   divC = exactly divC
   modC = exactly modC
 
-instance (FractionalCat (->) a, con ()) => FractionalCat (Choice con) a where
+instance (Fractional a, con ()) => FractionalCat (Choice con) a where
   recipC  = exactly recipC
   divideC = exactly divideC
 
-instance (FloatingCat (->) a, con ()) => FloatingCat (Choice con) a where
+instance (Floating a, con ()) => FloatingCat (Choice con) a where
   expC = exactly expC
   cosC = exactly cosC
   sinC = exactly sinC
 
-instance (RealFracCat (->) a b, con ()) => RealFracCat (Choice con) a b where
+instance (Integral b, RealFrac a, con ()) => RealFracCat (Choice con) a b where
   floorC    = exactly floorC
   ceilingC  = exactly ceilingC
   truncateC = exactly truncateC
 
-instance (FromIntegralCat (->) a b, con ()) => FromIntegralCat (Choice con) a b where
+instance (Integral a, Num b, con ()) => FromIntegralCat (Choice con) a b where
   fromIntegralC = exactly fromIntegralC
 
-instance (BottomCat (->) a b, con ()) => BottomCat (Choice con) a b where
+instance (con ()) => BottomCat (Choice con) a b where
   bottomC = exactly bottomC
 
-instance (IfCat (->) a, CartCon con) => IfCat (Choice con) a where
+instance CartCon con => IfCat (Choice con) a where
   ifC = exactly ifC
 
-instance (UnknownCat (->) a b, con ()) => UnknownCat (Choice con) a b where
+instance con () => UnknownCat (Choice con) a b where
   unknownC = exactly unknownC
 
 instance (RepCat (->) a r, con ()) => RepCat (Choice con) a r where
   reprC = exactly reprC
   abstC = exactly abstC
 
-instance (ArrayCat (->) a b, CartCon con) => ArrayCat (Choice con) a b where
+instance CartCon con => ArrayCat (Choice con) a b where
   array = exactly array
   arrAt = exactly arrAt
