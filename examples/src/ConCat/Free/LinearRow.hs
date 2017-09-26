@@ -193,10 +193,12 @@ type OkLM' s a = (Num s, HasV s a, OkLF (V s a))
 
 -- type OkLM' s a = (Num s, HasV s a, HasL (V s a))
 
-class    OkLM' s a => OkLM s a
+-- class    OkLM' s a => OkLM s a
+class    (Num s, HasV s a, OkLF (V s a)) => OkLM s a
 #if 1
 -- Convenient but lots of constraint solving work & volume
-instance OkLM' s a => OkLM s a
+-- instance OkLM' s a => OkLM s a
+instance (Num s, HasV s a, OkLF (V s a)) => OkLM s a
 #else
 -- Less convenient and perhaps less work for the compiler
 instance OkLM Float Float
@@ -388,7 +390,7 @@ instance FunctorC (Linear s) (->) (L s) where fmapC = linear
 lmap :: forall s a b. (a -> b) -> L s a b
 lmap _ = oops "lmap called"
 {-# NOINLINE lmap #-}
-{-# RULES "lmap" forall h. lmap h = ccc h #-}
+{-# RULES "lmap" forall h. lmap h = toCcc h #-}
 {-# ANN lmap PseudoFun #-}
 
 {--------------------------------------------------------------------
