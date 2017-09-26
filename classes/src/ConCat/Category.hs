@@ -35,7 +35,7 @@
 
 module ConCat.Category where
 
-import Prelude hiding (id,(.),curry,uncurry,const)
+import Prelude hiding (id,(.),curry,uncurry,const,zip)
 import qualified Prelude as P
 #ifdef DefaultCat
 import qualified Control.Category as C
@@ -60,8 +60,10 @@ import Data.Array (Array,(!))
 import qualified Data.Array as Arr
 import Data.Proxy (Proxy(..))
 import GHC.Generics ((:*:)(..),(:.:)(..))
+import qualified Data.Vector.Sized as VS
 
 import Control.Newtype (Newtype(..))
+import Data.Key (Zip(..))
 #ifdef VectorSized
 import Data.Finite (Finite)
 import Data.Vector.Sized (Vector)
@@ -70,7 +72,7 @@ import qualified Data.Vector.Sized as VS
 
 -- import Data.MemoTrie
 
-import ConCat.Misc hiding ((<~),(~>),type (&&),type (&+&))
+import ConCat.Misc hiding ((<~),(~>),type (&&))
 import ConCat.Rep
 -- import ConCat.Orphans ()
 -- import ConCat.Additive (Additive)
@@ -1031,20 +1033,14 @@ type BiCCC k = (ClosedCat k, CoproductCat k, TerminalCat k, DistribCat k)
     Add constraints to a category
 --------------------------------------------------------------------}
 
-infixr 3 &+&
-
--- data (f &+& g) a = And1 (f a) (g a)
-
-class    (con a, con' a) => (con &+& con') a
-instance (con a, con' a) => (con &+& con') a
+-- infixr 3 &+&
+-- class    (con a, con' a) => (con &+& con') a
+-- instance (con a, con' a) => (con &+& con') a
 
 -- instance (HasCon (f a), HasCon (g a)) => HasCon ((f &+& g) a) where
 --   type Con ((f &+& g) a) = (Con (f a),Con (g a))
 --   toDict (And1 (toDict -> Dict) (toDict -> Dict)) = Dict
 --   unDict = And1 unDict unDict
-
--- class    (f a, g a) => (f &+& g) a
--- instance (f a, g a) => (f &+& g) a
 
 data Constrained (con :: * -> Constraint) k a b = Constrained (a `k` b)
 
@@ -1663,26 +1659,31 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
     Functors
 --------------------------------------------------------------------}
 
--- These functors change categories but not objects
+-- -- These functors change categories but not objects
 
--- | Functors map objects and arrows.
-class (Category k, Category k'{-, OkTarget f k k'-})
-   => FunctorC f k k' {-  | f -> k k'-} where
-  -- | @fmapC@ maps arrows.
-  fmapC :: (Oks k [a,b], Oks k' [a,b]) => (a `k` b) -> (a `k'` b)
-  -- Laws:
-  -- fmapC id == id
-  -- fmapC (q . p) == fmapC q . fmapC p
+-- -- | Functors map objects and arrows.
+-- class (Category k, Category k'{-, OkTarget f k k'-})
+--    => FunctorC f k k' {-  | f -> k k'-} where
+--   -- | @fmapC@ maps arrows.
+--   fmapC :: (Oks k [a,b], Oks k' [a,b]) => (a `k` b) -> (a `k'` b)
+--   -- Laws:
+--   -- fmapC id == id
+--   -- fmapC (q . p) == fmapC q . fmapC p
 
 {--------------------------------------------------------------------
-    Experiments
+    Vectors (experimental and to be reconciled with arrays)
 --------------------------------------------------------------------}
 
-class AmbCat k where ambC :: (a :* a) `k` a
+class LinearCat k h where
+  fmapC :: Ok2 k a b => (a -> b) `k` (h a -> h b)
+  zipC  :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
+  sumC  :: (Ok k a, Num a) => h a `k` a
 
-instance AmbCat (->) where
-  ambC _ = error "ambC: not defined on (->)"
-  PINLINER(ambC)
+instance (Functor h, Zip h, Foldable h) => LinearCat (->) h where
+  fmapC = fmap
+  zipC  = uncurry zip
+  sumC  = sum
 
-instance AmbCat (Kleisli []) where ambC = Kleisli (\ (a,b) -> [a,b])
+-- TODO: orphan instance for Zip (Vector n) in ConCat.Orphans, where Vector n
+-- comes from Data.Vector.Sized in the vector-sized package.
 

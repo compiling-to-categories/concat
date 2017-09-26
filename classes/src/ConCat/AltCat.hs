@@ -44,10 +44,10 @@ import Data.Finite (Finite)
 
 import qualified ConCat.Category as C
 import ConCat.Rep
-import ConCat.Misc ((:*),(:+),PseudoFun(..),oops)
+import ConCat.Misc ((:*),(:+),PseudoFun(..),oops,type (&+&))
 
 import ConCat.Category
-  ( Category, Ok,Ok2,Ok3,Ok4,Ok5,type (&+&)
+  ( Category, Ok,Ok2,Ok3,Ok4,Ok5
   , ProductCat, Prod, twiceP, inLassocP, inRassocP, transposeP --, unfork
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
   , DistribCat, undistl, undistr
@@ -60,23 +60,30 @@ import ConCat.Category
   , NumCat, IntegralCat, FractionalCat, FloatingCat, RealFracCat, FromIntegralCat
   , EqCat, OrdCat, EnumCat, BottomCat, IfCat, IfT, UnknownCat, RepCat, CoerceCat
   , repIf
-  , Arr, ArrayCat
+  , Arr, ArrayCat, LinearCat
   , TransitiveCon(..)
   , U2(..), (:**:)(..)
   , type (|-)(..), (<+), okProd, okExp
-  , OpCon(..),FunctorC(..),Sat(..)
-  , AmbCat
+  , OpCon(..),Sat(..) -- ,FunctorC(..)
+  -- , AmbCat
   )
 
--- | Dummy identity function set up to trigger rewriting of non-inlining
--- operations to inling operations.
-reveal :: a -> a
+-- | Dummy identity function to trigger rewriting of non-inlining operations to
+-- inling operations.
+reveal :: (a `k` b) -> (a `k` b)
 reveal f = f
 {-# INLINE [0] reveal #-}
--- reveal _f = oops "reveal called"
--- {-# NOINLINE reveal #-}
--- {-# RULES "reveal = id" [0] reveal = id #-}
--- {-# ANN reveal PseudoFun #-}
+
+-- | Dummy identity function to delay rewriting of non-inlining operations to
+-- inling operations.
+conceal :: (a `k` b) -> (a `k` b)
+conceal f = f
+{-# INLINE [0] conceal #-}
+
+{-# RULES
+"reveal/conceal" forall f. reveal (conceal f) = f
+"conceal/reveal" forall f. conceal (reveal f) = f
+ #-}
 
 #define OPINLINE INLINE [0]
 -- #define OPINLINE INLINE CONLIKE [3]
@@ -263,6 +270,10 @@ at = curry arrAt
 
 #endif
 
+Op1(fmapC, (LinearCat k h, Ok2 k a b) => (a -> b) `k` (h a -> h b))
+Op0(zipC , (LinearCat k h, Ok2 k a b) => (h a :* h b) `k` h (a :* b))
+Op0(sumC , (LinearCat k h, Ok k a, Num a) => h a `k` a)
+
 -- TODO: Consider moving all of the auxiliary functions (like constFun) here.
 -- Rename "ConCat.Category" to something like "ConCat.Category.Class" and
 -- "ConCat.AltCat" to "ConCat.Category".
@@ -272,23 +283,6 @@ at = curry arrAt
 
 pair :: forall k a b. (ClosedCat k, Ok2 k a b) => a `k` Exp k b (Prod k a b)
 pair = curry id <+ okProd @k @a @b
-
-Op0(ambC,AmbCat k => Prod k a a `k` a)
-
-infixl 1 `amb`
-amb :: a -> a -> a
--- amb = curry ambC
--- {-# INLINE amb #-}
-amb = oops "amb called"
-{-# NOINLINE amb #-}
-{-# RULES "amb" amb = curry ambC #-}
-
-asKleisli :: forall m a b . (a -> b) -> (a -> m b)
-asKleisli _ = oops "asKleisli called"
-{-# NOINLINE asKleisli #-}
-{-# RULES "asKleisli" forall h. asKleisli h = runKleisli (ccc (ccc h)) #-}
-
--- TODO: maybe a second ccc (for simplification)
 
 {--------------------------------------------------------------------
     Automatic uncurrying
@@ -342,28 +336,39 @@ UncId(Double)
 UncId(c :* d)
 UncId(c :+ d)
 
--- | Pseudo function to trigger rewriting to CCC form, plus a 'reveal' for
--- inlining.
-toCcc :: forall k a b. (a -> b) -> (a `k` b)
-toCcc f = reveal (ccc f)
-{-# INLINE toCcc #-}
+-- | Pseudo function to trigger rewriting to TOCCC form.
+toCcc' :: forall k a b. (a -> b) -> (a `k` b)
+toCcc' _ = oops "toCcc' called"
+{-# NOINLINE toCcc' #-}
 
--- | Pseudo function to trigger rewriting to CCC form.
-ccc :: forall k a b. (a -> b) -> (a `k` b)
-ccc _ = oops "ccc called"
-{-# NOINLINE ccc #-}
-
--- | Pseudo function to trigger rewriting from CCC form.
-unCcc :: forall k a b. (a `k` b) -> (a -> b)
-unCcc _ = oops "unCcc called"
-{-# NOINLINE unCcc #-}
+-- | Pseudo function to stop rewriting from TOCCC form.
+unCcc' :: forall k a b. (a `k` b) -> (a -> b)
+unCcc' _ = oops "unCcc' called"
+{-# NOINLINE unCcc' #-}
 
 {-# RULES
 
-"ccc/unCcc" forall f. ccc (unCcc f) = f
-"unCcc/ccc" forall f. unCcc (ccc f) = f
+"toCcc'/unCcc'" forall f. toCcc' (unCcc' f) = f
+"unCcc'/toCcc'" forall f. unCcc' (toCcc' f) = f
 
  #-}
+
+-- | Pseudo function to trigger rewriting to CCC form, plus a 'reveal' for
+-- inlining.
+toCcc :: forall k a b. (a -> b) -> (a `k` b)
+toCcc f = reveal (toCcc' f)
+{-# INLINE toCcc #-}
+
+-- 2017-09-24
+{-# DEPRECATED ccc "ccc is now called to toCcc" #-}
+ccc :: forall k a b. (a -> b) -> (a `k` b)
+ccc f = toCcc f
+{-# INLINE ccc #-}
+
+-- | Pseudo function to stop rewriting from TOCCC form.
+unCcc :: forall k a b. (a `k` b) -> (a -> b)
+unCcc f = unCcc' (conceal f)
+{-# INLINE unCcc #-}
 
 {--------------------------------------------------------------------
     Rewrite rules
@@ -431,11 +436,11 @@ unCcc _ = oops "unCcc called"
 -- "foo1" forall (f :: a `k` c) (g :: a `k` d) h.
 --   apply . (curry h . f &&& g) = h . (f &&& g) <+ okProd @k @c @d
 
--- -- The next one leads to a role error when I chain ccc calls. To investigate.
+-- -- The next one leads to a role error when I chain toCcc calls. To investigate.
 -- "foo2" forall (g :: a `k` d) h.
 --   apply . (curry h &&& g) = h . (id &&& g) <+ okProd @k @a @d
 
--- "ccc apply-compose-fork1" forall (f :: a `k` c) (g :: a `k` d) h.
+-- "toCcc apply-compose-fork1" forall (f :: a `k` c) (g :: a `k` d) h.
 --   apply . (h . f &&& g) = uncurry h . (f &&& g) <+ okProd @k @c @d
 
 -- -- This rule is especially helpful in eliminating uses of apply and curry.
@@ -464,45 +469,45 @@ unCcc _ = oops "unCcc called"
 #if 0
 -- Prelude versions of categorical ops
 
-"ccc Prelude id" ccc P.id = ccc id
-"ccc Prelude (.)" forall g f. ccc (g P.. f) = ccc (g . f)
+"toCcc Prelude id" toCcc P.id = toCcc id
+"toCcc Prelude (.)" forall g f. toCcc (g P.. f) = toCcc (g . f)
 
-"ccc Prelude (,)" ccc (,) = ccc pair
-"ccc Prelude fst" ccc fst = ccc exl
-"ccc Prelude snd" ccc snd = ccc exr
-"ccc Prelude swap" ccc P.swap = ccc swapP
+"toCcc Prelude (,)" toCcc (,) = toCcc pair
+"toCcc Prelude fst" toCcc fst = toCcc exl
+"toCcc Prelude snd" toCcc snd = toCcc exr
+"toCcc Prelude swap" toCcc P.swap = toCcc swapP
 
-"ccc Prelude Left" ccc Left = ccc inl
-"ccc Prelude Right" ccc Right = ccc inl
-"ccc Prelude either" ccc either = ccc (|||)
+"toCcc Prelude Left" toCcc Left = toCcc inl
+"toCcc Prelude Right" toCcc Right = toCcc inl
+"toCcc Prelude either" toCcc either = toCcc (|||)
 
-"ccc Prelude curry" forall f. ccc (P.curry f) = ccc (curry f)
-"ccc Prelude uncurry" forall f.  ccc (P.uncurry f) = ccc (uncurry f)
+"toCcc Prelude curry" forall f. toCcc (P.curry f) = toCcc (curry f)
+"toCcc Prelude uncurry" forall f.  toCcc (P.uncurry f) = toCcc (uncurry f)
 
-"ccc Prelude const" forall x. ccc (P.const x) = ccc (const x)
+"toCcc Prelude const" forall x. toCcc (P.const x) = toCcc (const x)
 
 #endif
 
 -- Use this one for now.
-"ccc Prelude const" forall x. ccc (P.const x) = ccc (\ _ -> x)
+"toCcc Prelude const" forall x. toCcc (P.const x) = toCcc (\ _ -> x)
 
 #if 0
 
 -- I've commented out the class-ops, since they'll get expanded away early via
 -- auto-generated built-in rules.
 
-"ccc Control.Category id" ccc A.id = ccc id
-"ccc Control.Category (.)" forall g f. ccc (g A.. f) = ccc (g . f)
+"toCcc Control.Category id" toCcc A.id = toCcc id
+"toCcc Control.Category (.)" forall g f. toCcc (g A.. f) = toCcc (g . f)
 
-"ccc Arrow (&&&)" forall f g. ccc (f A.&&& g) = ccc (f &&& g)
-"ccc Arrow (***)" forall f g. ccc (f A.*** g) = ccc (f *** g)
-"ccc Arrow first" forall f. ccc (A.first f) = ccc (first f)
-"ccc Arrow second" forall g. ccc (A.second g) = ccc (second g)
+"toCcc Arrow (&&&)" forall f g. toCcc (f A.&&& g) = toCcc (f &&& g)
+"toCcc Arrow (***)" forall f g. toCcc (f A.*** g) = toCcc (f *** g)
+"toCcc Arrow first" forall f. toCcc (A.first f) = toCcc (first f)
+"toCcc Arrow second" forall g. toCcc (A.second g) = toCcc (second g)
 
-"ccc Arrow (|||)" forall f g. ccc (f A.||| g) = ccc (f ||| g)
-"ccc Arrow (+++)" forall f g. ccc (f A.+++ g) = ccc (f +++ g)
-"ccc Arrow left" forall f. ccc (A.left f) = ccc (left f)
-"ccc Arrow right" forall g. ccc (A.right g) = ccc (right g)
+"toCcc Arrow (|||)" forall f g. toCcc (f A.||| g) = toCcc (f ||| g)
+"toCcc Arrow (+++)" forall f g. toCcc (f A.+++ g) = toCcc (f +++ g)
+"toCcc Arrow left" forall f. toCcc (A.left f) = toCcc (left f)
+"toCcc Arrow right" forall g. toCcc (A.right g) = toCcc (right g)
 
 #endif
 
@@ -520,8 +525,8 @@ unCcc _ = oops "unCcc called"
 
 -- "curry apply" curry apply = id
 
-"ccc P.curry" forall f. ccc (P.curry f) = ccc (curry f)
-"ccc P.uncurry" forall f. ccc (P.uncurry f) = ccc (uncurry f)
+"toCcc P.curry" forall f. toCcc (P.curry f) = toCcc (curry f)
+"toCcc P.uncurry" forall f. toCcc (P.uncurry f) = toCcc (uncurry f)
 
 -- "uncurry pair" uncurry pair = id
 
@@ -586,6 +591,6 @@ coco' = (undefined, (coerceC \\ trans @(CoerceCat k) @a @b @c))
 
 -- Experiment
 
--- lassocP' :: Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
-lassocP' :: (a,(b,c)) `k` ((a,b),c)
-lassocP' = ccc (\ (a,(b,c)) -> ((a,b),c))
+-- -- lassocP' :: Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
+-- lassocP' :: (a,(b,c)) `k` ((a,b),c)
+-- lassocP' = ccc (\ (a,(b,c)) -> ((a,b),c))
