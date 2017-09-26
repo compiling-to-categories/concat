@@ -27,6 +27,7 @@ import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:+:)(..),(:.:)(..))
 import Data.Foldable (fold)
 import Data.Pointed
 import Data.Key (Zip(..))
+import Data.Vector.Sized (Vector)
 -- import Data.Map (Map)
 
 -- import Control.Newtype
@@ -165,6 +166,7 @@ class HasV s a where
   default unV :: RepHasV s a => V s a s -> a
   toV = toV . repr
   unV = abst . unV
+  {-# INLINE toV #-} ; {-# INLINE unV #-}
 
 inV :: (HasV s a, HasV s b) => (a -> b) -> (V s a s -> V s b s)
 inV = toV <~ unV
@@ -204,6 +206,7 @@ instance (HasV s a, HasV s b) => HasV s (a :* b) where
   type V s (a :* b) = V s a :*: V s b
   toV (a,b) = toV a :*: toV b
   unV (f :*: g) = (unV f,unV g)
+  {-# INLINE toV #-} ; {-# INLINE unV #-}
 
 instance OpCon (:*) (Sat (HasV s)) where
   inOp = Entail (Sub Dict)
@@ -215,6 +218,7 @@ instance (HasV s a, HasV s b) => HasV s (a :+ b) where
   toV (Right b) = R1 (toV b)
   unV (L1 fs) = Left  (unV fs)
   unV (R1 gs) = Right (unV gs)
+  {-# INLINE toV #-} ; {-# INLINE unV #-}
 
 -- instance (HasV s a, HasV s b, Zeroable (V s a), Zeroable (V s b), Num s)
 --       => HasV s (a :+ b) where
@@ -259,12 +263,18 @@ instance HasV s b => HasV s (a -> b) where
   type V s (a -> b) = (->) a :.: V s b
   toV = Comp1 . fmap toV
   unV = fmap unV . unComp1
+  {-# INLINE toV #-} ; {-# INLINE unV #-}
 #else
 instance HasV s b => HasV s (a -> b) where
   type V s (a -> b) = Map a :.: V s b
   toV = Comp1 . ??
   unV = ?? . unComp1
 #endif
+
+instance HasV s b => HasV s (Vector n b) where
+  type V s (Vector n b) = Vector n :.: V s b
+  toV = Comp1 . fmap toV
+  unV = fmap unV . unComp1
 
 #if 0
 -- Example default instance
