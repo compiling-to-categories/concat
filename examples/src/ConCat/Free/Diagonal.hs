@@ -1,16 +1,46 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+-- {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeOperators #-}
 
 {-# OPTIONS_GHC -Wall #-}
 -- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
+#define DiagF
+
 -- | A convenient class for diagonizations
 
 module ConCat.Free.Diagonal where
 
+#ifndef DiagF
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
+#endif
 import Data.Pointed (Pointed(..))
+import Data.Key (Keyed(..),Adjustable(..))
 
 import ConCat.Orphans ()
+
+#ifdef DiagF
+
+diagF :: (Applicative f, Keyed f, Adjustable f) => a -> f a -> f (f a)
+diagF z = mapWithKey (\ k a -> replace k a (pure z))
+
+-- TODO: consider defining diag via diagF
+
+-- type Diagonal f = (Pointed f, Applicative f, Keyed f, Adjustable f)
+
+class    (Pointed f, Applicative f, Keyed f, Adjustable f) => Diagonal f
+instance (Pointed f, Applicative f, Keyed f, Adjustable f) => Diagonal f
+
+diag :: Diagonal f => a -> a -> f (f a)
+diag z o = diagF z (point o)
+
+--                o  ::      a
+--          point o  ::    f a
+-- diagF z (point o) :: f (f a)
+
+#else
 
 class (Functor f, Pointed f) => Diagonal f where
   -- diag zero one gives all zero except one on the diagonal.
@@ -52,3 +82,5 @@ instance (Diagonal g, Diagonal f, Traversable g, Applicative f)
 -- sequenceA <$> ... :: g (f (g (f s)))
 -- Comp1 ... :: (g :.: f) (g (f s))
 -- fmap Comp1 ... :: (g :.: f) ((g :.: f) s)
+
+#endif
