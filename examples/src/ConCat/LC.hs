@@ -16,8 +16,8 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
-
--- | 
+-- | Experimenting with an example. The plugin doesn't find the needed instances
+-- when they're declared in the same module as the example. Hm.
 
 module ConCat.LC where
 
