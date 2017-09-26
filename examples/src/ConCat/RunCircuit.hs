@@ -32,7 +32,7 @@ import Prelude
 
 import Control.Monad (when)
 
-import ConCat.AltCat (ccc,Uncurriable(..),Ok,Ok2) -- unitArrow
+import ConCat.AltCat (toCcc,Uncurriable(..),Ok,Ok2) -- unitArrow
 import ConCat.Circuit (Attr,mkGraph,writeDot,displayDot,(:>),GenBuses)
 
 -- import ConCat.Netlist (saveAsVerilog)
@@ -53,7 +53,7 @@ go _ _ = error "go: not implemented"
 {-# NOINLINE go #-}
 
 go' :: Okay a b => String -> [Attr] -> (a -> b) -> IO ()
--- go' name attrs f = run name attrs (ccc (uncurries (unitArrow f)))
+-- go' name attrs f = run name attrs (toCcc (uncurries (unitArrow f)))
 go' _ _ _ = error "go': not implemented"
 {-# NOINLINE go' #-}
 
@@ -72,7 +72,7 @@ goSep _ _ _ = error "goSep: not implemented"
 
 {-# RULES
 
-"go'"   forall name attrs f . go' name attrs f = run name attrs (uncurries (ccc f))
+"go'"   forall name attrs f . go' name attrs f = run name attrs (uncurries (toCcc f))
 "go"    forall name         . go name          = go' name []
 "goSep" forall name s       . goSep name s     = go' name [ranksep s]
 

@@ -55,6 +55,7 @@ library
                      , ghc-prim
                      -- For machine learning
                      , vector
+                     , vector-sized
   if flag(smt)
     build-depends: z3
     cpp-options:        -DCONCAT_SMT
@@ -89,6 +90,7 @@ library
                        ConCat.FFT
                        ConCat.Choice
                        ConCat.RegressChoice
+                       ConCat.LC
   if flag(smt)
     exposed-modules: ConCat.SMT
   ghc-options:      -O2
@@ -139,6 +141,7 @@ Test-Suite misc-examples
                   , concat-examples
                   , ghc-prim
                   , keys
+                  , constraints >= 0.8
                   -- Array/vector experiments
                   , vector
   ghc-options:      -O2
@@ -161,6 +164,7 @@ Test-Suite misc-trace
                   , concat-examples
                   , ghc-prim
                   , keys
+                  , constraints >= 0.8
                   -- Array/vector experiments
                   , vector
   ghc-options:      -O2

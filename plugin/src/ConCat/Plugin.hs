@@ -410,7 +410,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam Let")
      -- TODO: refactor with top Let
      _e@(Let bind@(NonRec v rhs) body') ->
-       dtrace "lam Let subst criteria" (ppr (substFriendly (isClosed cat) rhs, not xInRhs, idOccs True v body')) $
+       -- dtrace "lam Let subst criteria" (ppr (substFriendly (isClosed cat) rhs, not xInRhs, idOccs True v body')) $
        if not (isClosed cat) || -- experiment
           substFriendly (isClosed cat) rhs || not xInRhs || idOccs True v body' <= 1 then
          -- TODO: decide whether to float or substitute.
@@ -538,7 +538,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      --   -> Doing("lam Case cast")
      --           Trying("lam Case cast")
      Case scrut v altsTy alts
-       --  | pprTrace "lam Case unfold" (ppr (scrut,unfoldMaybe' scrut)) False -> undefined
+       -- | pprTrace "lam Case unfold" (ppr (scrut,unfoldMaybe' scrut)) False -> undefined
        | Just scrut' <- unfoldMaybe' scrut
        -> Doing("lam Case unfold")
           return $ mkCcc $ Lam x $
@@ -1246,7 +1246,7 @@ catOpArities = Map.fromList $ map (\ (nm,m,n) -> (catModule ++ '.' : nm, (m,n)))
   , ("constFun",1,0)
   -- , ("ambC",0,0)  -- experiment. How to factor out?
   -- Hack/experiment: fool reCat into not applying to ccc.
-  , ("ccc",-1,-1)
+  , ("toCcc'",-1,-1)
   ]
 
 -- TODO: also handle non-categorical arguments, as in unitArrow and const. Maybe
@@ -1418,7 +1418,7 @@ mkCccEnv opts = do
   -- reprC'V     <- findCatId "reprCp"
   coerceV     <- findCatId "coerceC"
   bottomCV    <- findCatId "bottomC"
-  cccV        <- findCatId "ccc"
+  cccV        <- findCatId "toCcc'"
   -- floatT      <- findFloatTy "Float"
   -- doubleT     <- findFloatTy "Double"
   -- reprV       <- findRepId "repr"

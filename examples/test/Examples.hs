@@ -6,17 +6,22 @@
 --
 -- You might also want to use stack's --file-watch flag for automatic recompilation.
 
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE ViewPatterns        #-}
-{-# LANGUAGE PatternSynonyms     #-}
-{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE CPP                     #-}
+{-# LANGUAGE FlexibleContexts        #-}
+{-# LANGUAGE TypeApplications        #-}
+{-# LANGUAGE TypeOperators           #-}
+{-# LANGUAGE ScopedTypeVariables     #-}
+{-# LANGUAGE ConstraintKinds         #-}
+{-# LANGUAGE LambdaCase              #-}
+{-# LANGUAGE TypeFamilies            #-}
+{-# LANGUAGE ViewPatterns            #-}
+{-# LANGUAGE PatternSynonyms         #-}
+{-# LANGUAGE DataKinds               #-}
+
+-- For OkLC as a class
+{-# LANGUAGE UndecidableInstances    #-}
+{-# LANGUAGE FlexibleInstances       #-}
+{-# LANGUAGE MultiParamTypeClasses   #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -69,9 +74,10 @@ import Data.List (unfoldr)  -- TEMP
 import Data.Complex (Complex)
 import GHC.Float (int2Double)
 
+import Data.Constraint (Dict(..),(:-)(..))
 import Data.Key (Zip)
 
-import ConCat.Misc ((:*),R,sqr,magSqr,Binop,inNew,inNew2,Yes1,oops)
+import ConCat.Misc ((:*),R,sqr,magSqr,Binop,inNew,inNew2,Yes1,oops,type (&+&))
 import ConCat.Incremental (andInc,inc)
 import ConCat.AD
 import ConCat.ADFun hiding (D)
@@ -82,15 +88,20 @@ import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses,(:>))
 import qualified ConCat.RunCircuit as RC
 import qualified ConCat.AltCat as A
-import ConCat.AltCat (ccc,reveal,U2(..),(:**:)(..),Ok2, Arr, array,arrAt,OrdCat,ConstCat) --, Ok, Ok3
+import ConCat.AltCat
+  ( toCcc,ccc,reveal,U2(..),(:**:)(..),Ok,Ok2, Arr, array,arrAt,OrdCat,ConstCat
+  , OpCon(..),Sat, type (|-)(..), second)
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Nat
 import ConCat.Shaped
 import ConCat.Scan
 import ConCat.FFT
+import ConCat.Free.LinearRow (L,OkLM)
+import ConCat.LC
 
-import ConCat.Regress
+-- import ConCat.Regress
 import ConCat.Choice
+import ConCat.RegressChoice
 
 import ConCat.Arr -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
 #ifdef CONCAT_SMT
@@ -122,176 +133,217 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- -- Circuit graphs
-  -- , runSynCirc "twice"       $ toCcc $ twice @R
-  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  -- , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
-  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  -- Circuit graphs
+  , runSynCirc "twice"       $ toCcc $ twice @R
+  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
+  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- -- Choice
+  -- , onChoice @GenBuses (runCirc "choice-or" . toCcc)
+  --     (toCcc (choose @GenBuses (||)))
 
-  , onChoice @GenBuses (runCirc "or-choice" . ccc)
-      (ccc (choose @GenBuses (||)))
+  -- , onChoice @GenBuses (runCirc "choice-add" . toCcc)
+  --     (toCcc (choose @GenBuses ((+) @ Int)))
 
-  , onChoice @GenBuses (runCirc "line-choice" . ccc)
-      (ccc (choose @GenBuses (\ (m,b) x -> m * x + b :: R)))
+  -- , onChoice @GenBuses (runCirc "choice-add" . toCcc)  -- fine
+  --     (toCcc (choose @GenBuses ((+) @ Int)))
+
+  -- , onChoice @(Ok (:>)) (runCirc "choice-add" . toCcc)  -- broken
+  --     (toCcc (choose @(Ok (:>)) ((+) @ Int)))
+
+  -- , onChoice @GenBuses (runCirc "choice-line" . toCcc)
+  --     (toCcc (choose @GenBuses (\ (m,b) x -> m * x + b :: R)))
+
+  -- , onChoice @GenBuses (runCirc "choice-line" . toCcc)
+  --     (toCcc (choose @GenBuses line))
+
+  -- , onChoice @GenBuses (runCirc "choice-line-lam" . toCcc)
+  --     (toCcc (\ x -> choose @GenBuses line x))
+  -- , onChoice @GenBuses (runCirc "choice-line-2x" . toCcc)
+  --     (toCcc (\ x -> choose @GenBuses line (2 * x)))
+  -- , onChoice @GenBuses (runCirc "choice-line-lam-2" . toCcc)
+  --     (toCcc (\ x -> choose @GenBuses line (choose @GenBuses line x)))
+  -- , onChoice @GenBuses (runCirc "choice-line-2" . toCcc) -- fail
+  --     (toCcc (chooseLine @GenBuses . chooseLine @GenBuses))
+  -- , onChoice @GenBuses (runCirc "choice-line-sin-line-a" . toCcc)
+  --     (toCcc (\ x -> choose @GenBuses line (sin (choose @GenBuses line x))))
+  -- , onChoice @GenBuses (runCirc "choice-line-sin-line-b" . toCcc)
+  --     (toCcc (choose @GenBuses line . sin . choose @GenBuses line))
+
+  -- , onChoice @OkLC (runCirc "choice-line" . toCcc)
+  --     (toCcc (choose @OkLC line))
+
+  -- , onChoice @OkLC (\ f -> runCirc "regress-line" (toCcc (step @R f)))
+  --     (toCcc (choose @OkLC line))
+
+  -- , onChoice @OkLC (\ f -> runCirc "regress-line-a" 
+  --                    (toCcc (\ (a,b) p -> sqErr @R (a,b) (f p))))
+  --     (toCcc (choose @OkLC line))
+
+  -- , onChoice @OkLC (\ f -> runCirc "regress-line-b" 
+  --                    (toCcc (\ (a,b) -> gradient (\ p -> sqErr @R (a,b) (f p)))))
+  --     (toCcc (choose @OkLC line))
+
+
+  -- , oops "Hrmph" (toCcc (choose @GenBuses (||)) :: Choice GenBuses Bool Bool)
 
   -- -- Circuit graphs on trees etc
-  -- , runSynCirc "sum-pair"$ ccc $ sum @Pair @Int
-  -- , runSynCirc "sum-rb4"$ ccc $ sum @(RBin N4) @Int
-  -- , runSynCirc "lsums-pair"$ ccc $ lsums @Pair @Int
-  -- , runSynCirc "lsums-rb2"$ ccc $ lsums @(RBin N2) @Int
-  -- , runSynCirc "lsums-rb3"$ ccc $ lsums @(RBin N3) @Int
-  -- , runSynCirc "lsums-rb4"$ ccc $ lsums @(RBin N4) @Int
+  -- , runSynCirc "sum-pair"   $ toCcc $ sum   @Pair      @Int
+  -- , runSynCirc "sum-rb4"    $ toCcc $ sum   @(RBin N4) @Int
+  -- , runSynCirc "lsums-pair" $ toCcc $ lsums @Pair      @Int
+  -- , runSynCirc "lsums-rb2"  $ toCcc $ lsums @(RBin N2) @Int
+  -- , runSynCirc "lsums-rb3"  $ toCcc $ lsums @(RBin N3) @Int
+  -- , runSynCirc "lsums-rb4"  $ toCcc $ lsums @(RBin N4) @Int
 
-  -- , runCirc "fft-pair" $ ccc $ fft @Pair @Double
-  -- , runCirc "fft-rb1" $ ccc $ fft @(RBin N1) @Double
-  -- , runCirc "fft-rb2" $ ccc $ fft @(RBin N2) @Double
-  -- , runCirc "fft-rb3" $ ccc $ fft @(RBin N3) @Double
-  -- , runCirc "fft-rb4" $ ccc $ fft @(RBin N4) @Double
+  -- , runCirc "fft-pair" $ toCcc $ fft @Pair @Double
+  -- , runCirc "fft-rb1"  $ toCcc $ fft @(RBin N1) @Double
+  -- , runCirc "fft-rb2"  $ toCcc $ fft @(RBin N2) @Double
+  -- , runCirc "fft-rb3"  $ toCcc $ fft @(RBin N3) @Double
+  -- , runCirc "fft-rb4"  $ toCcc $ fft @(RBin N4) @Double
 
-  -- , runCirc "foo" $ ccc $ \ ( fc :: ( (Pair :.: Pair) (Complex Double) )) -> fft fc
+  -- , runCirc "foo" $ toCcc $ \ ( fc :: ( (Pair :.: Pair) (Complex Double) )) -> fft fc
 
   -- -- Interval analysis
-  -- , runSynCirc "add-iv"    $ ccc $ ivFun $ uncurry ((+) @Int)
-  -- , runSynCirc "mul-iv"    $ ccc $ ivFun $ uncurry ((*) @Int)
-  -- , runSynCirc "thrice-iv" $ ccc $ ivFun $ \ x -> 3 * x :: Int
-  -- , runSynCirc "sqr-iv"    $ ccc $ ivFun $ sqr @Int
-  -- , runSynCirc "magSqr-iv" $ ccc $ ivFun $ magSqr @Int
-  -- , runSynCirc "xp3y-iv"   $ ccc $ ivFun $ \ ((x,y) :: R2) -> x + 3 * y
-  -- , runSynCirc "xyp3-iv"   $ ccc $ ivFun $ \ (x,y) -> x * y + 3 :: R
-  -- , runSynCirc "horner-iv" $ ccc $ ivFun $ horner @R [1,3,5]
+  -- , runSynCirc "add-iv"    $ toCcc $ ivFun $ uncurry ((+) @Int)
+  -- , runSynCirc "mul-iv"    $ toCcc $ ivFun $ uncurry ((*) @Int)
+  -- , runSynCirc "thrice-iv" $ toCcc $ ivFun $ \ x -> 3 * x :: Int
+  -- , runSynCirc "sqr-iv"    $ toCcc $ ivFun $ sqr @Int
+  -- , runSynCirc "magSqr-iv" $ toCcc $ ivFun $ magSqr @Int
+  -- , runSynCirc "xp3y-iv"   $ toCcc $ ivFun $ \ ((x,y) :: R2) -> x + 3 * y
+  -- , runSynCirc "xyp3-iv"   $ toCcc $ ivFun $ \ (x,y) -> x * y + 3 :: R
+  -- , runSynCirc "horner-iv" $ toCcc $ ivFun $ horner @R [1,3,5]
 
-  -- -- Automatic differentiation
-  -- , runSynCirc "sin-ad"        $ ccc $ andDer $ sin    @R
-  -- , runSynCirc "cos-ad"        $ ccc $ andDer $ cos    @R
-  -- , runSynCirc "twice-ad"      $ ccc $ andDer $ twice  @R
-  -- , runSynCirc "sqr-ad"        $ ccc $ andDer $ sqr    @R
-  -- , runSynCirc "magSqr-ad"     $ ccc $ andDer $ magSqr @R
-  -- , runSynCirc "cos-2x-ad"     $ ccc $ andDer $ \ x -> cos (2 * x) :: R
+  -- Automatic differentiation
+  , runSynCirc "sin-ad"        $ toCcc $ andDer @R @R $ sin    @R
+  , runSynCirc "cos-ad"        $ toCcc $ andDer @R @R $ cos    @R
+  , runSynCirc "twice-ad"      $ toCcc $ andDer @R @R $ twice  @R
+  -- , runSynCirc "sqr-ad"        $ toCcc $ andDer @R $ sqr    @R
+  -- , runSynCirc "magSqr-ad"     $ toCcc $ andDer @R $ magSqr @R
+  -- , runSynCirc "cos-2x-ad"     $ toCcc $ andDer @R $ \ x -> cos (2 * x) :: R
 
-  -- , runSynCirc "cos-2xx-ad"    $ ccc $ andDer $ \ x -> cos (2 * x * x) :: R
-  -- , runSynCirc "cos-xpy-ad"    $ ccc $ andDer $ \ (x,y) -> cos (x + y) :: R
-  -- , runSynCirc "cosSinProd-ad" $ ccc $ andDer $ cosSinProd @R
+  -- , runSynCirc "cos-2xx-ad"    $ toCcc $ andDer @R $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "cos-xpy-ad"    $ toCcc $ andDer @R $ \ (x,y) -> cos (x + y) :: R
+  -- , runSynCirc "cosSinProd-ad" $ toCcc $ andDer @R $ cosSinProd @R
 
-  -- , runSynCirc "sum-pair-ad"$ ccc $ andDer $ sum @Pair @R
+  -- , runSynCirc "sum-pair-ad"$ toCcc $ andDer @R $ sum @Pair @R
 
-  -- , runSynCirc "sum-4-ad"$ ccc $ andDer $ \ (a,b,c,d) -> a+b+c+d :: R
+  -- , runSynCirc "sum-4-ad"$ toCcc $ andDer @R $ \ (a,b,c,d) -> a+b+c+d :: R
 
-  -- , runSynCirc "sum-rb2-ad"$ ccc $ andDer $ sum @(RBin N2) @R
+  -- , runSynCirc "sum-rb2-ad"$ toCcc $ andDer @R $ sum @(RBin N2) @R
 
-  -- -- Dies with "Oops --- ccc called!", without running the plugin.
-  -- , print $ andDer sin (1 :: R)
+  -- -- Dies with "Oops --- toCcc called!", without running the plugin.
+  -- , print $ andDer @R sin (1 :: R)
 
   -- -- -- Automatic differentiation with ADFun
-  -- , runSynCirc "sin-adf"      $ ccc $ andDerF $ sin @R
-  -- , runSynCirc "cos-adf"      $ ccc $ andDerF $ cos @R
+  -- , runSynCirc "sin-adf"      $ toCcc $ andDerF $ sin @R
+  -- , runSynCirc "cos-adf"      $ toCcc $ andDerF $ cos @R
 
-  -- , runSynCirc "twice-adf"    $ ccc $ andDerF $ twice @R
-  -- , runSynCirc "sqr-adf"      $ ccc $ andDerF $ sqr @R
+  -- , runSynCirc "twice-adf"    $ toCcc $ andDerF $ twice @R
+  -- , runSynCirc "sqr-adf"      $ toCcc $ andDerF $ sqr @R
 
-  -- , runSynCirc "magSqr-adf"   $ ccc $ andDerF $ magSqr @R
-  -- , runSynCirc "cos-2x-adf"   $ ccc $ andDerF $ \ x -> cos (2 * x) :: R
-  -- , runSynCirc "cos-2xx-adf"  $ ccc $ andDerF $ \ x -> cos (2 * x * x) :: R
-  -- , runSynCirc "cos-xpy-adf"  $ ccc $ andDerF $ \ (x,y) -> cos (x + y) :: R
-  -- , runSynCirc "cosSinProd-adf"$ ccc $ andDerF $ cosSinProd @R
+  -- , runSynCirc "magSqr-adf"   $ toCcc $ andDerF $ magSqr @R
+  -- , runSynCirc "cos-2x-adf"   $ toCcc $ andDerF $ \ x -> cos (2 * x) :: R
+  -- , runSynCirc "cos-2xx-adf"  $ toCcc $ andDerF $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "cos-xpy-adf"  $ toCcc $ andDerF $ \ (x,y) -> cos (x + y) :: R
+  -- , runSynCirc "cosSinProd-adf"$ toCcc $ andDerF $ cosSinProd @R
 
-  -- -- -- Automatic differentiation with ADFun + linear
-  -- , runSynCirc "sin-adfl"      $ ccc $ andDerFL $ sin @R
-  -- , runSynCirc "cos-adfl"      $ ccc $ andDerFL $ cos @R
-  -- , runSynCirc "sqr-adfl"      $ ccc $ andDerFL $ sqr @R
-  -- , runSynCirc "magSqr-adfl-b"   $ ccc $ andDerFL $ magSqr @R
-  -- , runSynCirc "cos-2x-adfl"   $ ccc $ andDerFL $ \ x -> cos (2 * x) :: R
-  -- , runSynCirc "cos-2xx-adfl"  $ ccc $ andDerFL $ \ x -> cos (2 * x * x) :: R
-  -- , runSynCirc "cos-xpy-adfl"  $ ccc $ andDerFL $ \ (x,y) -> cos (x + y) :: R
-  -- , runSynCirc "cosSinProd-adfl"$ ccc $ andDerFL $ cosSinProd @R
+  -- -- Automatic differentiation with ADFun + linear
+  -- , runSynCirc "sin-adfl"        $ toCcc $ andDerFL @R $ sin @R
+  -- , runSynCirc "cos-adfl"        $ toCcc $ andDerFL @R $ cos @R
+  -- , runSynCirc "sqr-adfl"        $ toCcc $ andDerFL @R $ sqr @R
+  -- , runSynCirc "magSqr-adfl-b"   $ toCcc $ andDerFL @R $ magSqr @R
+  -- , runSynCirc "cos-2x-adfl"     $ toCcc $ andDerFL @R $ \ x -> cos (2 * x) :: R
+  -- , runSynCirc "cos-2xx-adfl"    $ toCcc $ andDerFL @R $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "cos-xpy-adfl"    $ toCcc $ andDerFL @R $ \ (x,y) -> cos (x + y) :: R
+  -- , runSynCirc "cosSinProd-adfl" $ toCcc $ andDerFL @R $ cosSinProd @R
 
   -- -- (0.8414709848078965,[[0.5403023058681398]]), i.e., (sin 1, [[cos 1]]),
   -- -- where the "[[ ]]" is matrix-style presentation of the underlying
   -- -- linear map.
-  -- , runPrint 1     $ andDer $ sin @R
-  -- , runPrint (1,1) $ andDer $ \ (x,y) -> cos (x + y) :: R
-  -- , runPrint (1,1) $ andDer $ cosSinProd @R
+  -- , runPrint 1     $ andDer @R $ sin @R
+  -- , runPrint (1,1) $ andDer @R $ \ (x,y) -> cos (x + y) :: R
+  -- , runPrint (1,1) $ andDer @R $ cosSinProd @R
 
-  -- , runPrint 1     $ gradient' $ ccc $ sin @R
-  -- , runPrint (1,1) $ gradient' $ ccc $ \ (x,y) -> cos (x + y) :: R
+  -- , runPrint 1     $ gradient' $ toCcc $ sin @R
+  -- , runPrint (1,1) $ gradient' $ toCcc $ \ (x,y) -> cos (x + y) :: R
 
-  -- , runChase 1 $ gradient' $ ccc $ sin @R -- 1.5707963267948966
+  -- , runChase 1 $ gradient' $ toCcc $ sin @R -- 1.5707963267948966
 
-  -- , runCircChase "sin-grad" 1 $ ccc $ gradient $ sin @R -- 1.5707963267948966
+  -- , runCircChase "sin-grad" 1 $ toCcc $ gradient $ sin @R -- 1.5707963267948966
 
-  -- , print (minimizeN 1 (ccc cos) 5)  -- (3.141592653589793,6)
-  -- , print (maximizeN 1 (ccc cos) 5)  -- (6.283185307179586,5)
+  -- , print (minimizeN 1 (toCcc cos) 5)  -- (3.141592653589793,6)
+  -- , print (maximizeN 1 (toCcc cos) 5)  -- (6.283185307179586,5)
 
-  -- , runCircMin "cos-min" 5 $ ccc $ cos  -- (3.141592653589793,6)
+  -- , runCircMin "cos-min" 5 $ toCcc $ cos  -- (3.141592653589793,6)
 
-  -- , runSynCirc "gradient-sin" $ ccc $ gradient' $ ccc sin
+  -- , runSynCirc "gradient-sin" $ toCcc $ gradient' $ toCcc sin
 
   -- -- Regression tests
-  -- , runCirc "ss"   $ ccc $ ss   @Pair
-  -- , runCirc "rss"  $ ccc $ rss  @Pair
-  -- , runCirc "mean" $ ccc $ mean @Pair @R
-  -- , runCirc "mse"  $ ccc $ mse  @Pair
-  -- , runCirc "r2"   $ ccc $ r2   @Pair
-  -- , runCirc "tss"  $ ccc $ tss  @Pair
+  -- , runCirc "ss"   $ toCcc $ ss   @Pair
+  -- , runCirc "rss"  $ toCcc $ rss  @Pair
+  -- , runCirc "mean" $ toCcc $ mean @Pair @R
+  -- , runCirc "mse"  $ toCcc $ mse  @Pair
+  -- , runCirc "r2"   $ toCcc $ r2   @Pair
+  -- , runCirc "tss"  $ toCcc $ tss  @Pair
 
-  -- , runSynCirc "mse-samples0"  $ ccc $ mse samples0
+  -- , runSynCirc "mse-samples0"  $ toCcc $ mse samples0
 
-  -- , runCirc "mse-samples0-ad" $ ccc $ andDer $ mse samples0
-  -- , runCirc "mse-samples0-der" $ ccc $ der $ mse samples0
+  -- , runCirc "mse-samples0-ad" $ toCcc $ andDer @R $ mse samples0
+  -- , runCirc "mse-samples0-der" $ toCcc $ der $ mse samples0
 
-  -- , runCirc "mse-samples0-grad" $ ccc $ gradient $ mse samples0
+  -- , runCirc "mse-samples0-grad" $ toCcc $ gradient $ mse samples0
 
-  -- , runSynCirc "q1" $ ccc $ \ (a :: R) -> andDer (\ y -> y * a)
-  -- , runSynCirc "q2" $ ccc $ \ (a :: R) -> andDer (\ y -> a * y)
+  -- , runSynCirc "q1" $ toCcc $ \ (a :: R) -> andDer @R (\ y -> y * a)
+  -- , runSynCirc "q2" $ toCcc $ \ (a :: R) -> andDer @R (\ y -> a * y)
 
-  -- , runCirc "mse-pair-grad" $ ccc $ \ (samples :: Par1 Sample) -> gradient $ mse samples 
+  -- , runCirc "mse-pair-grad" $ toCcc $ \ (samples :: Par1 Sample) -> gradient $ mse samples 
 
-  -- , runCirc "mse-samples0-grad" $ ccc $ gradient $ mse samples0
+  -- , runCirc "mse-samples0-grad" $ toCcc $ gradient $ mse samples0
 
-  -- , runSynCirc "mse-samples1-ad" $ ccc $ andDer $ mse samples1 
+  -- , runSynCirc "mse-samples1-ad" $ toCcc $ andDer @R $ mse samples1 
 
-  -- , runCircChase "mse-regress0" (0,0) $ ccc $ gradient $ negate . mse samples0
+  -- , runCircChase "mse-regress0" (0,0) $ toCcc $ gradient $ negate . mse samples0
 
-  -- , runCirc "mse-regress1" $ ccc $ gradient $ negate . mse samples1
+  -- , runCirc "mse-regress1" $ toCcc $ gradient $ negate . mse samples1
 
-  -- , runPrint (0,0) $ take 1000 . drop 10000 . minimizeL 0.01 (ccc (mse samples1))
+  -- , runPrint (0,0) $ take 1000 . drop 10000 . minimizeL 0.01 (toCcc (mse samples1))
 
-  -- , runCircChase "mse-regress0b" $ ccc $ regress (0,0) mse samples0
+  -- , runCircChase "mse-regress0b" $ toCcc $ regress (0,0) mse samples0
 
-  -- , runSynCirc "foo" $ ccc $ \ (x,y) -> sqr (4 - (y + x * 3)) :: R
+  -- , runSynCirc "foo" $ toCcc $ \ (x,y) -> sqr (4 - (y + x * 3)) :: R
 
-  -- , runSyn $ ccc $ andDer $ \ (x,y) -> x - y :: R -- fail 
-  -- , runSyn $ ccc $ andDer $ \ (x,y) -> 4 - (y + x) :: R -- fail
-  -- , runSyn $ ccc $ andDer $ \ (x,y) -> sqr (4 - (y + x)) :: R -- fail
-  -- , runSyn $ ccc $ andDer $ \ (x,y) -> sqr (4 - (y + x * 3)) :: R  -- fail
+  -- , runSyn $ toCcc $ andDer @R $ \ (x,y) -> x - y :: R -- fail 
+  -- , runSyn $ toCcc $ andDer @R $ \ (x,y) -> 4 - (y + x) :: R -- fail
+  -- , runSyn $ toCcc $ andDer @R $ \ (x,y) -> sqr (4 - (y + x)) :: R -- fail
+  -- , runSyn $ toCcc $ andDer @R $ \ (x,y) -> sqr (4 - (y + x * 3)) :: R  -- fail
 
-  -- , runSyn $ ccc $ andDer $ uncurry ((+) @R) -- okay
+  -- , runSyn $ toCcc $ andDer @R $ uncurry ((+) @R) -- okay
 
-  -- , runSyn $ ccc $ andDer $ uncurry ((-) @R) -- fail
+  -- , runSyn $ toCcc $ andDer @R $ uncurry ((-) @R) -- fail
 
-  -- , runSyn $ ccc $ uncurry ((-) @R) -- okay
+  -- , runSyn $ toCcc $ uncurry ((-) @R) -- okay
 
-  -- , runSyn $ ccc $ \ x -> x - 1 :: R -- okay
+  -- , runSyn $ toCcc $ \ x -> x - 1 :: R -- okay
 
-  -- , runSyn $ ccc $ andDer $ \ x -> x - 1 :: R -- fail
-
-
-  -- , runSyn $ ccc $ andDer $ uncurry ((+) @R) . A.second negate -- fail
+  -- , runSyn $ toCcc $ andDer @R $ \ x -> x - 1 :: R -- fail
 
 
-  -- , runSyn $ ccc $ andDer $ \ x -> x + negate 1 :: R -- okay
-  -- , runSyn $ ccc $ andDer $ \ (x,y) -> (y + x) :: R -- okay
+  -- , runSyn $ toCcc $ andDer @R $ uncurry ((+) @R) . A.second negate -- fail
 
-  -- , runSynCirc "mse-samples1"  $ ccc $ mse samples1
-  -- , runSynCirc "mse-samples1-ad" $ ccc $ andDer $ mse samples1
+
+  -- , runSyn $ toCcc $ andDer @R $ \ x -> x + negate 1 :: R -- okay
+  -- , runSyn $ toCcc $ andDer @R $ \ (x,y) -> (y + x) :: R -- okay
+
+  -- , runSynCirc "mse-samples1"  $ toCcc $ mse samples1
+  -- , runSynCirc "mse-samples1-ad" $ toCcc $ andDer @R $ mse samples1
 
 -- Broken
 
-    -- , runCirc "mse-samples1-der"  $ ccc $ gradient $ mse samples1
+    -- , runCirc "mse-samples1-der"  $ toCcc $ gradient $ mse samples1
 
   -- , print (minimizeN 0.01 (mse samples1) (0,0))
 
@@ -300,144 +352,144 @@ main = sequence_
   -- , print (regress r2 samples1)
 
 
-  -- -- Incremental differentiation. Currently broken.
-  -- , runSynCirc "prod-ai" $ ccc $ andInc $ uncurry ((*) @R)
-  -- , runSynCirc "sop1-ai" $ ccc $ andInc $ \ (x,y,z) -> x * y + y * z + x * z :: R
-  -- , runSynCirc "magSqr-inc" $ ccc $ inc $ andDer $ magSqr @R
+  -- -- Incremental evaluation. Partly brooken
+  -- , runSynCirc "prod-ai" $ toCcc $ andInc $ uncurry ((*) @R)
+  -- , runSynCirc "sop1-ai" $ toCcc $ andInc $ \ (x,y,z) -> x * y + y * z + x * z :: R
+  -- , runSynCirc "magSqr-inc" $ toCcc $ inc $ andDer @R $ magSqr @R
 
 #ifdef CONCAT_SMT
-  -- , runCirc "smt-a" $ ccc $ (\ (x :: R) -> sqr x == 9)
+  -- , runCirc "smt-a" $ toCcc $ (\ (x :: R) -> sqr x == 9)
 
-  -- , runCircSMT "smt-a" $ ccc $ \ (x :: R) -> sqr x == 9
+  -- , runCircSMT "smt-a" $ toCcc $ \ (x :: R) -> sqr x == 9
 
-  -- , runSolve $ ccc $ \ (x :: R) -> sqr x == 9
-  -- , runSolve $ ccc $ \ (x :: R) -> sqr x == 9 && x < 0
-  -- , runSolve $ ccc $ pred1 @R
-  -- , runSolve $ ccc $ \ b -> (if b then 3 else 5 :: Int) > 4
+  -- , runSolve $ toCcc $ \ (x :: R) -> sqr x == 9
+  -- , runSolve $ toCcc $ \ (x :: R) -> sqr x == 9 && x < 0
+  -- , runSolve $ toCcc $ pred1 @R
+  -- , runSolve $ toCcc $ \ b -> (if b then 3 else 5 :: Int) > 4
 
-  -- , runSolve $ ccc $ \ (x::R,y) -> x + y == 15 && x == 2 * y
+  -- , runSolve $ toCcc $ \ (x::R,y) -> x + y == 15 && x == 2 * y
 
-  -- , runSolve $ ccc $ fermat      @Int        -- Just (12,9,15)
-  -- , runSolve $ ccc $ fermatUnder @Int 10     -- Just (4,3,5)
-  -- , runSolve $ ccc $ fermatUnder @Int 100    -- Just (45,60,75)
-  -- , runSolve $ ccc $ fermatUnder @Int 1000   -- Just (975,140,985)
-  -- , runSolve $ ccc $ fermatUnder @Int 10000  -- Just (7635,4072,8653)
+  -- , runSolve $ toCcc $ fermat      @Int        -- Just (12,9,15)
+  -- , runSolve $ toCcc $ fermatUnder @Int 10     -- Just (4,3,5)
+  -- , runSolve $ toCcc $ fermatUnder @Int 100    -- Just (45,60,75)
+  -- , runSolve $ toCcc $ fermatUnder @Int 1000   -- Just (975,140,985)
+  -- , runSolve $ toCcc $ fermatUnder @Int 10000  -- Just (7635,4072,8653)
 
-  -- , runSolve $ ccc $ fermatMax @Int -- Just ((3,4,5),5)
+  -- , runSolve $ toCcc $ fermatMax @Int -- Just ((3,4,5),5)
 
-  -- , runSolveAsc $ ccc $ fermatMax @Int
+  -- , runSolveAsc $ toCcc $ fermatMax @Int
 
-  -- , runSolveAsc $ ccc $ fermatMaxUnder @Int 10
-  -- , runSolveAsc $ ccc $ fermatMaxUnder @Int 100
-  -- , runSolveAsc $ ccc $ fermatMaxUnder @Int 1000
-  -- , runSolveAsc $ ccc $ fermatMaxUnder @Int 10000
+  -- , runSolveAsc $ toCcc $ fermatMaxUnder @Int 10
+  -- , runSolveAsc $ toCcc $ fermatMaxUnder @Int 100
+  -- , runSolveAsc $ toCcc $ fermatMaxUnder @Int 1000
+  -- , runSolveAsc $ toCcc $ fermatMaxUnder @Int 10000
 
-  -- , runSolveAscFrom 500 $ ccc $ (\ (x :: Int,y) -> x == y)
+  -- , runSolveAscFrom 500 $ toCcc $ (\ (x :: Int,y) -> x == y)
 
   -- -- Broken
-  -- , runSolve $ ccc $ (\ (x::R,y) -> x + y == 15 && x * y == 20)  -- "illegal argument" ??
+  -- , runSolve $ toCcc $ (\ (x::R,y) -> x + y == 15 && x * y == 20)  -- "illegal argument" ??
 #endif
 
   -- Recursion experiments
-  -- , runSynCirc "fac1" $ ccc $ fac1  -- bare unboxed var
-  -- , runSynCirc "fac2" $ ccc $ fac2 -- infinite compilation loop
-  -- , runSynCirc "fac3" $ ccc $ fac3 -- same infinite compilation loop
-  -- , runSynCirc "fac4" $ ccc $ fac4 -- same infinite compilation loop
-  -- , runSynCirc "fac5" $ ccc $ -- same infinite compilation loop
+  -- , runSynCirc "fac1" $ toCcc $ fac1  -- bare unboxed var
+  -- , runSynCirc "fac2" $ toCcc $ fac2 -- infinite compilation loop
+  -- , runSynCirc "fac3" $ toCcc $ fac3 -- same infinite compilation loop
+  -- , runSynCirc "fac4" $ toCcc $ fac4 -- same infinite compilation loop
+  -- , runSynCirc "fac5" $ toCcc $ -- same infinite compilation loop
   --     \ (n0 :: Int) -> let go n = if n < 1 then 1 else n * go (n-1) in
   --                        go n0
 
-  -- , runSynCirc "fac6" $ ccc $ -- unhandled letrec
+  -- , runSynCirc "fac6" $ toCcc $ -- unhandled letrec
   --     \ (n0 :: Int, n1) -> let go n = if n < 1 then n1 else n * go (n-1) in
   --                        go n0
 
-  -- , runSynCirc "fac7" $ ccc $ fac7
+  -- , runSynCirc "fac7" $ toCcc $ fac7
 
-  -- , runSynCirc "fac8" $ ccc $ fac8 -- compilation loop
-  -- , runSynCirc "fac9" $ ccc $ fac9 -- compilation loop
+  -- , runSynCirc "fac8" $ toCcc $ fac8 -- compilation loop
+  -- , runSynCirc "fac9" $ toCcc $ fac9 -- compilation loop
 
 
   -- Array experiments
 
-  -- , runSynCirc "map-negate-arr" $ ccc $ fmap @(Arr Bool) @Int negate
+  -- , runSynCirc "map-negate-arr" $ toCcc $ fmap @(Arr Bool) @Int negate
 
-  -- , runSynCirc "map-map-arr" $ ccc $ fmap (+3) . fmap @(Arr Bool) @Int (+2)
+  -- , runSynCirc "map-map-arr" $ toCcc $ fmap (+3) . fmap @(Arr Bool) @Int (+2)
 
-  -- , runSynCirc "liftA2-arr-b" $ ccc $ uncurry $ liftA2 @(Arr Bool) ((+) @Int)
+  -- , runSynCirc "liftA2-arr-b" $ toCcc $ uncurry $ liftA2 @(Arr Bool) ((+) @Int)
 
-  -- , runSynCirc "fmap-arr-bool-plus" $ ccc $ fmap @(Arr Bool) ((+) @Int)
-  -- , runSynCirc "app-arr-bool" $ ccc $ (<*>) @(Arr Bool) @Int @Int
+  -- , runSynCirc "fmap-arr-bool-plus" $ toCcc $ fmap @(Arr Bool) ((+) @Int)
+  -- , runSynCirc "app-arr-bool" $ toCcc $ (<*>) @(Arr Bool) @Int @Int
 
-  -- , runSynCirc "fmap-fun-bool-plus" $ ccc $ fmap   @((->) Bool) ((+) @Int)
-  -- , runSynCirc "app-fun-bool"       $ ccc $ (<*>)  @((->) Bool) @Int @Int
+  -- , runSynCirc "fmap-fun-bool-plus" $ toCcc $ fmap   @((->) Bool) ((+) @Int)
+  -- , runSynCirc "app-fun-bool"       $ toCcc $ (<*>)  @((->) Bool) @Int @Int
 
-  -- , runSynCirc "liftA2-fun-bool"    $ ccc $ liftA2 @((->) Bool) ((+) @Int)
+  -- , runSynCirc "liftA2-fun-bool"    $ toCcc $ liftA2 @((->) Bool) ((+) @Int)
 
-  -- , runSynCirc "sum-arr-lb1" $ ccc $ sum @(Arr (LB N1)) @Int
-  -- , runSynCirc "sum-arr-lb2" $ ccc $ sum @(Arr (LB N2)) @Int
-  -- , runSynCirc "sum-arr-lb3" $ ccc $ sum @(Arr (LB N3)) @Int
-  -- , runSynCirc "sum-arr-lb4" $ ccc $ sum @(Arr (LB N4)) @Int
-  -- , runSynCirc "sum-arr-lb8" $ ccc $ sum @(Arr (LB N8)) @Int
+  -- , runSynCirc "sum-arr-lb1" $ toCcc $ sum @(Arr (LB N1)) @Int
+  -- , runSynCirc "sum-arr-lb2" $ toCcc $ sum @(Arr (LB N2)) @Int
+  -- , runSynCirc "sum-arr-lb3" $ toCcc $ sum @(Arr (LB N3)) @Int
+  -- , runSynCirc "sum-arr-lb4" $ toCcc $ sum @(Arr (LB N4)) @Int
+  -- , runSynCirc "sum-arr-lb8" $ toCcc $ sum @(Arr (LB N8)) @Int
 
-  -- , runSynCirc "sum-arr-rb1" $ ccc $ sum @(Arr (RB N1)) @Int
-  -- , runSynCirc "sum-arr-rb2" $ ccc $ sum @(Arr (RB N2)) @Int
-  -- , runSynCirc "sum-arr-rb3" $ ccc $ sum @(Arr (RB N3)) @Int
-  -- , runSynCirc "sum-arr-rb4" $ ccc $ sum @(Arr (RB N4)) @Int
-  -- , runSynCirc "sum-arr-rb8" $ ccc $ sum @(Arr (RB N8)) @Int
+  -- , runSynCirc "sum-arr-rb1" $ toCcc $ sum @(Arr (RB N1)) @Int
+  -- , runSynCirc "sum-arr-rb2" $ toCcc $ sum @(Arr (RB N2)) @Int
+  -- , runSynCirc "sum-arr-rb3" $ toCcc $ sum @(Arr (RB N3)) @Int
+  -- , runSynCirc "sum-arr-rb4" $ toCcc $ sum @(Arr (RB N4)) @Int
+  -- , runSynCirc "sum-arr-rb8" $ toCcc $ sum @(Arr (RB N8)) @Int
 
-  -- , runSynCirc "fmap-fun-bool-plus" $ ccc $ fmap   @((->) Bool) ((+) @Int)
-  -- , runSynCirc "app-fun-bool"       $ ccc $ (<*>)  @((->) Bool) @Int @Int
-  -- , runSynCirc "inArr2-liftA2-bool"    $ ccc $
+  -- , runSynCirc "fmap-fun-bool-plus" $ toCcc $ fmap   @((->) Bool) ((+) @Int)
+  -- , runSynCirc "app-fun-bool"       $ toCcc $ (<*>)  @((->) Bool) @Int @Int
+  -- , runSynCirc "inArr2-liftA2-bool"    $ toCcc $
   --      (inNew2 (liftA2 (+)) :: Binop (Arr Bool Int))
 
-  -- , runSynCirc "sum-fun-2" $ ccc $ (sum @((->) Bool) @Int)
-  -- , runSynCirc "sum-fun-4" $ ccc $ (sum @((->) (Bool :* Bool)) @Int)
+  -- , runSynCirc "sum-fun-2" $ toCcc $ (sum @((->) Bool) @Int)
+  -- , runSynCirc "sum-fun-4" $ toCcc $ (sum @((->) (Bool :* Bool)) @Int)
 
-  -- , runSynCirc "sum-fun-8" $ ccc $ (sum @((->) ((Bool :* Bool) :* Bool)) @Int)
+  -- , runSynCirc "sum-fun-8" $ toCcc $ (sum @((->) ((Bool :* Bool) :* Bool)) @Int)
 
-  -- , runSynCirc "unpack-arr-2" $ ccc $ (unpack @(Arr Bool Int))
-  -- , runSynCirc "unpack-arr-4" $ ccc $ (unpack @(Arr (Bool :* Bool) Int))
+  -- , runSynCirc "unpack-arr-2" $ toCcc $ (unpack @(Arr Bool Int))
+  -- , runSynCirc "unpack-arr-4" $ toCcc $ (unpack @(Arr (Bool :* Bool) Int))
 
-  -- , runSynCirc "sum-arr-fun-2"    $ ccc $
+  -- , runSynCirc "sum-arr-fun-2"    $ toCcc $
   --      (sum . unpack :: Arr Bool Int -> Int)
-  -- , runSynCirc "sum-arr-fun-4"    $ ccc $
+  -- , runSynCirc "sum-arr-fun-4"    $ toCcc $
   --      (sum . unpack :: Arr (Bool :* Bool) Int -> Int)
-  -- , runSynCirc "sum-arr-fun-8"    $ ccc $
+  -- , runSynCirc "sum-arr-fun-8"    $ toCcc $
   --      (sum . unpack :: Arr ((Bool :* Bool) :* Bool) Int -> Int)
 
-  -- , runSynCirc "fmap-arr-bool" $ ccc $ fmap @(Arr Bool) (negate @Int)
-  -- , runSynCirc "liftA2-arr-bool" $ ccc $ liftA2 @(Arr Bool) ((+) @Int)
-  -- , runSynCirc "liftArr2-bool" $ ccc $ liftArr2 @Bool ((+) @Int)
-  -- , runSynCirc "liftArr2-bool-unc" $ ccc $ uncurry (liftArr2 @Bool ((+) @Int))
-  -- , runSynCirc "sum-arr-bool" $ ccc $ sum @(Arr Bool) @Int
+  -- , runSynCirc "fmap-arr-bool" $ toCcc $ fmap @(Arr Bool) (negate @Int)
+  -- , runSynCirc "liftA2-arr-bool" $ toCcc $ liftA2 @(Arr Bool) ((+) @Int)
+  -- , runSynCirc "liftArr2-bool" $ toCcc $ liftArr2 @Bool ((+) @Int)
+  -- , runSynCirc "liftArr2-bool-unc" $ toCcc $ uncurry (liftArr2 @Bool ((+) @Int))
+  -- , runSynCirc "sum-arr-bool" $ toCcc $ sum @(Arr Bool) @Int
 
   -- -- Int equality turns into matching, which takes some care.
   -- -- See boxCon/tweak in ConCat.Plugin
-  -- , runSynCirc "equal-3"     $ ccc $ \ (x :: Int) -> x == 3
-  -- , runSynCirc "unequal-3"   $ ccc $ \ (x :: Int) -> x /= 3
-  -- , runSynCirc "not-equal-3" $ ccc $ \ (x :: Int) -> not (x == 3)
+  -- , runSynCirc "equal-3"     $ toCcc $ \ (x :: Int) -> x == 3
+  -- , runSynCirc "unequal-3"   $ toCcc $ \ (x :: Int) -> x /= 3
+  -- , runSynCirc "not-equal-3" $ toCcc $ \ (x :: Int) -> not (x == 3)
 
-  -- , runSynCirc "multi-if-equal-int" $ ccc $
+  -- , runSynCirc "multi-if-equal-int" $ toCcc $
   --     \ case
   --         1 -> 3
   --         5 -> 7
   --         7 -> 9
   --         (_ :: Int) -> 0 :: Int
 
-  -- , runSynCirc "foo" $ ccc $ div @Int
+  -- , runSynCirc "foo" $ toCcc $ div @Int
 
-  -- , runSynCirc "foo" $ ccc $ (*) @Int
+  -- , runSynCirc "foo" $ toCcc $ (*) @Int
 
-  -- , runSynCirc "foo" $ ccc $ \ (x :: Int) -> 13 * x == 130
+  -- , runSynCirc "foo" $ toCcc $ \ (x :: Int) -> 13 * x == 130
 
-  -- , runSynCirc "multi-if-equal-int-scrut" $ ccc $
+  -- , runSynCirc "multi-if-equal-int-scrut" $ toCcc $
   --     \ x -> case 13 * x of
   --         1 -> 3
   --         5 -> 7
   --         7 -> 9
   --         (_ :: Int) -> 0 :: Int
 
-  -- , runSynCirc "if-equal-int-x" $ ccc $
+  -- , runSynCirc "if-equal-int-x" $ toCcc $
   --     \ x -> case x of
   --         5 -> x `div` 2
   --         (_ :: Int) -> 0 :: Int
@@ -622,6 +674,31 @@ fac9 n0 = go (n0,1)
 
 ---------
     
--- coerceTest :: Pair R -> (Par1 :*: Par1) R
--- coerceTest = coerce
+-- -- coerceTest :: Pair R -> (Par1 :*: Par1) R
+-- -- coerceTest = coerce
 
+-- #if 0
+
+-- -- type OkLC = Ok (L R) &+& Ok (:>)
+-- type OkLC = OkLM R &+& GenBuses
+
+-- #else
+
+-- -- class    (Ok (L R) a, Ok (:>) a) => OkLC a
+-- -- instance (Ok (L R) a, Ok (:>) a) => OkLC a
+
+-- class    (OkLM R a, GenBuses a) => OkLC a
+-- instance (OkLM R a, GenBuses a) => OkLC a
+
+-- --     • The constraint ‘OkLM R a’ is no smaller than the instance head
+-- --       (Use UndecidableInstances to permit this)
+-- --     • In the instance declaration for ‘OkLC a’
+-- -- test/Examples.hs:688:10-41: error: …
+-- --     • The constraint ‘GenBuses a’ is no smaller than the instance head
+-- --       (Use UndecidableInstances to permit this)
+
+-- instance OpCon (:*) (Sat OkLC) where
+--   inOp = Entail (Sub Dict)
+--   {-# INLINE inOp #-}
+
+-- #endif
