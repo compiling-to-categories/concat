@@ -14,7 +14,7 @@ module ConCat.Regress where
 
 import ConCat.Misc (R)
 
-import ConCat.AltCat (ccc)
+import ConCat.AltCat (toCcc)
 
 import ConCat.Sized
 import ConCat.AD (gradient)
@@ -78,7 +78,7 @@ mean as = sum as / fromIntegral (size @f)
 
 -- | Linear (for now) regression
 regress :: Line -> Metric f -> f Sample -> Line
--- regress metric samples = minimize 1 (ccc (metric samples)) (0,0)
+-- regress metric samples = minimize 1 (toCcc (metric samples)) (0,0)
 regress line0 metric samples =
   chase 1 (gradient (negate . metric samples)) line0
 {-# INLINE regress #-}
