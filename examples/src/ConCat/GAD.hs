@@ -19,13 +19,14 @@ module ConCat.GAD where
 import Prelude hiding (id,(.),curry,uncurry,const)
 -- import qualified Prelude as P
 -- import GHC.Exts (Coercible,coerce)
-
 import GHC.Exts (Constraint)
+
+
 
 -- import GHC.Generics (Par1(..),(:.:)(..),(:*:)())
 -- import Control.Newtype
 
-import ConCat.Misc ((:*),PseudoFun(..),oops)
+import ConCat.Misc ((:*),type (&+&)) -- ,PseudoFun(..),oops
 -- import ConCat.Free.VectorSpace
 -- import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
@@ -140,35 +141,12 @@ instance ( CoerceCat (->) a b
     Differentiation interface
 --------------------------------------------------------------------}
 
+-- | A function combined with its derivative
 andDeriv :: forall k a b . (a -> b) -> (a -> b :* (a `k` b))
-#if 0
--- Experiment with inlining.
-andDeriv h = unD (ccc h)
+andDeriv h = unD (toCcc h)
 {-# INLINE andDeriv #-}
-#else
--- andDeriv _ = error "andDeriv called"
-andDeriv _ = oops "andDeriv called"
-{-# NOINLINE andDeriv #-}
--- {-# RULES "andDeriv" forall h. andDeriv h = unD (reveal (ccc h)) #-}
-{-# RULES "andDeriv" forall h. andDeriv h = unD (ccc h) #-}
--- {-# RULES "andDeriv" forall h. andDeriv h = unD (ccc (ccc h)) #-}
-{-# ANN andDeriv PseudoFun #-}
-#endif
 
--- The extra ccc allows us to use ClosedCat (->) and then apply rewrite rules to
--- eliminate the closed operations.
-
--- The reveal greatly improved simplification and sped up compilation.
--- Try removing, and retest.
-
+-- | The derivative of a given function
 deriv :: forall k a b . (a -> b) -> (a -> (a `k` b))
--- deriv _ = error "deriv called"
-deriv _ = oops "deriv called"
-{-# NOINLINE deriv #-}
--- {-# RULES "deriv" forall h. deriv h = snd . andDeriv h #-}
--- {-# RULES "deriv" forall h. deriv h = snd P.. andDeriv h #-}
-{-# RULES "deriv" forall h. deriv h = ccc (snd . andDeriv h) #-}
-{-# ANN deriv PseudoFun #-}
-
--- 2016-01-07: The extra ccc helped with simplification.
--- Occassionally try without, and compare results.
+deriv h = snd . andDeriv h
+{-# INLINE deriv #-}

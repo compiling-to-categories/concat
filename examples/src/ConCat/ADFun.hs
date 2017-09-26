@@ -157,58 +157,21 @@ instance (Floating s, Additive s) => FloatingCat D s where
 -- Type specialization of andDeriv
 andDerF :: forall a b . (a -> b) -> (a -> b :* (a -> b))
 andDerF = andDeriv
--- andDerF _ = oops "andDerF"
--- {-# NOINLINE andDerF #-}
--- {-# RULES "andDerF" andDerF = andDeriv #-}
+{-# INLINE andDerF #-}
 
 -- Type specialization of deriv
-derFL :: forall a b . (a -> b) -> (a -> (a -> b))
-derFL = deriv
--- derFL = oops "derFL"
--- {-# NOINLINE derFL #-}
--- {-# RULES "derFL" derFL = deriv #-}
--- {-# INLINE derFL #-}
+derF :: forall a b . (a -> b) -> (a -> (a -> b))
+derF = deriv
+{-# INLINE derF #-}
 
 -- AD with derivative-as-function, then converted to linear map
-andDerFL :: forall s a b. (OkLM s a, OkLM s b, HasL (V s a), s ~ R)
+andDerFL :: forall s a b. (OkLM s a, OkLM s b, HasL (V s a))
          => (a -> b) -> (a -> b :* L s a b)
-andDerFL _ = oops "andDerFL called"
--- andDerFL = (fmap.fmap.fmap) linear andDeriv
--- andDerFL = (second linear .) . andDerF
--- andDerFL f = second linear . andDerF f
-{-# NOINLINE andDerFL #-}
--- {-# RULES "andDerFL" andDerFL = andDeriv #-}
-{-# RULES "andDerFL" forall f. andDerFL f = second linear . andDerF f #-}
+andDerFL f = second linear . andDerF f
+{-# INLINE andDerFL #-}
 
--- When the dust settles, experiment with "error" and with INLINE (separately).
-
--- The s ~ R is just to make testing a little easier. Remove later.
-
-#if 0
-
-andDer :: forall a b . (a -> b) -> (a -> b :* LR a b)
-andDer = andDeriv
-{-# NOINLINE andDer #-}
-{-# RULES "andDer" andDer = andDeriv #-}
--- {-# ANN andDer PseudoFun #-}
-
-der :: forall a b . (a -> b) -> (a -> LR a b)
-der = deriv
-{-# NOINLINE der #-}
-{-# RULES "der" der = deriv #-}
--- {-# ANN der PseudoFun #-}
-
-gradient :: HasV R a => (a -> R) -> a -> a
--- gradient :: HasV s a => (a -> s) -> a -> a
-gradient f = unV . unpack . unpack . der f
-{-# INLINE gradient #-}
--- {-# RULES "gradient" forall f. gradient f = unV . unpack . unpack . der f #-}
-
---                             f :: a -> R
---                         der f :: a -> L R a R
---                unpack . der f :: a -> V R R (V R a R)
---                               :: a -> Par1 (V R a R)
---       unpack . unpack . der f :: a -> V R a R
--- unV . unpack . unpack . der f :: a -> a
-
-#endif
+-- AD with derivative-as-function, then converted to linear map
+derFL :: forall s a b. (OkLM s a, OkLM s b, HasL (V s a))
+      => (a -> b) -> (a -> L s a b)
+derFL f = linear . derF f
+{-# INLINE derFL #-}

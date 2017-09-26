@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -18,9 +19,10 @@ module ConCat.AD where
 
 import Prelude hiding (id,(.),curry,uncurry,const)
 
+import GHC.Generics(Par1(..))
 import Control.Newtype (unpack)
 
-import ConCat.Misc ((:*),R,Yes1)
+import ConCat.Misc ((:*),Yes1)
 import ConCat.Free.VectorSpace (HasV(..))
 import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
@@ -103,41 +105,44 @@ instance (Ok (L s) s, Floating s) => FloatingCat (D s) s where
   {-# INLINE sinC #-}
   {-# INLINE cosC #-}
 
+instance (LinearCat k h, Functor h, Zip h, Foldable h) => LinearCat (D s) h where
+  fmapC (D f) = D (\ as -> let (cs,fs') = unzip (fmap f as) in (cs, diagF fs'))
+  zipC  = linearD zipC zipC
+  sumC  = linearD sumC sumC
+
+-- TODO: Generalize from D s to GD k. zipC and sumC come easily, but maybe I
+-- need to generalize diagF to a method.
+
 {--------------------------------------------------------------------
     Differentiation interface
 --------------------------------------------------------------------}
 
-andDer :: forall a b . (a -> b) -> (a -> b :* LR a b)
-#if 0
-andDer f = andDeriv (ccc f)
-{-# NOINLINE andDer #-}
-{-# RULES "andDer" forall f. andDer f = andDeriv (ccc f) #-}
-#else
+-- andDer :: forall a b . (a -> b) -> (a -> b :* LR a b)
+andDer :: forall s a b . (a -> b) -> (a -> b :* L s a b)
 andDer = andDeriv
-{-# NOINLINE andDer #-}
-{-# RULES "andDer" andDer = andDeriv #-}
-#endif
+{-# INLINE andDer #-}
 
-der :: forall a b . (a -> b) -> (a -> LR a b)
+der :: forall s a b . (a -> b) -> (a -> L s a b)
 der = deriv
-{-# NOINLINE der #-}
-{-# RULES "der" der = deriv #-}
--- {-# ANN der PseudoFun #-}
+{-# INLINE der #-}
 
--- gradient :: HasV s a => (a -> s) -> a -> a
-gradient :: HasV R a => (a -> R) -> a -> a
--- gradient f = unV . unpack . unpack . der f
-gradient f = gradientD (ccc f)
+type IsScalar s = V s s ~ Par1
+
+gradient :: (HasV s a, IsScalar s) => (a -> s) -> a -> a
+-- gradient :: HasV R a => (a -> R) -> a -> a
+gradient f = gradientD (toCcc f)
 {-# INLINE gradient #-}
--- {-# RULES "gradient" forall f. gradient f = unV . unpack . unpack . der f #-}
 
---                             f :: a -> R
---                         der f :: a -> L R a R
---                unpack . der f :: a -> V R R (V R a R)
---                               :: a -> Par1 (V R a R)
---       unpack . unpack . der f :: a -> V R a R
--- unV . unpack . unpack . der f :: a -> a
-
-gradientD :: HasV R a => D R a R -> a -> a
-gradientD (D h) = unV . unpack . unpack . snd . h
+gradientD :: (HasV s a, IsScalar s) => D s a s -> a -> a
+-- gradientD :: HasV R a => D R a R -> a -> a
+gradientD (D h) = unV . unPar1 . unpack . snd . h
 {-# INLINE gradientD #-}
+
+
+--                             f :: a -> s
+--                         der f :: a -> L s a s
+--                unpack . der f :: a -> V s s (V s a s)
+--                               :: a -> Par1 (V s a s)
+--       unPar1 . unpack . der f :: a -> V s a s
+-- unV . unPar1 . unpack . der f :: a -> a
+

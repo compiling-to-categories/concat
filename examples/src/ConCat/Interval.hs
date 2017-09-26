@@ -21,7 +21,7 @@ import Control.Newtype
 
 import ConCat.Misc ((:*),(:+),inNew,inNew2)
 import ConCat.Category
-import ConCat.AltCat (ccc)
+import ConCat.AltCat (toCcc)
 
 -- For Iv instances:
 import GHC.Generics (U1(..),(:*:)(..),Par1(..),(:.:)(..))
@@ -163,5 +163,5 @@ instance (Coercible (Iv a) (Iv b)) => CoerceCat IF a b where
 ivFun :: (a -> b) -> (Iv a -> Iv b)
 ivFun _ = error "ivFun called"
 {-# NOINLINE ivFun #-}
-{-# RULES "ivFun" forall h. ivFun h = unIF (ccc h) #-}
+{-# RULES "ivFun" forall h. ivFun h = unIF (toCcc h) #-}
 

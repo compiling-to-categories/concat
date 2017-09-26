@@ -458,22 +458,16 @@ instance (Atomic s, Num s) => NumCat Inc s where
 --------------------------------------------------------------------}
 
 andInc :: forall a b . (a -> b) -> (a :* Delta a -> b :* Delta b)
-andInc _ = error "andInc called"
-{-# NOINLINE andInc #-}
-{-# RULES "andInc" forall f. andInc f = flatInc (andDeriv f) #-}
--- {-# ANN andInc PseudoFun #-}
+andInc f = flatInc (andDeriv f)
+{-# INLINE andInc #-}
 
 flatInc :: (a -> b :* (a -+> b)) -> (a :* Delta a -> b :* Delta b)
 flatInc f (a,da) = (b, d da) where (b,DelX d) = f a
 
 dinc :: forall a b . (a -> b) -> (a -> (a -+> b))
-dinc _ = error "dinc called"
-{-# NOINLINE dinc #-}
-{-# RULES "dinc" dinc = deriv #-}
+dinc f = deriv f
+{-# INLINE dinc #-}
 
 inc :: forall a b . (a -> b) -> (a :* Delta a -> Delta b)
-inc _ = error "inc called"
-{-# NOINLINE inc #-}
-{-# RULES "inc" forall f. inc f = snd . andInc f #-}
--- {-# RULES "inc" forall f. inc f = P.uncurry (unDelX P.. snd P.. andInc f) #-}
--- {-# ANN inc PseudoFun #-}
+inc f = snd . andInc f
+{-# INLINE inc #-}
