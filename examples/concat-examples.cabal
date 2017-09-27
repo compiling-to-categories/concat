@@ -27,7 +27,8 @@ library
   hs-source-dirs:      src
   include-dirs:        src
   install-includes:    ConCat/AbsTy.inc
-  build-depends:       base >=4.9
+  build-depends:       adjunctions >= 4.3
+                     , base >=4.9
                      , concat-classes
                      , concat-plugin
                      , constraints >= 0.8
