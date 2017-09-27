@@ -135,7 +135,10 @@ Comp1 . distribute :: ... -> (h :.: V s b) (h (V s a s))
 fmap Comp1         :: ... -> (h :.: V s b) ((h :.: V s a) s)
                    :: ... -> V s (h b) (V s (h a) s)
 
-     f                      :: a -> b :* L s a b
+f :: a -> b :* L s a b
+
+L . pushH . mkDiag :: h (L s a b) -> L s (h a) (h b)
+
 fmap f                      :: h a -> h (b :* L s a b)
 unzip                       :: ... -> h b :* h (L s a b)
 second (L . pushH . mkDiag) :: ... -> h b :* L s (h a) (h b)
