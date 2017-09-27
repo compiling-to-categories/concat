@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -16,8 +17,10 @@ module ConCat.Free.Diagonal where
 #ifndef DiagF
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 #endif
+import Data.Functor.Rep (Representable(..))
 import Data.Pointed (Pointed(..))
 import Data.Key (Keyed(..),Adjustable(..))
+import GHC.Generics ((:.:)(..))
 
 import ConCat.Orphans ()
 
@@ -39,6 +42,9 @@ diag z o = diagF z (point o)
 --                o  ::      a
 --          point o  ::    f a
 -- diagF z (point o) :: f (f a)
+
+diag' :: (Representable f, Eq (Rep f)) => a -> a -> f (f a)
+diag' z o = unComp1 (tabulate (\ (i,j) -> if i == j then o else z))
 
 #else
 
