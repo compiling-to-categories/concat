@@ -53,6 +53,8 @@ type Zeroable = Pointed
 zeroV :: (Pointed f, Num a) => f a
 zeroV = point 0
 
+-- TODO: Maybe use tabulate . const instead of point
+
 #else
 
 -- Experimental alternative to Pointed
