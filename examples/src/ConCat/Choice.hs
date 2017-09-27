@@ -80,7 +80,6 @@ choose f = unCcc (chooseC @con (toCcc (uncurry f)))
     Category class instances
 --------------------------------------------------------------------}
 
-
 combine :: forall con a b c d e f. CartCon con
         => ((a -> b) -> (c -> d) -> (e -> f))
         -> (Choice con a b -> Choice con c d -> Choice con e f)
