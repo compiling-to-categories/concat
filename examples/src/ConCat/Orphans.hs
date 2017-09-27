@@ -1,3 +1,4 @@
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -22,6 +23,8 @@ import Data.Key
 import Data.Pointed
 import Data.Copointed
 import Control.Comonad.Cofree
+import Data.Functor.Rep hiding (index)
+import qualified Data.Functor.Rep as Rep
 
 -- import Data.Stream (Stream(..))
 import Control.Newtype
@@ -272,3 +275,34 @@ app l p str a =
 
 appPrec :: Rational
 appPrec = 10
+
+{--------------------------------------------------------------------
+    Representable
+--------------------------------------------------------------------}
+
+instance Representable U1 where
+  type Rep U1 = Void
+  tabulate _ = U1
+  index U1 = absurd
+
+instance Representable Par1 where
+  type Rep Par1 = ()
+  tabulate h = Par1 (h ())
+  index (Par1 a) () = a
+
+instance (Representable f, Representable g) => Representable (f :*: g) where
+  type Rep (f :*: g) = Rep f :+ Rep g
+  tabulate h = tabulate (h . Left) :*: tabulate (h . Right)
+  index (fa :*: ga) = Rep.index fa `either` Rep.index ga
+
+instance (Representable g, Representable f) => Representable (g :.: f) where
+  type Rep (g :.: f) = Rep g :* Rep f
+  tabulate h = Comp1 (tabulate <$> tabulate (curry h))
+  tabulate :: (Rep g :* Rep f -> a) -> (g :.: f) a
+  index (Comp1 gfa) (i,j) = Rep.index (Rep.index gfa i) j
+
+--                                     h   :: Rep g :* Rep f -> a
+--                               curry h   :: Rep g -> Rep f -> a
+--                     tabulate (curry h)  :: g (Rep f -> a)
+--        tabulate <$> tabulate (curry h)  :: g (f a)
+-- Comp1 (tabulate <$> tabulate (curry h)) :: (g :.: f) a
