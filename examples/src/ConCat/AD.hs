@@ -1,3 +1,4 @@
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -11,7 +12,7 @@
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
--- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
 -- | Automatic differentiation
 
@@ -19,17 +20,19 @@ module ConCat.AD where
 
 import Prelude hiding (id,(.),curry,uncurry,const,unzip)
 
-import GHC.Generics(Par1(..))
+import GHC.Generics(Par1(..),(:.:)(..))
 import Control.Newtype (unpack)
+import Data.Distributive (Distributive(..))
 -- import Data.Key (Zip(..))
+import Data.Constraint ((\\))
 
 import ConCat.Misc ((:*),Yes1)
-import ConCat.Free.VectorSpace (HasV(..))
+import ConCat.Free.VectorSpace (HasV(..),VComp(..))
 import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
 import ConCat.AltCat
--- import ConCat.Free.Diagonal (diagF)
+import ConCat.Free.Diagonal (diagF)
 import ConCat.GAD
 
 -- Differentiable functions
@@ -108,28 +111,34 @@ instance (Ok (L s) s, Floating s) => FloatingCat (D s) s where
 
 -- instance LinearCat (L s) h where
 
--- instance (Applicative h, Foldable h) => LinearCat (D s) h where
---   -- fmapC (D f) =
---   --   D (\ as -> let (cs,fs') = unzip (fmap f as) in (cs, L (foo (diagF zeroLM fs'))))
---   zipC  = linearD zipC zipC
---   sumC  = linearD sumC sumC
-
--- foo :: h (h (L s a b)) -> V s (h b) (V s (h a) s)
--- foo = undefined
+instance (OkLF h, VComp h) => LinearCat (D s) h where
+  fmapC :: forall a b. Ok2 (D s) a b => D s a b -> D s (h a) (h b)
+  fmapC (D f) = D (second (L . pushH . mkDiag) . unzip . fmap f)
+   where
+     pushH :: h (h (V s b (V s a s))) -> V s (h b) (V s (h a) s)
+     pushH = fmap Comp1 . Comp1 . fmap distribute
+               \\ vcomp @h @s @a
+               \\ vcomp @h @s @b
+     mkDiag :: h (L s a b) -> h (h (V s b (V s a s)))
+     mkDiag = diagF zeroL . fmap unpack
+  zipC = linearD zipC zipC
+  sumC = linearD sumC sumC
 
 #if 0
 
-f :: a -> b :* L s a b
-as :: h a
-f <$> as :: h (b :* L s a b)
-unzip (f <$> as) :: h b :* h (L s a b)
-bs :: h b
-fs' :: h (L s a b)
-zeroLM :: L s a b
-diagF zeroLM fs' :: h (h (L s a b))
+fmap unpack :: h (L s a b) -> h (V s b (V s a s))
+      zeroL :: V s b (V s a s)
+diagF zeroL :: h (V s b (V s a s)) -> h (h (V s b (V s a s)))
 
-need :: L s (h a) (h b)
-     =~ V s (h b) (V s (h a) s)
+fmap distribute    :: h (h (V s b (V s a s))) -> h (V s b (h (V s a s)))
+Comp1 . distribute :: ... -> (h :.: V s b) (h (V s a s))
+fmap Comp1         :: ... -> (h :.: V s b) ((h :.: V s a) s)
+                   :: ... -> V s (h b) (V s (h a) s)
+
+     f                      :: a -> b :* L s a b
+fmap f                      :: h a -> h (b :* L s a b)
+unzip                       :: ... -> h b :* h (L s a b)
+second (L . pushH . mkDiag) :: ... -> h b :* L s (h a) (h b)
 
 #endif
 
