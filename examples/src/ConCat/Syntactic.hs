@@ -351,6 +351,14 @@ instance UnknownCat Syn a b where
   unknownC = app0 "unknownC"
   INLINER(unknownC)
 
+instance LinearCat Syn h where
+  fmapC = app1 "fmapC"
+  zipC = app0 "zipC"
+  sumC = app0 "sumC"
+  INLINER(fmapC)
+  INLINER(zipC)
+  INLINER(sumC)
+
 -- #define ShowTypes
 
 #ifdef ShowTypes
