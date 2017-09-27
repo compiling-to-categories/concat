@@ -17,10 +17,11 @@
 
 module ConCat.AD where
 
-import Prelude hiding (id,(.),curry,uncurry,const)
+import Prelude hiding (id,(.),curry,uncurry,const,unzip)
 
 import GHC.Generics(Par1(..))
 import Control.Newtype (unpack)
+-- import Data.Key (Zip(..))
 
 import ConCat.Misc ((:*),Yes1)
 import ConCat.Free.VectorSpace (HasV(..))
@@ -28,7 +29,7 @@ import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
 import ConCat.AltCat
-
+-- import ConCat.Free.Diagonal (diagF)
 import ConCat.GAD
 
 -- Differentiable functions
@@ -105,10 +106,39 @@ instance (Ok (L s) s, Floating s) => FloatingCat (D s) s where
   {-# INLINE sinC #-}
   {-# INLINE cosC #-}
 
-instance (LinearCat k h, Functor h, Zip h, Foldable h) => LinearCat (D s) h where
-  fmapC (D f) = D (\ as -> let (cs,fs') = unzip (fmap f as) in (cs, diagF fs'))
-  zipC  = linearD zipC zipC
-  sumC  = linearD sumC sumC
+-- instance LinearCat (L s) h where
+
+-- instance (Applicative h, Foldable h) => LinearCat (D s) h where
+--   -- fmapC (D f) =
+--   --   D (\ as -> let (cs,fs') = unzip (fmap f as) in (cs, L (foo (diagF zeroLM fs'))))
+--   zipC  = linearD zipC zipC
+--   sumC  = linearD sumC sumC
+
+-- foo :: h (h (L s a b)) -> V s (h b) (V s (h a) s)
+-- foo = undefined
+
+#if 0
+
+f :: a -> b :* L s a b
+as :: h a
+f <$> as :: h (b :* L s a b)
+unzip (f <$> as) :: h b :* h (L s a b)
+bs :: h b
+fs' :: h (L s a b)
+zeroLM :: L s a b
+diagF zeroLM fs' :: h (h (L s a b))
+
+need :: L s (h a) (h b)
+     =~ V s (h b) (V s (h a) s)
+
+#endif
+
+-- diagF zeroLM fs'
+
+-- diagF :: (Applicative f, Keyed f, Adjustable f) => a -> f a -> f (f a)
+
+unzip :: Functor f => f (a :* b) -> f a :* f b
+unzip ps = (fst <$> ps, snd <$> ps)
 
 -- TODO: Generalize from D s to GD k. zipC and sumC come easily, but maybe I
 -- need to generalize diagF to a method.
