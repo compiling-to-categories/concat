@@ -297,8 +297,8 @@ instance (Representable f, Representable g) => Representable (f :*: g) where
 
 instance (Representable g, Representable f) => Representable (g :.: f) where
   type Rep (g :.: f) = Rep g :* Rep f
-  tabulate h = Comp1 (tabulate <$> tabulate (curry h))
   tabulate :: (Rep g :* Rep f -> a) -> (g :.: f) a
+  tabulate h = Comp1 (tabulate <$> tabulate (curry h))
   index (Comp1 gfa) (i,j) = Rep.index (Rep.index gfa i) j
 
 --                                     h   :: Rep g :* Rep f -> a
