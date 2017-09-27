@@ -178,10 +178,10 @@ instance HasV s (Rep (L s a b)) => HasV s (L s a b)
 
 #if 0
 -- Convenient but lots of constraint solving work & volume
-type OkLF f = (Foldable f, Zeroable f, Zip f, Diagonal f)
+type OkLF f = (Foldable f, Zeroable f, Zip f, Diagonal f, Distributive f)
 #else
 -- Less convenient but perhaps easier on the compiler
-class (Foldable f, Zeroable f, Zip f, Diagonal f) => OkLF f
+class (Foldable f, Zeroable f, Zip f, Diagonal f, Distributive f) => OkLF f
 
 instance OkLF U1
 instance OkLF Par1
@@ -380,71 +380,28 @@ linearF q = dual <$> distribute q
 dual :: (Diagonal f, Num s) => (f s -> s) -> f s
 dual p = p <$> idL
 
--- transposeCod :: Functor g => g (a -> s) -> (a -> g s)
--- transposeCod fs a = ($ a) <$> fs
-
--- transposeCod :: Functor g => (a -> g s) -> g (a -> s)
--- transposeCod = 
-
-
--- p :: a -> g s
--- index . p :: a -> Key g -> s
--- flip (index . p) :: Key g -> a -> s
--- fill (flip (index . p)) :: g (a -> s)
-
--- p :: a -> g s
--- transpose p :: g (a -> s)
-
--- onId :: (f s -> b) -> 
-
--- q :: a -> g s
--- index . q :: a -> Key g -> s
--- flip (index . q) :: Key g -> a -> s
-
-
-
-
--- linearF :: (f s -> g s) -> (f :-* g) s
--- linearF q = 
-
 scale :: OkLM s a => s -> L s a a
 scale = L . scaleL
 
 negateLM :: OkLM s a => L s a a
 negateLM = scale (-1)
 
--- Move VComp to VectorSpace, and declare VComp instances with HasV instances.
--- When GHC Haskell has universally quantified constraints, we can drop VComp.
+instance (OkLF h, VComp h) => LinearCat (L s) h where
+  fmapC :: forall a b. Ok2 (L s) a b => L s a b -> L s (h a) (h b)
+  fmapC f = linear' (fmapC (lapply f))
+              \\ vcomp @h @s @a
+              \\ vcomp @h @s @b
+  zipC  :: forall a b. Ok2 (L s) a b => L s (h a :* h b) (h (a :* b))
+  zipC  = linear' zipC
+             \\ vcomp @h @s @a
+             \\ vcomp @h @s @b
+             \\ vcomp @h @s @(a :* b)
+  sumC  :: forall a. (Ok (L s) a, Num a) => L s (h a) a
+  sumC  = linear' sumC
+            \\ vcomp @h @s @a
 
--- instance (Foldable h, Zip h, Traversable h, VComp h, OkLF h)
---       => LinearCat (L s) h where
---   zipC :: forall a b. Ok2 (L s) a b => L s (h a :* h b) (h (a :* b))
---   zipC = linear zipC
---            \\ vcomp @h @s @a
---            \\ vcomp @h @s @b
---            \\ vcomp @h @s @(a :* b)
-
-  -- fmapC :: Ok2 k a b => (a `k` b) -> (h a `k` h b)
-  -- zipC  :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
-  -- sumC  :: (Ok k a, Num a) => h a `k` a
-
-
-#if 0
-
-  L s (h a :* h b) (h (a :* b))
-=~ V s (h (a :* b) (V s (h a :* h b) s))
-=~ (h :.: V s (a :* b)) ((V s (h a) :*: V s (h b) s))
-=~ h (V s (a :* b) (V s (h a) s :* V s (h b) s))
-=~ h ((V s a :*: V s b) (h (V s a s) :* h (V s b s)))
-=~ h (V s a (h (V s a s) :* h (V s b s)) :* V s b (h (V s a s) :* h (V s b s)))
-
-=~ h (V s a (V s (h a) s :* V s (h b) s) :* V s b (V s (h a) s :* V s (h b) s))
-
-  L s (h a :* h b) (h (a :* b))
-=~ V s (h (a :* b) (V s (h a :* h b) s))
-
-
-#endif
+-- I used easy method definitions above.
+-- TODO: Replace with more efficient versions.
 
 #if 0
 
