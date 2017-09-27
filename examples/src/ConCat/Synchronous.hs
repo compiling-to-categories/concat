@@ -1,13 +1,19 @@
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -Wall #-}
--- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
 -- | Synchronous stream transformers as Mealy machines
 
@@ -21,12 +27,12 @@ import ConCat.Misc ((:*))
 import ConCat.Category
 
 -- | Synchronous stream transformer represented as Mealy machine.
-data Mealy a b = forall s. Mealy (a :* s -> b :* s) s
+data Mealy con a b = forall s. con s => Mealy (a :* s -> b :* s) s
 
 -- TODO: generalize from (->) to other categories
 
 -- | Semantic function
-sapply :: Mealy a b -> [a] -> [b]
+sapply :: Mealy con a b -> [a] -> [b]
 sapply (Mealy h s0) = go s0
   where
     go _ []     = []
@@ -34,26 +40,38 @@ sapply (Mealy h s0) = go s0
       where (b,s') = h (a,s)
             bs     = go s' as
 
-arr :: (a -> b) -> Mealy a b
+type CartCon con = (con (), OpCon (:*) (Sat con))
+
+arr :: con () => (a -> b) -> Mealy con a b
 arr f = Mealy (first f) ()
 
-instance Category Mealy where
+-- State transition function
+type X s a b = a :* s -> b :* s
+
+-- Combine Mealy machines
+op2 :: forall con a b c d e f. CartCon con
+    => (forall s t. (con s, con t) => X s a b -> X t c d -> X (s :* t) e f) 
+    -> (Mealy con a b -> Mealy con c d -> Mealy con  e f) 
+op2 op (Mealy (f :: a :* s -> b :* s) s0) (Mealy (g :: c :* t -> d :* t) t0) =
+  Mealy (f `op` g) (s0,t0) <+ inOp @(:*) @(Sat con) @s @t
+
+instance CartCon con => Category (Mealy con) where
   id = arr id
-  Mealy g t0 . Mealy f s0 = Mealy h (s0,t0)
+  (.) = op2 (.@)
    where
-     h (a,(s,t)) = (c,(s',t'))
+     (g .@ f) (a,(t,s)) = (c,(t',s'))
       where
         (b,s') = f (a,s)
         (c,t') = g (b,t)
   {-# INLINE id #-}
   {-# INLINE (.) #-}
 
-instance ProductCat Mealy where
+instance CartCon con => ProductCat (Mealy con) where
   exl = arr exl
   exr = arr exr
-  Mealy f s0 &&& Mealy g t0 = Mealy h (s0,t0)
+  (&&&) = op2 (&&&@)
    where
-     h (a,(s,t)) = ((c,d),(s',t'))
+     (f &&&@ g) (a,(s,t)) = ((c,d),(s',t'))
       where
         (c,s') = f (a,s)
         (d,t') = g (a,t)
@@ -61,75 +79,75 @@ instance ProductCat Mealy where
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
 
-instance CoproductCat Mealy where
+instance CartCon con => CoproductCat (Mealy con) where
   inl = arr inl
   inr = arr inr
-  Mealy f s0 ||| Mealy g t0 = Mealy h (s0,t0)
+  (|||) = op2 (|||@)
    where
-     h (Left  a,(s,t)) = (c,(s',t)) where (c,s') = f (a,s)
-     h (Right b,(s,t)) = (c,(s,t')) where (c,t') = g (b,t)
+     (f |||@ _) (Left  a,(s,t)) = (c,(s',t)) where (c,s') = f (a,s)
+     (_ |||@ g) (Right b,(s,t)) = (c,(s,t')) where (c,t') = g (b,t)
   {-# INLINE inl #-}
   {-# INLINE inr #-}
   {-# INLINE (|||) #-}
 
-instance ConstCat Mealy b where const b = arr (const b)
+instance CartCon con => ConstCat (Mealy con) b where const b = arr (const b)
 
-instance BoolCat Mealy where
+instance CartCon con => BoolCat (Mealy con) where
   notC = arr notC
   andC = arr andC
   orC  = arr orC
   xorC = arr xorC
 
-instance Eq a => EqCat Mealy a where
+instance (CartCon con, Eq a) => EqCat (Mealy con) a where
   equal    = arr equal
   notEqual = arr notEqual
 
-instance Ord a => OrdCat Mealy a where
+instance (CartCon con, Ord a) => OrdCat (Mealy con) a where
   lessThan           = arr lessThan
   greaterThan        = arr greaterThan
   lessThanOrEqual    = arr lessThanOrEqual
   greaterThanOrEqual = arr greaterThanOrEqual
 
-instance Enum a => EnumCat Mealy a where
+instance (CartCon con, Enum a) => EnumCat (Mealy con) a where
   succC = arr succC
   predC = arr predC
 
-instance Num a => NumCat Mealy a where
+instance (CartCon con, Num a) => NumCat (Mealy con) a where
   negateC = arr negateC
   addC    = arr addC
   subC    = arr subC
   mulC    = arr mulC
   powIC   = arr powIC
 
-instance Fractional a => FractionalCat Mealy a where
+instance (CartCon con, Fractional a) => FractionalCat (Mealy con) a where
   recipC  = arr recipC
   divideC = arr divideC
 
-instance Floating a => FloatingCat Mealy a where
+instance (CartCon con, Floating a) => FloatingCat (Mealy con) a where
   expC = arr expC
   cosC = arr cosC
   sinC = arr sinC
 
-instance RealFracCat (->) a b => RealFracCat Mealy a b where
+instance (CartCon con, RealFracCat (->) a b) => RealFracCat (Mealy con) a b where
   floorC    = arr floorC
   ceilingC  = arr ceilingC
   truncateC = arr truncateC
 
-instance BottomCat (->) a b => BottomCat Mealy a b where
+instance (CartCon con, BottomCat (->) a b) => BottomCat (Mealy con) a b where
   bottomC = arr bottomC
 
-instance IfCat Mealy a where
+instance CartCon con => IfCat (Mealy con) a where
   ifC = arr ifC
 
--- instance (HasRep a, r ~ Rep a) => RepCat Mealy a r where
+-- instance (HasRep a, r ~ Rep a) => (CartCon con, RepCat (Mealy con) a r where
 --   reprC = arr reprC
 --   abstC = arr abstC
 
-instance RepCat (->) a r => RepCat Mealy a r where
+instance (CartCon con, RepCat (->) a r) => RepCat (Mealy con) a r where
   reprC = arr reprC
   abstC = arr abstC
 
---     • Illegal instance declaration for ‘RepCat Mealy a r’
+--     • Illegal instance declaration for ‘RepCat (Mealy con) a r’
 --         The coverage condition fails in class ‘RepCat’
 --           for functional dependency: ‘a -> r’
 --         Reason: lhs type ‘a’ does not determine rhs type ‘r’
@@ -140,14 +158,14 @@ instance RepCat (->) a r => RepCat Mealy a r where
     Other operations
 --------------------------------------------------------------------}
 
-delay :: a -> Mealy a a
+delay :: con a => a -> Mealy con a a
 delay = Mealy swap
 
-scanl :: (b -> a -> b) -> b -> Mealy a b
+scanl :: con b => (b -> a -> b) -> b -> Mealy con a b
 scanl op = Mealy (\ (a,b) -> dup (b `op` a))
 {-# INLINE scanl #-}
 
-scan :: Monoid m => Mealy m m
+scan :: (Monoid m, con m) => Mealy con m m
 scan = scanl mappend mempty
 
 {--------------------------------------------------------------------
