@@ -270,7 +270,7 @@ at = curry arrAt
 
 #endif
 
-Op1(fmapC, (LinearCat k h, Ok2 k a b) => (a -> b) `k` (h a -> h b))
+Op1(fmapC, (LinearCat k h, Ok2 k a b) => (a `k` b) -> (h a `k` h b))
 Op0(zipC , (LinearCat k h, Ok2 k a b) => (h a :* h b) `k` h (a :* b))
 Op0(sumC , (LinearCat k h, Ok k a, Num a) => h a `k` a)
 

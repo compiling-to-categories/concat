@@ -1675,7 +1675,7 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
 --------------------------------------------------------------------}
 
 class LinearCat k h where
-  fmapC :: Ok2 k a b => (a -> b) `k` (h a -> h b)
+  fmapC :: Ok2 k a b => (a `k` b) -> (h a `k` h b)
   zipC  :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
   sumC  :: (Ok k a, Num a) => h a `k` a
 
