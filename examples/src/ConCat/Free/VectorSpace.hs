@@ -258,6 +258,10 @@ instance HasV s a => HasV s (Sum a)
 
 -- Similarly for other functors
 
+class VComp h where
+  vcomp :: forall s c. HasV s c :- (HasV s (h c), V s (h c) ~ (h :.: V s c))
+
+
 #if 1
 instance HasV s b => HasV s (a -> b) where
   type V s (a -> b) = (->) a :.: V s b
@@ -271,10 +275,14 @@ instance HasV s b => HasV s (a -> b) where
   unV = ?? . unComp1
 #endif
 
+instance VComp ((->) a) where vcomp = Sub Dict
+
 instance HasV s b => HasV s (Vector n b) where
   type V s (Vector n b) = Vector n :.: V s b
   toV = Comp1 . fmap toV
   unV = fmap unV . unComp1
+
+instance VComp (Vector n) where vcomp = Sub Dict
 
 #if 0
 -- Example default instance
