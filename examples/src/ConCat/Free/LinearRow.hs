@@ -31,6 +31,7 @@ import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 
 import Data.Constraint
 import Data.Key (Zip(..))
+import Data.Distributive
 import Text.PrettyPrint.HughesPJClass hiding (render)
 import Control.Newtype
 
@@ -341,6 +342,8 @@ instance (HasL f, HasL g) => HasL (g :.: f) where
 q :: ((g :.: f) s -> h s) -> ((g :.: f) :-* h) s
   =~ (g (f s) -> h s) -> h ((g :.: f) s)
   =~ (g (f s) -> h s) -> h (g (f s))
+  =~ (g (f s) -> h s) -> h (g (f s))
+
 #endif
 
 #if 0
@@ -357,15 +360,91 @@ want :: ((k -> s) :-* g) s
 
 linear :: (OkLM s a, OkLM s b, HasL (V s a)) => (a -> b) -> L s a b
 linear f = L (linearL (inV f))
+-- linear f = L (linearF (inV f))
 
 -- f :: a -> b
 -- inV f :: V s a s -> V s b s
+
+linear' :: (HasV s a, HasV s b, Diagonal (V s a), Distributive (V s b), Num s) => (a -> b) -> L s a b
+linear' f = L (linearF (inV f))
+
+linearF :: (Diagonal f, Distributive g, Num s) => (f s -> g s) -> (f :-* g) s
+linearF q = dual <$> distribute q
+
+-- q :: f s -> g s
+--   :: (->) (f s) (g s)
+-- distribute q :: g (f s -> s)
+-- dual <$> distribute q :: g (f s)
+--                       == (f :-* g) s
+
+dual :: (Diagonal f, Num s) => (f s -> s) -> f s
+dual p = p <$> idL
+
+-- transposeCod :: Functor g => g (a -> s) -> (a -> g s)
+-- transposeCod fs a = ($ a) <$> fs
+
+-- transposeCod :: Functor g => (a -> g s) -> g (a -> s)
+-- transposeCod = 
+
+
+-- p :: a -> g s
+-- index . p :: a -> Key g -> s
+-- flip (index . p) :: Key g -> a -> s
+-- fill (flip (index . p)) :: g (a -> s)
+
+-- p :: a -> g s
+-- transpose p :: g (a -> s)
+
+-- onId :: (f s -> b) -> 
+
+-- q :: a -> g s
+-- index . q :: a -> Key g -> s
+-- flip (index . q) :: Key g -> a -> s
+
+
+
+
+-- linearF :: (f s -> g s) -> (f :-* g) s
+-- linearF q = 
 
 scale :: OkLM s a => s -> L s a a
 scale = L . scaleL
 
 negateLM :: OkLM s a => L s a a
 negateLM = scale (-1)
+
+-- Move VComp to VectorSpace, and declare VComp instances with HasV instances.
+-- When GHC Haskell has universally quantified constraints, we can drop VComp.
+
+-- instance (Foldable h, Zip h, Traversable h, VComp h, OkLF h)
+--       => LinearCat (L s) h where
+--   zipC :: forall a b. Ok2 (L s) a b => L s (h a :* h b) (h (a :* b))
+--   zipC = linear zipC
+--            \\ vcomp @h @s @a
+--            \\ vcomp @h @s @b
+--            \\ vcomp @h @s @(a :* b)
+
+  -- fmapC :: Ok2 k a b => (a `k` b) -> (h a `k` h b)
+  -- zipC  :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
+  -- sumC  :: (Ok k a, Num a) => h a `k` a
+
+
+#if 0
+
+  L s (h a :* h b) (h (a :* b))
+=~ V s (h (a :* b) (V s (h a :* h b) s))
+=~ (h :.: V s (a :* b)) ((V s (h a) :*: V s (h b) s))
+=~ h (V s (a :* b) (V s (h a) s :* V s (h b) s))
+=~ h ((V s a :*: V s b) (h (V s a s) :* h (V s b s)))
+=~ h (V s a (h (V s a s) :* h (V s b s)) :* V s b (h (V s a s) :* h (V s b s)))
+
+=~ h (V s a (V s (h a) s :* V s (h b) s) :* V s b (V s (h a) s :* V s (h b) s))
+
+  L s (h a :* h b) (h (a :* b))
+=~ V s (h (a :* b) (V s (h a :* h b) s))
+
+
+#endif
 
 #if 0
 
