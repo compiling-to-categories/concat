@@ -217,10 +217,10 @@ main = sequence_
   -- , runSynCirc "xyp3-iv"   $ toCcc $ ivFun $ \ (x,y) -> x * y + 3 :: R
   -- , runSynCirc "horner-iv" $ toCcc $ ivFun $ horner @R [1,3,5]
 
-  -- Automatic differentiation
-  , runSynCirc "sin-ad"        $ toCcc $ andDer @R @R $ sin    @R
-  , runSynCirc "cos-ad"        $ toCcc $ andDer @R @R $ cos    @R
-  , runSynCirc "twice-ad"      $ toCcc $ andDer @R @R $ twice  @R
+  -- -- Automatic differentiation
+  -- , runSynCirc "sin-ad"        $ toCcc $ andDer @R @R $ sin    @R
+  -- , runSynCirc "cos-ad"        $ toCcc $ andDer @R @R $ cos    @R
+  -- , runSynCirc "twice-ad"      $ toCcc $ andDer @R @R $ twice  @R
   -- , runSynCirc "sqr-ad"        $ toCcc $ andDer @R $ sqr    @R
   -- , runSynCirc "magSqr-ad"     $ toCcc $ andDer @R $ magSqr @R
   -- , runSynCirc "cos-2x-ad"     $ toCcc $ andDer @R $ \ x -> cos (2 * x) :: R
