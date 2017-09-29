@@ -1,6 +1,10 @@
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -8,22 +12,33 @@
 
 module ConCat.Additive where
 
-import Control.Applicative (liftA2)
+import Prelude hiding (zipWith)
+import Data.Monoid
 import Data.Foldable (fold)
 import Data.Complex hiding (magnitude)
 import Data.Ratio
 import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
+import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
+
+import Data.Pointed
+import Data.Key (Zip(..))
 
 import Control.Newtype (Newtype(..))
 -- import Data.MemoTrie
 
 import ConCat.Misc
+import ConCat.Orphans ()
+import ConCat.Pair
 
 -- | Commutative monoid intended to be used with a multiplicative monoid
 class Additive a where
   zero  :: a
   infixl 6 ^+^
   (^+^) :: a -> a -> a
+  default zero :: (Pointed f, Additive b) => f b
+  zero = point zero
+  default (^+^) :: (Zip f, Additive b) => Binop (f b)
+  (^+^) = zipWith (^+^)
 
 instance Additive () where
   zero = ()
@@ -72,11 +87,18 @@ instance (Additive u,Additive v,Additive w,Additive x)
   (u,v,w,x) ^+^ (u',v',w',x') = (u^+^u',v^+^v',w^+^w',x^+^x')
 
 
--- Standard instance for an applicative functor applied to a vector space.
-instance Additive v => Additive (a -> v) where
-  zero  = pure   zero
-  (^+^) = liftA2 (^+^)
+instance Additive v => Additive (a -> v)
+instance Additive v => Additive (Sum     v)
+instance Additive v => Additive (Product v)
 
+type AddF f = (Pointed f, Zip f)
+
+instance Additive v => Additive (U1 v)
+instance Additive v => Additive (Par1 v)
+instance (Additive v, AddF f, AddF g) => Additive ((f :*: g) v)
+instance (Additive v, AddF f, AddF g) => Additive ((g :.: f) v)
+
+instance Additive v => Additive (Pair v)
 
 -- Maybe is handled like the Maybe-of-Sum monoid
 instance Additive a => Additive (Maybe a) where
