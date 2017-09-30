@@ -16,6 +16,7 @@ module ConCat.Orphans where
 import Prelude hiding (zipWith)
 import Control.Applicative (liftA2)
 -- import Control.Arrow ((&&&))
+import Data.Monoid
 import GHC.Generics (U1(..),Par1(..),(:+:)(..),(:*:)(..),(:.:)(..))
 
 import Data.Void
@@ -306,3 +307,13 @@ instance (Representable g, Representable f) => Representable (g :.: f) where
 --                     tabulate (curry h)  :: g (Rep f -> a)
 --        tabulate <$> tabulate (curry h)  :: g (f a)
 -- Comp1 (tabulate <$> tabulate (curry h)) :: (g :.: f) a
+
+{--------------------------------------------------------------------
+    Monoids
+--------------------------------------------------------------------}
+
+-- instance Zip Sum where zipWith f (Sum a) (Sum b) = Sum (f a b)
+-- instance Zip Product where zipWith f (Product a) (Product b) = Product (f a b)
+
+instance Zip Sum     where zipWith = inNew2
+instance Zip Product where zipWith = inNew2
