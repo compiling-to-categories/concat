@@ -19,6 +19,7 @@ import Data.Complex hiding (magnitude)
 import Data.Ratio
 import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
+import Data.Constraint (Dict(..),(:-)(..))
 
 import Data.Pointed
 import Data.Key (Zip(..))
@@ -29,6 +30,7 @@ import Control.Newtype (Newtype(..))
 import ConCat.Misc
 import ConCat.Orphans ()
 import ConCat.Pair
+import ConCat.Category (type (|-)(..),Sat(..))
 
 -- | Commutative monoid intended to be used with a multiplicative monoid
 class Additive a where
@@ -39,6 +41,8 @@ class Additive a where
   zero = point zero
   default (^+^) :: (Zip f, Additive b) => Binop (f b)
   (^+^) = zipWith (^+^)
+
+class Additive1 h where additive1 :: Sat Additive a |- Sat Additive (h a)
 
 instance Additive () where
   zero = ()
@@ -86,7 +90,6 @@ instance (Additive u,Additive v,Additive w,Additive x)
   zero                        = (zero,zero,zero,zero)
   (u,v,w,x) ^+^ (u',v',w',x') = (u^+^u',v^+^v',w^+^w',x^+^x')
 
-
 instance Additive v => Additive (a -> v)
 instance Additive v => Additive (Sum     v)
 instance Additive v => Additive (Product v)
@@ -99,6 +102,18 @@ instance (Additive v, AddF f, AddF g) => Additive ((f :*: g) v)
 instance (Additive v, AddF f, AddF g) => Additive ((g :.: f) v)
 
 instance Additive v => Additive (Pair v)
+
+instance Additive1 ((->) a) where additive1 = Entail (Sub Dict)
+
+instance Additive1 Sum where additive1 = Entail (Sub Dict)
+instance Additive1 Product where additive1 = Entail (Sub Dict)
+instance Additive1 U1 where additive1 = Entail (Sub Dict)
+instance Additive1 Par1 where additive1 = Entail (Sub Dict)
+instance (AddF f, AddF g) => Additive1 (f :*: g) where additive1 = Entail (Sub Dict)
+instance (AddF f, AddF g) => Additive1 (g :.: f) where additive1 = Entail (Sub Dict)
+
+instance Additive1 Pair where additive1 = Entail (Sub Dict)
+
 
 -- Maybe is handled like the Maybe-of-Sum monoid
 instance Additive a => Additive (Maybe a) where
