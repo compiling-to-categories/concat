@@ -1,3 +1,4 @@
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -7,6 +8,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -16,11 +18,13 @@
 
 module ConCat.ADFun where
 
-import Prelude hiding (id,(.),curry,uncurry,const)
+import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip)
+-- import Debug.Trace (trace)
 
 import Control.Newtype (unpack)
+import Data.Key (Zip(..))
 
-import ConCat.Misc ((:*),R,Yes1,oops)
+import ConCat.Misc ((:*),R,Yes1,oops,unzip,type (&+&))
 import ConCat.Free.VectorSpace (HasV(..))
 import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
@@ -59,19 +63,20 @@ instance ClosedCat D where
 -- TODO: generalize to ClosedCat k for an arbitrary CCC k. I guess I can simply
 -- apply ccc to the lambda expressions.
 #else
+
 instance ClosedCat D where
-  apply = applyD
-  curry = curryD
-  {-# INLINE apply #-}
-  {-# INLINE curry #-}
+  apply = applyD ; {-# INLINE apply #-}
+  curry = curryD ; {-# INLINE curry #-}
 
 applyD :: forall a b. Ok2 D a b => D ((a -> b) :* a) b
-applyD = D (\ (f,a) -> (f a, \ (df,da) -> df a ^+^ f da))
+-- applyD = D (\ (f,a) -> (f a, \ (df,da) -> df a ^+^ f da))
+applyD = -- trace "calling applyD" $
+         D (\ (f,a) -> let (b,f') = andDerF f a in (b, \ (df,da) -> df a ^+^ f' da))
+-- applyD = oops "applyD called"   -- does it?
 
 curryD :: forall a b c. Ok3 D a b c => D (a :* b) c -> D a (b -> c)
-curryD (D h) = D (\ a -> (curry f a, \ da -> \ b -> f' (a,b) (da,zero)))
- where
-   (f,f') = unfork h
+curryD (D (unfork -> (f,f'))) =
+  D (\ a -> (curry f a, \ da -> \ b -> f' (a,b) (da,zero)))
 
 {-# INLINE applyD #-}
 {-# INLINE curryD #-}
@@ -149,6 +154,22 @@ instance (Floating s, Additive s) => FloatingCat D s where
   {-# INLINE expC #-}
   {-# INLINE sinC #-}
   {-# INLINE cosC #-}
+
+-- type Ok D = (Yes1 &+& Additive)
+
+instance Additive1 h => OkFunctor D h where
+  okFunctor :: forall a. Ok' D a |- Ok' D (h a)
+  okFunctor = inForkCon (yes1 *** additive1 @h @a)
+
+-- class OkFunctor k h where okFunctor :: Ok' k a |- Ok' k (h a)
+
+instance (Zip h, Foldable h, Additive1 h) => LinearCat D h where
+  fmapC (D h) = D (second (curry zapC) . unzipC . fmapC h)
+  zipC = linearDF zipC
+  sumC = linearDF sumC
+  {-# INLINE fmapC #-}
+  {-# INLINE zipC #-}
+  {-# INLINE sumC #-}
 
 {--------------------------------------------------------------------
     Differentiation interface
