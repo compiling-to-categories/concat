@@ -20,7 +20,7 @@
 module ConCat.Free.VectorSpace where
 
 import Prelude hiding (zipWith)
-import Data.Monoid (Sum(..))
+import Data.Monoid (Sum(..),Product(..))
 -- import GHC.Exts (Coercible,coerce)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:+:)(..),(:.:)(..))
 
@@ -249,6 +249,7 @@ instance (HasV s (g (f a))) => HasV s ((g :.: f) a)
 instance HasV s (f a) => HasV s (SumV f a)
 
 instance HasV s a => HasV s (Sum a)
+instance HasV s a => HasV s (Product a)
 -- TODO: More newtypes
 
 -- Sometimes it's better not to use the default. I think the following gives more reuse:
