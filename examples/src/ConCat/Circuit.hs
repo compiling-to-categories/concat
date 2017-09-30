@@ -810,8 +810,14 @@ instance TerminalCat (:>) where
   -- it = mkCK (const (return UnitB))
   it = C (arr (pure UnitB))
 
-instance (Functor h, Foldable h, Zip h, OkFunctor (:>) h) => LinearCat (:>) h where
-  -- fmapC
+instance OkFunctor (:>) h where okFunctor = Entail (Sub Dict)
+
+instance (Functor h, Foldable h, Zip h{-, OkFunctor (:>) h-}) => LinearCat (:>) h where
+  fmapC :: forall a b. Ok2 (:>) a b => (a -> b) :> (h a -> h b)
+  fmapC = trace "fmapC on (:>)" $
+          namedC "fmap"
+            <+ okFunctor @(:>) @h @a
+            <+ okFunctor @(:>) @h @b
   zipC  :: forall a b. Ok2 (:>) a b => (h a :* h b) :> h (a :* b)
   zipC = namedC "zip"
            <+ okFunctor @(:>) @h @(a :* b)

@@ -1697,9 +1697,9 @@ class OkFunctor k h where okFunctor :: Ok' k a |- Ok' k (h a)
 
 instance OkFunctor (->) h where okFunctor = Entail (Sub Dict)
 
-class (Functor h, Zip h, Foldable h, ProductCat k, OkFunctor k h)
+class (Functor h, Zip h, Foldable h, ClosedCat k, OkFunctor k h)
    => LinearCat k h where
-  fmapC :: Ok2 k a b => (a `k` b) -> (h a `k` h b)
+  fmapC :: Ok2 k a b => (a -> b) `k` (h a -> h b)
   zipC  :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
   sumC  :: (Ok k a, Num a) => h a `k` a
 
@@ -1716,6 +1716,6 @@ instance (OkFunctor k h, OkFunctor k' h) => OkFunctor (k :**: k') h where
   okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
 
 instance (LinearCat k h, LinearCat k' h) => LinearCat (k :**: k') h where
-  fmapC (f :**: f') = fmapC f :**: fmapC f'
-  zipC = zipC :**: zipC
-  sumC = sumC :**: sumC
+  fmapC = fmapC :**: fmapC
+  zipC  = zipC  :**: zipC
+  sumC  = sumC  :**: sumC

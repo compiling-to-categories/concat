@@ -53,10 +53,10 @@ instance OpCon (->) (Sat Additive) where
 
 #if 0
 instance ClosedCat D where
-  apply = D (\ (f,a) -> (f a, \ (df,da) -> df a ^+^ deriv f a da))
+  apply       = D (\ (f,a)   -> (f a, \ (df,da) -> df a ^+^ deriv f a da))
   curry (D h) = D (\ a -> (curry f a, \ da -> \ b -> f' (a,b) (da,zero)))
    where
-     (f,f') = unfork h
+     (f,f')   = unfork h
   {-# INLINE apply #-}
   {-# INLINE curry #-}
 
@@ -69,14 +69,14 @@ instance ClosedCat D where
   curry = curryD ; {-# INLINE curry #-}
 
 applyD :: forall a b. Ok2 D a b => D ((a -> b) :* a) b
--- applyD = D (\ (f,a) -> (f a, \ (df,da) -> df a ^+^ f da))
-applyD = -- trace "calling applyD" $
-         D (\ (f,a) -> let (b,f') = andDerF f a in (b, \ (df,da) -> df a ^+^ f' da))
--- applyD = oops "applyD called"   -- does it?
+-- applyD                                              = D (\ (f,a)                   -> (f a, \ (df,da) -> df a ^+^ f da))
+applyD                                                 = -- trace "calling applyD" $
+         D (\ (f,a)                      -> let (b,f') = andDerF f a in (b, \ (df,da) -> df a ^+^ f' da))
+-- applyD                                              = oops "applyD called"   -- does it?
 
 curryD :: forall a b c. Ok3 D a b c => D (a :* b) c -> D a (b -> c)
-curryD (D (unfork -> (f,f'))) =
-  D (\ a -> (curry f a, \ da -> \ b -> f' (a,b) (da,zero)))
+curryD (D (unfork                                   -> (f,f'))) =
+  D (\ a                                            -> (curry f a, \ da -> \ b -> f' (a,b) (da,zero)))
 
 {-# INLINE applyD #-}
 {-# INLINE curryD #-}
@@ -118,25 +118,25 @@ const' :: (a -> c) -> (a -> b -> c)
 const' = (const .)
 
 scalarD :: Num s => (s -> s) -> (s -> s -> s) -> D s s
-scalarD f d = D (\ x -> let r = f x in (r, (* d x r)))
+scalarD f d = D (\ x   -> let r = f x in (r, (* d x r)))
 {-# INLINE scalarD #-}
 
 -- Use scalarD with const f when only r matters and with const' g when only x
 -- matters.
 
-scalarR :: Num s => (s -> s) -> (s -> s) -> D s s
-scalarR f f' = scalarD f (\ _ -> f')
+scalarR :: Num s => (s        -> s) -> (s -> s) -> D s s
+scalarR f f'   = scalarD f (\ _ -> f')
 -- scalarR f x = scalarD f (const x)
--- scalarR f = scalarD f . const
+-- scalarR f   = scalarD f . const
 {-# INLINE scalarR #-}
 
-scalarX :: Num s => (s -> s) -> (s -> s) -> D s s
-scalarX f f' = scalarD f (\ x _ -> f' x)
+scalarX :: Num s => (s             -> s) -> (s -> s) -> D s s
+scalarX f f'    = scalarD f (\ x _    -> f' x)
 -- scalarX f f' = scalarD f (\ x y -> const (f' x) y)
--- scalarX f f' = scalarD f (\ x -> const (f' x))
+-- scalarX f f' = scalarD f (\ x   -> const (f' x))
 -- scalarX f f' = scalarD f (const . f')
 -- scalarX f f' = scalarD f (const' f')
--- scalarX f = scalarD f . const'
+-- scalarX f    = scalarD f . const'
 {-# INLINE scalarX #-}
 
 square :: Num a => a -> a
@@ -164,12 +164,14 @@ instance Additive1 h => OkFunctor D h where
 -- class OkFunctor k h where okFunctor :: Ok' k a |- Ok' k (h a)
 
 instance (Zip h, Foldable h, Additive1 h) => LinearCat D h where
-  fmapC (D h) = D (second (curry zapC) . unzipC . fmapC h)
-  zipC = linearDF zipC
-  sumC = linearDF sumC
+  fmapC = linearDF fmapC
+  zipC  = linearDF zipC
+  sumC  = linearDF sumC
   {-# INLINE fmapC #-}
   {-# INLINE zipC #-}
   {-# INLINE sumC #-}
+
+-- fmapC' (D h) = D (second (curry zapC) . unzipC . fmapC' h)
 
 {--------------------------------------------------------------------
     Differentiation interface

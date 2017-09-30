@@ -355,9 +355,9 @@ instance UnknownCat Syn a b where
 instance OkFunctor Syn h where okFunctor = Entail (Sub Dict)
 
 instance (Functor h, Zip h, Foldable h) => LinearCat Syn h where
-  fmapC = app1 "fmapC"
-  zipC = app0 "zipC"
-  sumC = app0 "sumC"
+  fmapC = app0 "fmapC"
+  zipC  = app0 "zipC"
+  sumC  = app0 "sumC"
   INLINER(fmapC)
   INLINER(zipC)
   INLINER(sumC)

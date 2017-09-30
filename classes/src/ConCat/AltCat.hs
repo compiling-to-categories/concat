@@ -52,7 +52,7 @@ import ConCat.Category
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
   , DistribCat, undistl, undistr
   , ClosedCat, Exp
-  , TerminalCat, Unit, lunit, runit{-, constFun-}, constFun2, unitFun, unUnitFun
+  , TerminalCat, Unit{-, lunit, runit, constFun-}, constFun2, unitFun, unUnitFun
   , ConstCat, ConstObj, lconst, rconst
   , DelayCat, LoopCat
   , BiCCC
@@ -241,12 +241,22 @@ Op0(fromIntegralC,FromIntegralCat k a b => a `k` b)
 -- Unnecessary but helpful to track NOINLINE choice
 -- Op(constFun,forall k p a b. (ClosedCat k, Ok3 k p a b) => (a `k` b) -> (p `k` Exp k a b))
 
+lunit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k (Unit k) a
+lunit = it &&& id
+
+runit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k a (Unit k)
+runit = id &&& it
+
 constFun :: forall k p a b. (ClosedCat k, Ok3 k p a b)
          => (a `k` b) -> (p `k` Exp k a b)
 constFun f = curry (f . exr) <+ okProd @k @p @a
 {-# INLINE constFun #-}
 -- {-# OPINLINE constFun #-}
 -- OpRule1(constFun)
+
+funConst :: forall k a b. (ClosedCat k, TerminalCat k, Ok2 k a b)
+         => (() `k` (a -> b)) -> (a `k` b)
+funConst f = uncurry f . lunit <+ okProd @k @(Unit k) @a
 
 #ifdef VectorSized
 
@@ -274,21 +284,35 @@ at = curry arrAt
 
 #endif
 
-Op1(fmapC, (LinearCat k h, Ok2 k a b) => (a `k` b) -> (h a `k` h b))
+Op0(fmapC, (LinearCat k h, Ok2 k a b) => (a -> b) `k` (h a -> h b))
 Op0(zipC , (LinearCat k h, Ok2 k a b) => (h a :* h b) `k` h (a :* b))
 Op0(sumC , (LinearCat k h, Ok k a, Num a) => h a `k` a)
 
-unzipC :: forall k h a b. (LinearCat k h, Ok2 k a b) => h (a :* b) `k` (h a :* h b)
-unzipC = fmapC exl &&& fmapC exr
+fmapC' :: forall k h a b. (TerminalCat k, ClosedCat k, LinearCat k h, Ok2 k a b)
+        => (a `k` b) -> (h a `k` h b)
+fmapC' f = funConst (fmapC . constFun f)
+             <+ okExp     @k @(h a) @(h b)
+             <+ okFunctor @k @h @a
+             <+ okFunctor @k @h @b
+             <+ okExp     @k @a @b
+
+--                            f  :: a `k` b
+--                   constFun f  :: () `k` (a -> b)
+--           fmapC . constFun f  :: () `k` (h a -> h b)
+-- funConst (fmapC . constFun f) :: h a `k` h b
+
+unzipC :: forall k h a b. (LinearCat k h, TerminalCat k, Ok2 k a b)
+       => h (a :* b) `k` (h a :* h b)
+unzipC = fmapC' exl &&& fmapC' exr
            <+ okFunctor @k @h @(a :* b)
            <+ okFunctor @k @h @a
            <+ okFunctor @k @h @b
            <+ okProd @k @a @b
--- {-# INLINE unzipC #-}
+{-# INLINE unzipC #-}
 
-zapC :: forall k h a b. (LinearCat k h, ClosedCat k, Ok2 k a b)
+zapC :: forall k h a b. (LinearCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
      => (h (a -> b) :* h a) `k` h b
-zapC = fmapC apply . zipC
+zapC = fmapC' apply . zipC
          <+ okFunctor @k @h @((a -> b) :* a)
          <+ okProd    @k    @(h (a -> b)) @(h a)
          <+ okFunctor @k @h @(a -> b)
@@ -296,7 +320,7 @@ zapC = fmapC apply . zipC
          <+ okFunctor @k @h @b
          <+ okProd    @k    @(a -> b) @a
          <+ okExp     @k    @a @b
--- {-# INLINE zapC #-}
+{-# INLINE zapC #-}
 
 -- TODO: Consider moving all of the auxiliary functions (like constFun) here.
 -- Rename "ConCat.Category" to something like "ConCat.Category.Class" and
@@ -307,6 +331,10 @@ zapC = fmapC apply . zipC
 
 pair :: forall k a b. (ClosedCat k, Ok2 k a b) => a `k` Exp k b (Prod k a b)
 pair = curry id <+ okProd @k @a @b
+
+{-# RULES
+"toCcc' fmap" toCcc' fmap = fmap
+ #-}
 
 {--------------------------------------------------------------------
     Automatic uncurrying
