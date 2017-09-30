@@ -369,16 +369,29 @@ linear' :: (HasV s a, HasV s b, Diagonal (V s a), Distributive (V s b), Num s) =
 linear' f = L (linearF (inV f))
 
 linearF :: (Diagonal f, Distributive g, Num s) => (f s -> g s) -> (f :-* g) s
-linearF q = dual <$> distribute q
+-- linearF q = undual <$> distribute q
+-- linearF q = distribute (q <$> idL)
+-- linearF q = distribute (fmap q idL)
+-- linearF q = collect q idL
+linearF = flip collect idL
 
 -- q :: f s -> g s
 --   :: (->) (f s) (g s)
 -- distribute q :: g (f s -> s)
--- dual <$> distribute q :: g (f s)
---                       == (f :-* g) s
+-- undual <$> distribute q :: g (f s)
+--                         == (f :-* g) s
 
-dual :: (Diagonal f, Num s) => (f s -> s) -> f s
-dual p = p <$> idL
+undual :: (Diagonal f, Num s) => (f s -> s) -> f s
+undual p = p <$> idL
+
+-- q :: f s -> g s
+-- idL :: f (f s)
+-- fmap q idL :: f (g s)
+-- distribute (fmap q idL) :: g (f s)
+
+-- collect :: (Distributive g, Functor f) => (a -> g b) -> f a -> g (f b)
+-- collect f = distribute . fmap f
+
 
 scale :: OkLM s a => s -> L s a a
 scale = L . scaleL
@@ -386,22 +399,21 @@ scale = L . scaleL
 negateLM :: OkLM s a => L s a a
 negateLM = scale (-1)
 
-instance (OkLF h, VComp h) => LinearCat (L s) h where
-  fmapC :: forall a b. Ok2 (L s) a b => L s a b -> L s (h a) (h b)
-  fmapC f = linear' (fmapC (lapply f))
-              \\ vcomp @h @s @a
-              \\ vcomp @h @s @b
-  zipC  :: forall a b. Ok2 (L s) a b => L s (h a :* h b) (h (a :* b))
-  zipC  = linear' zipC
-             \\ vcomp @h @s @a
-             \\ vcomp @h @s @b
-             \\ vcomp @h @s @(a :* b)
-  sumC  :: forall a. (Ok (L s) a, Num a) => L s (h a) a
-  sumC  = linear' sumC
-            \\ vcomp @h @s @a
+-- instance (OkLF h, VComp h) => LinearCat (L s) h where
+--   fmapC :: forall a b. Ok2 (L s) a b => L s a b -> L s (h a) (h b)
+--   fmapC f = linear' (fmapC (lapply f))
+--               \\ vcomp @h @s @a
+--               \\ vcomp @h @s @b
+--   zipC  :: forall a b. Ok2 (L s) a b => L s (h a :* h b) (h (a :* b))
+--   zipC  = linear' zipC
+--              \\ vcomp @h @s @a
+--              \\ vcomp @h @s @b
+--              \\ vcomp @h @s @(a :* b)
+--   sumC  :: forall a. (Ok (L s) a, Num a) => L s (h a) a
+--   sumC  = linear' sumC
+--             \\ vcomp @h @s @a
 
--- I used easy method definitions above.
--- TODO: Replace with more efficient versions.
+-- TODO: Replace these easy definitions with more efficient versions.
 
 #if 0
 
