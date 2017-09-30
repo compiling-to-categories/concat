@@ -100,7 +100,7 @@ module ConCat.Circuit
   -- , Ty(..)
   ) where
 
-import Prelude hiding (id,(.),curry,uncurry,const,sequence)
+import Prelude hiding (id,(.),curry,uncurry,const,sequence,zip)
 
 import Data.Monoid ({-mempty,-}(<>),Sum,Product,All,Any)
 -- import Data.Newtypes.PrettyDouble
@@ -132,6 +132,7 @@ import Data.Typeable (TypeRep,Typeable,eqT,cast) -- ,Proxy(..),typeRep
 import Data.Type.Equality ((:~:)(..))
 
 import Data.Constraint (Dict(..),(:-)(..))
+import Data.Key (Zip(..))
 
 import qualified System.Info as SI
 import System.Process (system) -- ,readProcess
@@ -809,6 +810,17 @@ instance TerminalCat (:>) where
   -- it = mkCK (const (return UnitB))
   it = C (arr (pure UnitB))
 
+instance (Functor h, Foldable h, Zip h, OkFunctor (:>) h) => LinearCat (:>) h where
+  -- fmapC
+  zipC  :: forall a b. Ok2 (:>) a b => (h a :* h b) :> h (a :* b)
+  zipC = namedC "zip"
+           <+ okFunctor @(:>) @h @(a :* b)
+           <+ okFunctor @(:>) @h @a
+           <+ okFunctor @(:>) @h @b
+  sumC :: forall a. (Ok (:>) a, Num a) => h a :> a
+  sumC = namedC "sum"
+           <+ okFunctor @(:>) @h @a
+
 #if 0
 
 instance GS b => ConstCat (:>) b where
@@ -1450,6 +1462,16 @@ instance (GenBuses a, GenBuses b) => ArrayCat (:>) a b where
   array = namedC "array"
   arrAt = namedC "arrAt"
 #endif
+
+-- instance LinearCat (:>) h where
+--   fmapC c = 
+
+-- class (Functor h, Zip h, Foldable h, ProductCat k, OkFunctor k h)
+--    => LinearCat k h where
+--   fmapC :: Ok2 k a b => (a `k` b) -> (h a `k` h b)
+--   zipC  :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
+--   sumC  :: (Ok k a, Num a) => h a `k` a
+
 
 {--------------------------------------------------------------------
     Running
