@@ -50,7 +50,7 @@ import Control.Newtype (Newtype(..))
 import Data.Key
 import Data.Pointed
 
-import ConCat.Misc ((:*),Parity(..),absurdF) -- , Unop
+import ConCat.Misc ((:*),Parity(..),absurdF,unzip) -- , Unop
 -- import ConCat.Misc (absurdF)
 
 class Functor f => LScan f where
@@ -201,7 +201,4 @@ instance (LScan g, LScan f, Zip g) =>  LScan (g :.: f) where
 
 instance LScan f => LScan (M1 i c f) where
   lscan (M1 as) = first M1 (lscan as)
-
-unzip :: forall f a b. Functor f => f (a :* b) -> f a :* f b
-unzip ps = (fst <$> ps, snd <$> ps)
 
