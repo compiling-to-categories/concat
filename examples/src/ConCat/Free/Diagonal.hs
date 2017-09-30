@@ -8,23 +8,27 @@
 {-# OPTIONS_GHC -Wall #-}
 -- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
-#define DiagF
+-- #define DiagF
 
 -- | A convenient class for diagonizations
 
 module ConCat.Free.Diagonal where
 
-#ifndef DiagF
-import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
-#endif
+#ifdef DiagF
 import Data.Functor.Rep (Representable(..))
-import Data.Pointed (Pointed(..))
 import Data.Key (Keyed(..),Adjustable(..))
 import GHC.Generics ((:.:)(..))
+#else
+import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
+#endif
+import Data.Pointed (Pointed(..))
 
 import ConCat.Orphans ()
 
 #ifdef DiagF
+
+-- With this simpler definition, the plugin stumbles over sums.
+-- TODO: support sums, and try again.
 
 diagF :: (Applicative f, Keyed f, Adjustable f) => a -> f a -> f (f a)
 diagF z = mapWithKey (\ k a -> replace k a (pure z))
