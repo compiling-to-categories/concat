@@ -52,6 +52,7 @@ import qualified Data.Type.Equality as Eq
 import Data.Type.Coercion (Coercion(..))
 import qualified Data.Type.Coercion as Co
 import GHC.Types (Constraint)
+import qualified Data.Constraint as Con
 import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import GHC.Types (type (*))  -- experiment with TypeInType
 -- import qualified Data.Constraint as K
@@ -168,6 +169,22 @@ class OpCon op con where
 
 -- class    kon a => Sat kon a
 -- instance kon a => Sat kon a
+
+yes1 :: c |- Sat Yes1 a
+yes1 = Entail (Sub Dict)  -- Move to AltCat
+
+forkCon :: forall con con' a. Sat (con &+& con') a |- Sat con a :* Sat con' a
+forkCon = Entail (Sub Dict)
+
+joinCon :: forall con con' a. Sat con a :* Sat con' a |- Sat (con &+& con') a
+joinCon = Entail (Sub Dict)
+
+inForkCon :: (Sat con1 a :* Sat con2 a |- Sat con1' b :* Sat con2' b)
+          -> (Sat (con1 &+& con2) a |- Sat (con1' &+& con2') b)
+inForkCon h = joinCon . h . forkCon
+
+-- We might want forkCon, joinCon, and inForkCon elsewhere as well.
+-- Consider renaming.
 
 type Yes1' = Sat Yes1
 
@@ -734,7 +751,9 @@ undistr = (exl +++ exl) &&& (exr ||| exr)
     Exponentials
 --------------------------------------------------------------------}
 
-okExp :: forall k a b. OpCon (Exp k) (Ok' k)
+type OkExp k = OpCon (Exp k) (Ok' k)
+
+okExp :: forall k a b. OkExp k
       => Ok' k a && Ok' k b |- Ok' k (Exp k a b)
 okExp = inOp
 {-# INLINE okExp #-}
@@ -1674,7 +1693,12 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
     Vectors (experimental and to be reconciled with arrays)
 --------------------------------------------------------------------}
 
-class LinearCat k h where
+class OkFunctor k h where okFunctor :: Ok' k a |- Ok' k (h a)
+
+instance OkFunctor (->) h where okFunctor = Entail (Sub Dict)
+
+class (Functor h, Zip h, Foldable h, ProductCat k, OkFunctor k h)
+   => LinearCat k h where
   fmapC :: Ok2 k a b => (a `k` b) -> (h a `k` h b)
   zipC  :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
   sumC  :: (Ok k a, Num a) => h a `k` a
@@ -1687,3 +1711,11 @@ instance (Functor h, Zip h, Foldable h) => LinearCat (->) h where
 -- TODO: orphan instance for Zip (Vector n) in ConCat.Orphans, where Vector n
 -- comes from Data.Vector.Sized in the vector-sized package.
 
+instance (OkFunctor k h, OkFunctor k' h) => OkFunctor (k :**: k') h where
+  okFunctor :: forall a. Ok' (k :**: k') a |- Ok' (k :**: k') (h a)
+  okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
+
+instance (LinearCat k h, LinearCat k' h) => LinearCat (k :**: k') h where
+  fmapC (f :**: f') = fmapC f :**: fmapC f'
+  zipC = zipC :**: zipC
+  sumC = sumC :**: sumC
