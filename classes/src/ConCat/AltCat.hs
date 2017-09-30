@@ -47,7 +47,7 @@ import ConCat.Rep
 import ConCat.Misc ((:*),(:+),PseudoFun(..),oops,type (&+&))
 
 import ConCat.Category
-  ( Category, Ok,Ok2,Ok3,Ok4,Ok5
+  ( Category, Ok,Ok2,Ok3,Ok4,Ok5, Ok'
   , ProductCat, Prod, twiceP, inLassocP, inRassocP, transposeP --, unfork
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
   , DistribCat, undistl, undistr
@@ -62,9 +62,10 @@ import ConCat.Category
   , repIf
   , Arr, ArrayCat, LinearCat
   , TransitiveCon(..)
-  , U2(..), (:**:)(..)
+  , U2(..), (:**:)(..), OkFunctor(..)
   , type (|-)(..), (<+), okProd, okExp
   , OpCon(..),Sat(..) -- ,FunctorC(..)
+  , yes1, forkCon, joinCon, inForkCon
   -- , AmbCat
   )
 
@@ -84,6 +85,9 @@ conceal f = f
 "reveal/conceal" forall f. reveal (conceal f) = f
 "conceal/reveal" forall f. conceal (reveal f) = f
  #-}
+
+-- TODO: replace reveal & conceal definitions by oops, and see if we ever don't
+-- remove them.
 
 #define OPINLINE INLINE [0]
 -- #define OPINLINE INLINE CONLIKE [3]
@@ -274,6 +278,26 @@ Op1(fmapC, (LinearCat k h, Ok2 k a b) => (a `k` b) -> (h a `k` h b))
 Op0(zipC , (LinearCat k h, Ok2 k a b) => (h a :* h b) `k` h (a :* b))
 Op0(sumC , (LinearCat k h, Ok k a, Num a) => h a `k` a)
 
+unzipC :: forall k h a b. (LinearCat k h, Ok2 k a b) => h (a :* b) `k` (h a :* h b)
+unzipC = fmapC exl &&& fmapC exr
+           <+ okFunctor @k @h @(a :* b)
+           <+ okFunctor @k @h @a
+           <+ okFunctor @k @h @b
+           <+ okProd @k @a @b
+-- {-# INLINE unzipC #-}
+
+zapC :: forall k h a b. (LinearCat k h, ClosedCat k, Ok2 k a b)
+     => (h (a -> b) :* h a) `k` h b
+zapC = fmapC apply . zipC
+         <+ okFunctor @k @h @((a -> b) :* a)
+         <+ okProd    @k    @(h (a -> b)) @(h a)
+         <+ okFunctor @k @h @(a -> b)
+         <+ okFunctor @k @h @a
+         <+ okFunctor @k @h @b
+         <+ okProd    @k    @(a -> b) @a
+         <+ okExp     @k    @a @b
+-- {-# INLINE zapC #-}
+
 -- TODO: Consider moving all of the auxiliary functions (like constFun) here.
 -- Rename "ConCat.Category" to something like "ConCat.Category.Class" and
 -- "ConCat.AltCat" to "ConCat.Category".
@@ -360,12 +384,12 @@ toCcc f = reveal (toCcc' f)
 {-# INLINE toCcc #-}
 
 -- 2017-09-24
-{-# DEPRECATED ccc "ccc is now called to toCcc" #-}
+{-# DEPRECATED ccc "ccc is now called toCcc" #-}
 ccc :: forall k a b. (a -> b) -> (a `k` b)
 ccc f = toCcc f
 {-# INLINE ccc #-}
 
--- | Pseudo function to stop rewriting from TOCCC form.
+-- | Pseudo function to stop rewriting from CCC form.
 unCcc :: forall k a b. (a `k` b) -> (a -> b)
 unCcc f = unCcc' (conceal f)
 {-# INLINE unCcc #-}
