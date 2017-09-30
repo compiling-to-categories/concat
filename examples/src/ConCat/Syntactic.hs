@@ -31,6 +31,7 @@ import Control.Newtype
 import Text.PrettyPrint.HughesPJClass hiding (render,first)
 import Data.Typeable (Typeable)
 import Data.Constraint (Dict(..),(:-)(..))  -- temp
+import Data.Key (Zip(..))
 
 #ifdef VectorSized
 import GHC.TypeLits (KnownNat)
@@ -351,7 +352,9 @@ instance UnknownCat Syn a b where
   unknownC = app0 "unknownC"
   INLINER(unknownC)
 
-instance LinearCat Syn h where
+instance OkFunctor Syn h where okFunctor = Entail (Sub Dict)
+
+instance (Functor h, Zip h, Foldable h) => LinearCat Syn h where
   fmapC = app1 "fmapC"
   zipC = app0 "zipC"
   sumC = app0 "sumC"
