@@ -126,7 +126,7 @@ type Cat = Type
 
 ccc :: CccEnv -> Ops -> Type -> ReExpr
 ccc (CccEnv {..}) (Ops {..}) cat =
-  traceRewrite "ccc" $
+  traceRewrite "toCcc'" $
   (if lintSteps then lintReExpr else id) $
   go
  where
@@ -309,14 +309,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        Doing("top lazy")
        return (mkCcc (mkCoreApps f args))
 #endif
-     Trying("top unfold")
-     e@(exprHead -> Just _v)
-       | -- Temp hack: avoid unfold/case-of-product loop.
-         {- isCast e || not (isSelectorId _v || isAbstReprId _v)
-       , -} Just e' <- unfoldMaybe e
-       -> Doing("top unfold")
-          -- , dtrace "top unfold" (ppr e <+> text "-->" <+> ppr e') True
-          return (mkCcc e')
      Trying("top App")
      e@(App u v)
        -- | dtrace "top App tests" (ppr (exprType v,liftedExpr v, mkConst' cat dom v,mkUncurryMaybe cat (mkCcc u))) False -> undefined
@@ -329,6 +321,14 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           return (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))
       where
         Just (dom,_) = splitFunTy_maybe (exprType e)
+     Trying("top unfold")
+     e@(exprHead -> Just _v)
+       | -- Temp hack: avoid unfold/case-of-product loop.
+         {- isCast e || not (isSelectorId _v || isAbstReprId _v)
+       , -} Just e' <- unfoldMaybe e
+       -> Doing("top unfold")
+          -- , dtrace "top unfold" (ppr e <+> text "-->" <+> ppr e') True
+          return (mkCcc e')
 #if 0
      Trying("top Wait for unfolding")
      (collectArgs -> (Var v,_)) | waitForVar ->
@@ -1078,23 +1078,23 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                   Nothing
 #else
    transCatOp (collectArgs -> (Var v, Type (TyConApp (isFunTyCon -> True) []) : rest))
-     --  | dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) False = undefined
+      | dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) False = undefined
      | okArgs
      = let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
            addArg :: Maybe CoreExpr -> CoreExpr -> Maybe CoreExpr
-           -- addArg a b | dtrace "transCatOp addArg" (ppr (a,b)) False = undefined
-           addArg Nothing _ = -- dtrace "transCatOp Nothing" (text "bailing") $
+           addArg a b | dtrace "transCatOp addArg" (ppr (a,b)) False = undefined
+           addArg Nothing _ = dtrace "transCatOp Nothing" (text "bailing") $
                               Nothing
            addArg (Just e) arg
               | isTyCoArg arg
-              = -- dtrace "addArg isTyCoArg" (ppr arg)
+              = dtrace "addArg isTyCoArg" (ppr arg)
                 Just (e `App` arg)
               | isPred arg
-              = -- dtrace "addArg isPred" (ppr arg)
+              = dtrace "addArg isPred" (ppr arg)
                 -- onDictMaybe may fail (Nothing) in the target category.
                 onDictMaybe e  --  fails gracefully
               | otherwise
-              = -- dtrace "addArg otherwise" (ppr (i,arg))
+              = dtrace "addArg otherwise" (ppr arg)
                 -- TODO: logic to sort out cat vs non-cat args.
                 -- We currently don't have both.
                 Just (e `App` (if isFunTy (exprType arg) then mkCcc else id) arg)
@@ -1104,14 +1104,15 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
        mbArities = Map.lookup (fqVarName v) catOpArities
        okArgs | Nothing <- mbArities = True
               | Just (catArgs,nonCatArgs) <- mbArities
-              = -- dtrace "transCatOp arities" (ppr (catArgs,nonCatArgs)) $
+              = dtrace "transCatOp arities" (ppr (catArgs,nonCatArgs)) $
                 length (filter (not . isTyCoDictArg) rest) == catArgs + nonCatArgs
-   transCatOp _ = -- pprTrace "transCatOp" (text "fail") $
-                   Nothing
+   transCatOp _ = pprTrace "transCatOp" (text "fail") $
+                  Nothing
 
 #endif
    reCat :: ReExpr
-   reCat = {- traceFail "reCat" <+ -} transCatOp <+ catFun
+   reCat = -- (traceFail "reCat" <+ ) $
+           transCatOp <+ catFun
    traceFail :: String -> ReExpr
    traceFail str a = dtrace str (pprWithType a) Nothing
    -- TODO: refactor transCatOp & isPartialCatOp
@@ -1244,6 +1245,7 @@ catOpArities = Map.fromList $ map (\ (nm,m,n) -> (catModule ++ '.' : nm, (m,n)))
   , ("reprC",0,0), ("abstC",0,0)
   , ("reprCp",0,0), ("abstCp",0,0)
   , ("constFun",1,0)
+  , ("fmapC",0,0)
   -- , ("ambC",0,0)  -- experiment. How to factor out?
   -- Hack/experiment: fool reCat into not applying to ccc.
   , ("toCcc'",-1,-1)
@@ -1268,7 +1270,7 @@ pprMbWithType :: Maybe CoreExpr -> SDoc
 pprMbWithType = maybe (text "failed") pprWithType
 
 cccRuleName :: FastString
-cccRuleName = fsLit "ccc"
+cccRuleName = fsLit "toCcc'"
 
 composeRuleName :: FastString
 composeRuleName = fsLit "compose/coerce"
@@ -1349,12 +1351,12 @@ install opts todos =
    flagCcc :: CccEnv -> PluginPass
    flagCcc (CccEnv {..}) guts
      --  | pprTrace "ccc residuals:" (ppr (toList remaining)) False = undefined
-     --  | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
+     | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
      | Seq.null remaining = -- pprTrace "transformed program binds" (ppr (mg_binds guts)) $
                             return guts
      | otherwise = -- pprPanic "ccc residuals:" (ppr (toList remaining))
                    pprTrace "ccc residuals:" (ppr (toList remaining)) $
-                   -- pprTrace "transformed program binds" (ppr (mg_binds guts)) $
+                   pprTrace "transformed program binds" (ppr (mg_binds guts)) $
                    return guts
     where
       remaining :: Seq CoreExpr

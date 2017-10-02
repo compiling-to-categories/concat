@@ -83,7 +83,7 @@ library
                        ConCat.Additive
                        -- ConCat.Polynomial
                        ConCat.Demand
-                       ConCat.Arr
+                       -- ConCat.Arr
                        ConCat.Nat
                        ConCat.Sized
                        ConCat.Pair

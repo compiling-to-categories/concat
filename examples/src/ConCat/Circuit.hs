@@ -810,6 +810,34 @@ instance TerminalCat (:>) where
   -- it = mkCK (const (return UnitB))
   it = C (arr (pure UnitB))
 
+#if 1
+instance GenBuses i => OkArr (:>) i where okArr = Entail (Sub Dict)
+
+instance GenBuses i => LinearCat (:>) i where
+  -- zeroC = namedC "zero"
+  fmapC :: forall a b. Ok2 (:>) a b => (a -> b) :> (Arr i a -> Arr i b)
+  fmapC = trace "fmapC on (:>)" $
+          namedC "fmap"
+            <+ okArr @(:>) @i @a
+            <+ okArr @(:>) @i @b
+  zipC  :: forall a b. Ok2 (:>) a b => (Arr i a :* Arr i b) :> Arr i (a :* b)
+  zipC = namedC "zip"
+           <+ okArr @(:>) @i @(a :* b)
+           <+ okArr @(:>) @i @a
+           <+ okArr @(:>) @i @b
+  sumC :: forall a. (Ok (:>) a, Num a) => Arr i a :> a
+  sumC = namedC "sum"
+           <+ okArr @(:>) @i @a
+
+instance GenBuses i => PointedCat (:>) (Arr i) where
+  pointC = namedC "point"
+
+-- TODO: remove the GenBuses requirement from the LinearCat and PointedCat instances.
+-- I think that constraint is there only for ty @i, which we can do differently.
+
+-- Maybe generalize from Arr i to h.
+
+#else
 instance OkFunctor (:>) h where okFunctor = Entail (Sub Dict)
 
 instance (Functor h, Foldable h, Zip h{-, OkFunctor (:>) h-}) => LinearCat (:>) h where
@@ -826,6 +854,7 @@ instance (Functor h, Foldable h, Zip h{-, OkFunctor (:>) h-}) => LinearCat (:>) 
   sumC :: forall a. (Ok (:>) a, Num a) => h a :> a
   sumC = namedC "sum"
            <+ okFunctor @(:>) @h @a
+#endif
 
 #if 0
 

@@ -22,6 +22,7 @@ import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip)
 -- import Debug.Trace (trace)
 
 import Control.Newtype (unpack)
+import Data.Pointed (Pointed(..))
 import Data.Key (Zip(..))
 
 import ConCat.Misc ((:*),R,Yes1,oops,unzip,type (&+&))
@@ -53,10 +54,10 @@ instance OpCon (->) (Sat Additive) where
 
 #if 0
 instance ClosedCat D where
-  apply       = D (\ (f,a)   -> (f a, \ (df,da) -> df a ^+^ deriv f a da))
+  apply = D (\ (f,a) -> (f a, \ (df,da) -> df a ^+^ deriv f a da))
   curry (D h) = D (\ a -> (curry f a, \ da -> \ b -> f' (a,b) (da,zero)))
    where
-     (f,f')   = unfork h
+     (f,f') = unfork h
   {-# INLINE apply #-}
   {-# INLINE curry #-}
 
@@ -69,14 +70,14 @@ instance ClosedCat D where
   curry = curryD ; {-# INLINE curry #-}
 
 applyD :: forall a b. Ok2 D a b => D ((a -> b) :* a) b
--- applyD                                              = D (\ (f,a)                   -> (f a, \ (df,da) -> df a ^+^ f da))
-applyD                                                 = -- trace "calling applyD" $
-         D (\ (f,a)                      -> let (b,f') = andDerF f a in (b, \ (df,da) -> df a ^+^ f' da))
--- applyD                                              = oops "applyD called"   -- does it?
+-- applyD = D (\ (f,a)                   -> (f a, \ (df,da) -> df a ^+^ f da))
+applyD = -- trace "calling applyD" $
+ D (\ (f,a) -> let (b,f') = andDerF f a in (b, \ (df,da) -> df a ^+^ f' da))
+-- applyD = oops "applyD called"   -- does it?
 
 curryD :: forall a b c. Ok3 D a b c => D (a :* b) c -> D a (b -> c)
-curryD (D (unfork                                   -> (f,f'))) =
-  D (\ a                                            -> (curry f a, \ da -> \ b -> f' (a,b) (da,zero)))
+curryD (D (unfork -> (f,f'))) =
+  D (\ a -> (curry f a, \ da -> \ b -> f' (a,b) (da,zero)))
 
 {-# INLINE applyD #-}
 {-# INLINE curryD #-}
@@ -157,6 +158,27 @@ instance (Floating s, Additive s) => FloatingCat D s where
 
 -- type Ok D = (Yes1 &+& Additive)
 
+#if 1
+instance OkArr D i where
+  okArr :: forall a. Ok' D a |- Ok' D (Arr i a)
+  okArr = Entail (Sub Dict)
+  -- okArr = inForkCon (yes1 *** additive1 @h @a)
+
+-- class OkArr k h where okArr :: Ok' k a |- Ok' k (h a)
+
+instance LinearCat D i where
+  fmapC = linearDF fmapC
+  zipC  = linearDF zipC
+  sumC  = linearDF sumC
+  {-# INLINE fmapC #-}
+  {-# INLINE zipC #-}
+  {-# INLINE sumC #-}
+
+instance Pointed h => PointedCat D h where
+  pointC = linearDF pointC
+  {-# INLINE pointC #-}
+
+#else
 instance Additive1 h => OkFunctor D h where
   okFunctor :: forall a. Ok' D a |- Ok' D (h a)
   okFunctor = inForkCon (yes1 *** additive1 @h @a)
@@ -170,6 +192,7 @@ instance (Zip h, Foldable h, Additive1 h) => LinearCat D h where
   {-# INLINE fmapC #-}
   {-# INLINE zipC #-}
   {-# INLINE sumC #-}
+#endif
 
 -- fmapC' (D h) = D (second (curry zapC) . unzipC . fmapC' h)
 

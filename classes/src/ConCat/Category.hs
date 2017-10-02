@@ -1,3 +1,7 @@
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TupleSections #-}
 -- {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -57,13 +61,14 @@ import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import GHC.Types (type (*))  -- experiment with TypeInType
 -- import qualified Data.Constraint as K
 import GHC.TypeLits
-import Data.Array (Array,(!))
+import Data.Array (Array,(!),bounds,Ix)
 import qualified Data.Array as Arr
 import Data.Proxy (Proxy(..))
 import GHC.Generics ((:*:)(..),(:.:)(..))
 import qualified Data.Vector.Sized as VS
 
 import Control.Newtype (Newtype(..))
+import Data.Pointed (Pointed(..))
 import Data.Key (Zip(..))
 #ifdef VectorSized
 import Data.Finite (Finite)
@@ -1627,7 +1632,33 @@ instance (ArrayCat k n b, ArrayCat k' n b) => ArrayCat (k :**: k') n b where
 
 #else
 -- Arrays
-newtype Arr a b = MkArr (Array a b) deriving Show
+newtype Arr i a = MkArr (Array i a) deriving (Show,Functor,Foldable)
+
+#if 1
+
+-- instance Pointed (Arr i) where
+--   point = error "point on Arr i: not yet implemented"
+
+instance Zip (Arr i) where
+  zipWith = error "zipWith on Arr i: not yet implemented"
+
+-- zeroArr :: Num a => Arr i a
+-- zeroArr = error "zeroArr: not yet implemented"
+
+instance Pointed (Arr i) where
+  point = error "point on Arr i: not yet implemented"
+
+#else
+instance Ix i => Zip (Array i) where
+  zipWith f arr arr'
+    | b /= b' = error "zipWithArray: different bounds"
+    | otherwise = Arr.array b [ (i, f (arr ! i) (arr' ! i)) | i <- Arr.indices arr ]
+   where
+     b  = bounds arr
+     b' = bounds arr'
+
+deriving instance Ix i => Zip (Arr i)
+#endif
 
 class (ClosedCat k, Ok3 k a b (Arr a b)) => ArrayCat k a b where
   array :: Exp k a b `k` Arr a b
@@ -1693,6 +1724,50 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
     Vectors (experimental and to be reconciled with arrays)
 --------------------------------------------------------------------}
 
+#if 1
+
+class OkArr k i where okArr :: Ok' k a |- Ok' k (Arr i a)
+
+instance OkArr (->) i where okArr = Entail (Sub Dict)
+
+class OkArr k i => LinearCat k i where
+  -- zeroC :: (Num a, Ok k a) => () `k` Arr i a
+  fmapC :: Ok2 k a b => (a -> b) `k` (Arr i a -> Arr i b)
+  zipC  :: Ok2 k a b => (Arr i a :* Arr i b) `k` Arr i (a :* b)
+  sumC  :: (Ok k a, Num a) => Arr i a `k` a
+
+instance LinearCat (->) i where
+  -- zeroC = const zeroArr
+  fmapC = fmap
+  zipC  = uncurry zip
+  sumC  = sum
+
+-- TODO: orphan instance for Zip (Vector n) in ConCat.Orphans, where Vector n
+-- comes from Data.Vector.Sized in the vector-sized package.
+
+instance (OkArr k i, OkArr k' i) => OkArr (k :**: k') i where
+  okArr = inForkCon (okArr @k *** okArr @k')
+
+instance (LinearCat k i, LinearCat k' i) => LinearCat (k :**: k') i where
+  -- zeroC = zeroC :**: zeroC
+  fmapC = fmapC :**: fmapC
+  zipC  = zipC  :**: zipC
+  sumC  = sumC  :**: sumC
+
+class PointedCat k h where
+  pointC :: Ok k a => a `k` h a
+
+instance Pointed h => PointedCat (->) h where
+  pointC = point
+
+instance (PointedCat k h, PointedCat k' h) => PointedCat (k :**: k') h where
+  pointC = pointC :**: pointC
+
+-- TODO: generalize LinearCat from Arr i back to h.
+-- I can limit to Arr i in Circuit.
+
+#else
+
 class OkFunctor k h where okFunctor :: Ok' k a |- Ok' k (h a)
 
 instance OkFunctor (->) h where okFunctor = Entail (Sub Dict)
@@ -1719,3 +1794,5 @@ instance (LinearCat k h, LinearCat k' h) => LinearCat (k :**: k') h where
   fmapC = fmapC :**: fmapC
   zipC  = zipC  :**: zipC
   sumC  = sumC  :**: sumC
+
+#endif

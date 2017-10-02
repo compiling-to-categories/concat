@@ -352,6 +352,23 @@ instance UnknownCat Syn a b where
   unknownC = app0 "unknownC"
   INLINER(unknownC)
 
+#if 1
+instance OkArr Syn h where okArr = Entail (Sub Dict)
+
+instance LinearCat Syn h where
+  -- zeroC = app0 "zeroC"
+  fmapC = app0 "fmapC"
+  zipC  = app0 "zipC"
+  sumC  = app0 "sumC"
+  -- INLINER(zeroC)
+  INLINER(fmapC)
+  INLINER(zipC)
+  INLINER(sumC)
+
+instance PointedCat Syn h where
+  pointC = app0 "pointC"
+  INLINER(pointC)
+#else
 instance OkFunctor Syn h where okFunctor = Entail (Sub Dict)
 
 instance (Functor h, Zip h, Foldable h) => LinearCat Syn h where
@@ -361,6 +378,7 @@ instance (Functor h, Zip h, Foldable h) => LinearCat Syn h where
   INLINER(fmapC)
   INLINER(zipC)
   INLINER(sumC)
+#endif
 
 -- #define ShowTypes
 
