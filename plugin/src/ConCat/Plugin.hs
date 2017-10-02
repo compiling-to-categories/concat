@@ -1078,23 +1078,23 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                   Nothing
 #else
    transCatOp (collectArgs -> (Var v, Type (TyConApp (isFunTyCon -> True) []) : rest))
-      | dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) False = undefined
+      -- | dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) False = undefined
      | okArgs
      = let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
            addArg :: Maybe CoreExpr -> CoreExpr -> Maybe CoreExpr
-           addArg a b | dtrace "transCatOp addArg" (ppr (a,b)) False = undefined
-           addArg Nothing _ = dtrace "transCatOp Nothing" (text "bailing") $
+           -- addArg a b | dtrace "transCatOp addArg" (ppr (a,b)) False = undefined
+           addArg Nothing _ = -- dtrace "transCatOp Nothing" (text "bailing") $
                               Nothing
            addArg (Just e) arg
               | isTyCoArg arg
-              = dtrace "addArg isTyCoArg" (ppr arg)
+              = -- dtrace "addArg isTyCoArg" (ppr arg)
                 Just (e `App` arg)
               | isPred arg
-              = dtrace "addArg isPred" (ppr arg)
+              = -- dtrace "addArg isPred" (ppr arg)
                 -- onDictMaybe may fail (Nothing) in the target category.
                 onDictMaybe e  --  fails gracefully
               | otherwise
-              = dtrace "addArg otherwise" (ppr arg)
+              = -- dtrace "addArg otherwise" (ppr arg)
                 -- TODO: logic to sort out cat vs non-cat args.
                 -- We currently don't have both.
                 Just (e `App` (if isFunTy (exprType arg) then mkCcc else id) arg)
@@ -1104,9 +1104,9 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
        mbArities = Map.lookup (fqVarName v) catOpArities
        okArgs | Nothing <- mbArities = True
               | Just (catArgs,nonCatArgs) <- mbArities
-              = dtrace "transCatOp arities" (ppr (catArgs,nonCatArgs)) $
+              = -- dtrace "transCatOp arities" (ppr (catArgs,nonCatArgs)) $
                 length (filter (not . isTyCoDictArg) rest) == catArgs + nonCatArgs
-   transCatOp _ = pprTrace "transCatOp" (text "fail") $
+   transCatOp _ = -- pprTrace "transCatOp" (text "fail") $
                   Nothing
 
 #endif
@@ -1351,7 +1351,7 @@ install opts todos =
    flagCcc :: CccEnv -> PluginPass
    flagCcc (CccEnv {..}) guts
      --  | pprTrace "ccc residuals:" (ppr (toList remaining)) False = undefined
-     | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
+     --  | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
      | Seq.null remaining = -- pprTrace "transformed program binds" (ppr (mg_binds guts)) $
                             return guts
      | otherwise = -- pprPanic "ccc residuals:" (ppr (toList remaining))
