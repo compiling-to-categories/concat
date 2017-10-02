@@ -128,7 +128,7 @@ import Debug.Trace (trace)
 -- import Data.Coerce                      -- TODO: imports
 import Unsafe.Coerce
 -- import GHC.Exts (Coercible) -- ,coerce
-import Data.Typeable (TypeRep,Typeable,eqT,cast) -- ,Proxy(..),typeRep
+import Data.Typeable (TypeRep,Typeable,eqT,cast) -- ,Proxy(..),typeOf
 import Data.Type.Equality ((:~:)(..))
 
 import Data.Constraint (Dict(..),(:-)(..))
@@ -176,6 +176,7 @@ data Ty = Unit | Bool | Int | Float | Double
         | Arr Integer Ty
 #else
         | Arr Ty Ty
+        -- | Arr TypeRep Ty
 #endif
         | Prod Ty Ty
         | Sum Ty Ty
@@ -378,10 +379,11 @@ instance (KnownNat n, GenBuses b) => GenBuses (Arr n b)  where
 
 #else
 
-instance (GenBuses a, GenBuses b) => GenBuses (Arr a b)  where
+instance (GenBuses i {-Typeable i-}, GenBuses b) => GenBuses (Arr i b)  where
   genBuses' = genPrimBus
   -- delay = primDelay
-  ty = Arr (ty @a) (ty @b)
+  ty = Arr (ty @i) (ty @b)
+  -- ty = Arr (typeOf (undefined :: a)) (ty @b)
   unflattenB' = unflattenPrimB
 
 #endif
@@ -811,12 +813,12 @@ instance TerminalCat (:>) where
   it = C (arr (pure UnitB))
 
 #if 1
-instance GenBuses i => OkArr (:>) i where okArr = Entail (Sub Dict)
+instance GenBuses i {-Typeable i-} => OkArr (:>) i where okArr = Entail (Sub Dict)
 
-instance GenBuses i => LinearCat (:>) i where
+instance GenBuses i {-Typeable i-} => LinearCat (:>) i where
   -- zeroC = namedC "zero"
   fmapC :: forall a b. Ok2 (:>) a b => (a -> b) :> (Arr i a -> Arr i b)
-  fmapC = trace "fmapC on (:>)" $
+  fmapC = -- trace "fmapC on (:>)" $
           namedC "fmap"
             <+ okArr @(:>) @i @a
             <+ okArr @(:>) @i @b
@@ -829,7 +831,7 @@ instance GenBuses i => LinearCat (:>) i where
   sumC = namedC "sum"
            <+ okArr @(:>) @i @a
 
-instance GenBuses i => PointedCat (:>) (Arr i) where
+instance GenBuses i {-Typeable i-} => PointedCat (:>) (Arr i) where
   pointC = namedC "point"
 
 -- TODO: remove the GenBuses requirement from the LinearCat and PointedCat instances.
@@ -842,7 +844,7 @@ instance OkFunctor (:>) h where okFunctor = Entail (Sub Dict)
 
 instance (Functor h, Foldable h, Zip h{-, OkFunctor (:>) h-}) => LinearCat (:>) h where
   fmapC :: forall a b. Ok2 (:>) a b => (a -> b) :> (h a -> h b)
-  fmapC = trace "fmapC on (:>)" $
+  fmapC = -- trace "fmapC on (:>)" $
           namedC "fmap"
             <+ okFunctor @(:>) @h @a
             <+ okFunctor @(:>) @h @b
@@ -953,7 +955,7 @@ instance SourceToBuses Double  where toBuses = PrimB
 instance (KnownNat n, GenBuses b) => SourceToBuses (Arr n b) where
   toBuses = PrimB
 #else
-instance (GenBuses a, GenBuses b) => SourceToBuses (Arr a b) where
+instance (GenBuses i {-Typeable i-}, GenBuses b) => SourceToBuses (Arr i b) where
   toBuses = PrimB
 #endif
 
@@ -1493,7 +1495,7 @@ instance (KnownNat n, GenBuses b) => ArrayCat (:>) n b where
   array = namedC "array"
   arrAt = namedC "arrAt"
 #else
-instance (GenBuses a, GenBuses b) => ArrayCat (:>) a b where
+instance (Typeable i, GenBuses i, GenBuses b) => ArrayCat (:>) i b where
   array = namedC "array"
   arrAt = namedC "arrAt"
 #endif
@@ -1996,11 +1998,10 @@ tyRep = ty @(Rep a)
 genUnflattenB' :: (GenBuses a, GenBuses (Rep a)) => State [Source] (Buses a)
 genUnflattenB' = abstB <$> unflattenB'
 
-
 -- Omit temporarily for faster compilation
 #if 1
 
-#include "AbsTy.inc"
+#include "ConCat/AbsTy.inc"
 
 AbsTy((a,b,c))
 AbsTy((a,b,c,d))
