@@ -12,14 +12,14 @@
 
 module ConCat.Additive where
 
-import Prelude hiding (zipWith)
+import Prelude hiding (id,(.),curry,uncurry,zipWith)
 import Data.Monoid
 import Data.Foldable (fold)
 import Data.Complex hiding (magnitude)
 import Data.Ratio
 import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
-import Data.Constraint (Dict(..),(:-)(..))
+-- import Data.Constraint (Dict(..),(:-)(..))
 
 import Data.Pointed
 import Data.Key (Zip(..))
@@ -30,7 +30,8 @@ import Control.Newtype (Newtype(..))
 import ConCat.Misc
 import ConCat.Orphans ()
 import ConCat.Pair
-import ConCat.Category (type (|-)(..),Sat(..))
+-- import ConCat.Category (type (|-)(..),Sat(..),Arr(..))
+import ConCat.AltCat
 
 -- | Commutative monoid intended to be used with a multiplicative monoid
 class Additive a where
@@ -41,8 +42,6 @@ class Additive a where
   zero = point zero
   default (^+^) :: (Zip f, Additive b) => Binop (f b)
   (^+^) = zipWith (^+^)
-
-class Additive1 h where additive1 :: Sat Additive a |- Sat Additive (h a)
 
 instance Additive () where
   zero = ()
@@ -103,6 +102,21 @@ instance (Additive v, AddF f, AddF g) => Additive ((g :.: f) v)
 
 instance Additive v => Additive (Pair v)
 
+#if 1
+instance Additive v => Additive (Arr i v) where
+  zero = pointC zero
+  as ^+^ bs = fmapC (uncurry (^+^)) (zipC (as,bs))
+
+-- TODO: Define and use zipWithC (^+^) as bs.
+
+-- TODO: Generalize LinearCat back to functors, and use the Additive (Arr i v)
+-- above as the defaults.
+
+#else
+instance Additive v => Additive (Arr i v)
+
+class Additive1 h where additive1 :: Sat Additive a |- Sat Additive (h a)
+
 instance Additive1 ((->) a) where additive1 = Entail (Sub Dict)
 
 instance Additive1 Sum where additive1 = Entail (Sub Dict)
@@ -113,6 +127,7 @@ instance (AddF f, AddF g) => Additive1 (f :*: g) where additive1 = Entail (Sub D
 instance (AddF f, AddF g) => Additive1 (g :.: f) where additive1 = Entail (Sub Dict)
 
 instance Additive1 Pair where additive1 = Entail (Sub Dict)
+#endif
 
 
 -- Maybe is handled like the Maybe-of-Sum monoid
