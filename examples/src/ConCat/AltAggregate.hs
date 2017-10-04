@@ -13,16 +13,17 @@ module ConCat.AltAggregate (module ConCat.AltAggregate, module C) where
 import Prelude hiding (id,(.),curry,uncurry,const,zip)
 
 import ConCat.Misc ((:*))
-import ConCat.Aggregate (LinearCat,PointedCat,OkArr(..))
+import ConCat.Aggregate (LinearCat,OkArr(..))
 import qualified ConCat.Aggregate as C
 import ConCat.AltCat
 
 #include "ConCat/Ops.inc"
 
 -- Op0(zeroC, (LinearCat k i, Ok k a, Num a) => () `k` Arr i a)
-Op0(fmapC, (LinearCat k i, Ok2 k a b) => (a -> b) `k` (Arr i a -> Arr i b))
-Op0(zipC , (LinearCat k i, Ok2 k a b) => (Arr i a :* Arr i b) `k` Arr i (a :* b))
-Op0(sumC , (LinearCat k i, Ok k a, Num a) => Arr i a `k` a)
+Op0(fmapC , (LinearCat k i, Ok2 k a b) => (a -> b) `k` (Arr i a -> Arr i b))
+Op0(zipC  , (LinearCat k i, Ok2 k a b) => (Arr i a :* Arr i b) `k` Arr i (a :* b))
+Op0(sumC  , (LinearCat k i, Ok k a, Num a) => Arr i a `k` a)
+Op0(pointC, (LinearCat k i, Ok k a) => a `k` Arr i a)
 
 -- {-# RULES "ccc/fmapC" toCcc' fmapC = fmapC #-}
 
@@ -59,5 +60,3 @@ zapC = fmapC' apply . zipC
          <+ okProd @k    @(a -> b) @a
          <+ okExp  @k    @a @b
 {-# INLINE zapC #-}
-
-Op0(pointC, (PointedCat k h, Ok k a) => a `k` h a)

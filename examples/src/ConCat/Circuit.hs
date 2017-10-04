@@ -831,8 +831,6 @@ instance GenBuses i {-Typeable i-} => LinearCat (:>) i where
   sumC :: forall a. (Ok (:>) a, Num a) => Arr i a :> a
   sumC = namedC "sum"
            <+ okArr @(:>) @i @a
-
-instance GenBuses i {-Typeable i-} => PointedCat (:>) (Arr i) where
   pointC = namedC "point"
 
 -- TODO: remove the GenBuses requirement from the LinearCat and PointedCat instances.

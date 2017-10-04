@@ -167,15 +167,13 @@ instance OkArr D i where
 -- class OkArr k h where okArr :: Ok' k a |- Ok' k (h a)
 
 instance LinearCat D i where
-  fmapC = linearDF fmapC
-  zipC  = linearDF zipC
-  sumC  = linearDF sumC
+  fmapC  = linearDF fmapC
+  zipC   = linearDF zipC
+  sumC   = linearDF sumC
+  pointC = linearDF pointC
   {-# INLINE fmapC #-}
   {-# INLINE zipC #-}
   {-# INLINE sumC #-}
-
-instance Pointed h => PointedCat D h where
-  pointC = linearDF pointC
   {-# INLINE pointC #-}
 
 #else
