@@ -66,6 +66,9 @@
 
 module Main where
 
+import Prelude hiding (id,(.),curry,uncurry)
+import qualified Prelude as P
+
 import Data.Monoid (Sum(..))
 import Data.Foldable (fold)
 import Control.Applicative (liftA2)
@@ -89,8 +92,7 @@ import ConCat.Circuit (GenBuses,(:>))
 import qualified ConCat.RunCircuit as RC
 import qualified ConCat.AltCat as A
 import ConCat.AltCat
-  ( toCcc,ccc,reveal,U2(..),(:**:)(..),Ok,Ok2, Arr, array,arrAt,OrdCat,ConstCat
-  , OpCon(..),Sat, type (|-)(..), second, fmapC)
+import ConCat.AltAggregate
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Nat
 import ConCat.Shaped
@@ -134,9 +136,9 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- -- Circuit graphs
+  -- Circuit graphs
   -- , runSynCirc "twice"       $ toCcc $ twice @R
-  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  -- , runSynCirc "complex-mul" $ toCcc $ P.uncurry ((*) @C)
   -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
   -- , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
   -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
@@ -147,7 +149,18 @@ main = sequence_
 
   -- , runSyn $ toCcc $ (fmapC not :: Unop (Pair Bool)) 
 
-  , runCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool)) 
+  -- , runCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool)) 
+
+  -- , runCirc "fmap-not-a" $ toCcc $ (fmapC not :: Unop (Arr Bool Bool)) 
+
+  -- , runCirc "fmap-succ-bb" $ toCcc $ (fmapC succ :: Unop (Arr (Bool :* Bool) Int))
+  -- , runCirc "fmap-succ-v3" $ toCcc $ (fmapC succ :: Unop (Arr (RVec N3 Bool) Int))
+  , runCirc "point-v3" $ toCcc $ (pointC :: Bool -> Arr (RVec N3 Bool) Bool)
+  -- , runCirc "sum-point-v3" $ toCcc $ (sumC . (pointC :: Int -> Arr (RVec N3 Bool) Int))
+  -- , runCirc "sum-arr-v3" $ toCcc $ (sumC :: Arr (RVec N3 Bool) Int -> Int)
+  -- , runCirc "sum-arr-v3-adf" $ toCcc $ andDerF (sumC :: Arr (RVec N3 Bool) Int -> Int)
+
+  -- , runCirc "sum-arr-v3-adfl" $ toCcc $ andDerFL @R (sumC :: Arr (RVec N3 Bool) R -> R)
 
   -- , runSynCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool))
 
@@ -191,6 +204,7 @@ main = sequence_
   --     (toCcc (\ x -> choose @GenBuses line x))
   -- , onChoice @GenBuses (runCirc "choice-line-2x" . toCcc)
   --     (toCcc (\ x -> choose @GenBuses line (2 * x)))
+
   -- , onChoice @GenBuses (runCirc "choice-line-lam-2" . toCcc)
   --     (toCcc (\ x -> choose @GenBuses line (choose @GenBuses line x)))
   -- , onChoice @GenBuses (runCirc "choice-line-2" . toCcc) -- fail
@@ -216,7 +230,7 @@ main = sequence_
 
   -- , oops "Hrmph" (toCcc (choose @GenBuses (||)) :: Choice GenBuses Bool Bool)
 
-  -- -- Circuit graphs on trees etc
+  -- Circuit graphs on trees etc
   -- , runSynCirc "sum-pair"   $ toCcc $ sum   @Pair      @Int
   -- , runSynCirc "sum-rb4"    $ toCcc $ sum   @(RBin N4) @Int
   -- , runSynCirc "lsums-pair" $ toCcc $ lsums @Pair      @Int
@@ -272,13 +286,12 @@ main = sequence_
   -- -- Dies with "Oops --- toCcc called!", without running the plugin.
   -- , print $ andDer @R sin (1 :: R)
 
-  -- Automatic differentiation with ADFun
+  -- -- Automatic differentiation with ADFun
   -- , runSynCirc "sin-adf"      $ toCcc $ andDerF $ sin @R
   -- , runSynCirc "cos-adf"      $ toCcc $ andDerF $ cos @R
   -- , runSynCirc "twice-adf"    $ toCcc $ andDerF $ twice @R
   -- , runSynCirc "sqr-adf"      $ toCcc $ andDerF $ sqr @R
-
-  -- , runSynCirc "magSqr-adf"     $ toCcc $ andDerF $ magSqr  @R
+  -- , runSynCirc "magSqr-adf"     $ toCcc $ andDerF $ magSqr  @R -- breaks
   -- , runSynCirc "cos-2x-adf"     $ toCcc $ andDerF $ \ x -> cos (2 * x) :: R
   -- , runSynCirc "cos-2xx-adf"    $ toCcc $ andDerF $ \ x -> cos (2 * x * x) :: R
   -- , runSynCirc "cos-xpy-adf"    $ toCcc $ andDerF $ \ (x,y) -> cos (x + y) :: R
@@ -294,7 +307,7 @@ main = sequence_
   -- , runSynCirc "sin-adfl"        $ toCcc $ andDerFL @R $ sin @R
   -- , runSynCirc "cos-adfl"        $ toCcc $ andDerFL @R $ cos @R
   -- , runSynCirc "sqr-adfl"        $ toCcc $ andDerFL @R $ sqr @R
-  -- , runSynCirc "magSqr-adfl-b"   $ toCcc $ andDerFL @R $ magSqr @R
+  -- , runSynCirc "magSqr-adfl"     $ toCcc $ andDerFL @R $ magSqr @R -- breaks
   -- , runSynCirc "cos-2x-adfl"     $ toCcc $ andDerFL @R $ \ x -> cos (2 * x) :: R
   -- , runSynCirc "cos-2xx-adfl"    $ toCcc $ andDerFL @R $ \ x -> cos (2 * x * x) :: R
   -- , runSynCirc "cos-xpy-adfl"    $ toCcc $ andDerFL @R $ \ (x,y) -> cos (x + y) :: R

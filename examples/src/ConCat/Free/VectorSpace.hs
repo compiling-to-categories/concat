@@ -27,7 +27,7 @@ import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:+:)(..),(:.:)(..))
 import Data.Foldable (fold)
 import Data.Pointed
 import Data.Key (Zip(..))
-import Data.Vector.Sized (Vector)
+-- import Data.Vector.Sized (Vector)
 -- import Data.Map (Map)
 
 -- import Control.Newtype
@@ -36,7 +36,7 @@ import ConCat.Orphans ()
 import ConCat.Misc ((:*),(:+),(<~))
 import ConCat.Rep
 -- import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
-import ConCat.AltCat (OpCon(..),Sat,type (|-)(..))
+import ConCat.AltCat (OpCon(..),Sat,type (|-)(..),Arr)
 import Data.Constraint ((:-)(..),Dict(..))
 
 {--------------------------------------------------------------------
@@ -280,12 +280,12 @@ instance HasV s b => HasV s (a -> b) where
 
 instance VComp ((->) a) where vcomp = Sub Dict
 
-instance HasV s b => HasV s (Vector n b) where
-  type V s (Vector n b) = Vector n :.: V s b
+instance HasV s b => HasV s (Arr i b) where
+  type V s (Arr i b) = Arr i :.: V s b
   toV = Comp1 . fmap toV
   unV = fmap unV . unComp1
 
-instance VComp (Vector n) where vcomp = Sub Dict
+instance VComp (Arr i) where vcomp = Sub Dict
 
 #if 0
 -- Example default instance

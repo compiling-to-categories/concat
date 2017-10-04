@@ -41,6 +41,7 @@ import Data.Finite (Finite)
 import ConCat.Category
 import ConCat.Misc (inNew,inNew2,Unop,Binop,typeR,Yes1,(:*))
 import ConCat.Rep
+import ConCat.Aggregate
 
 {--------------------------------------------------------------------
     Untyped S-expression

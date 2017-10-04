@@ -24,18 +24,18 @@ import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip)
 import Control.Newtype (unpack)
 import Data.Pointed (Pointed(..))
 import Data.Key (Zip(..))
+import Data.Constraint hiding ((&&&),(***),(:=>))
 
 import ConCat.Misc ((:*),R,Yes1,oops,unzip,type (&+&))
 import ConCat.Free.VectorSpace (HasV(..))
 import ConCat.Free.LinearRow
--- The following import allows the instances to type-check. Why?
-import qualified ConCat.Category as C
 import ConCat.AltCat
-
-import Data.Constraint hiding ((&&&),(***),(:=>))
-
+import ConCat.AltAggregate
 import ConCat.GAD
 import ConCat.Additive
+-- The following imports allows the instances to type-check. Why?
+import qualified ConCat.Category  as C
+import qualified ConCat.Aggregate as C
 
 -- Differentiable functions
 type D = GD (->)
@@ -211,13 +211,11 @@ derF = deriv
 {-# INLINE derF #-}
 
 -- AD with derivative-as-function, then converted to linear map
-andDerFL :: forall s a b. (OkLM s a, OkLM s b, HasL (V s a))
-         => (a -> b) -> (a -> b :* L s a b)
+andDerFL :: forall s a b. HasLin s a b => (a -> b) -> (a -> b :* L s a b)
 andDerFL f = second linear . andDerF f
 {-# INLINE andDerFL #-}
 
 -- AD with derivative-as-function, then converted to linear map
-derFL :: forall s a b. (OkLM s a, OkLM s b, HasL (V s a))
-      => (a -> b) -> (a -> L s a b)
+derFL :: forall s a b. HasLin s a b => (a -> b) -> (a -> L s a b)
 derFL f = linear . derF f
 {-# INLINE derFL #-}

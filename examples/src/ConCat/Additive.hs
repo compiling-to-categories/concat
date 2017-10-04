@@ -32,6 +32,7 @@ import ConCat.Orphans ()
 import ConCat.Pair
 -- import ConCat.Category (type (|-)(..),Sat(..),Arr(..))
 import ConCat.AltCat
+import ConCat.AltAggregate
 
 -- | Commutative monoid intended to be used with a multiplicative monoid
 class Additive a where

@@ -79,6 +79,7 @@ import qualified Data.Vector.Sized as VS
 -- import Data.MemoTrie
 
 import ConCat.Misc hiding ((<~),(~>),type (&&))
+-- import ConCat.Free.Diagonal (Diagonal(..),diag)
 import ConCat.Rep
 -- import ConCat.Orphans ()
 -- import ConCat.Additive (Additive)
@@ -1632,7 +1633,9 @@ instance (ArrayCat k n b, ArrayCat k' n b) => ArrayCat (k :**: k') n b where
 
 #else
 -- Arrays
-newtype Arr i a = MkArr (Array i a) deriving (Show,Functor,Foldable)
+data Arr i a = MkArr (Array i a) deriving (Show,Functor,Foldable)
+
+-- I'm using "data" instead of "newtype" here to avoid the coercion.
 
 #if 1
 
@@ -1719,80 +1722,3 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
 --   -- Laws:
 --   -- fmapC id == id
 --   -- fmapC (q . p) == fmapC q . fmapC p
-
-{--------------------------------------------------------------------
-    Vectors (experimental and to be reconciled with arrays)
---------------------------------------------------------------------}
-
-#if 1
-
-class OkArr k i where okArr :: Ok' k a |- Ok' k (Arr i a)
-
-instance OkArr (->) i where okArr = Entail (Sub Dict)
-
-class OkArr k i => LinearCat k i where
-  -- zeroC :: (Num a, Ok k a) => () `k` Arr i a
-  fmapC :: Ok2 k a b => (a -> b) `k` (Arr i a -> Arr i b)
-  zipC  :: Ok2 k a b => (Arr i a :* Arr i b) `k` Arr i (a :* b)
-  sumC  :: (Ok k a, Num a) => Arr i a `k` a
-
-instance LinearCat (->) i where
-  -- zeroC = const zeroArr
-  fmapC = fmap
-  zipC  = uncurry zip
-  sumC  = sum
-
--- TODO: orphan instance for Zip (Vector n) in ConCat.Orphans, where Vector n
--- comes from Data.Vector.Sized in the vector-sized package.
-
-instance (OkArr k i, OkArr k' i) => OkArr (k :**: k') i where
-  okArr = inForkCon (okArr @k *** okArr @k')
-
-instance (LinearCat k i, LinearCat k' i) => LinearCat (k :**: k') i where
-  -- zeroC = zeroC :**: zeroC
-  fmapC = fmapC :**: fmapC
-  zipC  = zipC  :**: zipC
-  sumC  = sumC  :**: sumC
-
-class PointedCat k h where
-  pointC :: Ok k a => a `k` h a
-
-instance Pointed h => PointedCat (->) h where
-  pointC = point
-
-instance (PointedCat k h, PointedCat k' h) => PointedCat (k :**: k') h where
-  pointC = pointC :**: pointC
-
--- TODO: generalize LinearCat from Arr i back to h.
--- I can limit to Arr i in Circuit.
-
-#else
-
-class OkFunctor k h where okFunctor :: Ok' k a |- Ok' k (h a)
-
-instance OkFunctor (->) h where okFunctor = Entail (Sub Dict)
-
-class (Functor h, Zip h, Foldable h, ClosedCat k, OkFunctor k h)
-   => LinearCat k h where
-  fmapC :: Ok2 k a b => (a -> b) `k` (h a -> h b)
-  zipC  :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
-  sumC  :: (Ok k a, Num a) => h a `k` a
-
-instance (Functor h, Zip h, Foldable h) => LinearCat (->) h where
-  fmapC = fmap
-  zipC  = uncurry zip
-  sumC  = sum
-
--- TODO: orphan instance for Zip (Vector n) in ConCat.Orphans, where Vector n
--- comes from Data.Vector.Sized in the vector-sized package.
-
-instance (OkFunctor k h, OkFunctor k' h) => OkFunctor (k :**: k') h where
-  okFunctor :: forall a. Ok' (k :**: k') a |- Ok' (k :**: k') (h a)
-  okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
-
-instance (LinearCat k h, LinearCat k' h) => LinearCat (k :**: k') h where
-  fmapC = fmapC :**: fmapC
-  zipC  = zipC  :**: zipC
-  sumC  = sumC  :**: sumC
-
-#endif

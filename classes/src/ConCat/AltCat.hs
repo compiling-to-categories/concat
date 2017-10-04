@@ -23,10 +23,9 @@
 
 -- #define VectorSized
 
-module ConCat.AltCat
-  ( module ConCat.AltCat
-  , module C)
-  where
+#include "ConCat/Ops.inc"
+
+module ConCat.AltCat (module ConCat.AltCat, module C) where
 
 import Prelude hiding (id,(.),curry,uncurry,const)
 import qualified Prelude as P
@@ -60,9 +59,9 @@ import ConCat.Category
   , NumCat, IntegralCat, FractionalCat, FloatingCat, RealFracCat, FromIntegralCat
   , EqCat, OrdCat, EnumCat, BottomCat, IfCat, IfT, UnknownCat, RepCat, CoerceCat
   , repIf
-  , Arr, ArrayCat, LinearCat, PointedCat
+  , Arr, ArrayCat
   , TransitiveCon(..)
-  , U2(..), (:**:)(..), OkArr(..)
+  , U2(..), (:**:)(..)
   , type (|-)(..), (<+), okProd, okExp
   , OpCon(..),Sat(..) -- ,FunctorC(..)
   , yes1, forkCon, joinCon, inForkCon
@@ -88,50 +87,6 @@ conceal f = f
 
 -- TODO: replace reveal & conceal definitions by oops, and see if we ever don't
 -- remove them.
-
-#define OPINLINE INLINE [0]
--- #define OPINLINE INLINE CONLIKE [3]
--- #define OPINLINE NOINLINE
-
-#define Op(nm,ty) \
-{- | C.nm without the eager inlining -}; \
-nm :: ty; \
-nm = C.nm ;\
-{-# OPINLINE nm #-}
-
-#define OpRule0(nm) {-# RULES "reveal op0" \
-  reveal nm = C.nm #-}
-#define OpRule1(nm) {-# RULES "reveal op1" forall a1. \
-  reveal (nm a1) = C.nm (reveal a1) #-}
-#define OpRule2(nm) {-# RULES "reveal op2" forall a1 a2. \
-  reveal (nm a1 a2) = C.nm (reveal a1) (reveal a2) #-}
-
-#define IpRule0(nm) {-# RULES "reveal ip0" \
-  reveal (nm) = (C.nm) #-}
-#define IpRule1(nm) {-# RULES "reveal ip1" forall a1. \
-  reveal ((nm) a1) = (C.nm) (reveal a1) #-}
-#define IpRule2(nm) {-# RULES "reveal ip2" forall a1 a2. \
-  reveal ((nm) a1 a2) = (C.nm) (reveal a1) (reveal a2) #-}
-
-#define Op0(nm,ty) Op(nm,ty); OpRule0(nm)
-#define Op1(nm,ty) Op(nm,ty); OpRule1(nm)
-#define Op2(nm,ty) Op(nm,ty); OpRule2(nm)
-
-#define Ip(nm,ty) \
-{- | (C.nm) without the eager inlining -}; \
-(nm) :: ty; \
-(nm) = (C.nm) ;\
-{-# OPINLINE (nm) #-}
-
-#define Ip1(nm,ty) Ip(nm,ty); IpRule1(nm)
-#define Ip2(nm,ty) Ip(nm,ty); IpRule2(nm)
-
--- I use semicolons and the {- | ... -} style Haddock comment because CPP macros
--- generate a single line. I want to inject single quotes around the C.foo and
--- (C.op) names to form Haddock links, but CPP interprets them as preventing
--- macro argument insertion.
-
--- Can I get the operation names (nm) into the rule names?
 
 infixr 9 .
 Op0(id,(Category k, Ok k a) => a `k` a)
@@ -282,88 +237,6 @@ at :: (ArrayCat k a b, ClosedCat k, Ok3 k a b (Arr a b))
 at = curry arrAt
 -- {-# OPINLINE at #-}
 
-#endif
-
-#if 1
--- Op0(zeroC, (LinearCat k i, Ok k a, Num a) => () `k` Arr i a)
-Op0(fmapC, (LinearCat k i, Ok2 k a b) => (a -> b) `k` (Arr i a -> Arr i b))
-Op0(zipC , (LinearCat k i, Ok2 k a b) => (Arr i a :* Arr i b) `k` Arr i (a :* b))
-Op0(sumC , (LinearCat k i, Ok k a, Num a) => Arr i a `k` a)
-
-fmapC' :: forall k i a b. (LinearCat k i, TerminalCat k, ClosedCat k, Ok2 k a b)
-        => (a `k` b) -> (Arr i a `k` Arr i b)
-fmapC' f = funConst (fmapC . constFun f)
-             <+ okExp @k @(Arr i a) @(Arr i b)
-             <+ okArr @k @i @a
-             <+ okArr @k @i @b
-             <+ okExp @k @a @b
-
---                            f  :: a `k` b
---                   constFun f  :: () `k` (a -> b)
---           fmapC . constFun f  :: () `k` (Arr i a -> Arr i b)
--- funConst (fmapC . constFun f) :: Arr i a `k` Arr i b
-
-unzipC :: forall k i a b. (LinearCat k i, TerminalCat k, ClosedCat k, Ok2 k a b)
-       => Arr i (a :* b) `k` (Arr i a :* Arr i b)
-unzipC = fmapC' exl &&& fmapC' exr
-           <+ okArr  @k @i @(a :* b)
-           <+ okArr  @k @i @a
-           <+ okArr  @k @i @b
-           <+ okProd @k @a @b
-{-# INLINE unzipC #-}
-
-zapC :: forall k i a b. (LinearCat k i, TerminalCat k, ClosedCat k, Ok2 k a b)
-     => (Arr i (a -> b) :* Arr i a) `k` Arr i b
-zapC = fmapC' apply . zipC
-         <+ okArr  @k @i @((a -> b) :* a)
-         <+ okProd @k    @(Arr i (a -> b)) @(Arr i a)
-         <+ okArr  @k @i @(a -> b)
-         <+ okArr  @k @i @a
-         <+ okArr  @k @i @b
-         <+ okProd @k    @(a -> b) @a
-         <+ okExp  @k    @a @b
-{-# INLINE zapC #-}
-
-Op0(pointC, (PointedCat k h, Ok k a) => a `k` h a)
-
-#else
-Op0(fmapC, (LinearCat k h, Ok2 k a b) => (a -> b) `k` (h a -> h b))
-Op0(zipC , (LinearCat k h, Ok2 k a b) => (h a :* h b) `k` h (a :* b))
-Op0(sumC , (LinearCat k h, Ok k a, Num a) => h a `k` a)
-
-fmapC' :: forall k h a b. (TerminalCat k, ClosedCat k, LinearCat k h, Ok2 k a b)
-        => (a `k` b) -> (h a `k` h b)
-fmapC' f = funConst (fmapC . constFun f)
-             <+ okExp     @k @(h a) @(h b)
-             <+ okFunctor @k @h @a
-             <+ okFunctor @k @h @b
-             <+ okExp     @k @a @b
-
---                            f  :: a `k` b
---                   constFun f  :: () `k` (a -> b)
---           fmapC . constFun f  :: () `k` (h a -> h b)
--- funConst (fmapC . constFun f) :: h a `k` h b
-
-unzipC :: forall k h a b. (LinearCat k h, TerminalCat k, Ok2 k a b)
-       => h (a :* b) `k` (h a :* h b)
-unzipC = fmapC' exl &&& fmapC' exr
-           <+ okFunctor @k @h @(a :* b)
-           <+ okFunctor @k @h @a
-           <+ okFunctor @k @h @b
-           <+ okProd @k @a @b
-{-# INLINE unzipC #-}
-
-zapC :: forall k h a b. (LinearCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
-     => (h (a -> b) :* h a) `k` h b
-zapC = fmapC' apply . zipC
-         <+ okFunctor @k @h @((a -> b) :* a)
-         <+ okProd    @k    @(h (a -> b)) @(h a)
-         <+ okFunctor @k @h @(a -> b)
-         <+ okFunctor @k @h @a
-         <+ okFunctor @k @h @b
-         <+ okProd    @k    @(a -> b) @a
-         <+ okExp     @k    @a @b
-{-# INLINE zapC #-}
 #endif
 
 -- TODO: Consider moving all of the auxiliary functions (like constFun) here.
@@ -690,3 +563,5 @@ coco' = (undefined, (coerceC \\ trans @(CoerceCat k) @a @b @c))
 -- -- lassocP' :: Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
 -- lassocP' :: (a,(b,c)) `k` ((a,b),c)
 -- lassocP' = ccc (\ (a,(b,c)) -> ((a,b),c))
+
+

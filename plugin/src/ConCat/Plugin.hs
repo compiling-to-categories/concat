@@ -249,7 +249,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        , dom' `eqType` cod'
        -- , not (isReflCo dco && isReflCo cco) -- mkCast will take care of it
        -> Doing("top cast normalize")
-          -- dtrace "top cast normalize" (ppr ((dom,cod), (dco,dom'), (cco,cod')) $$ pprCoWithType (dco `mkTransCo` mkSymCo cco))
+          -- dtrace "top cast normalize" (ppr ((dom,cod), (dco,dom'), (cco,cod')) $$ pprCoWithType (dco `mkTransCo` mkSymCo cco)) $
           return $ mkCcc $
             mkCast e (dco `mkTransCo` mkSymCo cco)
      Trying("top abstC codomain")
@@ -617,7 +617,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam unfold")
      e'| Just body' <- unfoldMaybe e'
        -> Doing("lam unfold")
-          -- dtrace "lam unfold" (ppr body <+> text "-->" <+> ppr body')
+          -- dtrace "lam unfold" (ppr body <+> text "-->" <+> ppr body') $
           return (mkCcc (Lam x body'))
           -- goLam x body'
           -- TODO: factor out Lam x (mkCcc ...)
@@ -779,7 +779,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    reCatCo (splitAppCo_maybe -> Just
             (splitAppCo_maybe -> Just
              (Refl r _k,a),b)) =
-     dtrace "reCatCo app" (ppr (r,_k,a,b))
+     -- dtrace "reCatCo app" (ppr (r,_k,a,b)) $
      Just (mkAppCos (mkReflCo r cat) [a,b])
    reCatCo (co1 `TransCo` co2) = TransCo <$> reCatCo co1 <*> reCatCo co2
    reCatCo co = pprTrace "ccc reCatCo: unhandled coercion" (ppr co) $
@@ -1045,71 +1045,46 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    -- TODO: handle Prelude.const. Or let it inline.
    catFun _ = Nothing
    transCatOp :: ReExpr
-#if 0
-   -- transCatOp e | dtrace "transCatOp" (ppr e) False = undefined
-   transCatOp (collectArgs -> (Var v, Type _wasCat : rest))
-     | True || dtrace "transCatOp v _wasCat rest" (text (fqVarName v) <+> ppr _wasCat <+> ppr rest) True
-     , Just (catArgs,nonCatArgs) <- Map.lookup (fqVarName v) catOpArities
-     -- , dtrace "transCatOp arities" (ppr (catArgs,nonCatArgs)) True
-     , length (filter (not . isTyCoDictArg) rest) == catArgs + nonCatArgs
-     -- , dtrace "transCatOp" (text "arity match") True
-     = let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
-           addArg :: Maybe (Int,CoreExpr) -> CoreExpr -> Maybe (Int,CoreExpr)
-           -- addArg a b | dtrace "transCatOp addArg" (ppr (a,b)) False = undefined
-           addArg Nothing _ = -- dtrace "transCatOp Nothing" (text "bailing") $
-                              Nothing
-           addArg (Just (i,e)) arg
-              | isTyCoArg arg
-              = -- dtrace "addArg isTyCoArg" (ppr arg)
-                Just (i,e `App` arg)
-              | isPred arg
-              = --- dtrace "addArg isPred" (ppr arg)
-                -- onDictMaybe may fail (Nothing) in the target category.
-                (i,) <$> onDictMaybe e  --  fails gracefully
-                -- Just (i,onDict e)    -- succeed or die
-              | otherwise
-              = -- dtrace "addArg otherwise" (ppr (i,arg))
-                -- TODO: logic to sort out cat vs non-cat args.
-                -- We currently don't have both.
-                Just (i+1,e `App` (if i < catArgs then mkCcc else id) arg)
-       in
-         snd <$> foldl addArg (Just (0,Var v `App` Type cat)) rest
-   transCatOp _ = -- pprTrace "transCatOp" (text "fail") $
-                  Nothing
-#else
    transCatOp (collectArgs -> (Var v, Type (TyConApp (isFunTyCon -> True) []) : rest))
       -- | dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) False = undefined
-     | okArgs
+     -- | okArgs
      = let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
            addArg :: Maybe CoreExpr -> CoreExpr -> Maybe CoreExpr
            -- addArg a b | dtrace "transCatOp addArg" (ppr (a,b)) False = undefined
            addArg Nothing _ = -- dtrace "transCatOp Nothing" (text "bailing") $
                               Nothing
            addArg (Just e) arg
-              | isTyCoArg arg
-              = -- dtrace "addArg isTyCoArg" (ppr arg)
-                Just (e `App` arg)
-              | isPred arg
-              = -- dtrace "addArg isPred" (ppr arg)
-                -- onDictMaybe may fail (Nothing) in the target category.
-                onDictMaybe e  --  fails gracefully
-              | otherwise
-              = -- dtrace "addArg otherwise" (ppr arg)
-                -- TODO: logic to sort out cat vs non-cat args.
-                -- We currently don't have both.
-                Just (e `App` (if isFunTy (exprType arg) then mkCcc else id) arg)
+             | isTyCoArg arg
+             = -- dtrace "addArg isTyCoArg" (ppr arg) $
+               Just (e `App` arg)
+             | isPred arg
+             = -- dtrace "addArg isPred" (ppr arg) $
+               -- onDictMaybe may fail (Nothing) in the target category.
+               onDictMaybe e  --  fails gracefully
+             | FunTy dom _ <- exprType e
+             = -- dtrace "addArg otherwise" (ppr arg) $
+               -- TODO: logic to sort out cat vs non-cat args.
+               -- We currently don't have both.
+               Just (e `App` (if isCatTy dom then mkCcc else id) arg)
+               -- Just (e `App` (if isFunTy (exprType arg) then mkCcc else id) arg)
+             | otherwise
+             = -- dtrace "addArg: not a function type" (ppr (exprType e)) $
+               Nothing
+           final = foldl addArg (Just (Var v `App` Type cat)) rest
        in
-         foldl addArg (Just (Var v `App` Type cat)) rest
-      where
-       mbArities = Map.lookup (fqVarName v) catOpArities
-       okArgs | Nothing <- mbArities = True
-              | Just (catArgs,nonCatArgs) <- mbArities
-              = -- dtrace "transCatOp arities" (ppr (catArgs,nonCatArgs)) $
-                length (filter (not . isTyCoDictArg) rest) == catArgs + nonCatArgs
+         -- Make sure we have no remaining cat arguments
+         case final of
+           Just e' | not (hasCatArg e') -> Just e'
+           otherwise                    -> Nothing
    transCatOp _ = -- pprTrace "transCatOp" (text "fail") $
                   Nothing
-
-#endif
+   isCatTy :: Type -> Bool
+   isCatTy (splitAppTy_maybe -> Just (splitAppTy_maybe -> Just (k,_),_)) =
+     k `eqType` cat
+   isCatTy _ = False
+   hasCatArg :: CoreExpr -> Bool
+   hasCatArg (exprType -> FunTy t _) = isCatTy t
+   hasCatArg _                       = False
    reCat :: ReExpr
    reCat = -- (traceFail "reCat" <+ ) $
            transCatOp <+ catFun
@@ -1218,7 +1193,7 @@ isAbstReprId v = fqVarName v `elem` (((catModule ++ ".") ++) <$> ["reprC","abstC
 
 -- TODO: refactor
 
-#if 1
+#if 0
 
 -- For each categorical operation, how many non-cat args (first) and how many cat args (last)
 catOpArities :: Map String (Int,Int)
@@ -1356,7 +1331,7 @@ install opts todos =
                             return guts
      | otherwise = -- pprPanic "ccc residuals:" (ppr (toList remaining))
                    pprTrace "ccc residuals:" (ppr (toList remaining)) $
-                   pprTrace "transformed program binds" (ppr (mg_binds guts)) $
+                   -- pprTrace "transformed program binds" (ppr (mg_binds guts)) $
                    return guts
     where
       remaining :: Seq CoreExpr
