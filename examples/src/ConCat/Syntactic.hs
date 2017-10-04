@@ -361,11 +361,13 @@ instance LinearCat Syn i where
   zipC   = app0 "zipC"
   sumC   = app0 "sumC"
   pointC = app0 "pointC"
+  diagC  = app0 "diagC"
   -- INLINER(zeroC)
   INLINER(fmapC)
   INLINER(zipC)
   INLINER(sumC)
   INLINER(pointC)
+  INLINER(diagC)
 
 -- #define ShowTypes
 

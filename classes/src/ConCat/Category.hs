@@ -75,6 +75,9 @@ import Data.Finite (Finite)
 import Data.Vector.Sized (Vector)
 import qualified Data.Vector.Sized as VS
 #endif
+import Data.Distributive (Distributive(..))
+import Data.Functor.Rep (Representable(tabulate,index),distributeRep)
+import qualified Data.Functor.Rep as R
 
 -- import Data.MemoTrie
 
@@ -1638,6 +1641,15 @@ data Arr i a = MkArr (Array i a) deriving (Show,Functor,Foldable)
 -- I'm using "data" instead of "newtype" here to avoid the coercion.
 
 #if 1
+
+instance Distributive (Arr i) where
+  distribute :: forall f a. Functor f => f (Arr i a) -> Arr i (f a)
+  distribute = distributeRep
+
+instance Representable (Arr i) where
+  type Rep (Arr i) = i
+  tabulate = array
+  index = curry arrAt
 
 -- instance Pointed (Arr i) where
 --   point = error "point on Arr i: not yet implemented"

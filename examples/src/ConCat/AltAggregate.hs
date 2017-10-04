@@ -24,6 +24,7 @@ Op0(fmapC , (LinearCat k i, Ok2 k a b) => (a -> b) `k` (Arr i a -> Arr i b))
 Op0(zipC  , (LinearCat k i, Ok2 k a b) => (Arr i a :* Arr i b) `k` Arr i (a :* b))
 Op0(sumC  , (LinearCat k i, Ok k a, Num a) => Arr i a `k` a)
 Op0(pointC, (LinearCat k i, Ok k a) => a `k` Arr i a)
+Op0(diagC , (LinearCat k i, Ok k a) => (a :* a) `k` Arr i (Arr i a))
 
 -- {-# RULES "ccc/fmapC" toCcc' fmapC = fmapC #-}
 
@@ -60,3 +61,6 @@ zapC = fmapC' apply . zipC
          <+ okProd @k    @(a -> b) @a
          <+ okExp  @k    @a @b
 {-# INLINE zapC #-}
+
+diag :: Eq i => a -> a -> Arr i (Arr i a)
+diag = curry diagC

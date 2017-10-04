@@ -33,6 +33,7 @@ library
                      , transformers >= 0.5.2.0
                      , finite-typelits, vector-sized
                      , keys, pointed
+                     , distributive, adjunctions
   exposed-modules:     ConCat.Category
                        ConCat.AltCat
                        ConCat.Misc

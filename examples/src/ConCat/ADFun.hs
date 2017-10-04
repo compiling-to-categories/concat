@@ -159,22 +159,24 @@ instance (Floating s, Additive s) => FloatingCat D s where
 -- type Ok D = (Yes1 &+& Additive)
 
 #if 1
-instance OkArr D i where
+instance Eq i => OkArr D i where
   okArr :: forall a. Ok' D a |- Ok' D (Arr i a)
   okArr = Entail (Sub Dict)
   -- okArr = inForkCon (yes1 *** additive1 @h @a)
 
 -- class OkArr k h where okArr :: Ok' k a |- Ok' k (h a)
 
-instance LinearCat D i where
+instance Eq i => LinearCat D i where
   fmapC  = linearDF fmapC
   zipC   = linearDF zipC
   sumC   = linearDF sumC
   pointC = linearDF pointC
-  {-# INLINE fmapC #-}
-  {-# INLINE zipC #-}
-  {-# INLINE sumC #-}
+  diagC  = linearDF diagC
+  {-# INLINE fmapC  #-}
+  {-# INLINE zipC   #-}
+  {-# INLINE sumC   #-}
   {-# INLINE pointC #-}
+  {-# INLINE diagC  #-}
 
 #else
 instance Additive1 h => OkFunctor D h where
@@ -193,6 +195,13 @@ instance (Zip h, Foldable h, Additive1 h) => LinearCat D h where
 #endif
 
 -- fmapC' (D h) = D (second (curry zapC) . unzipC . fmapC' h)
+
+{--------------------------------------------------------------------
+    Conversion to linear map. Replace HasL in LinearRow and LinearCol
+--------------------------------------------------------------------}
+
+-- linear1 :: forall s f. (f s -> s) -> f s
+-- linear1 = (<$> diag 0 1)
 
 {--------------------------------------------------------------------
     Differentiation interface

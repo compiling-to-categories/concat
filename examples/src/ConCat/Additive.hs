@@ -104,7 +104,7 @@ instance (Additive v, AddF f, AddF g) => Additive ((g :.: f) v)
 instance Additive v => Additive (Pair v)
 
 #if 1
-instance Additive v => Additive (Arr i v) where
+instance (Eq i, Additive v) => Additive (Arr i v) where
   zero = pointC zero
   as ^+^ bs = fmapC (uncurry (^+^)) (zipC (as,bs))
 

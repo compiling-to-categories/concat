@@ -832,6 +832,7 @@ instance GenBuses i {-Typeable i-} => LinearCat (:>) i where
   sumC = namedC "sum"
            <+ okArr @(:>) @i @a
   pointC = namedC "point"
+  diagC  = namedC "diag"
 
 -- TODO: remove the GenBuses requirement from the LinearCat and PointedCat instances.
 -- I think that constraint is there only for ty @i, which we can do differently.
