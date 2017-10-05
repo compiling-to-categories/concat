@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -20,15 +21,18 @@ module ConCat.ADFun where
 
 import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip)
 -- import Debug.Trace (trace)
+import GHC.Generics (Par1)
 
-import Control.Newtype (unpack)
+import Control.Newtype (Newtype(..))
 import Data.Pointed (Pointed(..))
 import Data.Key (Zip(..))
 import Data.Constraint hiding ((&&&),(***),(:=>))
+import Data.Distributive (Distributive(..))
+import Data.Functor.Rep (Representable(..))
 
 import ConCat.Misc ((:*),R,Yes1,oops,unzip,type (&+&))
-import ConCat.Free.VectorSpace (HasV(..))
-import ConCat.Free.LinearRow
+import ConCat.Free.VectorSpace (HasV(..),inV,IsScalar)
+import ConCat.Free.LinearRow -- hiding (linear)
 import ConCat.AltCat
 import ConCat.AltAggregate
 import ConCat.GAD
@@ -158,50 +162,49 @@ instance (Floating s, Additive s) => FloatingCat D s where
 
 -- type Ok D = (Yes1 &+& Additive)
 
-#if 1
-instance Eq i => OkArr D i where
-  okArr :: forall a. Ok' D a |- Ok' D (Arr i a)
-  okArr = Entail (Sub Dict)
-  -- okArr = inForkCon (yes1 *** additive1 @h @a)
-
--- class OkArr k h where okArr :: Ok' k a |- Ok' k (h a)
-
-instance Eq i => LinearCat D i where
-  fmapC  = linearDF fmapC
-  zipC   = linearDF zipC
-  sumC   = linearDF sumC
-  pointC = linearDF pointC
-  diagC  = linearDF diagC
-  {-# INLINE fmapC  #-}
-  {-# INLINE zipC   #-}
-  {-# INLINE sumC   #-}
-  {-# INLINE pointC #-}
-  {-# INLINE diagC  #-}
-
-#else
 instance Additive1 h => OkFunctor D h where
   okFunctor :: forall a. Ok' D a |- Ok' D (h a)
   okFunctor = inForkCon (yes1 *** additive1 @h @a)
 
--- class OkFunctor k h where okFunctor :: Ok' k a |- Ok' k (h a)
+instance (Representable h, Additive1 h) => LinearCat D h where
+  fmapC  = linearDF fmapC
+  zipC   = linearDF zipC
+  pointC = linearDF pointC
+  {-# INLINE fmapC  #-}
+  {-# INLINE zipC   #-}
+  {-# INLINE pointC #-}
 
-instance (Zip h, Foldable h, Additive1 h) => LinearCat D h where
-  fmapC = linearDF fmapC
-  zipC  = linearDF zipC
-  sumC  = linearDF sumC
-  {-# INLINE fmapC #-}
-  {-# INLINE zipC #-}
+instance Foldable h => SumCat D h where
+  sumC = linearDF sumC
   {-# INLINE sumC #-}
-#endif
 
--- fmapC' (D h) = D (second (curry zapC) . unzipC . fmapC' h)
+instance (Representable h, Eq (Rep h)) => DiagCat D h where
+  diagC = linearDF diagC
 
 {--------------------------------------------------------------------
     Conversion to linear map. Replace HasL in LinearRow and LinearCol
 --------------------------------------------------------------------}
 
--- linear1 :: forall s f. (f s -> s) -> f s
+linear1 :: (Representable f, Eq (Rep f), Num s)
+        => (f s -> s) -> f s
 -- linear1 = (<$> diag 0 1)
+linear1 = (`fmapC` diag 0 1)
+{-# INLINE linear1 #-}
+
+linearN :: (Representable f, Eq (Rep f), Distributive g, Num s)
+        => (f s -> g s) -> (f :-* g) s
+linearN h = linear1 <$> distribute h
+{-# INLINE linearN #-}
+
+-- h :: f s -> g s
+-- distribute h :: g (f s -> s)
+-- linear1 <$> distribute h :: g (f s)
+
+linearN' :: ( HasV s a, HasV s b, f ~ V s a, g ~ V s b
+            , Representable f, Eq (Rep f), Distributive g, Num s )
+         => (a -> b) -> L s a b
+linearN' h = pack (linear1 <$> distribute (inV h))
+{-# INLINE linearN' #-}
 
 {--------------------------------------------------------------------
     Differentiation interface
@@ -222,7 +225,38 @@ andDerFL :: forall s a b. HasLin s a b => (a -> b) -> (a -> b :* L s a b)
 andDerFL f = second linear . andDerF f
 {-# INLINE andDerFL #-}
 
+type RepresentableV s a = (HasV s a, Representable (V s a))
+type RepresentableVE s a = (RepresentableV s a, Eq (Rep (V s a)))
+type HasLin' s a b = (RepresentableVE s a, RepresentableV s b, Num s)
+
 -- AD with derivative-as-function, then converted to linear map
-derFL :: forall s a b. HasLin s a b => (a -> b) -> (a -> L s a b)
-derFL f = linear . derF f
+derFL :: forall s a b. HasLin' s a b => (a -> b) -> (a -> L s a b)
+derFL f = linearN' . derF f
 {-# INLINE derFL #-}
+
+-- AD with derivative-as-function, then converted to linear map
+andDerFL' :: forall s a b. HasLin' s a b => (a -> b) -> (a -> b :* L s a b)
+andDerFL' f = second linearN' . andDerF f
+{-# INLINE andDerFL' #-}
+
+-- AD with derivative-as-function, then converted to linear map
+derFL' :: forall s a b. HasLin' s a b => (a -> b) -> (a -> L s a b)
+derFL' f = linearN' . derF f
+{-# INLINE derFL' #-}
+
+dualV :: forall s a. (HasV s a, RepresentableVE s a, IsScalar s, Num s)
+      => (a -> s) -> a
+dualV h = unV (linear1 (unpack . inV @s h))
+{-# INLINE dualV #-}
+
+--                            h   :: a -> s
+--                        inV h   :: V s a s -> V s s s
+--                                :: V s a s -> Par1 s
+--              (unpack . inV h)  :: V s a s -> s
+--      linear1 (unpack . inV h)  :: V s a s
+-- unV (linear1 (unpack . inV h)) :: a
+
+andGradFL :: forall s a. (IsScalar s, RepresentableVE s a, Num s)
+          => (a -> s) -> (a -> s :* a)
+andGradFL f = second dualV . andDerF f
+{-# INLINE andGradFL #-}
