@@ -22,9 +22,7 @@ import ConCat.Misc (R,sqr,Unop,Binop,(:*),Yes1)
 import ConCat.Free.VectorSpace
 -- import ConCat.Free.LinearRow
 -- import ConCat.Shaped
-
-import ConCat.AD (gradient,IsScalar)
-
+import ConCat.AD (gradient)
 import ConCat.Choice
 
 -- First do a simple linear regression
