@@ -32,6 +32,7 @@ import Text.PrettyPrint.HughesPJClass hiding (render,first)
 import Data.Typeable (Typeable)
 import Data.Constraint (Dict(..),(:-)(..))  -- temp
 import Data.Key (Zip(..))
+import Data.Functor.Rep (Representable)
 
 #ifdef VectorSized
 import GHC.TypeLits (KnownNat)
@@ -353,21 +354,24 @@ instance UnknownCat Syn a b where
   unknownC = app0 "unknownC"
   INLINER(unknownC)
 
-instance OkArr Syn i where okArr = Entail (Sub Dict)
+instance OkFunctor Syn h where okFunctor = Entail (Sub Dict)
 
-instance LinearCat Syn i where
-  -- zeroC = app0 "zeroC"
+instance Representable h => LinearCat Syn h where
   fmapC  = app0 "fmapC"
   zipC   = app0 "zipC"
-  sumC   = app0 "sumC"
   pointC = app0 "pointC"
-  diagC  = app0 "diagC"
-  -- INLINER(zeroC)
   INLINER(fmapC)
   INLINER(zipC)
-  INLINER(sumC)
   INLINER(pointC)
+
+instance DiagCat Syn h where
+  diagC = app0 "diagC"
   INLINER(diagC)
+
+instance SumCat Syn h where
+  sumC = app0 "sumC"
+  INLINER(sumC)
+
 
 -- #define ShowTypes
 
