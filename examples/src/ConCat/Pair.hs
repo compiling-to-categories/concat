@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE CPP #-}
@@ -40,6 +41,10 @@ import GHC.Generics (Generic1(..))
 import Control.Applicative (liftA2)
 import Data.Key
 import Data.Pointed
+import Data.Distributive (Distributive(..))
+import Data.Functor.Rep (Representable(tabulate,index))
+import qualified Data.Functor.Rep as R
+import Control.Newtype (Newtype(..))
 
 import ConCat.Misc ((:*))
 import ConCat.Rep (HasRep(..))
@@ -62,6 +67,11 @@ pattern x :# y = Par1 x :*: Par1 y
 type GPair = Par1 :*: Par1
 
 newtype Pair a = Pair (GPair a)
+
+instance Newtype (Pair a) where
+  type O (Pair a) = GPair a
+  pack as = Pair as
+  unpack (Pair as) = as
 
 instance Generic1 Pair where
   type Rep1 Pair = GPair
@@ -96,6 +106,14 @@ deriving instance Foldable Pair
 deriving instance Traversable Pair
 
 deriving instance Pointed Pair
+
+instance Distributive Pair where
+  distribute ps = pack (distribute (unpack <$> ps))
+
+instance Representable Pair where
+  type Rep Pair = R.Rep GPair
+  tabulate f = Pair (tabulate f)
+  index (Pair xs) = R.index xs
 
 instance HasV s a => HasV s (Pair a)
 
