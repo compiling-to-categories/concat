@@ -29,6 +29,7 @@ import Data.Pointed
 import Data.Key (Zip(..))
 -- import Data.Vector.Sized (Vector)
 -- import Data.Map (Map)
+import Data.Constraint ((:-)(..),Dict(..))
 
 -- import Control.Newtype
 
@@ -37,7 +38,7 @@ import ConCat.Misc ((:*),(:+),(<~))
 import ConCat.Rep
 -- import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
 import ConCat.AltCat (OpCon(..),Sat,type (|-)(..),Arr)
-import Data.Constraint ((:-)(..),Dict(..))
+import ConCat.AltAggregate (fmapC)
 
 {--------------------------------------------------------------------
     Vector spaces
@@ -170,7 +171,7 @@ class HasV s a where
   unV = abst . unV
   {-# INLINE toV #-} ; {-# INLINE unV #-}
 
-inV :: (HasV s a, HasV s b) => (a -> b) -> (V s a s -> V s b s)
+inV :: forall s a b. (HasV s a, HasV s b) => (a -> b) -> (V s a s -> V s b s)
 inV = toV <~ unV
 
 onV :: (HasV s a, HasV s b) => (V s a s -> V s b s) -> (a -> b)
@@ -186,6 +187,8 @@ onV2 = onV <~ toV
 --   type V s s = Par1
 --   toV = Par1
 --   unV = unPar1
+
+type IsScalar s = (HasV s s, V s s ~ Par1)
 
 instance HasV s () where
   type V s () = U1
@@ -282,8 +285,14 @@ instance VComp ((->) a) where vcomp = Sub Dict
 
 instance HasV s b => HasV s (Arr i b) where
   type V s (Arr i b) = Arr i :.: V s b
-  toV = Comp1 . fmap toV
-  unV = fmap unV . unComp1
+  toV = Comp1 . fmapC toV
+  unV = fmapC unV . unComp1
+  {-# INLINE toV #-}
+  {-# INLINE unV #-}
+
+-- TODO: find a better alternative to using fmapC explicitly here. I'd like to
+-- use fmap instead, but it gets inlined immediately, as do all class
+-- operations.
 
 instance VComp (Arr i) where vcomp = Sub Dict
 
