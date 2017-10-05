@@ -27,7 +27,7 @@ import Data.Distributive (Distributive(..))
 import Data.Constraint ((\\))
 
 import ConCat.Misc ((:*),Yes1)
-import ConCat.Free.VectorSpace (HasV(..),VComp(..))
+import ConCat.Free.VectorSpace (HasV(..),IsScalar,VComp(..))
 import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
@@ -162,8 +162,6 @@ andDer = andDeriv
 der :: forall s a b . (a -> b) -> (a -> L s a b)
 der = deriv
 {-# INLINE der #-}
-
-type IsScalar s = V s s ~ Par1
 
 gradient :: (HasV s a, IsScalar s) => (a -> s) -> a -> a
 -- gradient :: HasV R a => (a -> R) -> a -> a
