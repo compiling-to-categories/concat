@@ -1,4 +1,7 @@
-{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE IncoherentInstances #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeOperators #-}
@@ -14,7 +17,9 @@
 module ConCat.Aggregate where
 
 import Prelude hiding (id,(.),curry,uncurry,const,zip)
+-- import qualified Prelude as P
 
+import qualified Control.Arrow as A
 import GHC.Generics ((:.:)(..))
 
 import Data.Constraint (Dict(..),(:-)(..))
@@ -27,39 +32,64 @@ import ConCat.Misc ((:*))
 import ConCat.Category
 import ConCat.Free.Diagonal (Diagonal,diag)
 
+-- class OkFunctor k h where okFunctor :: Ok' k a |- Ok' k (h a)
 
--- TODO: generalize back from Arr i to functors
--- I can limit to Arr i in Circuit if necessary.
+-- instance OkFunctor (->) h where okFunctor = Entail (Sub Dict)
 
-class OkArr k i where okArr :: Ok' k a |- Ok' k (Arr i a)
+class OkFunctor k h => LinearCat k h where
+  fmapC  :: Ok2 k a b => (a -> b) `k` (h a -> h b)
+  zipC   :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
+  pointC :: Ok k a => a `k` h a
 
-instance OkArr (->) i where okArr = Entail (Sub Dict)
+-- TODO: Maybe move fmapC out to a FunctorCat, since it doesn't need
+-- Representable.
 
-class OkArr k i => LinearCat k i where
-  fmapC  :: Ok2 k a b => (a -> b) `k` (Arr i a -> Arr i b)
-  zipC   :: Ok2 k a b => (Arr i a :* Arr i b) `k` Arr i (a :* b)
-  sumC   :: (Ok k a, Num a) => Arr i a `k` a
-  pointC :: Ok k a => a `k` Arr i a
-  diagC  :: Ok k a => (a :* a) `k` Arr i (Arr i a)
+-- TODO: Try removing Representable h and maybe OkFunctor k h from the
+-- superclasses.
 
-instance Eq i => LinearCat (->) i where
-  fmapC  = fmap
-  zipC   = uncurry zip
-  sumC   = sum
-  pointC = point
-  diagC :: forall a. a :* a -> Arr i (Arr i a)
-  diagC (z,o) = unComp1 (tabulate (\ (i,j) -> if i == j then o else z))
-  -- diagC (z,o) = unComp1 (tabulate delta)
-  --  where
-  --    delta (i,j) | i == j = o
-  --                | otherwise = z
+class DiagCat k h where
+  diagC  :: Ok k a => (a :* a) `k` h (h a)
 
-instance (OkArr k i, OkArr k' i) => OkArr (k :**: k') i where
-  okArr = inForkCon (okArr @k *** okArr @k')
+class SumCat k h where
+  sumC :: (Ok k a, Num a) => h a `k` a
 
-instance (LinearCat k i, LinearCat k' i) => LinearCat (k :**: k') i where
+instance Representable h => LinearCat (->) h where
+  fmapC = fmap
+  zipC (as,bs) = tabulate (index as &&& index bs)
+  pointC a = tabulate (const a)
+
+-- Overlapping instances for ConCat.Misc.Yes1 (Rep h)
+--   arising from a use of ‘&&&’
+-- Matching instances:
+--   instance [safe] forall k (a :: k). ConCat.Misc.Yes1 a
+--     -- Defined at /Users/conal/Haskell/concat/classes/src/ConCat/Misc.hs:123:10
+-- There exists a (perhaps superclass) match:
+--   from the context: Representable h
+--     bound by the instance declaration
+--     at /Users/conal/Haskell/concat/examples/src/ConCat/Aggregate.hs:55:10-44
+--   or from: Ok2 (->) a b
+--     bound by the type signature for:
+--                zipC :: Ok2 (->) a b => h a :* h b -> h (a :* b)
+
+instance (Representable h, Eq (Rep h)) => DiagCat (->) h where
+  diagC (z,o) = unComp1 (tabulate (\ (h,j) -> if h == j then o else z))
+
+-- TODO: maybe move diagC to a new class, since it's the only method that needs
+-- Eq (Rep h).
+
+instance Foldable h => SumCat (->) h where
+  sumC = sum
+
+-- instance (OkFunctor k h, OkFunctor k' h) => OkFunctor (k :**: k') h where
+--   okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
+
+instance (LinearCat k h, LinearCat k' h) => LinearCat (k :**: k') h where
   fmapC  = fmapC  :**: fmapC
   zipC   = zipC   :**: zipC
-  sumC   = sumC   :**: sumC
   pointC = pointC :**: pointC
+
+instance (DiagCat k h, DiagCat k' h) => DiagCat (k :**: k') h where
   diagC  = diagC  :**: diagC
+
+instance (SumCat k h, SumCat k' h) => SumCat (k :**: k') h where
+  sumC   = sumC   :**: sumC
