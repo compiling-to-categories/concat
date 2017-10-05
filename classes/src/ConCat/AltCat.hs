@@ -1,8 +1,12 @@
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
 
 -- For Uncurriable:
 {-# LANGUAGE TypeFamilies          #-}
@@ -34,6 +38,11 @@ import qualified Data.Tuple as P
 import GHC.Exts (Coercible,coerce)
 import Data.Constraint ((\\))
 
+import Data.Pointed (Pointed(..))
+import Data.Key (Zip(..))
+import Data.Distributive (Distributive(..))
+import Data.Functor.Rep (Representable(tabulate,index),distributeRep)
+import qualified Data.Functor.Rep as R
 import Control.Newtype (Newtype(..))
 #ifdef VectorSized
 import Data.Proxy (Proxy(..))
@@ -62,7 +71,7 @@ import ConCat.Category
   , Arr, ArrayCat
   , TransitiveCon(..)
   , U2(..), (:**:)(..)
-  , type (|-)(..), (<+), okProd, okExp
+  , type (|-)(..), (<+), okProd, okExp, OkFunctor(..)
   , OpCon(..),Sat(..) -- ,FunctorC(..)
   , yes1, forkCon, joinCon, inForkCon
   -- , AmbCat
@@ -564,4 +573,38 @@ coco' = (undefined, (coerceC \\ trans @(CoerceCat k) @a @b @c))
 -- lassocP' :: (a,(b,c)) `k` ((a,b),c)
 -- lassocP' = ccc (\ (a,(b,c)) -> ((a,b),c))
 
+{--------------------------------------------------------------------
+    Some orphan instances
+--------------------------------------------------------------------}
 
+-- For some (->) instances, we'll want to use late-inlining synonyms
+
+deriving instance Functor  (Arr i)
+deriving instance Foldable (Arr i)
+
+instance Distributive (Arr i) where
+  distribute :: forall f a. Functor f => f (Arr i a) -> Arr i (f a)
+  distribute = distributeRep
+  {-# INLINE distribute #-}
+
+instance Representable (Arr i) where
+  type Rep (Arr i) = i
+  tabulate = array
+  index = at
+  {-# INLINE tabulate #-}
+  {-# INLINE index #-}
+
+-- instance Pointed (Arr i) where
+--   point = error "point on Arr i: not yet implemented"
+
+instance Zip (Arr i) where
+  zipWith = error "zipWith on Arr i: not yet implemented"
+
+-- zeroArr :: Num a => Arr i a
+-- zeroArr = error "zeroArr: not yet implemented"
+
+instance Pointed (Arr i) where
+  point = error "point on Arr i: not yet implemented"
+
+-- TODO: probably move the Arr type and operations to concat-examples, say in
+-- ConCat.Aggregate and ConCat.AltAggregate.

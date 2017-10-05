@@ -68,16 +68,11 @@ import GHC.Generics ((:*:)(..),(:.:)(..))
 import qualified Data.Vector.Sized as VS
 
 import Control.Newtype (Newtype(..))
-import Data.Pointed (Pointed(..))
-import Data.Key (Zip(..))
 #ifdef VectorSized
 import Data.Finite (Finite)
 import Data.Vector.Sized (Vector)
 import qualified Data.Vector.Sized as VS
 #endif
-import Data.Distributive (Distributive(..))
-import Data.Functor.Rep (Representable(tabulate,index),distributeRep)
-import qualified Data.Functor.Rep as R
 
 -- import Data.MemoTrie
 
@@ -200,6 +195,11 @@ type Yes1' = Sat Yes1
 type Ok' k = Sat (Ok k)
 
 type OpSat op kon = OpCon op (Sat kon)
+
+class OkFunctor k h where
+  okFunctor :: Ok' k a |- Ok' k (h a)
+
+instance OkFunctor (->) h where okFunctor = Entail (Sub Dict)
 
 inSat :: OpCon op (Sat con) => Sat con a && Sat con b |- Sat con (a `op` b)
 inSat = inOp
@@ -1636,44 +1636,9 @@ instance (ArrayCat k n b, ArrayCat k' n b) => ArrayCat (k :**: k') n b where
 
 #else
 -- Arrays
-data Arr i a = MkArr (Array i a) deriving (Show,Functor,Foldable)
+data Arr i a = MkArr (Array i a) deriving Show
 
 -- I'm using "data" instead of "newtype" here to avoid the coercion.
-
-#if 1
-
-instance Distributive (Arr i) where
-  distribute :: forall f a. Functor f => f (Arr i a) -> Arr i (f a)
-  distribute = distributeRep
-
-instance Representable (Arr i) where
-  type Rep (Arr i) = i
-  tabulate = array
-  index = curry arrAt
-
--- instance Pointed (Arr i) where
---   point = error "point on Arr i: not yet implemented"
-
-instance Zip (Arr i) where
-  zipWith = error "zipWith on Arr i: not yet implemented"
-
--- zeroArr :: Num a => Arr i a
--- zeroArr = error "zeroArr: not yet implemented"
-
-instance Pointed (Arr i) where
-  point = error "point on Arr i: not yet implemented"
-
-#else
-instance Ix i => Zip (Array i) where
-  zipWith f arr arr'
-    | b /= b' = error "zipWithArray: different bounds"
-    | otherwise = Arr.array b [ (i, f (arr ! i) (arr' ! i)) | i <- Arr.indices arr ]
-   where
-     b  = bounds arr
-     b' = bounds arr'
-
-deriving instance Ix i => Zip (Arr i)
-#endif
 
 class (ClosedCat k, Ok3 k a b (Arr a b)) => ArrayCat k a b where
   array :: Exp k a b `k` Arr a b
@@ -1719,6 +1684,10 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
 -- #endif
 
 #endif
+
+instance (OkFunctor k h, OkFunctor k' h)
+      => OkFunctor (k :**: k') h where
+  okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
 
 {--------------------------------------------------------------------
     Functors
