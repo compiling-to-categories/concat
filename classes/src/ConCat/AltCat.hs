@@ -1,8 +1,12 @@
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
 
 -- For Uncurriable:
 {-# LANGUAGE TypeFamilies          #-}
@@ -23,10 +27,9 @@
 
 -- #define VectorSized
 
-module ConCat.AltCat
-  ( module ConCat.AltCat
-  , module C)
-  where
+#include "ConCat/Ops.inc"
+
+module ConCat.AltCat (module ConCat.AltCat, module C) where
 
 import Prelude hiding (id,(.),curry,uncurry,const)
 import qualified Prelude as P
@@ -35,6 +38,11 @@ import qualified Data.Tuple as P
 import GHC.Exts (Coercible,coerce)
 import Data.Constraint ((\\))
 
+import Data.Pointed (Pointed(..))
+import Data.Key (Zip(..))
+import Data.Distributive (Distributive(..))
+import Data.Functor.Rep (Representable(tabulate,index),distributeRep)
+import qualified Data.Functor.Rep as R
 import Control.Newtype (Newtype(..))
 #ifdef VectorSized
 import Data.Proxy (Proxy(..))
@@ -47,12 +55,12 @@ import ConCat.Rep
 import ConCat.Misc ((:*),(:+),PseudoFun(..),oops,type (&+&))
 
 import ConCat.Category
-  ( Category, Ok,Ok2,Ok3,Ok4,Ok5
+  ( Category, Ok,Ok2,Ok3,Ok4,Ok5, Ok'
   , ProductCat, Prod, twiceP, inLassocP, inRassocP, transposeP --, unfork
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
   , DistribCat, undistl, undistr
   , ClosedCat, Exp
-  , TerminalCat, Unit, lunit, runit{-, constFun-}, constFun2, unitFun, unUnitFun
+  , TerminalCat, Unit{-, lunit, runit, constFun-}, constFun2, unitFun, unUnitFun
   , ConstCat, ConstObj, lconst, rconst
   , DelayCat, LoopCat
   , BiCCC
@@ -60,11 +68,12 @@ import ConCat.Category
   , NumCat, IntegralCat, FractionalCat, FloatingCat, RealFracCat, FromIntegralCat
   , EqCat, OrdCat, EnumCat, BottomCat, IfCat, IfT, UnknownCat, RepCat, CoerceCat
   , repIf
-  , Arr, ArrayCat, LinearCat
+  , Arr, ArrayCat
   , TransitiveCon(..)
   , U2(..), (:**:)(..)
-  , type (|-)(..), (<+), okProd, okExp
+  , type (|-)(..), (<+), okProd, okExp, OkFunctor(..)
   , OpCon(..),Sat(..) -- ,FunctorC(..)
+  , yes1, forkCon, joinCon, inForkCon
   -- , AmbCat
   )
 
@@ -85,49 +94,8 @@ conceal f = f
 "conceal/reveal" forall f. conceal (reveal f) = f
  #-}
 
-#define OPINLINE INLINE [0]
--- #define OPINLINE INLINE CONLIKE [3]
--- #define OPINLINE NOINLINE
-
-#define Op(nm,ty) \
-{- | C.nm without the eager inlining -}; \
-nm :: ty; \
-nm = C.nm ;\
-{-# OPINLINE nm #-}
-
-#define OpRule0(nm) {-# RULES "reveal op0" \
-  reveal nm = C.nm #-}
-#define OpRule1(nm) {-# RULES "reveal op1" forall a1. \
-  reveal (nm a1) = C.nm (reveal a1) #-}
-#define OpRule2(nm) {-# RULES "reveal op2" forall a1 a2. \
-  reveal (nm a1 a2) = C.nm (reveal a1) (reveal a2) #-}
-
-#define IpRule0(nm) {-# RULES "reveal ip0" \
-  reveal (nm) = (C.nm) #-}
-#define IpRule1(nm) {-# RULES "reveal ip1" forall a1. \
-  reveal ((nm) a1) = (C.nm) (reveal a1) #-}
-#define IpRule2(nm) {-# RULES "reveal ip2" forall a1 a2. \
-  reveal ((nm) a1 a2) = (C.nm) (reveal a1) (reveal a2) #-}
-
-#define Op0(nm,ty) Op(nm,ty); OpRule0(nm)
-#define Op1(nm,ty) Op(nm,ty); OpRule1(nm)
-#define Op2(nm,ty) Op(nm,ty); OpRule2(nm)
-
-#define Ip(nm,ty) \
-{- | (C.nm) without the eager inlining -}; \
-(nm) :: ty; \
-(nm) = (C.nm) ;\
-{-# OPINLINE (nm) #-}
-
-#define Ip1(nm,ty) Ip(nm,ty); IpRule1(nm)
-#define Ip2(nm,ty) Ip(nm,ty); IpRule2(nm)
-
--- I use semicolons and the {- | ... -} style Haddock comment because CPP macros
--- generate a single line. I want to inject single quotes around the C.foo and
--- (C.op) names to form Haddock links, but CPP interprets them as preventing
--- macro argument insertion.
-
--- Can I get the operation names (nm) into the rule names?
+-- TODO: replace reveal & conceal definitions by oops, and see if we ever don't
+-- remove them.
 
 infixr 9 .
 Op0(id,(Category k, Ok k a) => a `k` a)
@@ -237,12 +205,22 @@ Op0(fromIntegralC,FromIntegralCat k a b => a `k` b)
 -- Unnecessary but helpful to track NOINLINE choice
 -- Op(constFun,forall k p a b. (ClosedCat k, Ok3 k p a b) => (a `k` b) -> (p `k` Exp k a b))
 
+lunit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k (Unit k) a
+lunit = it &&& id
+
+runit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k a (Unit k)
+runit = id &&& it
+
 constFun :: forall k p a b. (ClosedCat k, Ok3 k p a b)
          => (a `k` b) -> (p `k` Exp k a b)
 constFun f = curry (f . exr) <+ okProd @k @p @a
 {-# INLINE constFun #-}
 -- {-# OPINLINE constFun #-}
 -- OpRule1(constFun)
+
+funConst :: forall k a b. (ClosedCat k, TerminalCat k, Ok2 k a b)
+         => (() `k` (a -> b)) -> (a `k` b)
+funConst f = uncurry f . lunit <+ okProd @k @(Unit k) @a
 
 #ifdef VectorSized
 
@@ -270,10 +248,6 @@ at = curry arrAt
 
 #endif
 
-Op1(fmapC, (LinearCat k h, Ok2 k a b) => (a `k` b) -> (h a `k` h b))
-Op0(zipC , (LinearCat k h, Ok2 k a b) => (h a :* h b) `k` h (a :* b))
-Op0(sumC , (LinearCat k h, Ok k a, Num a) => h a `k` a)
-
 -- TODO: Consider moving all of the auxiliary functions (like constFun) here.
 -- Rename "ConCat.Category" to something like "ConCat.Category.Class" and
 -- "ConCat.AltCat" to "ConCat.Category".
@@ -283,6 +257,10 @@ Op0(sumC , (LinearCat k h, Ok k a, Num a) => h a `k` a)
 
 pair :: forall k a b. (ClosedCat k, Ok2 k a b) => a `k` Exp k b (Prod k a b)
 pair = curry id <+ okProd @k @a @b
+
+{-# RULES
+"toCcc' fmap" toCcc' fmap = fmap
+ #-}
 
 {--------------------------------------------------------------------
     Automatic uncurrying
@@ -360,12 +338,12 @@ toCcc f = reveal (toCcc' f)
 {-# INLINE toCcc #-}
 
 -- 2017-09-24
-{-# DEPRECATED ccc "ccc is now called to toCcc" #-}
+{-# DEPRECATED ccc "ccc is now called toCcc" #-}
 ccc :: forall k a b. (a -> b) -> (a `k` b)
 ccc f = toCcc f
 {-# INLINE ccc #-}
 
--- | Pseudo function to stop rewriting from TOCCC form.
+-- | Pseudo function to stop rewriting from CCC form.
 unCcc :: forall k a b. (a `k` b) -> (a -> b)
 unCcc f = unCcc' (conceal f)
 {-# INLINE unCcc #-}
@@ -594,3 +572,39 @@ coco' = (undefined, (coerceC \\ trans @(CoerceCat k) @a @b @c))
 -- -- lassocP' :: Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
 -- lassocP' :: (a,(b,c)) `k` ((a,b),c)
 -- lassocP' = ccc (\ (a,(b,c)) -> ((a,b),c))
+
+{--------------------------------------------------------------------
+    Some orphan instances
+--------------------------------------------------------------------}
+
+-- For some (->) instances, we'll want to use late-inlining synonyms
+
+deriving instance Functor  (Arr i)
+deriving instance Foldable (Arr i)
+
+instance Distributive (Arr i) where
+  distribute :: forall f a. Functor f => f (Arr i a) -> Arr i (f a)
+  distribute = distributeRep
+  {-# INLINE distribute #-}
+
+instance Representable (Arr i) where
+  type Rep (Arr i) = i
+  tabulate = array
+  index = at
+  {-# INLINE tabulate #-}
+  {-# INLINE index #-}
+
+-- instance Pointed (Arr i) where
+--   point = error "point on Arr i: not yet implemented"
+
+instance Zip (Arr i) where
+  zipWith = error "zipWith on Arr i: not yet implemented"
+
+-- zeroArr :: Num a => Arr i a
+-- zeroArr = error "zeroArr: not yet implemented"
+
+instance Pointed (Arr i) where
+  point = error "point on Arr i: not yet implemented"
+
+-- TODO: probably move the Arr type and operations to concat-examples, say in
+-- ConCat.Aggregate and ConCat.AltAggregate.

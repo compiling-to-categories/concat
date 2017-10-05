@@ -66,6 +66,9 @@
 
 module Main where
 
+import Prelude hiding (id,(.),curry,uncurry)
+import qualified Prelude as P
+
 import Data.Monoid (Sum(..))
 import Data.Foldable (fold)
 import Control.Applicative (liftA2)
@@ -77,7 +80,7 @@ import GHC.Float (int2Double)
 import Data.Constraint (Dict(..),(:-)(..))
 import Data.Key (Zip)
 
-import ConCat.Misc ((:*),R,sqr,magSqr,Binop,inNew,inNew2,Yes1,oops,type (&+&))
+import ConCat.Misc ((:*),R,sqr,magSqr,Unop,Binop,inNew,inNew2,Yes1,oops,type (&+&))
 import ConCat.Incremental (andInc,inc)
 import ConCat.AD
 import ConCat.ADFun hiding (D)
@@ -89,8 +92,7 @@ import ConCat.Circuit (GenBuses,(:>))
 import qualified ConCat.RunCircuit as RC
 import qualified ConCat.AltCat as A
 import ConCat.AltCat
-  ( toCcc,ccc,reveal,U2(..),(:**:)(..),Ok,Ok2, Arr, array,arrAt,OrdCat,ConstCat
-  , OpCon(..),Sat, type (|-)(..), second)
+import ConCat.AltAggregate
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Nat
 import ConCat.Shaped
@@ -103,7 +105,7 @@ import ConCat.LC
 import ConCat.Choice
 import ConCat.RegressChoice
 
-import ConCat.Arr -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
+-- import ConCat.Arr -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
 #ifdef CONCAT_SMT
 import ConCat.SMT
 #endif
@@ -116,6 +118,7 @@ import ConCat.SMT
 -- TODO: Find a better solution!
 import qualified GHC.Generics as G
 import qualified ConCat.Free.LinearRow
+import qualified Data.Monoid
 
 -- For FFT
 import GHC.Generics hiding (C,R,D)
@@ -134,13 +137,49 @@ main = sequence_
   [ putChar '\n' -- return ()
 
   -- Circuit graphs
-  , runSynCirc "twice"       $ toCcc $ twice @R
-  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
-  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "twice"       $ toCcc $ twice @R
+  -- , runSynCirc "complex-mul" $ toCcc $ P.uncurry ((*) @C)
+  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  -- , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
+  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+
+  -- LinearCat
+
+  -- , runSyn $ toCcc $ (fmapC not :: Unop (Pair Bool)) 
+
+  -- , runCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool)) 
+
+  -- , runCirc "fmap-not-a" $ toCcc $ (fmapC not :: Unop (Arr Bool Bool)) 
+
+  -- , runCirc "fmap-succ-bb" $ toCcc $ (fmapC succ :: Unop (Arr (Bool :* Bool) Int))
+  -- , runCirc "fmap-succ-v3" $ toCcc $ (fmapC succ :: Unop (Arr (RVec N3 Bool) Int))
+  -- , runCirc "point-v3" $ toCcc $ (pointC :: Bool -> Arr (RVec N3 Bool) Bool)
+  -- , runCirc "sum-point-v3" $ toCcc $ (sumC . (pointC :: Int -> Arr (RVec N3 Bool) Int))
+  -- , runCirc "sum-arr-v3" $ toCcc $ (sumC :: Arr (RVec N3 Bool) Int -> Int)
+  -- , runCirc "sum-arr-v3-adf" $ toCcc $ andDerF (sumC :: Arr (RVec N3 Bool) Int -> Int)
+
+  -- , runCirc "sum-arr-v3-adfl" $ toCcc $ andDerFL @R (sumC :: Arr (RVec N3 Bool) R -> R)
+
+  -- , runSynCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool))
+
+  -- , runSyn $ toCcc $ sqr @R
+
+  -- , runSyn $ toCcc $ (fmapC sqr :: Unop (Pair R))
+
+  -- , runSynCirc "fmap-par1-sqr-adf"  $ toCcc $ andDerF (fmap  sqr :: Unop (Par1 R))
+
+  -- , runSynCirc "fmapC-par1-sqr-adf" $ toCcc $ andDerF (fmapC sqr :: Unop (Par1 R))
+
+  -- , runSyn{-Circ "fmapC-pair-sqr-adf"-} $ toCcc $ andDerF (fmapC sqr :: Unop (Pair R))
+
+  -- , runSynCirc "fmapC-pair-sqr-adf" $ toCcc $ andDerF (fmapC sqr :: Unop (Pair R))
+
+  -- , runSynCirc "fmapC-pair-sqr-adf" $ toCcc $ andDerF (fmapC sqr :: Unop (Pair R))
+
+  -- , runSyn $ toCcc $ andDer @R (fmapC sqr :: Unop (Pair R))
+
 
   -- -- Choice
   -- , onChoice @GenBuses (runCirc "choice-or" . toCcc)
@@ -165,6 +204,7 @@ main = sequence_
   --     (toCcc (\ x -> choose @GenBuses line x))
   -- , onChoice @GenBuses (runCirc "choice-line-2x" . toCcc)
   --     (toCcc (\ x -> choose @GenBuses line (2 * x)))
+
   -- , onChoice @GenBuses (runCirc "choice-line-lam-2" . toCcc)
   --     (toCcc (\ x -> choose @GenBuses line (choose @GenBuses line x)))
   -- , onChoice @GenBuses (runCirc "choice-line-2" . toCcc) -- fail
@@ -188,10 +228,9 @@ main = sequence_
   --                    (toCcc (\ (a,b) -> gradient (\ p -> sqErr @R (a,b) (f p)))))
   --     (toCcc (choose @OkLC line))
 
-
   -- , oops "Hrmph" (toCcc (choose @GenBuses (||)) :: Choice GenBuses Bool Bool)
 
-  -- -- Circuit graphs on trees etc
+  -- Circuit graphs on trees etc
   -- , runSynCirc "sum-pair"   $ toCcc $ sum   @Pair      @Int
   -- , runSynCirc "sum-rb4"    $ toCcc $ sum   @(RBin N4) @Int
   -- , runSynCirc "lsums-pair" $ toCcc $ lsums @Pair      @Int
@@ -230,6 +269,15 @@ main = sequence_
   -- , runSynCirc "cosSinProd-ad" $ toCcc $ andDer @R $ cosSinProd @R
 
   -- , runSynCirc "sum-pair-ad"$ toCcc $ andDer @R $ sum @Pair @R
+  -- , runSynCirc "product-pair-ad"$ toCcc $ andDer @R $ product @Pair @R
+
+  -- , runSynCirc "sum-2-ad"$ toCcc $ andDer @R $ \ (a,b) -> a+b :: R
+
+  -- , runSynCirc "sum-3-ad"$ toCcc $ andDer @R $ \ (a,b,c) -> a+b+c :: R
+
+  -- , runSynCirc "product-3-ad"$ toCcc $ andDer @R $ \ (a,b,c) -> a*b*c :: R
+
+  -- , runSynCirc "product-4-ad"$ toCcc $ andDer @R $ \ (a,b,c,d) -> a*b*c*d :: R
 
   -- , runSynCirc "sum-4-ad"$ toCcc $ andDer @R $ \ (a,b,c,d) -> a+b+c+d :: R
 
@@ -238,28 +286,43 @@ main = sequence_
   -- -- Dies with "Oops --- toCcc called!", without running the plugin.
   -- , print $ andDer @R sin (1 :: R)
 
-  -- -- -- Automatic differentiation with ADFun
+  -- -- Automatic differentiation with ADFun
   -- , runSynCirc "sin-adf"      $ toCcc $ andDerF $ sin @R
   -- , runSynCirc "cos-adf"      $ toCcc $ andDerF $ cos @R
-
   -- , runSynCirc "twice-adf"    $ toCcc $ andDerF $ twice @R
   -- , runSynCirc "sqr-adf"      $ toCcc $ andDerF $ sqr @R
+  -- , runSynCirc "magSqr-adf"     $ toCcc $ andDerF $ magSqr  @R -- breaks
+  -- , runSynCirc "cos-2x-adf"     $ toCcc $ andDerF $ \ x -> cos (2 * x) :: R
+  -- , runSynCirc "cos-2xx-adf"    $ toCcc $ andDerF $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "cos-xpy-adf"    $ toCcc $ andDerF $ \ (x,y) -> cos (x + y) :: R
+  -- , runSynCirc "cosSinProd-adf" $ toCcc $ andDerF $ cosSinProd @R
 
-  -- , runSynCirc "magSqr-adf"   $ toCcc $ andDerF $ magSqr @R
-  -- , runSynCirc "cos-2x-adf"   $ toCcc $ andDerF $ \ x -> cos (2 * x) :: R
-  -- , runSynCirc "cos-2xx-adf"  $ toCcc $ andDerF $ \ x -> cos (2 * x * x) :: R
-  -- , runSynCirc "cos-xpy-adf"  $ toCcc $ andDerF $ \ (x,y) -> cos (x + y) :: R
-  -- , runSynCirc "cosSinProd-adf"$ toCcc $ andDerF $ cosSinProd @R
+  -- , runSynCirc "product-4-adf"$ toCcc $ andDerF $ \ (a,b,c,d) -> a*b*c*d :: R
+
+  -- , runSynCirc "sum-rb3-adf"$ toCcc $ andDerF $ sum @(RBin N3) @R
+
+  -- , runSynCirc "product-rb3-adf"$ toCcc $ andDerF $ product @(RBin N3) @R
 
   -- -- Automatic differentiation with ADFun + linear
   -- , runSynCirc "sin-adfl"        $ toCcc $ andDerFL @R $ sin @R
   -- , runSynCirc "cos-adfl"        $ toCcc $ andDerFL @R $ cos @R
   -- , runSynCirc "sqr-adfl"        $ toCcc $ andDerFL @R $ sqr @R
-  -- , runSynCirc "magSqr-adfl-b"   $ toCcc $ andDerFL @R $ magSqr @R
+  -- , runSynCirc "magSqr-adfl"     $ toCcc $ andDerFL @R $ magSqr @R -- breaks
   -- , runSynCirc "cos-2x-adfl"     $ toCcc $ andDerFL @R $ \ x -> cos (2 * x) :: R
   -- , runSynCirc "cos-2xx-adfl"    $ toCcc $ andDerFL @R $ \ x -> cos (2 * x * x) :: R
   -- , runSynCirc "cos-xpy-adfl"    $ toCcc $ andDerFL @R $ \ (x,y) -> cos (x + y) :: R
   -- , runSynCirc "cosSinProd-adfl" $ toCcc $ andDerFL @R $ cosSinProd @R
+
+
+  -- , runSynCirc "product-4-adfl"$ toCcc $ andDerFL @R $ \ (a,b,c,d) -> a*b*c*d :: R
+
+  -- , runSynCirc "product-rb3-adf"$ toCcc $ andDerF $ product @(RBin N3) @R 
+
+  -- , runSynCirc "product-rb3-adfl"$ toCcc $ andDerFL @R $ product @(RBin N3) @R 
+
+  -- , runSyn $ toCcc $ andDerFL @R $ product @(RBin N4) @R 
+
+  -- , runSyn $ toCcc $ andDerF $ product @(RBin N4) @R 
 
   -- -- (0.8414709848078965,[[0.5403023058681398]]), i.e., (sin 1, [[cos 1]]),
   -- -- where the "[[ ]]" is matrix-style presentation of the underlying

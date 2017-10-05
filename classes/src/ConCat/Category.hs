@@ -1,3 +1,7 @@
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TupleSections #-}
 -- {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -52,18 +56,18 @@ import qualified Data.Type.Equality as Eq
 import Data.Type.Coercion (Coercion(..))
 import qualified Data.Type.Coercion as Co
 import GHC.Types (Constraint)
+import qualified Data.Constraint as Con
 import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import GHC.Types (type (*))  -- experiment with TypeInType
 -- import qualified Data.Constraint as K
 import GHC.TypeLits
-import Data.Array (Array,(!))
+import Data.Array (Array,(!),bounds,Ix)
 import qualified Data.Array as Arr
 import Data.Proxy (Proxy(..))
 import GHC.Generics ((:*:)(..),(:.:)(..))
 import qualified Data.Vector.Sized as VS
 
 import Control.Newtype (Newtype(..))
-import Data.Key (Zip(..))
 #ifdef VectorSized
 import Data.Finite (Finite)
 import Data.Vector.Sized (Vector)
@@ -73,6 +77,7 @@ import qualified Data.Vector.Sized as VS
 -- import Data.MemoTrie
 
 import ConCat.Misc hiding ((<~),(~>),type (&&))
+-- import ConCat.Free.Diagonal (Diagonal(..),diag)
 import ConCat.Rep
 -- import ConCat.Orphans ()
 -- import ConCat.Additive (Additive)
@@ -169,11 +174,32 @@ class OpCon op con where
 -- class    kon a => Sat kon a
 -- instance kon a => Sat kon a
 
+yes1 :: c |- Sat Yes1 a
+yes1 = Entail (Sub Dict)  -- Move to AltCat
+
+forkCon :: forall con con' a. Sat (con &+& con') a |- Sat con a :* Sat con' a
+forkCon = Entail (Sub Dict)
+
+joinCon :: forall con con' a. Sat con a :* Sat con' a |- Sat (con &+& con') a
+joinCon = Entail (Sub Dict)
+
+inForkCon :: (Sat con1 a :* Sat con2 a |- Sat con1' b :* Sat con2' b)
+          -> (Sat (con1 &+& con2) a |- Sat (con1' &+& con2') b)
+inForkCon h = joinCon . h . forkCon
+
+-- We might want forkCon, joinCon, and inForkCon elsewhere as well.
+-- Consider renaming.
+
 type Yes1' = Sat Yes1
 
 type Ok' k = Sat (Ok k)
 
 type OpSat op kon = OpCon op (Sat kon)
+
+class OkFunctor k h where
+  okFunctor :: Ok' k a |- Ok' k (h a)
+
+instance OkFunctor (->) h where okFunctor = Entail (Sub Dict)
 
 inSat :: OpCon op (Sat con) => Sat con a && Sat con b |- Sat con (a `op` b)
 inSat = inOp
@@ -734,7 +760,9 @@ undistr = (exl +++ exl) &&& (exr ||| exr)
     Exponentials
 --------------------------------------------------------------------}
 
-okExp :: forall k a b. OpCon (Exp k) (Ok' k)
+type OkExp k = OpCon (Exp k) (Ok' k)
+
+okExp :: forall k a b. OkExp k
       => Ok' k a && Ok' k b |- Ok' k (Exp k a b)
 okExp = inOp
 {-# INLINE okExp #-}
@@ -1608,7 +1636,9 @@ instance (ArrayCat k n b, ArrayCat k' n b) => ArrayCat (k :**: k') n b where
 
 #else
 -- Arrays
-newtype Arr a b = MkArr (Array a b) deriving Show
+data Arr i a = MkArr (Array i a) deriving Show
+
+-- I'm using "data" instead of "newtype" here to avoid the coercion.
 
 class (ClosedCat k, Ok3 k a b (Arr a b)) => ArrayCat k a b where
   array :: Exp k a b `k` Arr a b
@@ -1655,6 +1685,10 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
 
 #endif
 
+instance (OkFunctor k h, OkFunctor k' h)
+      => OkFunctor (k :**: k') h where
+  okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
+
 {--------------------------------------------------------------------
     Functors
 --------------------------------------------------------------------}
@@ -1669,21 +1703,3 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
 --   -- Laws:
 --   -- fmapC id == id
 --   -- fmapC (q . p) == fmapC q . fmapC p
-
-{--------------------------------------------------------------------
-    Vectors (experimental and to be reconciled with arrays)
---------------------------------------------------------------------}
-
-class LinearCat k h where
-  fmapC :: Ok2 k a b => (a `k` b) -> (h a `k` h b)
-  zipC  :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
-  sumC  :: (Ok k a, Num a) => h a `k` a
-
-instance (Functor h, Zip h, Foldable h) => LinearCat (->) h where
-  fmapC = fmap
-  zipC  = uncurry zip
-  sumC  = sum
-
--- TODO: orphan instance for Zip (Vector n) in ConCat.Orphans, where Vector n
--- comes from Data.Vector.Sized in the vector-sized package.
-

@@ -31,6 +31,8 @@ import Control.Newtype
 import Text.PrettyPrint.HughesPJClass hiding (render,first)
 import Data.Typeable (Typeable)
 import Data.Constraint (Dict(..),(:-)(..))  -- temp
+import Data.Key (Zip(..))
+import Data.Functor.Rep (Representable)
 
 #ifdef VectorSized
 import GHC.TypeLits (KnownNat)
@@ -40,6 +42,7 @@ import Data.Finite (Finite)
 import ConCat.Category
 import ConCat.Misc (inNew,inNew2,Unop,Binop,typeR,Yes1,(:*))
 import ConCat.Rep
+import ConCat.Aggregate
 
 {--------------------------------------------------------------------
     Untyped S-expression
@@ -350,6 +353,25 @@ instance ArrayCat Syn a b where
 instance UnknownCat Syn a b where
   unknownC = app0 "unknownC"
   INLINER(unknownC)
+
+instance OkFunctor Syn h where okFunctor = Entail (Sub Dict)
+
+instance Representable h => LinearCat Syn h where
+  fmapC  = app0 "fmapC"
+  zipC   = app0 "zipC"
+  pointC = app0 "pointC"
+  INLINER(fmapC)
+  INLINER(zipC)
+  INLINER(pointC)
+
+instance DiagCat Syn h where
+  diagC = app0 "diagC"
+  INLINER(diagC)
+
+instance SumCat Syn h where
+  sumC = app0 "sumC"
+  INLINER(sumC)
+
 
 -- #define ShowTypes
 

@@ -100,7 +100,7 @@ module ConCat.Circuit
   -- , Ty(..)
   ) where
 
-import Prelude hiding (id,(.),curry,uncurry,const,sequence)
+import Prelude hiding (id,(.),curry,uncurry,const,sequence,zip)
 
 import Data.Monoid ({-mempty,-}(<>),Sum,Product,All,Any)
 -- import Data.Newtypes.PrettyDouble
@@ -128,10 +128,12 @@ import Debug.Trace (trace)
 -- import Data.Coerce                      -- TODO: imports
 import Unsafe.Coerce
 -- import GHC.Exts (Coercible) -- ,coerce
-import Data.Typeable (TypeRep,Typeable,eqT,cast) -- ,Proxy(..),typeRep
+import Data.Typeable (TypeRep,Typeable,eqT,cast) -- ,Proxy(..),typeOf
 import Data.Type.Equality ((:~:)(..))
 
 import Data.Constraint (Dict(..),(:-)(..))
+import Data.Key (Zip(..))
+import Data.Functor.Rep (Representable)
 
 import qualified System.Info as SI
 import System.Process (system) -- ,readProcess
@@ -160,6 +162,7 @@ import ConCat.Rep
 import ConCat.Category
 import qualified ConCat.AltCat as A
 import ConCat.AltCat (Uncurriable(..))
+import ConCat.Aggregate
 
 import qualified ConCat.Free.LinearRow as LR
 import qualified ConCat.Free.LinearCol as LC
@@ -175,6 +178,7 @@ data Ty = Unit | Bool | Int | Float | Double
         | Arr Integer Ty
 #else
         | Arr Ty Ty
+        -- | Arr TypeRep Ty
 #endif
         | Prod Ty Ty
         | Sum Ty Ty
@@ -377,10 +381,11 @@ instance (KnownNat n, GenBuses b) => GenBuses (Arr n b)  where
 
 #else
 
-instance (GenBuses a, GenBuses b) => GenBuses (Arr a b)  where
+instance (GenBuses i {-Typeable i-}, GenBuses b) => GenBuses (Arr i b)  where
   genBuses' = genPrimBus
   -- delay = primDelay
-  ty = Arr (ty @a) (ty @b)
+  ty = Arr (ty @i) (ty @b)
+  -- ty = Arr (typeOf (undefined :: a)) (ty @b)
   unflattenB' = unflattenPrimB
 
 #endif
@@ -809,6 +814,51 @@ instance TerminalCat (:>) where
   -- it = mkCK (const (return UnitB))
   it = C (arr (pure UnitB))
 
+instance OkFunctor (:>) G.U1   where okFunctor = Entail (Sub Dict)
+instance OkFunctor (:>) G.Par1 where okFunctor = Entail (Sub Dict)
+
+instance (OkFunctor (:>) f, OkFunctor (:>) g)
+      => OkFunctor (:>) (f G.:*: g) where
+  okFunctor :: forall a. Ok' (:>) a |- Ok' (:>) ((f G.:*: g) a)
+  okFunctor = Entail (Sub (Dict
+                             <+ okFunctor @(:>) @f @a
+                             <+ okFunctor @(:>) @g @a))
+
+instance (OkFunctor (:>) f, OkFunctor (:>) g)
+      => OkFunctor (:>) (g G.:.: f) where
+  okFunctor :: forall a. Ok' (:>) a |- Ok' (:>) ((g G.:.: f) a)
+  okFunctor = Entail (Sub (Dict
+                             <+ okFunctor @(:>) @g @(f a)
+                             <+ okFunctor @(:>) @f @a))
+
+instance GenBuses i => OkFunctor (:>) (Arr i) where okFunctor = Entail (Sub Dict)
+
+instance OkFunctor (:>) h => LinearCat (:>) h where
+  fmapC :: forall a b. Ok2 (:>) a b => (a -> b) :> (h a -> h b)
+  fmapC = -- trace "fmapC on (:>)" $
+          namedC "fmap"
+            <+ okFunctor @(:>) @h @a
+            <+ okFunctor @(:>) @h @b
+  zipC  :: forall a b. Ok2 (:>) a b => (h a :* h b) :> h (a :* b)
+  zipC = namedC "zip"
+           <+ okFunctor @(:>) @h @(a :* b)
+           <+ okFunctor @(:>) @h @a
+           <+ okFunctor @(:>) @h @b
+  pointC :: forall a. Ok (:>) a => a :> h a
+  pointC = namedC "point"
+             <+ okFunctor @(:>) @h @a
+
+instance OkFunctor (:>) h => DiagCat (:>) h where
+  diagC :: forall a. Ok (:>) a => a :* a :> h (h a)
+  diagC = namedC "diag"
+            <+ okFunctor @(:>) @h @(h a)
+            <+ okFunctor @(:>) @h @a
+
+instance OkFunctor (:>) h => SumCat (:>) h where
+  sumC :: forall a. (Ok (:>) a, Num a) => h a :> a
+  sumC = namedC "sum"
+           <+ okFunctor @(:>) @h @a
+
 #if 0
 
 instance GS b => ConstCat (:>) b where
@@ -906,7 +956,7 @@ instance SourceToBuses Double  where toBuses = PrimB
 instance (KnownNat n, GenBuses b) => SourceToBuses (Arr n b) where
   toBuses = PrimB
 #else
-instance (GenBuses a, GenBuses b) => SourceToBuses (Arr a b) where
+instance (GenBuses i {-Typeable i-}, GenBuses b) => SourceToBuses (Arr i b) where
   toBuses = PrimB
 #endif
 
@@ -1446,10 +1496,20 @@ instance (KnownNat n, GenBuses b) => ArrayCat (:>) n b where
   array = namedC "array"
   arrAt = namedC "arrAt"
 #else
-instance (GenBuses a, GenBuses b) => ArrayCat (:>) a b where
+instance (Typeable i, GenBuses i, GenBuses b) => ArrayCat (:>) i b where
   array = namedC "array"
   arrAt = namedC "arrAt"
 #endif
+
+-- instance LinearCat (:>) h where
+--   fmapC c = 
+
+-- class (Functor h, Zip h, Foldable h, ProductCat k, OkFunctor k h)
+--    => LinearCat k h where
+--   fmapC :: Ok2 k a b => (a `k` b) -> (h a `k` h b)
+--   zipC  :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
+--   sumC  :: (Ok k a, Num a) => h a `k` a
+
 
 {--------------------------------------------------------------------
     Running
@@ -1939,11 +1999,10 @@ tyRep = ty @(Rep a)
 genUnflattenB' :: (GenBuses a, GenBuses (Rep a)) => State [Source] (Buses a)
 genUnflattenB' = abstB <$> unflattenB'
 
-
 -- Omit temporarily for faster compilation
 #if 1
 
-#include "AbsTy.inc"
+#include "ConCat/AbsTy.inc"
 
 AbsTy((a,b,c))
 AbsTy((a,b,c,d))

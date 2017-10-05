@@ -8,23 +8,27 @@
 {-# OPTIONS_GHC -Wall #-}
 -- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
-#define DiagF
+-- #define DiagF
 
 -- | A convenient class for diagonizations
 
 module ConCat.Free.Diagonal where
 
-#ifndef DiagF
-import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
-#endif
+#ifdef DiagF
 import Data.Functor.Rep (Representable(..))
-import Data.Pointed (Pointed(..))
 import Data.Key (Keyed(..),Adjustable(..))
 import GHC.Generics ((:.:)(..))
+#else
+import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
+#endif
+import Data.Pointed (Pointed(..))
 
 import ConCat.Orphans ()
 
 #ifdef DiagF
+
+-- With this simpler definition, the plugin stumbles over sums.
+-- TODO: support sums, and try again.
 
 diagF :: (Applicative f, Keyed f, Adjustable f) => a -> f a -> f (f a)
 diagF z = mapWithKey (\ k a -> replace k a (pure z))
@@ -50,25 +54,29 @@ diag' z o = unComp1 (tabulate (\ (i,j) -> if i == j then o else z))
 
 class (Functor f, Pointed f) => Diagonal f where
   -- diag zero one gives all zero except one on the diagonal.
-  diag :: s -> s -> f (f s)
+  diag' :: s -> s -> f (f s)
+
+diag :: Diagonal f => s -> s -> f (f s)
+diag = diag'
+{-# INLINE [0] diag #-}
 
 -- The Functor and Pointed superclass constraints are for convenience.
 -- Remove if troublesome.
 
 instance Diagonal U1   where
-  diag _ _ = U1
-  {-# INLINABLE diag #-}
+  diag' _ _ = U1
+  {-# INLINABLE diag' #-}
 
 instance Diagonal Par1 where
-  diag _ o = Par1 (Par1 o)
-  {-# INLINABLE diag #-}
+  diag' _ o = Par1 (Par1 o)
+  {-# INLINABLE diag' #-}
 
 instance Eq k => Diagonal ((->) k) where
-  diag z o k k' = if k == k' then o else z
+  diag' z o k k' = if k == k' then o else z
 
 instance (Diagonal f, Diagonal g) => Diagonal (f :*: g) where
-  diag z o = ((:*: point z) <$> diag z o) :*: ((point z :*:) <$> diag z o)
-  {-# INLINABLE diag #-}
+  diag' z o = ((:*: point z) <$> diag z o) :*: ((point z :*:) <$> diag z o)
+  {-# INLINABLE diag' #-}
 
 -- (:*: point zero) <$> diag zero one :: f ((f :*: g) s)
 -- (point zero :*:) <$> diag zero one :: g ((f :*: g) s)
@@ -77,8 +85,8 @@ instance (Diagonal f, Diagonal g) => Diagonal (f :*: g) where
 
 instance (Diagonal g, Diagonal f, Traversable g, Applicative f)
       => Diagonal (g :.: f) where
-  diag z o = Comp1 <$> Comp1 (sequenceA <$> diag (diag z o) (point (point z)))
-  {-# INLINABLE diag #-}
+  diag' z o = Comp1 <$> Comp1 (sequenceA <$> diag (diag z o) (point (point z)))
+  {-# INLINABLE diag' #-}
 
 -- Or use diag zero zero in place of point (point zero)
 
@@ -88,5 +96,8 @@ instance (Diagonal g, Diagonal f, Traversable g, Applicative f)
 -- sequenceA <$> ... :: g (f (g (f s)))
 -- Comp1 ... :: (g :.: f) (g (f s))
 -- fmap Comp1 ... :: (g :.: f) ((g :.: f) s)
+
+-- instance Diagonal (Arr i) where
+--   diag z o = 
 
 #endif

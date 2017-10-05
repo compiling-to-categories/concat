@@ -267,6 +267,9 @@ inTranspose :: (Applicative f, Traversable t, Applicative f', Traversable t')
 inTranspose = transpose <~ transpose
 -- inTranspose h = transpose . h . transpose
 
+unzip :: Functor f => f (a :* b) -> f a :* f b
+unzip ps = (fst <$> ps, snd <$> ps)
+
 {--------------------------------------------------------------------
     Newtype
 --------------------------------------------------------------------}

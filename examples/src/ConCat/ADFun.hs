@@ -1,3 +1,5 @@
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -7,6 +9,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -16,21 +19,27 @@
 
 module ConCat.ADFun where
 
-import Prelude hiding (id,(.),curry,uncurry,const)
+import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip)
+-- import Debug.Trace (trace)
+import GHC.Generics (Par1)
 
-import Control.Newtype (unpack)
-
-import ConCat.Misc ((:*),R,Yes1,oops)
-import ConCat.Free.VectorSpace (HasV(..))
-import ConCat.Free.LinearRow
--- The following import allows the instances to type-check. Why?
-import qualified ConCat.Category as C
-import ConCat.AltCat
-
+import Control.Newtype (Newtype(..))
+import Data.Pointed (Pointed(..))
+import Data.Key (Zip(..))
 import Data.Constraint hiding ((&&&),(***),(:=>))
+import Data.Distributive (Distributive(..))
+import Data.Functor.Rep (Representable(..))
 
+import ConCat.Misc ((:*),R,Yes1,oops,unzip,type (&+&))
+import ConCat.Free.VectorSpace (HasV(..),inV,IsScalar)
+import ConCat.Free.LinearRow -- hiding (linear)
+import ConCat.AltCat
+import ConCat.AltAggregate
 import ConCat.GAD
 import ConCat.Additive
+-- The following imports allows the instances to type-check. Why?
+import qualified ConCat.Category  as C
+import qualified ConCat.Aggregate as C
 
 -- Differentiable functions
 type D = GD (->)
@@ -59,19 +68,20 @@ instance ClosedCat D where
 -- TODO: generalize to ClosedCat k for an arbitrary CCC k. I guess I can simply
 -- apply ccc to the lambda expressions.
 #else
+
 instance ClosedCat D where
-  apply = applyD
-  curry = curryD
-  {-# INLINE apply #-}
-  {-# INLINE curry #-}
+  apply = applyD ; {-# INLINE apply #-}
+  curry = curryD ; {-# INLINE curry #-}
 
 applyD :: forall a b. Ok2 D a b => D ((a -> b) :* a) b
-applyD = D (\ (f,a) -> (f a, \ (df,da) -> df a ^+^ f da))
+-- applyD = D (\ (f,a)                   -> (f a, \ (df,da) -> df a ^+^ f da))
+applyD = -- trace "calling applyD" $
+ D (\ (f,a) -> let (b,f') = andDerF f a in (b, \ (df,da) -> df a ^+^ f' da))
+-- applyD = oops "applyD called"   -- does it?
 
 curryD :: forall a b c. Ok3 D a b c => D (a :* b) c -> D a (b -> c)
-curryD (D h) = D (\ a -> (curry f a, \ da -> \ b -> f' (a,b) (da,zero)))
- where
-   (f,f') = unfork h
+curryD (D (unfork -> (f,f'))) =
+  D (\ a -> (curry f a, \ da -> \ b -> f' (a,b) (da,zero)))
 
 {-# INLINE applyD #-}
 {-# INLINE curryD #-}
@@ -113,25 +123,25 @@ const' :: (a -> c) -> (a -> b -> c)
 const' = (const .)
 
 scalarD :: Num s => (s -> s) -> (s -> s -> s) -> D s s
-scalarD f d = D (\ x -> let r = f x in (r, (* d x r)))
+scalarD f d = D (\ x   -> let r = f x in (r, (* d x r)))
 {-# INLINE scalarD #-}
 
 -- Use scalarD with const f when only r matters and with const' g when only x
 -- matters.
 
-scalarR :: Num s => (s -> s) -> (s -> s) -> D s s
-scalarR f f' = scalarD f (\ _ -> f')
+scalarR :: Num s => (s        -> s) -> (s -> s) -> D s s
+scalarR f f'   = scalarD f (\ _ -> f')
 -- scalarR f x = scalarD f (const x)
--- scalarR f = scalarD f . const
+-- scalarR f   = scalarD f . const
 {-# INLINE scalarR #-}
 
-scalarX :: Num s => (s -> s) -> (s -> s) -> D s s
-scalarX f f' = scalarD f (\ x _ -> f' x)
+scalarX :: Num s => (s             -> s) -> (s -> s) -> D s s
+scalarX f f'    = scalarD f (\ x _    -> f' x)
 -- scalarX f f' = scalarD f (\ x y -> const (f' x) y)
--- scalarX f f' = scalarD f (\ x -> const (f' x))
+-- scalarX f f' = scalarD f (\ x   -> const (f' x))
 -- scalarX f f' = scalarD f (const . f')
 -- scalarX f f' = scalarD f (const' f')
--- scalarX f = scalarD f . const'
+-- scalarX f    = scalarD f . const'
 {-# INLINE scalarX #-}
 
 square :: Num a => a -> a
@@ -150,6 +160,52 @@ instance (Floating s, Additive s) => FloatingCat D s where
   {-# INLINE sinC #-}
   {-# INLINE cosC #-}
 
+-- type Ok D = (Yes1 &+& Additive)
+
+instance Additive1 h => OkFunctor D h where
+  okFunctor :: forall a. Ok' D a |- Ok' D (h a)
+  okFunctor = inForkCon (yes1 *** additive1 @h @a)
+
+instance (Representable h, Additive1 h) => LinearCat D h where
+  fmapC  = linearDF fmapC
+  zipC   = linearDF zipC
+  pointC = linearDF pointC
+  {-# INLINE fmapC  #-}
+  {-# INLINE zipC   #-}
+  {-# INLINE pointC #-}
+
+instance Foldable h => SumCat D h where
+  sumC = linearDF sumC
+  {-# INLINE sumC #-}
+
+instance (Representable h, Eq (Rep h)) => DiagCat D h where
+  diagC = linearDF diagC
+
+{--------------------------------------------------------------------
+    Conversion to linear map. Replace HasL in LinearRow and LinearCol
+--------------------------------------------------------------------}
+
+linear1 :: (Representable f, Eq (Rep f), Num s)
+        => (f s -> s) -> f s
+-- linear1 = (<$> diag 0 1)
+linear1 = (`fmapC` diag 0 1)
+{-# INLINE linear1 #-}
+
+linearN :: (Representable f, Eq (Rep f), Distributive g, Num s)
+        => (f s -> g s) -> (f :-* g) s
+linearN h = linear1 <$> distribute h
+{-# INLINE linearN #-}
+
+-- h :: f s -> g s
+-- distribute h :: g (f s -> s)
+-- linear1 <$> distribute h :: g (f s)
+
+linearN' :: ( HasV s a, HasV s b, f ~ V s a, g ~ V s b
+            , Representable f, Eq (Rep f), Distributive g, Num s )
+         => (a -> b) -> L s a b
+linearN' h = pack (linear1 <$> distribute (inV h))
+{-# INLINE linearN' #-}
+
 {--------------------------------------------------------------------
     Differentiation interface
 --------------------------------------------------------------------}
@@ -165,13 +221,42 @@ derF = deriv
 {-# INLINE derF #-}
 
 -- AD with derivative-as-function, then converted to linear map
-andDerFL :: forall s a b. (OkLM s a, OkLM s b, HasL (V s a))
-         => (a -> b) -> (a -> b :* L s a b)
+andDerFL :: forall s a b. HasLin s a b => (a -> b) -> (a -> b :* L s a b)
 andDerFL f = second linear . andDerF f
 {-# INLINE andDerFL #-}
 
+type RepresentableV s a = (HasV s a, Representable (V s a))
+type RepresentableVE s a = (RepresentableV s a, Eq (Rep (V s a)))
+type HasLin' s a b = (RepresentableVE s a, RepresentableV s b, Num s)
+
 -- AD with derivative-as-function, then converted to linear map
-derFL :: forall s a b. (OkLM s a, OkLM s b, HasL (V s a))
-      => (a -> b) -> (a -> L s a b)
-derFL f = linear . derF f
+derFL :: forall s a b. HasLin' s a b => (a -> b) -> (a -> L s a b)
+derFL f = linearN' . derF f
 {-# INLINE derFL #-}
+
+-- AD with derivative-as-function, then converted to linear map
+andDerFL' :: forall s a b. HasLin' s a b => (a -> b) -> (a -> b :* L s a b)
+andDerFL' f = second linearN' . andDerF f
+{-# INLINE andDerFL' #-}
+
+-- AD with derivative-as-function, then converted to linear map
+derFL' :: forall s a b. HasLin' s a b => (a -> b) -> (a -> L s a b)
+derFL' f = linearN' . derF f
+{-# INLINE derFL' #-}
+
+dualV :: forall s a. (HasV s a, RepresentableVE s a, IsScalar s, Num s)
+      => (a -> s) -> a
+dualV h = unV (linear1 (unpack . inV @s h))
+{-# INLINE dualV #-}
+
+--                            h   :: a -> s
+--                        inV h   :: V s a s -> V s s s
+--                                :: V s a s -> Par1 s
+--              (unpack . inV h)  :: V s a s -> s
+--      linear1 (unpack . inV h)  :: V s a s
+-- unV (linear1 (unpack . inV h)) :: a
+
+andGradFL :: forall s a. (IsScalar s, RepresentableVE s a, Num s)
+          => (a -> s) -> (a -> s :* a)
+andGradFL f = second dualV . andDerF f
+{-# INLINE andGradFL #-}

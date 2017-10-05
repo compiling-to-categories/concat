@@ -20,15 +20,16 @@
 module ConCat.Free.VectorSpace where
 
 import Prelude hiding (zipWith)
-import Data.Monoid (Sum(..))
+import Data.Monoid (Sum(..),Product(..))
 -- import GHC.Exts (Coercible,coerce)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:+:)(..),(:.:)(..))
 
 import Data.Foldable (fold)
 import Data.Pointed
 import Data.Key (Zip(..))
-import Data.Vector.Sized (Vector)
+-- import Data.Vector.Sized (Vector)
 -- import Data.Map (Map)
+import Data.Constraint ((:-)(..),Dict(..))
 
 -- import Control.Newtype
 
@@ -36,8 +37,8 @@ import ConCat.Orphans ()
 import ConCat.Misc ((:*),(:+),(<~))
 import ConCat.Rep
 -- import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
-import ConCat.AltCat (OpCon(..),Sat,type (|-)(..))
-import Data.Constraint ((:-)(..),Dict(..))
+import ConCat.AltCat (OpCon(..),Sat,type (|-)(..),Arr)
+import ConCat.AltAggregate (fmapC)
 
 {--------------------------------------------------------------------
     Vector spaces
@@ -170,7 +171,7 @@ class HasV s a where
   unV = abst . unV
   {-# INLINE toV #-} ; {-# INLINE unV #-}
 
-inV :: (HasV s a, HasV s b) => (a -> b) -> (V s a s -> V s b s)
+inV :: forall s a b. (HasV s a, HasV s b) => (a -> b) -> (V s a s -> V s b s)
 inV = toV <~ unV
 
 onV :: (HasV s a, HasV s b) => (V s a s -> V s b s) -> (a -> b)
@@ -186,6 +187,8 @@ onV2 = onV <~ toV
 --   type V s s = Par1
 --   toV = Par1
 --   unV = unPar1
+
+type IsScalar s = (HasV s s, V s s ~ Par1)
 
 instance HasV s () where
   type V s () = U1
@@ -249,6 +252,7 @@ instance (HasV s (g (f a))) => HasV s ((g :.: f) a)
 instance HasV s (f a) => HasV s (SumV f a)
 
 instance HasV s a => HasV s (Sum a)
+instance HasV s a => HasV s (Product a)
 -- TODO: More newtypes
 
 -- Sometimes it's better not to use the default. I think the following gives more reuse:
@@ -279,12 +283,18 @@ instance HasV s b => HasV s (a -> b) where
 
 instance VComp ((->) a) where vcomp = Sub Dict
 
-instance HasV s b => HasV s (Vector n b) where
-  type V s (Vector n b) = Vector n :.: V s b
-  toV = Comp1 . fmap toV
-  unV = fmap unV . unComp1
+instance HasV s b => HasV s (Arr i b) where
+  type V s (Arr i b) = Arr i :.: V s b
+  toV = Comp1 . fmapC toV
+  unV = fmapC unV . unComp1
+  {-# INLINE toV #-}
+  {-# INLINE unV #-}
 
-instance VComp (Vector n) where vcomp = Sub Dict
+-- TODO: find a better alternative to using fmapC explicitly here. I'd like to
+-- use fmap instead, but it gets inlined immediately, as do all class
+-- operations.
+
+instance VComp (Arr i) where vcomp = Sub Dict
 
 #if 0
 -- Example default instance

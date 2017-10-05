@@ -27,12 +27,12 @@ import Data.Distributive (Distributive(..))
 import Data.Constraint ((\\))
 
 import ConCat.Misc ((:*),Yes1)
-import ConCat.Free.VectorSpace (HasV(..),VComp(..))
+import ConCat.Free.VectorSpace (HasV(..),IsScalar,VComp(..))
 import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
 import ConCat.AltCat
-import ConCat.Free.Diagonal (diagF)
+-- import ConCat.Free.Diagonal (diagF)
 import ConCat.GAD
 
 -- Differentiable functions
@@ -109,20 +109,18 @@ instance (Ok (L s) s, Floating s) => FloatingCat (D s) s where
   {-# INLINE sinC #-}
   {-# INLINE cosC #-}
 
--- instance LinearCat (L s) h where
-
-instance (OkLF h, VComp h) => LinearCat (D s) h where
-  fmapC :: forall a b. Ok2 (D s) a b => D s a b -> D s (h a) (h b)
-  fmapC (D f) = D (second (L . pushH . mkDiag) . unzip . fmap f)
-   where
-     pushH :: h (h (V s b (V s a s))) -> V s (h b) (V s (h a) s)
-     pushH = fmap Comp1 . Comp1 . fmap distribute
-               \\ vcomp @h @s @a
-               \\ vcomp @h @s @b
-     mkDiag :: h (L s a b) -> h (h (V s b (V s a s)))
-     mkDiag = diagF zeroL . fmap unpack
-  zipC = linearD zipC zipC
-  sumC = linearD sumC sumC
+-- instance (OkLF h, VComp h) => LinearCat (D s) h where
+--   fmapC :: forall a b. Ok2 (D s) a b => D s a b -> D s (h a) (h b)
+--   fmapC (D f) = D (second (L . pushH . mkDiag) . unzip . fmap f)
+--    where
+--      pushH :: h (h (V s b (V s a s))) -> V s (h b) (V s (h a) s)
+--      pushH = fmap Comp1 . Comp1 . fmap distribute
+--                \\ vcomp @h @s @a
+--                \\ vcomp @h @s @b
+--      mkDiag :: h (L s a b) -> h (h (V s b (V s a s)))
+--      mkDiag = diagF zeroL . fmap unpack
+--   zipC = linearD zipC zipC
+--   sumC = linearD sumC sumC
 
 #if 0
 
@@ -149,9 +147,6 @@ second (L . pushH . mkDiag) :: ... -> h b :* L s (h a) (h b)
 
 -- diagF :: (Applicative f, Keyed f, Adjustable f) => a -> f a -> f (f a)
 
-unzip :: Functor f => f (a :* b) -> f a :* f b
-unzip ps = (fst <$> ps, snd <$> ps)
-
 -- TODO: Generalize from D s to GD k. zipC and sumC come easily, but maybe I
 -- need to generalize diagF to a method.
 
@@ -167,8 +162,6 @@ andDer = andDeriv
 der :: forall s a b . (a -> b) -> (a -> L s a b)
 der = deriv
 {-# INLINE der #-}
-
-type IsScalar s = V s s ~ Par1
 
 gradient :: (HasV s a, IsScalar s) => (a -> s) -> a -> a
 -- gradient :: HasV R a => (a -> R) -> a -> a

@@ -1,6 +1,11 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -8,22 +13,41 @@
 
 module ConCat.Additive where
 
-import Control.Applicative (liftA2)
+import Prelude hiding (id,(.),curry,uncurry,zipWith)
+import Data.Monoid
 import Data.Foldable (fold)
 import Data.Complex hiding (magnitude)
 import Data.Ratio
 import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
+import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
+-- import Data.Constraint (Dict(..),(:-)(..))
+
+import Data.Constraint (Dict(..),(:-)(..))
+import Data.Functor.Rep (Representable(..))
 
 import Control.Newtype (Newtype(..))
 -- import Data.MemoTrie
 
 import ConCat.Misc
+import ConCat.Orphans ()
+import ConCat.Pair
+-- import ConCat.Category (type (|-)(..),Sat(..),Arr(..))
+import ConCat.AltCat
+import ConCat.AltAggregate
 
 -- | Commutative monoid intended to be used with a multiplicative monoid
 class Additive a where
   zero  :: a
   infixl 6 ^+^
   (^+^) :: a -> a -> a
+  default zero :: (Representable h, Additive b) => h b
+  zero = pointC zero
+  default (^+^) :: (Representable h, Additive b) => Binop (h b)
+  (^+^) = zipWith' (^+^)
+
+zipWith' :: Representable h
+         => (a -> b -> c) -> (h a -> h b -> h c)
+zipWith' f as bs = fmapC (uncurry f) (zipC (as,bs))
 
 instance Additive () where
   zero = ()
@@ -71,11 +95,43 @@ instance (Additive u,Additive v,Additive w,Additive x)
   zero                        = (zero,zero,zero,zero)
   (u,v,w,x) ^+^ (u',v',w',x') = (u^+^u',v^+^v',w^+^w',x^+^x')
 
+instance Additive v => Additive (a -> v)
+instance Additive v => Additive (Sum     v)
+instance Additive v => Additive (Product v)
 
--- Standard instance for an applicative functor applied to a vector space.
-instance Additive v => Additive (a -> v) where
-  zero  = pure   zero
-  (^+^) = liftA2 (^+^)
+-- type AddF f = (Pointed f, Zip f)
+type AddF f = Representable f
+
+instance Additive v => Additive (U1 v)
+instance Additive v => Additive (Par1 v)
+instance (Additive v, AddF f, AddF g) => Additive ((f :*: g) v)
+instance (Additive v, AddF f, AddF g) => Additive ((g :.: f) v)
+
+instance Additive v => Additive (Pair v)
+
+-- instance (Eq i, Additive v) => Additive (Arr i v) where
+--   zero = pointC zero
+--   as ^+^ bs = fmapC (uncurry (^+^)) (zipC (as,bs))
+
+-- TODO: Define and use zipWithC (^+^) as bs.
+
+-- TODO: Generalize LinearCat back to functors, and use the Additive (Arr i v)
+-- above as the defaults.
+
+instance Additive v => Additive (Arr i v)
+
+class Additive1 h where additive1 :: Sat Additive a |- Sat Additive (h a)
+
+instance Additive1 ((->) a) where additive1 = Entail (Sub Dict)
+
+instance Additive1 Sum where additive1 = Entail (Sub Dict)
+instance Additive1 Product where additive1 = Entail (Sub Dict)
+instance Additive1 U1 where additive1 = Entail (Sub Dict)
+instance Additive1 Par1 where additive1 = Entail (Sub Dict)
+instance (AddF f, AddF g) => Additive1 (f :*: g) where additive1 = Entail (Sub Dict)
+instance (AddF f, AddF g) => Additive1 (g :.: f) where additive1 = Entail (Sub Dict)
+
+instance Additive1 Pair where additive1 = Entail (Sub Dict)
 
 
 -- Maybe is handled like the Maybe-of-Sum monoid

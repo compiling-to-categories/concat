@@ -68,6 +68,8 @@ library
                        ConCat.Free.Diagonal
                        ConCat.Free.LinearCol
                        ConCat.Free.LinearRow
+                       ConCat.Aggregate
+                       ConCat.AltAggregate
                        ConCat.Complex
                        ConCat.Syntactic
                        ConCat.Circuit
@@ -83,7 +85,7 @@ library
                        ConCat.Additive
                        -- ConCat.Polynomial
                        ConCat.Demand
-                       ConCat.Arr
+                       -- ConCat.Arr
                        ConCat.Nat
                        ConCat.Sized
                        ConCat.Pair

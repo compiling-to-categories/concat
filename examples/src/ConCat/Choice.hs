@@ -1,3 +1,4 @@
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
@@ -26,12 +27,13 @@ module ConCat.Choice where
 import Prelude hiding (id,(.),curry,uncurry,const)
 import qualified Prelude as P
 import GHC.Types (Constraint)
+import Control.Applicative (liftA2)
 
 import Control.Newtype (Newtype(..))
 
 import ConCat.Misc ((:*),oops,inNew,inNew2)
 import ConCat.Category
-import ConCat.AltCat (toCcc,unCcc) -- (reveal,conceal)
+import ConCat.AltCat (toCcc,unCcc)
 
 -- | Nondeterminism category. Like a set of morphisms all of the same type, but
 -- represented as a function whose range is that set. The function's domain is
@@ -55,6 +57,8 @@ exactly f = Choice (\ () -> f)
 
 type CartCon con = (con (), OpCon (:*) (Sat con))
 
+#if 0
+
 -- | Generate any value of type @p@.
 chooseC :: forall con p a b. (CartCon con, con p)
         => Choice con (p :* a) b -> Choice con a b
@@ -63,7 +67,7 @@ chooseC (Choice (f :: q -> p :* a -> b)) =
     <+ inOp @(:*) @(Sat con) @q @p
 {-# INLINE chooseC #-}
 
---           Choice f  :: Choice con (q :* a) b
+--           Choice f  :: Choice con (p :* a) b
 --                  f  :: q -> p :* a -> b
 --          curry . f  :: q -> p -> a -> b
 -- uncurry (curry . f) :: q :* p -> a -> b
@@ -75,6 +79,27 @@ choose :: forall con p a b. (CartCon con, con p)
        => (p -> a -> b) -> (a -> b)
 choose f = unCcc (chooseC @con (toCcc (uncurry f)))
 {-# INLINE choose #-}
+
+#else
+
+-- This version is a bit simpler, but we're getting a plugin failure to do with
+-- an unknown p type.
+
+-- | Generate any value of type @p@.
+chooseC :: forall con p a b. (CartCon con, con p)
+         => Choice con p (a -> b) -> Choice con a b
+chooseC (Choice (f :: q -> p -> a -> b)) =
+  Choice @con (uncurry f)
+    <+ inOp @(:*) @(Sat con) @q @p
+{-# INLINE chooseC #-}
+
+-- | Generate any value of type @p@.
+choose :: forall con p a b. (CartCon con, con p)
+        => (p -> a -> b) -> (a -> b)
+choose f = unCcc (chooseC @con (toCcc f))
+{-# INLINE choose #-}
+
+#endif
 
 {--------------------------------------------------------------------
     Category class instances
@@ -88,15 +113,18 @@ combine op (Choice (g :: q -> a -> b)) (Choice (f :: p -> c -> d)) =
     <+ inOp @(:*) @(Sat con) @p @q
 
 instance CartCon con => Category (Choice con) where
-  type Ok (Choice con) = Ok (->) -- Yes1
+  -- type Ok (Choice con) = Ok (->) -- Yes1
   id = exactly id
   (.) = combine (.)
+  {-# INLINE id #-}
   {-# INLINE (.) #-}
 
 instance CartCon con => ProductCat (Choice con) where
   exl = exactly exl
   exr = exactly exr
   (&&&) = combine (&&&)
+  {-# INLINE exl #-}
+  {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
 
 instance CartCon con => CoproductCat (Choice con) where
@@ -190,8 +218,10 @@ instance CartCon con => ArrayCat (Choice con) a b where
 
 data OptArg con z = NoArg z | forall p. con p => Arg (p -> z)
 
-newtype Choice' :: (* -> Constraint) -> * -> * -> * where
-  Choice' :: OptArg con (a -> b) -> Choice' con a b
+-- newtype Choice' :: (* -> Constraint) -> * -> * -> * where
+--   Choice' :: OptArg con (a -> b) -> Choice' con a b
+
+newtype Choice' con a b = Choice' (OptArg con (a -> b))
 
 instance Newtype (Choice' con a b) where
   type O (Choice' con a b) = OptArg con (a -> b)
@@ -200,43 +230,31 @@ instance Newtype (Choice' con a b) where
 
 type CartCon' con = OpCon (:*) (Sat con)
 
+instance CartCon' con => Functor (OptArg con) where
+  fmap f (NoArg u) = NoArg (f u)
+  fmap f (  Arg g) = Arg (f . g)
+
+instance CartCon' con => Applicative (OptArg con) where
+  pure = NoArg
+  NoArg f <*> NoArg a = NoArg (f a)
+  NoArg f <*> Arg as = Arg (f . as)
+  Arg (g :: q -> a -> b) <*> NoArg a = Arg (flip g a)
+  Arg (g :: q -> a -> b) <*> Arg (f :: p -> a) =
+    Arg (\ (p,q) -> g q (f p)) <+ inOp @(:*) @(Sat con) @p @q
+
 -- | Deterministic (trivially nondeterministic) arrow
-exactly' :: (a -> b) -> Choice' con a b
-exactly' f = Choice' (NoArg f)
-
--- instance CartCon' con => Category (Choice' con) where
---   id = exactly' id
---   Choice' (NoArg g) . Choice' (NoArg f) = Choice' (NoArg (g . f))
---   Choice' (NoArg g) . Choice' (Arg (f :: p -> a -> b)) =
---     Choice' (Arg (\ p -> g . f p))
---   Choice' (Arg (g :: q -> b -> c)) . Choice' (NoArg f) =
---     Choice' (Arg (\ q -> g q . f))
---   Choice' (Arg (g :: q -> b -> c)) . Choice' (Arg (f :: p -> a -> b)) =
---     Choice' (Arg (\ (p,q) -> g q . f p))
---         <+ inOp @(:*) @(Sat con) @p @q
-
-op1 :: forall con u v. CartCon' con
-    => (u -> v) -> (OptArg con u -> OptArg con v)
-op1 op (NoArg u) = NoArg (op u)
-op1 op (  Arg g) = Arg (op . g)
+exactly' :: CartCon' con => (a -> b) -> Choice' con a b
+exactly' f = Choice' (pure f)
 
 op1C :: forall con a b c d. CartCon' con
      => ((a -> b) -> (c -> d))
      -> (Choice' con a b -> Choice' con c d)
-op1C = inNew . op1
-
-op2 :: forall con u v w. CartCon' con
-    => (u -> v -> w) -> (OptArg con u -> OptArg con v -> OptArg con w)
-op2 op (NoArg u) (NoArg v) = NoArg (u `op` v)
-op2 op (NoArg u) (Arg (f :: p -> v)) = Arg (\ p -> u `op` f p)
-op2 op (Arg (g :: q -> u)) (NoArg v) = Arg (\ q -> g q `op` v)
-op2 op (Arg (g :: q -> u)) (Arg (f :: p -> v)) =
-  Arg (\ (p,q) -> g q `op` f p) <+ inOp @(:*) @(Sat con) @p @q
+op1C = inNew . fmap
 
 op2C :: forall con a b c d e f. CartCon' con
      => ((a -> b) -> (c -> d) -> (e -> f))
      -> (Choice' con a b -> Choice' con c d -> Choice' con e f)
-op2C = inNew2 . op2
+op2C = inNew2 . liftA2
 
 instance CartCon' con => Category (Choice' con) where
   id = exactly' id
@@ -276,4 +294,4 @@ instance CartCon' con => BoolCat (Choice' con) where
 
 instance (Monoid a, CartCon' con) => Monoid (OptArg con a) where
   mempty = NoArg mempty
-  mappend = op2 mappend
+  mappend = liftA2 mappend

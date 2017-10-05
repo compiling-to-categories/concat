@@ -163,9 +163,9 @@ instance Newtype (Arr a b) where
   {-# INLINE pack #-}
   {-# INLINE unpack #-}
 
-instance Functor (Arr a) where
-  fmap = inNew . fmap
-  {-# INLINE fmap #-}
+-- instance Functor (Arr a) where
+--   fmap = inNew . fmap
+--   {-# INLINE fmap #-}
 
 instance Applicative (Arr a) where
   pure = pack . pure
