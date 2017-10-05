@@ -133,6 +133,7 @@ import Data.Type.Equality ((:~:)(..))
 
 import Data.Constraint (Dict(..),(:-)(..))
 import Data.Key (Zip(..))
+import Data.Functor.Rep (Representable)
 
 import qualified System.Info as SI
 import System.Process (system) -- ,readProcess
@@ -813,43 +814,26 @@ instance TerminalCat (:>) where
   -- it = mkCK (const (return UnitB))
   it = C (arr (pure UnitB))
 
-#if 1
+instance OkFunctor (:>) G.U1   where okFunctor = Entail (Sub Dict)
+instance OkFunctor (:>) G.Par1 where okFunctor = Entail (Sub Dict)
 
-instance GenBuses i {-Typeable i-} => OkFunctor (:>) (Arr i) where
-  okFunctor = Entail (Sub Dict)
+instance (OkFunctor (:>) f, OkFunctor (:>) g)
+      => OkFunctor (:>) (f G.:*: g) where
+  okFunctor :: forall a. Ok' (:>) a |- Ok' (:>) ((f G.:*: g) a)
+  okFunctor = Entail (Sub (Dict
+                             <+ okFunctor @(:>) @f @a
+                             <+ okFunctor @(:>) @g @a))
 
-instance GenBuses i {-Typeable i-} => LinearCat (:>) (Arr i) where
-  -- zeroC = namedC "zero"
-  fmapC :: forall a b. Ok2 (:>) a b => (a -> b) :> (Arr i a -> Arr i b)
-  fmapC = -- trace "fmapC on (:>)" $
-          namedC "fmap"
-            <+ okFunctor @(:>) @(Arr i) @a
-            <+ okFunctor @(:>) @(Arr i) @b
-  zipC  :: forall a b. Ok2 (:>) a b => (Arr i a :* Arr i b) :> Arr i (a :* b)
-  zipC = namedC "zip"
-           <+ okFunctor @(:>) @(Arr i) @(a :* b)
-           <+ okFunctor @(:>) @(Arr i) @a
-           <+ okFunctor @(:>) @(Arr i) @b
-  pointC = namedC "point"
+instance (OkFunctor (:>) f, OkFunctor (:>) g)
+      => OkFunctor (:>) (g G.:.: f) where
+  okFunctor :: forall a. Ok' (:>) a |- Ok' (:>) ((g G.:.: f) a)
+  okFunctor = Entail (Sub (Dict
+                             <+ okFunctor @(:>) @g @(f a)
+                             <+ okFunctor @(:>) @f @a))
 
-instance GenBuses i => DiagCat (:>) (Arr i) where
-  diagC  = namedC "diag"
+instance GenBuses i => OkFunctor (:>) (Arr i) where okFunctor = Entail (Sub Dict)
 
-instance GenBuses i => SumCat (:>) (Arr i) where
-  sumC :: forall a. (Ok (:>) a, Num a) => Arr i a :> a
-  sumC = namedC "sum"
-           <+ okFunctor @(:>) @(Arr i) @a
-
-
--- TODO: remove the GenBuses requirement from the LinearCat and PointedCat instances.
--- I think that constraint is there only for ty @i, which we can do differently.
-
--- Maybe generalize from Arr i to h.
-
-#else
-instance OkFunctor (:>) h where okFunctor = Entail (Sub Dict)
-
-instance (Functor h, Foldable h, Zip h{-, OkFunctor (:>) h-}) => LinearCat (:>) h where
+instance OkFunctor (:>) h => LinearCat (:>) h where
   fmapC :: forall a b. Ok2 (:>) a b => (a -> b) :> (h a -> h b)
   fmapC = -- trace "fmapC on (:>)" $
           namedC "fmap"
@@ -860,10 +844,20 @@ instance (Functor h, Foldable h, Zip h{-, OkFunctor (:>) h-}) => LinearCat (:>) 
            <+ okFunctor @(:>) @h @(a :* b)
            <+ okFunctor @(:>) @h @a
            <+ okFunctor @(:>) @h @b
+  pointC :: forall a. Ok (:>) a => a :> h a
+  pointC = namedC "point"
+             <+ okFunctor @(:>) @h @a
+
+instance OkFunctor (:>) h => DiagCat (:>) h where
+  diagC :: forall a. Ok (:>) a => a :* a :> h (h a)
+  diagC = namedC "diag"
+            <+ okFunctor @(:>) @h @(h a)
+            <+ okFunctor @(:>) @h @a
+
+instance OkFunctor (:>) h => SumCat (:>) h where
   sumC :: forall a. (Ok (:>) a, Num a) => h a :> a
   sumC = namedC "sum"
            <+ okFunctor @(:>) @h @a
-#endif
 
 #if 0
 
