@@ -814,25 +814,32 @@ instance TerminalCat (:>) where
   it = C (arr (pure UnitB))
 
 #if 1
-instance GenBuses i {-Typeable i-} => OkArr (:>) i where okArr = Entail (Sub Dict)
 
-instance GenBuses i {-Typeable i-} => LinearCat (:>) i where
+instance GenBuses i {-Typeable i-} => OkFunctor (:>) (Arr i) where
+  okFunctor = Entail (Sub Dict)
+
+instance GenBuses i {-Typeable i-} => LinearCat (:>) (Arr i) where
   -- zeroC = namedC "zero"
   fmapC :: forall a b. Ok2 (:>) a b => (a -> b) :> (Arr i a -> Arr i b)
   fmapC = -- trace "fmapC on (:>)" $
           namedC "fmap"
-            <+ okArr @(:>) @i @a
-            <+ okArr @(:>) @i @b
+            <+ okFunctor @(:>) @(Arr i) @a
+            <+ okFunctor @(:>) @(Arr i) @b
   zipC  :: forall a b. Ok2 (:>) a b => (Arr i a :* Arr i b) :> Arr i (a :* b)
   zipC = namedC "zip"
-           <+ okArr @(:>) @i @(a :* b)
-           <+ okArr @(:>) @i @a
-           <+ okArr @(:>) @i @b
+           <+ okFunctor @(:>) @(Arr i) @(a :* b)
+           <+ okFunctor @(:>) @(Arr i) @a
+           <+ okFunctor @(:>) @(Arr i) @b
+  pointC = namedC "point"
+
+instance GenBuses i => DiagCat (:>) (Arr i) where
+  diagC  = namedC "diag"
+
+instance GenBuses i => SumCat (:>) (Arr i) where
   sumC :: forall a. (Ok (:>) a, Num a) => Arr i a :> a
   sumC = namedC "sum"
-           <+ okArr @(:>) @i @a
-  pointC = namedC "point"
-  diagC  = namedC "diag"
+           <+ okFunctor @(:>) @(Arr i) @a
+
 
 -- TODO: remove the GenBuses requirement from the LinearCat and PointedCat instances.
 -- I think that constraint is there only for ty @i, which we can do differently.
