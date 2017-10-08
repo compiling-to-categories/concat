@@ -137,21 +137,21 @@ main = sequence_
   [ putChar '\n' -- return ()
 
   -- Circuit graphs
-  , runSynCirc "twice"       $ toCcc $ twice @R
-  , runSynCirc "complex-mul" $ toCcc $ P.uncurry ((*) @C)
-  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
-  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "twice"       $ toCcc $ twice @R
+  -- , runSynCirc "complex-mul" $ toCcc $ P.uncurry ((*) @C)
+  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  -- , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
+  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- LinearCat
 
-  -- , runSyn $ toCcc $ (fmapC not :: Unop (Pair Bool)) 
+  -- , runSyn $ toCcc $ (fmapC not :: Unop (Pair Bool))
 
-  -- , runCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool)) 
+  -- , runCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool))
 
-  -- , runSynCirc "fmap-not-a" $ toCcc $ (fmapC not :: Unop (Arr Bool Bool)) 
+  -- , runSynCirc "fmap-not-a" $ toCcc $ (fmapC not :: Unop (Arr Bool Bool))
 
   -- , runCirc "fmap-succ-bb" $ toCcc $ (fmapC succ :: Unop (Arr (Bool :* Bool) Int))
   -- , runCirc "fmap-succ-v3" $ toCcc $ (fmapC succ :: Unop (Arr (RVec N3 Bool) Int))
@@ -184,7 +184,7 @@ main = sequence_
 
   -- , runCirc "foo" $ toCcc $ (sumC :: Arr Bool R -> R) -- OK
 
-  -- , runCirc "foo" $ toCcc $ (dualV @R @(Arr Bool R)) -- 
+  -- , runCirc "foo" $ toCcc $ (dualV @R @(Arr Bool R)) --
 
   -- , runSyn $ toCcc $ \ () -> dualV (sumC :: Arr Bool R -> R) -- Ok
 
@@ -205,7 +205,7 @@ main = sequence_
 
   -- , runSynCirc "sum-arr-v3-adfl" $ toCcc $ andDerFL' @R (sumC :: Arr (RVec N3 Bool) R -> R)
 
-  
+
   -- , runSynCirc "fmapC-id-arr" $ toCcc $ (fmapC id :: Unop (Arr Bool R))
 
 
@@ -267,13 +267,13 @@ main = sequence_
   -- , onChoice @OkLC (\ f -> runCirc "regress-line" (toCcc (step @R f)))
   --     (toCcc (choose @OkLC line))
 
-  -- , onChoice @OkLC (\ f -> runCirc "regress-line-a" 
+  -- , onChoice @OkLC (\ f -> runCirc "regress-line-a"
   --                    (toCcc (\ (a,b) p -> sqErr @R (a,b) (f p))))
   --     (toCcc (choose @OkLC line))
 
-  -- , onChoice @OkLC (\ f -> runCirc "regress-line-b" 
-  --                    (toCcc (\ (a,b) -> gradient (\ p -> sqErr @R (a,b) (f p)))))
-  --     (toCcc (choose @OkLC line))
+  , onChoice @OkLC (\ f -> runCirc "regress-line-b"
+                     (toCcc (\ (a,b) -> gradient (\ p -> sqErr @R (a,b) (f p)))))
+      (toCcc (choose @OkLC line))
 
   -- , oops "Hrmph" (toCcc (choose @GenBuses (||)) :: Choice GenBuses Bool Bool)
 
@@ -363,13 +363,13 @@ main = sequence_
 
   -- , runSynCirc "product-4-adfl"$ toCcc $ andDerFL @R $ \ (a,b,c,d) -> a*b*c*d :: R
 
-  -- , runSynCirc "product-rb3-adf"$ toCcc $ andDerF $ product @(RBin N3) @R 
+  -- , runSynCirc "product-rb3-adf"$ toCcc $ andDerF $ product @(RBin N3) @R
 
-  -- , runSynCirc "product-rb3-adfl"$ toCcc $ andDerFL @R $ product @(RBin N3) @R 
+  -- , runSynCirc "product-rb3-adfl"$ toCcc $ andDerFL @R $ product @(RBin N3) @R
 
-  -- , runSyn $ toCcc $ andDerFL @R $ product @(RBin N4) @R 
+  -- , runSyn $ toCcc $ andDerFL @R $ product @(RBin N4) @R
 
-  -- , runSyn $ toCcc $ andDerF $ product @(RBin N4) @R 
+  -- , runSyn $ toCcc $ andDerF $ product @(RBin N4) @R
 
   -- -- (0.8414709848078965,[[0.5403023058681398]]), i.e., (sin 1, [[cos 1]]),
   -- -- where the "[[ ]]" is matrix-style presentation of the underlying
@@ -410,11 +410,11 @@ main = sequence_
   -- , runSynCirc "q1" $ toCcc $ \ (a :: R) -> andDer @R (\ y -> y * a)
   -- , runSynCirc "q2" $ toCcc $ \ (a :: R) -> andDer @R (\ y -> a * y)
 
-  -- , runCirc "mse-pair-grad" $ toCcc $ \ (samples :: Par1 Sample) -> gradient $ mse samples 
+  -- , runCirc "mse-pair-grad" $ toCcc $ \ (samples :: Par1 Sample) -> gradient $ mse samples
 
   -- , runCirc "mse-samples0-grad" $ toCcc $ gradient $ mse samples0
 
-  -- , runSynCirc "mse-samples1-ad" $ toCcc $ andDer @R $ mse samples1 
+  -- , runSynCirc "mse-samples1-ad" $ toCcc $ andDer @R $ mse samples1
 
   -- , runCircChase "mse-regress0" (0,0) $ toCcc $ gradient $ negate . mse samples0
 
@@ -426,7 +426,7 @@ main = sequence_
 
   -- , runSynCirc "foo" $ toCcc $ \ (x,y) -> sqr (4 - (y + x * 3)) :: R
 
-  -- , runSyn $ toCcc $ andDer @R $ \ (x,y) -> x - y :: R -- fail 
+  -- , runSyn $ toCcc $ andDer @R $ \ (x,y) -> x - y :: R -- fail
   -- , runSyn $ toCcc $ andDer @R $ \ (x,y) -> 4 - (y + x) :: R -- fail
   -- , runSyn $ toCcc $ andDer @R $ \ (x,y) -> sqr (4 - (y + x)) :: R -- fail
   -- , runSyn $ toCcc $ andDer @R $ \ (x,y) -> sqr (4 - (y + x * 3)) :: R  -- fail
@@ -783,7 +783,7 @@ fac9 n0 = go (n0,1)
    go (n,acc) = if n < 1 then acc else go (n-1,n * acc)
 
 ---------
-    
+
 -- -- coerceTest :: Pair R -> (Par1 :*: Par1) R
 -- -- coerceTest = coerce
 
