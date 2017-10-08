@@ -43,7 +43,7 @@ import ConCat.Graphics.Color (ToColor(..))
 import ConCat.Graphics.Image
 import qualified ConCat.RunCircuit as RC
 import ConCat.Syntactic (Syn,render)
-import ConCat.AltCat (Ok2,ccc,(:**:)(..))
+import ConCat.AltCat (Ok2,toCcc,(:**:)(..))
 import qualified ConCat.AltCat as A
 
 import ConCat.Rebox () -- necessary for reboxing rules to fire
@@ -60,9 +60,9 @@ main = sequence_
   -- , runHtml' "annulus2" (pairW (sliderW "Outer" (0,2) 1) timeW) $
   --     \ (o,i) -> annulus o ((sin i + 1) / 2)
 
-  -- , runSynCirc "wobbly-disk" $ ccc $ \ t ->
+  -- , runSynCirc "wobbly-disk" $ toCcc $ \ t ->
   --     disk' (3/4 + 1/4 * cos t)
-  -- , runSynCirc "wobbly-disk-color" $ ccc $ toPImageC $ \ t ->
+  -- , runSynCirc "wobbly-disk-color" $ toCcc $ toPImageC $ \ t ->
   --     disk' (3/4 + 1/4 * cos t)
 
   -- , runHtml' "wobbly-disk" timeW $ \ t ->
@@ -122,10 +122,10 @@ runHtml' :: (GenBuses a, ToColor c)
 runHtml' _ _ _ = error "runHtml' called directly"
 {-# NOINLINE runHtml' #-}
 {-# RULES "runHtml'"
-  forall n w f. runHtml' n w f = runH n w $ ccc $ toPImageC f #-}
+  forall n w f. runHtml' n w f = runH n w $ toCcc $ toPImageC f #-}
 
 -- runHtml' name widgets f =
---   runH name widgets $ ccc $ toPImageC f
+--   runH name widgets $ toCcc $ toPImageC f
 -- {-# INLINE runHtml' #-}
 
 

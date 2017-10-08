@@ -12,6 +12,8 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-} -- TEMP
 -- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
+#include "ConCat/AbsTy.inc"
+
 -- | Generalized automatic differentiation
 
 module ConCat.GAD where
@@ -20,8 +22,6 @@ import Prelude hiding (id,(.),curry,uncurry,const)
 -- import qualified Prelude as P
 -- import GHC.Exts (Coercible,coerce)
 import GHC.Exts (Constraint)
-
-
 
 -- import GHC.Generics (Par1(..),(:.:)(..),(:*:)())
 -- import Control.Newtype
@@ -33,6 +33,8 @@ import ConCat.Misc ((:*),type (&+&)) -- ,PseudoFun(..),oops
 import qualified ConCat.Category as C
 import ConCat.AltCat
 import ConCat.Rep
+
+AbsTyImports
 
 -- newtype GD k a b = D { unD :: a -> b :* (a `k` b) }
 data GD k a b = D { unD :: a -> (b :* (a `k` b)) }
@@ -54,6 +56,8 @@ instance HasRep (GD k a b) where
   type Rep (GD k a b) = (a -> b :* (a `k` b))
   abst f = D f
   repr (D f) = f
+
+AbsTy(GD k a b)
 
 type family GDOk (k :: * -> * -> *) :: * -> Constraint
 

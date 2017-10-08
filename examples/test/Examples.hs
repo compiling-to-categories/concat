@@ -137,13 +137,13 @@ main = sequence_
   [ putChar '\n' -- return ()
 
   -- Circuit graphs
-  -- , runSynCirc "twice"       $ toCcc $ twice @R
-  -- , runSynCirc "complex-mul" $ toCcc $ P.uncurry ((*) @C)
-  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  -- , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
-  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  , runSynCirc "twice"       $ toCcc $ twice @R
+  , runSynCirc "complex-mul" $ toCcc $ P.uncurry ((*) @C)
+  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
+  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- LinearCat
 
@@ -151,16 +151,63 @@ main = sequence_
 
   -- , runCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool)) 
 
-  -- , runCirc "fmap-not-a" $ toCcc $ (fmapC not :: Unop (Arr Bool Bool)) 
+  -- , runSynCirc "fmap-not-a" $ toCcc $ (fmapC not :: Unop (Arr Bool Bool)) 
 
   -- , runCirc "fmap-succ-bb" $ toCcc $ (fmapC succ :: Unop (Arr (Bool :* Bool) Int))
   -- , runCirc "fmap-succ-v3" $ toCcc $ (fmapC succ :: Unop (Arr (RVec N3 Bool) Int))
   -- , runCirc "point-v3" $ toCcc $ (pointC :: Bool -> Arr (RVec N3 Bool) Bool)
   -- , runCirc "sum-point-v3" $ toCcc $ (sumC . (pointC :: Int -> Arr (RVec N3 Bool) Int))
+
   -- , runCirc "sum-arr-v3" $ toCcc $ (sumC :: Arr (RVec N3 Bool) Int -> Int)
+
   -- , runCirc "sum-arr-v3-adf" $ toCcc $ andDerF (sumC :: Arr (RVec N3 Bool) Int -> Int)
 
   -- , runCirc "sum-arr-v3-adfl" $ toCcc $ andDerFL @R (sumC :: Arr (RVec N3 Bool) R -> R)
+
+  -- , runCirc "sum-arr-v3-agfl" $ toCcc $ andGradFL @R (sumC :: Arr (RVec N3 Bool) R -> R)
+
+  -- , runCirc "foo" $ toCcc $ \ () -> dualV (\ (x,y,z) -> x + y + z :: R) -- ok
+
+  -- , runCirc "foo" $ toCcc $ \ () -> dualV (sumC :: Pair R -> R) -- ok
+
+  -- , runCirc "foo" $ toCcc $ \ () -> linear1 (sumC :: Arr Bool R -> R) -- ok
+
+
+  -- , runCirc "foo" $ toCcc $ unV @R @(Arr Bool R)
+
+  -- , runCirc "foo" $ toCcc $ \ () -> dualV4 (sumC :: Arr Bool R -> R) -- fail
+
+
+  -- , runCirc "foo" $ toCcc $ \ () -> diag @(Arr Bool) @R  -- OK
+
+  -- , runCirc "foo" $ toCcc $ fmapC @(->) @(Arr Bool) @R @R -- OK
+
+  -- , runCirc "foo" $ toCcc $ (sumC :: Arr Bool R -> R) -- OK
+
+  -- , runCirc "foo" $ toCcc $ (dualV @R @(Arr Bool R)) -- 
+
+  -- , runSyn $ toCcc $ \ () -> dualV (sumC :: Arr Bool R -> R) -- Ok
+
+  -- , runCirc "dual-sum-pair" $ toCcc $ \ () -> dualV (sumC :: Pair R -> R)
+
+  -- , runCirc "dual-sum-par1" $ toCcc $ \ () -> dualV (sumC :: Par1 R -> R)
+
+
+  -- , runCirc "dual-sum-arr" $ toCcc $ \ () -> dualV (sumC :: Arr Bool R -> R)
+
+
+  -- , runCirc "dual-sum-arr-unit" $ toCcc $ \ () -> dualV (sumC :: Arr () R -> R)
+
+
+  -- , runCirc "foo" $ toCcc $ \ () -> dualV (sumC :: Arr Bool R -> R)
+
+  -- , runCirc "sum-arr-v3-adf" $ toCcc $ andDerF (sumC :: Arr (RVec N3 Bool) R -> R)
+
+  -- , runSynCirc "sum-arr-v3-adfl" $ toCcc $ andDerFL' @R (sumC :: Arr (RVec N3 Bool) R -> R)
+
+  
+  -- , runSynCirc "fmapC-id-arr" $ toCcc $ (fmapC id :: Unop (Arr Bool R))
+
 
   -- , runSynCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool))
 

@@ -324,6 +324,10 @@ unCcc' :: forall k a b. (a `k` b) -> (a -> b)
 unCcc' _ = oops "unCcc' called"
 {-# NOINLINE unCcc' #-}
 
+-- Prevent the plugin from messing with these ones.
+{-# ANN toCcc' PseudoFun #-}
+{-# ANN unCcc' PseudoFun #-}
+
 {-# RULES
 
 "toCcc'/unCcc'" forall f. toCcc' (unCcc' f) = f
