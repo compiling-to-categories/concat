@@ -225,14 +225,37 @@ andDerFL :: forall s a b. HasLin s a b => (a -> b) -> (a -> b :* L s a b)
 andDerFL f = second linear . andDerF f
 {-# INLINE andDerFL #-}
 
+-- AD with derivative-as-function, then converted to linear map
+derFL :: forall s a b. HasLin s a b => (a -> b) -> (a -> L s a b)
+derFL f = linear . derF f
+{-# INLINE derFL #-}
+
+dualV :: forall s a. (HasLin s a s, IsScalar s) => (a -> s) -> a
+dualV h = unV (unpack (unpack (linear @s h)))
+{-# INLINE dualV #-}
+
+--                                h    :: a -> s
+--                      linear @s h    :: L s a s
+--              unpack (linear @s h)   :: V s s (V s a s)
+--                                     :: Par1 (V s a s)
+--      unpack (unpack (linear @s h))  :: V s a s
+-- unV (unpack (unpack (linear @s h))) :: a
+
+andGradFL :: (HasLin s a s, IsScalar s) => (a -> s) -> (a -> s :* a)
+andGradFL f = second dualV . andDerF f
+{-# INLINE andGradFL #-}
+
+gradF :: (HasLin s a s, IsScalar s) => (a -> s) -> (a -> a)
+gradF f = dualV . derF f
+{-# INLINE gradF #-}
+
+{--------------------------------------------------------------------
+    Alternative definitions using Representable
+--------------------------------------------------------------------}
+
 type RepresentableV s a = (HasV s a, Representable (V s a))
 type RepresentableVE s a = (RepresentableV s a, Eq (Rep (V s a)))
 type HasLin' s a b = (RepresentableVE s a, RepresentableV s b, Num s)
-
--- AD with derivative-as-function, then converted to linear map
-derFL :: forall s a b. HasLin' s a b => (a -> b) -> (a -> L s a b)
-derFL f = linearN' . derF f
-{-# INLINE derFL #-}
 
 -- AD with derivative-as-function, then converted to linear map
 andDerFL' :: forall s a b. HasLin' s a b => (a -> b) -> (a -> b :* L s a b)
@@ -244,10 +267,10 @@ derFL' :: forall s a b. HasLin' s a b => (a -> b) -> (a -> L s a b)
 derFL' f = linearN' . derF f
 {-# INLINE derFL' #-}
 
-dualV :: forall s a. (HasV s a, RepresentableVE s a, IsScalar s, Num s)
+dualV' :: forall s a. (HasV s a, RepresentableVE s a, IsScalar s, Num s)
       => (a -> s) -> a
-dualV h = unV (linear1 (unpack . inV @s h))
-{-# INLINE dualV #-}
+dualV' h = unV (linear1 (unpack . inV @s h))
+{-# INLINE dualV' #-}
 
 --                            h   :: a -> s
 --                        inV h   :: V s a s -> V s s s
@@ -256,12 +279,12 @@ dualV h = unV (linear1 (unpack . inV @s h))
 --      linear1 (unpack . inV h)  :: V s a s
 -- unV (linear1 (unpack . inV h)) :: a
 
-andGradFL :: forall s a. (IsScalar s, RepresentableVE s a, Num s)
-          => (a -> s) -> (a -> s :* a)
-andGradFL f = second dualV . andDerF f
-{-# INLINE andGradFL #-}
+andGradFL' :: forall s a. (IsScalar s, RepresentableVE s a, Num s)
+           => (a -> s) -> (a -> s :* a)
+andGradFL' f = second dualV' . andDerF f
+{-# INLINE andGradFL' #-}
 
-gradF :: forall s a. (IsScalar s, RepresentableVE s a, Num s)
-          => (a -> s) -> (a -> a)
-gradF f = dualV . derF f
-{-# INLINE gradF #-}
+gradF' :: forall s a. (IsScalar s, RepresentableVE s a, Num s)
+       => (a -> s) -> (a -> a)
+gradF' f = dualV' . derF f
+{-# INLINE gradF' #-}
