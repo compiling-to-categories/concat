@@ -141,6 +141,9 @@ instance CartCon con => ClosedCat (Choice con) where
   apply = exactly apply
   curry (Choice f) = Choice (curry . f)
   uncurry (Choice g) = Choice (uncurry . g)
+  {-# INLINE apply #-}
+  {-# INLINE curry #-}
+  {-# INLINE uncurry #-}
 
 instance CartCon con => TerminalCat (Choice con) where
   it = exactly it

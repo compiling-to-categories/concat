@@ -150,6 +150,7 @@ Test-Suite misc-examples
                   , vector
   ghc-options:      -O2
                     -fplugin=ConCat.Plugin
+                    -fplugin=ConCat.Plugin
   if flag(smt)
     cpp-options:        -DCONCAT_SMT
 

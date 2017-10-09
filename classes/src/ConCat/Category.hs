@@ -96,6 +96,12 @@ infixr 7 :**:
 -- | Product for binary type constructors
 data (p :**: q) a b = p a b :**: q a b
 
+exl2 :: (p :**: q) a b -> p a b
+exl2 (p :**: _) = p
+
+exr2 :: (p :**: q) a b -> q a b
+exr2 (_ :**: q) = q
+
 instance HasRep ((k :**: k') a b) where
   type Rep ((k :**: k') a b) = k a b :* k' a b
   abst (f,g) = f :**: g
@@ -775,7 +781,7 @@ type Exp k = k
 type Exp k = (->)
 #endif
 
-class (OpCon (Exp k) (Ok' k), ProductCat k) => ClosedCat k where
+class (OkExp k, ProductCat k) => ClosedCat k where
   -- type Exp k :: u -> u -> u
   apply   :: forall a b. Ok2 k a b => Prod k (Exp k a b) a `k` b
   apply = uncurry id
@@ -845,6 +851,29 @@ instance (ClosedCat k, ClosedCat k') => ClosedCat (k :**: k') where
   PINLINER(curry)
   PINLINER(uncurry)
 #endif
+
+-- An alternative to ClosedCat
+class OkExp k => FlipCat k where
+  flipC  :: Ok3 k a b c => (a `k` (b -> c)) -> (b -> (a `k` c))
+  flipC' :: Ok3 k a b c => (b -> (a `k` c)) -> (a `k` (b -> c))
+
+instance FlipCat (->) where
+  flipC  = flip
+  flipC' = flip
+
+instance FlipCat U2 where
+  flipC  U2 = const U2
+  flipC' _ = U2
+
+instance (FlipCat k, FlipCat k') => FlipCat (k :**: k') where
+  flipC (f :**: f') b = flipC f b :**: flipC f' b
+  flipC' h = flipC' (exl2 . h) :**: flipC' (exr2 . h)
+
+-- Hm. The use of exl2 and exr2 here suggest replication of effort
+
+--                h  :: b -> (k :**: k') a c
+--         exl2 . h  :: b -> a `k` c
+-- flipC' (exl2 . h) :: b -> a `k` c
 
 type Unit k = ()
 

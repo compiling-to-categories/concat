@@ -110,6 +110,7 @@ import Control.Monad (unless)
 import Control.Arrow (arr,Kleisli(..))
 import Data.Foldable ({-foldMap,-}toList)
 import qualified GHC.Generics as G
+import Data.Void (Void)
 import Data.Function (on)
 import Data.Maybe (fromMaybe,isJust,maybeToList)
 import Data.List (intercalate,group,sort,stripPrefix)
@@ -172,7 +173,7 @@ import qualified ConCat.Free.LinearCol as LC
 --------------------------------------------------------------------}
 
 -- Component (primitive) type
-data Ty = Unit | Bool | Int | Float | Double
+data Ty = Void | Unit | Bool | Int | Float | Double
 #ifdef VectorSized
         | Finite Integer
         | Arr Integer Ty
@@ -186,6 +187,7 @@ data Ty = Unit | Bool | Int | Float | Double
   deriving (Eq,Ord)
 
 instance Show Ty where
+  showsPrec _ Void   = showString "Void"
   showsPrec _ Unit   = showString "()"
   showsPrec _ Bool   = showString "Bool"
   showsPrec _ Int    = showString "Int"
@@ -308,6 +310,12 @@ unflattenB sources | [] <- rest = a
                    | otherwise  = error ("unflattenB: extra sources " ++ show rest)
  where
    (a,rest) = M.runState unflattenB' sources
+
+-- TODO: Remove this instance when we stop needing GenBuses for Arr index
+instance GenBuses Void where
+  genBuses' = error "genBuses' for Void"
+  ty = Void
+  unflattenB' = error "unflattenB' for Void"
 
 instance GenBuses () where
   genBuses' _ _ = return UnitB

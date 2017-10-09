@@ -68,3 +68,9 @@ diag = curry diagC
 
 -- okArr :: forall k i a. Ok' k a |- Ok' k (Arr i a)
 -- okArr = okFunctor @k @(Arr i) @a
+
+{-# RULES
+
+"fmap id" uncurry fmapC . (curry exr &&& id) = id
+
+ #-}

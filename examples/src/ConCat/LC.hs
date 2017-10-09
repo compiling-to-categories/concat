@@ -30,7 +30,10 @@ import ConCat.Misc (type (&+&))
 import ConCat.AltCat (OpCon(..),Sat(..),type (|-)(..))
 
 import ConCat.Free.LinearRow
+import ConCat.ADFun (RepresentableVE)
 import ConCat.Circuit
+
+
 
 #ifdef Alias
 
@@ -49,6 +52,14 @@ instance (OkLM R a, GenBuses a) => OkLC a
 --       (Use UndecidableInstances to permit this)
 
 instance OpCon (:*) (Sat OkLC) where
+  inOp = Entail (Sub Dict)
+  {-# INLINE inOp #-}
+
+
+class    (RepresentableVE R a, GenBuses a) => OkLFC a
+instance (RepresentableVE R a, GenBuses a) => OkLFC a
+
+instance OpCon (:*) (Sat OkLFC) where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
 

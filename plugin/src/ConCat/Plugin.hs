@@ -377,8 +377,10 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        return body'
      Trying("lam Avoid pseudo-app")
      (isPseudoApp -> True) ->
-       Doing("lam Avoid pseudo-app")
-       Nothing
+       -- let (Var _v, _) = collectArgs body in -- TEMP
+       --   pprTrace ("lam Avoid pseudo-app " ++ uqVarName _v) empty $
+         Doing("lam Avoid pseudo-app")
+         Nothing
      Trying("lam Pair")
      (collectArgs -> (PairVar,(Type a : Type b : rest))) ->
        --  | dtrace "Pair" (ppr rest) False -> undefined
@@ -624,8 +626,9 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Tick t e -> Doing("lam tick")
                  return $ Tick t (mkCcc (Lam x e))
      -- Give up
-     _e -> pprPanic "ccc" ("lam Unhandled" <+> ppr (Lam x _e))
-           -- pprTrace "goLam" ("Unhandled" <+> ppr _e) $ Nothing
+     _e -> -- pprPanic "ccc" ("lam Unhandled" <+> ppr (Lam x _e))
+           -- pprTrace "goLam" ("Unhandled" <+> ppr _e) $
+           Nothing
     where
       xty = varType x
       bty = exprType body
@@ -1265,6 +1268,7 @@ cccRules famEnvs env@(CccEnv {..}) guts annotations =
                                            Nothing
                 }
 #if 1
+  -- Are we still using the special composition rules?
   , BuiltinRule { ru_name  = composeRuleName
                 , ru_fn    = varName composeV
                 , ru_nargs = 8  -- including type args and dicts
@@ -1326,7 +1330,7 @@ install opts todos =
    flagCcc :: CccEnv -> PluginPass
    flagCcc (CccEnv {..}) guts
      --  | pprTrace "ccc residuals:" (ppr (toList remaining)) False = undefined
-     --  | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
+     -- | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
      | Seq.null remaining = -- pprTrace "transformed program binds" (ppr (mg_binds guts)) $
                             return guts
      | otherwise = -- pprPanic "ccc residuals:" (ppr (toList remaining))

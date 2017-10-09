@@ -260,3 +260,8 @@ andGradFL :: forall s a. (IsScalar s, RepresentableVE s a, Num s)
           => (a -> s) -> (a -> s :* a)
 andGradFL f = second dualV . andDerF f
 {-# INLINE andGradFL #-}
+
+gradF :: forall s a. (IsScalar s, RepresentableVE s a, Num s)
+          => (a -> s) -> (a -> a)
+gradF f = dualV . derF f
+{-# INLINE gradF #-}

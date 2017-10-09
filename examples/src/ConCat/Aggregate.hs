@@ -87,9 +87,14 @@ instance (LinearCat k h, LinearCat k' h) => LinearCat (k :**: k') h where
   fmapC  = fmapC  :**: fmapC
   zipC   = zipC   :**: zipC
   pointC = pointC :**: pointC
+  {-# INLINE fmapC #-}
+  {-# INLINE zipC #-}
+  {-# INLINE pointC #-}
 
 instance (DiagCat k h, DiagCat k' h) => DiagCat (k :**: k') h where
   diagC  = diagC  :**: diagC
+  {-# INLINE diagC #-}
 
 instance (SumCat k h, SumCat k' h) => SumCat (k :**: k') h where
   sumC   = sumC   :**: sumC
+  {-# INLINE sumC #-}
