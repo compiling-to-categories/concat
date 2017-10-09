@@ -1078,7 +1078,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
          -- Make sure we have no remaining cat arguments
          case final of
            Just e' | not (hasCatArg e') -> Just e'
-           otherwise                    -> Nothing
+           _                            -> Nothing
    transCatOp _ = -- pprTrace "transCatOp" (text "fail") $
                   Nothing
    isCatTy :: Type -> Bool
