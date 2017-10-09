@@ -72,7 +72,7 @@ sqErr (a,b) f = distSqr' (f a) b
 step :: forall s p a b. ( Num s, IsScalar s, HasV s b, Zip (V s b), Foldable (V s b)
                         , HasV s p, Functor (V s p))
      => (p -> a -> b) -> (a,b) -> (p -> p)
-step f ab = negateV' @s . gradient @s (\ p -> sqErr ab (f p))
+step f ab = negateV' @s . gradient @s (sqErr ab . f)
 {-# INLINE step #-}
 
 --                                             f     :: p -> a -> b
