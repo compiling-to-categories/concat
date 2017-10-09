@@ -52,6 +52,8 @@
 {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
+-- {-# OPTIONS_GHC -dsuppress-all #-}
+
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Examples
@@ -66,8 +68,8 @@
 
 module Main where
 
-import Prelude hiding (id,(.),curry,uncurry)
-import qualified Prelude as P
+-- import Prelude hiding (id,(.),curry,uncurry)
+-- import qualified Prelude as P
 
 import Data.Monoid (Sum(..))
 import Data.Foldable (fold)
@@ -91,7 +93,9 @@ import ConCat.Syntactic (Syn,render)
 import ConCat.Circuit (GenBuses,(:>))
 import qualified ConCat.RunCircuit as RC
 import qualified ConCat.AltCat as A
+-- import ConCat.AltCat
 import ConCat.AltCat
+  (toCcc,toCcc',unCcc,unCcc',reveal,conceal,(:**:)(..),Ok,Ok2,U2)
 import ConCat.AltAggregate
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Nat
@@ -206,8 +210,7 @@ main = sequence_
   -- , runSynCirc "sum-arr-v3-adfl" $ toCcc $ andDerFL' @R (sumC :: Arr (RVec N3 Bool) R -> R)
 
   
-  -- , runSynCirc "fmapC-id-arr" $ toCcc $ (fmapC id :: Unop (Arr Bool R))
-
+  -- , runSynCirc "fmapC-id-arr" $ toCcc' $ (fmapC id :: Unop (Arr Bool R))
 
   -- , runSynCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool))
 
@@ -228,12 +231,16 @@ main = sequence_
   -- , runSyn $ toCcc $ andDer @R (fmapC sqr :: Unop (Pair R))
 
 
-  -- -- Choice
-  -- , onChoice @GenBuses (runCirc "choice-or" . toCcc)
+  -- Choice
+
+  -- , onChoice @GenBuses (runCirc "choice-or" . toCcc)  -- ok
   --     (toCcc (choose @GenBuses (||)))
 
-  -- , onChoice @GenBuses (runCirc "choice-add" . toCcc)
-  --     (toCcc (choose @GenBuses ((+) @ Int)))
+  -- , onChoice @GenBuses (runCirc "choice-add" . toCcc) -- ok
+  --     (toCcc (choose @GenBuses ((+) @R)))
+
+  -- , onChoice @OkLC (runCirc "choice-add" . toCcc) -- ok
+  --     (toCcc (choose @OkLC ((+) @R)))
 
   -- , onChoice @GenBuses (runCirc "choice-add" . toCcc)  -- fine
   --     (toCcc (choose @GenBuses ((+) @ Int)))
@@ -262,18 +269,24 @@ main = sequence_
   --     (toCcc (choose @GenBuses line . sin . choose @GenBuses line))
 
   -- , onChoice @OkLC (runCirc "choice-line" . toCcc)
-  --     (toCcc (choose @OkLC line))
+  --     (toCcc (choose @OkLC line)) 
+
+  -- , runSynCirc "foo" $ toCcc (step @R line)
 
   -- , onChoice @OkLC (\ f -> runCirc "regress-line" (toCcc (step @R f)))
   --     (toCcc (choose @OkLC line))
 
-  -- , onChoice @OkLC (\ f -> runCirc "regress-line-a" 
-  --                    (toCcc (\ (a,b) p -> sqErr @R (a,b) (f p))))
+  -- , onChoice @OkLC (\ f -> runCirc "regress-line-b" $ toCcc $
+  --                     \ ab -> gradient (sqErr @R ab . f))
   --     (toCcc (choose @OkLC line))
 
-  -- , onChoice @OkLC (\ f -> runCirc "regress-line-b" 
-  --                    (toCcc (\ (a,b) -> gradient (\ p -> sqErr @R (a,b) (f p)))))
-  --     (toCcc (choose @OkLC line))
+  -- -- Needs Void and coproduct support in graphs.
+  -- , onChoice @OkLFC (\ f -> runCirc "regress-line-f-b" $ toCcc $
+  --                     \ ab -> gradF (sqErr @R ab . f))
+  --     (toCcc (choose @OkLFC line))
+
+
+  -- , runCirc "foo" $ toCcc $ \ (a,b) -> gradient (\ p -> sqErr @R (a,b) (line p))  -- ok
 
   -- , oops "Hrmph" (toCcc (choose @GenBuses (||)) :: Choice GenBuses Bool Bool)
 
@@ -390,7 +403,7 @@ main = sequence_
 
   -- , runCircMin "cos-min" 5 $ toCcc $ cos  -- (3.141592653589793,6)
 
-  -- , runSynCirc "gradient-sin" $ toCcc $ gradient' $ toCcc sin
+  -- , runSynCirc "gradient-sin" $ toCcc $ gradient $ toCcc (sin @R)
 
   -- -- Regression tests
   -- , runCirc "ss"   $ toCcc $ ss   @Pair
@@ -812,3 +825,9 @@ fac9 n0 = go (n0,1)
 --   {-# INLINE inOp #-}
 
 -- #endif
+
+-- foo1 :: (R -> R -> R) -> Choice Yes1 R R
+-- -- foo1 f = reveal (toCcc' (unCcc' (conceal (Choice @Yes1 f))))
+-- foo1 f = toCcc (unCcc (Choice @Yes1 f))
+
+type OkLC' = OkLM R &+& GenBuses
