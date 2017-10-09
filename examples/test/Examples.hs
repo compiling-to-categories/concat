@@ -269,23 +269,24 @@ main = sequence_
 
   -- , runSynCirc "foo" $ toCcc (step @R line)
 
-  -- , onChoice @OkLC (\ f -> runCirc "regress-line" (toCcc (step @R f)))
-  --     (toCcc (choose @OkLC line))
+  , onChoice @OkLC (\ f -> runCirc "regress-line" (toCcc (step @R f)))
+      (toCcc (choose @OkLC line))
 
   -- , onChoice @OkLC (\ f -> runCirc "regress-line-a" 
   --                    (toCcc (\ (a,b) p -> sqErr @R (a,b) (f p))))
-
-  -- , onChoice @OkLC (\ f -> runCirc "regress-line-b" 
-  --                    (toCcc (\ (a,b) -> gradient (\ p -> sqErr @R (a,b) (f p)))))
   --     (toCcc (choose @OkLC line))
 
-  , onChoice @OkLC (\ f -> runCirc "regress-line-b" $ toCcc $
-                      \ ab -> gradient (sqErr @R ab . f))
-      (toCcc (choose @OkLC line))
+  -- , onChoice @OkLC (\ f -> runCirc "regress-line-b" $ toCcc $
+  --                     \ ab -> gradient (sqErr @R ab . f))
+  --     (toCcc (choose @OkLC line))
+
+  -- , onChoice @OkLC (\ f -> runCirc "regress-line-b2" $ toCcc $
+  --                     \ ab -> gradient (sqErr @R ab . f))
+  --     (toCcc (choose @OkLC line))
 
   -- -- Needs Void and coproduct support in graphs.
   -- , onChoice @OkLFC (\ f -> runCirc "regress-line-f-b" $ toCcc $
-  --                     \ ab -> gradF (sqErr @R ab . f))
+  --                     \ ab -> gradF' (sqErr @R ab . f))
   --     (toCcc (choose @OkLFC line))
 
   -- , runCirc "foo" $ toCcc $ \ (a,b) -> gradient (\ p -> sqErr @R (a,b) (line p))  -- ok
