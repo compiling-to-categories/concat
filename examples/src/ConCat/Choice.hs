@@ -38,34 +38,41 @@ import ConCat.AltCat (toCcc,unCcc)
 -- | Nondeterminism category. Like a set of morphisms all of the same type, but
 -- represented as a function whose range is that set. The function's domain is
 -- existentially hidden.
-data Choice :: (* -> Constraint) -> * -> * -> * where
-  Choice :: con p => (p -> a -> b) -> Choice con a b
+newtype Choice con a b = Choice (OptArg con (a -> b))
+
+instance Newtype (Choice con a b) where
+  type O (Choice con a b) = OptArg con (a -> b)
+  pack o = Choice o
+  unpack (Choice o) = o
 
 -- Equivalently,
 -- 
 -- data Choice con a b = forall p. con p => Choice (p -> a -> b)
 
-onChoice :: forall con a b q.
+onChoice :: forall con a b q. con () =>
             (forall p. con p => (p -> a -> b) -> q) -> Choice con a b -> q
-onChoice h (Choice f) = h f
+onChoice h (Choice o) = onOptArg h o
+-- onChoice h (Choice o) = onOptArg' (h ()) h
 {-# INLINE onChoice #-}
 
 -- | Deterministic (trivially nondeterministic) arrow
 exactly :: con () => (a -> b) -> Choice con a b
-exactly f = Choice (\ () -> f)
+exactly f = Choice (NoArg f)  -- or pure, requiring CartCon con
 {-# INLINE exactly #-}
-
-type CartCon con = (con (), OpCon (:*) (Sat con))
 
 #if 0
 
 -- | Generate any value of type @p@.
 chooseC :: forall con p a b. (CartCon con, con p)
         => Choice con (p :* a) b -> Choice con a b
-chooseC (Choice (f :: q -> p :* a -> b)) =
-  Choice @con (uncurry (curry . f))
+chooseC (Choice (NoArg (f :: p :* a -> b))) =
+  Choice @con (Arg (curry f))
+chooseC (Choice (Arg (f :: q -> p :* a -> b))) =
+  Choice @con (Arg (uncurry (curry . f)))
     <+ inOp @(:*) @(Sat con) @q @p
 {-# INLINE chooseC #-}
+
+-- TODO: use onOptArg or onOptArg'
 
 --           Choice f  :: Choice con (p :* a) b
 --                  f  :: q -> p :* a -> b
@@ -88,8 +95,10 @@ choose f = unCcc (chooseC @con (toCcc (uncurry f)))
 -- | Generate any value of type @p@.
 chooseC :: forall con p a b. (CartCon con, con p)
          => Choice con p (a -> b) -> Choice con a b
-chooseC (Choice (f :: q -> p -> a -> b)) =
-  Choice @con (uncurry f)
+chooseC (Choice (NoArg (f :: p -> a -> b))) =
+  Choice @con (Arg f)
+chooseC (Choice (Arg (f :: q -> p -> a -> b))) =
+  Choice @con (Arg (uncurry f))
     <+ inOp @(:*) @(Sat con) @q @p
 {-# INLINE chooseC #-}
 
@@ -105,24 +114,29 @@ choose f = unCcc (chooseC @con (toCcc f))
     Category class instances
 --------------------------------------------------------------------}
 
-combine :: forall con a b c d e f. CartCon con
-        => ((a -> b) -> (c -> d) -> (e -> f))
-        -> (Choice con a b -> Choice con c d -> Choice con e f)
-combine op (Choice (g :: q -> a -> b)) (Choice (f :: p -> c -> d)) =
-  Choice (\ (p,q) -> g q `op` f p)
-    <+ inOp @(:*) @(Sat con) @p @q
+op1C :: forall con a b c d. CartCon con
+     => ((a -> b) -> (c -> d))
+     -> (Choice con a b -> Choice con c d)
+op1C = inNew . fmap
+{-# INLINE op1C #-}
+
+op2C :: forall con a b c d e f. CartCon con
+     => ((a -> b) -> (c -> d) -> (e -> f))
+     -> (Choice con a b -> Choice con c d -> Choice con e f)
+op2C = inNew2 . liftA2
+{-# INLINE op2C #-}
 
 instance CartCon con => Category (Choice con) where
   -- type Ok (Choice con) = Ok (->) -- Yes1
   id = exactly id
-  (.) = combine (.)
+  (.) = op2C (.)
   {-# INLINE id #-}
   {-# INLINE (.) #-}
 
 instance CartCon con => ProductCat (Choice con) where
   exl = exactly exl
   exr = exactly exr
-  (&&&) = combine (&&&)
+  (&&&) = op2C (&&&)
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
@@ -130,17 +144,19 @@ instance CartCon con => ProductCat (Choice con) where
 instance CartCon con => CoproductCat (Choice con) where
   inl = exactly inl
   inr = exactly inr
-  (|||) = combine (|||)
+  (|||) = op2C (|||)
   {-# INLINE (|||) #-}
 
 instance CartCon con => DistribCat (Choice con) where
   distl = exactly distl
   distr = exactly distr
+  {-# INLINE distl #-}
+  {-# INLINE distr #-}
 
 instance CartCon con => ClosedCat (Choice con) where
   apply = exactly apply
-  curry (Choice f) = Choice (curry . f)
-  uncurry (Choice g) = Choice (uncurry . g)
+  curry = op1C curry
+  uncurry = op1C uncurry
   {-# INLINE apply #-}
   {-# INLINE curry #-}
   {-# INLINE uncurry #-}
@@ -216,85 +232,57 @@ instance CartCon con => ArrayCat (Choice con) a b where
   arrAt = exactly arrAt
 
 {--------------------------------------------------------------------
-    Experiment
+    Maybe move somewhere else
 --------------------------------------------------------------------}
 
+-- A function from a constrained, existentially hidden parameter. Optimizes for
+-- the parameter being () in order to avoid accumulating products of units.
 data OptArg con z = NoArg z | forall p. con p => Arg (p -> z)
 
--- newtype Choice' :: (* -> Constraint) -> * -> * -> * where
---   Choice' :: OptArg con (a -> b) -> Choice' con a b
+-- Equivalently,
 
-newtype Choice' con a b = Choice' (OptArg con (a -> b))
+-- data OptArg :: (* -> Constraint) -> * -> * where
+--   NoArg ::                z  -> OptArg con z 
+--   Arg   :: con p => (p -> z) -> OptArg con z
 
-instance Newtype (Choice' con a b) where
-  type O (Choice' con a b) = OptArg con (a -> b)
-  pack o = Choice' o
-  unpack (Choice' o) = o
+onOptArg :: forall con z q. con ()
+         => (forall p. con p => (p -> z) -> q) -> OptArg con z -> q
 
-type CartCon' con = OpCon (:*) (Sat con)
+onOptArg h (NoArg z) = h (\ () -> z)
+onOptArg h (Arg f)   = h f
 
-instance CartCon' con => Functor (OptArg con) where
+-- onOptArg h o = h (case o of NoArg z -> \ () -> z
+--                             Arg f   -> f)
+
+{-# INLINE onOptArg #-}
+
+onOptArg' :: forall con z q. con ()
+          => (z -> q)
+          -> (forall p. con p => (p -> z) -> q)
+          -> OptArg con z -> q
+onOptArg' g _ (NoArg z) = g z
+onOptArg' _ h (Arg f)   = h f
+{-# INLINE onOptArg' #-}
+
+type CartCon con = (con (), OpCon (:*) (Sat con))
+
+instance CartCon con => Functor (OptArg con) where
   fmap f (NoArg u) = NoArg (f u)
   fmap f (  Arg g) = Arg (f . g)
+  {-# INLINE fmap #-}
 
-instance CartCon' con => Applicative (OptArg con) where
+instance CartCon con => Applicative (OptArg con) where
   pure = NoArg
   NoArg f <*> NoArg a = NoArg (f a)
   NoArg f <*> Arg as = Arg (f . as)
   Arg (g :: q -> a -> b) <*> NoArg a = Arg (flip g a)
   Arg (g :: q -> a -> b) <*> Arg (f :: p -> a) =
     Arg (\ (p,q) -> g q (f p)) <+ inOp @(:*) @(Sat con) @p @q
-
--- | Deterministic (trivially nondeterministic) arrow
-exactly' :: CartCon' con => (a -> b) -> Choice' con a b
-exactly' f = Choice' (pure f)
-
-op1C :: forall con a b c d. CartCon' con
-     => ((a -> b) -> (c -> d))
-     -> (Choice' con a b -> Choice' con c d)
-op1C = inNew . fmap
-
-op2C :: forall con a b c d e f. CartCon' con
-     => ((a -> b) -> (c -> d) -> (e -> f))
-     -> (Choice' con a b -> Choice' con c d -> Choice' con e f)
-op2C = inNew2 . liftA2
-
-instance CartCon' con => Category (Choice' con) where
-  id = exactly' id
-  (.) = op2C (.)
-  {-# INLINE (.) #-}
-
-instance CartCon' con => ProductCat (Choice' con) where
-  exl = exactly' exl
-  exr = exactly' exr
-  (&&&) = op2C (&&&)
-  {-# INLINE (&&&) #-}
-
-instance CartCon' con => CoproductCat (Choice' con) where
-  inl = exactly' inl
-  inr = exactly' inr
-  (|||) = op2C (|||)
-  {-# INLINE (|||) #-}
-
-instance CartCon' con => DistribCat (Choice' con) where
-  distl = exactly' distl
-  distr = exactly' distr
-
-instance CartCon' con => ClosedCat (Choice' con) where
-  apply = exactly' apply
-  curry = op1C curry
-  uncurry = op1C uncurry
-
-instance CartCon' con => BoolCat (Choice' con) where
-  notC = exactly' notC
-  andC = exactly' andC
-  orC  = exactly' orC
-  xorC = exactly' xorC
-
--- ... EqCat, OrdCat, NumCat, ...
+  {-# INLINE pure #-}
+  {-# INLINE (<*>) #-}
 
 -- Other classes
 
-instance (Monoid a, CartCon' con) => Monoid (OptArg con a) where
+instance (Monoid a, CartCon con) => Monoid (OptArg con a) where
   mempty = NoArg mempty
   mappend = liftA2 mappend
