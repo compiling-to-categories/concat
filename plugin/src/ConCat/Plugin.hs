@@ -109,6 +109,7 @@ lintSteps = True -- False
 
 type Rewrite a = a -> Maybe a
 type ReExpr = Rewrite CoreExpr
+type ReExpr2 = CoreExpr -> Rewrite CoreExpr
 
 trying :: (String -> SDoc -> Bool -> Bool) -> String -> a -> Bool
 trying tr str a = tr ("Trying " ++ str) (a `seq` empty) False
@@ -596,9 +597,25 @@ ccc (CccEnv {..}) (Ops {..}) cat =
          dtrace "lam recaster" (ppr re) $
          return (mkCcc (Lam x (re `App` e)))
 #endif
-#if 1
      Trying("lam App compose")
      -- (\ x -> U V) --> U . (\ x -> V) if x not free in U
+#if 0
+     u `App` v | liftedExpr v
+               , not (x `isFreeIn` u)
+               , Just e' <- mkCompose' cat (mkCcc u) (mkCcc (Lam x v))
+               -> Doing("lam App compose (experimental version)")
+                  return e'
+#elif 1
+     u `App` v | liftedExpr v
+               , not (x `isFreeIn` u)
+               -> case mkCompose' cat (mkCcc u) (mkCcc (Lam x v)) of
+                    Nothing -> 
+                      Doing("lam App compose bail")
+                      Nothing
+                    Just e' -> 
+                      Doing("lam App compose")
+                      return e'
+#else
      u `App` v | liftedExpr v
                , not (x `isFreeIn` u)
                -> Doing("lam App compose")
@@ -606,6 +623,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
 #endif
      Trying("lam App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
+#if 0
      u `App` v --  | pprTrace "lam App" (ppr (u,v)) False -> undefined
                | liftedExpr v
                -- , pprTrace "lam App mkApplyMaybe -->" (ppr (mkApplyMaybe cat vty bty, cat)) True
@@ -616,6 +634,35 @@ ccc (CccEnv {..}) (Ops {..}) cat =
                   (mkFork cat (mkCcc (Lam x u)) (mkCcc (Lam x v)))
       where
         vty = exprType v
+#elif 1
+     u `App` v --  | pprTrace "lam App" (ppr (u,v)) False -> undefined
+               | liftedExpr v
+               -- , pprTrace "lam App mkApplyMaybe -->" (ppr (mkApplyMaybe cat vty bty, cat)) True
+               , mbComp <- do app  <- mkApplyMaybe cat vty bty
+                              fork <- mkFork' cat (mkCcc (Lam x u)) (mkCcc (Lam x v))
+                              mkCompose' cat app fork
+               -> case mbComp of
+                    Nothing ->
+                      Doing("lam App bail")
+                      Nothing
+                    Just e' ->
+                      Doing("lam App")
+                      return e'
+      where
+        vty = exprType v
+#else
+     u `App` v --  | pprTrace "lam App" (ppr (u,v)) False -> undefined
+               | liftedExpr v
+               -- , pprTrace "lam App mkApplyMaybe -->" (ppr (mkApplyMaybe cat vty bty, cat)) True
+               , Just app <- mkApplyMaybe cat vty bty
+               , Just fork <- mkFork' cat (mkCcc (Lam x u)) (mkCcc (Lam x v))
+               , Just comp <- mkCompose' cat app fork
+               ->
+       Doing("lam App")
+       return comp
+      where
+        vty = exprType v
+#endif
      Trying("lam unfold")
      e'| Just body' <- unfoldMaybe e'
        -> Doing("lam unfold")
@@ -651,7 +698,7 @@ pattern Compose k a b c g f <-
 -- the CatVar version of Compose and Coerce.
 
 -- For the composition BuiltinRule
-composeR :: CccEnv -> Ops -> CoreExpr -> CoreExpr -> Maybe CoreExpr
+composeR :: CccEnv -> Ops -> ReExpr2
 -- composeR _ _ g f | pprTrace "composeR try" (ppr (g,f)) False = undefined
 composeR (CccEnv {..}) (Ops {..}) _g@(Coerce k _b c) _f@(Coerce _k a _b')
   = -- pprTrace "composeR coerce" (ppr _g $$ ppr _f) $
@@ -702,8 +749,10 @@ data Ops = Ops
  , mkCcc          :: Unop CoreExpr  -- Any reason to parametrize over Cat?
  , mkId           :: Cat -> Type -> CoreExpr
  , mkCompose      :: Cat -> Binop CoreExpr
+ , mkCompose'     :: Cat -> ReExpr2  -- experiment
  , mkEx           :: Cat -> Var -> Unop CoreExpr
  , mkFork         :: Cat -> Binop CoreExpr
+ , mkFork'        :: Cat -> ReExpr2 -- experiment
  , mkApplyMaybe   :: Cat -> Type -> Type -> Maybe CoreExpr
  , isClosed       :: Cat -> Bool
  , mkCurry        :: Cat -> Unop CoreExpr
@@ -833,9 +882,11 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                | otherwise = return e
                              -- pprPanic "ccc / onDictMaybe: not a function from pred" (pprWithType e)
    onDictMaybe :: ReExpr
-   onDictMaybe e = eitherToMaybe (onDictTry e)
+   onDictMaybe e = -- trace "onDictMaybe" $
+                   eitherToMaybe (onDictTry e)
    onDict :: Unop CoreExpr
-   onDict f = noDictErr (pprWithType f) (onDictTry f)
+   onDict f = -- trace "onDict" $
+              noDictErr (pprWithType f) (onDictTry f)
    -- Yet another variant: keep applying to dictionaries as long as we have
    -- a predicate type. TODO: reassess and refactor these variants.
    onDicts :: Unop CoreExpr
@@ -873,6 +924,19 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      = -- mkCoreApps (onDict (catOp k composeV `mkTyApps` [b,c,a])) [g,f]
        mkCoreApps (onDict (catOp k composeV [b,c,a])) [g,f]
      | otherwise = pprPanic "mkCompose mismatch:" (pprWithType g $$ pprWithType f)
+
+   -- Experiment
+   mkCompose' :: Cat -> CoreExpr -> CoreExpr -> Maybe CoreExpr
+   -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
+   mkCompose' k g f
+     | Just (b,c ) <- tyArgs2_maybe (exprType g)
+     , Just (a,b') <- tyArgs2_maybe (exprType f)
+     , b `eqType` b'
+     = -- flip mkCoreApps [g,f] <$> onDictMaybe (catOp k composeV [b,c,a])
+       -- (flip mkCoreApps [g,f] . onDict) <$> catOpMaybe k composeV [b,c,a]
+       flip mkCoreApps [g,f] <$> (onDictMaybe =<< catOpMaybe k composeV [b,c,a])
+     | otherwise = pprPanic "mkCompose mismatch:" (pprWithType g $$ pprWithType f)
+
    mkEx :: Cat -> Var -> Unop CoreExpr
    mkEx k ex z =
      -- -- For the class method aliases (exl, exr):
@@ -893,6 +957,17 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      --       => k a c -> k a d -> k a (Prod k c d)
      -- onDict (catOp k forkV `mkTyApps` [a,c,d]) `mkCoreApps` [f,g]
      onDict (catOp k forkV [a,c,d]) `mkCoreApps` [f,g]
+    where
+      (a,c) = tyArgs2 (exprType f)
+      (_,d) = tyArgs2 (exprType g)
+   mkFork' :: Cat -> ReExpr2
+   -- mkFork k f g | pprTrace "mkFork" (sep [ppr k, ppr f, ppr g]) False = undefined
+   mkFork' k f g =
+     -- (&&&) :: forall {k :: * -> * -> *} {a} {c} {d}.
+     --          (ProductCat k, Ok k d, Ok k c, Ok k a)
+     --       => k a c -> k a d -> k a (Prod k c d)
+     -- return $ onDict (catOp k forkV [a,c,d]) `mkCoreApps` [f,g]
+     flip mkCoreApps [f,g] <$> (onDictMaybe =<< catOpMaybe k forkV [a,c,d])
     where
       (a,c) = tyArgs2 (exprType f)
       (_,d) = tyArgs2 (exprType g)
