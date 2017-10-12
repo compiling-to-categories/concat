@@ -317,6 +317,7 @@ instance HasL U1 where
   -- linearL :: forall s g. (Num s, OkLF g) => (U1 s -> g s) -> (U1 :-* g) s
   -- linearL h = U1 <$ h U1
   linearL h = const U1 <$> h U1
+  {-# INLINE linearL #-}
 
 --       h    :: U1 s -> g s
 --       h U1 :: g s
@@ -324,6 +325,7 @@ instance HasL U1 where
 
 instance HasL Par1 where
   linearL h = Par1 <$> h (Par1 1)
+  {-# INLINE linearL #-}
 
 --          h          :: Par1 s -> b s
 --          h (Par1 1) :: b s
@@ -332,6 +334,7 @@ instance HasL Par1 where
 instance (HasL f, HasL g) => HasL (f :*: g) where
   -- linearL h = linearL (h . (:*: zeroV)) `joinL` linearL (h . (zeroV :*:))
   linearL h = zipWith (:*:) (linearL (h . (:*: zeroV))) (linearL (h . (zeroV :*:)))
+  {-# INLINE linearL #-}
 
 --          q                :: (f :*: g) s -> h s
 --              (:*: zeroV)  :: f s -> (f :*: g) s
@@ -374,6 +377,8 @@ type HasLin s a b = (HasV s a, HasV s b, HasL (V s a), Zip (V s b), Num s)
 linear :: HasLin s a b => (a -> b) -> L s a b
 linear f = L (linearL (inV f))
 -- linear f = L (linearF (inV f))
+{-# INLINE linear #-}
+
 
 -- f :: a -> b
 -- inV f :: V s a s -> V s b s
