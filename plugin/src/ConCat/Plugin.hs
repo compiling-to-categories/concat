@@ -24,7 +24,7 @@ import Control.Arrow (first,second,(***))
 import Control.Applicative (liftA2,(<|>))
 import Control.Monad (unless,when,guard,(<=<))
 import Data.Foldable (toList)
-import Data.Maybe (isNothing,isJust,fromMaybe,catMaybes)
+import Data.Maybe (isNothing,isJust,fromMaybe,catMaybes,listToMaybe)
 import Data.List (isPrefixOf,isSuffixOf,elemIndex,sort,stripPrefix)
 import Data.Char (toLower)
 import Data.Data (Data)
@@ -376,12 +376,14 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      _ | isConst, Just body' <- mkConst' cat xty body
        -> Doing("lam mkConst'")
        return body'
+
      Trying("lam Avoid pseudo-app")
      (isPseudoApp -> True) ->
        -- let (Var _v, _) = collectArgs body in -- TEMP
        --   pprTrace ("lam Avoid pseudo-app " ++ uqVarName _v) empty $
          Doing("lam Avoid pseudo-app")
          Nothing
+
      Trying("lam Pair")
      (collectArgs -> (PairVar,(Type a : Type b : rest))) ->
        --  | dtrace "Pair" (ppr rest) False -> undefined
@@ -778,7 +780,6 @@ data Ops = Ops
  , transCatOp     :: ReExpr
  , reCat          :: ReExpr
  , isPseudoApp    :: CoreExpr -> Bool
- , isPseudoFun    :: Id -> Bool
  }
 
 mkOps :: CccEnv -> ModGuts -> AnnEnv -> FamInstEnvs
@@ -1171,10 +1172,13 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    -- TODO: refactor transCatOp & isPartialCatOp
    -- TODO: phase out hasRules, since I'm using annotations instead
    isPseudoApp :: CoreExpr -> Bool
-   isPseudoApp (collectArgs -> (Var v,_)) = isPseudoFun v
+   isPseudoApp (collectArgs -> (Var v,args)) =
+     case isPseudoFun v of
+       Just n -> n == length (filter (not . isTyCoDictArg) args)
+       Nothing -> False
    isPseudoApp _ = False
-   isPseudoFun :: Id -> Bool
-   isPseudoFun = not . null . pseudoAnns
+   isPseudoFun :: Id -> Maybe Int
+   isPseudoFun = fmap pseudoArgs . listToMaybe . pseudoAnns
     where
       pseudoAnns :: Id -> [PseudoFun]
       pseudoAnns = findAnns deserializeWithData annotations . NamedTarget . varName

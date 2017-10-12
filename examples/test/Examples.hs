@@ -95,7 +95,7 @@ import qualified ConCat.RunCircuit as RC
 import qualified ConCat.AltCat as A
 -- import ConCat.AltCat
 import ConCat.AltCat
-  (toCcc,toCcc',unCcc,unCcc',reveal,conceal,(:**:)(..),Ok,Ok2,U2)
+  (toCcc,toCcc',unCcc,unCcc',reveal,conceal,(:**:)(..),Ok,Ok2,U2,Arr)
 import ConCat.AltAggregate
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Nat
@@ -140,20 +140,106 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- Circuit graphs
+  -- -- Circuit graphs
   -- , runSynCirc "twice"       $ toCcc $ twice @R
-  -- , runSynCirc "complex-mul" $ toCcc $ P.uncurry ((*) @C)
+  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
   -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
   -- , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
   -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
   -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
   -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
+  -- Choice
+
+  -- , onChoice @GenBuses (runCirc "choice-add" . toCcc) -- ok
+  --     (toCcc (choose @GenBuses ((+) @R)))
+
+  -- -- This one breaks. Seems to be GenBuses vs Ok (:>) in toCcc'/unCcc'.
+  -- -- Bug in GHC's handling of rewrite rules?
+  -- , onChoice @(Ok (:>)) (runCirc "choice-add" . toCcc)  -- fail
+  --     (toCcc (choose @(Ok (:>)) ((+) @R)))
+
+  -- , onChoice @GenBuses (runCirc "choice-line" . toCcc)
+  --     (toCcc (choose @GenBuses (\ (m,b) x -> m * x + b :: R)))
+
+  -- , onChoice @GenBuses (runCirc "choice-line" . toCcc)
+  --     (toCcc (choose @GenBuses line))
+
+  -- , onChoice @GenBuses (runCirc "choice-line-lam" . toCcc)  -- fail
+  --     (toCcc (\ x -> choose @GenBuses line x))
+
+  -- , onChoice @GenBuses (runCirc "choice-line-2x" . toCcc)
+  --     (toCcc (\ x -> choose @GenBuses line (2 * x)))
+
+  -- , onChoice @GenBuses (runCirc "choice-line-lam-2" . toCcc)
+  --     (toCcc (\ x -> choose @GenBuses line (choose @GenBuses line x)))
+  -- , onChoice @GenBuses (runCirc "choice-line-sin-line-a" . toCcc)
+  --     (toCcc (\ x -> choose @GenBuses line (sin (choose @GenBuses line x))))
+  -- , onChoice @GenBuses (runCirc "choice-line-sin-line-b" . toCcc)
+  --     (toCcc (choose @GenBuses line . sin . choose @GenBuses line))
+
+  -- , onChoice @OkLC (runCirc "choice-line" . toCcc)
+  --     (toCcc (choose @OkLC line)) 
+
+  -- , runSynCirc "foo" $ toCcc (step @R line)  -- terminates?
+
+  -- , onChoice @OkLC (\ f -> runCirc "regress-line" (toCcc (step @R f)))
+  --     (toCcc (choose @OkLC line))
+
+  -- , onChoice @OkLC (\ f -> runCirc "regress-line-a" 
+  --                    (toCcc (\ ab p -> sqErr @R ab (f p))))
+  --     (toCcc (choose @OkLC line))
+
+  -- , onChoice @OkLC (\ f -> runCirc "regress-line-b" $ toCcc $
+  --                     \ ab -> gradient (sqErr @R ab . f))
+  --     (toCcc (choose @OkLC line))
+
+  -- -- Takes forever
+  -- , onChoice @OkLFC (\ f -> runCirc "regress-line-f-b" $ toCcc $
+  --                     \ ab -> gradF (sqErr @R ab . f))
+  --     (toCcc (choose @OkLFC line))
+
+  -- -- Takes forever
+  -- , onChoice @OkLFC (\ f -> runCirc "bar" $ toCcc $
+  --                     \ ab -> gradF (sqErr @R ab . f))
+  --     (chooseC @OkLFC (toCcc line))
+
+  -- , onChoice @OkLFC (\ f -> runCirc "bar" $ toCcc $ f)  -- ok
+  --     (Choice @OkLFC (Arg line))
+
+  -- , onChoice @OkLFC (\ f -> runCirc "bar" $ toCcc $ f)  -- ok
+  --     (toCcc (choose @OkLFC line))
+
+  -- , onChoice @OkLC (\ f -> runCirc "bar3" $ toCcc $   -- wrong constraint. takes forever?
+  --                     \ ab -> derF (sqErr @R ab . f))
+  --     (toCcc (choose @OkLC line))
+
+  -- , onChoice @OkLFC (\ f -> runCirc "bar" $ toCcc $ --  ok
+  --                     \ ab -> gradF (sqErr @R ab . f))
+  --     (chooseC @OkLFC (toCcc line))
+
+  -- , onChoice @OkLFC (\ f -> runCirc "regress-line-df" $ toCcc $  -- ok
+  --                     \ ab -> derF (sqErr @R ab . f))
+  --     (toCcc (choose @OkLFC line))
+
+  -- , onChoice @OkLFC (\ f -> runCirc "regress-line-gf" $ toCcc $  -- ok
+  --                     \ ab -> gradF (sqErr @R ab . f))
+  --     (toCcc (choose @OkLFC line))
+
+  -- -- Needs Void and coproduct support in graphs.
+  -- , onChoice @OkLFC' (\ f -> runCirc "regress-line-f-b" $ toCcc $
+  --                     \ ab -> gradF' (sqErr @R ab . f))
+  --     (toCcc (choose @OkLFC' line))
+
+  -- , runCirc "foo" $ toCcc $ \ (a,b) -> gradient (\ p -> sqErr @R (a,b) (line p))  -- ok
+
+  -- , oops "Hrmph" (toCcc (choose @GenBuses (||)) :: Choice GenBuses Bool Bool)
+
   -- LinearCat
 
   -- , runSyn $ toCcc $ (fmapC not :: Unop (Pair Bool))
 
-  -- , runCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool))
+  -- , runSynCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool))
 
   -- , runSynCirc "fmap-not-a" $ toCcc $ (fmapC not :: Unop (Arr Bool Bool))
 
@@ -226,74 +312,7 @@ main = sequence_
 
   -- , runSyn $ toCcc $ andDer @R (fmapC sqr :: Unop (Pair R))
 
-
-  -- Choice
-
-  -- , onChoice @GenBuses (runCirc "choice-or" . toCcc)  -- ok
-  --     (toCcc (choose @GenBuses (||)))
-
-  -- , onChoice @GenBuses (runCirc "choice-add" . toCcc) -- ok
-  --     (toCcc (choose @GenBuses ((+) @R)))
-
-  -- , onChoice @OkLC (runCirc "choice-add" . toCcc) -- ok
-  --     (toCcc (choose @OkLC ((+) @R)))
-
-  -- , onChoice @GenBuses (runCirc "choice-add" . toCcc)  -- fine
-  --     (toCcc (choose @GenBuses ((+) @ Int)))
-
-  -- , onChoice @(Ok (:>)) (runCirc "choice-add" . toCcc)  -- broken
-  --     (toCcc (choose @(Ok (:>)) ((+) @ Int)))
-
-  -- , onChoice @GenBuses (runCirc "choice-line" . toCcc)
-  --     (toCcc (choose @GenBuses (\ (m,b) x -> m * x + b :: R)))
-
-  -- , onChoice @GenBuses (runCirc "choice-line" . toCcc)
-  --     (toCcc (choose @GenBuses line))
-
-  -- , onChoice @GenBuses (runCirc "choice-line-lam" . toCcc)
-  --     (toCcc (\ x -> choose @GenBuses line x))
-  -- , onChoice @GenBuses (runCirc "choice-line-2x" . toCcc)
-  --     (toCcc (\ x -> choose @GenBuses line (2 * x)))
-
-  -- , onChoice @GenBuses (runCirc "choice-line-lam-2" . toCcc)
-  --     (toCcc (\ x -> choose @GenBuses line (choose @GenBuses line x)))
-  -- , onChoice @GenBuses (runCirc "choice-line-2" . toCcc) -- fail
-  --     (toCcc (chooseLine @GenBuses . chooseLine @GenBuses))
-  -- , onChoice @GenBuses (runCirc "choice-line-sin-line-a" . toCcc)
-  --     (toCcc (\ x -> choose @GenBuses line (sin (choose @GenBuses line x))))
-  -- , onChoice @GenBuses (runCirc "choice-line-sin-line-b" . toCcc)
-  --     (toCcc (choose @GenBuses line . sin . choose @GenBuses line))
-
-  -- , onChoice @OkLC (runCirc "choice-line" . toCcc)
-  --     (toCcc (choose @OkLC line)) 
-
-  -- , runSynCirc "foo" $ toCcc (step @R line)
-
-  , onChoice @OkLC (\ f -> runCirc "regress-line" (toCcc (step @R f)))
-      (toCcc (choose @OkLC line))
-
-  -- , onChoice @OkLC (\ f -> runCirc "regress-line-a" 
-  --                    (toCcc (\ (a,b) p -> sqErr @R (a,b) (f p))))
-  --     (toCcc (choose @OkLC line))
-
-  -- , onChoice @OkLC (\ f -> runCirc "regress-line-b" $ toCcc $
-  --                     \ ab -> gradient (sqErr @R ab . f))
-  --     (toCcc (choose @OkLC line))
-
-  -- , onChoice @OkLC (\ f -> runCirc "regress-line-b2" $ toCcc $
-  --                     \ ab -> gradient (sqErr @R ab . f))
-  --     (toCcc (choose @OkLC line))
-
-  -- -- Needs Void and coproduct support in graphs.
-  -- , onChoice @OkLFC (\ f -> runCirc "regress-line-f-b" $ toCcc $
-  --                     \ ab -> gradF' (sqErr @R ab . f))
-  --     (toCcc (choose @OkLFC line))
-
-  -- , runCirc "foo" $ toCcc $ \ (a,b) -> gradient (\ p -> sqErr @R (a,b) (line p))  -- ok
-
-  -- , oops "Hrmph" (toCcc (choose @GenBuses (||)) :: Choice GenBuses Bool Bool)
-
-  -- Circuit graphs on trees etc
+  -- -- Circuit graphs on trees etc
   -- , runSynCirc "sum-pair"   $ toCcc $ sum   @Pair      @Int
   -- , runSynCirc "sum-rb4"    $ toCcc $ sum   @(RBin N4) @Int
   -- , runSynCirc "lsums-pair" $ toCcc $ lsums @Pair      @Int

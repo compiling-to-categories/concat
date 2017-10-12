@@ -218,11 +218,11 @@ type AllC2 f as bs = AndC (CrossWith f as bs)
 
 -- | Annotation for pseudo-function, i.e., defined by rules. During ccc
 -- generation, don't split applications. TODO: maybe add an arity.
-data PseudoFun = PseudoFun deriving (Typeable,Data)
+data PseudoFun = PseudoFun { pseudoArgs :: Int } deriving (Typeable,Data)
 
 -- Alternatively, we could keep PseudoFun abstract:
 
--- pseudoFun :: PseudoFun
+-- pseudoFun :: Int -> PseudoFun
 -- pseudoFun = PseudoFun
 
 -- | Pseudo function to fool GHC's divergence checker.

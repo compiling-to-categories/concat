@@ -324,4 +324,4 @@ lmap :: forall s a b. (a -> b) -> L s a b
 lmap _ = oops "lmap called"
 {-# NOINLINE lmap #-}
 {-# RULES "lmap" forall h. lmap h = toCcc h #-}
-{-# ANN lmap PseudoFun #-}
+{-# ANN lmap (PseudoFun 1) #-}

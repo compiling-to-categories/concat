@@ -325,8 +325,8 @@ unCcc' _ = oops "unCcc' called"
 {-# NOINLINE unCcc' #-}
 
 -- Prevent the plugin from messing with these ones.
-{-# ANN toCcc' PseudoFun #-}
-{-# ANN unCcc' PseudoFun #-}
+{-# ANN toCcc' (PseudoFun 1) #-}
+{-# ANN unCcc' (PseudoFun 1) #-}
 
 {-# RULES
 
