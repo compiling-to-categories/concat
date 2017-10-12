@@ -27,10 +27,14 @@ import ConCat.Misc ((:*),R)
 #ifdef Alias
 import ConCat.Misc (type (&+&))
 #endif
+import Data.Key (Zip)
+
+import ConCat.Free.VectorSpace (HasV(..))
 import ConCat.AltCat (OpCon(..),Sat(..),type (|-)(..))
 
 import ConCat.Free.LinearRow
 import ConCat.ADFun (RepresentableVE)
+import ConCat.Additive (Additive)
 import ConCat.Circuit
 
 
@@ -55,11 +59,20 @@ instance OpCon (:*) (Sat OkLC) where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
 
+-- type HasLin s a b = (HasV s a, HasV s b, HasL (V s a), Zip (V s b), Num s)
 
-class    (RepresentableVE R a, GenBuses a) => OkLFC a
-instance (RepresentableVE R a, GenBuses a) => OkLFC a
+class    (HasV R a, HasL (V R a), Zip (V R a), Additive a, GenBuses a) => OkLFC a
+instance (HasV R a, HasL (V R a), Zip (V R a), Additive a, GenBuses a) => OkLFC a
 
 instance OpCon (:*) (Sat OkLFC) where
+  inOp = Entail (Sub Dict)
+  {-# INLINE inOp #-}
+
+
+class    (RepresentableVE R a, GenBuses a) => OkLFC' a
+instance (RepresentableVE R a, GenBuses a) => OkLFC' a
+
+instance OpCon (:*) (Sat OkLFC') where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
 
