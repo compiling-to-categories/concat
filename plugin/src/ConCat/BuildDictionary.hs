@@ -78,23 +78,22 @@ runTcMUnsafe env0 dflags guts m = unsafePerformIO $ do
                       -- map moduleName (dep_orphs (mg_deps guts))
    env :: [ModuleName] -> HscEnv
    env extraModuleNames = 
-
-         -- pprTrace "runTcMUnsafe extraModuleNames" (ppr extraModuleNames) $
-         -- pprTrace "runTcMUnsafe dep_mods" (ppr (dep_mods (mg_deps guts))) $
-         -- pprTrace "runTcMUnsafe orphans" (ppr orphans) $
-         -- pprTrace "runTcMUnsafe dep_orphs" (ppr (dep_orphs (mg_deps guts))) $
-         -- pprTrace "runTcMUnsafe dep_finsts" (ppr (dep_finsts (mg_deps guts))) $
-         -- pprTrace "runTcMUnsafe mg_insts" (ppr (mg_insts guts)) $
-         -- pprTrace "runTcMUnsafe fam_mg_insts" (ppr (mg_fam_insts guts)) $
-         -- pprTrace "runTcMUnsafe imports0" (ppr imports0) $
-         -- pprTrace "runTcMUnsafe mg_rdr_env guts" (ppr (mg_rdr_env guts)) $
-         -- pprTrace "runTcMUnsafe ic_rn_gbl_env" (ppr (ic_rn_gbl_env (hsc_IC env0))) $         
-         env0 { hsc_IC = (hsc_IC env0)
-                 { ic_imports = map IIModule extraModuleNames ++ imports0
-                 , ic_rn_gbl_env = mg_rdr_env guts
-                 , ic_instances = (mg_insts guts, mg_fam_insts guts)
-                 } }
-         -- env0
+     -- pprTrace "runTcMUnsafe extraModuleNames" (ppr extraModuleNames) $
+     -- pprTrace "runTcMUnsafe dep_mods" (ppr (dep_mods (mg_deps guts))) $
+     -- pprTrace "runTcMUnsafe orphans" (ppr orphans) $
+     -- pprTrace "runTcMUnsafe dep_orphs" (ppr (dep_orphs (mg_deps guts))) $
+     -- pprTrace "runTcMUnsafe dep_finsts" (ppr (dep_finsts (mg_deps guts))) $
+     -- pprTrace "runTcMUnsafe mg_insts" (ppr (mg_insts guts)) $
+     -- pprTrace "runTcMUnsafe fam_mg_insts" (ppr (mg_fam_insts guts)) $
+     -- pprTrace "runTcMUnsafe imports0" (ppr imports0) $
+     -- pprTrace "runTcMUnsafe mg_rdr_env guts" (ppr (mg_rdr_env guts)) $
+     -- pprTrace "runTcMUnsafe ic_rn_gbl_env" (ppr (ic_rn_gbl_env (hsc_IC env0))) $         
+     env0 { hsc_IC = (hsc_IC env0)
+             { ic_imports = map IIModule extraModuleNames ++ imports0
+             , ic_rn_gbl_env = mg_rdr_env guts
+             , ic_instances = (mg_insts guts, mg_fam_insts guts)
+             } }
+     -- env0
 
 -- TODO: Try initTcForLookup or initTcInteractive in place of initTcFromModGuts.
 -- If successful, drop dflags and guts arguments.
@@ -137,6 +136,7 @@ buildDictionary' env dflags guts evar =
 buildDictionary :: HscEnv -> DynFlags -> ModGuts -> InScopeEnv -> Type -> Either SDoc CoreExpr
 buildDictionary env dflags guts inScope ty =
   -- pprTrace "buildDictionary" (ppr ty) $
+  -- pprTrace "buildDictionary inScope" (ppr (fst inScope)) $
   -- pprTrace "buildDictionary" (ppr ty $$ text "-->" $$ ppr dict) $
   -- pprTrace "buildDictionary free vars" (ppr (exprFreeVars dict)) $
   -- pprTrace "buildDictionary (bnds,freeIds)" (ppr (bnds,freeIds)) $
