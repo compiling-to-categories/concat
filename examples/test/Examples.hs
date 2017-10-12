@@ -140,14 +140,14 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- -- Circuit graphs
-  -- , runSynCirc "twice"       $ toCcc $ twice @R
-  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  -- , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
-  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  -- Circuit graphs
+  , runSynCirc "twice"       $ toCcc $ twice @R
+  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
+  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- Choice
 
@@ -181,7 +181,7 @@ main = sequence_
   -- , onChoice @OkLC (runCirc "choice-line" . toCcc)
   --     (toCcc (choose @OkLC line)) 
 
-  -- , runSynCirc "foo" $ toCcc (step @R line)  -- terminates?
+  -- , runSynCirc "foo" $ toCcc (step @R line)  -- toCcc' residual
 
   -- , onChoice @OkLC (\ f -> runCirc "regress-line" (toCcc (step @R f)))
   --     (toCcc (choose @OkLC line))
@@ -194,29 +194,10 @@ main = sequence_
   --                     \ ab -> gradient (sqErr @R ab . f))
   --     (toCcc (choose @OkLC line))
 
-  -- -- Takes forever
-  -- , onChoice @OkLFC (\ f -> runCirc "regress-line-f-b" $ toCcc $
-  --                     \ ab -> gradF (sqErr @R ab . f))
-  --     (toCcc (choose @OkLFC line))
-
-  -- -- Takes forever
-  -- , onChoice @OkLFC (\ f -> runCirc "bar" $ toCcc $
-  --                     \ ab -> gradF (sqErr @R ab . f))
-  --     (chooseC @OkLFC (toCcc line))
-
-  -- , onChoice @OkLFC (\ f -> runCirc "bar" $ toCcc $ f)  -- ok
-  --     (Choice @OkLFC (Arg line))
-
-  -- , onChoice @OkLFC (\ f -> runCirc "bar" $ toCcc $ f)  -- ok
-  --     (toCcc (choose @OkLFC line))
-
-  -- , onChoice @OkLC (\ f -> runCirc "bar3" $ toCcc $   -- wrong constraint. takes forever?
+  -- -- wrong constraint. takes forever?
+  -- , onChoice @OkLC (\ f -> runCirc "bar3" $ toCcc $
   --                     \ ab -> derF (sqErr @R ab . f))
   --     (toCcc (choose @OkLC line))
-
-  -- , onChoice @OkLFC (\ f -> runCirc "bar" $ toCcc $ --  ok
-  --                     \ ab -> gradF (sqErr @R ab . f))
-  --     (chooseC @OkLFC (toCcc line))
 
   -- , onChoice @OkLFC (\ f -> runCirc "regress-line-df" $ toCcc $  -- ok
   --                     \ ab -> derF (sqErr @R ab . f))
