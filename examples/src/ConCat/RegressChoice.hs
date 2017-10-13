@@ -17,12 +17,12 @@ module ConCat.RegressChoice where
 import GHC.Types (Constraint)
 
 import Data.Key
+import Data.NumInstances.Function ()
 
 import ConCat.Misc (R,sqr,Unop,Binop,(:*),Yes1)
 import ConCat.Free.VectorSpace
--- import ConCat.Free.LinearRow
--- import ConCat.Shaped
-import ConCat.AD (gradient)
+import ConCat.Free.LinearRow
+import ConCat.ADFun (gradF)
 import ConCat.Choice
 
 -- First do a simple linear regression
@@ -64,23 +64,19 @@ sqErr (a,b) f = distSqr' (f a) b
 -- lineErr :: Sample -> Line -> R
 -- lineErr s = sqErr s . line
 
--- -- Given a data sample and candidate line, yield a delta moving the line toward the sample
+-- -- Given a data sample and candidate line, yield a delta moving the line
+-- -- toward the sample
 -- step :: Sample -> Line -> Line
 -- step s = negateV' @R . gradient (lineErr s)
 -- -- step s l = negateV' @R (gradient (lineErr s) l)
 
-step :: forall s p a b. ( Num s, IsScalar s, HasV s b, Zip (V s b), Foldable (V s b)
-                        , HasV s p, Functor (V s p))
+step :: forall s p a b .
+        (HasLin s p s, IsScalar s, HasV s b, Foldable (V s b), Zip (V s b))
      => (p -> a -> b) -> (a,b) -> (p -> p)
-step f ab = negateV' @s . gradient @s (sqErr ab . f)
+step f ab = gradF @s (negate (sqErr @s ab . f))
 {-# INLINE step #-}
 
---                                             f     :: p -> a -> b
---                        (\ p ->              f p)  :: p -> a -> b
---                        (\ p -> sqErr (a,b) (f p)) :: p -> s
---               gradient (\ p -> sqErr (a,b) (f p)) :: p -> p
--- negateV' @s . gradient (\ p -> sqErr (a,b) (f p)) :: p -> p
-
+-- TODO: move Num s into IsScalar s, and remove Num s uses where redundant.
 
 {--------------------------------------------------------------------
     Miscellany
