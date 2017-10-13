@@ -81,6 +81,7 @@ import GHC.Float (int2Double)
 
 import Data.Constraint (Dict(..),(:-)(..))
 import Data.Key (Zip)
+import Data.NumInstances.Function ()
 
 import ConCat.Misc ((:*),R,sqr,magSqr,Unop,Binop,inNew,inNew2,Yes1,oops,type (&+&))
 import ConCat.Incremental (andInc,inc)
@@ -183,15 +184,21 @@ main = sequence_
 
   -- , runSynCirc "foo" $ toCcc (step @R line)  -- toCcc' residual
 
+  -- -- 50 sec with AD
   -- , onChoice @OkLC (\ f -> runCirc "regress-line" (toCcc (step @R f)))
   --     (toCcc (choose @OkLC line))
+
+  -- -- 12 sec with ADFun.
+  -- , onChoice @OkLFC (\ f -> runCirc "regress-line" (toCcc (step @R f)))
+  --     (toCcc (choose @OkLFC line))
 
   -- , onChoice @OkLC (\ f -> runCirc "regress-line-a" 
   --                    (toCcc (\ ab p -> sqErr @R ab (f p))))
   --     (toCcc (choose @OkLC line))
 
+  -- -- 48 sec
   -- , onChoice @OkLC (\ f -> runCirc "regress-line-b" $ toCcc $
-  --                     \ ab -> gradient (sqErr @R ab . f))
+  --                     \ ab -> negateV (gradient (sqErr @R ab . f)))
   --     (toCcc (choose @OkLC line))
 
   -- -- wrong constraint. takes forever?
@@ -199,12 +206,14 @@ main = sequence_
   --                     \ ab -> derF (sqErr @R ab . f))
   --     (toCcc (choose @OkLC line))
 
+  -- -- 14 sec
   -- , onChoice @OkLFC (\ f -> runCirc "regress-line-df" $ toCcc $  -- ok
-  --                     \ ab -> derF (sqErr @R ab . f))
+  --                     \ ab -> derF (negate (sqErr @R ab . f)))
   --     (toCcc (choose @OkLFC line))
 
+  -- -- 12 sec
   -- , onChoice @OkLFC (\ f -> runCirc "regress-line-gf" $ toCcc $  -- ok
-  --                     \ ab -> gradF (sqErr @R ab . f))
+  --                     \ ab -> gradF @R (negate (sqErr ab . f)))
   --     (toCcc (choose @OkLFC line))
 
   -- -- Needs Void and coproduct support in graphs.

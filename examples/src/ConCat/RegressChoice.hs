@@ -73,7 +73,7 @@ sqErr (a,b) f = distSqr' (f a) b
 step :: forall s p a b .
         (HasLin s p s, IsScalar s, HasV s b, Foldable (V s b), Zip (V s b))
      => (p -> a -> b) -> (a,b) -> (p -> p)
-step f ab = gradF @s (negate (sqErr @s ab . f))
+step f ab = gradF @s (negate (sqErr ab . f))
 {-# INLINE step #-}
 
 -- TODO: move Num s into IsScalar s, and remove Num s uses where redundant.
