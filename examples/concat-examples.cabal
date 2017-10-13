@@ -55,9 +55,10 @@ library
                      , free
                      -- For Nondet
                      , ghc-prim
-                     -- For machine learning
+                     -- For simple machine learning
                      , vector
                      , vector-sized
+                     , NumInstances
   if flag(smt)
     build-depends: z3
     cpp-options:        -DCONCAT_SMT
