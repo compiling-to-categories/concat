@@ -39,7 +39,7 @@ import ConCat.Free.Diagonal (Diagonal,diag)
 class OkFunctor k h => LinearCat k h where
   fmapC  :: Ok2 k a b => (a -> b) `k` (h a -> h b)
   zipC   :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
-  pointC :: Ok k a => a `k` h a
+  pointC :: Ok  k a => a `k` h a
 
 -- TODO: Maybe move fmapC out to a FunctorCat, since it doesn't need
 -- Representable.
@@ -98,3 +98,11 @@ instance (DiagCat k h, DiagCat k' h) => DiagCat (k :**: k') h where
 instance (SumCat k h, SumCat k' h) => SumCat (k :**: k') h where
   sumC   = sumC   :**: sumC
   {-# INLINE sumC #-}
+
+
+class DistributiveCat k g f where
+  distributeC :: f (g a) `k` g (f a)
+
+class RepresentableCat k f a where
+  tabulateC :: (Rep f -> a) `k` f a
+  indexC    :: f a `k` (Rep f -> a)
