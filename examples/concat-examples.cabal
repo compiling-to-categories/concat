@@ -145,10 +145,12 @@ Test-Suite misc-examples
                   , concat-plugin
                   , concat-examples
                   , ghc-prim
+                  , integer-gmp
                   , keys
+                  , distributive, adjunctions
                   , constraints >= 0.8
                   -- Array/vector experiments
-                  , vector, finite-typelits
+                  , finite-typelits, vector-sized
   ghc-options:      -O2
                     -fplugin=ConCat.Plugin
                     -fplugin=ConCat.Plugin
@@ -170,10 +172,12 @@ Test-Suite misc-trace
                   , concat-plugin
                   , concat-examples
                   , ghc-prim
+                  , integer-gmp
                   , keys
+                  , distributive, adjunctions
                   , constraints >= 0.8
                   -- Array/vector experiments
-                  , vector, finite-typelits
+                  , finite-typelits, vector-sized
   ghc-options:      -O2
                     -fplugin=ConCat.Plugin
                     -fplugin-opt=ConCat.Plugin:trace
