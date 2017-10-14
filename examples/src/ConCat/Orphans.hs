@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -18,18 +20,24 @@ import Control.Applicative (liftA2)
 -- import Control.Arrow ((&&&))
 import Data.Monoid
 import GHC.Generics (U1(..),Par1(..),(:+:)(..),(:*:)(..),(:.:)(..))
+import Data.Maybe (fromMaybe)
 
 import Data.Void
 import Data.Key
 import Data.Pointed
 import Data.Copointed
 import Control.Comonad.Cofree
-import Data.Functor.Rep hiding (index)
+import Data.Distributive (Distributive(..))
+import Data.Functor.Rep (Representable(..),distributeRep)
 import qualified Data.Functor.Rep as Rep
 
 -- import Data.Stream (Stream(..))
 import Control.Newtype
 import Text.PrettyPrint.HughesPJClass
+import GHC.TypeLits (KnownNat)
+import Data.Finite (Finite,packFinite)
+import Data.Vector.Sized (Vector)
+import qualified Data.Vector.Sized as V
 
 import ConCat.Misc ((:*),(:+),inNew,inNew2)
 
@@ -278,6 +286,10 @@ appPrec :: Rational
 appPrec = 10
 
 {--------------------------------------------------------------------
+    Distributive
+--------------------------------------------------------------------}
+
+{--------------------------------------------------------------------
     Representable
 --------------------------------------------------------------------}
 
@@ -317,3 +329,41 @@ instance (Representable g, Representable f) => Representable (g :.: f) where
 
 instance Zip Sum     where zipWith = inNew2
 instance Zip Product where zipWith = inNew2
+  
+
+{--------------------------------------------------------------------
+    Vector (Sized)
+--------------------------------------------------------------------}
+
+type instance Key (Vector n) = Finite n
+
+-- mapWithKey :: (Key f -> a -> b) -> f a -> f b
+-- imap :: (Int -> a -> b) -> Vector n a -> Vector n b
+
+imap' :: KnownNat n => (Finite n -> a -> b) -> Vector n a -> Vector n b
+imap' f = V.imap (f . fromMaybe err . packFinite . fromIntegral)
+ where
+   err = error "imap': out of bounds"
+{-# INLINE imap' #-}
+
+-- I've requested that something like imap' be added to vector-sized, preferably
+-- eliminating the error condition. See
+-- <https://github.com/expipiplus1/vector-sized/issues/26>
+
+instance KnownNat n => Keyed (Vector n) where
+  mapWithKey = imap'
+
+instance KnownNat n => Zip (Vector n) where
+  zip = V.zip
+
+instance KnownNat n => Distributive (Vector n) where
+  distribute :: Functor f => f (Vector n a) -> Vector n (f a)
+  distribute = distributeRep
+
+instance KnownNat n => Representable (Vector n) where
+  type Rep (Vector n) = Finite n
+  tabulate = V.generate_
+  index = V.index
+
+instance KnownNat n => Pointed (Vector n) where
+  point = V.replicate
