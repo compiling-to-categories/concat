@@ -142,14 +142,14 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- Circuit graphs
-  , runSynCirc "twice"       $ toCcc $ twice @R
-  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
-  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  -- -- Circuit graphs
+  -- , runSynCirc "twice"       $ toCcc $ twice @R
+  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  -- , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
+  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- Choice
 
@@ -234,15 +234,13 @@ main = sequence_
 
   -- Integer
 
-  -- , runSyn{-Circ "foo"-} $ toCcc ((==) @Integer)
-  -- , runSyn{-Circ "foo"-} $ toCcc ((/=) @Integer)
-  -- , runSyn{-Circ "foo"-} $ toCcc ((<=) @Integer)
-  -- , runSyn{-Circ "foo"-} $ toCcc (\ (x :: Integer, y) -> not (x == y))
-  -- , runSyn{-Circ "foo"-} $ toCcc (\ (x :: Integer, y) -> not (x < y))
-  -- , runSyn{-Circ "foo"-} $ toCcc ((+) @Integer)
-  -- , runSyn{-Circ "foo"-} $ toCcc (\ (x :: Integer, y) -> x * (x + y))
-
-  -- , runSyn{-Circ "foo"-} $ toCcc ((+) @Integer)
+  -- , runSynCirc "eq-integer"       $ toCcc ((==) @Integer)
+  -- , runSynCirc "ne-integer"       $ toCcc ((/=) @Integer)
+  -- , runSynCirc "le-integer"       $ toCcc ((<=) @Integer)
+  -- , runSynCirc "ne-integer-b"     $ toCcc (\ (x :: Integer, y) -> not (x == y))
+  -- , runSynCirc "ge-integer-b"     $ toCcc (\ (x :: Integer, y) -> not (x < y))
+  -- , runSynCirc "plus-integer"     $ toCcc ((+) @Integer)
+  -- , runSynCirc "plus-mul-integer" $ toCcc (\ (x :: Integer, y) -> x * (x + y))
 
 #ifdef VectorSized
   -- , runSynCirc "fmap-not-v2" $ toCcc $ (fmapC not :: Unop (Arr 2 Bool))

@@ -101,12 +101,13 @@ mkModule name cs = Module name
 busId' :: Bus -> (String, Int)
 busId' (Bus cId ix ty) = ('n' : show cId ++ ('_' : show ix), width)
   where width = case ty of
-                  C.Void     -> err "Void"
-                  C.Unit     -> 0
-                  C.Bool     -> 1
-                  C.Int      -> 32
-                  C.Float    -> 32
-                  C.Double   -> 64
+                  C.Void    -> err "Void"
+                  C.Unit    -> 0
+                  C.Bool    -> 1
+                  C.Int     -> 32
+                  C.Integer -> 32   -- Is there a right choice here?
+                  C.Float   -> 32
+                  C.Double  -> 64
 #ifdef VectorSized
                   C.Finite n -> ceiling (log (fromInteger n) :: Double)
 #endif

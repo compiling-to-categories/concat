@@ -174,11 +174,16 @@ compExpr saved (CompS _ prim ins [Bus _ _ ty]) = app ty prim (inExpr <$> ins)
 compExpr _ comp = error ("ConCat.GLSL.compExpr: unexpected subgraph comp " ++ show comp)
 
 constExpr :: C.Ty -> String -> Expr
-constExpr C.Bool   = BoolConstant        . read
-constExpr C.Int    = IntConstant Decimal . read
-constExpr C.Float  = FloatConstant       . read
-constExpr C.Double = FloatConstant       . read
+constExpr C.Bool    = BoolConstant        . read
+constExpr C.Int     = IntConstant Decimal . read
+constExpr C.Integer = integerConstant     . read
+constExpr C.Float   = FloatConstant       . read
+constExpr C.Double  = FloatConstant       . read
 constExpr ty = error ("ConCat.GLSL.constExpr: unexpected literal type: " ++ show ty)
+
+-- Cheat: treat Integer as Int
+integerConstant :: Integer -> Expr
+integerConstant = IntConstant Decimal . fromInteger
 
 busType :: Bus -> TypeSpecifierNonArray
 busType = glslTy . busTy

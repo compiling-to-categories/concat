@@ -173,9 +173,9 @@ import qualified ConCat.Free.LinearCol as LC
 --------------------------------------------------------------------}
 
 -- Component (primitive) type
-data Ty = Void | Unit | Bool | Int | Float | Double
+data Ty = Void | Unit | Bool | Int | Integer | Float | Double
 #ifdef VectorSized
-        | Finite Integer
+        | Finite Integer  -- Remove?
         | Arr Integer Ty
 #else
         | Arr Ty Ty
@@ -187,12 +187,13 @@ data Ty = Void | Unit | Bool | Int | Float | Double
   deriving (Eq,Ord)
 
 instance Show Ty where
-  showsPrec _ Void   = showString "Void"
-  showsPrec _ Unit   = showString "()"
-  showsPrec _ Bool   = showString "Bool"
-  showsPrec _ Int    = showString "Int"
-  showsPrec _ Float  = showString "Float"
-  showsPrec _ Double = showString "Double" -- "R"
+  showsPrec _ Void    = showString "Void"
+  showsPrec _ Unit    = showString "()"
+  showsPrec _ Bool    = showString "Bool"
+  showsPrec _ Int     = showString "Int"
+  showsPrec _ Integer = showString "Integer"
+  showsPrec _ Float   = showString "Float"
+  showsPrec _ Double  = showString "Double" -- "R"
   showsPrec p (Sum a b) = showParen (p >= 6) $
     showsPrec 6 a . showString " + " . showsPrec 6 b
   showsPrec p (Prod a b) = showParen (p >= 7) $
@@ -365,6 +366,12 @@ instance GenBuses Int  where
   genBuses' = genPrimBus
   -- delay = primDelay
   ty = Int
+  unflattenB' = unflattenPrimB
+
+instance GenBuses Integer  where
+  genBuses' = genPrimBus
+  -- delay = primDelay
+  ty = Integer
   unflattenB' = unflattenPrimB
 
 instance GenBuses Float  where
@@ -888,6 +895,7 @@ instance GS b => ConstCat (:>) b where
 LitConst(())
 LitConst(Bool)
 LitConst(Int)
+LitConst(Integer)
 LitConst(Float)
 LitConst(Double)
 
@@ -929,6 +937,7 @@ bottomScalar = -- trace "bottomScalar called" $
 
 BottomTemplate(Bool)
 BottomTemplate(Int)
+BottomTemplate(Integer)
 BottomTemplate(Float)
 BottomTemplate(Double)
 
@@ -965,6 +974,7 @@ class GenBuses a => SourceToBuses a where toBuses :: Source -> Buses a
 instance SourceToBuses ()      where toBuses = const UnitB
 instance SourceToBuses Bool    where toBuses = PrimB
 instance SourceToBuses Int     where toBuses = PrimB
+instance SourceToBuses Integer where toBuses = PrimB
 instance SourceToBuses Float   where toBuses = PrimB
 instance SourceToBuses Double  where toBuses = PrimB
 
@@ -1179,6 +1189,7 @@ neOptB = \ case
 
 -- EqTemplate(Bool)
 EqTemplate(Int)
+EqTemplate(Integer)
 EqTemplate(Float)
 EqTemplate(Double)
 
@@ -1233,6 +1244,7 @@ geOpt = \ case
 
 OrdTemplate(Bool)
 OrdTemplate(Int)
+OrdTemplate(Integer)
 OrdTemplate(Float)
 OrdTemplate(Double)
 
