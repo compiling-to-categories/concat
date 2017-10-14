@@ -143,6 +143,15 @@ boxIB i = tagToEnum# i
 -- "gcdInteger    cat" [~0] gcdInteger    = 
 -- "lcmInteger    cat" [~0] lcmInteger    = 
 
+-- We also see the # versions in some optimized code.
+
+"boxZ ==" [~0] forall u v . eqInteger#  u v  = unboxIB (equal              (u,v))
+"boxZ /=" [~0] forall u v . neqInteger# u v  = unboxIB (notEqual           (u,v))
+"boxZ >"  [~0] forall u v . gtInteger#  u v  = unboxIB (greaterThan        (u,v))
+"boxZ >=" [~0] forall u v . geInteger#  u v  = unboxIB (greaterThanOrEqual (u,v))
+"boxZ <"  [~0] forall u v . ltInteger#  u v  = unboxIB (lessThan           (u,v))
+"boxZ <=" [~0] forall u v . leInteger#  u v  = unboxIB (lessThanOrEqual    (u,v))
+
  #-}
 
 unboxF :: Float -> Float#
