@@ -119,12 +119,12 @@ boxIB i = tagToEnum# i
 
 -- Integer numeric operations. Move elsewhere?
 
-"eqInteger  cat" [~0] eqInteger  = curry equal
-"neqInteger cat" [~0] neqInteger = curry notEqual
-"leInteger  cat" [~0] leInteger  = curry lessThanOrEqual
-"ltInteger  cat" [~0] ltInteger  = curry lessThan
-"gtInteger  cat" [~0] gtInteger  = curry greaterThan
-"geInteger  cat" [~0] geInteger  = curry greaterThanOrEqual
+"eqInteger     cat" [~0] eqInteger     = curry equal
+"neqInteger    cat" [~0] neqInteger    = curry notEqual
+"leInteger     cat" [~0] leInteger     = curry lessThanOrEqual
+"ltInteger     cat" [~0] ltInteger     = curry lessThan
+"gtInteger     cat" [~0] gtInteger     = curry greaterThan
+"geInteger     cat" [~0] geInteger     = curry greaterThanOrEqual
 
 "negateInteger cat" [~0] negateInteger = negateC
 "plusInteger   cat" [~0] plusInteger   = curry addC
