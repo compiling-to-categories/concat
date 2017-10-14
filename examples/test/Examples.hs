@@ -142,14 +142,14 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- -- Circuit graphs
-  -- , runSynCirc "twice"       $ toCcc $ twice @R
-  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  -- , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
-  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  -- Circuit graphs
+  , runSynCirc "twice"       $ toCcc $ twice @R
+  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
+  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- Choice
 
@@ -232,6 +232,18 @@ main = sequence_
 
   -- , runSynCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool))
 
+  -- Integer
+
+  -- , runSyn{-Circ "foo"-} $ toCcc ((==) @Integer)
+  -- , runSyn{-Circ "foo"-} $ toCcc ((/=) @Integer)
+  -- , runSyn{-Circ "foo"-} $ toCcc ((<=) @Integer)
+  -- , runSyn{-Circ "foo"-} $ toCcc (\ (x :: Integer, y) -> not (x == y))
+  -- , runSyn{-Circ "foo"-} $ toCcc (\ (x :: Integer, y) -> not (x < y))
+  -- , runSyn{-Circ "foo"-} $ toCcc ((+) @Integer)
+  -- , runSyn{-Circ "foo"-} $ toCcc (\ (x :: Integer, y) -> x * (x + y))
+
+  -- , runSyn{-Circ "foo"-} $ toCcc ((+) @Integer)
+
 #ifdef VectorSized
   -- , runSynCirc "fmap-not-v2" $ toCcc $ (fmapC not :: Unop (Arr 2 Bool))
 
@@ -244,15 +256,6 @@ main = sequence_
   -- , runSynCirc "array-v" $ toCcc (array :: (Finite 8 -> Bool) -> Arr 8 Bool)
 
   -- , runSynCirc "foo" $ toCcc (\ (x :: Int, y) -> not (x == y)) 
-
-  , runSyn{-Circ "foo"-} $ toCcc ((==) @Integer)
-
-  -- , runSyn{-Circ "foo"-} $ toCcc ((<=) @Integer)
-
-  -- , runSyn{-Circ "foo"-} $ toCcc (\ (x :: Integer, y) -> not (x == y)) 
-
-
-  -- , runSyn{-Circ "foo"-} $ toCcc (\ (x :: Integer, y) -> not (x < y)) 
 
   -- , runSynCirc "idL-v8" $ toCcc (\ () -> idL @(Arr 8) @R) -- ?? 
 
