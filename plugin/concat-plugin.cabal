@@ -26,6 +26,7 @@ library
                      , containers >= 0.5.7.1
                      , ghc-prim >= 0.5.0.0
                      , ghc >= 8.0.1
+                     , integer-gmp
                      , syb >= 0.6
                      , concat-classes
   exposed-modules:     
@@ -34,3 +35,6 @@ library
                        ConCat.Plugin
                        ConCat.Rebox
   ghc-options:      -O2
+
+-- Do I want to depend on integer-gmp? Maybe conditionally depend on integer-gmp
+-- or integer-simple.
