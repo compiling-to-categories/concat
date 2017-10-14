@@ -3,6 +3,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
@@ -13,7 +14,11 @@ module ConCat.AltAggregate (module ConCat.AltAggregate, module C) where
 
 import Prelude hiding (id,(.),curry,uncurry,const,zip)
 
+import GHC.TypeLits (KnownNat)
+
 import Data.Functor.Rep (Representable(..))
+import Data.Finite (Finite)
+import Data.Vector.Sized (Vector)
 
 import ConCat.Misc ((:*))
 import ConCat.Aggregate (LinearCat,SumCat,DiagCat)
@@ -74,3 +79,28 @@ diag = curry diagC
 "fmap id" uncurry fmapC . (curry exr &&& id) = id
 
  #-}
+
+
+-- Names are in transition
+
+tabulateC :: ArrayCat k n b => Exp k (Finite n) b `k` Arr n b
+tabulateC = array
+
+indexC :: ArrayCat k n b => Arr n b `k` Exp k (Finite n) b
+indexC = curry arrAt
+
+
+-- Variant of 'distributeRep' from Data.Functor.Rep
+-- TODO: Generalize from Vector.
+
+-- distributeRepC :: ( -- Representable f, Functor w,
+--                     f ~ Vector n, KnownNat n, Representable w
+--                   )
+--                => w (f a) -> f (w a)
+
+-- distributeRepC :: ( -- Representable f, Functor w,
+--                     w ~ Vector n, KnownNat n -- , Representable w
+--                   )
+--                => w (f a) -> f (w a)
+
+-- distributeRepC wf = tabulateC (\k -> fmapC (`indexC` k) wf)
