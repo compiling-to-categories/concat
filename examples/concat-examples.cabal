@@ -99,7 +99,7 @@ library
   if flag(smt)
     exposed-modules: ConCat.SMT
   ghc-options:      -O2
-  -- cpp-options:      -DVectorSized
+  cpp-options:      -DVectorSized
 
 -- Flag trace
 --   Description: Trace transformations performed by the GHC plugin
@@ -148,12 +148,13 @@ Test-Suite misc-examples
                   , keys
                   , constraints >= 0.8
                   -- Array/vector experiments
-                  , vector
+                  , vector, finite-typelits
   ghc-options:      -O2
                     -fplugin=ConCat.Plugin
                     -fplugin=ConCat.Plugin
   if flag(smt)
     cpp-options:        -DCONCAT_SMT
+  cpp-options:      -DVectorSized
 
 Test-Suite misc-trace
   type:             exitcode-stdio-1.0
@@ -172,10 +173,11 @@ Test-Suite misc-trace
                   , keys
                   , constraints >= 0.8
                   -- Array/vector experiments
-                  , vector
+                  , vector, finite-typelits
   ghc-options:      -O2
                     -fplugin=ConCat.Plugin
                     -fplugin-opt=ConCat.Plugin:trace
   if flag(smt)
     cpp-options:        -DCONCAT_SMT
+  cpp-options:      -DVectorSized
 

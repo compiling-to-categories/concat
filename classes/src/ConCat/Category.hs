@@ -35,8 +35,6 @@
 
 -- #define DefaultCat
 
--- #define VectorSized
-
 module ConCat.Category where
 
 import Prelude hiding (id,(.),curry,uncurry,const,zip)

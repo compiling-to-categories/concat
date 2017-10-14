@@ -28,12 +28,14 @@ import Prelude hiding (id,(.),zipWith)
 import GHC.Exts (Coercible,coerce)
 import Data.Foldable (toList)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
+import GHC.TypeLits (KnownNat)
 
 import Data.Constraint
 import Data.Key (Zip(..))
 import Data.Distributive
 import Text.PrettyPrint.HughesPJClass hiding (render)
 import Control.Newtype
+import Data.Vector.Sized (Vector)
 
 import ConCat.Misc ((:*),PseudoFun(..),oops,R)
 import ConCat.Orphans ()
@@ -41,6 +43,7 @@ import ConCat.Free.VectorSpace
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
 import ConCat.AltCat hiding (const)
+import ConCat.AltAggregate (fmapC)
 import ConCat.Rep
 import ConCat.Free.Diagonal
 
@@ -190,6 +193,8 @@ instance (OkLF f, OkLF g) => OkLF (f :*: g)
 instance (OkLF f, OkLF g, Applicative f, Traversable g) => OkLF (g :.: f)
 
 -- instance OkLF (Arr i)
+
+instance KnownNat n => OkLF (Vector n)
 #endif
 
 type OkLM' s a = (Num s, HasV s a, OkLF (V s a))
@@ -311,7 +316,8 @@ lapply (L gfa) = unV . lapplyL gfa . toV
 class OkLF f => HasL f where
   -- | Law: @'linearL . 'lapply' == 'id'@ (but not the other way around)
   -- linearL :: forall s g. (Num s, OkLF g) => (f s -> g s) -> (f :-* g) s
-  linearL :: forall s g. (Num s, Zip g) => (f s -> g s) -> (f :-* g) s
+  linearL :: forall s g. (Num s, Zip g, Distributive g)
+          => (f s -> g s) -> (f :-* g) s
 
 instance HasL U1 where
   -- linearL :: forall s g. (Num s, OkLF g) => (U1 s -> g s) -> (U1 :-* g) s
@@ -355,8 +361,27 @@ q :: ((g :.: f) s -> h s) -> ((g :.: f) :-* h) s
   =~ (g (f s) -> h s) -> h ((g :.: f) s)
   =~ (g (f s) -> h s) -> h (g (f s))
   =~ (g (f s) -> h s) -> h (g (f s))
+#else
+
+-- -- Hack: specialize to Par1 for now. Either work out the general case, or
+-- -- abandon HasL in favor of Representable.
+-- instance HasL g => HasL (g :.: Par1) where
+--   linearL q = ...
+
+-- q :: ((g :.: Par1) s -> h s) -> ((g :.: Par1) :-* h) s
+-- q . 
 
 #endif
+
+instance KnownNat n => HasL (Vector n) where
+  linearL h = distribute (h `fmapC` idL)
+  {-# INLINE linearL #-}
+
+--             h          :: Vector n s -> g s
+--                   idL  :: Vector n (Vector n s)
+--             h <$> idL  :: Vector n (g s)
+-- distribute (h <$> idL) :: g (Vector n s)
+
 
 #if 0
 
@@ -370,7 +395,8 @@ want :: ((k -> s) :-* g) s
 
 #endif
 
-type HasLin s a b = (HasV s a, HasV s b, HasL (V s a), Zip (V s b), Num s)
+type HasLin s a b =
+  (HasV s a, HasV s b, HasL (V s a), Zip (V s b), Distributive (V s b), Num s)
 
 -- was (OkLM s a, OkLM s b, HasL (V s a)) => (a -> b) -> L s a b
 

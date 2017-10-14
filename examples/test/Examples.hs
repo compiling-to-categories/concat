@@ -82,6 +82,7 @@ import GHC.Float (int2Double)
 import Data.Constraint (Dict(..),(:-)(..))
 import Data.Key (Zip)
 import Data.NumInstances.Function ()
+import Data.Finite
 
 import ConCat.Misc ((:*),R,sqr,magSqr,Unop,Binop,inNew,inNew2,Yes1,oops,type (&+&))
 import ConCat.Incremental (andInc,inc)
@@ -96,14 +97,14 @@ import qualified ConCat.RunCircuit as RC
 import qualified ConCat.AltCat as A
 -- import ConCat.AltCat
 import ConCat.AltCat
-  (toCcc,toCcc',unCcc,unCcc',reveal,conceal,(:**:)(..),Ok,Ok2,U2,Arr)
+  (toCcc,toCcc',unCcc,unCcc',reveal,conceal,(:**:)(..),Ok,Ok2,U2,Arr,array)
 import ConCat.AltAggregate
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Nat
 import ConCat.Shaped
 import ConCat.Scan
 import ConCat.FFT
-import ConCat.Free.LinearRow (L,OkLM)
+import ConCat.Free.LinearRow -- (L,OkLM,linearL)
 import ConCat.LC
 
 -- import ConCat.Regress
@@ -141,14 +142,14 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- Circuit graphs
-  , runSynCirc "twice"       $ toCcc $ twice @R
-  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
-  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  -- -- Circuit graphs
+  -- , runSynCirc "twice"       $ toCcc $ twice @R
+  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  -- , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
+  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- Choice
 
@@ -231,20 +232,51 @@ main = sequence_
 
   -- , runSynCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool))
 
-  -- , runSynCirc "fmap-not-a" $ toCcc $ (fmapC not :: Unop (Arr Bool Bool))
+#ifdef VectorSized
+  -- , runSynCirc "fmap-not-v2" $ toCcc $ (fmapC not :: Unop (Arr 2 Bool))
 
+  -- , runCirc "point-8" $ toCcc $ (pointC :: Bool -> Arr 8 Bool)
+  -- , runCirc "sum-point-v8" $ toCcc $ (sumC . (pointC :: Int -> Arr 8 Int))
+  -- , runCirc "sum-arr-v8" $ toCcc $ (sumC :: Arr 8 Int -> Int)
+
+  -- , runSynCirc "fmap-v8" $ toCcc (fmapC not :: Unop (Arr 8 Bool))  -- ok
+
+  -- , runSynCirc "array-v" $ toCcc (array :: (Finite 8 -> Bool) -> Arr 8 Bool)
+
+  -- , runSynCirc "foo" $ toCcc (\ (x :: Int, y) -> not (x == y)) 
+
+  , runSyn{-Circ "foo"-} $ toCcc ((==) @Integer)
+
+  -- , runSyn{-Circ "foo"-} $ toCcc ((<=) @Integer)
+
+  -- , runSyn{-Circ "foo"-} $ toCcc (\ (x :: Integer, y) -> not (x == y)) 
+
+
+  -- , runSyn{-Circ "foo"-} $ toCcc (\ (x :: Integer, y) -> not (x < y)) 
+
+  -- , runSynCirc "idL-v8" $ toCcc (\ () -> idL @(Arr 8) @R) -- ?? 
+
+  -- -- A huge mess of Vector code
+  -- , runSynCirc "linear-v8" $ toCcc $ linearL @(Arr 8) @R @Par1
+
+  -- , runSynCirc "sum-arr-v8-adf" $ toCcc $ andDerF (sumC :: Arr 8 R -> R)
+
+  -- , runCirc "sum-arr-v8-adfl" $ toCcc $ andDerFL @R (sumC :: Arr 8 R -> R)
+
+  -- , runCirc "sum-arr-v8-agfl" $ toCcc $ andGradFL @R (sumC :: Arr 8 R -> R)
+
+#else
+  -- , runSynCirc "fmap-not-a" $ toCcc $ (fmapC not :: Unop (Arr Bool Bool))
   -- , runCirc "fmap-succ-bb" $ toCcc $ (fmapC succ :: Unop (Arr (Bool :* Bool) Int))
   -- , runCirc "fmap-succ-v3" $ toCcc $ (fmapC succ :: Unop (Arr (RVec N3 Bool) Int))
   -- , runCirc "point-v3" $ toCcc $ (pointC :: Bool -> Arr (RVec N3 Bool) Bool)
   -- , runCirc "sum-point-v3" $ toCcc $ (sumC . (pointC :: Int -> Arr (RVec N3 Bool) Int))
-
   -- , runCirc "sum-arr-v3" $ toCcc $ (sumC :: Arr (RVec N3 Bool) Int -> Int)
-
-  -- , runCirc "sum-arr-v3-adf" $ toCcc $ andDerF (sumC :: Arr (RVec N3 Bool) Int -> Int)
-
+  -- , runCirc "sum-arr-v3-adf" $ toCcc $ andDerF (sumC :: Arr (RVec N3 Bool) R -> R)
   -- , runCirc "sum-arr-v3-adfl" $ toCcc $ andDerFL @R (sumC :: Arr (RVec N3 Bool) R -> R)
-
   -- , runCirc "sum-arr-v3-agfl" $ toCcc $ andGradFL @R (sumC :: Arr (RVec N3 Bool) R -> R)
+#endif
+
 
   -- , runCirc "foo" $ toCcc $ \ () -> dualV (\ (x,y,z) -> x + y + z :: R) -- ok
 

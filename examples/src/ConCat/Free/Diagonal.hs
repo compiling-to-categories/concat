@@ -14,15 +14,19 @@
 
 module ConCat.Free.Diagonal where
 
+import GHC.TypeLits (KnownNat)
+
+-- import Data.Functor.Rep (Representable(..))
 #ifdef DiagF
-import Data.Functor.Rep (Representable(..))
 import Data.Key (Keyed(..),Adjustable(..))
 import GHC.Generics ((:.:)(..))
 #else
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 #endif
 import Data.Pointed (Pointed(..))
+import Data.Vector.Sized (Vector)
 
+import ConCat.AltCat (array)
 import ConCat.Orphans ()
 
 #ifdef DiagF
@@ -99,5 +103,10 @@ instance (Diagonal g, Diagonal f, Traversable g, Applicative f)
 
 -- instance Diagonal (Arr i) where
 --   diag z o = 
+
+instance KnownNat n => Diagonal (Vector n) where
+  -- diag' z o = unComp1 (tabulate (\ (k,k') -> if k == k' then o else z))
+  diag' z o = array (\ k -> array (\ k' -> if k == k' then o else z))
+  {-# INLINE diag' #-}
 
 #endif

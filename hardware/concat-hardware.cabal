@@ -38,6 +38,7 @@ library
                      , netlist
                      , netlist-to-verilog
   default-language:    Haskell2010
+  cpp-options:      -DVectorSized
 
 test-suite hardware-examples
   type:                exitcode-stdio-1.0

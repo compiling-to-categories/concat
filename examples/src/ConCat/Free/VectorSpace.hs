@@ -23,6 +23,9 @@ import Prelude hiding (zipWith)
 import Data.Monoid (Sum(..),Product(..))
 -- import GHC.Exts (Coercible,coerce)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:+:)(..),(:.:)(..))
+#ifdef VectorSized
+import GHC.TypeLits (KnownNat)
+#endif
 
 import Data.Foldable (fold)
 import Data.Pointed
@@ -38,7 +41,7 @@ import ConCat.Misc ((:*),(:+),(<~))
 import ConCat.Rep
 -- import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
 import ConCat.AltCat (OpCon(..),Sat,type (|-)(..),Arr)
-import ConCat.AltAggregate (fmapC)
+-- import ConCat.AltAggregate (fmapC)
 
 {--------------------------------------------------------------------
     Vector spaces
@@ -267,7 +270,6 @@ instance HasV s a => HasV s (Product a)
 class VComp h where
   vcomp :: forall s c. HasV s c :- (HasV s (h c), V s (h c) ~ (h :.: V s c))
 
-
 #if 1
 instance HasV s b => HasV s (a -> b) where
   type V s (a -> b) = (->) a :.: V s b
@@ -283,18 +285,47 @@ instance HasV s b => HasV s (a -> b) where
 
 instance VComp ((->) a) where vcomp = Sub Dict
 
-instance HasV s b => HasV s (Arr i b) where
-  type V s (Arr i b) = Arr i :.: V s b
+#ifdef VectorSized
+
+#if 1
+-- Until I work out HasL (g :.: f) or stop using it, restrict elements to s.
+instance KnownNat n => HasV s (Arr n s) where
+  type V s (Arr n s) = Arr n
+  toV = id
+  unV = id
+  {-# INLINE toV #-}
+  {-# INLINE unV #-}
+#else
+instance (HasV s b, KnownNat n) => HasV s (Arr n b) where
+  type V s (Arr n b) = Arr n :.: V s b
   toV = Comp1 . fmapC toV
   unV = fmapC unV . unComp1
   {-# INLINE toV #-}
   {-# INLINE unV #-}
+#endif
+
+#else
+instance (HasV s b) => HasV s (Arr n b) where
+  type V s (Arr n b) = Arr n :.: V s b
+  toV = Comp1 . fmapC toV
+  unV = fmapC unV . unComp1
+  {-# INLINE toV #-}
+  {-# INLINE unV #-}
+#endif
 
 -- TODO: find a better alternative to using fmapC explicitly here. I'd like to
 -- use fmap instead, but it gets inlined immediately, as do all class
 -- operations.
 
-instance VComp (Arr i) where vcomp = Sub Dict
+-- instance 
+-- #ifdef VectorSized
+--          KnownNat n =>
+-- #endif
+--          VComp (Arr n) where vcomp = Sub Dict
+
+#ifndef VectorSized
+instance VComp (Arr n) where vcomp = Sub Dict
+#endif
 
 #if 0
 -- Example default instance

@@ -25,8 +25,6 @@
 -- | Alternative interface to the class operations from ConCat.Category, so as
 -- not to get inlined too eagerly to optimize.
 
--- #define VectorSized
-
 #include "ConCat/Ops.inc"
 
 module ConCat.AltCat (module ConCat.AltCat, module C) where
@@ -583,6 +581,8 @@ coco' = (undefined, (coerceC \\ trans @(CoerceCat k) @a @b @c))
 
 -- For some (->) instances, we'll want to use late-inlining synonyms
 
+#ifndef VectorSized
+
 deriving instance Functor  (Arr i)
 deriving instance Foldable (Arr i)
 
@@ -612,3 +612,5 @@ instance Pointed (Arr i) where
 
 -- TODO: probably move the Arr type and operations to concat-examples, say in
 -- ConCat.Aggregate and ConCat.AltAggregate.
+
+#endif

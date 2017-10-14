@@ -107,10 +107,13 @@ busId' (Bus cId ix ty) = ('n' : show cId ++ ('_' : show ix), width)
                   C.Int      -> 32
                   C.Float    -> 32
                   C.Double   -> 64
-                  C.Arr _ _  -> err "Arr"
+#ifdef VectorSized
+                  C.Finite n -> ceiling (log (fromInteger n) :: Double)
+#endif
+                  C.Arr  _ _ -> err "Arr"
                   C.Prod _ _ -> err "Prod"
-                  C.Sum _ _  -> err "Sum"
-                  C.Fun _ _  -> err "Fun"
+                  C.Sum  _ _ -> err "Sum"
+                  C.Fun  _ _ -> err "Fun"
         err t = error $ "ConCat.Hardware.Verilog.busId': Don't know what to do with Bus of type " ++ t ++ ", yet."
 
 busName :: Bus -> String

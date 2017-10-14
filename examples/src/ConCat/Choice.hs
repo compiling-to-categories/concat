@@ -28,6 +28,9 @@ import Prelude hiding (id,(.),curry,uncurry,const)
 import qualified Prelude as P
 import GHC.Types (Constraint)
 import Control.Applicative (liftA2)
+#ifdef VectorSized
+import GHC.TypeLits (KnownNat)
+#endif
 
 import Control.Newtype (Newtype(..))
 
@@ -227,7 +230,11 @@ instance (RepCat (->) a r, con ()) => RepCat (Choice con) a r where
   reprC = exactly reprC
   abstC = exactly abstC
 
-instance CartCon con => ArrayCat (Choice con) a b where
+instance (CartCon con
+#ifdef VectorSized
+         , KnownNat n
+#endif
+         ) => ArrayCat (Choice con) n a where
   array = exactly array
   arrAt = exactly arrAt
 

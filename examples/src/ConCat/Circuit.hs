@@ -201,7 +201,7 @@ instance Show Ty where
   showsPrec p (Finite n) = showParen (p >= 9) $
     showString "Finite " . showsPrec 9 n
   showsPrec p (Arr n b) = showParen (p >= 9) $
-    showString "Arr " . showsPrec 9 n . showString " " . showsPrec 9 b
+    showString "Vector " . showsPrec 9 n . showString " " . showsPrec 9 b
 #else
   showsPrec p (Arr a b) = showParen (p >= 9) $
     showString "Arr " . showsPrec 9 a . showString " " . showsPrec 9 b
@@ -839,7 +839,15 @@ instance (OkFunctor (:>) f, OkFunctor (:>) g)
                              <+ okFunctor @(:>) @g @(f a)
                              <+ okFunctor @(:>) @f @a))
 
-instance GenBuses i => OkFunctor (:>) (Arr i) where okFunctor = Entail (Sub Dict)
+-- instance GenBuses i => OkFunctor (:>) (Arr i) where okFunctor = Entail (Sub Dict)
+
+instance 
+#ifdef VectorSized
+         KnownNat i =>
+#else
+         GenBuses i =>
+#endif
+         OkFunctor (:>) (Arr i) where okFunctor = Entail (Sub Dict)
 
 instance OkFunctor (:>) h => LinearCat (:>) h where
   fmapC :: forall a b. Ok2 (:>) a b => (a -> b) :> (h a -> h b)
