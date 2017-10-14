@@ -13,6 +13,7 @@ module ConCat.Rebox where
 
 import GHC.Types
 import GHC.Prim
+import GHC.Integer
 
 import ConCat.AltCat
 
@@ -93,8 +94,8 @@ boxIB i = tagToEnum# i
 
 -- /## 1.0## (cosDouble# x)
 
-"boxD /" [~0] forall u v. u /## v            = unD (divideC (boxD u, boxD v))
-"boxF /" [~0] forall u v. u `divideFloat#` v = unF (divideC (boxF u, boxF v))
+"boxD /" [~0] forall u v. u /## v            = unboxD (divideC (boxD u, boxD v))
+"boxF /" [~0] forall u v. u `divideFloat#` v = unboxF (divideC (boxF u, boxF v))
 
 -- TODO: Maybe change all the the reboxing rules to this style. Or maybe not,
 -- since it's not driven by ccc, and hence could easily degrade all numeric
@@ -102,15 +103,44 @@ boxIB i = tagToEnum# i
 
 -- TODO: maybe change all of the rules to [~0].
 
+-- Also problematic:
+
+-- "boxZ ==" forall u v . boxIB (eqInteger# u v) = equal (u,v)
+
+-- RULE left-hand side too complicated to desugar
+--   Optimised lhs: case eqInteger# u v of wild_00 { __DEFAULT ->
+--                  boxIB wild_00
+--                  }
+--   Orig lhs: case eqInteger# u v of wild_00 { __DEFAULT ->
+--             boxIB wild_00
+--             }
+
+"boxZ ==" [~0] forall u v . eqInteger#  u v  = unboxIB (equal              (u,v))
+"boxZ /=" [~0] forall u v . neqInteger# u v  = unboxIB (notEqual           (u,v))
+"boxZ >"  [~0] forall u v . gtInteger#  u v  = unboxIB (greaterThan        (u,v))
+"boxZ >=" [~0] forall u v . geInteger#  u v  = unboxIB (greaterThanOrEqual (u,v))
+"boxZ <"  [~0] forall u v . ltInteger#  u v  = unboxIB (lessThan           (u,v))
+"boxZ <=" [~0] forall u v . leInteger#  u v  = unboxIB (lessThanOrEqual    (u,v))
+
+-- TODO: Integer numeric operations
+
  #-}
 
-unF :: Float -> Float#
-unF (F# f) = f
--- {-# INLINE [0] unF #-}
+unboxF :: Float -> Float#
+unboxF (F# f#) = f#
+-- {-# INLINE [0] unboxF #-}
 
-unD :: Double -> Double#
-unD (D# d) = d
--- {-# INLINE [0] unD #-}
+unboxD :: Double -> Double#
+unboxD (D# d#) = d#
+-- {-# INLINE [0] unboxD #-}
+
+unboxI :: Int -> Int#
+unboxI (I# i#) = i#
+-- {-# INLINE [0] unboxI #-}
+
+unboxIB :: Bool -> Int#
+unboxIB i = unboxI (fromEnum i)
+-- {-# INLINE [0] unboxIB #-}
 
 -- The float/double division reboxing scheme works without the INLINE pragmas or
 -- with INLINE [1-4], but gives the following warning with INLINE [0]:
@@ -128,7 +158,7 @@ ghc: panic! (the 'impossible' happened)
     @ (R, R2)
     @ Bool
     (\ (x_eta_Bh :: (R, R2)) ->
-       case unD
+       case unboxD
               (divideC
                  @ (->)
                  @ Double
@@ -152,13 +182,13 @@ ghc: panic! (the 'impossible' happened)
 -- When I turn off lintSteps in ConCat.Plugin, we get into an infinite
 -- unfolding/reboxing loop. I tried the following rules
 -- 
--- "D# . unD" forall u. D# (unD u) = u
--- "F# . unF" forall u. F# (unF u) = u
+-- "D# . unboxD" forall u. D# (unboxD u) = u
+-- "F# . unboxF" forall u. F# (unboxF u) = u
 -- 
 -- but
 -- 
 --     RULE left-hand side too complicated to desugar
---       Optimised lhs: case unD u of wild_00 { __DEFAULT ->
+--       Optimised lhs: case unboxD u of wild_00 { __DEFAULT ->
 --                      GHC.Types.D# wild_00 }
 
 
