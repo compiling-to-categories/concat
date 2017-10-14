@@ -364,7 +364,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam Poly const")
      _ | isConst, not (isFunTy bty), not (isMonoTy bty)
        -> Doing("lam Poly const bail")
-          -- dtrace("lam Poly const: bty & isMonoTy") (ppr (bty, isMonoTy bty)) $
+          -- dtrace("lam Poly const: bty, isFunTy, isMonoTy") (ppr (bty, isFunTy bty, isMonoTy bty)) $
           Nothing
      Trying("lam bottom") -- must come before "lam Const" and "lam App"
      (collectArgs -> (Var ((== bottomV) -> True),[Type ty]))
@@ -1941,7 +1941,10 @@ isMonoTy :: Type -> Bool
 isMonoTy (TyConApp _ tys)      = all isMonoTy tys
 isMonoTy (AppTy u v)           = isMonoTy u && isMonoTy v
 isMonoTy (ForAllTy (Anon u) v) = isMonoTy u && isMonoTy v
+isMonoTy (LitTy _)             = True
 isMonoTy _                     = False
+
+-- isMonoTy t | pprTrace "isMonoTy" (ppr t) False = undefined
 
 -- | Number of occurrences of a given Id in an expression.
 -- Gives a large value if the Id appears under a lambda.
