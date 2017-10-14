@@ -11,6 +11,8 @@
 
 module ConCat.Rebox where
 
+import Prelude hiding (curry)
+
 import GHC.Types
 import GHC.Prim
 import GHC.Integer
@@ -115,14 +117,31 @@ boxIB i = tagToEnum# i
 --             boxIB wild_00
 --             }
 
-"boxZ ==" [~0] forall u v . eqInteger#  u v  = unboxIB (equal              (u,v))
-"boxZ /=" [~0] forall u v . neqInteger# u v  = unboxIB (notEqual           (u,v))
-"boxZ >"  [~0] forall u v . gtInteger#  u v  = unboxIB (greaterThan        (u,v))
-"boxZ >=" [~0] forall u v . geInteger#  u v  = unboxIB (greaterThanOrEqual (u,v))
-"boxZ <"  [~0] forall u v . ltInteger#  u v  = unboxIB (lessThan           (u,v))
-"boxZ <=" [~0] forall u v . leInteger#  u v  = unboxIB (lessThanOrEqual    (u,v))
+-- Integer numeric operations. Move elsewhere?
 
--- TODO: Integer numeric operations
+"eqInteger  cat" [~0] eqInteger  = curry equal
+"neqInteger cat" [~0] neqInteger = curry notEqual
+"leInteger  cat" [~0] leInteger  = curry lessThanOrEqual
+"ltInteger  cat" [~0] ltInteger  = curry lessThan
+"gtInteger  cat" [~0] gtInteger  = curry greaterThan
+"geInteger  cat" [~0] geInteger  = curry greaterThanOrEqual
+
+"negateInteger cat" [~0] negateInteger = negateC
+"plusInteger   cat" [~0] plusInteger   = curry addC
+"minusInteger  cat" [~0] minusInteger  = curry subC
+"timesInteger  cat" [~0] timesInteger  = curry mulC
+
+-- We don't yet have categorical versions of the following, but we will.
+
+-- "absInteger    cat" [~0] absInteger    = 
+-- "signumInteger cat" [~0] signumInteger = 
+
+-- "quotInteger   cat" [~0] quotInteger   = 
+-- "remInteger    cat" [~0] remInteger    = 
+-- "divInteger    cat" [~0] divInteger    = 
+-- "modInteger    cat" [~0] modInteger    = 
+-- "gcdInteger    cat" [~0] gcdInteger    = 
+-- "lcmInteger    cat" [~0] lcmInteger    = 
 
  #-}
 
