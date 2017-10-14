@@ -20,7 +20,6 @@ import Control.Applicative (liftA2)
 -- import Control.Arrow ((&&&))
 import Data.Monoid
 import GHC.Generics (U1(..),Par1(..),(:+:)(..),(:*:)(..),(:.:)(..))
-import Data.Maybe (fromMaybe)
 
 import Data.Void
 import Data.Key
@@ -35,7 +34,7 @@ import qualified Data.Functor.Rep as Rep
 import Control.Newtype
 import Text.PrettyPrint.HughesPJClass
 import GHC.TypeLits (KnownNat)
-import Data.Finite (Finite,packFinite)
+import Data.Finite (Finite,finite)
 import Data.Vector.Sized (Vector)
 import qualified Data.Vector.Sized as V
 
@@ -341,9 +340,7 @@ type instance Key (Vector n) = Finite n
 -- imap :: (Int -> a -> b) -> Vector n a -> Vector n b
 
 imap' :: KnownNat n => (Finite n -> a -> b) -> Vector n a -> Vector n b
-imap' f = V.imap (f . fromMaybe err . packFinite . fromIntegral)
- where
-   err = error "imap': out of bounds"
+imap' f = V.imap (f . finite . fromIntegral)
 {-# INLINE imap' #-}
 
 -- I've requested that something like imap' be added to vector-sized, preferably
