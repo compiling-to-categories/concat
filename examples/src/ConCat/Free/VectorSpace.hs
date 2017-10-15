@@ -14,6 +14,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 {-# OPTIONS_GHC -Wall #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}  -- TEMP
 
 -- | Vector spaces as zippable functors
 
@@ -41,7 +42,7 @@ import ConCat.Misc ((:*),(:+),(<~))
 import ConCat.Rep
 -- import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
 import ConCat.AltCat (OpCon(..),Sat,type (|-)(..),Arr)
--- import ConCat.AltAggregate (fmapC)
+import ConCat.AltAggregate (fmapC)
 
 {--------------------------------------------------------------------
     Vector spaces
@@ -287,7 +288,7 @@ instance VComp ((->) a) where vcomp = Sub Dict
 
 #ifdef VectorSized
 
-#if 1
+#if 0
 -- Until I work out HasL (g :.: f) or stop using it, restrict elements to s.
 instance KnownNat n => HasV s (Arr n s) where
   type V s (Arr n s) = Arr n
