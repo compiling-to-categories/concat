@@ -46,7 +46,6 @@ import Control.Arrow (Kleisli(..),arr)
 import qualified Control.Arrow as A
 import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
--- import Data.Proxy (Proxy)
 import Data.Typeable (Typeable)
 import GHC.Exts (Coercible,coerce)
 import Data.Type.Equality ((:~:)(..))
@@ -61,7 +60,6 @@ import Data.Constraint hiding ((&&&),(***),(:=>))
 import GHC.TypeLits
 -- import Data.Array (Array,(!),bounds,Ix)
 -- import qualified Data.Array as Arr
-import Data.Proxy (Proxy(..))
 import GHC.Generics ((:*:)(..),(:.:)(..))
 import qualified Data.Vector.Sized as VS
 

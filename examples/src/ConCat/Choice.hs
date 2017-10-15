@@ -33,10 +33,13 @@ import GHC.TypeLits (KnownNat)
 #endif
 
 import Control.Newtype (Newtype(..))
+import Data.Distributive (Distributive)
+import Data.Functor.Rep (Representable)
 
 import ConCat.Misc ((:*),oops,inNew,inNew2)
 import ConCat.Category
 import ConCat.AltCat (toCcc,unCcc)
+import ConCat.Aggregate
 
 -- | Nondeterminism category. Like a set of morphisms all of the same type, but
 -- represented as a function whose range is that set. The function's domain is
@@ -230,13 +233,13 @@ instance (RepCat (->) a r, con ()) => RepCat (Choice con) a r where
   reprC = exactly reprC
   abstC = exactly abstC
 
-instance (CartCon con
-#ifdef VectorSized
-         , KnownNat n
-#endif
-         ) => ArrayCat (Choice con) n a where
-  array = exactly array
-  arrAt = exactly arrAt
+instance (Distributive g, Functor f, CartCon con)
+      => DistributiveCat (Choice con) g f where
+  distributeC = exactly distributeC
+
+instance (Representable f, CartCon con) => RepresentableCat (Choice con) f where
+  tabulateC = exactly tabulateC
+  indexC    = exactly indexC
 
 {--------------------------------------------------------------------
     Maybe move somewhere else

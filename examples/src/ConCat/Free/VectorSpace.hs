@@ -33,6 +33,7 @@ import Data.Key (Zip(..))
 -- import Data.Vector.Sized (Vector)
 -- import Data.Map (Map)
 import Data.Constraint ((:-)(..),Dict(..))
+import Data.Vector.Sized (Vector)
 
 -- import Control.Newtype
 
@@ -40,7 +41,7 @@ import ConCat.Orphans ()
 import ConCat.Misc ((:*),(:+),(<~))
 import ConCat.Rep
 -- import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
-import ConCat.AltCat (OpCon(..),Sat,type (|-)(..),Arr)
+import ConCat.AltCat (OpCon(..),Sat,type (|-)(..))
 -- import ConCat.AltAggregate (fmapC)
 
 {--------------------------------------------------------------------
@@ -289,15 +290,15 @@ instance VComp ((->) a) where vcomp = Sub Dict
 
 #if 1
 -- Until I work out HasL (g :.: f) or stop using it, restrict elements to s.
-instance KnownNat n => HasV s (Arr n s) where
-  type V s (Arr n s) = Arr n
+instance KnownNat n => HasV s (Vector n s) where
+  type V s (Vector n s) = Vector n
   toV = id
   unV = id
   {-# INLINE toV #-}
   {-# INLINE unV #-}
 #else
-instance (HasV s b, KnownNat n) => HasV s (Arr n b) where
-  type V s (Arr n b) = Arr n :.: V s b
+instance (HasV s b, KnownNat n) => HasV s (Vector n b) where
+  type V s (Vector n b) = Vector n :.: V s b
   toV = Comp1 . fmapC toV
   unV = fmapC unV . unComp1
   {-# INLINE toV #-}
@@ -305,8 +306,8 @@ instance (HasV s b, KnownNat n) => HasV s (Arr n b) where
 #endif
 
 #else
-instance (HasV s b) => HasV s (Arr n b) where
-  type V s (Arr n b) = Arr n :.: V s b
+instance (HasV s b) => HasV s (Vector n b) where
+  type V s (Vector n b) = Vector n :.: V s b
   toV = Comp1 . fmapC toV
   unV = fmapC unV . unComp1
   {-# INLINE toV #-}
@@ -321,10 +322,10 @@ instance (HasV s b) => HasV s (Arr n b) where
 -- #ifdef VectorSized
 --          KnownNat n =>
 -- #endif
---          VComp (Arr n) where vcomp = Sub Dict
+--          VComp (Vector n) where vcomp = Sub Dict
 
 #ifndef VectorSized
-instance VComp (Arr n) where vcomp = Sub Dict
+instance VComp (Vector n) where vcomp = Sub Dict
 #endif
 
 #if 0

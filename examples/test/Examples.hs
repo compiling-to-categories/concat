@@ -81,8 +81,10 @@ import GHC.Float (int2Double)
 
 import Data.Constraint (Dict(..),(:-)(..))
 import Data.Key (Zip)
+import Data.Distributive (distribute)
 import Data.NumInstances.Function ()
 import Data.Finite
+import Data.Vector.Sized (Vector)
 
 import ConCat.Misc ((:*),R,sqr,magSqr,Unop,Binop,inNew,inNew2,Yes1,oops,type (&+&))
 import ConCat.Incremental (andInc,inc)
@@ -97,7 +99,7 @@ import qualified ConCat.RunCircuit as RC
 import qualified ConCat.AltCat as A
 -- import ConCat.AltCat
 import ConCat.AltCat
-  (toCcc,toCcc',unCcc,unCcc',reveal,conceal,(:**:)(..),Ok,Ok2,U2,Arr,array)
+  (toCcc,toCcc',unCcc,unCcc',reveal,conceal,(:**:)(..),Ok,Ok2,U2)
 import ConCat.AltAggregate
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Nat
@@ -111,7 +113,7 @@ import ConCat.LC
 import ConCat.Choice
 import ConCat.RegressChoice
 
--- import ConCat.Arr -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
+-- import ConCat.Vector -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
 #ifdef CONCAT_SMT
 import ConCat.SMT
 #endif
@@ -166,10 +168,8 @@ main = sequence_
 
   -- , onChoice @GenBuses (runCirc "choice-line" . toCcc)
   --     (toCcc (choose @GenBuses line))
-
   -- , onChoice @GenBuses (runCirc "choice-line-lam" . toCcc)  -- fail
   --     (toCcc (\ x -> choose @GenBuses line x))
-
   -- , onChoice @GenBuses (runCirc "choice-line-2x" . toCcc)
   --     (toCcc (\ x -> choose @GenBuses line (2 * x)))
 
@@ -183,7 +183,7 @@ main = sequence_
   -- , onChoice @OkLC (runCirc "choice-line" . toCcc)
   --     (toCcc (choose @OkLC line)) 
 
-  -- , runSynCirc "foo" $ toCcc (step @R line)  -- toCcc' residual
+  -- , runSynCirc "foo" $ toCcc (step @R line)  -- Loops
 
   -- -- 50 sec with AD
   -- , onChoice @OkLC (\ f -> runCirc "regress-line" (toCcc (step @R f)))
@@ -242,80 +242,72 @@ main = sequence_
   -- , runSynCirc "plus-integer"     $ toCcc ((+) @Integer)
   -- , runSynCirc "plus-mul-integer" $ toCcc (\ (x :: Integer, y) -> x * (x + y))
 
-#ifdef VectorSized
-  -- , runSynCirc "fmap-not-v2" $ toCcc $ (fmapC not :: Unop (Arr 2 Bool))
+  -- , runSynCirc "fmap-not-v2" $ toCcc $ (fmapC not :: Unop (Vector 2 Bool))
 
-  -- , runCirc "point-8" $ toCcc $ (pointC :: Bool -> Arr 8 Bool)
-  -- , runCirc "sum-point-v8" $ toCcc $ (sumC . (pointC :: Int -> Arr 8 Int))
-  -- , runCirc "sum-arr-v8" $ toCcc $ (sumC :: Arr 8 Int -> Int)
+  -- , runCirc "point-8" $ toCcc $ (pointC :: Bool -> Vector 8 Bool)
+  -- , runCirc "sum-point-v8" $ toCcc $ (sumC . (pointC :: Int -> Vector 8 Int))
+  -- , runCirc "sum-arr-v8" $ toCcc $ (sumC :: Vector 8 Int -> Int)
 
-  -- , runSynCirc "fmap-v8" $ toCcc (fmapC not :: Unop (Arr 8 Bool))  -- ok
+  -- , runSynCirc "fmap-v8" $ toCcc (fmapC not :: Unop (Vector 8 Bool))  -- ok
 
-  -- , runSynCirc "array-v" $ toCcc (array :: (Finite 8 -> Bool) -> Arr 8 Bool)
+  -- , runSynCirc "array-v" $ toCcc (tabulateC :: (Finite 8 -> Bool) -> Vector 8 Bool)
 
-  -- , runSynCirc "foo" $ toCcc (\ (x :: Int, y) -> not (x == y)) 
+  , runCirc "idL-v" $ toCcc (\ () -> idL @(Vector 8) @R) -- ok
 
-  -- , runSynCirc "idL-v8" $ toCcc (\ () -> idL @(Arr 8) @R) -- ?? 
+  -- , runSynCirc "fmap-idL-v" $ toCcc (\ (h :: Vector 8 R -> Vector 8 R) -> fmapC h (idL @(Vector 8) @R)) -- ok
+
+  -- , runSynCirc "distribute-v-p" $ toCcc (distribute @Pair @(Vector 4) @R)
+
+  -- , runSynCirc "distribute-p-v" $ toCcc (distribute @(Vector 4) @Pair @R)
 
   -- -- A huge mess of Vector code
-  -- , runSynCirc "linear-v8" $ toCcc $ linearL @(Arr 8) @R @Par1
+  -- , runSynCirc "linear-v8" $ toCcc $ linearL @(Vector 8) @R @Par1
 
-  -- , runSynCirc "sum-arr-v8-adf" $ toCcc $ andDerF (sumC :: Arr 8 R -> R)
+  -- , runSynCirc "sum-arr-v8-adf" $ toCcc $ andDerF (sumC :: Vector 8 R -> R)
 
-  -- , runCirc "sum-arr-v8-adfl" $ toCcc $ andDerFL @R (sumC :: Arr 8 R -> R)
+  -- , runCirc "sum-arr-v8-adfl" $ toCcc $ andDerFL @R (sumC :: Vector 8 R -> R)
 
-  -- , runCirc "sum-arr-v8-agfl" $ toCcc $ andGradFL @R (sumC :: Arr 8 R -> R)
+  -- , runCirc "sum-arr-v8-agfl" $ toCcc $ andGradFL @R (sumC :: Vector 8 R -> R)
 
-#else
-  -- , runSynCirc "fmap-not-a" $ toCcc $ (fmapC not :: Unop (Arr Bool Bool))
-  -- , runCirc "fmap-succ-bb" $ toCcc $ (fmapC succ :: Unop (Arr (Bool :* Bool) Int))
-  -- , runCirc "fmap-succ-v3" $ toCcc $ (fmapC succ :: Unop (Arr (RVec N3 Bool) Int))
-  -- , runCirc "point-v3" $ toCcc $ (pointC :: Bool -> Arr (RVec N3 Bool) Bool)
-  -- , runCirc "sum-point-v3" $ toCcc $ (sumC . (pointC :: Int -> Arr (RVec N3 Bool) Int))
-  -- , runCirc "sum-arr-v3" $ toCcc $ (sumC :: Arr (RVec N3 Bool) Int -> Int)
-  -- , runCirc "sum-arr-v3-adf" $ toCcc $ andDerF (sumC :: Arr (RVec N3 Bool) R -> R)
-  -- , runCirc "sum-arr-v3-adfl" $ toCcc $ andDerFL @R (sumC :: Arr (RVec N3 Bool) R -> R)
-  -- , runCirc "sum-arr-v3-agfl" $ toCcc $ andGradFL @R (sumC :: Arr (RVec N3 Bool) R -> R)
-#endif
 
 
   -- , runCirc "foo" $ toCcc $ \ () -> dualV (\ (x,y,z) -> x + y + z :: R) -- ok
 
   -- , runCirc "foo" $ toCcc $ \ () -> dualV (sumC :: Pair R -> R) -- ok
 
-  -- , runCirc "foo" $ toCcc $ \ () -> linear1 (sumC :: Arr Bool R -> R) -- ok
+  -- , runCirc "foo" $ toCcc $ \ () -> linear1 (sumC :: Vector Bool R -> R) -- ok
 
 
-  -- , runCirc "foo" $ toCcc $ unV @R @(Arr Bool R)
+  -- , runCirc "foo" $ toCcc $ unV @R @(Vector Bool R)
 
-  -- , runCirc "foo" $ toCcc $ \ () -> dualV4 (sumC :: Arr Bool R -> R) -- fail
+  -- , runCirc "foo" $ toCcc $ \ () -> dualV4 (sumC :: Vector Bool R -> R) -- fail
 
 
-  -- , runCirc "foo" $ toCcc $ \ () -> diag @(Arr Bool) @R  -- OK
+  -- , runCirc "foo" $ toCcc $ \ () -> diag @(Vector Bool) @R  -- OK
 
-  -- , runCirc "foo" $ toCcc $ fmapC @(->) @(Arr Bool) @R @R -- OK
+  -- , runCirc "foo" $ toCcc $ fmapC @(->) @(Vector Bool) @R @R -- OK
 
-  -- , runCirc "foo" $ toCcc $ (sumC :: Arr Bool R -> R) -- OK
+  -- , runCirc "foo" $ toCcc $ (sumC :: Vector Bool R -> R) -- OK
 
-  -- , runCirc "foo" $ toCcc $ (dualV @R @(Arr Bool R)) --
+  -- , runCirc "foo" $ toCcc $ (dualV @R @(Vector Bool R)) --
 
-  -- , runSyn $ toCcc $ \ () -> dualV (sumC :: Arr Bool R -> R) -- Ok
+  -- , runSyn $ toCcc $ \ () -> dualV (sumC :: Vector Bool R -> R) -- Ok
 
   -- , runCirc "dual-sum-pair" $ toCcc $ \ () -> dualV (sumC :: Pair R -> R)
 
   -- , runCirc "dual-sum-par1" $ toCcc $ \ () -> dualV (sumC :: Par1 R -> R)
 
-  -- , runCirc "dual-sum-arr" $ toCcc $ \ () -> dualV (sumC :: Arr Bool R -> R)
+  -- , runCirc "dual-sum-arr" $ toCcc $ \ () -> dualV (sumC :: Vector Bool R -> R)
 
-  -- , runCirc "dual-sum-arr-unit" $ toCcc $ \ () -> dualV (sumC :: Arr () R -> R)
+  -- , runCirc "dual-sum-arr-unit" $ toCcc $ \ () -> dualV (sumC :: Vector () R -> R)
 
-  -- , runCirc "foo" $ toCcc $ \ () -> dualV (sumC :: Arr Bool R -> R)
+  -- , runCirc "foo" $ toCcc $ \ () -> dualV (sumC :: Vector Bool R -> R)
 
-  -- , runCirc "sum-arr-v3-adf" $ toCcc $ andDerF (sumC :: Arr (RVec N3 Bool) R -> R)
+  -- , runCirc "sum-arr-v3-adf" $ toCcc $ andDerF (sumC :: Vector (RVec N3 Bool) R -> R)
 
-  -- , runSynCirc "sum-arr-v3-adfl" $ toCcc $ andDerFL' @R (sumC :: Arr (RVec N3 Bool) R -> R)
+  -- , runSynCirc "sum-arr-v3-adfl" $ toCcc $ andDerFL' @R (sumC :: Vector (RVec N3 Bool) R -> R)
 
-  -- , runSynCirc "fmapC-id-arr" $ toCcc $ (fmapC id :: Unop (Arr Bool R))
+  -- , runSynCirc "fmapC-id-arr" $ toCcc $ (fmapC id :: Unop (Vector Bool R))
 
   -- , runSynCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool))
 
@@ -390,6 +382,22 @@ main = sequence_
 
   -- -- Dies with "Oops --- toCcc called!", without running the plugin.
   -- , print $ andDer @R sin (1 :: R)
+
+  -- Linear
+  -- , runSynCirc "linear-r-r" $ toCcc $ linear @R @R @R
+  -- , runSynCirc "linear-r2-r" $ toCcc $ linear @R @(R :* R) @R
+  -- , runSynCirc "linear-r-r2" $ toCcc $ linear @R @R @(R :* R)
+  -- , runSynCirc "linear-r2-r2" $ toCcc $ linear @R @(R :* R) @(R :* R)
+
+
+
+  -- , runSynCirc "linear-v-r" $ toCcc $ linear @R @(Vector 4 R) @R
+
+  -- , runSynCirc "distribute-1-4" $ toCcc $ distributeC @(->) @(V R R) @(V R (Vector 4 R)) @R
+
+  -- , runSynCirc "distribute-4-1" $ toCcc $ distributeC @(->) @(V R (Vector 4 R)) @(V R R) @R
+
+  -- , runSynCirc "distribute-1-4" $ toCcc $ (distributeC :: V R R (V R (Vector 4 R) R) -> V R (Vector 4 R) (V R R R))
 
   -- -- Automatic differentiation with ADFun
   -- , runSynCirc "sin-adf"      $ toCcc $ andDerF $ sin @R
@@ -579,57 +587,57 @@ main = sequence_
 
   -- Array experiments
 
-  -- , runSynCirc "map-negate-arr" $ toCcc $ fmap @(Arr Bool) @Int negate
+  -- , runSynCirc "map-negate-arr" $ toCcc $ fmap @(Vector Bool) @Int negate
 
-  -- , runSynCirc "map-map-arr" $ toCcc $ fmap (+3) . fmap @(Arr Bool) @Int (+2)
+  -- , runSynCirc "map-map-arr" $ toCcc $ fmap (+3) . fmap @(Vector Bool) @Int (+2)
 
-  -- , runSynCirc "liftA2-arr-b" $ toCcc $ uncurry $ liftA2 @(Arr Bool) ((+) @Int)
+  -- , runSynCirc "liftA2-arr-b" $ toCcc $ uncurry $ liftA2 @(Vector Bool) ((+) @Int)
 
-  -- , runSynCirc "fmap-arr-bool-plus" $ toCcc $ fmap @(Arr Bool) ((+) @Int)
-  -- , runSynCirc "app-arr-bool" $ toCcc $ (<*>) @(Arr Bool) @Int @Int
+  -- , runSynCirc "fmap-arr-bool-plus" $ toCcc $ fmap @(Vector Bool) ((+) @Int)
+  -- , runSynCirc "app-arr-bool" $ toCcc $ (<*>) @(Vector Bool) @Int @Int
 
   -- , runSynCirc "fmap-fun-bool-plus" $ toCcc $ fmap   @((->) Bool) ((+) @Int)
   -- , runSynCirc "app-fun-bool"       $ toCcc $ (<*>)  @((->) Bool) @Int @Int
 
   -- , runSynCirc "liftA2-fun-bool"    $ toCcc $ liftA2 @((->) Bool) ((+) @Int)
 
-  -- , runSynCirc "sum-arr-lb1" $ toCcc $ sum @(Arr (LB N1)) @Int
-  -- , runSynCirc "sum-arr-lb2" $ toCcc $ sum @(Arr (LB N2)) @Int
-  -- , runSynCirc "sum-arr-lb3" $ toCcc $ sum @(Arr (LB N3)) @Int
-  -- , runSynCirc "sum-arr-lb4" $ toCcc $ sum @(Arr (LB N4)) @Int
-  -- , runSynCirc "sum-arr-lb8" $ toCcc $ sum @(Arr (LB N8)) @Int
+  -- , runSynCirc "sum-arr-lb1" $ toCcc $ sum @(Vector (LB N1)) @Int
+  -- , runSynCirc "sum-arr-lb2" $ toCcc $ sum @(Vector (LB N2)) @Int
+  -- , runSynCirc "sum-arr-lb3" $ toCcc $ sum @(Vector (LB N3)) @Int
+  -- , runSynCirc "sum-arr-lb4" $ toCcc $ sum @(Vector (LB N4)) @Int
+  -- , runSynCirc "sum-arr-lb8" $ toCcc $ sum @(Vector (LB N8)) @Int
 
-  -- , runSynCirc "sum-arr-rb1" $ toCcc $ sum @(Arr (RB N1)) @Int
-  -- , runSynCirc "sum-arr-rb2" $ toCcc $ sum @(Arr (RB N2)) @Int
-  -- , runSynCirc "sum-arr-rb3" $ toCcc $ sum @(Arr (RB N3)) @Int
-  -- , runSynCirc "sum-arr-rb4" $ toCcc $ sum @(Arr (RB N4)) @Int
-  -- , runSynCirc "sum-arr-rb8" $ toCcc $ sum @(Arr (RB N8)) @Int
+  -- , runSynCirc "sum-arr-rb1" $ toCcc $ sum @(Vector (RB N1)) @Int
+  -- , runSynCirc "sum-arr-rb2" $ toCcc $ sum @(Vector (RB N2)) @Int
+  -- , runSynCirc "sum-arr-rb3" $ toCcc $ sum @(Vector (RB N3)) @Int
+  -- , runSynCirc "sum-arr-rb4" $ toCcc $ sum @(Vector (RB N4)) @Int
+  -- , runSynCirc "sum-arr-rb8" $ toCcc $ sum @(Vector (RB N8)) @Int
 
   -- , runSynCirc "fmap-fun-bool-plus" $ toCcc $ fmap   @((->) Bool) ((+) @Int)
   -- , runSynCirc "app-fun-bool"       $ toCcc $ (<*>)  @((->) Bool) @Int @Int
   -- , runSynCirc "inArr2-liftA2-bool"    $ toCcc $
-  --      (inNew2 (liftA2 (+)) :: Binop (Arr Bool Int))
+  --      (inNew2 (liftA2 (+)) :: Binop (Vector Bool Int))
 
   -- , runSynCirc "sum-fun-2" $ toCcc $ (sum @((->) Bool) @Int)
   -- , runSynCirc "sum-fun-4" $ toCcc $ (sum @((->) (Bool :* Bool)) @Int)
 
   -- , runSynCirc "sum-fun-8" $ toCcc $ (sum @((->) ((Bool :* Bool) :* Bool)) @Int)
 
-  -- , runSynCirc "unpack-arr-2" $ toCcc $ (unpack @(Arr Bool Int))
-  -- , runSynCirc "unpack-arr-4" $ toCcc $ (unpack @(Arr (Bool :* Bool) Int))
+  -- , runSynCirc "unpack-arr-2" $ toCcc $ (unpack @(Vector Bool Int))
+  -- , runSynCirc "unpack-arr-4" $ toCcc $ (unpack @(Vector (Bool :* Bool) Int))
 
   -- , runSynCirc "sum-arr-fun-2"    $ toCcc $
-  --      (sum . unpack :: Arr Bool Int -> Int)
+  --      (sum . unpack :: Vector Bool Int -> Int)
   -- , runSynCirc "sum-arr-fun-4"    $ toCcc $
-  --      (sum . unpack :: Arr (Bool :* Bool) Int -> Int)
+  --      (sum . unpack :: Vector (Bool :* Bool) Int -> Int)
   -- , runSynCirc "sum-arr-fun-8"    $ toCcc $
-  --      (sum . unpack :: Arr ((Bool :* Bool) :* Bool) Int -> Int)
+  --      (sum . unpack :: Vector ((Bool :* Bool) :* Bool) Int -> Int)
 
-  -- , runSynCirc "fmap-arr-bool" $ toCcc $ fmap @(Arr Bool) (negate @Int)
-  -- , runSynCirc "liftA2-arr-bool" $ toCcc $ liftA2 @(Arr Bool) ((+) @Int)
+  -- , runSynCirc "fmap-arr-bool" $ toCcc $ fmap @(Vector Bool) (negate @Int)
+  -- , runSynCirc "liftA2-arr-bool" $ toCcc $ liftA2 @(Vector Bool) ((+) @Int)
   -- , runSynCirc "liftArr2-bool" $ toCcc $ liftArr2 @Bool ((+) @Int)
   -- , runSynCirc "liftArr2-bool-unc" $ toCcc $ uncurry (liftArr2 @Bool ((+) @Int))
-  -- , runSynCirc "sum-arr-bool" $ toCcc $ sum @(Arr Bool) @Int
+  -- , runSynCirc "sum-arr-bool" $ toCcc $ sum @(Vector Bool) @Int
 
   -- -- Int equality turns into matching, which takes some care.
   -- -- See boxCon/tweak in ConCat.Plugin

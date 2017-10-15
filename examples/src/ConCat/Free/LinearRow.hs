@@ -27,15 +27,17 @@ module ConCat.Free.LinearRow where
 import Prelude hiding (id,(.),zipWith)
 import GHC.Exts (Coercible,coerce)
 import Data.Foldable (toList)
-import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
-import GHC.TypeLits (KnownNat)
+import GHC.Generics (U1(..),(:*:)(..),(:.:)(..)) -- ,Par1(..)
+-- import GHC.TypeLits (KnownNat)
 
 import Data.Constraint
 import Data.Key (Zip(..))
-import Data.Distributive
+-- import Data.Distributive
+import Data.Functor.Rep (Representable)
+-- import qualified Data.Functor.Rep as R
 import Text.PrettyPrint.HughesPJClass hiding (render)
 import Control.Newtype
-import Data.Vector.Sized (Vector)
+-- import Data.Vector.Sized (Vector)
 
 import ConCat.Misc ((:*),PseudoFun(..),oops,R)
 import ConCat.Orphans ()
@@ -43,9 +45,9 @@ import ConCat.Free.VectorSpace
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
 import ConCat.AltCat hiding (const)
-import ConCat.AltAggregate (fmapC)
+import ConCat.AltAggregate
 import ConCat.Rep
-import ConCat.Free.Diagonal
+-- import ConCat.Free.Diagonal
 
 -- TODO: generalize from Num to Semiring
 
@@ -88,11 +90,13 @@ scaleL = diag 0
 idL :: (Diagonal a, Num s)
     => (a :-* a) s
 idL = scaleL 1
+{-# INLINE idL #-}
 
 -- Compose linear transformations
 compL :: (Zip a, Zip b, Zeroable a, Foldable b, Functor c, Num s)
      => (b :-* c) s -> (a :-* b) s -> (a :-* c) s
 bc `compL` ab = (\ b -> sumV (zipWith (*^) b ab)) <$> bc
+{-# INLINE compL #-}
 
 #if 0
 bc :: c (b s)
@@ -109,10 +113,12 @@ sumV (zipWith (*^) b ab) :: a s
 exlL :: (Zeroable a, Diagonal a, Zeroable b, Num s)
      => (a :*: b :-* a) s
 exlL = (:*: zeroV) <$> idL
+{-# INLINE exlL #-}
 
 exrL :: (Zeroable b, Diagonal b, Zeroable a, Num s)
      => (a :*: b :-* b) s
 exrL = (zeroV :*:) <$> idL
+{-# INLINE exrL #-}
 
 forkL :: (a :-* b) s -> (a :-* c) s -> (a :-* b :*: c) s
 forkL = (:*:)
@@ -125,13 +131,16 @@ itL = U1
 inlL :: (Zeroable a, Diagonal a, Zeroable b, Num s)
      => (a :-* a :*: b) s
 inlL = idL :*: zeroL
+{-# INLINE inlL #-}
 
 inrL :: (Zeroable a, Zeroable b, Diagonal b, Num s)
      => (b :-* a :*: b) s
 inrL = zeroL :*: idL
+{-# INLINE inrL #-}
 
 joinL :: Zip c => (a :-* c) s -> (b :-* c) s -> (a :*: b :-* c) s
 joinL = zipWith (:*:)
+{-# INLINE joinL #-}
 
 {--------------------------------------------------------------------
     Category
@@ -179,51 +188,16 @@ instance HasRep (L s a b) where
 
 instance HasV s (Rep (L s a b)) => HasV s (L s a b)
 
-#if 0
--- Convenient but lots of constraint solving work & volume
-type OkLF f = (Foldable f, Zeroable f, Zip f, Diagonal f{-, Distributive f-})
-#else
--- Less convenient but perhaps easier on the compiler
-class (Foldable f, Zeroable f, Zip f, Diagonal f{-, Distributive f-}) => OkLF f
-
-instance OkLF U1
-instance OkLF Par1
--- instance Eq k => OkLF ((->) k)
-instance (OkLF f, OkLF g) => OkLF (f :*: g)
-instance (OkLF f, OkLF g, Applicative f, Traversable g) => OkLF (g :.: f)
-
--- instance OkLF (Arr i)
-
-instance KnownNat n => OkLF (Vector n)
-#endif
+type OkLF f = (Foldable f, Zeroable f, Zip f, Diagonal f)
 
 type OkLM' s a = (Num s, HasV s a, OkLF (V s a))
 
--- type OkLM' s a = (Num s, HasV s a, HasL (V s a))
-
--- class    OkLM' s a => OkLM s a
 class    (Num s, HasV s a, OkLF (V s a)) => OkLM s a
-#if 1
--- Convenient but lots of constraint solving work & volume
--- instance OkLM' s a => OkLM s a
 instance (Num s, HasV s a, OkLF (V s a)) => OkLM s a
-#else
--- Less convenient and perhaps less work for the compiler
-instance OkLM Float Float
-instance OkLM Double Double
-instance (Num s) => OkLM s ()
-instance (OkLM s a, OkLM s b) => OkLM s (a,b)
-instance (Num s) => OkLM s (U1 a)
-instance (Num s, HasV s a, OkLF (V s a)) => OkLM s (Par1 a)
-instance (Num s, OkLM s (f a), OkLM s (g a)) => OkLM s ((f :*: g) a)
-instance (Num s, OkLM s (g (f a))) => OkLM s ((g :.: f) a)
-instance (Num s, OkLM s ((V s a :-* V s b) s)) => OkLM s (L s a b)
-#endif
-
--- instance Zeroable (L s a) where zeroV = L zeroV
 
 zeroLM :: (Num s, Zeroable (V s a), Zeroable (V s b)) => L s a b
 zeroLM = L zeroL
+{-# INLINE zeroLM #-}
 
 instance Category (L s) where
   type Ok (L s) = OkLM s
@@ -311,113 +285,21 @@ instance ( -- Ok2 (L s) a b
 lapply :: (Num s, Ok2 (L s) a b) => L s a b -> (a -> b)
 lapply (L gfa) = unV . lapplyL gfa . toV
 
--- lapplyL :: ... => (a :-* b) s -> a s -> b s
+type HasL s a = (HasV s a, Diagonal (V s a), Num s)  
 
-class OkLF f => HasL f where
-  -- | Law: @'linearL . 'lapply' == 'id'@ (but not the other way around)
-  -- linearL :: forall s g. (Num s, OkLF g) => (f s -> g s) -> (f :-* g) s
-  linearL :: forall s g. (Num s, Zip g, Distributive g)
-          => (f s -> g s) -> (f :-* g) s
-
-instance HasL U1 where
-  -- linearL :: forall s g. (Num s, OkLF g) => (U1 s -> g s) -> (U1 :-* g) s
-  -- linearL h = U1 <$ h U1
-  linearL h = const U1 <$> h U1
-  {-# INLINE linearL #-}
-
---       h    :: U1 s -> g s
---       h U1 :: g s
--- U1 <$ h U1 :: g (U1 s)
-
-instance HasL Par1 where
-  linearL h = Par1 <$> h (Par1 1)
-  {-# INLINE linearL #-}
-
---          h          :: Par1 s -> b s
---          h (Par1 1) :: b s
--- Par1 <$> h (Par1 1) :: b (Par1 s)
-
-instance (HasL f, HasL g) => HasL (f :*: g) where
-  -- linearL h = linearL (h . (:*: zeroV)) `joinL` linearL (h . (zeroV :*:))
-  linearL h = zipWith (:*:) (linearL (h . (:*: zeroV))) (linearL (h . (zeroV :*:)))
-  {-# INLINE linearL #-}
-
---          q                :: (f :*: g) s -> h s
---              (:*: zeroV)  :: f s -> (f :*: g) s
---          q . (:*: zeroV)  :: f s -> h s
--- linearL (q . (:*: zeroV)) :: (f :-* h) s
-
--- instance HasL (Arr i) where
---   linearL h = 
-
--- h :: Arr i s -> g s
-
-
-#if 0
-instance (HasL f, HasL g) => HasL (g :.: f) where
-  linearL q = ...
-
-q :: ((g :.: f) s -> h s) -> ((g :.: f) :-* h) s
-  =~ (g (f s) -> h s) -> h ((g :.: f) s)
-  =~ (g (f s) -> h s) -> h (g (f s))
-  =~ (g (f s) -> h s) -> h (g (f s))
-#else
-
--- -- Hack: specialize to Par1 for now. Either work out the general case, or
--- -- abandon HasL in favor of Representable.
--- instance HasL g => HasL (g :.: Par1) where
---   linearL q = ...
-
--- q :: ((g :.: Par1) s -> h s) -> ((g :.: Par1) :-* h) s
--- q . 
-
-#endif
-
-instance KnownNat n => HasL (Vector n) where
-  linearL h = distribute (h `fmapC` idL)
-  {-# INLINE linearL #-}
-
---             h          :: Vector n s -> g s
---                   idL  :: Vector n (Vector n s)
---             h <$> idL  :: Vector n (g s)
--- distribute (h <$> idL) :: g (Vector n s)
-
-
-#if 0
-
-instance HasL ((->) k) where
-  linearL h = ...
-
-h :: (k -> s) -> g s
-
-want :: ((k -> s) :-* g) s
-     :: g (k -> s)
-
-#endif
-
-type HasLin s a b =
-  (HasV s a, HasV s b, HasL (V s a), Zip (V s b), Distributive (V s b), Num s)
-
--- was (OkLM s a, OkLM s b, HasL (V s a)) => (a -> b) -> L s a b
+type HasLin s a b = (HasV s a, HasV s b, Diagonal (V s a), Representable (V s b), Num s)  
 
 linear :: HasLin s a b => (a -> b) -> L s a b
-linear f = L (linearL (inV f))
--- linear f = L (linearF (inV f))
+linear f = L (linearF (inV f))
 {-# INLINE linear #-}
 
-
--- f :: a -> b
--- inV f :: V s a s -> V s b s
-
-linear' :: (HasV s a, HasV s b, Diagonal (V s a), Distributive (V s b), Num s) => (a -> b) -> L s a b
-linear' f = L (linearF (inV f))
-
-linearF :: (Diagonal f, Distributive g, Num s) => (f s -> g s) -> (f :-* g) s
+linearF :: (Diagonal f, Representable g, Num s) => (f s -> g s) -> (f :-* g) s
 -- linearF q = undual <$> distribute q
 -- linearF q = distribute (q <$> idL)
 -- linearF q = distribute (fmap q idL)
 -- linearF q = collect q idL
-linearF = flip collect idL
+linearF = flip collectC idL
+{-# INLINE linearF #-}
 
 -- q :: f s -> g s
 --   :: (->) (f s) (g s)

@@ -29,18 +29,20 @@ import Data.Foldable (toList)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import Data.Constraint
 
+import Data.Functor.Rep (Representable)
+import qualified Data.Functor.Rep as R
 import Data.Key (Zip(..))
 import Text.PrettyPrint.HughesPJClass hiding (render)
 import Control.Newtype
 
 import ConCat.Misc ((:*),PseudoFun(..),oops,R)
+import ConCat.Rep
 import ConCat.Orphans ()
 import ConCat.Free.VectorSpace
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
 import ConCat.AltCat
-import ConCat.Rep
-import ConCat.Free.Diagonal
+import ConCat.AltAggregate (diag)
 
 {--------------------------------------------------------------------
     Linear maps
@@ -154,7 +156,7 @@ instance HasV s (L s a b) where
   toV = abst . repr
   unV = abst . repr
 
-type OkLF' f = (Foldable f, Zeroable f, Zip f, Diagonal f)
+type OkLF' f = (Foldable f, Zeroable f, Zip f, Representable f)
 
 type OkLM' s a = (Num s, HasV s a, HasL (V s a)) -- , OkLF' (V s a)
 
@@ -224,7 +226,7 @@ instance (Ok2 (L s) a b
   coerceC = coerce (id :: L s a a)
 #else
 instance ( -- Ok2 (L s) a b
-           Num s, Diagonal (V s a)
+           Num s, Representable (V s a)
          -- , Coercible (V s a) (V s b)
          , Coercible (Rep (L s a a)) (Rep (L s a b))
          -- , Coercible (V s a (V s a s)) (V s b (V s a s))

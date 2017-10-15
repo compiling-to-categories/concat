@@ -338,40 +338,9 @@ AbstIf((a,b,c))
 
 #endif
 
-#ifdef VectorSized
-instance KnownNat n => ArrayCat Syn n b where
-  arrAt = app0 "arrAt"
-  array = app0 "array"
-  -- at    = app0 "at"
-#else
-instance ArrayCat Syn a b where
-  arrAt = app0 "arrAt"
-  array = app0 "array"
-  -- at    = app0 "at"
-#endif
-
 instance UnknownCat Syn a b where
   unknownC = app0 "unknownC"
   INLINER(unknownC)
-
-instance OkFunctor Syn h where okFunctor = Entail (Sub Dict)
-
-instance Representable h => LinearCat Syn h where
-  fmapC  = app0 "fmapC"
-  zipC   = app0 "zipC"
-  pointC = app0 "pointC"
-  INLINER(fmapC)
-  INLINER(zipC)
-  INLINER(pointC)
-
-instance DiagCat Syn h where
-  diagC = app0 "diagC"
-  INLINER(diagC)
-
-instance SumCat Syn h where
-  sumC = app0 "sumC"
-  INLINER(sumC)
-
 
 -- #define ShowTypes
 
@@ -399,6 +368,32 @@ instance (r ~ Rep a, T a, T r) => RepCat Syn a r where
 instance (Typeable a, Typeable b) => CoerceCat Syn a b where
   coerceC = app0' "coerceC"
   INLINER(coerceC)
+
+instance OkFunctor Syn h where okFunctor = Entail (Sub Dict)
+
+instance FunctorCat Syn h where
+  fmapC = app0 "fmapC"
+  INLINER(fmapC)
+
+instance LinearCat Syn h where
+  zipC   = app0 "zipC"
+  pointC = app0 "pointC"
+  INLINER(zipC)
+  INLINER(pointC)
+
+instance SumCat Syn h where
+  sumC = app0 "sumC"
+  INLINER(sumC)
+
+instance DistributiveCat Syn g f where
+  distributeC = app0 "distribute"
+  INLINER(distributeC)
+
+instance RepresentableCat Syn g where
+  indexC    = app0 "index"
+  tabulateC = app0 "tabulate"
+  INLINER(indexC)
+  INLINER(tabulateC)
 
 {--------------------------------------------------------------------
     Pretty-printing utilities

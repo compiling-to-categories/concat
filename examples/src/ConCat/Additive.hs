@@ -23,12 +23,11 @@ import Data.Ratio
 import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 -- import Data.Constraint (Dict(..),(:-)(..))
-#ifdef VectorSized
 import GHC.TypeLits (KnownNat)
-#endif
 
 import Data.Constraint (Dict(..),(:-)(..))
 import Data.Functor.Rep (Representable(..))
+import Data.Vector.Sized (Vector)
 
 import Control.Newtype (Newtype(..))
 -- import Data.MemoTrie
@@ -123,11 +122,7 @@ instance Additive v => Additive (Pair v)
 -- TODO: Generalize LinearCat back to functors, and use the Additive (Arr i v)
 -- above as the defaults.
 
-instance ( Additive v
-#ifdef VectorSized
-         , KnownNat i
-#endif
-         ) => Additive (Arr i v)
+instance (Additive v, KnownNat n) => Additive (Vector n v)
 
 class Additive1 h where additive1 :: Sat Additive a |- Sat Additive (h a)
 

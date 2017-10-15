@@ -181,6 +181,8 @@ constExpr C.Float   = FloatConstant       . read
 constExpr C.Double  = FloatConstant       . read
 constExpr ty = error ("ConCat.GLSL.constExpr: unexpected literal type: " ++ show ty)
 
+-- TODO: Vector
+
 -- Cheat: treat Integer as Int
 integerConstant :: Integer -> Expr
 integerConstant = IntConstant Decimal . fromInteger

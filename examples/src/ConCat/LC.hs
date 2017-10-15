@@ -33,7 +33,7 @@ import ConCat.Free.VectorSpace (HasV(..))
 import ConCat.AltCat (OpCon(..),Sat(..),type (|-)(..))
 
 import ConCat.Free.LinearRow
-import ConCat.ADFun (RepresentableVE)
+-- import ConCat.ADFun (RepresentableVE)
 import ConCat.Additive (Additive)
 import ConCat.Circuit
 
@@ -59,21 +59,19 @@ instance OpCon (:*) (Sat OkLC) where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
 
--- type HasLin s a b = (HasV s a, HasV s b, HasL (V s a), Zip (V s b), Num s)
-
-class    (HasV R a, HasL (V R a), Zip (V R a), Additive a, GenBuses a) => OkLFC a
-instance (HasV R a, HasL (V R a), Zip (V R a), Additive a, GenBuses a) => OkLFC a
+class    (HasL R a, Zip (V R a), Additive a, GenBuses a) => OkLFC a
+instance (HasL R a, Zip (V R a), Additive a, GenBuses a) => OkLFC a
 
 instance OpCon (:*) (Sat OkLFC) where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
 
 
-class    (RepresentableVE R a, GenBuses a) => OkLFC' a
-instance (RepresentableVE R a, GenBuses a) => OkLFC' a
+-- class    (RepresentableVE R a, GenBuses a) => OkLFC' a
+-- instance (RepresentableVE R a, GenBuses a) => OkLFC' a
 
-instance OpCon (:*) (Sat OkLFC') where
-  inOp = Entail (Sub Dict)
-  {-# INLINE inOp #-}
+-- instance OpCon (:*) (Sat OkLFC') where
+--   inOp = Entail (Sub Dict)
+--   {-# INLINE inOp #-}
 
 #endif
