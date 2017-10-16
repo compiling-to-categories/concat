@@ -4,6 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
@@ -21,19 +22,23 @@ import Data.Finite (Finite)
 import Data.Vector.Sized (Vector)
 
 import ConCat.Misc ((:*))
-import ConCat.Aggregate (LinearCat,SumCat,DiagCat)
+import ConCat.Aggregate
+  (FunctorCat,LinearCat,SumCat,DistributiveCat,RepresentableCat)
 import qualified ConCat.Aggregate as C
 import ConCat.AltCat
 
 #include "ConCat/Ops.inc"
 
-Op0(fmapC , (LinearCat k h, Ok2 k a b)  => (a -> b) `k` (h a -> h b))
+Op0(fmapC , (FunctorCat k h, Ok2 k a b) => (a -> b) `k` (h a -> h b))
 Op0(zipC  , (LinearCat k h, Ok2 k a b)  => (h a :* h b) `k` h (a :* b))
 Op0(pointC, (LinearCat k h, Ok k a)     => a `k` h a)
 Op0(sumC  , (SumCat k h, Ok k a, Num a) => h a `k` a)
-Op0(diagC , (DiagCat k h, Ok k a)       => (a :* a) `k` h (h a))
 
-fmapC' :: forall k h a b. (LinearCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
+Op0(distributeC, (DistributiveCat k g f, Ok k a) => f (g a) `k` g (f a))
+Op0(tabulateC  , (RepresentableCat k f , Ok k a) => (Rep f -> a) `k` f a)
+Op0(indexC     , (RepresentableCat k f , Ok k a) => f a `k` (Rep f -> a))
+
+fmapC' :: forall k h a b. (FunctorCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
         => (a `k` b) -> (h a `k` h b)
 fmapC' f = funConst (fmapC . constFun f)
              <+ okExp     @k @(h a) @(h b)
@@ -46,7 +51,7 @@ fmapC' f = funConst (fmapC . constFun f)
 --           fmapC . constFun f  :: () `k` (h a -> h b)
 -- funConst (fmapC . constFun f) :: h a `k` h b
 
-unzipC :: forall k h a b. (LinearCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
+unzipC :: forall k h a b. (FunctorCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
        => h (a :* b) `k` (h a :* h b)
 unzipC = fmapC' exl &&& fmapC' exr
            <+ okFunctor @k @h @(a :* b)
@@ -55,7 +60,8 @@ unzipC = fmapC' exl &&& fmapC' exr
            <+ okProd    @k @a @b
 {-# INLINE unzipC #-}
 
-zapC :: forall k h a b. (LinearCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
+zapC :: forall k h a b.
+        (FunctorCat k h, LinearCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
      => (h (a -> b) :* h a) `k` h b
 zapC = fmapC' apply . zipC
          <+ okFunctor @k @h @((a -> b) :* a)
@@ -67,12 +73,14 @@ zapC = fmapC' apply . zipC
          <+ okExp     @k    @a @b
 {-# INLINE zapC #-}
 
-diag :: forall h a. (Representable h, Eq (Rep h)) => a -> a -> h (h a)
-diag = curry diagC
-{-# INLINE diag #-}
+-- TODO: Is there any value to defining utility functions like unzipC and zapC
+-- in categorical generality? Maybe df only for functions, but still using the
+-- categorical building blocks. Later extend to other categories by translation,
+-- at which point the Ok constraints will be checked anyway.
 
--- okArr :: forall k i a. Ok' k a |- Ok' k (Arr i a)
--- okArr = okFunctor @k @(Arr i) @a
+collectC :: (Representable g, Functor f) => (a -> g b) -> f a -> g (f b)
+collectC f = distributeC . fmapC f
+{-# INLINE collectC #-}
 
 {-# RULES
 
@@ -80,14 +88,13 @@ diag = curry diagC
 
  #-}
 
+-- -- Names are in transition
 
--- Names are in transition
+-- tabulateC :: ArrayCat k n b => Exp k (Finite n) b `k` Arr n b
+-- tabulateC = array
 
-tabulateC :: ArrayCat k n b => Exp k (Finite n) b `k` Arr n b
-tabulateC = array
-
-indexC :: ArrayCat k n b => Arr n b `k` Exp k (Finite n) b
-indexC = curry arrAt
+-- indexC :: ArrayCat k n b => Arr n b `k` Exp k (Finite n) b
+-- indexC = curry arrAt
 
 
 -- Variant of 'distributeRep' from Data.Functor.Rep
@@ -104,3 +111,16 @@ indexC = curry arrAt
 --                => w (f a) -> f (w a)
 
 -- distributeRepC wf = tabulateC (\k -> fmapC (`indexC` k) wf)
+
+type Diagonal h = (Representable h, Eq (Rep h))
+
+diag :: Diagonal h => a -> a -> h (h a)
+diag z o =
+  -- tabulateC (\ i -> tabulateC (\ j -> if i == j then o else z))
+  tabulateC (\ i -> tabulateC (\ j -> if equal (i,j) then o else z))
+{-# INLINE diag #-}
+
+-- TODO: retry diag as a single tabulateC on h :.: h.
+
+-- HACK: the equal here is to postpone dealing with equality on sum types just yet.
+-- See notes from 2017-10-15.

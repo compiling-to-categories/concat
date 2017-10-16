@@ -1123,13 +1123,13 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
        return ({- onDict -} (catOp cat op tys))
    -- TODO: handle Prelude.const. Or let it inline.
    catFun _ = Nothing
+
    transCatOp :: ReExpr
    transCatOp (collectArgs -> (Var v, Type (TyConApp (isFunTyCon -> True) []) : rest))
-      -- | dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) False = undefined
-     -- | okArgs
-     = let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
+     = -- dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) $
+       let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
            addArg :: Maybe CoreExpr -> CoreExpr -> Maybe CoreExpr
-           -- addArg a b | dtrace "transCatOp addArg" (ppr (a,b)) False = undefined
+           -- addArg a b | -- dtrace "transCatOp addArg" (ppr (a,b)) False = undefined
            addArg Nothing _ = -- dtrace "transCatOp Nothing" (text "bailing") $
                               Nothing
            addArg (Just e) arg
@@ -1155,8 +1155,9 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
          case final of
            Just e' | not (hasCatArg e') -> Just e'
            _                            -> Nothing
-   transCatOp _ = -- pprTrace "transCatOp" (text "fail") $
+   transCatOp _ = -- dtrace "transCatOp" (text "fail") $
                   Nothing
+
    isCatTy :: Type -> Bool
    isCatTy (splitAppTy_maybe -> Just (splitAppTy_maybe -> Just (k,_),_)) =
      k `eqType` cat
@@ -1594,9 +1595,11 @@ polyInfo = [(hmod++"."++hop,(catModule,cop)) | (hmod,ops) <- info, (hop,cop) <- 
           , ("GHC.Tuple", [("(,)","pair"),("swap","swapP")])
           , ("Data.Tuple",[("fst","exl"),("snd","exr")])
           , ("Data.Either", [("Left","inl"),("Right","inr")])
-          , ("ConCat.Category", [("arrayFun","array"),("arrAtFun","arrAt")])
+          -- , ("ConCat.Category", [("arrayFun","array"),("arrAtFun","arrAt")])
           ]
    tw x = (x,x)
+
+-- TODO: Do we still need polyInfo?
 
 -- Variables that have associated ccc rewrite rules in AltCat. If we have
 -- sufficient arity for the rule, including types, give it a chance to kick in.

@@ -142,6 +142,14 @@ boxIB i = tagToEnum# i
 -- "modInteger    cat" [~0] modInteger    = 
 -- "gcdInteger    cat" [~0] gcdInteger    = 
 -- "lcmInteger    cat" [~0] lcmInteger    = 
+-- We also see the # versions in some optimized code.
+
+"boxZ ==" [~0] forall u v . eqInteger#  u v  = unboxIB (equal              (u,v))
+"boxZ /=" [~0] forall u v . neqInteger# u v  = unboxIB (notEqual           (u,v))
+"boxZ >"  [~0] forall u v . gtInteger#  u v  = unboxIB (greaterThan        (u,v))
+"boxZ >=" [~0] forall u v . geInteger#  u v  = unboxIB (greaterThanOrEqual (u,v))
+"boxZ <"  [~0] forall u v . ltInteger#  u v  = unboxIB (lessThan           (u,v))
+"boxZ <=" [~0] forall u v . leInteger#  u v  = unboxIB (lessThanOrEqual    (u,v))
 
 -- We also see the # versions in some optimized code.
 
@@ -224,3 +232,13 @@ ghc: panic! (the 'impossible' happened)
 ifEqInt# :: Int# -> Int# -> a -> a -> a
 ifEqInt# m n a b = if equal (boxI m, boxI n) then a else b
 {-# INLINE ifEqInt# #-}
+
+-- Experiment. See 2017-10-15 notes.
+
+{-# RULES
+
+-- "curry 2" forall f a b. curry f a b = f (a,b)
+
+-- "cat equal" [~0] (==) = curry equal
+
+ #-}

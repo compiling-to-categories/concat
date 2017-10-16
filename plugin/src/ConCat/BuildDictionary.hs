@@ -136,7 +136,7 @@ buildDictionary' env dflags guts evar =
 buildDictionary :: HscEnv -> DynFlags -> ModGuts -> InScopeEnv -> Type -> Either SDoc CoreExpr
 buildDictionary env dflags guts inScope ty =
   -- pprTrace "buildDictionary" (ppr ty) $
-  -- pprTrace "buildDictionary inScope" (ppr (fst inScope)) $
+  -- -- pprTrace "buildDictionary inScope" (ppr (fst inScope)) $
   -- pprTrace "buildDictionary" (ppr ty $$ text "-->" $$ ppr dict) $
   -- pprTrace "buildDictionary free vars" (ppr (exprFreeVars dict)) $
   -- pprTrace "buildDictionary (bnds,freeIds)" (ppr (bnds,freeIds)) $

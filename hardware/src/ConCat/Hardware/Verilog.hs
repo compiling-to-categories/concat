@@ -101,20 +101,18 @@ mkModule name cs = Module name
 busId' :: Bus -> (String, Int)
 busId' (Bus cId ix ty) = ('n' : show cId ++ ('_' : show ix), width)
   where width = case ty of
-                  C.Void    -> err "Void"
-                  C.Unit    -> 0
-                  C.Bool    -> 1
-                  C.Int     -> 32
-                  C.Integer -> 32   -- Is there a right choice here?
-                  C.Float   -> 32
-                  C.Double  -> 64
-#ifdef VectorSized
-                  C.Finite n -> ceiling (log (fromInteger n) :: Double)
-#endif
-                  C.Arr  _ _ -> err "Arr"
-                  C.Prod _ _ -> err "Prod"
-                  C.Sum  _ _ -> err "Sum"
-                  C.Fun  _ _ -> err "Fun"
+                  C.Void       -> err "Void"
+                  C.Unit       -> 0
+                  C.Bool       -> 1
+                  C.Int        -> 32
+                  C.Integer    -> 32   -- Is there a right choice here?
+                  C.Float      -> 32
+                  C.Double     -> 64
+                  C.Finite n   -> ceiling (log (fromInteger n) :: Double)
+                  C.Vector _ _ -> err "Arr"
+                  C.Prod   _ _ -> err "Prod"
+                  C.Sum    _ _ -> err "Sum"
+                  C.Fun    _ _ -> err "Fun"
         err t = error $ "ConCat.Hardware.Verilog.busId': Don't know what to do with Bus of type " ++ t ++ ", yet."
 
 busName :: Bus -> String

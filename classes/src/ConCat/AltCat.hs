@@ -66,7 +66,7 @@ import ConCat.Category
   , NumCat, IntegralCat, FractionalCat, FloatingCat, RealFracCat, FromIntegralCat
   , EqCat, OrdCat, EnumCat, BottomCat, IfCat, IfT, UnknownCat, RepCat, CoerceCat
   , repIf
-  , Arr, ArrayCat
+  -- , Arr, ArrayCat
   , TransitiveCon(..)
   , U2(..), (:**:)(..)
   , type (|-)(..), (<+), okProd, okExp, OkFunctor(..)
@@ -220,6 +220,8 @@ funConst :: forall k a b. (ClosedCat k, TerminalCat k, Ok2 k a b)
          => (() `k` (a -> b)) -> (a `k` b)
 funConst f = uncurry f . lunit <+ okProd @k @(Unit k) @a
 
+#if 0
+
 #ifdef VectorSized
 
 Op0(array, ArrayCat k n b => Exp k (Finite n) b `k` Arr n b)
@@ -243,6 +245,8 @@ at :: (ArrayCat k a b, ClosedCat k, Ok3 k a b (Arr a b))
    => Arr a b `k` Exp k a b
 at = curry arrAt
 -- {-# OPINLINE at #-}
+
+#endif
 
 #endif
 
@@ -530,6 +534,8 @@ unCcc f = unCcc' (conceal f)
  #-}
 #endif
 
+#if 0
+
 {-# RULES
 
 -- "arrAt . arr" forall g f. atArr . (array . g &&& f) = atArr g f
@@ -552,12 +558,13 @@ unCcc f = unCcc' (conceal f)
 -- the simplifier will inline and eliminate the identity synonym while leaving
 -- the constraint behind.
 
-
 atArr :: forall k i a b. (ClosedCat k, Ok3 k i a b)
       => (a `k` Exp k i b) -> (a `k` i) -> (a `k` b)
 atArr g f = apply . (g &&& f)
   <+ okProd @k @(Exp k i b) @i
   <+ okExp @k @i @b
+
+#endif
 
 coco :: forall k a b c. (CoerceCat k a b, CoerceCat k b c, TransitiveCon (CoerceCat k))
      => (a `k` c)

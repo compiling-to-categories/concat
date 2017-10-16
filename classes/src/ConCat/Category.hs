@@ -46,7 +46,6 @@ import Control.Arrow (Kleisli(..),arr)
 import qualified Control.Arrow as A
 import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
--- import Data.Proxy (Proxy)
 import Data.Typeable (Typeable)
 import GHC.Exts (Coercible,coerce)
 import Data.Type.Equality ((:~:)(..))
@@ -59,9 +58,8 @@ import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import GHC.Types (type (*))  -- experiment with TypeInType
 -- import qualified Data.Constraint as K
 import GHC.TypeLits
-import Data.Array (Array,(!),bounds,Ix)
-import qualified Data.Array as Arr
-import Data.Proxy (Proxy(..))
+-- import Data.Array (Array,(!),bounds,Ix)
+-- import qualified Data.Array as Arr
 import GHC.Generics ((:*:)(..),(:.:)(..))
 import qualified Data.Vector.Sized as VS
 
@@ -1617,6 +1615,8 @@ instance (CoerceCat k a b, CoerceCat k' a b) => CoerceCat (k :**: k') a b where
   coerceC = coerceC :**: coerceC
   PINLINER(coerceC)
 
+#if 0
+
 #ifdef VectorSized
 -- TODO: drop "Arr" alias if these definitions work out
 type Arr = Vector
@@ -1709,6 +1709,8 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
 --   array = arr array
 --   arrAt = arr arrAt
 -- #endif
+
+#endif
 
 #endif
 

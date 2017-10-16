@@ -78,8 +78,6 @@
 -- Circuit representation
 ----------------------------------------------------------------------
 
--- #define VectorSized
-
 module ConCat.Circuit
   ( CircuitM, (:>)
   , Bus(..),Comp(..),Input,Output, Ty(..), busTy, Source(..), Template(..)
@@ -116,6 +114,8 @@ import Data.Maybe (fromMaybe,isJust,maybeToList)
 import Data.List (intercalate,group,sort,stripPrefix)
 import Data.Char (isAscii)
 import Data.Complex (Complex)
+import Data.Proxy (Proxy(..))
+import GHC.TypeLits (natVal)
 #ifndef MealyToArrow
 import Data.List (partition)
 #endif
@@ -135,6 +135,8 @@ import Data.Type.Equality ((:~:)(..))
 import Data.Constraint (Dict(..),(:-)(..))
 import Data.Key (Zip(..))
 import Data.Functor.Rep (Representable)
+import qualified Data.Functor.Rep as R
+import Data.Vector.Sized (Vector)
 
 import qualified System.Info as SI
 import System.Process (system) -- ,readProcess
@@ -166,7 +168,7 @@ import ConCat.AltCat (Uncurriable(..))
 import ConCat.Aggregate
 
 import qualified ConCat.Free.LinearRow as LR
-import qualified ConCat.Free.LinearCol as LC
+-- import qualified ConCat.Free.LinearCol as LC
 
 {--------------------------------------------------------------------
     Buses
@@ -174,13 +176,8 @@ import qualified ConCat.Free.LinearCol as LC
 
 -- Component (primitive) type
 data Ty = Void | Unit | Bool | Int | Integer | Float | Double
-#ifdef VectorSized
         | Finite Integer  -- Remove?
-        | Arr Integer Ty
-#else
-        | Arr Ty Ty
-        -- | Arr TypeRep Ty
-#endif
+        | Vector Integer Ty
         | Prod Ty Ty
         | Sum Ty Ty
         | Fun Ty Ty
@@ -198,15 +195,10 @@ instance Show Ty where
     showsPrec 6 a . showString " + " . showsPrec 6 b
   showsPrec p (Prod a b) = showParen (p >= 7) $
     showsPrec 7 a . showString " × " . showsPrec 7 b
-#ifdef VectorSized
   showsPrec p (Finite n) = showParen (p >= 9) $
     showString "Finite " . showsPrec 9 n
-  showsPrec p (Arr n b) = showParen (p >= 9) $
+  showsPrec p (Vector n b) = showParen (p >= 9) $
     showString "Vector " . showsPrec 9 n . showString " " . showsPrec 9 b
-#else
-  showsPrec p (Arr a b) = showParen (p >= 9) $
-    showString "Arr " . showsPrec 9 a . showString " " . showsPrec 9 b
-#endif
   showsPrec p (Fun a b) = showParen (p >= 1) $
     showsPrec 1 a . showString " → " . showsPrec 0 b
 
@@ -312,7 +304,7 @@ unflattenB sources | [] <- rest = a
  where
    (a,rest) = M.runState unflattenB' sources
 
--- TODO: Remove this instance when we stop needing GenBuses for Arr index
+-- TODO: Remove this instance when we stop needing GenBuses for Vector index
 instance GenBuses Void where
   genBuses' = error "genBuses' for Void"
   ty = Void
@@ -386,27 +378,20 @@ instance GenBuses Double  where
   ty = Double
   unflattenB' = unflattenPrimB
 
-#ifdef VectorSized
-
-instance (KnownNat n, GenBuses b) => GenBuses (Arr n b)  where
+instance KnownNat n => GenBuses (Finite n) where
   genBuses' = genPrimBus
   -- delay = primDelay
-  ty = Arr (A.natV @n) (ty @b)
+  ty = Finite (natVal (Proxy @n))
   unflattenB' = unflattenPrimB
 
-#else
-
-instance (GenBuses i {-Typeable i-}, GenBuses b) => GenBuses (Arr i b)  where
+instance (KnownNat n, GenBuses b) => GenBuses (Vector n b)  where
   genBuses' = genPrimBus
   -- delay = primDelay
-  ty = Arr (ty @i) (ty @b)
-  -- ty = Arr (typeOf (undefined :: a)) (ty @b)
+  ty = Vector (natVal (Proxy @n)) (ty @b)
   unflattenB' = unflattenPrimB
-
-#endif
 
 -- TODO: perhaps give default definitions for genBuses', delay, and unflattenB',
--- and eliminate the definitions in Bool,...,Double,Arr a.
+-- and eliminate the definitions in Bool,...,Double,Vector a.
 
 
 instance (GenBuses a, GenBuses b) => GenBuses (a :+ b)  where
@@ -846,22 +831,17 @@ instance (OkFunctor (:>) f, OkFunctor (:>) g)
                              <+ okFunctor @(:>) @g @(f a)
                              <+ okFunctor @(:>) @f @a))
 
--- instance GenBuses i => OkFunctor (:>) (Arr i) where okFunctor = Entail (Sub Dict)
+instance KnownNat i => OkFunctor (:>) (Vector i) where
+  okFunctor = Entail (Sub Dict)
 
-instance 
-#ifdef VectorSized
-         KnownNat i =>
-#else
-         GenBuses i =>
-#endif
-         OkFunctor (:>) (Arr i) where okFunctor = Entail (Sub Dict)
-
-instance OkFunctor (:>) h => LinearCat (:>) h where
+instance OkFunctor (:>) h => FunctorCat (:>) h where
   fmapC :: forall a b. Ok2 (:>) a b => (a -> b) :> (h a -> h b)
   fmapC = -- trace "fmapC on (:>)" $
           namedC "fmap"
             <+ okFunctor @(:>) @h @a
             <+ okFunctor @(:>) @h @b
+
+instance OkFunctor (:>) h => LinearCat (:>) h where
   zipC  :: forall a b. Ok2 (:>) a b => (h a :* h b) :> h (a :* b)
   zipC = namedC "zip"
            <+ okFunctor @(:>) @h @(a :* b)
@@ -871,16 +851,21 @@ instance OkFunctor (:>) h => LinearCat (:>) h where
   pointC = namedC "point"
              <+ okFunctor @(:>) @h @a
 
-instance OkFunctor (:>) h => DiagCat (:>) h where
-  diagC :: forall a. Ok (:>) a => a :* a :> h (h a)
-  diagC = namedC "diag"
-            <+ okFunctor @(:>) @h @(h a)
-            <+ okFunctor @(:>) @h @a
-
 instance OkFunctor (:>) h => SumCat (:>) h where
   sumC :: forall a. (Ok (:>) a, Num a) => h a :> a
-  sumC = namedC "sum"
-           <+ okFunctor @(:>) @h @a
+  sumC = namedC "sum" <+ okFunctor @(:>) @h @a
+
+instance (OkFunctor (:>) g, OkFunctor (:>) f) => DistributiveCat (:>) g f where
+  distributeC :: forall a. Ok (:>) a => f (g a) :> g (f a)
+  distributeC = namedC "distribute"
+                  <+ okFunctor @(:>) @g @(f a) <+ okFunctor @(:>) @f @a
+                  <+ okFunctor @(:>) @f @(g a) <+ okFunctor @(:>) @g @a
+
+instance (GenBuses (R.Rep f), OkFunctor (:>) f) => RepresentableCat (:>) f where
+  tabulateC :: forall a. Ok (:>) a => (R.Rep f -> a) :> f a
+  tabulateC = namedC "tabulate" <+ okFunctor @(:>) @f @a
+  indexC :: forall a. Ok (:>) a => f a :> (R.Rep f -> a)
+  indexC = namedC "index" <+ okFunctor @(:>) @f @a
 
 #if 0
 
@@ -979,10 +964,10 @@ instance SourceToBuses Float   where toBuses = PrimB
 instance SourceToBuses Double  where toBuses = PrimB
 
 #ifdef VectorSized
-instance (KnownNat n, GenBuses b) => SourceToBuses (Arr n b) where
+instance (KnownNat n, GenBuses b) => SourceToBuses (Vector n b) where
   toBuses = PrimB
 #else
-instance (GenBuses i {-Typeable i-}, GenBuses b) => SourceToBuses (Arr i b) where
+instance (GenBuses i {-Typeable i-}, GenBuses b) => SourceToBuses (Vector i b) where
   toBuses = PrimB
 #endif
 
@@ -1120,7 +1105,7 @@ neOpt = \ case
   _              -> nothingA
 
 #define EqTemplate(ty) \
- instance EqCat (:>) (ty) where { \
+ instance (Read (ty), Eq (ty), GenBuses (ty)) => EqCat (:>) (ty) where { \
     equal    = primOptSort "==" (eqOpt @(ty)) ;\
     notEqual = primOptSort "/=" (neOpt @(ty))  \
   }
@@ -1192,6 +1177,7 @@ EqTemplate(Int)
 EqTemplate(Integer)
 EqTemplate(Float)
 EqTemplate(Double)
+EqTemplate(a :+ b)
 
 instance EqCat (:>) Bool where
   equal    = primOptSort "=="  (eqOpt @Bool `orOpt` eqOptB)
@@ -1200,8 +1186,10 @@ instance EqCat (:>) Bool where
 instance EqCat (:>) () where
   equal = constC True
 
-instance (EqCat (:>) a, EqCat (:>) b) => EqCat (:>) (a,b) where
+instance (EqCat (:>) a, EqCat (:>) b) => EqCat (:>) (a :* b) where
   equal = andC . (equal *** equal) . transposeP
+
+-- Use EqTemplate for (a :* b) ?
 
 -- TODO: optimizations.
 ltOpt, gtOpt, leOpt, geOpt :: forall a. (Read a, Ord a) => Opt Bool
@@ -1503,41 +1491,14 @@ instance IfCat (:>) Int     where ifC = primOpt "if" (ifOpt `orOpt` ifOptI)
 instance IfCat (:>) Float   where ifC = primOpt "if" ifOpt
 instance IfCat (:>) Double  where ifC = primOpt "if" ifOpt
 
--- instance ({-GenBuses a, -}GenBuses b) => IfCat (:>) (Arr {-a -}b) where
---   -- ifC = primOpt "if" ifOpt
---   ifC = primOpt "if" ifOpt
+-- TODO: Would we rather zip the conditional over the vector?
+instance (GenBuses b, KnownNat n) => IfCat (:>) (Vector n b) where
+  ifC = primOpt "if" ifOpt
 
 instance IfCat (:>) () where ifC = unitIf
 
 instance (IfCat (:>) a, IfCat (:>) b) => IfCat (:>) (a :* b) where
   ifC = prodIf
-
-#ifdef VectorSized
-
-instance KnownNat n => GenBuses (Finite n) where
-  genBuses' = genPrimBus
-  -- delay = primDelay
-  ty = Finite (A.natV @n)
-  unflattenB' = unflattenPrimB
-
-instance (KnownNat n, GenBuses b) => ArrayCat (:>) n b where
-  array = namedC "array"
-  arrAt = namedC "arrAt"
-#else
-instance (Typeable i, GenBuses i, GenBuses b) => ArrayCat (:>) i b where
-  array = namedC "array"
-  arrAt = namedC "arrAt"
-#endif
-
--- instance LinearCat (:>) h where
---   fmapC c = 
-
--- class (Functor h, Zip h, Foldable h, ProductCat k, OkFunctor k h)
---    => LinearCat k h where
---   fmapC :: Ok2 k a b => (a `k` b) -> (h a `k` h b)
---   zipC  :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
---   sumC  :: (Ok k a, Num a) => h a `k` a
-
 
 {--------------------------------------------------------------------
     Running
@@ -2080,6 +2041,6 @@ AbsTy(M.StateT s m a)
 -- I put the following two here instead of in LinearRow and LinearCol to avoid
 -- the GHCi problem with this module.
 AbsTy(LR.L s a b)
-AbsTy(LC.L s a b)
+-- AbsTy(LC.L s a b)
 
 #endif

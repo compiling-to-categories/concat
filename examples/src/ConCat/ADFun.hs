@@ -166,11 +166,13 @@ instance Additive1 h => OkFunctor D h where
   okFunctor :: forall a. Ok' D a |- Ok' D (h a)
   okFunctor = inForkCon (yes1 *** additive1 @h @a)
 
+instance (Functor h, Additive1 h) => FunctorCat D h where
+  fmapC = linearDF fmapC
+  {-# INLINE fmapC  #-}
+
 instance (Representable h, Additive1 h) => LinearCat D h where
-  fmapC  = linearDF fmapC
   zipC   = linearDF zipC
   pointC = linearDF pointC
-  {-# INLINE fmapC  #-}
   {-# INLINE zipC   #-}
   {-# INLINE pointC #-}
 
@@ -178,27 +180,15 @@ instance Foldable h => SumCat D h where
   sumC = linearDF sumC
   {-# INLINE sumC #-}
 
-instance (Representable h, Eq (Rep h)) => DiagCat D h where
-  diagC = linearDF diagC
+instance (Distributive g, Functor f) => DistributiveCat D g f where
+  distributeC = linearDF distributeC
+  {-# INLINE distributeC #-}
 
-{--------------------------------------------------------------------
-    Conversion to linear map. Replace HasL in LinearRow and LinearCol
---------------------------------------------------------------------}
-
-linear1 :: (Representable f, Eq (Rep f), Num s)
-        => (f s -> s) -> f s
--- linear1 = (<$> diag 0 1)
-linear1 = (`fmapC` diag 0 1)
-{-# INLINE linear1 #-}
-
-linearN :: (Representable f, Eq (Rep f), Distributive g, Num s)
-        => (f s -> g s) -> (f :-* g) s
-linearN h = linear1 <$> distribute h
-{-# INLINE linearN #-}
-
--- h :: f s -> g s
--- distribute h :: g (f s -> s)
--- linear1 <$> distribute h :: g (f s)
+instance Representable g => RepresentableCat D g where
+  indexC    = linearDF indexC
+  tabulateC = linearDF tabulateC
+  {-# INLINE indexC #-}
+  {-# INLINE tabulateC #-}
 
 {--------------------------------------------------------------------
     Differentiation interface
@@ -242,6 +232,27 @@ andGradFL f = second dualV . andDerF f
 gradF :: (HasLin s a s, IsScalar s) => (a -> s) -> (a -> a)
 gradF f = dualV . derF f
 {-# INLINE gradF #-}
+
+#if 0
+
+{--------------------------------------------------------------------
+    Conversion to linear map. Replace HasL in LinearRow and LinearCol
+--------------------------------------------------------------------}
+
+linear1 :: (Representable f, Eq (Rep f), Num s)
+        => (f s -> s) -> f s
+-- linear1 = (<$> diag 0 1)
+linear1 = (`fmapC` diag 0 1)
+{-# INLINE linear1 #-}
+
+linearN :: (Representable f, Eq (Rep f), Distributive g, Num s)
+        => (f s -> g s) -> (f :-* g) s
+linearN h = linear1 <$> distribute h
+{-# INLINE linearN #-}
+
+-- h :: f s -> g s
+-- distribute h :: g (f s -> s)
+-- linear1 <$> distribute h :: g (f s)
 
 {--------------------------------------------------------------------
     Alternative definitions using Representable
@@ -289,3 +300,4 @@ gradFR :: forall s a. (IsScalar s, RepresentableVE s a, Num s)
 gradFR f = dualVR . derF f
 {-# INLINE gradFR #-}
 
+#endif
