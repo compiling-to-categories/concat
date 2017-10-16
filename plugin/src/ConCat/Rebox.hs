@@ -223,3 +223,13 @@ ghc: panic! (the 'impossible' happened)
 ifEqInt# :: Int# -> Int# -> a -> a -> a
 ifEqInt# m n a b = if equal (boxI m, boxI n) then a else b
 {-# INLINE ifEqInt# #-}
+
+-- Experiment. See 2017-10-15 notes.
+
+{-# RULES
+
+-- "curry 2" forall f a b. curry f a b = f (a,b)
+
+-- "cat equal" [~0] (==) = curry equal
+
+ #-}
