@@ -86,7 +86,7 @@ import Data.NumInstances.Function ()
 import Data.Finite
 import Data.Vector.Sized (Vector)
 
-import ConCat.Misc ((:*),R,sqr,magSqr,Unop,Binop,inNew,inNew2,Yes1,oops,type (&+&))
+import ConCat.Misc ((:*),(:+),R,sqr,magSqr,Unop,Binop,inNew,inNew2,Yes1,oops,type (&+&))
 import ConCat.Incremental (andInc,inc)
 import ConCat.AD
 import ConCat.ADFun hiding (D)
@@ -99,7 +99,7 @@ import qualified ConCat.RunCircuit as RC
 import qualified ConCat.AltCat as A
 -- import ConCat.AltCat
 import ConCat.AltCat
-  (toCcc,toCcc',unCcc,unCcc',reveal,conceal,(:**:)(..),Ok,Ok2,U2)
+  (toCcc,toCcc',unCcc,unCcc',reveal,conceal,(:**:)(..),Ok,Ok2,U2,equal)
 import ConCat.AltAggregate
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Nat
@@ -144,14 +144,14 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- -- Circuit graphs
-  -- , runSynCirc "twice"       $ toCcc $ twice @R
-  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  -- , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
-  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  -- Circuit graphs
+  , runSynCirc "twice"       $ toCcc $ twice @R
+  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
+  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- Choice
 
@@ -251,8 +251,6 @@ main = sequence_
   -- , runSynCirc "fmap-v8" $ toCcc (fmapC not :: Unop (Vector 8 Bool))  -- ok
 
   -- , runSynCirc "array-v" $ toCcc (tabulateC :: (Finite 8 -> Bool) -> Vector 8 Bool)
-
-  , runCirc "idL-v" $ toCcc (\ () -> idL @(Vector 8) @R) -- ok
 
   -- , runSynCirc "fmap-idL-v" $ toCcc (\ (h :: Vector 8 R -> Vector 8 R) -> fmapC h (idL @(Vector 8) @R)) -- ok
 
@@ -383,13 +381,23 @@ main = sequence_
   -- -- Dies with "Oops --- toCcc called!", without running the plugin.
   -- , print $ andDer @R sin (1 :: R)
 
-  -- Linear
-  -- , runSynCirc "linear-r-r" $ toCcc $ linear @R @R @R
-  -- , runSynCirc "linear-r2-r" $ toCcc $ linear @R @(R :* R) @R
-  -- , runSynCirc "linear-r-r2" $ toCcc $ linear @R @R @(R :* R)
+  -- -- Linear
+  -- , runSynCirc "linear-r-r"   $ toCcc $ linear @R @R @R
+  -- , runSynCirc "linear-r2-r"  $ toCcc $ linear @R @(R :* R) @R
+  -- , runSynCirc "linear-r-r2"  $ toCcc $ linear @R @R @(R :* R)
   -- , runSynCirc "linear-r2-r2" $ toCcc $ linear @R @(R :* R) @(R :* R)
 
+  -- , runCirc "equal-Int" $ toCcc $ (==) @Int
+  -- , runCirc "equal-sum" $ toCcc $ (==) @(() :+ ())
 
+  -- , runSynCirc "diag-2" $ toCcc $ diag @(Par1 :*: Par1) @R
+
+  -- , runCirc "idL-2" $ toCcc (\ () -> idL @(Par1 :*: Par1) @R) -- fail
+  -- , runSynCirc "tabulate2" $ toCcc $ tabulateC @(->) @(Par1 :*: Par1) @R  -- fail
+
+  -- , runCirc "idL-v" $ toCcc (\ () -> idL @(Vector 8) @R) -- ok
+
+  -- , runCirc "equal-v" $ toCcc $ (==) @(Vector 5 Int)
 
   -- , runSynCirc "linear-v-r" $ toCcc $ linear @R @(Vector 4 R) @R
 
