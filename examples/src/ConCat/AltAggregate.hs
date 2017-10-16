@@ -115,5 +115,12 @@ collectC f = distributeC . fmapC f
 type Diagonal h = (Representable h, Eq (Rep h))
 
 diag :: Diagonal h => a -> a -> h (h a)
-diag z o = tabulateC (\ i -> tabulateC (\ j -> if i == j then o else z))
+diag z o =
+  -- tabulateC (\ i -> tabulateC (\ j -> if i == j then o else z))
+  tabulateC (\ i -> tabulateC (\ j -> if equal (i,j) then o else z))
 {-# INLINE diag #-}
+
+-- TODO: retry diag as a single tabulateC on h :.: h.
+
+-- HACK: the equal here is to postpone dealing with equality on sum types just yet.
+-- See notes from 2017-10-15.
