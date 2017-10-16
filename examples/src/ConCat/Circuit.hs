@@ -380,7 +380,8 @@ instance GenBuses Double  where
 
 instance KnownNat n => GenBuses (Finite n) where
   genBuses' = genPrimBus
-  ty = Finite (A.natV @n)
+  -- delay = primDelay
+  ty = Finite (natVal (Proxy @n))
   unflattenB' = unflattenPrimB
 
 instance (KnownNat n, GenBuses b) => GenBuses (Vector n b)  where
@@ -1104,7 +1105,7 @@ neOpt = \ case
   _              -> nothingA
 
 #define EqTemplate(ty) \
- instance EqCat (:>) (ty) where { \
+ instance (Read (ty), Eq (ty), GenBuses (ty)) => EqCat (:>) (ty) where { \
     equal    = primOptSort "==" (eqOpt @(ty)) ;\
     notEqual = primOptSort "/=" (neOpt @(ty))  \
   }
@@ -1176,6 +1177,7 @@ EqTemplate(Int)
 EqTemplate(Integer)
 EqTemplate(Float)
 EqTemplate(Double)
+EqTemplate(a :+ b)
 
 instance EqCat (:>) Bool where
   equal    = primOptSort "=="  (eqOpt @Bool `orOpt` eqOptB)
@@ -1184,8 +1186,10 @@ instance EqCat (:>) Bool where
 instance EqCat (:>) () where
   equal = constC True
 
-instance (EqCat (:>) a, EqCat (:>) b) => EqCat (:>) (a,b) where
+instance (EqCat (:>) a, EqCat (:>) b) => EqCat (:>) (a :* b) where
   equal = andC . (equal *** equal) . transposeP
+
+-- Use EqTemplate for (a :* b) ?
 
 -- TODO: optimizations.
 ltOpt, gtOpt, leOpt, geOpt :: forall a. (Read a, Ord a) => Opt Bool
