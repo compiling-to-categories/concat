@@ -87,8 +87,7 @@ scaleL = diag 0
 ---- Category
 
 -- Identity linear map
-idL :: (Diagonal a, Num s)
-    => (a :-* a) s
+idL :: (Diagonal a, Num s) => (a :-* a) s
 idL = scaleL 1
 {-# INLINE idL #-}
 
