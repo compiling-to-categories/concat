@@ -38,13 +38,14 @@
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
 
 -- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
+-- {-# OPTIONS_GHC -ddump-rules #-}
 
 -- Does this flag make any difference?
 {-# OPTIONS_GHC -fexpose-all-unfoldings #-}
 
 -- Tweak simpl-tick-factor from default of 100
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=2800 #-}
-{-# OPTIONS_GHC -fsimpl-tick-factor=500 #-}
+-- {-# OPTIONS_GHC -fsimpl-tick-factor=500 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
@@ -53,6 +54,9 @@
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
+
+-- Experiments
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 ----------------------------------------------------------------------
 -- |
@@ -77,6 +81,7 @@ import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
 import Data.List (unfoldr)  -- TEMP
 import Data.Complex (Complex)
+import GHC.Exts (inline)
 import GHC.Float (int2Double)
 
 import Data.Constraint (Dict(..),(:-)(..))
@@ -85,8 +90,10 @@ import Data.Distributive (distribute)
 import Data.NumInstances.Function ()
 import Data.Finite
 import Data.Vector.Sized (Vector)
+import qualified Data.Vector.Sized as VS
 
-import ConCat.Misc ((:*),(:+),R,sqr,magSqr,Unop,Binop,inNew,inNew2,Yes1,oops,type (&+&))
+import ConCat.Misc
+  ((:*),(:+),R,sqr,magSqr,Unop,Binop,inNew,inNew2,Yes1,oops,type (&+&),PseudoFun(..))
 import ConCat.Incremental (andInc,inc)
 import ConCat.AD
 import ConCat.ADFun hiding (D)
@@ -152,6 +159,26 @@ main = sequence_
   , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
   , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
   , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+
+  -- Play with the "cat equal" trick.
+  -- , runSyn $ toCcc $ (==) @Int
+  -- , runSyn $ toCcc $ uncurry ((==) @Int)
+
+  -- , runCirc "equal-pair-b" $ toCcc $ (==) @(R :* Int)
+
+  -- , runCirc "equal-pair-uncurry-b" $ toCcc $ uncurry ((==) @(R :* Int))
+
+  -- , runSynCirc "equal-pair-a" $ toCcc $ uncurry ((==) @(Bool :* Int))
+
+  -- , runSynCirc "equal-pair-c" $ toCcc $ uncurry ((==) @(Int :* R))
+
+  -- , runSyn{-Circ "equal-pair-b"-} $ toCcc $ uncurry ((==) @(Bool :* Int))
+
+
+  -- , runSynCirc "add" $ toCcc $ (+) @Integer
+
+  -- -- Try sized vector operations directly.
+  -- , runSyn $ toCcc $ VS.sum @R @4  -- fail
 
   -- Choice
 
@@ -882,3 +909,50 @@ fac9 n0 = go (n0,1)
 -- foo1 f = toCcc (unCcc (Choice @Yes1 f))
 
 type OkLC' = OkLM R &+& GenBuses
+
+
+{--------------------------------------------------------------------
+    Experiment. See 2017-10-16 notes.
+--------------------------------------------------------------------}
+
+#if 1
+
+data CP a = CP a a
+
+funP :: CP a -> a
+funP (CP f _) = f
+{-# INLINE [0] funP #-}
+
+-- Tell the plugin to leave this one alone, so our "ccc funP" rule will fire.
+-- I can instead get the plugin to do the work of "ccc funP". 
+{-# ANN funP (PseudoFun 1) #-} 
+
+catP :: CP a -> a
+catP (CP _ f') = f'
+{-# INLINE catP #-}
+
+eq' :: Eq a => a -> a -> Bool
+eq' = (==)
+{-# INLINE [0] eq' #-}
+
+-- succ' :: Enum a => a -> a
+-- succ' = succ
+-- {-# INLINE [0] succ' #-}
+
+{-# RULES
+
+-- [~0] in "ccc funP" is an experiment
+"ccc funP" [~0] forall cp. toCcc' (funP cp) = toCcc' (catP cp)
+
+-- "cat succ"  [~0] succ = funP (CP succ' succ)
+
+-- "cat equal" [~0] (==) = funP (CP eq' (curry equal))
+
+-- "cat equal inline" [~0] (==) = funP (CP (inline (==)) (curry equal))
+
+"cat equal" [~0] (==) = curry (funP (CP (uncurry (inline (==))) equal))
+
+
+ #-}
+
+#endif
