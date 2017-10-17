@@ -4,14 +4,17 @@
 {-# LANGUAGE MagicHash #-}
 
 {-# OPTIONS_GHC -Wall #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
-{-# OPTIONS_GHC -Wno-orphans -Wno-inline-rule-shadowing #-}
+{-# OPTIONS_GHC -Wno-inline-rule-shadowing #-}
 
 -- | Reboxing experiments
 
 module ConCat.Rebox where
 
-import Prelude hiding (curry)
+import Prelude hiding (curry,uncurry)
+import qualified Prelude as P
 
 import GHC.Types
 import GHC.Prim
@@ -142,14 +145,6 @@ boxIB i = tagToEnum# i
 -- "modInteger    cat" [~0] modInteger    = 
 -- "gcdInteger    cat" [~0] gcdInteger    = 
 -- "lcmInteger    cat" [~0] lcmInteger    = 
--- We also see the # versions in some optimized code.
-
-"boxZ ==" [~0] forall u v . eqInteger#  u v  = unboxIB (equal              (u,v))
-"boxZ /=" [~0] forall u v . neqInteger# u v  = unboxIB (notEqual           (u,v))
-"boxZ >"  [~0] forall u v . gtInteger#  u v  = unboxIB (greaterThan        (u,v))
-"boxZ >=" [~0] forall u v . geInteger#  u v  = unboxIB (greaterThanOrEqual (u,v))
-"boxZ <"  [~0] forall u v . ltInteger#  u v  = unboxIB (lessThan           (u,v))
-"boxZ <=" [~0] forall u v . leInteger#  u v  = unboxIB (lessThanOrEqual    (u,v))
 
 -- We also see the # versions in some optimized code.
 
@@ -233,12 +228,23 @@ ifEqInt# :: Int# -> Int# -> a -> a -> a
 ifEqInt# m n a b = if equal (boxI m, boxI n) then a else b
 {-# INLINE ifEqInt# #-}
 
--- Experiment. See 2017-10-15 notes.
+
+{--------------------------------------------------------------------
+    Experiment. See 2017-10-15 notes.
+--------------------------------------------------------------------}
+
+#if 0
 
 {-# RULES
 
--- "curry 2" forall f a b. curry f a b = f (a,b)
+"curry 2" forall f a b. curry f a b = f (a,b)
 
--- "cat equal" [~0] (==) = curry equal
+"cat equal" [~0] (==) = curry equal
+"cat add"   [~0] (+)  = curry addC
+
+-- Maybe unwise, but let's see.
+"cat uncurry" [~0] P.uncurry = uncurry
 
  #-}
+
+#endif
