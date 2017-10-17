@@ -1110,6 +1110,8 @@ neOpt = \ case
     notEqual = primOptSort "/=" (neOpt @(ty))  \
   }
 
+-- TODO: give one overlappable EqCat instance and one or more overlapping.
+
 iffC :: EqCat k (BoolOf k) => Prod k (BoolOf k) (BoolOf k) `k` BoolOf k
 iffC = equal
 
