@@ -881,10 +881,19 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    onDictTry e | Just (ty,_) <- splitFunTy_maybe (exprType e)
                , isPredTy' ty = App e <$> buildDictMaybe ty
                | otherwise = return e
-                             -- pprPanic "ccc / onDictMaybe: not a function from pred" (pprWithType e)
+                             -- pprPanic "ccc / onDictTy: not a function from pred" (pprWithType e)
    onDictMaybe :: ReExpr
+#if 0
    onDictMaybe e = -- trace "onDictMaybe" $
                    eitherToMaybe (onDictTry e)
+#else
+   -- TODO: refactor onDictMaybe
+   onDictMaybe e = case onDictTry e of
+                     Left  msg  -> dtrace "Couldn't build dictionary for" 
+                                     (pprWithType e <> colon $$ msg) $
+                                   Nothing
+                     Right dict -> Just dict
+#endif
    onDict :: Unop CoreExpr
    onDict f = -- trace "onDict" $
               noDictErr (pprWithType f) (onDictTry f)
