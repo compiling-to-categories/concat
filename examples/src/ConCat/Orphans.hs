@@ -352,6 +352,7 @@ instance KnownNat n => Keyed (Vector n) where
 
 instance KnownNat n => Zip (Vector n) where
   zip = V.zip
+  zipWith = V.zipWith
 
 instance KnownNat n => Distributive (Vector n) where
   distribute :: Functor f => f (Vector n a) -> Vector n (f a)
