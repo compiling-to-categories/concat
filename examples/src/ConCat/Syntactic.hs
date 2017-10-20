@@ -31,7 +31,9 @@ import Control.Newtype
 import Text.PrettyPrint.HughesPJClass hiding (render,first)
 import Data.Typeable (Typeable)
 import Data.Constraint (Dict(..),(:-)(..))  -- temp
-import Data.Key (Zip(..))
+import Data.Pointed (Pointed)
+import Data.Key (Zip)
+import Data.Distributive (Distributive)
 import Data.Functor.Rep (Representable)
 
 #ifdef VectorSized
@@ -227,7 +229,7 @@ instance Pretty b => ConstCat Syn b where
 -- Some or all of the methods below are failing to inline
 
 instance BoolCat Syn where
-  notC = app0 "notC"
+  notC = app0 "not"
   andC = app0 "andC"
   orC  = app0 "orC"
   xorC = app0 "xorC"
@@ -253,17 +255,17 @@ instance OrdCat Syn a where
   INLINER(greaterThanOrEqual)
 
 instance EnumCat Syn a where
-  succC = app0 "succC"
-  predC = app0 "predC"
+  succC = app0 "succ"
+  predC = app0 "pred"
   INLINER(succC)
   INLINER(predC)
 
 instance NumCat Syn a where
-  negateC = app0 "negateC"
-  addC    = app0 "addC"
-  subC    = app0 "subC"
-  mulC    = app0 "mulC"
-  powIC   = app0 "powIC"
+  negateC = app0 "negate"
+  addC    = app0 "add"
+  subC    = app0 "sub"
+  mulC    = app0 "mul"
+  powIC   = app0 "powI"
   INLINER(negateC)
   INLINER(addC)
   INLINER(subC)
@@ -277,29 +279,29 @@ instance IntegralCat Syn a where
   INLINER(modC)
 
 instance FractionalCat Syn a where
-  recipC  = app0 "recipC"
+  recipC  = app0 "recip"
   divideC = app0 "divideC"
   INLINER(recipC)
   INLINER(divideC)
 
 instance RealFracCat Syn a b where
-  floorC    = app0 "floorC"
-  ceilingC  = app0 "ceilingC"
-  truncateC = app0 "truncateC"
+  floorC    = app0 "floor"
+  ceilingC  = app0 "ceiling"
+  truncateC = app0 "truncate"
   INLINER(floorC)
   INLINER(ceilingC)
   INLINER(truncateC)
 
 instance FloatingCat Syn a where
-  expC = app0 "expC"
-  cosC = app0 "cosC"
-  sinC = app0 "sinC"
+  expC = app0 "exp"
+  cosC = app0 "cos"
+  sinC = app0 "sin"
   INLINER(expC)
   INLINER(cosC)
   INLINER(sinC)
 
 instance FromIntegralCat Syn a b where
-  fromIntegralC = app0 "fromIntegralC"
+  fromIntegralC = app0 "fromIntegral"
   INLINER(fromIntegralC)
 
 instance BottomCat Syn a b where
@@ -339,7 +341,7 @@ AbstIf((a,b,c))
 #endif
 
 instance UnknownCat Syn a b where
-  unknownC = app0 "unknownC"
+  unknownC = app0 "unknown"
   INLINER(unknownC)
 
 -- #define ShowTypes
@@ -360,29 +362,31 @@ app0' :: forall a b. (T a, T b) => String -> Syn a b
 app0' = app0 . addTy @(a -> b)
 
 instance (r ~ Rep a, T a, T r) => RepCat Syn a r where
-  reprC = app0' "reprC"
-  abstC = app0' "abstC"
+  reprC = app0' "repr"
+  abstC = app0' "abst"
   INLINER(reprC)
   INLINER(abstC)
 
 instance (Typeable a, Typeable b) => CoerceCat Syn a b where
-  coerceC = app0' "coerceC"
+  coerceC = app0' "coerce"
   INLINER(coerceC)
 
 instance OkFunctor Syn h where okFunctor = Entail (Sub Dict)
 
-instance FunctorCat Syn h where
-  fmapC = app0 "fmapC"
+instance Functor h => FunctorCat Syn h where
+  fmapC = app0 "fmap"
   INLINER(fmapC)
 
-instance LinearCat Syn h where
-  zipC   = app0 "zipC"
-  pointC = app0 "pointC"
+instance Zip h => ZipCat Syn h where
+  zipC   = app0 "zip"
   INLINER(zipC)
+
+instance Pointed h => PointedCat Syn h where
+  pointC = app0 "point"
   INLINER(pointC)
 
-instance SumCat Syn h where
-  sumC = app0 "sumC"
+instance Foldable h => SumCat Syn h where
+  sumC = app0 "sum"
   INLINER(sumC)
 
 instance DistributiveCat Syn g f where

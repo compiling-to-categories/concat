@@ -67,7 +67,7 @@ instance ClosedCat D where
 
 -- TODO: generalize to ClosedCat k for an arbitrary CCC k. I guess I can simply
 -- apply ccc to the lambda expressions.
-#else
+#elif 1
 
 instance ClosedCat D where
   apply = applyD ; {-# INLINE apply #-}
@@ -85,6 +85,8 @@ curryD (D (unfork -> (f,f'))) =
 
 {-# INLINE applyD #-}
 {-# INLINE curryD #-}
+#else
+-- No ClosedCat D instance
 #endif
 
 
@@ -170,10 +172,12 @@ instance (Functor h, Additive1 h) => FunctorCat D h where
   fmapC = linearDF fmapC
   {-# INLINE fmapC  #-}
 
-instance (Representable h, Additive1 h) => LinearCat D h where
+instance (Zip h, Additive1 h) => ZipCat D h where
   zipC   = linearDF zipC
-  pointC = linearDF pointC
   {-# INLINE zipC   #-}
+
+instance (Pointed h, Additive1 h) => PointedCat D h where
+  pointC = linearDF pointC
   {-# INLINE pointC #-}
 
 instance Foldable h => SumCat D h where
@@ -233,7 +237,7 @@ gradF :: (HasLin s a s, IsScalar s) => (a -> s) -> (a -> a)
 gradF f = dualV . derF f
 {-# INLINE gradF #-}
 
-#if 0
+#if 1
 
 {--------------------------------------------------------------------
     Conversion to linear map. Replace HasL in LinearRow and LinearCol

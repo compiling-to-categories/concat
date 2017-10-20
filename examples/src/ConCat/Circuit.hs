@@ -133,7 +133,9 @@ import Data.Typeable (TypeRep,Typeable,eqT,cast) -- ,Proxy(..),typeOf
 import Data.Type.Equality ((:~:)(..))
 
 import Data.Constraint (Dict(..),(:-)(..))
+import Data.Pointed (Pointed)
 import Data.Key (Zip(..))
+import Data.Distributive (Distributive)
 import Data.Functor.Rep (Representable)
 import qualified Data.Functor.Rep as R
 import Data.Vector.Sized (Vector)
@@ -279,7 +281,8 @@ instance Eq (Buses a) where
 #endif
 
 genBuses :: GenBuses b => Template a b -> [Source] -> CircuitM (Buses b)
-genBuses templ ins = M.evalStateT (genBuses' templ ins) 0
+genBuses templ ins = -- trace ("genBuses " ++ show templ ++ " " ++ show ins) $
+                     M.evalStateT (genBuses' templ ins) 0
 
 type BusesM = StateT Int CircuitM
 
@@ -293,10 +296,16 @@ type GS a = (GenBuses a, Show a)
 
 genBus :: (Source -> Buses a) -> Ty
        -> Template u v -> [Source] -> BusesM (Buses a)
-genBus wrap t templ ins = do o <- M.get
+genBus wrap t templ ins = seq (show t) $  -- * [Note seq]
+                          -- seq t $
+                          -- trace ("genBus " ++ show t) $
+                          do o <- M.get
                              src <- M.lift (newSource t templ ins o)
                              M.put (o+1)
                              return (wrap src)
+
+-- [Note seq]: Without this seq, I'm getting non-termination with
+-- `id @(Vector 4 Bool :* Bool)`. I don't know why. seq t isn't enough.
 
 unflattenB :: GenBuses a => [Source] -> Buses a
 unflattenB sources | [] <- rest = a
@@ -526,16 +535,20 @@ type BCirc a b = Buses a -> CircuitM (Buses b)
 genComp :: forall a b. Ok2 (:>) a b => Template a b -> BCirc a b
 #if !defined NoHashCons
 genComp templ a =
+  -- trace ("genComp " ++ name ++ ". b == " ++ show (ty @b)) $
   do mb <- M.gets (M.lookup key . snd)
      case mb of
        Just (Comp _ _ _ b') ->
+         -- trace ("genComp " ++ name ++ ": hit --> " ++ show b') $
          return (unsafeCoerce b')
        Nothing               ->
+         -- trace ("genComp " ++ name ++ ": ins == " ++ show ins) $
          do b <- genBuses templ ins
-            -- TODO: use genId here
+            -- trace ("genComp: genBuses --> " ++ show b) (return ())
             c <- genId
             let comp = Comp c templ a b
             M.modify (second (M.insert key comp))
+            -- trace ("genComp " ++ name ++ ": miss --> " ++ show b) $
             return b
  where
    ins  = flattenB a
@@ -638,7 +651,8 @@ inCK2 = inCK <~ unmkCK
 
 namedC :: Ok2 (:>) a b => PrimName -> a :> b
 -- namedC name = primOpt name noOpt
-namedC name = mkCK (genComp (Prim name))
+namedC name = -- trace ("namedC " ++ name) $
+              mkCK (genComp (Prim name))
 
 type Opt b = [Source] -> CircuitM (Maybe (Buses b))
 
@@ -821,51 +835,70 @@ instance (OkFunctor (:>) f, OkFunctor (:>) g)
       => OkFunctor (:>) (f G.:*: g) where
   okFunctor :: forall a. Ok' (:>) a |- Ok' (:>) ((f G.:*: g) a)
   okFunctor = Entail (Sub (Dict
-                             <+ okFunctor @(:>) @f @a
-                             <+ okFunctor @(:>) @g @a))
+                             <+ okFunctor' @(:>) @f @a
+                             <+ okFunctor' @(:>) @g @a))
 
 instance (OkFunctor (:>) f, OkFunctor (:>) g)
       => OkFunctor (:>) (g G.:.: f) where
   okFunctor :: forall a. Ok' (:>) a |- Ok' (:>) ((g G.:.: f) a)
   okFunctor = Entail (Sub (Dict
-                             <+ okFunctor @(:>) @g @(f a)
-                             <+ okFunctor @(:>) @f @a))
+                             <+ okFunctor' @(:>) @g @(f a)
+                             <+ okFunctor' @(:>) @f @a))
 
 instance KnownNat i => OkFunctor (:>) (Vector i) where
   okFunctor = Entail (Sub Dict)
 
-instance OkFunctor (:>) h => FunctorCat (:>) h where
+instance (Functor h, OkFunctor (:>) h) => FunctorCat (:>) h where
   fmapC :: forall a b. Ok2 (:>) a b => (a -> b) :> (h a -> h b)
   fmapC = -- trace "fmapC on (:>)" $
           namedC "fmap"
-            <+ okFunctor @(:>) @h @a
-            <+ okFunctor @(:>) @h @b
+            <+ okFunctor' @(:>) @h @a
+            <+ okFunctor' @(:>) @h @b
 
-instance OkFunctor (:>) h => LinearCat (:>) h where
+instance (Zip h, OkFunctor (:>) h) => ZipCat (:>) h where
   zipC  :: forall a b. Ok2 (:>) a b => (h a :* h b) :> h (a :* b)
   zipC = namedC "zip"
-           <+ okFunctor @(:>) @h @(a :* b)
-           <+ okFunctor @(:>) @h @a
-           <+ okFunctor @(:>) @h @b
+           <+ okFunctor' @(:>) @h @(a :* b)
+           <+ okFunctor' @(:>) @h @a
+           <+ okFunctor' @(:>) @h @b
+
+instance (Pointed h, OkFunctor (:>) h) => PointedCat (:>) h where
   pointC :: forall a. Ok (:>) a => a :> h a
   pointC = namedC "point"
-             <+ okFunctor @(:>) @h @a
+             <+ okFunctor' @(:>) @h @a
 
-instance OkFunctor (:>) h => SumCat (:>) h where
+instance (Foldable h, OkFunctor (:>) h) => SumCat (:>) h where
   sumC :: forall a. (Ok (:>) a, Num a) => h a :> a
-  sumC = namedC "sum" <+ okFunctor @(:>) @h @a
+  sumC = namedC "sum" <+ okFunctor' @(:>) @h @a
+
+okFunctor' :: forall k h a. OkFunctor k h => Ok' k a |- Ok' k (h a)
+okFunctor' = {- trace "" $ -} okFunctor @k @h @a
+{-# INLINE okFunctor' #-}
+
+-- okFunctor' :: forall k h a. (k ~ (:>), OkFunctor k h, Ok k a) => Ok' k a |- Ok' k (h a)
+-- okFunctor' = trace ("okFunctor: " ++ show (ty @(h a) <+ ok)) $
+--              (case ok of Entail (Sub Dict) -> trace  "(okFunctor evaluated)") $
+--              ok
+--  where
+--    ok = okFunctor @k @h @a
+-- {-# INLINE okFunctor' #-}
+
+-- Without the trace, `distributeC (:>) @Pair @(Vector n) @R` fails to terminate.
+-- Ditto for `distributeC (:>) @(Vector n) @Pair @R`. Other combinations seem fine.
+-- TODO: track down the cause.
 
 instance (OkFunctor (:>) g, OkFunctor (:>) f) => DistributiveCat (:>) g f where
   distributeC :: forall a. Ok (:>) a => f (g a) :> g (f a)
   distributeC = namedC "distribute"
-                  <+ okFunctor @(:>) @g @(f a) <+ okFunctor @(:>) @f @a
-                  <+ okFunctor @(:>) @f @(g a) <+ okFunctor @(:>) @g @a
+                  <+ okFunctor' @(:>) @g @(f a) <+ okFunctor' @(:>) @f @a
+                  <+ okFunctor' @(:>) @f @(g a) <+ okFunctor' @(:>) @g @a
 
 instance (GenBuses (R.Rep f), OkFunctor (:>) f) => RepresentableCat (:>) f where
   tabulateC :: forall a. Ok (:>) a => (R.Rep f -> a) :> f a
-  tabulateC = namedC "tabulate" <+ okFunctor @(:>) @f @a
+  tabulateC = -- trace "tabulateC @(:>)" $
+              namedC "tabulate" <+ okFunctor' @(:>) @f @a
   indexC :: forall a. Ok (:>) a => f a :> (R.Rep f -> a)
-  indexC = namedC "index" <+ okFunctor @(:>) @f @a
+  indexC = namedC "index" <+ okFunctor' @(:>) @f @a
 
 #if 0
 
@@ -1188,8 +1221,8 @@ instance EqCat (:>) Bool where
 instance EqCat (:>) () where
   equal = constC True
 
-instance (EqCat (:>) a, EqCat (:>) b) => EqCat (:>) (a :* b) where
-  equal = andC . (equal *** equal) . transposeP
+-- instance (EqCat (:>) a, EqCat (:>) b) => EqCat (:>) (a :* b) where
+--   equal = andC . (equal *** equal) . transposeP
 
 -- Use EqTemplate for (a :* b) ?
 
@@ -1538,13 +1571,6 @@ runU' cir supply = (getComps compInfo, supply')
 unitize :: (GenBuses a, Ok (:>) b) => (a :> b) -> UU
 unitize = namedC "Out" <~ namedC "In"
 
--- type instance OkayArr (:>) a b = GenBuses a
-
--- unitize' :: Uncurriable (:>) a b => (a :> b) -> UU
--- unitize' = unitize . uncurries
-
--- TODO: phase out unitize, and rename unitize'.
-
 -- uuGraph :: UU -> Graph
 -- uuGraph uu = fst (uuGraph' uu 0)
 
@@ -1552,7 +1578,14 @@ uuGraph' :: UU -> IdSupply -> (Graph,IdSupply)
 uuGraph' = runU'  -- for now
 
 mkGraph :: Ok2 (:>) a b => (a :> b) -> Graph
-mkGraph g = sort $ trimGraph $ fst (mkGraph' g 0)
+
+-- mkGraph g = sort $ trimGraph $ fst (mkGraph' g 0)
+
+mkGraph g = -- trace "mkGraph" $
+            -- trace ("fst (mkGraph' g 0)" ++ show (fst (mkGraph' g 0))) $
+            -- trace ("trimGraph --> " ++ show (trimGraph $ fst (mkGraph' g 0))) $
+            -- trace ("sort --> " ++ show (sort $ trimGraph $ fst (mkGraph' g 0))) $
+            sort $ trimGraph $ fst (mkGraph' g 0)
 
 mkGraph' :: Ok2 (:>) a b => (a :> b) -> IdSupply -> (Graph,IdSupply)
 mkGraph' g n = uuGraph' (unitize g) n

@@ -9,34 +9,56 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
+-- Catify
+{-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-inline-rule-shadowing #-}
+
 -- | Late-inlining counterparts to ConCat.Aggregate
 
 module ConCat.AltAggregate (module ConCat.AltAggregate, module C) where
 
-import Prelude hiding (id,(.),curry,uncurry,const,zip)
+import Prelude hiding (id,(.),curry,uncurry,const,zip,zipWith)
+import qualified Prelude as P
 
 import GHC.TypeLits (KnownNat)
 
+import Data.Pointed (Pointed(..))
+import Data.Key (Zip(..))
+import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..))
 import Data.Finite (Finite)
 import Data.Vector.Sized (Vector)
 
 import ConCat.Misc ((:*))
-import ConCat.Aggregate
-  (FunctorCat,LinearCat,SumCat,DistributiveCat,RepresentableCat)
+import ConCat.Aggregate ( OkFunctor(..),FunctorCat,ZipCat,PointedCat,SumCat
+                        , DistributiveCat,RepresentableCat )
 import qualified ConCat.Aggregate as C
 import ConCat.AltCat
 
+-- TODO: Do we really need AltCat now?
+
+-- Catify etc
 #include "ConCat/Ops.inc"
 
-Op0(fmapC , (FunctorCat k h, Ok2 k a b) => (a -> b) `k` (h a -> h b))
-Op0(zipC  , (LinearCat k h, Ok2 k a b)  => (h a :* h b) `k` h (a :* b))
-Op0(pointC, (LinearCat k h, Ok k a)     => a `k` h a)
-Op0(sumC  , (SumCat k h, Ok k a, Num a) => h a `k` a)
+Op0(fmapC , (FunctorCat k h, Ok2 k a b)     => (a -> b) `k` (h a -> h b))
+Op0(zipC  , (ZipCat     k h, Ok2 k a b)     => (h a :* h b) `k` h (a :* b))
+Op0(pointC, (PointedCat k h, Ok k a)        => a `k` h a)
+Op0(sumC  , (SumCat     k h, Ok k a, Num a) => h a `k` a)
+
+Catify(fmap , fmapC)
+CatifyC(zip , zipC)
+Catify(point, pointC)
+Catify(sum  , sumC)
+
+-- TODO: Try merging Catify into Op0: Op0 (fmapC,fmap,...).
 
 Op0(distributeC, (DistributiveCat k g f, Ok k a) => f (g a) `k` g (f a))
 Op0(tabulateC  , (RepresentableCat k f , Ok k a) => (Rep f -> a) `k` f a)
 Op0(indexC     , (RepresentableCat k f , Ok k a) => f a `k` (Rep f -> a))
+
+Catify(distribute, distributeC)
+Catify(tabulate  , tabulateC)
+Catify(index     , indexC)
 
 fmapC' :: forall k h a b. (FunctorCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
         => (a `k` b) -> (h a `k` h b)
@@ -60,8 +82,13 @@ unzipC = fmapC' exl &&& fmapC' exr
            <+ okProd    @k @a @b
 {-# INLINE unzipC #-}
 
+zipWithC :: Zip f => (a -> b -> c) -> f a -> f b -> f c
+zipWithC f as bs = fmap (uncurry f) (as `zip` bs)
+
+Catify(zipWith,zipWithC)
+
 zapC :: forall k h a b.
-        (FunctorCat k h, LinearCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
+        (FunctorCat k h, ZipCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
      => (h (a -> b) :* h a) `k` h b
 zapC = fmapC' apply . zipC
          <+ okFunctor @k @h @((a -> b) :* a)
@@ -78,9 +105,12 @@ zapC = fmapC' apply . zipC
 -- categorical building blocks. Later extend to other categories by translation,
 -- at which point the Ok constraints will be checked anyway.
 
-collectC :: (Representable g, Functor f) => (a -> g b) -> f a -> g (f b)
-collectC f = distributeC . fmapC f
+collectC :: (Distributive g, Functor f) => (a -> g b) -> f a -> g (f b)
+collectC f = distribute . fmap f
+-- collectC f = distributeC . fmapC f
 {-# INLINE collectC #-}
+
+Catify(collect, collectC)
 
 {-# RULES
 
@@ -117,10 +147,12 @@ type Diagonal h = (Representable h, Eq (Rep h))
 diag :: Diagonal h => a -> a -> h (h a)
 diag z o =
   -- tabulateC (\ i -> tabulateC (\ j -> if i == j then o else z))
-  tabulateC (\ i -> tabulateC (\ j -> if equal (i,j) then o else z))
+  -- tabulateC (\ i -> tabulateC (\ j -> if equal (i,j) then o else z))
+  tabulate (\ i -> tabulate (\ j -> if i == j then o else z))
 {-# INLINE diag #-}
 
 -- TODO: retry diag as a single tabulateC on h :.: h.
 
 -- HACK: the equal here is to postpone dealing with equality on sum types just yet.
 -- See notes from 2017-10-15.
+-- TODO: remove and test, now that we're translating (==) early (via Catify).

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -12,6 +13,9 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
+-- For ConCat.Inline.ClassOp
+{-# OPTIONS_GHC -fplugin=ConCat.Inline.Plugin #-}
+
 -- | Some aggregate operations
 
 module ConCat.Aggregate where
@@ -23,29 +27,39 @@ import qualified Control.Arrow as A
 import GHC.Generics ((:.:)(..))
 
 import Data.Constraint (Dict(..),(:-)(..))
-import Data.Pointed
+import Data.Pointed (Pointed(..))
 import Data.Key (Zip(..))
-
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..))
 
 import ConCat.Misc ((:*))
 -- import ConCat.Category
+import ConCat.Inline.ClassOp (inline)
 import ConCat.AltCat
 -- import ConCat.Free.Diagonal (Diagonal,diag)
 
--- class OkFunctor k h where okFunctor :: Ok' k a |- Ok' k (h a)
+class OkFunctor k h where
+  okFunctor :: Ok' k a |- Ok' k (h a)
 
--- instance OkFunctor (->) h where okFunctor = Entail (Sub Dict)
+instance OkFunctor (->) h where okFunctor = Entail (Sub Dict)
 
-class OkFunctor k h => FunctorCat k h where
+instance (OkFunctor k h, OkFunctor k' h)
+      => OkFunctor (k :**: k') h where
+  okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
+
+
+class (Functor h, OkFunctor k h) => FunctorCat k h where
   fmapC :: Ok2 k a b => (a -> b) `k` (h a -> h b)
 
 -- TODO: Maybe rename FunctorCat to avoid confusion.
 
-class OkFunctor k h => LinearCat k h where
+class (Zip h, OkFunctor k h) => ZipCat k h where
   zipC   :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
+
+class (Pointed h, OkFunctor k h) => PointedCat k h where
   pointC :: Ok  k a => a `k` h a
+
+-- TODO: eliminate pointC in favor of using tabulate
 
 -- TODO: Try removing Representable h and maybe OkFunctor k h from the
 -- superclasses.
@@ -57,11 +71,13 @@ class SumCat k h where
   sumC :: (Ok k a, Num a) => h a `k` a
 
 instance Functor h => FunctorCat (->) h where
-  fmapC = fmap
+  fmapC = inline fmap
 
-instance Representable h => LinearCat (->) h where
-  zipC (as,bs) = tabulateC (index as &&& index bs)
-  pointC a = tabulateC (const a)
+#if 0
+instance (Zip h, Representable h) => ZipCat (->) h where
+  zipC (as,bs) = tabulate (index as &&& index bs)
+instance (Pointed h, Representable h) => PointedCat (->) h where
+  pointC a = tabulate (const a)
 
 -- Overlapping instances for ConCat.Misc.Yes1 (Rep h)
 --   arising from a use of ‘&&&’
@@ -76,8 +92,19 @@ instance Representable h => LinearCat (->) h where
 --     bound by the type signature for:
 --                zipC :: Ok2 (->) a b => h a :* h b -> h (a :* b)
 
+-- TODO: inline for tabulate and index?
+
+#else
+
+instance Zip h => ZipCat (->) h where
+  zipC = uncurry (inline zip)
+instance Pointed h => PointedCat (->) h where
+  pointC = inline point
+
+#endif
+
 instance Foldable h => SumCat (->) h where
-  sumC = sum
+  sumC = inline sum
 
 -- instance (OkFunctor k h, OkFunctor k' h) => OkFunctor (k :**: k') h where
 --   okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
@@ -86,10 +113,11 @@ instance (FunctorCat k h, FunctorCat k' h) => FunctorCat (k :**: k') h where
   fmapC = fmapC :**: fmapC
   {-# INLINE fmapC #-}
 
-instance (LinearCat k h, LinearCat k' h) => LinearCat (k :**: k') h where
+instance (ZipCat k h, ZipCat k' h) => ZipCat (k :**: k') h where
   zipC   = zipC   :**: zipC
-  pointC = pointC :**: pointC
   {-# INLINE zipC #-}
+instance (PointedCat k h, PointedCat k' h) => PointedCat (k :**: k') h where
+  pointC = pointC :**: pointC
   {-# INLINE pointC #-}
 
 -- instance (DiagCat k h, DiagCat k' h) => DiagCat (k :**: k') h where
@@ -109,7 +137,7 @@ class DistributiveCat k g f where
 --   distributeC :: (OkFunctor k f, Ok k a) => f (g a) `k` g (f a)
 
 instance (Distributive g, Functor f) => DistributiveCat (->) g f where
-  distributeC = distribute
+  distributeC = inline distribute
 
 instance (DistributiveCat k g f, DistributiveCat k' g f)
       => DistributiveCat (k :**: k') g f where
@@ -121,12 +149,12 @@ class RepresentableCat k f where
   indexC    :: Ok k a => f a `k` (Rep f -> a)
 
 instance Representable f => RepresentableCat (->) f where
-  tabulateC = tabulate
-  indexC = index
+  tabulateC = inline tabulate
+  indexC    = indexC index
 
 instance (RepresentableCat k h, RepresentableCat k' h)
       => RepresentableCat (k :**: k') h where
   tabulateC = tabulateC :**: tabulateC
-  indexC = indexC :**: indexC
+  indexC    = indexC    :**: indexC
   {-# INLINE tabulateC #-}
   {-# INLINE indexC #-}
