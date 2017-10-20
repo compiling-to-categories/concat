@@ -349,19 +349,26 @@ imap' f = V.imap (f . finite . fromIntegral)
 
 instance KnownNat n => Keyed (Vector n) where
   mapWithKey = imap'
+  {-# INLINE mapWithKey #-}
 
 instance KnownNat n => Zip (Vector n) where
   zip = V.zip
   zipWith = V.zipWith
+  {-# INLINE zip #-}
+  {-# INLINE zipWith #-}
 
 instance KnownNat n => Distributive (Vector n) where
   distribute :: Functor f => f (Vector n a) -> Vector n (f a)
   distribute = distributeRep
+  {-# INLINE distribute #-}
 
 instance KnownNat n => Representable (Vector n) where
   type Rep (Vector n) = Finite n
   tabulate = V.generate_
   index = V.index
+  {-# INLINE tabulate #-}
+  {-# INLINE index #-}
 
 instance KnownNat n => Pointed (Vector n) where
   point = V.replicate
+  {-# INLINE point #-}
