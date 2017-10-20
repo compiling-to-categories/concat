@@ -123,14 +123,25 @@ choose f = unCcc (chooseC @con (toCcc f))
 op1C :: forall con a b c d. CartCon con
      => ((a -> b) -> (c -> d))
      -> (Choice con a b -> Choice con c d)
-op1C = inNew . fmap
+op1C = inNew . fmap'
+-- op1C = inNew . fmap
+-- op1C = inNew . fmapOpt  -- Experiment
 {-# INLINE op1C #-}
 
 op2C :: forall con a b c d e f. CartCon con
      => ((a -> b) -> (c -> d) -> (e -> f))
      -> (Choice con a b -> Choice con c d -> Choice con e f)
-op2C = inNew2 . liftA2
+op2C = inNew2 . liftA2'
+-- op2C = inNew2 . liftA2
+-- op2C = inNew2 . liftA2Opt  -- Experiment
 {-# INLINE op2C #-}
+
+-- fmap' and liftA2' are class-op-inlining synonyms for fmap and liftA2, defined
+-- in ConCat.Aggregate and re-exported from ConCat.AltAggregate. When I use fmap
+-- and liftA2, a rule in AltAggregate replaces fmap with fmapC, breaking the
+-- inlining of fmap in the OptArg instance. As a result, we don't get to
+-- eliminate a case that case-binds a variable we need to (but cannot) inline.
+-- Look for a better alternative. See 2017-10-20 notes.
 
 instance CartCon con => Category (Choice con) where
   -- type Ok (Choice con) = Ok (->) -- Yes1
@@ -276,6 +287,8 @@ onOptArg' _ h (Arg f)   = h f
 
 type CartCon con = (con (), OpCon (:*) (Sat con))
 
+#if 1
+
 instance CartCon con => Functor (OptArg con) where
   fmap f (NoArg u) = NoArg (f u)
   fmap f (  Arg g) = Arg (f . g)
@@ -291,8 +304,28 @@ instance CartCon con => Applicative (OptArg con) where
   {-# INLINE pure #-}
   {-# INLINE (<*>) #-}
 
+#else
+
+-- Experiment
+fmapOpt :: (a -> b) -> OptArg con a -> OptArg con b
+fmapOpt f (NoArg u) = NoArg (f u)
+fmapOpt f (  Arg g) = Arg (f . g)
+{-# INLINE fmapOpt #-}
+
+liftA2Opt :: forall con a b c. CartCon con =>
+     (a -> b -> c) -> OptArg con a -> OptArg con b -> OptArg con c
+liftA2Opt h (NoArg a) (NoArg b) = NoArg (h a b)
+liftA2Opt h (NoArg a) (Arg bs) = Arg (\ p -> h a (bs p))
+liftA2Opt h (Arg as) (NoArg b) = Arg (\ p -> h (as p) b)
+liftA2Opt h (Arg as) (NoArg b) = Arg (\ p -> h (as p) b)
+liftA2Opt h (Arg (g :: q -> a)) (Arg (f :: p -> b)) =
+  Arg (\ (p,q) -> h (g q) (f p)) <+ inOp @(:*) @(Sat con) @p @q
+{-# INLINE liftA2Opt #-}
+
+#endif
+
 -- Other classes
 
-instance (Monoid a, CartCon con) => Monoid (OptArg con a) where
-  mempty = NoArg mempty
-  mappend = liftA2 mappend
+-- instance (Monoid a, CartCon con) => Monoid (OptArg con a) where
+--   mempty = NoArg mempty
+--   mappend = liftA2 mappend
