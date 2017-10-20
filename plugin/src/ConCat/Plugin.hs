@@ -91,17 +91,20 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , inlineV          :: Id
                   -- , coercibleTc      :: TyCon
                   -- , coerceV          :: Id
-                     , polyOps          :: PolyOpsMap
-                     , monoOps          :: MonoOpsMap
+                  -- , polyOps          :: PolyOpsMap
+                  -- , monoOps          :: MonoOpsMap
                      , hsc_env          :: HscEnv
                      , ruleBase         :: RuleBase  -- to remove
                      }
 
+#if 0
 -- Map from fully qualified name of standard operation.
 type MonoOpsMap = Map String (Var,[Type])
 
 -- Map from fully qualified name of standard operation.
 type PolyOpsMap = Map String Var
+
+#endif
 
 -- Whether to run Core Lint after every step
 lintSteps :: Bool
@@ -391,7 +394,8 @@ ccc (CccEnv {..}) (Ops {..}) cat =
          []    -> -- (,) == curry id
                   -- Do we still need this case, or is it handled by catFun?
                   Doing("lam Plain (,)")
-                  return (mkCurry cat (mkId cat (pairTy a b)))
+                  -- return (mkCurry cat (mkId cat (pairTy a b)))
+                  mkCurry' cat (mkId cat (pairTy a b))
          [_]   -> Doing("lam Pair eta-expand")
                   goLam x (etaExpand 1 body)
          [u,v] -> Doing("lam Pair")
@@ -456,17 +460,23 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -- dtrace "Lam sub" (ppr sub) $
        -- TODO: maybe let instead of subst
        -- Substitute rather than making a Let, to prevent infinite regress.
-       return $ mkCurry cat (mkCcc (Lam z (subst sub e)))
+       -- return $ mkCurry cat (mkCcc (Lam z (subst sub e)))
+       -- Fail gracefully when we can't mkCurry, giving inlining a chance to
+       -- resolve polymorphism to monomorphism. See 2017-10-18 notes.
+       mkCurry' cat (mkCcc (Lam z (subst sub e)))
       where
         yty = varType y
         z = freshId (exprFreeVars e) zName (pairTy xty yty)
         zName = uqVarName x ++ "_" ++ uqVarName y
         sub = [(x,mkEx funCat exlV (Var z)),(y,mkEx funCat exrV (Var z))]
         -- TODO: consider using fst & snd instead of exl and exr here
+#if 0
+     -- Try doing without
      Trying("lam boxer")
      (boxCon -> Just e') ->
        Doing("lam boxer")
        return (mkCcc (Lam x e'))
+#endif
      Trying("lam Case of boxer")
      e@(Case scrut wild _ty [(_dc,[unboxedV],rhs)])
        | Just (tc,[]) <- splitTyConApp_maybe (varType wild)
@@ -737,7 +747,7 @@ data Ops = Ops
  , catTy          :: Unop Type
  , reCatCo        :: Rewrite Coercion
  , repTy          :: Unop Type
- , unfoldOkay     :: CoreExpr -> Bool
+ -- , unfoldOkay     :: CoreExpr -> Bool
  , unfoldMaybe'   :: ReExpr
  , unfoldMaybe    :: ReExpr
  , inlineMaybe    :: Id -> Maybe CoreExpr
@@ -758,12 +768,13 @@ data Ops = Ops
  , mkApplyMaybe   :: Cat -> Type -> Type -> Maybe CoreExpr
  , isClosed       :: Cat -> Bool
  , mkCurry        :: Cat -> Unop CoreExpr
+ , mkCurry'       :: Cat -> ReExpr
  , mkUncurryMaybe :: Cat -> ReExpr
  , mkIfC          :: Cat -> Type -> Ternop CoreExpr
  , mkBottomC      :: Cat -> Type -> Type -> Maybe CoreExpr
  , mkConst        :: Cat -> Type -> ReExpr
- , mkConstFun     :: Cat -> Type -> ReExpr
  , mkConst'       :: Cat -> Type -> ReExpr
+ , mkConstFun     :: Cat -> Type -> ReExpr
  , mkAbstC        :: Cat -> Type -> CoreExpr
  , mkReprC        :: Cat -> Type -> CoreExpr
  , mkReprC'       :: Cat -> Type -> CoreExpr
@@ -776,7 +787,7 @@ data Ops = Ops
  , tyArgs2        :: Type -> (Type,Type)
  , pprTrans       :: forall a b. (Outputable a, Outputable b) => String -> a -> b -> b
  , lintReExpr     :: Unop ReExpr
- , catFun         :: ReExpr
+ -- , catFun         :: ReExpr
  , transCatOp     :: ReExpr
  , reCat          :: ReExpr
  , isPseudoApp    :: CoreExpr -> Bool
@@ -843,11 +854,13 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    repTy t = mkTyConApp repTc [t]
    -- coercibleTy :: Unop Type
    -- coercibleTy t = mkTyConApp coercibleTc [t]
+#if 0
    unfoldOkay :: CoreExpr -> Bool
    unfoldOkay (exprHead -> Just v) =
      -- pprTrace "unfoldOkay head" (ppr (v,isNothing (catFun (Var v)))) $
      isNothing (catFun (Var v))
    unfoldOkay _                    = False
+#endif
    -- Temp hack: avoid exl/exr and reprC/abstC.
    unfoldMaybe' :: ReExpr
    -- unfoldMaybe' e | pprTrace "unfoldMaybe'" (ppr (e,exprHead e)) False = undefined
@@ -856,13 +869,13 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    unfoldMaybe' _ = Nothing                                    
    unfoldMaybe :: ReExpr
    -- unfoldMaybe e | dtrace "unfoldMaybe" (ppr (e,collectArgsPred isTyCoDictArg e)) False = undefined
-   unfoldMaybe e | unfoldOkay e
+   unfoldMaybe e -- | unfoldOkay e
                  --  | (Var v, _) <- collectArgsPred isTyCoDictArg e
                  -- -- , dtrace "unfoldMaybe" (text (fqVarName v)) True
                  -- , isNothing (catFun (Var v))
                  --  | True  -- experiment: don't restrict unfolding
                  = onExprHead ({- traceRewrite "inlineMaybe" -} inlineMaybe) e
-                 | otherwise = Nothing
+                 -- | otherwise = Nothing
    -- unfoldMaybe = -- traceRewrite "unfoldMaybe" $
    --               onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe)
    inlineMaybe :: Id -> Maybe CoreExpr
@@ -989,6 +1002,20 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      onDictMaybe =<< catOpMaybe k applyV [a,b]
    isClosed :: Cat -> Bool
    isClosed k = isJust (mkApplyMaybe k unitTy unitTy)
+
+   mkCurry' :: Cat -> ReExpr
+   -- mkCurry' k e | dtrace "mkCurry'" (ppr k <+> pprWithType e) False = undefined
+   mkCurry' k e =
+     -- curry :: forall {k :: * -> * -> *} {a} {b} {c}.
+     --          (ClosedCat k, Ok k c, Ok k b, Ok k a)
+     --       => k (Prod k a b) c -> k a (Exp k b c)
+     -- onDict (catOp k curryV `mkTyApps` [a,b,c]) `App` e
+     -- dtrace "mkCurry: (a,b,c) ==" (ppr (a,b,c)) $
+     (`App` e) <$> (onDictMaybe =<< catOpMaybe k curryV [a,b,c])
+    where
+      (tyArgs2 -> (tyArgs2 -> (a,b),c)) = exprType e
+      -- (splitAppTys -> (_,[splitAppTys -> (_,[a,b]),c])) = exprType e
+
    mkCurry :: Cat -> Unop CoreExpr
    -- mkCurry k e | dtrace "mkCurry" (ppr k <+> pprWithType e) False = undefined
    mkCurry k e =
@@ -1114,6 +1141,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                   (ppr beforeTy <+> "vs" <+> ppr afterTy <+> "in"))
               (oops "Lint")
           (lintExpr dflags (varSetElems (exprFreeVars after)) after)
+#if 0
    catFun :: ReExpr
    -- catFun e | dtrace "catFun" (pprWithType e) False = undefined
    catFun (Var v) | Just (op,tys) <- Map.lookup fullName monoOps =
@@ -1132,7 +1160,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
        return ({- onDict -} (catOp cat op tys))
    -- TODO: handle Prelude.const. Or let it inline.
    catFun _ = Nothing
-
+#endif
    transCatOp :: ReExpr
    transCatOp (collectArgs -> (Var v, Type (TyConApp (isFunTyCon -> True) []) : rest))
      = -- dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) $
@@ -1176,7 +1204,8 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    hasCatArg _                       = False
    reCat :: ReExpr
    reCat = -- (traceFail "reCat" <+ ) $
-           transCatOp <+ catFun
+           -- 2017-10-17: disable catFun to see if everything still works
+           transCatOp -- <+ catFun
    traceFail :: String -> ReExpr
    traceFail str a = dtrace str (pprWithType a) Nothing
    -- TODO: refactor transCatOp & isPartialCatOp
@@ -1380,7 +1409,7 @@ install :: [CommandLineOption] -> [CoreToDo] -> CoreM [CoreToDo]
 install opts todos =
   do -- pprTrace ("CCC install " ++ show opts) empty (return ())
      dflags <- getDynFlags
-     -- Unfortunately, the plugin doesn't work in GHCi. Until I can fix it,
+     -- Unfortunately, the plugin doesn't work in GHCi. Until fixed,
      -- disable under GHCi, so we can at least type-check conveniently.
      if hscTarget dflags == HscInterpreted then
         return todos
@@ -1513,12 +1542,14 @@ mkCccEnv opts = do
       mkPolyOp (stdName,(cmod,cop)) =
         do cv <- findId cmod cop
            return (stdName, cv)
+#if 0
   polyOps <- Map.fromList <$> mapM mkPolyOp polyInfo
   let mkMonoOp :: (String,(String,String,[Type])) -> CoreM (String,(Var,[Type]))
       mkMonoOp (stdName,(cmod,cop,tyArgs)) =
         do cv <- findId cmod cop
            return (stdName, (cv,tyArgs))
   monoOps <- Map.fromList <$> mapM mkMonoOp monoInfo
+#endif
   ruleBase <- eps_rule_base <$> (liftIO $ hscEPS hsc_env)
   -- pprTrace "ruleBase" (ppr ruleBase) (return ())
   let boxers = Map.fromList [(intTyCon,boxIV),(doubleTyCon,boxDV),(floatTyCon,boxFV)]
