@@ -31,6 +31,9 @@
 {-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-} -- for Oks
 
+-- For ConCat.Inline.ClassOp
+{-# OPTIONS_GHC -fplugin=ConCat.Inline.Plugin #-}
+
 -- | Another go at constrained categories. This time without Prod, Coprod, Exp.
 
 -- #define DefaultCat
@@ -77,6 +80,7 @@ import ConCat.Misc hiding ((<~),(~>),type (&&))
 import ConCat.Rep
 -- import ConCat.Orphans ()
 -- import ConCat.Additive (Additive)
+import ConCat.Inline.ClassOp (inline)
 
 #define PINLINER(nm) {-# INLINE nm #-}
 -- #define PINLINER(nm)
@@ -197,11 +201,6 @@ type Yes1' = Sat Yes1
 type Ok' k = Sat (Ok k)
 
 type OpSat op kon = OpCon op (Sat kon)
-
-class OkFunctor k h where
-  okFunctor :: Ok' k a |- Ok' k (h a)
-
-instance OkFunctor (->) h where okFunctor = Entail (Sub Dict)
 
 inSat :: OpCon op (Sat con) => Sat con a && Sat con b |- Sat con (a `op` b)
 inSat = inOp
@@ -452,6 +451,8 @@ instance ProductCat (->) where
   rassocP = \ ((a,b),c) -> (a,(b,c))
 #endif
 
+-- TODO: do we want inline for (&&&), (***), first, and second?
+
 instance ProductCat U2 where
   exl = U2
   exr = U2
@@ -612,6 +613,8 @@ instance CoproductCat (->) where
   left  = A.left
   right = A.right
 #endif
+
+-- TODO: do we want inline for (|||), (+++), left, and right?
 
 instance Monad m => CoproductCat (Kleisli m) where
   inl = arr inl
@@ -799,6 +802,8 @@ instance ClosedCat (->) where
   curry   = P.curry
   uncurry = P.uncurry
 
+-- TODO: do we want inline for apply, curry, and uncurry?
+
 applyK   ::            Kleisli m (Kleisli m a b :* a) b
 curryK   :: Monad m => Kleisli m (a :* b) c -> Kleisli m a (Kleisli m b c)
 uncurryK :: Monad m => Kleisli m a (Kleisli m b c) -> Kleisli m (a :* b) c
@@ -856,6 +861,8 @@ class OkExp k => FlipCat k where
 instance FlipCat (->) where
   flipC  = flip
   flipC' = flip
+
+-- TODO: inline?
 
 instance FlipCat U2 where
   flipC  U2 = const U2
@@ -1157,6 +1164,9 @@ instance BoolCat (->) where
   orC  = P.uncurry (||)
   xorC = P.uncurry (/=)
 
+-- No inline, since not, (&&), (||) are not class-ops, and (/=) is
+-- specialized to Bool here (and hence appears as $fEqBool_$c/=)
+
 #ifdef KleisliInstances
 instance Monad m => BoolCat (Kleisli m) where
   -- type BoolOf (Kleisli m) = Bool
@@ -1192,8 +1202,8 @@ class (BoolCat k, Ok k a) => EqCat k a where
   {-# MINIMAL equal | notEqual #-}
 
 instance Eq a => EqCat (->) a where
-  equal    = uncurry (==)
-  notEqual = uncurry (/=)
+  equal    = uncurry (inline (==))
+  notEqual = uncurry (inline (/=))
 
 #ifdef KleisliInstances
 instance (Monad m, Eq a) => EqCat (Kleisli m) a where
@@ -1257,8 +1267,8 @@ class (Category k, Ok k a) => EnumCat k a where
   predC = subC . rconst 1 <+ okProd @k @a @a
 
 instance Enum a => EnumCat (->) a where
-  succC = succ
-  predC = pred
+  succC = inline succ
+  predC = inline pred
 
 instance EnumCat U2 a where
   succC = U2
@@ -1279,11 +1289,12 @@ class Ok k a => NumCat k a where
   {-# INLINE subC #-}
 
 instance Num a => NumCat (->) a where
-  negateC = negate
-  addC    = uncurry (+)
-  subC    = uncurry (-)
-  mulC    = uncurry (*)
+  negateC = inline negate
+  addC    = uncurry (inline (+))
+  subC    = uncurry (inline (-))
+  mulC    = uncurry (inline (*))
   powIC   = uncurry (^)
+            -- (^) is not a class-op
 
 #ifdef KleisliInstances
 instance (Monad m, Num a) => NumCat (Kleisli m) a where
@@ -1323,8 +1334,8 @@ divModC :: forall k a. (ProductCat k, IntegralCat k a, Ok k a)
 divModC = divC &&& modC  <+ okProd @k @a @a
 
 instance Integral a => IntegralCat (->) a where
-  divC = uncurry div
-  modC = uncurry mod
+  divC = uncurry (inline div)
+  modC = uncurry (inline mod)
 
 #ifdef KleisliInstances
 instance (Monad m, Integral a) => IntegralCat (Kleisli m) a where
@@ -1354,8 +1365,8 @@ class Ok k a => FractionalCat k a where
   {-# MINIMAL recipC | divideC #-}
 
 instance Fractional a => FractionalCat (->) a where
-  recipC = recip
-  divideC = uncurry (/)
+  recipC  = inline recip
+  divideC = uncurry (inline (/))
 
 #ifdef KleisliInstances
 instance (Monad m, Fractional a) => FractionalCat (Kleisli m) a where
@@ -1377,9 +1388,9 @@ class Ok k a => FloatingCat k a where
   expC, cosC, sinC :: a `k` a
 
 instance Floating a => FloatingCat (->) a where
-  expC = exp
-  cosC = cos
-  sinC = sin
+  expC = inline exp
+  cosC = inline cos
+  sinC = inline sin
 
 #ifdef KleisliInstances
 instance (Monad m, Floating a) => FloatingCat (Kleisli m) a where
@@ -1406,9 +1417,9 @@ class Ok k a => RealFracCat k a b where
   truncateC :: a `k` b
 
 instance (RealFrac a, Integral b) => RealFracCat (->) a b where
-  floorC = floor
-  ceilingC = ceiling
-  truncateC = truncate
+  floorC    = inline floor
+  ceilingC  = inline ceiling
+  truncateC = inline truncate
 
 #ifdef KleisliInstances
 instance (Monad m, RealFrac a, Integral b) => RealFracCat (Kleisli m) a b where
@@ -1439,6 +1450,8 @@ class FromIntegralCat k a b where
 
 instance (Integral a, Num b) => FromIntegralCat (->) a b where
   fromIntegralC = fromIntegral
+
+-- No inline for fromIntegral (not a classop)
 
 #ifdef KleisliInstances
 instance (Monad m, Integral a, Num b) => FromIntegralCat (Kleisli m) a b where
@@ -1713,10 +1726,6 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
 #endif
 
 #endif
-
-instance (OkFunctor k h, OkFunctor k' h)
-      => OkFunctor (k :**: k') h where
-  okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
 
 {--------------------------------------------------------------------
     Functors
