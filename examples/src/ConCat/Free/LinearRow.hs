@@ -32,7 +32,7 @@ import GHC.Generics (U1(..),(:*:)(..),(:.:)(..)) -- ,Par1(..)
 
 import Data.Constraint
 import Data.Key (Zip(..))
--- import Data.Distributive
+import Data.Distributive (collect)
 import Data.Functor.Rep (Representable)
 -- import qualified Data.Functor.Rep as R
 import Text.PrettyPrint.HughesPJClass hiding (render)
@@ -227,15 +227,19 @@ instance ProductCat (L s) where
 
 inlLM :: Ok2 (L s) a b => L s a (a :* b)
 inlLM = abst inlL
+{-# INLINE inlLM #-}
 
 inrLM :: Ok2 (L s) a b => L s b (a :* b)
 inrLM = abst inrL
+{-# INLINE inrLM #-}
 
 joinLM :: Ok3 (L s) a b c => L s a c -> L s b c -> L s (a :* b) c
 joinLM = inAbst2 joinL
+{-# INLINE joinLM #-}
 
 jamLM :: Ok (L s) a => L s (a :* a) a
 jamLM = id `joinLM` id
+{-# INLINE jamLM #-}
 
 instance (r ~ Rep a, V s r ~ V s a, Ok (L s) a) => RepCat (L s) a r where
   reprC = L idL
@@ -299,7 +303,7 @@ linearF :: forall s f g. (Diagonal f, Representable g, Num s)
 -- linearF q = distribute (q <$> idL)
 -- linearF q = distribute (fmap q idL)
 -- linearF q = collect q idL
-linearF = flip collectC idL
+linearF = flip collect idL
 {-# INLINE linearF #-}
 
 -- q :: f s -> g s
@@ -324,22 +328,6 @@ scale = L . scaleL
 
 negateLM :: OkLM s a => L s a a
 negateLM = scale (-1)
-
--- instance (OkLF h, VComp h) => LinearCat (L s) h where
---   fmapC :: forall a b. Ok2 (L s) a b => L s a b -> L s (h a) (h b)
---   fmapC f = linear' (fmapC (lapply f))
---               \\ vcomp @h @s @a
---               \\ vcomp @h @s @b
---   zipC  :: forall a b. Ok2 (L s) a b => L s (h a :* h b) (h (a :* b))
---   zipC  = linear' zipC
---              \\ vcomp @h @s @a
---              \\ vcomp @h @s @b
---              \\ vcomp @h @s @(a :* b)
---   sumC  :: forall a. (Ok (L s) a, Num a) => L s (h a) a
---   sumC  = linear' sumC
---             \\ vcomp @h @s @a
-
--- TODO: Replace these easy definitions with more efficient versions.
 
 #if 0
 
