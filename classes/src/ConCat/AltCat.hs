@@ -69,7 +69,7 @@ import ConCat.Category
   -- , Arr, ArrayCat
   , TransitiveCon(..)
   , U2(..), (:**:)(..)
-  , type (|-)(..), (<+), okProd, okExp, OkFunctor(..)
+  , type (|-)(..), (<+), okProd, okExp
   , OpCon(..),Sat(..) -- ,FunctorC(..)
   , yes1, forkCon, joinCon, inForkCon
   -- , AmbCat
@@ -621,3 +621,4 @@ instance Pointed (Arr i) where
 -- ConCat.Aggregate and ConCat.AltAggregate.
 
 #endif
+
