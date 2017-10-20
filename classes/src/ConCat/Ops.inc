@@ -1,3 +1,4 @@
+-- -*-Haskell-*-
 
 #define OPINLINE INLINE [0]
 -- #define OPINLINE INLINE CONLIKE [3]
@@ -42,3 +43,15 @@ nm = C.nm ;\
 -- macro argument insertion.
 
 -- Can I get the operation names (nm) into the rule names?
+
+{--------------------------------------------------------------------
+    Capture class ops
+--------------------------------------------------------------------}
+
+-- Basic
+#define Catify(op,meth) {-# RULES "catify" [~0] op = meth #-}
+-- Same name as in Prelude
+#define CatifyP(nm)  Catify(P.nm,nm)
+#define CatifyPI(op) Catify((P.op),(op))
+-- Curried
+#define CatifyC(op,meth) Catify(op,curry (meth))
