@@ -26,32 +26,32 @@ import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import GHC.TypeLits (KnownNat)
 
 import Data.Constraint (Dict(..),(:-)(..))
-import Data.Functor.Rep (Representable(..))
+import Data.Key(Zip(..))
+import Data.Pointed(Pointed(..))
 import Data.Vector.Sized (Vector)
 
 import Control.Newtype (Newtype(..))
--- import Data.MemoTrie
 
 import ConCat.Misc
 import ConCat.Orphans ()
 import ConCat.Pair
--- import ConCat.Category (type (|-)(..),Sat(..),Arr(..))
 import ConCat.AltCat
-import ConCat.AltAggregate
 
 -- | Commutative monoid intended to be used with a multiplicative monoid
 class Additive a where
   zero  :: a
   infixl 6 ^+^
   (^+^) :: a -> a -> a
-  default zero :: (Representable h, Additive b) => h b
-  zero = pointC zero
-  default (^+^) :: (Representable h, Additive b) => Binop (h b)
-  (^+^) = zipWith' (^+^)
+  default zero :: (Pointed h, Additive b) => h b
+  zero = point zero
+  default (^+^) :: (Zip h, Additive b) => Binop (h b)
+  (^+^) = zipWith (^+^)
+  {-# INLINE (^+^) #-}
 
-zipWith' :: Representable h
-         => (a -> b -> c) -> (h a -> h b -> h c)
-zipWith' f as bs = fmapC (uncurry f) (zipC (as,bs))
+-- zipWith' :: Representable h
+--          => (a -> b -> c) -> (h a -> h b -> h c)
+-- zipWith' f as bs = fmap (uncurry f) (zip (as,bs))
+-- {-# INLINER zipWith' #-}
 
 instance Additive () where
   zero = ()
@@ -103,24 +103,20 @@ instance Additive v => Additive (a -> v)
 instance Additive v => Additive (Sum     v)
 instance Additive v => Additive (Product v)
 
--- type AddF f = (Pointed f, Zip f)
-type AddF f = Representable f
+type AddF f = (Pointed f, Zip f)
 
 instance Additive v => Additive (U1 v)
 instance Additive v => Additive (Par1 v)
 instance (Additive v, AddF f, AddF g) => Additive ((f :*: g) v)
 instance (Additive v, AddF f, AddF g) => Additive ((g :.: f) v)
 
-instance Additive v => Additive (Pair v)
+-- instance Additive v => Additive (Pair v)
 
 -- instance (Eq i, Additive v) => Additive (Arr i v) where
---   zero = pointC zero
---   as ^+^ bs = fmapC (uncurry (^+^)) (zipC (as,bs))
+--   zero = point zero
+--   as ^+^ bs = fmap (uncurry (^+^)) (zipC (as,bs))
 
 -- TODO: Define and use zipWithC (^+^) as bs.
-
--- TODO: Generalize LinearCat back to functors, and use the Additive (Arr i v)
--- above as the defaults.
 
 instance (Additive v, KnownNat n) => Additive (Vector n v)
 
