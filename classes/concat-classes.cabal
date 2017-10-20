@@ -33,6 +33,7 @@ library
                      , finite-typelits, vector-sized
                      , keys, pointed
                      , distributive, adjunctions
+                     , concat-inline
   exposed-modules:     ConCat.Category
                        ConCat.AltCat
                        ConCat.Misc
