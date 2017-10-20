@@ -55,7 +55,6 @@ import Unique (mkBuiltinUnique)
 import FamInstEnv
 
 import ConCat.Misc (Unop,Binop,Ternop,PseudoFun(..),(~>))
-import ConCat.Simplify
 import ConCat.BuildDictionary
 
 -- Information needed for reification. We construct this info in
@@ -917,8 +916,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
              , isPredTy' ty = onDicts (onDict e)
              | otherwise    = e
    buildDictMaybe :: Type -> Either SDoc CoreExpr
-   buildDictMaybe ty = simplifyE dflags False <$>  -- remove simplifyE call later?
-                       buildDictionary hsc_env dflags guts inScope ty
+   buildDictMaybe ty = buildDictionary hsc_env dflags guts inScope ty
    catOp :: Cat -> Var -> [Type] -> CoreExpr
    -- catOp k op tys | dtrace "catOp" (ppr (k,op,tys)) False = undefined
    catOp k op tys --  | dtrace "catOp" (pprWithType (Var op `mkTyApps` (k : tys))) True
@@ -1887,6 +1885,8 @@ inlineClassOp v =
   case idDetails v of
     ClassOpId cls -> mkDictSelRhs cls <$> elemIndex v (classAllSelIds cls)
     _             -> Nothing
+
+-- TODO: reconcile with inlineClassOp from ConCat.Inline.ClassOp
 
 exprHead :: CoreExpr -> Maybe Id
 exprHead (Var v)     = Just v
