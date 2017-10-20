@@ -31,7 +31,8 @@ import Data.Vector.Sized (Vector)
 
 import ConCat.Misc ((:*))
 import ConCat.Aggregate ( OkFunctor(..),FunctorCat,ZipCat,PointedCat,SumCat
-                        , DistributiveCat,RepresentableCat )
+                        , DistributiveCat,RepresentableCat 
+                        , fmap', liftA2' )
 import qualified ConCat.Aggregate as C
 import ConCat.AltCat
 
