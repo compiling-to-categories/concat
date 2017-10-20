@@ -66,12 +66,15 @@ instance OpCon (:*) (Sat OkLFC) where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
 
+#if 0
 
--- class    (RepresentableVE R a, GenBuses a) => OkLFC' a
--- instance (RepresentableVE R a, GenBuses a) => OkLFC' a
+class    (RepresentableVE R a, GenBuses a) => OkLFC' a
+instance (RepresentableVE R a, GenBuses a) => OkLFC' a
 
--- instance OpCon (:*) (Sat OkLFC') where
---   inOp = Entail (Sub Dict)
---   {-# INLINE inOp #-}
+instance OpCon (:*) (Sat OkLFC') where
+  inOp = Entail (Sub Dict)
+  {-# INLINE inOp #-}
+
+#endif
 
 #endif
