@@ -109,19 +109,6 @@ instance (Ok (L s) s, Floating s) => FloatingCat (D s) s where
   {-# INLINE sinC #-}
   {-# INLINE cosC #-}
 
--- instance (OkLF h, VComp h) => LinearCat (D s) h where
---   fmapC :: forall a b. Ok2 (D s) a b => D s a b -> D s (h a) (h b)
---   fmapC (D f) = D (second (L . pushH . mkDiag) . unzip . fmap f)
---    where
---      pushH :: h (h (V s b (V s a s))) -> V s (h b) (V s (h a) s)
---      pushH = fmap Comp1 . Comp1 . fmap distribute
---                \\ vcomp @h @s @a
---                \\ vcomp @h @s @b
---      mkDiag :: h (L s a b) -> h (h (V s b (V s a s)))
---      mkDiag = diagF zeroL . fmap unpack
---   zipC = linearD zipC zipC
---   sumC = linearD sumC sumC
-
 #if 0
 
 fmap unpack :: h (L s a b) -> h (V s b (V s a s))
