@@ -39,7 +39,9 @@ import ConCat.Misc (Unop)
     Simplification
 --------------------------------------------------------------------}
 
--- We can't use simplifyExpr from SimplifyCore, because it doesn't inline.
+-- We can't use simplifyExpr from SimplCore, because it doesn't inline.
+
+-- TODO: I don't think I'm using inline with simplifyE, so switch to simplifyExpr.
 
 simplifyE :: DynFlags -> Bool -> Unop CoreExpr
 simplifyE dflags inline = unsafePerformIO . simplifyExpr dflags inline
