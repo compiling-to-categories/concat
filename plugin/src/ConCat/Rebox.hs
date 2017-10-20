@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE MagicHash #-}
+{-# LANGUAGE TypeApplications #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -9,17 +10,22 @@
 
 {-# OPTIONS_GHC -Wno-inline-rule-shadowing #-}
 
+-- For Catify etc
+#include "ConCat/Ops.inc"
+
 -- | Reboxing experiments
 
 module ConCat.Rebox where
 
-import Prelude hiding (curry,uncurry)
+import Prelude hiding (id,(.),curry,uncurry)
 import qualified Prelude as P
+import qualified Control.Arrow as P
 
 import GHC.Types
 import GHC.Prim
 import GHC.Integer
 
+import ConCat.Misc (xor)
 import ConCat.AltCat
 
 boxI :: Int# -> Int
@@ -37,6 +43,109 @@ boxD = D#
 boxIB :: Int# -> Bool
 boxIB i = tagToEnum# i
 {-# INLINE [0] boxIB #-}
+
+unboxF :: Float -> Float#
+unboxF (F# f#) = f#
+-- {-# INLINE [0] unboxF #-}
+
+unboxD :: Double -> Double#
+unboxD (D# d#) = d#
+-- {-# INLINE [0] unboxD #-}
+
+unboxI :: Int -> Int#
+unboxI (I# i#) = i#
+-- {-# INLINE [0] unboxI #-}
+
+unboxIB :: Bool -> Int#
+unboxIB i = unboxI (fromEnum i)
+-- {-# INLINE [0] unboxIB #-}
+
+-- Handy for translating case-of-Int#
+ifEqInt# :: Int# -> Int# -> a -> a -> a
+ifEqInt# m n a b = if equal (boxI m, boxI n) then a else b
+{-# INLINE ifEqInt# #-}
+
+#if 1
+
+#define Rebox1(box,unbox,uop,bop) \
+  "rebox2" [~0] uop = \ u# -> unbox (bop (box u#))
+
+#define Rebox2(box,unbox,uop,bop) \
+  "rebox2" [~0] uop = \ u# v# -> unbox (bop (box u#) (box v#))
+
+#define ReboxB2(box,uop,bop) Rebox2(box,unboxIB,uop,bop)
+
+#define Rebox1I(uop,bop) Rebox1(boxI,unboxI,uop,bop)
+#define Rebox1F(uop,bop) Rebox1(boxF,unboxF,uop,bop)
+#define Rebox1D(uop,bop) Rebox1(boxD,unboxD,uop,bop)
+
+#define Rebox2I(uop,bop) Rebox2(boxI,unboxI,uop,bop)
+#define Rebox2F(uop,bop) Rebox2(boxF,unboxF,uop,bop)
+#define Rebox2D(uop,bop) Rebox2(boxD,unboxD,uop,bop)
+
+#define ReboxB2I(uop,bop) ReboxB2(boxI,uop,bop)
+#define ReboxB2F(uop,bop) ReboxB2(boxF,uop,bop)
+#define ReboxB2D(uop,bop) ReboxB2(boxD,uop,bop)
+
+{-# RULES
+
+ReboxB2I((==#),(==))
+ReboxB2I((/=#),(/=))
+ReboxB2I(( >#) ,(>))
+ReboxB2I(( <#) ,(<))
+ReboxB2I((>=#),(>=))
+ReboxB2I((<=#),(<=))
+
+ReboxB2F(eqFloat#,(==))
+ReboxB2F(neFloat#,(/=))
+ReboxB2F(gtFloat#,( >))
+ReboxB2F(geFloat#,( <))
+ReboxB2F(ltFloat#,(>=))
+ReboxB2F(leFloat#,(<=))
+
+ReboxB2D((==##),(==))
+ReboxB2D((/=##),(/=))
+ReboxB2D(( >##) ,(>))
+ReboxB2D(( <##) ,(<))
+ReboxB2D((>=##),(>=))
+ReboxB2D((<=##),(<=))
+
+Rebox1I(negateInt#,negate)
+Rebox2I((+#),(+))
+Rebox2I((-#),(-))
+Rebox2I((*#),(*))
+Rebox1(boxD,unboxI,double2Int#,truncate)
+
+Rebox1F(negateFloat#,negate)
+Rebox2F(plusFloat#,(+))
+Rebox2F(minusFloat#,(-))
+Rebox2F(timesFloat#,(*))
+Rebox2F(divideFloat#,(/))
+Rebox1F(sinFloat#,sin)
+Rebox1F(cosFloat#,cos)
+Rebox1F(expFloat#,exp)
+Rebox1(boxI,unboxF,int2Float#,fromIntegral)
+
+Rebox1D(negateDouble#,negate)
+Rebox2D((+##),(+))
+Rebox2D((-##),(-))
+Rebox2D((*##),(*))
+Rebox2D((/##),(/))
+Rebox1D(sinDouble#,sin)
+Rebox1D(cosDouble#,cos)
+Rebox1D(expDouble#,exp)
+Rebox1(boxI,unboxD,int2Double#,fromIntegral)
+
+Rebox2(id,unboxIB, eqInteger#,(==))
+Rebox2(id,unboxIB,neqInteger#,(/=))
+Rebox2(id,unboxIB, geInteger#,(> ))
+Rebox2(id,unboxIB, ltInteger#,(< ))
+Rebox2(id,unboxIB, gtInteger#,(>=))
+Rebox2(id,unboxIB, leInteger#,(<=))
+
+ #-}
+
+#else
 
 {-# RULES
 
@@ -157,22 +266,6 @@ boxIB i = tagToEnum# i
 
  #-}
 
-unboxF :: Float -> Float#
-unboxF (F# f#) = f#
--- {-# INLINE [0] unboxF #-}
-
-unboxD :: Double -> Double#
-unboxD (D# d#) = d#
--- {-# INLINE [0] unboxD #-}
-
-unboxI :: Int -> Int#
-unboxI (I# i#) = i#
--- {-# INLINE [0] unboxI #-}
-
-unboxIB :: Bool -> Int#
-unboxIB i = unboxI (fromEnum i)
--- {-# INLINE [0] unboxIB #-}
-
 -- The float/double division reboxing scheme works without the INLINE pragmas or
 -- with INLINE [1-4], but gives the following warning with INLINE [0]:
 
@@ -223,28 +316,104 @@ ghc: panic! (the 'impossible' happened)
 --                      GHC.Types.D# wild_00 }
 
 
--- Handy for translating case-of-Int#
-ifEqInt# :: Int# -> Int# -> a -> a -> a
-ifEqInt# m n a b = if equal (boxI m, boxI n) then a else b
-{-# INLINE ifEqInt# #-}
-
+#endif
 
 {--------------------------------------------------------------------
-    Experiment. See 2017-10-15 notes.
+    Capture class ops
 --------------------------------------------------------------------}
+
+#if 1
+
+-- Now in Ops.inc
+-- -- Basic
+-- #define Catify(op,meth) {-# RULES "catify" [~0] op = meth #-}
+-- -- Same name as in Prelude
+-- #define CatifyP(nm)  Catify(P.nm,nm)
+-- #define CatifyPI(op) Catify((P.op),(op))
+-- -- Curried
+-- #define CatifyC(op,meth) Catify(op,curry (meth))
 
 #if 0
 
-{-# RULES
+CatifyP(id)
+CatifyPI(.)
 
-"curry 2" forall f a b. curry f a b = f (a,b)
+Catify(fst,exl)
+Catify(snd,exr)
 
-"cat equal" [~0] (==) = curry equal
-"cat add"   [~0] (+)  = curry addC
+-- Function-specialize arrow methods. Or drop them.
+Catify((P.&&&) @(->),(&&&))
+Catify((P.***) @(->),(***))
+Catify(P.first,first)
+Catify(P.second,second)
 
--- Maybe unwise, but let's see.
-"cat uncurry" [~0] P.uncurry = uncurry
+Catify(Left,inl)
+Catify(Right,inr)
 
- #-}
+Catify((P.|||) @(->),(|||))
+Catify((P.+++) @(->),(+++))
+Catify(P.left,left)
+Catify(P.right,right)
+
+CatifyP(curry)
+CatifyP(uncurry)
 
 #endif
+
+-- The catifies above are unnecessary, since the plugin can inlinine and
+-- re-discover the categorical version.
+
+Catify(not,notC)
+CatifyC((&&),andC)
+CatifyC((||),orC)
+CatifyC(xor,xorC)
+
+CatifyC((==),equal)
+CatifyC((/=),notEqual)
+
+CatifyC((<),lessThan)
+CatifyC((>),greaterThan)
+CatifyC((<=),lessThanOrEqual)
+CatifyC((>=),greaterThanOrEqual)
+
+Catify(succ,succC)
+Catify(pred,predC)
+
+Catify(negate,negateC)
+CatifyC((+),addC)
+CatifyC((-),subC)
+CatifyC((*),mulC)
+CatifyC((^),powIC)
+
+CatifyC(div,divC)
+CatifyC(mod,modC)
+
+Catify(recip,recipC)
+CatifyC((/),divideC)
+
+Catify(sin,sinC)
+Catify(cos,cosC)
+Catify(exp,expC)
+
+Catify(floor,floorC)
+Catify(ceiling,ceilingC)
+Catify(truncate,truncateC)
+
+Catify(fromIntegral,fromIntegralC)
+
+-- ifThenElse? where is it?
+
+-- RepCat?
+-- CoerceCat?
+
+#endif
+
+-- Maybe move elsewhere
+
+{-# RULES
+
+"pair fst snd" forall p. (,) (exl p) (exr p) = p
+
+"curry apply 2" forall f a b. curry f a b = f (a,b)
+
+ #-}
