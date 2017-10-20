@@ -52,20 +52,24 @@ type (:=>) = (->)
 -- | Operate inside a Generic1
 inGeneric1 :: (Generic1 f, Generic1 g) => (Rep1 f a -> Rep1 g b) -> (f a -> g b)
 inGeneric1 = to1 <~ from1
+{-# INLINE inGeneric1 #-}
 
 -- | Apply a unary function within the 'Comp1' constructor.
 inComp :: (g (f a) -> g' (f' a')) -> ((g :.: f) a -> (g' :.: f') a')
 inComp = Comp1 <~ unComp1
+{-# INLINE inComp #-}
 
 -- | Apply a binary function within the 'Comp1' constructor.
 inComp2 :: (  g (f a)   -> g' (f' a')     -> g'' (f'' a''))
         -> ((g :.: f) a -> (g' :.: f') a' -> (g'' :.: f'') a'')
 inComp2 = inComp <~ unComp1
+{-# INLINE inComp2 #-}
 
 -- TODO: phase out inComp and inComp2 in favor of inNew and inNew2.
 
 absurdF :: V1 a -> b
 absurdF = \ case
+{-# INLINE absurdF #-}
 
 -- infixr 1 +->
 -- data (a +-> b) p = Fun1 { unFun1 :: a p -> b p }
@@ -77,6 +81,8 @@ absurdF = \ case
 --   type O ((a +-> b) t) = a t -> b t
 --   pack = Fun1
 --   unpack = unFun1
+
+#if 0
 
 {--------------------------------------------------------------------
     Evaluation
@@ -93,6 +99,8 @@ class PrimBasics p where
 class Evalable p where eval :: p a -> a
 
 -- TODO: Are we still using PrimBasics or Evalable?
+
+#endif
 
 {--------------------------------------------------------------------
     Other
@@ -255,9 +263,11 @@ type R = Double -- Float
 
 sqr :: Num a => a -> a
 sqr a = a * a
+{-# INLINE sqr #-}
 
 magSqr :: Num a => a :* a -> a
 magSqr (a,b) = sqr a + sqr b
+{-# INLINE magSqr #-}
 
 transpose :: (Traversable t, Applicative f) => t (f a) -> f (t a)
 transpose = sequenceA
@@ -265,10 +275,12 @@ transpose = sequenceA
 inTranspose :: (Applicative f, Traversable t, Applicative f', Traversable t')
             => (f (t a) -> t' (f' a)) -> (t (f a) -> f' (t' a))
 inTranspose = transpose <~ transpose
+{-# INLINE inTranspose #-}
 -- inTranspose h = transpose . h . transpose
 
 unzip :: Functor f => f (a :* b) -> f a :* f b
 unzip ps = (fst <$> ps, snd <$> ps)
+{-# INLINE unzip #-}
 
 {--------------------------------------------------------------------
     Newtype
@@ -280,26 +292,32 @@ unzip ps = (fst <$> ps, snd <$> ps)
 underF :: (Newtype n, Newtype n', o' ~ O n', o ~ O n, Functor f, Functor g)
        => (o -> n) -> (f n -> g n') -> (f o -> g o')
 underF _ f = fmap unpack . f . fmap pack
+{-# INLINE underF #-}
 
 -- Type generalization of overF from newtype-generics.
 overF :: (Newtype n, Newtype n', o' ~ O n', o ~ O n, Functor f, Functor g)
       => (o -> n) -> (f o -> g o') -> (f n -> g n')
 overF _ f = fmap pack . f . fmap unpack
+{-# INLINE overF #-}
 
 inNew :: (Newtype p, Newtype q) =>
          (O p -> O q) -> (p -> q)
 inNew = pack <~ unpack
+{-# INLINE inNew #-}
 
 inNew2 :: (Newtype p, Newtype q, Newtype r) =>
           (O p -> O q -> O r) -> (p -> q -> r)
 inNew2 = inNew <~ unpack
+{-# INLINE inNew2 #-}
 
 -- TODO: use inNew and inNew2 in place of ad hoc versions throughout.
 
 exNew :: (Newtype p, Newtype q) =>
          (p -> q) -> (O p -> O q)
 exNew = unpack <~ pack
+{-# INLINE exNew #-}
 
 exNew2 :: (Newtype p, Newtype q, Newtype r) =>
           (p -> q -> r) -> (O p -> O q -> O r)
 exNew2 = exNew <~ pack
+{-# INLINE exNew2 #-}
