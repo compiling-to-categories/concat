@@ -13,10 +13,10 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
--- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 -- {-# OPTIONS_GHC -fno-warn-unused-binds   #-} -- TEMP
 
-#define SpecialPair
+-- #define SpecialPair
 
 ----------------------------------------------------------------------
 -- | Uniform pairs
@@ -45,13 +45,16 @@ import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(tabulate,index))
 import qualified Data.Functor.Rep as R
 import Control.Newtype (Newtype(..))
+import Data.Constraint (Dict(..),(:-)(..))
 
 import ConCat.Misc ((:*))
 import ConCat.Rep (HasRep(..))
 import ConCat.Sized
 import ConCat.Scan
-import ConCat.Circuit (GenBuses(..),Buses(..),BusesM,Ty(..),abstB)
+import ConCat.Circuit ((:>),GenBuses(..),Buses(..),BusesM,Ty(..),abstB)
 import ConCat.Free.VectorSpace (HasV(..))
+import ConCat.AltCat (type (|-)(..),Ok)
+import ConCat.Aggregate (OkFunctor(..))
 #endif
 
 #ifndef SpecialPair
@@ -136,6 +139,9 @@ instance GenBuses a => GenBuses (Pair a) where
    where
      u = unflattenB' @a
      {-# NOINLINE u #-}
+
+instance OkFunctor (:>) Pair where
+  okFunctor = Entail (Sub Dict)
 
 -- Without these NOINLINE pragmas, GHC's typechecker does exponential work for
 -- binary trees.
