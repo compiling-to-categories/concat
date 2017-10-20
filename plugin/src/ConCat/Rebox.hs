@@ -20,7 +20,7 @@ module ConCat.Rebox where
 import Prelude hiding (id,(.),curry,uncurry)
 import qualified Prelude as P
 import qualified Control.Arrow as P
-
+import Data.Tuple (swap)
 import GHC.Types
 import GHC.Prim
 import GHC.Integer
@@ -360,6 +360,8 @@ CatifyP(uncurry)
 
 #endif
 
+Catify(swap,swapP)
+
 -- The catifies above are unnecessary, since the plugin can inlinine and
 -- re-discover the categorical version.
 
@@ -415,5 +417,7 @@ Catify(fromIntegral,fromIntegralC)
 "pair fst snd" forall p. (,) (exl p) (exr p) = p
 
 "curry apply 2" forall f a b. curry f a b = f (a,b)
+
+"swap" forall p. (,) (exr p) (exl p) = swap p
 
  #-}
