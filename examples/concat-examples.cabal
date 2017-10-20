@@ -27,16 +27,14 @@ library
   hs-source-dirs:      src
   include-dirs:        src
   install-includes:    ConCat/AbsTy.inc
-  build-depends:       adjunctions >= 4.3
-                     , base >=4.9
-                     , concat-classes
-                     , concat-plugin
+  build-depends:       base >=4.9
+                     , newtype-generics >= 0.5.0.1
                      , constraints >= 0.8
                      , containers >= 0.5.7.1
-                     , distributive >= 0.5.3
                      , keys >= 3.11
-                     , newtype-generics >= 0.5.0.1
                      , pointed >= 5
+                     , distributive
+                     , adjunctions
                      , prettyclass
                      -- For Complex
                      , QuickCheck >= 2.8.2
@@ -58,11 +56,13 @@ library
                      -- For simple machine learning
                      , vector
                      , vector-sized
-                     , NumInstances
+                     -- concat
+                     , concat-inline
+                     , concat-classes
+                     , concat-plugin
   if flag(smt)
     build-depends: z3
     cpp-options:        -DCONCAT_SMT
-
   exposed-modules:     
                        ConCat.Orphans
                        ConCat.Free.VectorSpace
@@ -115,15 +115,14 @@ Test-Suite misc-examples
                   , ghc-prim
                   , constraints >= 0.8
                   , newtype-generics >= 0.5.0.1
-                  , NumInstances >= 1.4
-                  , keys
+                  , pointed, keys
                   , distributive, adjunctions
+                  , concat-inline
                   , concat-classes
                   , concat-plugin
                   , concat-examples
                   , ghc-prim
                   , integer-gmp
-                  , keys
                   , distributive, adjunctions
                   , constraints >= 0.8
                   -- Array/vector experiments
@@ -145,9 +144,9 @@ Test-Suite misc-trace
                   , ghc-prim
                   , constraints >= 0.8
                   , newtype-generics >= 0.5.0.1
-                  , NumInstances >= 1.4
-                  , keys
+                  , pointed, keys
                   , distributive, adjunctions
+                  , concat-inline
                   , concat-classes
                   , concat-plugin
                   , concat-examples
