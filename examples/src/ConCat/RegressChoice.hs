@@ -17,13 +17,13 @@ module ConCat.RegressChoice where
 import GHC.Types (Constraint)
 
 import Data.Key
-import Data.NumInstances.Function ()
 
 import ConCat.Misc (R,sqr,Unop,Binop,(:*),Yes1)
 import ConCat.Free.VectorSpace
 import ConCat.Free.LinearRow
 import ConCat.ADFun (gradF)
 import ConCat.Choice
+import ConCat.Rebox ()  -- experiment. helps line, but unnecessary.
 
 -- First do a simple linear regression
 
@@ -73,7 +73,7 @@ sqErr (a,b) f = distSqr' (f a) b
 step :: forall s p a b .
         (HasLin s p s, IsScalar s, HasV s b, Foldable (V s b), Zip (V s b))
      => (p -> a -> b) -> (a,b) -> (p -> p)
-step f ab = gradF @s (negate (sqErr ab . f))
+step f ab = gradF @s (negate . sqErr ab . f)
 {-# INLINE step #-}
 
 -- TODO: move Num s into IsScalar s, and remove Num s uses where redundant.
