@@ -158,3 +158,14 @@ instance (RepresentableCat k h, RepresentableCat k' h)
   indexC    = indexC    :**: indexC
   {-# INLINE tabulateC #-}
   {-# INLINE indexC #-}
+
+-- Experiment
+
+-- fmap' and liftA2' are class-op-inlining synonyms for fmap and liftA2. Look
+-- for a better alternative. See 2017-10-20 notes.
+
+fmap' :: Functor f => (a -> b) -> f a -> f b
+fmap' = inline fmap
+
+liftA2' :: Applicative f => (a -> b -> c) -> f a -> f b -> f c
+liftA2' f as bs = fmap' f as <*> bs
