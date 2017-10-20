@@ -22,14 +22,20 @@ plugin = defaultPlugin { installCoreToDos = install }
 
 install :: [CommandLineOption] -> [CoreToDo] -> CoreM [CoreToDo]
 install _opts todos =
-  do reinitializeGlobals
-     -- pprTrace "Install inlineClassOpRule" empty (return ())
-     let addRule :: ModGuts -> CoreM ModGuts
-         addRule guts =
-           do inlineV <- findId "ConCat.Inline.ClassOp" "inline"
-              return (guts { mg_rules = inlineClassOpRule inlineV : mg_rules guts })
-     return $
-        CoreDoPluginPass "Insert inlineClassOp rule" addRule : todos
+  do dflags <- getDynFlags
+     -- Unfortunately, the plugin doesn't work in GHCi. Until fixed,
+     -- disable under GHCi, so we can at least type-check conveniently.
+     if hscTarget dflags == HscInterpreted then
+        return todos
+      else
+       do reinitializeGlobals
+          -- pprTrace "Install inlineClassOpRule" empty (return ())
+          let addRule :: ModGuts -> CoreM ModGuts
+              addRule guts =
+                do inlineV <- findId "ConCat.Inline.ClassOp" "inline"
+                   return (guts { mg_rules = inlineClassOpRule inlineV : mg_rules guts })
+          return $
+             CoreDoPluginPass "Insert inlineClassOp rule" addRule : todos
 
 inlineClassOpRule :: Id -> CoreRule
 inlineClassOpRule inlineV = BuiltinRule
@@ -41,6 +47,7 @@ inlineClassOpRule inlineV = BuiltinRule
  where
    -- expand _args | pprTrace "inlineClassOpRule" (ppr _args) False = undefined
    expand _es@(Type _a : arg : _) = inlineClassOp arg
+   -- expand _args = -- pprTrace "inlineClassOp mismatch args" (ppr _args) $
    expand _args = -- pprTrace "inlineClassOp mismatch args" (ppr _args) $
                   Nothing
 
@@ -52,8 +59,10 @@ inlineClassOp (collectArgs -> (Var v,rest))
   | ClassOpId cls <- idDetails v
   = -- pprTrace "inlineClassOp class" (ppr cls) $
     ((`mkCoreApps` rest) . mkDictSelRhs cls) <$> elemIndex v (classAllSelIds cls)
-inlineClassOp _e = pprTrace "inlineClassOp failed" (ppr _e) $
-                   Nothing
+inlineClassOp e = pprPanic "inlineClassOp failed" (ppr e)
+
+-- inlineClassOp _e = pprTrace "inlineClassOp failed" (ppr _e) $
+--                    Nothing
 
 {--------------------------------------------------------------------
     Utilities
