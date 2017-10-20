@@ -54,11 +54,15 @@ inlineClassOpRule inlineV = BuiltinRule
 -- | The CoreExpr transformation. Inlines a class op to a field accessor in a
 -- dictionary.
 inlineClassOp :: CoreExpr -> Maybe CoreExpr
--- inlineClassOp e | pprTrace "inlineClassOp" (ppr e) False = undefined
+-- inlineClassOp e | pprTrace "inlineClassOp" (ppr (e,collectArgs e)) False = undefined
 inlineClassOp (collectArgs -> (Var v,rest))
   | ClassOpId cls <- idDetails v
   = -- pprTrace "inlineClassOp class" (ppr cls) $
     ((`mkCoreApps` rest) . mkDictSelRhs cls) <$> elemIndex v (classAllSelIds cls)
+  -- Experiment
+  -- | Just e' <- maybeUnfoldingTemplate (realIdUnfolding v)
+  -- = pprTrace "inlining non-class-op to" (ppr e') $
+  --   Just e'
 inlineClassOp e = pprPanic "inlineClassOp failed" (ppr e)
 
 -- inlineClassOp _e = pprTrace "inlineClassOp failed" (ppr _e) $
