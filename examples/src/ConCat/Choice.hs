@@ -108,11 +108,41 @@ chooseC (Choice (Arg (f :: q -> p -> a -> b))) =
     <+ inOp @(:*) @(Sat con) @q @p
 {-# INLINE chooseC #-}
 
+#if 0
 -- | Generate any value of type @p@.
 choose :: forall con p a b. (CartCon con, con p)
         => (p -> a -> b) -> (a -> b)
 choose f = unCcc (chooseC @con (toCcc f))
 {-# INLINE choose #-}
+
+-- | Generate any value of type @p@.
+chooseC' :: forall con p a. (CartCon con, con p)
+          => (p -> a) -> Choice con () a
+chooseC' f = Choice @con (Arg (const . f))
+{-# INLINE chooseC' #-}
+
+-- | Generate any value of type @p@.
+choose' :: forall con p a. (CartCon con, con p)
+         => (p -> a) -> a
+-- choose' f = unCcc (chooseC' @con f) ()
+choose' f = choose @con (const . f) ()
+{-# INLINE choose' #-}
+
+-- Maybe I want set-valued functions instead of sets of functions.
+-- Use a -> p -> b instead of p -> a -> b.
+
+#else
+
+-- | Generate any value of type @p@.
+choose :: forall con p a. (CartCon con, con p)
+       => (p -> a) -> a
+choose = unCcc (Choice @con (Arg (flip ($))))
+{-# INLINE choose #-}
+
+--      ($) :: (p -> a) -> p -> a
+-- flip ($) :: p -> (p -> a) -> a
+
+#endif
 
 #endif
 
