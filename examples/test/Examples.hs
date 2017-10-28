@@ -47,11 +47,14 @@
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=2800 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=500 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
+-- {-# OPTIONS_GHC -fsimpl-tick-factor=25  #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
-{-# OPTIONS_GHC -dsuppress-uniques #-}
+-- {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
+
+-- {-# OPTIONS_GHC -ddump-tc-trace #-}
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
 
@@ -85,9 +88,10 @@ import GHC.Exts (inline)
 import GHC.Float (int2Double)
 
 import Data.Constraint (Dict(..),(:-)(..))
-import Data.Key (Zip)
-import Data.Distributive (distribute)
-import Data.NumInstances.Function ()
+import Data.Pointed
+import Data.Key
+import Data.Distributive
+import Data.Functor.Rep
 import Data.Finite
 import Data.Vector.Sized (Vector)
 import qualified Data.Vector.Sized as VS
@@ -107,7 +111,8 @@ import qualified ConCat.AltCat as A
 -- import ConCat.AltCat
 import ConCat.AltCat
   (toCcc,toCcc',unCcc,unCcc',reveal,conceal,(:**:)(..),Ok,Ok2,U2,equal)
-import ConCat.AltAggregate
+import ConCat.AltAggregate ()
+import qualified ConCat.AltAggregate as A
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Nat
 import ConCat.Shaped
@@ -115,6 +120,9 @@ import ConCat.Scan
 import ConCat.FFT
 import ConCat.Free.LinearRow -- (L,OkLM,linearL)
 import ConCat.LC
+
+-- Experimental
+import qualified ConCat.Inline.SampleMethods as I
 
 -- import ConCat.Regress
 import ConCat.Choice
@@ -160,7 +168,7 @@ main = sequence_
   , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
   , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
-  -- Play with the "cat equal" trick.
+  -- -- Play with the "cat equal" trick.
   -- , runSyn $ toCcc $ (==) @Int
   -- , runSyn $ toCcc $ uncurry ((==) @Int)
 
@@ -170,10 +178,11 @@ main = sequence_
 
   -- , runSynCirc "equal-pair-a" $ toCcc $ uncurry ((==) @(Bool :* Int))
 
-  -- , runSynCirc "equal-pair-c" $ toCcc $ uncurry ((==) @(Int :* R))
+  -- , runSynCirc "equal-pair-b" $ toCcc $ uncurry ((==) @(Int :* R))
+
+  -- , runSynCirc "equal-pair-d" $ toCcc $ toCcc $ uncurry ((==) @(Int :* R))
 
   -- , runSyn{-Circ "equal-pair-b"-} $ toCcc $ uncurry ((==) @(Bool :* Int))
-
 
   -- , runSynCirc "add" $ toCcc $ (+) @Integer
 
@@ -182,13 +191,26 @@ main = sequence_
 
   -- Choice
 
-  -- , onChoice @GenBuses (runCirc "choice-add" . toCcc) -- ok
+  -- , onChoice @GenBuses (runCirc "choice-add" . toCcc) -- okay
   --     (toCcc (choose @GenBuses ((+) @R)))
+
+  -- -- This one fails with Ok (:>) vs GenBuses preventing toCcc'/unCcc'
+  -- , onChoice @(Ok (:>)) (runCirc "choice-add" . toCcc)
+  --     (toCcc (choose @(Ok (:>)) ((+) @R)))
+
+  -- , onChoice @OkLC (runCirc "choice-add" . toCcc) -- okay
+  --     (toCcc (choose @OkLC ((+) @R)))
 
   -- -- This one breaks. Seems to be GenBuses vs Ok (:>) in toCcc'/unCcc'.
   -- -- Bug in GHC's handling of rewrite rules?
   -- , onChoice @(Ok (:>)) (runCirc "choice-add" . toCcc)  -- fail
   --     (toCcc (choose @(Ok (:>)) ((+) @R)))
+
+  -- , onChoice @GenBuses (runCirc "choice-foo" . toCcc)
+  --     (toCcc (choose @GenBuses (\ b x -> x + b :: R))) 
+
+  -- , onChoice @(Ok (:>)) (runCirc "choice-foo" . toCcc)
+  --     (toCcc (choose @(Ok (:>)) (\ b x -> x + b :: R))) 
 
   -- , onChoice @GenBuses (runCirc "choice-line" . toCcc)
   --     (toCcc (choose @GenBuses (\ (m,b) x -> m * x + b :: R)))
@@ -216,7 +238,15 @@ main = sequence_
   -- , onChoice @OkLFC (\ f -> runCirc "regress-line" (toCcc (step @R f)))
   --     (toCcc (choose @OkLFC line))
 
-  -- , onChoice @OkLC (\ f -> runCirc "regress-line-a" 
+  -- , runCirc "regress-line-d" $ toCcc $ \ ab p -> sqErr @R ab (line p) -- ok
+
+  -- , onChoice @OkLC (runCirc "choice-add" . toCcc)  -- fine
+  --     (toCcc (choose @OkLC ((+) @R)))
+
+  -- , onChoice @GenBuses (runCirc "choice-line" . toCcc)  -- ok (base)
+  --     (toCcc (choose @GenBuses line))
+
+  -- , onChoice @OkLC (\ f -> runCirc "regress-line-a" --
   --                    (toCcc (\ ab p -> sqErr @R ab (f p))))
   --     (toCcc (choose @OkLC line))
 
@@ -230,30 +260,17 @@ main = sequence_
   --                     \ ab -> derF (sqErr @R ab . f))
   --     (toCcc (choose @OkLC line))
 
-  -- -- 14 sec
-  -- , onChoice @OkLFC (\ f -> runCirc "regress-line-df" $ toCcc $  -- ok
-  --                     \ ab -> derF (negate (sqErr @R ab . f)))
+  -- -- 12 sec
+  -- , onChoice @OkLFC (\ f -> runCirc "regress-line-df" $ toCcc $  -- ok 
+  --                     \ ab -> derF (negate . sqErr @R ab . f))
   --     (toCcc (choose @OkLFC line))
 
   -- -- 12 sec
   -- , onChoice @OkLFC (\ f -> runCirc "regress-line-gf" $ toCcc $  -- ok
-  --                     \ ab -> gradF @R (negate (sqErr ab . f)))
+  --                     \ ab -> gradF @R (negate . sqErr ab . f))
   --     (toCcc (choose @OkLFC line))
 
-  -- -- Needs Void and coproduct support in graphs.
-  -- , onChoice @OkLFC' (\ f -> runCirc "regress-line-f-b" $ toCcc $
-  --                     \ ab -> gradF' (sqErr @R ab . f))
-  --     (toCcc (choose @OkLFC' line))
-
-  -- , runCirc "foo" $ toCcc $ \ (a,b) -> gradient (\ p -> sqErr @R (a,b) (line p))  -- ok
-
   -- , oops "Hrmph" (toCcc (choose @GenBuses (||)) :: Choice GenBuses Bool Bool)
-
-  -- LinearCat
-
-  -- , runSyn $ toCcc $ (fmapC not :: Unop (Pair Bool))
-
-  -- , runSynCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool))
 
   -- Integer
 
@@ -265,19 +282,28 @@ main = sequence_
   -- , runSynCirc "plus-integer"     $ toCcc ((+) @Integer)
   -- , runSynCirc "plus-mul-integer" $ toCcc (\ (x :: Integer, y) -> x * (x + y))
 
-  -- , runSynCirc "fmap-not-v2" $ toCcc $ (fmapC not :: Unop (Vector 2 Bool))
-  -- , runCirc "point-8" $ toCcc $ (pointC :: Bool -> Vector 8 Bool)
-  -- , runCirc "sum-point-v8" $ toCcc $ (sumC . (pointC :: Int -> Vector 8 Int))
-  -- , runCirc "sum-arr-v8" $ toCcc $ (sumC :: Vector 8 Int -> Int)
+  -- , runSynCirc "fmap-not-v" $ toCcc $ (fmap not :: Unop (Vector 2 Bool))
+  -- , runCirc "point-v"       $ toCcc $ (point :: Bool -> Vector 8 Bool)
+  -- , runCirc "sum-v"         $ toCcc $ (sum :: Vector 8 Int -> Int)
+  -- , runCirc "sum-point-v"   $ toCcc $ (sum . (point :: Int -> Vector 8 Int))
+  -- , runSynCirc "tabulate-v" $ toCcc (tabulate :: (Finite 8 -> Bool) -> Vector 8 Bool)
 
-  -- , runSynCirc "fmap-v8" $ toCcc (fmapC not :: Unop (Vector 8 Bool))  -- ok
+  -- , runCirc "distribute" $ toCcc (distribute @Pair @Pair @R)
 
-  -- , runSynCirc "tabulate-v" $ toCcc (tabulateC :: (Finite 8 -> Bool) -> Vector 8 Bool)
+  -- , runSynCirc "distribute" $ toCcc (distribute @(Vector 4) @(U1 :*: Par1) @R)
 
-  -- , runSynCirc "fmap-idL-v" $ toCcc (\ (h :: Vector 8 R -> Vector 8 R) -> fmapC h (idL @(Vector 8) @R)) -- ok
+  -- , runSynCirc "distribute" $ toCcc (distribute :: (Vector 4) ((Par1 :*: Par1) R) -> ((Par1 :*: Par1)) (Vector 4 R))  -- ok
 
-  -- , runSynCirc "distribute-v-p" $ toCcc (distribute @Pair @(Vector 4) @R) -- fail
-  -- , runSynCirc "distribute-p-v" $ toCcc (distribute @(Vector 4) @Pair @R) -- fail
+  -- , runSynCirc "foo" $ toCcc $ id @((Par1 :*: Par1) (Vector 4 R)) -- hangs genBuses
+
+  -- , runSynCirc "foo" $ toCcc $ id @(Vector 4 Bool :* Bool)
+
+  -- , runSynCirc "distribute" $ toCcc (A.distributeC :: ((Par1 :*: Par1)) (Vector 4 R) -> (Vector 4) ((Par1 :*: Par1) R))
+
+  -- , runSynCirc "distribute-p-v" $ toCcc (distribute @(Vector 4) @Pair @R)
+  -- , runSynCirc "distribute-v-p" $ toCcc (distribute @Pair @(Vector 4) @R)
+
+  -- , runSynCirc "fmap-idL-v" $ toCcc (\ (h :: Vector 8 R -> Vector 8 R) -> h <$> idL)
 
   -- , runSynCirc "linearF-v" $ toCcc $ linearF @R @(Vector 8) @Par1
 
@@ -375,13 +401,13 @@ main = sequence_
   -- , runSynCirc "sqr-ad"        $ toCcc $ andDer @R $ sqr    @R
   -- , runSynCirc "magSqr-ad"     $ toCcc $ andDer @R $ magSqr @R
   -- , runSynCirc "cos-2x-ad"     $ toCcc $ andDer @R $ \ x -> cos (2 * x) :: R
-
   -- , runSynCirc "cos-2xx-ad"    $ toCcc $ andDer @R $ \ x -> cos (2 * x * x) :: R
   -- , runSynCirc "cos-xpy-ad"    $ toCcc $ andDer @R $ \ (x,y) -> cos (x + y) :: R
   -- , runSynCirc "cosSinProd-ad" $ toCcc $ andDer @R $ cosSinProd @R
 
-  -- , runSynCirc "sum-pair-ad"$ toCcc $ andDer @R $ sum @Pair @R
-  -- , runSynCirc "product-pair-ad"$ toCcc $ andDer @R $ product @Pair @R
+  -- Fails (I think)
+  -- , runSynCirc "sum-pair-ad"     $ toCcc $ andDer @R $ sum @Pair @R
+  -- , runSynCirc "product-pair-ad" $ toCcc $ andDer @R $ product @Pair @R
 
   -- , runSynCirc "sum-2-ad"$ toCcc $ andDer @R $ \ (a,b) -> a+b :: R
 
@@ -424,12 +450,12 @@ main = sequence_
 
   -- , runSynCirc "distribute-1-4" $ toCcc $ (distributeC :: V R R (V R (Vector 4 R) R) -> V R (Vector 4 R) (V R R R))
 
-  -- -- Automatic differentiation with ADFun
-  -- , runSynCirc "sin-adf"      $ toCcc $ andDerF $ sin @R
-  -- , runSynCirc "cos-adf"      $ toCcc $ andDerF $ cos @R
-  -- , runSynCirc "twice-adf"    $ toCcc $ andDerF $ twice @R
-  -- , runSynCirc "sqr-adf"      $ toCcc $ andDerF $ sqr @R
-  -- , runSynCirc "magSqr-adf"     $ toCcc $ andDerF $ magSqr  @R -- breaks
+  -- -- Automatic differentiation with ADFun:
+  -- , runSynCirc "sin-adf"        $ toCcc $ andDerF $ sin @R
+  -- , runSynCirc "cos-adf"        $ toCcc $ andDerF $ cos @R
+  -- , runSynCirc "twice-adf"      $ toCcc $ andDerF $ twice @R
+  -- , runSynCirc "sqr-adf"        $ toCcc $ andDerF $ sqr @R
+  -- , runSynCirc "magSqr-adf"     $ toCcc $ andDerF $ magSqr  @R
   -- , runSynCirc "cos-2x-adf"     $ toCcc $ andDerF $ \ x -> cos (2 * x) :: R
   -- , runSynCirc "cos-2xx-adf"    $ toCcc $ andDerF $ \ x -> cos (2 * x * x) :: R
   -- , runSynCirc "cos-xpy-adf"    $ toCcc $ andDerF $ \ (x,y) -> cos (x + y) :: R
@@ -910,49 +936,9 @@ fac9 n0 = go (n0,1)
 
 type OkLC' = OkLM R &+& GenBuses
 
+-- Experimenting with a rule failure. See 2017-10-20 notes.
 
-{--------------------------------------------------------------------
-    Experiment. See 2017-10-16 notes.
---------------------------------------------------------------------}
+-- -- Works ok
+-- foo1 :: Choice (Ok (:>)) a b -> Choice GenBuses a b
+-- foo1 z = toCcc (unCcc z)
 
-#if 1
-
-data CP a = CP a a
-
-funP :: CP a -> a
-funP (CP f _) = f
-{-# INLINE [0] funP #-}
-
--- Tell the plugin to leave this one alone, so our "ccc funP" rule will fire.
--- I can instead get the plugin to do the work of "ccc funP". 
-{-# ANN funP (PseudoFun 1) #-} 
-
-catP :: CP a -> a
-catP (CP _ f') = f'
-{-# INLINE catP #-}
-
-eq' :: Eq a => a -> a -> Bool
-eq' = (==)
-{-# INLINE [0] eq' #-}
-
--- succ' :: Enum a => a -> a
--- succ' = succ
--- {-# INLINE [0] succ' #-}
-
-{-# RULES
-
--- [~0] in "ccc funP" is an experiment
-"ccc funP" [~0] forall cp. toCcc' (funP cp) = toCcc' (catP cp)
-
--- "cat succ"  [~0] succ = funP (CP succ' succ)
-
--- "cat equal" [~0] (==) = funP (CP eq' (curry equal))
-
--- "cat equal inline" [~0] (==) = funP (CP (inline (==)) (curry equal))
-
-"cat equal" [~0] (==) = curry (funP (CP (uncurry (inline (==))) equal))
-
-
- #-}
-
-#endif
