@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# OPTIONS_GHC -Wall #-}
 
--- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 -- {-# OPTIONS_GHC -fno-warn-unused-binds   #-} -- TEMP
 
 ----------------------------------------------------------------------
@@ -21,10 +21,9 @@ module ConCat.BuildDictionary (buildDictionary) where
 
 import Data.Monoid (Any(..))
 import Data.Char (isSpace)
--- import Data.List (find)
 import Data.Data (Data)
 import Data.Generics (mkQ,everything)
-import Control.Monad (filterM)
+import Control.Monad (filterM,when)
 import System.IO.Unsafe (unsafePerformIO)
 
 import GhcPlugins
@@ -35,15 +34,15 @@ import TyCoRep (CoercionHole(..))
 import TcHsSyn (emptyZonkEnv,zonkEvBinds)
 import           TcRnMonad (getCtLocM)
 import           TcRnTypes (cc_ev)
-import TcSMonad (runTcS)
+import TcInteract (solveSimpleGivens)
+import TcSMonad -- (TcS,runTcS)
 import TcEvidence (evBindMapBinds)
 import TcErrors(warnAllUnsolved)
 
 import DsMonad
 import DsBinds
-import TcSimplify
-import TcRnTypes
-import TcInteract (solveSimpleGivens)
+import           TcSimplify
+import           TcRnTypes
 import ErrUtils (pprErrMsgBagWithLoc)
 import Encoding (zEncodeString)
 import Unique (mkUniqueGrimily)
@@ -112,21 +111,25 @@ buildDictionary' env dflags guts evIds evar =
     let (i, bs) =
          runTcMUnsafe env dflags guts $
           do loc <- getCtLocM (GivenOrigin UnkSkol) Nothing
-             let nonC = mkNonCanonical $
-                          CtWanted { ctev_pred = varType evar
-                                   , ctev_dest = EvVarDest evar
+             let predTy = varType evar
+                 nonC = mkNonCanonical $
+                          CtWanted { ctev_pred = predTy, ctev_dest = EvVarDest evar
                                    , ctev_loc = loc }
                  wCs = mkSimpleWC [cc_ev nonC]
              -- TODO: Make sure solveWanteds is the right function to call.
              (_wCs', bnds0) <-
                second evBindMapBinds <$>
-               runTcS (do _ <- solveSimpleGivens
+               runTcS (do -- pprTrace "buildDictionary': solveSimpleGivens" (ppr (mkGivens loc (uniqSetToList evIds))) (return ())
+                          _ <- solveSimpleGivens
                                 (mkGivens loc (uniqSetToList evIds))
-                          solveWanteds wCs)
+                          -- pprTrace "buildDictionary' back from solveSimpleGivens" empty (return ())
+                          solveWanteds wCs
+                      )
              -- Use the newly exported zonkEvBinds. <https://phabricator.haskell.org/D2088>
              (_env',bnds) <- zonkEvBinds emptyZonkEnv bnds0
              -- pprTrace "buildDictionary' _wCs'" (ppr _wCs') (return ())
              -- changed next line from reportAllUnsolved, which panics. revisit and fix!
+             -- warnAllUnsolved _wCs'
              warnAllUnsolved _wCs'
              return (evar, bnds)
     in
@@ -142,35 +145,47 @@ buildDictionary' env dflags guts evIds evar =
 -- TODO: Try to combine the two runTcMUnsafe calls.
 
 buildDictionary :: HscEnv -> DynFlags -> ModGuts -> InScopeEnv -> Type -> Either SDoc CoreExpr
-buildDictionary env dflags guts inScope ty =
-  -- pprTrace "\nbuildDictionary" (ppr ty) $
+buildDictionary env dflags guts inScope goalTy =
+  -- pprTrace "\nbuildDictionary" (ppr goalTy) $
   -- pprTrace "buildDictionary in-scope evidence" (ppr (WithType . Var <$> uniqSetToList scopedDicts)) $
-  -- pprTrace "buildDictionary" (ppr ty $$ text "-->" $$ ppr dict) $
+  -- pprTrace "buildDictionary" (ppr goalTy $$ text "-->" $$ ppr dict) $
   -- pprTrace "buildDictionary inScope" (ppr (fst inScope)) $
   -- pprTrace "buildDictionary freeIds" (ppr freeIds) $
   -- pprTrace "buildDictionary (bnds,freeIds)" (ppr (bnds,freeIds)) $
   -- pprTrace "buildDictionary dict" (ppr dict) $
-  -- either (\ e -> pprTrace "buildDictionary fail" (ppr ty $$ text "-->" $$ e) res) (const res) $
+  -- either (\ e -> pprTrace "buildDictionary fail" (ppr goalTy $$ text "-->" $$ e) res) (const res) $
   res
  where
    res | null bnds          = Left (text "no bindings")
        | notNull holeyBinds = Left (text "coercion holes: " <+> ppr holeyBinds)
        | notNull freeIdTys  = Left (text "free id types:" <+> ppr freeIdTys)
-       | otherwise          = return dict
-   name     = "$d" ++ zEncodeString (filter (not . isSpace) (showPpr dflags ty))
-   binder   = localId inScope name ty
+       | otherwise          = return $ simplifyE dflags False
+                                       dict
+   name     = "$d" ++ zEncodeString (filter (not . isSpace) (showPpr dflags goalTy))
+   binder   = localId inScope name goalTy
    (i,bnds) = buildDictionary' env dflags guts scopedDicts binder
    dict =
      case bnds of
        -- The common case that we would have gotten a single non-recursive let
        [NonRec v e] | i == v -> e
-       _                     -> -- remove simplifyE call later?
-                                simplifyE dflags False $
-                                mkCoreLets bnds (varToCoreExpr i)
-   holeyBinds = filter hasCoercionHole bnds
-   scopedDicts = filterVarSet isEvVar (getInScopeVars (fst inScope))
+       _                     -> mkCoreLets bnds (varToCoreExpr i)
+   -- Sometimes buildDictionary' constructs bogus dictionaries with free
+   -- identifiers. Hence check that freeIds is empty. Allow for free *type*
+   -- variables, however, since there may be some in the given type as
+   -- parameters. Alternatively, check that there are no free variables (val or
+   -- type) in the resulting dictionary that were not in the original type.
+   scopedDicts = filterVarSet keepVar (getInScopeVars (fst inScope))
+   goalTyVars = tyCoVarsOfType goalTy
+   keepVar v =
+     -- Keep evidence that relates to free type variables in the goal.
+     isEvVar v &&
+     not (isEmptyVarSet (goalTyVars `intersectVarSet` tyCoVarsOfType (varType v)))
+   -- freeIds = filter isId (uniqSetToList (exprFreeVars dict))
+   -- freeIdTys = varType <$> freeIds
    freeIds = filterVarSet isId (exprFreeVars dict) `minusVarSet` scopedDicts
    freeIdTys = varType <$> uniqSetToList freeIds
+   holeyBinds = filter hasCoercionHole bnds
+   -- err doc = Left (doc $$ ppr goalTy $$ text "-->" $$ ppr dict)
 
 hasCoercionHole :: Data t => t -> Bool
 hasCoercionHole = getAny . everything mappend (mkQ mempty (Any . isHole))
@@ -191,7 +206,7 @@ stringToName str =
 -- When mkUniqueGrimily's argument is negative, we see something like
 -- "Exception: Prelude.chr: bad argument: (-52)". Hence the abs.
 
--- Copied from Plugin.
+
 -- Maybe place in a GHC utils module.
 
 newtype WithType = WithType CoreExpr
