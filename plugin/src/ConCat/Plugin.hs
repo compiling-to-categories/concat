@@ -56,11 +56,13 @@ import FamInstEnv
 
 import ConCat.Misc (Unop,Binop,Ternop,PseudoFun(..),(~>))
 import ConCat.BuildDictionary
+-- import ConCat.Simplify
 
 -- Information needed for reification. We construct this info in
 -- CoreM and use it in the ccc rule, which must be pure.
 data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , cccV             :: Id
+                     , uncccV           :: Id
                      , idV              :: Id
                      , constV           :: Id
                      , forkV            :: Id
@@ -117,8 +119,8 @@ trying :: (String -> SDoc -> Bool -> Bool) -> String -> a -> Bool
 trying tr str a = tr ("Trying " ++ str) (a `seq` empty) False
 {-# NOINLINE trying #-}
 
--- #define Trying(str) e_ | trying dtrace (str) e_ -> undefined
-#define Trying(str)
+#define Trying(str) e_ | trying dtrace (str) e_ -> undefined
+-- #define Trying(str)
 
 #define Doing(str) dtrace "Doing" (text (str)) id $
 -- #define Doing(str) pprTrace "Doing" (text (str)) id $
@@ -167,6 +169,22 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      (reCat -> Just e') ->
        Doing("top reCat")
        Just e'
+#if 0
+     Trying("top unCcc")
+     o@(collectArgs -> (Var ((== uncccV) -> True), [Type cat', Type dom, Type cod, i]))
+       | dtrace "top unCcc" (ppr ((oco,to'),(ico,ti'),tweakCo)) True
+       -> if to' `eqType` ti' then
+            Doing("top unCcc")
+            return (Cast i tweakCo)
+          else
+            Doing("top unCcc bailing")
+            Nothing
+      where
+        norm k = normType Representational (mkAppTys k [dom,cod])
+        (oco,to') = norm cat
+        (ico,ti') = norm cat'
+        tweakCo   = ico `mkTransCo` mkSymCo oco
+#endif
      Trying("top Avoid pseudo-app")
      (isPseudoApp -> True) ->
        Doing("top Avoid pseudo-app")
@@ -246,7 +264,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        return $ mkCcc $ mkCast body' co
      Trying("top cast normalize")
      Cast e co@(coercionKind -> Pair dom cod)
-       | let norm = normaliseType famEnvs (coercionRole co)
+       | let norm = normType (coercionRole co)
              (dco,dom') = norm dom
              (cco,cod') = norm cod
        , dom' `eqType` cod'
@@ -317,10 +335,12 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -- | dtrace "top App tests" (ppr (exprType v,liftedExpr v, mkConst' cat dom v,mkUncurryMaybe cat (mkCcc u))) False -> undefined
        | liftedExpr v
        , Just v' <- mkConst' cat dom v
+       , dtrace "top App mkConst --> " (ppr v) True
        , Just uncU' <- mkUncurryMaybe cat (mkCcc u)
-       -> -- dtrace "go App v'" (pprWithType v') $
+       -> dtrace "go App v'" (pprWithType v') $
           Doing("top App")
           -- u v == uncurry u . (constFun v &&& id)
+          dtrace "top App result" (ppr (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))) $
           return (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))
       where
         Just (dom,_) = splitFunTy_maybe (exprType e)
@@ -790,6 +810,8 @@ data Ops = Ops
  , transCatOp     :: ReExpr
  , reCat          :: ReExpr
  , isPseudoApp    :: CoreExpr -> Bool
+ , normType       :: Role -> Type -> (Coercion, Type)
+
  }
 
 mkOps :: CccEnv -> ModGuts -> AnnEnv -> FamInstEnvs
@@ -1000,6 +1022,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      onDictMaybe =<< catOpMaybe k applyV [a,b]
    isClosed :: Cat -> Bool
    isClosed k = isJust (mkApplyMaybe k unitTy unitTy)
+   normType = normaliseType famEnvs
 
    mkCurry' :: Cat -> ReExpr
    -- mkCurry' k e | dtrace "mkCurry'" (ppr k <+> pprWithType e) False = undefined
@@ -1042,6 +1065,8 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    mkBottomC :: Cat -> Type -> Type -> Maybe CoreExpr
    mkBottomC k dom cod = catOpMaybe k bottomCV [dom,cod]
    mkConst :: Cat -> Type -> ReExpr
+   mkConst k dom e | dtrace "mkConst1" (ppr (k,dom,e)) False = undefined
+   mkConst k dom e | dtrace "mkConst2" (ppr ((`App` e) <$> (onDictMaybe =<< catOpMaybe k constV [exprType e, dom]))) False = undefined
    mkConst k dom e =
      -- const :: forall (k :: * -> * -> *) b. ConstCat k b => forall dom.
      --          Ok k dom => b -> k dom (ConstObj k b)
@@ -1049,6 +1074,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      (`App` e) <$> (onDictMaybe =<< catOpMaybe k constV [exprType e, dom])
      -- onDict (catOp k constV [exprType e] `App` Type dom) `App` e
    mkConstFun :: Cat -> Type -> ReExpr
+   mkConstFun k dom e | dtrace "mkConstFun" (ppr (k,dom,e)) False = undefined
    mkConstFun k dom e =
      -- constFun :: forall k p a b. (ClosedCat k, Oks k '[p, a, b])
      --          => k a b -> k p (Exp k a b)
@@ -1060,7 +1086,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    -- TODO: check that k == cat
    -- Turn U into either const U or constFun (mkCcc U) if possible.
    mkConst' :: Cat -> Type -> ReExpr
-   -- mkConst' k dom e | dtrace "mkConst'" (ppr (k,dom) <+> pprWithType e) False = undefined
+   mkConst' k dom e | dtrace "mkConst'" (ppr (k,dom) <+> pprWithType e) False = undefined
    -- mkConst' k dom e = (mkConst k dom <+ (mkConstFun k dom . mkCcc)) e
    mkConst' k dom e | isFunTy (exprType e) = mkConstFun k dom (mkCcc e)
                     | otherwise            = mkConst k dom e
@@ -1093,7 +1119,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      -- pprTrace "mkReprC 3" (pprMbWithType (catOpMaybe k reprCV [a,r])) $
      catOpMaybe k reprCV [a,r]
     where
-      (_co,r) = normaliseType famEnvs Nominal (repTy a)
+      (_co,r) = normType Nominal (repTy a)
    mkAbstC'_maybe :: Cat -> Type -> Maybe CoreExpr
    mkAbstC'_maybe k a =
      -- pprTrace "mkAbstC 1" (ppr (r,a)) $
@@ -1101,7 +1127,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      -- pprTrace "mkAbstC 3" (pprMbWithType (catOpMaybe k abstCV [a,r])) $
      catOpMaybe k abstCV [a,r]
     where
-      (_co,r) = normaliseType famEnvs Nominal (repTy a)
+      (_co,r) = normType Nominal (repTy a)
    mkCoerceC :: Cat -> Type -> Type -> CoreExpr
    mkCoerceC k dom cod
      | dom `eqType` cod = mkId k dom
@@ -1516,6 +1542,7 @@ mkCccEnv opts = do
   coerceV     <- findCatId "coerceC"
   bottomCV    <- findCatId "bottomC"
   cccV        <- findCatId "toCcc'"
+  uncccV      <- findCatId "unCcc'"
   -- floatT      <- findFloatTy "Float"
   -- doubleT     <- findFloatTy "Double"
   -- reprV       <- findRepId "repr"
