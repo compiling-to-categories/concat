@@ -37,7 +37,7 @@
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
 
--- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
+{-# OPTIONS_GHC -ddump-rule-rewrites #-}
 -- {-# OPTIONS_GHC -ddump-rules #-}
 
 -- Does this flag make any difference?
@@ -48,7 +48,7 @@
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=500 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=25  #-}
--- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
+{-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
 -- {-# OPTIONS_GHC -dsuppress-uniques #-}
@@ -168,6 +168,9 @@ main = sequence_
   , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
   , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
+  -- , runSynCirc "log" $ toCcc $ log @R
+  -- , runSynCirc "pow" $ toCcc $ uncurry ((**) @R)
+
   -- -- Play with the "cat equal" trick.
   -- , runSyn $ toCcc $ (==) @Int
   -- , runSyn $ toCcc $ uncurry ((==) @Int)
@@ -266,7 +269,7 @@ main = sequence_
   --     (toCcc (choose @OkLFC line))
 
   -- -- 12 sec
-  -- , onChoice @OkLFC (\ f -> runCirc "regress-line-gf" $ toCcc $  -- ok
+  -- , onChoice @OkLFC (\ f -> runCirc "regress-line-gf" $ toCcc $  -- ok 
   --                     \ ab -> gradF @R (negate . sqErr ab . f))
   --     (toCcc (choose @OkLFC line))
 
