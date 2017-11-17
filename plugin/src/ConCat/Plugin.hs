@@ -36,6 +36,7 @@ import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Text.Printf (printf)
+import System.IO.Unsafe (unsafePerformIO)
 
 import GhcPlugins hiding (substTy,cat)
 import Class (classAllSelIds)
@@ -119,8 +120,8 @@ trying :: (String -> SDoc -> Bool -> Bool) -> String -> a -> Bool
 trying tr str a = tr ("Trying " ++ str) (a `seq` empty) False
 {-# NOINLINE trying #-}
 
-#define Trying(str) e_ | trying dtrace (str) e_ -> undefined
--- #define Trying(str)
+-- #define Trying(str) e_ | trying dtrace (str) e_ -> undefined
+#define Trying(str)
 
 #define Doing(str) dtrace "Doing" (text (str)) id $
 -- #define Doing(str) pprTrace "Doing" (text (str)) id $
@@ -938,7 +939,8 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
              , isPredTy' ty = onDicts (onDict e)
              | otherwise    = e
    buildDictMaybe :: Type -> Either SDoc CoreExpr
-   buildDictMaybe ty = buildDictionary hsc_env dflags guts inScope ty
+   buildDictMaybe ty = unsafePerformIO $
+                       buildDictionary hsc_env dflags guts inScope ty
    catOp :: Cat -> Var -> [Type] -> CoreExpr
    -- catOp k op tys | dtrace "catOp" (ppr (k,op,tys)) False = undefined
    catOp k op tys --  | dtrace "catOp" (pprWithType (Var op `mkTyApps` (k : tys))) True
@@ -1354,7 +1356,7 @@ catOpArities = Map.fromList $ map (\ (nm,m,n) -> (catModule ++ '.' : nm, (m,n)))
   , ("notC",0,0), ("andC",0,0), ("orC",0,0), ("xorC",0,0)
   , ("negateC",0,0), ("addC",0,0), ("subC",0,0), ("mulC",0,0), ("powIC",0,0)
   , ("recipC",0,0), ("divideC",0,0)
-  , ("expC",0,0), ("cosC",0,0), ("sinC",0,0)
+  , ("expC",0,0), ("cosC",0,0), ("sinC",0,0), ("logC",0,0)
   , ("fromIntegralC",0,0)
   , ("equal",0,0), ("notEqual",0,0)
   , ("lessThan",0,0), ("greaterThan",0,0), ("lessThanOrEqual",0,0), ("greaterThanOrEqual",0,0)
