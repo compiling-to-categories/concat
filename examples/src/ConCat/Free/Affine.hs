@@ -13,7 +13,7 @@
 
 -- | A category of local approximations (and probably other uses)
 
-module ConCat.Affine where
+module ConCat.Free.Affine where
 
 import Prelude hiding (id,(.),curry,uncurry,const)
 import Control.Applicative (pure,liftA2)
