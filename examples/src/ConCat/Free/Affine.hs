@@ -9,7 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
+-- {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
 #include "ConCat/AbsTy.inc"
 AbsTyPragmas
@@ -18,17 +18,12 @@ AbsTyPragmas
 module ConCat.Free.Affine where
 
 import Prelude hiding (id,(.),curry,uncurry,const)
-import Control.Applicative (pure,liftA2)
-
-import Control.Newtype
 import Data.Key (Zip(..))
-import Data.Copointed
 
-import ConCat.Misc ((:*),inNew2)
+import ConCat.Misc ((:*))
 import ConCat.Rep
 import qualified ConCat.Category as C
 import ConCat.AltCat
--- import ConCat.Rep
 import ConCat.Free.VectorSpace
 import ConCat.Free.LinearRow
 
@@ -42,22 +37,17 @@ linearA = flip Affine (unV @s zeroV)
 applyA :: forall s a b. Ok2 (L s) a b => Affine s a b -> (a -> b)
 applyA (Affine p u) a = add @s (lapply p a) u
 
-instance Newtype (Affine s a b) where
-  type O (Affine s a b) = L s a b :* b
-  pack (m,b) = Affine m b
-  unpack (Affine m b) = (m,b)
-
 instance HasRep (Affine s a b) where
   type Rep (Affine s a b) = L s a b :* b
-  abst = pack
-  repr = unpack
+  abst (m,b) = Affine m b
+  repr (Affine m b) = (m,b)
 
 AbsTy(Affine s a b)
 
 instance Category (Affine s) where
   type Ok (Affine s) = Ok (L s)
   id = linearA id
-  (.) = inNew2 $ \ (q,v) (p,u) -> (q . p, add @s (lapply q u) v)
+  (.) = inAbst2 $ \ (q,v) (p,u) -> (q . p, add @s (lapply q u) v)
 
 -- Semantic homomorphism: applyA g . applyA f == applyA (g . f)
 
@@ -72,7 +62,7 @@ instance Category (Affine s) where
 instance ProductCat (Affine s) where
   exl = linearA exl
   exr = linearA exr
-  (&&&) = inNew2 $ \ (p,u) (q,v) -> (p &&& q, (u,v))
+  (&&&) = inAbst2 $ \ (p,u) (q,v) -> (p &&& q, (u,v))
 
 --    applyA (Affine p u) &&& applyA (Affine q v)
 -- == \ a -> (applyA (Affine p u) &&& applyA (Affine q v)) a
