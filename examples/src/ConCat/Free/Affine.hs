@@ -11,8 +11,10 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
--- | A category of local approximations (and probably other uses)
+#include "ConCat/AbsTy.inc"
+AbsTyPragmas
 
+-- | A category of local approximations (and probably other uses)
 module ConCat.Free.Affine where
 
 import Prelude hiding (id,(.),curry,uncurry,const)
@@ -23,11 +25,14 @@ import Data.Key (Zip(..))
 import Data.Copointed
 
 import ConCat.Misc ((:*),inNew2)
+import ConCat.Rep
 import qualified ConCat.Category as C
 import ConCat.AltCat
 -- import ConCat.Rep
 import ConCat.Free.VectorSpace
 import ConCat.Free.LinearRow
+
+AbsTyImports
 
 data Affine s a b = Affine (L s a b) b
 
@@ -41,6 +46,13 @@ instance Newtype (Affine s a b) where
   type O (Affine s a b) = L s a b :* b
   pack (m,b) = Affine m b
   unpack (Affine m b) = (m,b)
+
+instance HasRep (Affine s a b) where
+  type Rep (Affine s a b) = L s a b :* b
+  abst = pack
+  repr = unpack
+
+AbsTy(Affine s a b)
 
 instance Category (Affine s) where
   type Ok (Affine s) = Ok (L s)
