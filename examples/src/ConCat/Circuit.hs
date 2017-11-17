@@ -1411,6 +1411,7 @@ instance (Floating a, Read a, GS a) => FloatingCat (:>) a where
   expC = primNoOpt1 "exp" exp
   cosC = primNoOpt1 "cos" cos
   sinC = primNoOpt1 "sin" sin
+  logC = primNoOpt1 "log" log
 
 -- TODO: optimizations, e.g., sin & cos of negative angles.
 

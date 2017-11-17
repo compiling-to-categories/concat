@@ -124,6 +124,7 @@ Rebox2F(divideFloat#,(/))
 Rebox1F(sinFloat#,sin)
 Rebox1F(cosFloat#,cos)
 Rebox1F(expFloat#,exp)
+Rebox1F(logFloat#,log)
 Rebox1(boxI,unboxF,int2Float#,fromIntegral)
 
 Rebox1D(negateDouble#,negate)
@@ -134,6 +135,8 @@ Rebox2D((/##),(/))
 Rebox1D(sinDouble#,sin)
 Rebox1D(cosDouble#,cos)
 Rebox1D(expDouble#,exp)
+Rebox1D(logDouble#,log)
+Rebox2D((**##),(**))
 Rebox1(boxI,unboxD,int2Double#,fromIntegral)
 
 Rebox2(id,unboxIB, eqInteger#,(==))
@@ -183,6 +186,7 @@ Rebox2(id,unboxIB, leInteger#,(<=))
 "boxF -" forall u v    . boxF (u `minusFloat#` v) = subC (boxF u,boxF v)
 "boxF *" forall u v    . boxF (u `timesFloat#` v) = mulC (boxF u,boxF v)
 "boxF exp" forall u    . boxF (expFloat# u)       = expC (boxF u)
+"boxF log" forall u    . boxF (logFloat# u        = logC(boxF u)
 "boxF cos" forall u    . boxF (cosFloat# u)       = cosC (boxF u)
 "boxF sin" forall u    . boxF (sinFloat# u)       = sinC (boxF u)
 
@@ -192,6 +196,7 @@ Rebox2(id,unboxIB, leInteger#,(<=))
 "boxD -" forall u v    . boxD (u -## v)           = subC (boxD u,boxD v)
 "boxD *" forall u v    . boxD (u *## v)           = mulC (boxD u,boxD v)
 "boxD exp" forall u    . boxD (expDouble# u)      = expC (boxD u)
+"boxD log" forall u    . boxD (logDouble# u)      = logC (boxD u)
 "boxD cos" forall u    . boxD (cosDouble# u)      = cosC (boxD u)
 "boxD sin" forall u    . boxD (sinDouble# u)      = sinC (boxD u)
 
@@ -393,9 +398,16 @@ CatifyC(mod,modC)
 Catify(recip,recipC)
 CatifyC((/),divideC)
 
-Catify(sin,sinC)
-Catify(cos,cosC)
 Catify(exp,expC)
+Catify(log,logC)
+Catify(cos,cosC)
+Catify(sin,sinC)
+Catify((**),pow)
+
+-- u ** v == exp (log (u ** v)) == exp (v * log u)  -- log is base in Haskell
+pow :: Floating a => a -> a -> a
+u `pow` v = exp (v * log u)
+{-# INLINE pow #-}
 
 Catify(floor,floorC)
 Catify(ceiling,ceilingC)

@@ -274,6 +274,7 @@ instance FloatingCat (->) a => FloatingCat (:-?) a where
   expC = hyperStrict
   cosC = hyperStrict
   sinC = hyperStrict
+  logC = hyperStrict
 
 instance RealFracCat (->) a b => RealFracCat (:-?) a b where
   floorC    = hyperStrict

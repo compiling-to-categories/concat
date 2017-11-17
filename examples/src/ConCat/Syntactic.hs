@@ -296,9 +296,11 @@ instance FloatingCat Syn a where
   expC = app0 "exp"
   cosC = app0 "cos"
   sinC = app0 "sin"
+  logC = app0 "log"
   INLINER(expC)
   INLINER(cosC)
   INLINER(sinC)
+  INLINER(logC)
 
 instance FromIntegralCat Syn a b where
   fromIntegralC = app0 "fromIntegral"

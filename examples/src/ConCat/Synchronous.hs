@@ -125,6 +125,7 @@ instance (CartCon con, Fractional a) => FractionalCat (Mealy con) a where
 
 instance (CartCon con, Floating a) => FloatingCat (Mealy con) a where
   expC = arr expC
+  logC = arr logC
   cosC = arr cosC
   sinC = arr sinC
 

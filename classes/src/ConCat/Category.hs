@@ -1385,32 +1385,46 @@ instance (FractionalCat k a, FractionalCat k' a) => FractionalCat (k :**: k') a 
   PINLINER(divideC)
 
 class Ok k a => FloatingCat k a where
-  expC, cosC, sinC :: a `k` a
+  expC, logC, cosC, sinC :: a `k` a
+  -- powC :: (a :* a) `k` a
+
+-- ln :: Floating a => a -> a
+-- ln = logBase (exp 1)
 
 instance Floating a => FloatingCat (->) a where
   expC = inline exp
+  logC = inline log
   cosC = inline cos
   sinC = inline sin
+  -- powC = inline (**)
 
 #ifdef KleisliInstances
 instance (Monad m, Floating a) => FloatingCat (Kleisli m) a where
   expC = arr expC
+  logC = arr logC
   cosC = arr cosC
   sinC = arr sinC
+  -- powC = arr powC
 #endif
 
 instance FloatingCat U2 a where
   expC = U2
+  logC = U2
   cosC = U2
   sinC = U2
+  -- powC = U2
 
 instance (FloatingCat k a, FloatingCat k' a) => FloatingCat (k :**: k') a where
   expC = expC :**: expC
+  logC = logC :**: logC
   cosC = cosC :**: cosC
   sinC = sinC :**: sinC
   PINLINER(expC)
+  PINLINER(logC)
   PINLINER(cosC)
   PINLINER(sinC)
+  -- powC = powC :**: powC
+  -- PINLINER(powC)
 
 class Ok k a => RealFracCat k a b where
   floorC, ceilingC :: a `k` b

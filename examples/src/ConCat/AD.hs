@@ -60,7 +60,7 @@ instance Ok (L s) s => NumCat (D s) s where
   negateC = linearD negateC (scale (-1))
   addC    = linearD addC    jamLM
   mulC    = D (mulC &&& (\ (a,b) -> scale b `joinLM` scale a))
-  powIC   = notDef "powC"       -- TODO
+  powIC   = notDef "powIC"       -- TODO
   {-# INLINE negateC #-}
   {-# INLINE addC    #-}
   {-# INLINE mulC    #-}
@@ -105,9 +105,11 @@ instance (Ok (L s) s, Floating s) => FloatingCat (D s) s where
   expC = scalarR exp id
   sinC = scalarX sin cos
   cosC = scalarX cos (negate . sin)
+  logC = scalarX log recip
   {-# INLINE expC #-}
   {-# INLINE sinC #-}
   {-# INLINE cosC #-}
+  {-# INLINE logC #-}
 
 #if 0
 

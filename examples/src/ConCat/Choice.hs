@@ -252,6 +252,7 @@ instance (Floating a, con ()) => FloatingCat (Choice con) a where
   expC = exactly expC
   cosC = exactly cosC
   sinC = exactly sinC
+  logC = exactly logC
 
 instance (Integral b, RealFrac a, con ()) => RealFracCat (Choice con) a b where
   floorC    = exactly floorC

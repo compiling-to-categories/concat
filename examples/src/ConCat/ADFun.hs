@@ -115,7 +115,7 @@ instance (Num s, Additive s) => NumCat D s where
   negateC = linearDF negateC
   addC    = linearDF addC
   mulC    = D (mulC &&& \ (a,b) (da,db) -> a * db + da * b)
-  powIC   = notDef "powC"       -- TODO
+  powIC   = notDef "powIC"       -- TODO
   {-# INLINE negateC #-}
   {-# INLINE addC    #-}
   {-# INLINE mulC    #-}
@@ -156,11 +156,13 @@ instance (Fractional s, Additive s) => FractionalCat D s where
 
 instance (Floating s, Additive s) => FloatingCat D s where
   expC = scalarR exp id
+  logC = scalarX log recip
   sinC = scalarX sin cos
   cosC = scalarX cos (negate . sin)
   {-# INLINE expC #-}
   {-# INLINE sinC #-}
   {-# INLINE cosC #-}
+  {-# INLINE logC #-}
 
 -- type Ok D = (Yes1 &+& Additive)
 

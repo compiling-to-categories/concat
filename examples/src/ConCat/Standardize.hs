@@ -133,6 +133,7 @@ instance (HasStandard a, Floating (Standard a)) =>  FloatingCat StdFun a where
   expC = StdFun expC
   cosC = StdFun cosC
   sinC = StdFun sinC
+  logC = StdFun logC
 
 instance (HasStandard a, RealFracCat (->) (Standard a) (Standard b))
       => RealFracCat StdFun a b where

@@ -21,7 +21,7 @@
 
 module ConCat.Graphics.GLSL
   ( genHtml,runHtml, Widgets -- ,Widget(..),Widgets(..)
-  , timeW, sliderW, pairW
+  , unitW, timeW, sliderW, pairW
   ) where
 
 -- import Control.Applicative (liftA2)
@@ -249,7 +249,7 @@ app ty nm es =
 knownFuncs :: M.Map String String
 knownFuncs = M.fromList $
   [("ceiling","ceil")]
-  ++ ((\ s -> (s,s)) <$> ["exp","cos","sin","floor","vec4"])
+  ++ ((\ s -> (s,s)) <$> ["exp","log","cos","sin","floor","vec4"])
 
 bToE :: Bus -> Expr
 bToE = Variable . varName
@@ -363,6 +363,9 @@ data Widgets :: * -> * where
   PairW :: Widgets a -> Widgets b -> Widgets (a :* b)
 
 deriving instance Show (Widgets a)
+
+unitW :: Widgets ()
+unitW = UnitW
 
 timeW :: Widgets R
 timeW = PrimW Time
