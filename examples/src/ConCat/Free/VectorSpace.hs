@@ -182,7 +182,7 @@ inV = toV <~ unV
 onV :: (HasV s a, HasV s b) => (V s a s -> V s b s) -> (a -> b)
 onV = unV <~ toV
 
-onV2 :: (HasV s a, HasV s b, HasV s c) => (V s a s -> V s b s -> V s c s) -> (a -> b -> c)
+onV2 :: forall s a b c. (HasV s a, HasV s b, HasV s c) => (V s a s -> V s b s -> V s c s) -> (a -> b -> c)
 onV2 = onV <~ toV
 
 -- Can I replace my HasRep class with Newtype?
