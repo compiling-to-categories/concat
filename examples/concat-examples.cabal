@@ -69,6 +69,7 @@ library
                        -- ConCat.Free.Diagonal
                        -- ConCat.Free.LinearCol -- needs updating
                        ConCat.Free.LinearRow
+                       ConCat.Free.Affine
                        ConCat.Aggregate
                        ConCat.AltAggregate
                        ConCat.Complex
@@ -96,6 +97,7 @@ library
                        ConCat.Choice
                        ConCat.RegressChoice
                        ConCat.LC
+                       ConCat.Local
   if flag(smt)
     exposed-modules: ConCat.SMT
   ghc-options:      -O2
