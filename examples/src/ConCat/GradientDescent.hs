@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE BangPatterns #-}
+-- {-# LANGUAGE AllowAmbiguousTypes #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
@@ -111,6 +112,9 @@ negateV = ((*^) (-1))
 
 (^+^) :: forall a. (HasV R a, Zip (V R a)) => Binop a
 (^+^) = onV2 ((V.^+^) :: Binop (V R a R))
+
+-- (^+^) :: forall s a. (HasV s a, Zip (V s a), Num s) => Binop a
+-- (^+^) = onV2 @s (V.^+^)
 
 (^-^) :: forall a. (HasV R a, Zip (V R a)) => Binop a
 (^-^) = onV2 ((V.^-^) :: Binop (V R a R))
