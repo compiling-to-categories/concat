@@ -24,7 +24,6 @@ import Data.Char (isSpace)
 import Data.Data (Data)
 import Data.Generics (mkQ,everything)
 import Control.Monad (filterM,when)
-import System.IO.Unsafe (unsafePerformIO)
 
 import GhcPlugins
 
@@ -32,7 +31,7 @@ import Control.Arrow (second)
 
 import TyCoRep (CoercionHole(..))
 import TcHsSyn (emptyZonkEnv,zonkEvBinds)
-import           TcRnMonad (getCtLocM)
+import           TcRnMonad (getCtLocM,traceTc)
 import           TcRnTypes (cc_ev)
 import TcInteract (solveSimpleGivens)
 import TcSMonad -- (TcS,runTcS)
@@ -53,7 +52,7 @@ import TcRnDriver
 -- import HERMIT.GHC.Typechecker (initTcFromModGuts)
 -- import ConCat.GHC
 
-import ConCat.Simplify
+-- import ConCat.Simplify
 
 isFound :: FindResult -> Bool
 isFound (Found _ _) = True
@@ -61,9 +60,24 @@ isFound _           = False
 
 moduleIsOkay :: HscEnv -> ModuleName -> IO Bool
 moduleIsOkay env mname = isFound <$> findExposedPackageModule env mname Nothing
+
+-- #define TRACING
+
+pprTrace' :: String -> SDoc -> a -> a
+#ifdef TRACING
+pprTrace' = pprTrace
+#else
+pprTrace' _ _ = id
+#endif
+
+traceTcS' :: String -> SDoc -> TcS ()
+traceTcS' str doc = pprTrace' str doc (return ())
+
+traceTc' :: String -> SDoc -> TcRn ()
+traceTc' str doc = pprTrace' str doc (return ())
        
-runTcMUnsafe :: HscEnv -> DynFlags -> ModGuts -> TcM a -> a
-runTcMUnsafe env0 dflags guts m = unsafePerformIO $ do
+runTcM :: HscEnv -> DynFlags -> ModGuts -> TcM a -> IO a
+runTcM env0 dflags guts m = do
     -- Remove hidden modules from dep_orphans
     orphans <- filterM (moduleIsOkay env0) (moduleName <$> dep_orphs (mg_deps guts))
     (msgs, mr) <- runTcInteractive (env orphans) m
@@ -81,16 +95,16 @@ runTcMUnsafe env0 dflags guts m = unsafePerformIO $ do
                       -- map moduleName (dep_orphs (mg_deps guts))
    env :: [ModuleName] -> HscEnv
    env extraModuleNames = 
-     -- pprTrace "runTcMUnsafe extraModuleNames" (ppr extraModuleNames) $
-     -- pprTrace "runTcMUnsafe dep_mods" (ppr (dep_mods (mg_deps guts))) $
-     -- pprTrace "runTcMUnsafe orphans" (ppr orphans) $
-     -- pprTrace "runTcMUnsafe dep_orphs" (ppr (dep_orphs (mg_deps guts))) $
-     -- pprTrace "runTcMUnsafe dep_finsts" (ppr (dep_finsts (mg_deps guts))) $
-     -- pprTrace "runTcMUnsafe mg_insts" (ppr (mg_insts guts)) $
-     -- pprTrace "runTcMUnsafe fam_mg_insts" (ppr (mg_fam_insts guts)) $
-     -- pprTrace "runTcMUnsafe imports0" (ppr imports0) $
-     -- pprTrace "runTcMUnsafe mg_rdr_env guts" (ppr (mg_rdr_env guts)) $
-     -- pprTrace "runTcMUnsafe ic_rn_gbl_env" (ppr (ic_rn_gbl_env (hsc_IC env0))) $         
+     -- pprTrace' "runTcM extraModuleNames" (ppr extraModuleNames) $
+     -- pprTrace' "runTcM dep_mods" (ppr (dep_mods (mg_deps guts))) $
+     -- pprTrace' "runTcM orphans" (ppr orphans) $
+     -- pprTrace' "runTcM dep_orphs" (ppr (dep_orphs (mg_deps guts))) $
+     -- pprTrace' "runTcM dep_finsts" (ppr (dep_finsts (mg_deps guts))) $
+     -- pprTrace' "runTcM mg_insts" (ppr (mg_insts guts)) $
+     -- pprTrace' "runTcM fam_mg_insts" (ppr (mg_fam_insts guts)) $
+     -- pprTrace' "runTcM imports0" (ppr imports0) $
+     -- pprTrace' "runTcM mg_rdr_env guts" (ppr (mg_rdr_env guts)) $
+     -- pprTrace' "runTcM ic_rn_gbl_env" (ppr (ic_rn_gbl_env (hsc_IC env0))) $         
      env0 { hsc_IC = (hsc_IC env0)
              { ic_imports = map IIModule extraModuleNames ++ imports0
              , ic_rn_gbl_env = mg_rdr_env guts
@@ -101,39 +115,44 @@ runTcMUnsafe env0 dflags guts m = unsafePerformIO $ do
 -- TODO: Try initTcForLookup or initTcInteractive in place of initTcFromModGuts.
 -- If successful, drop dflags and guts arguments.
 
-runDsMUnsafe :: HscEnv -> DynFlags -> ModGuts -> DsM a -> a
-runDsMUnsafe env dflags guts = runTcMUnsafe env dflags guts . initDsTc
+runDsM :: HscEnv -> DynFlags -> ModGuts -> DsM a -> IO a
+runDsM env dflags guts = runTcM env dflags guts . initDsTc
 
 -- | Build a dictionary for the given id
 buildDictionary' :: HscEnv -> DynFlags -> ModGuts -> VarSet -> Id
-                 -> (Id, [CoreBind])
+                 -> IO (Id, [CoreBind])
 buildDictionary' env dflags guts evIds evar =
-    let (i, bs) =
-         runTcMUnsafe env dflags guts $
-          do loc <- getCtLocM (GivenOrigin UnkSkol) Nothing
-             let predTy = varType evar
-                 nonC = mkNonCanonical $
-                          CtWanted { ctev_pred = predTy, ctev_dest = EvVarDest evar
-                                   , ctev_loc = loc }
-                 wCs = mkSimpleWC [cc_ev nonC]
-             -- TODO: Make sure solveWanteds is the right function to call.
-             (_wCs', bnds0) <-
-               second evBindMapBinds <$>
-               runTcS (do -- pprTrace "buildDictionary': solveSimpleGivens" (ppr (mkGivens loc (uniqSetToList evIds))) (return ())
-                          _ <- solveSimpleGivens
-                                (mkGivens loc (uniqSetToList evIds))
-                          -- pprTrace "buildDictionary' back from solveSimpleGivens" empty (return ())
-                          solveWanteds wCs
-                      )
-             -- Use the newly exported zonkEvBinds. <https://phabricator.haskell.org/D2088>
-             (_env',bnds) <- zonkEvBinds emptyZonkEnv bnds0
-             -- pprTrace "buildDictionary' _wCs'" (ppr _wCs') (return ())
-             -- changed next line from reportAllUnsolved, which panics. revisit and fix!
-             -- warnAllUnsolved _wCs'
-             warnAllUnsolved _wCs'
-             return (evar, bnds)
-    in
-      (i, runDsMUnsafe env dflags guts (dsEvBinds bs))
+  do (i, bs) <-
+       runTcM env dflags guts $
+       do loc <- getCtLocM (GivenOrigin UnkSkol) Nothing          
+          let givens = mkGivens loc (uniqSetToList evIds)
+              predTy = varType evar
+              nonC = mkNonCanonical $
+                       CtWanted { ctev_pred = predTy
+                                , ctev_dest = EvVarDest evar
+                                , ctev_loc = loc }
+              wCs = mkSimpleWC [cc_ev nonC]
+          -- TODO: Make sure solveWanteds is the right function to call.
+          traceTc' "buildDictionary': givens" (ppr givens)
+          (_wCs', bnds0) <-
+            second evBindMapBinds <$>
+            runTcS (do _ <- solveSimpleGivens givens
+                       traceTcS' "buildDictionary' back from solveSimpleGivens" empty
+                       z <- solveWanteds wCs
+                       traceTcS' "buildDictionary' back from solveWanteds" (ppr z)
+                       return z
+                   )
+          traceTc' "buildDictionary' back from runTcS" (ppr bnds0)
+          -- Use the newly exported zonkEvBinds. <https://phabricator.haskell.org/D2088>
+          (_env',bnds) <- zonkEvBinds emptyZonkEnv bnds0
+          -- traceTc "buildDictionary' _wCs'" (ppr _wCs')
+          -- changed next line from reportAllUnsolved, which panics. revisit and fix!
+          -- warnAllUnsolved _wCs'
+          traceTc' "buildDictionary' zonked" (ppr bnds)
+          warnAllUnsolved _wCs'
+          return (evar, bnds)
+     bs' <- runDsM env dflags guts (dsEvBinds bs)
+     return (i, bs')
 
 -- TODO: Richard Eisenberg: "use TcMType.newWanted to make your CtWanted. As it
 -- stands, if predTy is an equality constraint, your CtWanted will be
@@ -142,50 +161,52 @@ buildDictionary' env dflags guts evIds evar =
 
 -- TODO: Why return the given evar?
 
--- TODO: Try to combine the two runTcMUnsafe calls.
+-- TODO: Try to combine the two runTcM calls.
 
-buildDictionary :: HscEnv -> DynFlags -> ModGuts -> InScopeEnv -> Type -> Either SDoc CoreExpr
+buildDictionary :: HscEnv -> DynFlags -> ModGuts -> InScopeEnv -> Type -> IO (Either SDoc CoreExpr)
 buildDictionary env dflags guts inScope goalTy =
-  -- pprTrace "\nbuildDictionary" (ppr goalTy) $
-  -- pprTrace "buildDictionary in-scope evidence" (ppr (WithType . Var <$> uniqSetToList scopedDicts)) $
-  -- pprTrace "buildDictionary" (ppr goalTy $$ text "-->" $$ ppr dict) $
-  -- pprTrace "buildDictionary inScope" (ppr (fst inScope)) $
-  -- pprTrace "buildDictionary freeIds" (ppr freeIds) $
-  -- pprTrace "buildDictionary (bnds,freeIds)" (ppr (bnds,freeIds)) $
-  -- pprTrace "buildDictionary dict" (ppr dict) $
-  -- either (\ e -> pprTrace "buildDictionary fail" (ppr goalTy $$ text "-->" $$ e) res) (const res) $
-  res
+  pprTrace' "\nbuildDictionary" (ppr goalTy) $
+  pprTrace' "buildDictionary in-scope evidence" (ppr (WithType . Var <$> uniqSetToList scopedDicts)) $
+  reassemble <$> buildDictionary' env dflags guts scopedDicts binder
  where
-   res | null bnds          = Left (text "no bindings")
-       | notNull holeyBinds = Left (text "coercion holes: " <+> ppr holeyBinds)
-       | notNull freeIdTys  = Left (text "free id types:" <+> ppr freeIdTys)
-       | otherwise          = return $ simplifyE dflags False
-                                       dict
-   name     = "$d" ++ zEncodeString (filter (not . isSpace) (showPpr dflags goalTy))
-   binder   = localId inScope name goalTy
-   (i,bnds) = buildDictionary' env dflags guts scopedDicts binder
-   dict =
-     case bnds of
-       -- The common case that we would have gotten a single non-recursive let
-       [NonRec v e] | i == v -> e
-       _                     -> mkCoreLets bnds (varToCoreExpr i)
-   -- Sometimes buildDictionary' constructs bogus dictionaries with free
-   -- identifiers. Hence check that freeIds is empty. Allow for free *type*
-   -- variables, however, since there may be some in the given type as
-   -- parameters. Alternatively, check that there are no free variables (val or
-   -- type) in the resulting dictionary that were not in the original type.
+   binder = localId inScope name goalTy
+   name = "$d" ++ zEncodeString (filter (not . isSpace) (showPpr dflags goalTy))
    scopedDicts = filterVarSet keepVar (getInScopeVars (fst inScope))
-   goalTyVars = tyCoVarsOfType goalTy
    keepVar v =
      -- Keep evidence that relates to free type variables in the goal.
      isEvVar v &&
      not (isEmptyVarSet (goalTyVars `intersectVarSet` tyCoVarsOfType (varType v)))
    -- freeIds = filter isId (uniqSetToList (exprFreeVars dict))
    -- freeIdTys = varType <$> freeIds
-   freeIds = filterVarSet isId (exprFreeVars dict) `minusVarSet` scopedDicts
-   freeIdTys = varType <$> uniqSetToList freeIds
-   holeyBinds = filter hasCoercionHole bnds
-   -- err doc = Left (doc $$ ppr goalTy $$ text "-->" $$ ppr dict)
+   goalTyVars = tyCoVarsOfType goalTy
+   reassemble (i,bnds) =
+     -- pprTrace' "buildDictionary" (ppr goalTy $$ text "-->" $$ ppr dict) $
+     -- pprTrace' "buildDictionary inScope" (ppr (fst inScope)) $
+     -- pprTrace' "buildDictionary freeIds" (ppr freeIds) $
+     -- pprTrace' "buildDictionary (bnds,freeIds)" (ppr (bnds,freeIds)) $
+     -- pprTrace' "buildDictionary dict" (ppr dict) $
+     -- either (\ e -> pprTrace' "buildDictionary fail" (ppr goalTy $$ text "-->" $$ e) res) (const res) $
+     res
+    where
+      res | null bnds          = Left (text "no bindings")
+          | notNull holeyBinds = Left (text "coercion holes: " <+> ppr holeyBinds)
+          | notNull freeIdTys  = Left (text "free id types:" <+> ppr freeIdTys)
+          | otherwise          = return $ -- simplifyE dflags False
+                                          dict
+      dict =
+        case bnds of
+          -- Common case with single non-recursive let
+          [NonRec v e] | i == v -> e
+          _                     -> mkCoreLets bnds (varToCoreExpr i)
+      -- Sometimes buildDictionary' constructs bogus dictionaries with free
+      -- identifiers. Hence check that freeIds is empty. Allow for free *type*
+      -- variables, however, since there may be some in the given type as
+      -- parameters. Alternatively, check that there are no free variables (val or
+      -- type) in the resulting dictionary that were not in the original type.
+      freeIds = filterVarSet isId (exprFreeVars dict) `minusVarSet` scopedDicts
+      freeIdTys = varType <$> uniqSetToList freeIds
+      holeyBinds = filter hasCoercionHole bnds
+      -- err doc = Left (doc $$ ppr goalTy $$ text "-->" $$ ppr dict)
 
 hasCoercionHole :: Data t => t -> Bool
 hasCoercionHole = getAny . everything mappend (mkQ mempty (Any . isHole))
