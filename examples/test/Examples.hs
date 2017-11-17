@@ -37,7 +37,7 @@
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
 
-{-# OPTIONS_GHC -ddump-rule-rewrites #-}
+-- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
 -- {-# OPTIONS_GHC -ddump-rules #-}
 
 -- Does this flag make any difference?
@@ -48,7 +48,7 @@
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=500 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=25  #-}
-{-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
+-- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
 -- {-# OPTIONS_GHC -dsuppress-uniques #-}
