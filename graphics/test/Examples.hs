@@ -24,7 +24,8 @@
 
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 
--- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
+{-# OPTIONS_GHC -ddump-rule-rewrites #-}
+{-# OPTIONS_GHC -fsimpl-tick-factor=25 #-}  -- default 100
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}  -- default 100
 
 -- {-# OPTIONS -fplugin-opt=ConCat.Plugin:trace #-}
@@ -57,8 +58,8 @@ main = sequence_
   -- , runHtml' "annulus1"
   --     (pairW (sliderW "Outer radius" (0,2) 1) (sliderW "Inner radius" (0,2) 0.1)) $
   --     uncurry annulus
-  -- , runHtml' "annulus2" (pairW (sliderW "Outer" (0,2) 1) timeW) $
-  --     \ (o,i) -> annulus o ((sin i + 1) / 2)
+  , runHtml' "annulus2" (pairW (sliderW "Outer" (0,2) 1) timeW) $
+      \ (o,i) -> annulus o ((sin i + 1) / 2)
 
   -- , runSynCirc "wobbly-disk" $ toCcc $ \ t ->
   --     disk' (3/4 + 1/4 * cos t)
@@ -75,8 +76,8 @@ main = sequence_
   -- , runHtml' "checker-rotate" timeW $ \ t ->
   --     rotate t checker15
 
-  , runHtml' "diag-disk-turning-sizing" timeW $ \ t ->
-      disk' (cos t) `xorR` rotate t xyPos
+  -- , runHtml' "diag-disk-turning-sizing" timeW $ \ t ->
+  --     disk' (cos t) `xorR` rotate t xyPos
 
   -- , runHtml' "orbits1" timeW $ orbits1
   -- , runHtml' "checker-orbits1" timeW $
@@ -92,6 +93,10 @@ main = sequence_
   -- , runHtml' "orbits2" timeW $ orbits2
   -- , runHtml' "checker-orbits6" timeW $ \ t ->
   --     orbits2 t `intersectR` rotate (t/10) checker15
+
+  -- , runHtml' "soft-disk-a" unitW (const (softDisk 1))
+  -- , runHtml' "soft-disk-b" (sliderW "k" (0,100) 50) softDisk
+  -- , runHtml' "disk-sdf-r" unitW (const (sdfR diskSdf))
 
   ]
 
@@ -156,7 +161,7 @@ checker15 = uscale (1/5) checker
 exampleB :: R -> Region
 exampleB = \ t -> let s = sin t in \ (x,y) -> x > y + s
 
-exampleC :: Double -> Double -> Double
+exampleC :: R -> R -> R
 exampleC = \ t -> let s = sin t in \ x -> x + s
 
 exampleC2 :: EC R (R -> R)
@@ -171,5 +176,19 @@ exampleC3' :: ( A.ClosedCat k, A.FloatingCat k R, A.NumCat k R
 exampleC3' = A.curry (A.addC A.. (A.exr A.&&& A.exl)) A.. A.sinC
 
 -- Swap addends
-exampleD :: Double -> Double -> Double
+exampleD :: R -> R -> R
 exampleD = \ t -> let s = sin t in \ x -> s + x
+
+-- Soft-edged unit disk
+softDisk :: R -> Image R
+softDisk k p = 1 / (1 + magSqr p ** k)
+
+-- Disk SDF (signed distance field)
+diskSdf :: Image R
+diskSdf p = 1 - magSqr p
+
+-- SDF to region
+sdfR :: Image R -> Region
+-- sdfR im p = im p > 0
+-- sdfR im = (> 0) . im
+sdfR = ((> 0) .)
