@@ -39,7 +39,7 @@ import Text.PrettyPrint.HughesPJClass hiding (render)
 import Control.Newtype
 -- import Data.Vector.Sized (Vector)
 
-import ConCat.Misc ((:*),PseudoFun(..),oops,R)
+import ConCat.Misc ((:*),PseudoFun(..),oops,R,Binop,inNew2)
 import ConCat.Orphans ()
 import ConCat.Free.VectorSpace
 -- The following import allows the instances to type-check. Why?
@@ -48,6 +48,7 @@ import ConCat.AltCat hiding (const)
 import ConCat.AltAggregate
 import ConCat.Rep
 -- import ConCat.Free.Diagonal
+import qualified ConCat.Additive as Ad
 
 -- TODO: generalize from Num to Semiring
 
@@ -70,8 +71,9 @@ infixr 9 $*
 ($*), lapplyL :: (Zip a, Foldable a, Zip b, Num s)
               => (a :-* b) s -> a s -> b s
 as $* a = (<.> a) <$> as
-
 lapplyL = ($*)
+{-# INLINE ($*) #-}
+{-# INLINE lapplyL #-}
 
 zeroL :: (Zeroable a, Zeroable b, Num s) => (a :-* b) s
 zeroL = unComp1 zeroV
@@ -198,6 +200,13 @@ zeroLM :: (Num s, Zeroable (V s a), Zeroable (V s b)) => L s a b
 zeroLM = L zeroL
 {-# INLINE zeroLM #-}
 
+addLM :: Ok2 (L s) a b => Binop (L s a b)
+addLM = (inNew2.zipWith.zipWith) (+)
+
+instance Ok2 (L s) a b => Ad.Additive (L s a b) where
+  zero  = zeroLM
+  (^+^) = addLM
+
 instance Category (L s) where
   type Ok (L s) = OkLM s
   id = abst idL
@@ -287,6 +296,7 @@ instance ( -- Ok2 (L s) a b
 -- Conversion to linear function
 lapply :: (Num s, Ok2 (L s) a b) => L s a b -> (a -> b)
 lapply (L gfa) = unV . lapplyL gfa . toV
+{-# INLINE lapply #-}
 
 type HasL s a = (HasV s a, Diagonal (V s a), Num s)  
 
