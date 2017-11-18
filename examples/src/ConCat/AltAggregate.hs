@@ -53,6 +53,11 @@ Catify(sum  , sumC)
 
 -- TODO: Try merging Catify into Op0: Op0 (fmapC,fmap,...).
 
+{-# RULES
+"fmapC id" fmapC id = id
+-- "fmapC compose" forall g f. fmapC g . fmapC f = fmapC (g . f)
+ #-}
+
 Op0(distributeC, (DistributiveCat k g f, Ok k a) => f (g a) `k` g (f a))
 Op0(tabulateC  , (RepresentableCat k f , Ok k a) => (Rep f -> a) `k` f a)
 Op0(indexC     , (RepresentableCat k f , Ok k a) => f a `k` (Rep f -> a))
@@ -85,6 +90,7 @@ unzipC = fmapC' exl &&& fmapC' exr
 
 zipWithC :: Zip f => (a -> b -> c) -> f a -> f b -> f c
 zipWithC f as bs = fmap (uncurry f) (as `zip` bs)
+{-# INLINE zipWithC #-}
 
 Catify(zipWith,zipWithC)
 
