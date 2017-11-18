@@ -133,6 +133,8 @@ instance (AddF f, AddF g) => Additive1 (g :.: f) where additive1 = Entail (Sub D
 
 instance Additive1 Pair where additive1 = Entail (Sub Dict)
 
+instance KnownNat n => Additive1 (Vector n) where
+  additive1 = Entail (Sub Dict)
 
 -- Maybe is handled like the Maybe-of-Sum monoid
 instance Additive a => Additive (Maybe a) where
