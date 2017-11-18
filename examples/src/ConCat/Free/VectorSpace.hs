@@ -39,7 +39,7 @@ import Data.Vector.Sized (Vector)
 -- import Control.Newtype
 
 import ConCat.Orphans ()
-import ConCat.Misc ((:*),(:+),(<~))
+import ConCat.Misc ((:*),(:+),(<~),sqr)
 import ConCat.Rep
 -- import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
 import ConCat.AltCat (OpCon(..),Sat,type (|-)(..))
@@ -105,38 +105,56 @@ instance (Zeroable f, Zeroable g) => Zeroable (g :.: f) where
 scaleV, (*^) :: (Functor f, Num s) => s -> f s -> f s
 s *^ v = (s *) <$> v
 scaleV = (*^)
+{-# INLINE (*^) #-}
+{-# INLINE scaleV #-}
 
 -- | Negate a vector
 negateV :: (Functor f, Num s) => f s -> f s
 negateV = ((-1) *^)
+{-# INLINE negateV #-}
 
 -- | Add vectors
 addV, (^+^) :: (Zip f, Num s) => f s -> f s -> f s
 (^+^) = zipWith (+)
 addV = (^+^)
+{-# INLINE (^+^) #-}
+{-# INLINE addV #-}
 
 -- | Subtract vectors
 subV, (^-^) :: (Zip f, Num s) => f s -> f s -> f s
 (^-^) = zipWith (-)
 subV = (^-^)
+{-# INLINE (^-^) #-}
+{-# INLINE subV #-}
 
 -- | Inner product
-dotV, (<.>) :: (Zip f, Foldable f, Num s) => f s -> f s -> s
+dotV, (<.>) :: forall s f. (Zip f, Foldable f, Num s) => f s -> f s -> s
 x <.> y = sum (zipWith (*) x y)
 dotV = (<.>)
+{-# INLINE (<.>) #-}
+{-# INLINE dotV #-}
 
 -- | Norm squared
-normSqr :: (Zip f, Foldable f, Num s) => f s -> s
+#if 1
+normSqr :: forall s f. (Functor f, Foldable f, Num s) => f s -> s
+normSqr = sum . fmap sqr
+#else
+normSqr :: forall s f. (Zip f, Foldable f, Num s) => f s -> s
 normSqr u = u <.> u
+#endif
+{-# INLINE normSqr #-}
 
 -- | Distance squared
-distSqr :: (Zip f, Foldable f, Num s) => f s -> f s -> s
+distSqr :: forall s f. (Zip f, Foldable f, Num s) => f s -> f s -> s
 distSqr u v = normSqr (u ^-^ v)
+{-# INLINE distSqr #-}
 
 -- | Outer product
 outerV, (>.<) :: (Num s, Functor f, Functor g) => g s -> f s -> g (f s)
 x >.< y = (*^ y) <$> x
 outerV = (>.<)
+{-# INLINE (>.<) #-}
+{-# INLINE outerV #-}
 
 -- Would I rather prefer swapping the arguments (equivalently, transposing the
 -- result)?
@@ -157,6 +175,7 @@ instance (Zeroable f, Zip f, Num a) => Monoid (SumV f a) where
 
 sumV :: (Functor m, Foldable m, Zeroable n, Zip n, Num a) => m (n a) -> n a
 sumV = repr . fold . fmap SumV
+{-# INLINE sumV #-}
 
 {--------------------------------------------------------------------
     Conversion
