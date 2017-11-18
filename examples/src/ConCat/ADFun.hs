@@ -175,8 +175,10 @@ instance (Functor h, Additive1 h) => FunctorCat D h where
   {-# INLINE fmapC  #-}
 
 instance (Zip h, Additive1 h) => ZipCat D h where
-  zipC   = linearDF zipC
-  {-# INLINE zipC   #-}
+  -- zipC = linearDF zipC
+  -- {-# INLINE zipC #-}
+  zipWithC = linearDF zipWithC
+  {-# INLINE zipWithC #-}
 
 instance (Pointed h, Additive1 h) => PointedCat D h where
   pointC = linearDF pointC

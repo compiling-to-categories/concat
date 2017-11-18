@@ -380,8 +380,10 @@ instance Functor h => FunctorCat Syn h where
   INLINER(fmapC)
 
 instance Zip h => ZipCat Syn h where
-  zipC   = app0 "zip"
-  INLINER(zipC)
+  -- zipC = app0 "zip"
+  -- INLINER(zipC)
+  zipWithC = app0 "zipWith"
+  INLINER(zipWithC)
 
 instance Pointed h => PointedCat Syn h where
   pointC = app0 "point"

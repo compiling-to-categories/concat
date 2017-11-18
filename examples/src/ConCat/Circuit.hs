@@ -856,11 +856,19 @@ instance (Functor h, OkFunctor (:>) h) => FunctorCat (:>) h where
             <+ okFunctor' @(:>) @h @b
 
 instance (Zip h, OkFunctor (:>) h) => ZipCat (:>) h where
+#if 1
+  zipWithC  :: forall a b c. Ok3 (:>) a b c => (a :* b -> c) :> (h a :* h b -> h c)
+  zipWithC = namedC "zipWith"
+               <+ okFunctor' @(:>) @h @a
+               <+ okFunctor' @(:>) @h @b
+               <+ okFunctor' @(:>) @h @c
+#else
   zipC  :: forall a b. Ok2 (:>) a b => (h a :* h b) :> h (a :* b)
   zipC = namedC "zip"
            <+ okFunctor' @(:>) @h @(a :* b)
            <+ okFunctor' @(:>) @h @a
            <+ okFunctor' @(:>) @h @b
+#endif
 
 instance (Pointed h, OkFunctor (:>) h) => PointedCat (:>) h where
   pointC :: forall a. Ok (:>) a => a :> h a

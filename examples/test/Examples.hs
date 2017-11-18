@@ -75,8 +75,8 @@
 
 module Main where
 
--- import Prelude hiding (id,(.),curry,uncurry)
--- import qualified Prelude as P
+import Prelude hiding (zip,zipWith) -- (id,(.),curry,uncurry)
+import qualified Prelude as P
 
 import Data.Monoid (Sum(..))
 import Data.Foldable (fold)
@@ -101,7 +101,7 @@ import ConCat.Misc
 import ConCat.Incremental (andInc,inc)
 import ConCat.AD
 import ConCat.ADFun hiding (D)
-import ConCat.Free.VectorSpace (HasV(..))
+import ConCat.Free.VectorSpace (HasV(..),distSqr)
 import ConCat.GradientDescent
 import ConCat.Interval
 import ConCat.Syntactic (Syn,render)
@@ -113,6 +113,7 @@ import ConCat.AltCat
   (toCcc,toCcc',unCcc,unCcc',reveal,conceal,(:**:)(..),Ok,Ok2,U2,equal)
 import ConCat.AltAggregate ()
 import qualified ConCat.AltAggregate as A
+import qualified ConCat.Rep
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Nat
 import ConCat.Shaped
@@ -124,7 +125,8 @@ import ConCat.LC
 -- Experimental
 import qualified ConCat.Inline.SampleMethods as I
 
--- import ConCat.Regress
+import qualified ConCat.Regress as R
+import ConCat.Free.Affine
 import ConCat.Choice
 import ConCat.RegressChoice
 
@@ -236,6 +238,40 @@ main = sequence_
   --     (toCcc (choose @OkLC line)) 
 
   -- , runSynCirc "foo" $ toCcc (step @R line)  -- Loops
+
+  -- , runSynCirc "distSqr-v" $ toCcc $ distSqr @R @(Vector 5)
+  -- , runSynCirc "sqErr-vv" $ toCcc $ R.sqErr @R @(Vector 5 R) @(Vector 11 R)
+  -- , runCirc "sqErrF-vv" $ toCcc $ R.sqErrF @R @(Vector 5 R) @(Vector 11)
+
+
+  -- , runSynCirc "zipWith-v" $ toCcc $ zipWith @(Vector 7) (||)
+
+
+  -- , runSynCirc "foo-der" $ toCcc $
+  --     \ (v :: Par1 R) ->
+  --       derF (distSqr v)
+
+
+  -- , runSynCirc "sqErrF-der-pp" $ toCcc $
+  --     \ (ab :: Par1 R :* Par1 R) ->
+  --       derF (R.sqErrF @R ab . applyA @R)
+
+
+  -- , runSynCirc "sqErr-der-pp" $ toCcc $
+  --     \ (ab :: Par1 R :* Par1 R) ->
+  --       derF (R.sqErr @R ab . applyA @R)
+
+
+  -- , runSynCirc "sqErr-der-vv" $ toCcc $
+  --     \ (ab :: Vector 5 R :* Vector 11 R) ->
+  --       derF (R.sqErr @R ab . applyA @R)
+
+  -- , runSynCirc "sqErr-vv-c" $ toCcc $
+  --     \ (ab :: Vector 5 R :* Vector 11 R) ->
+  --       (R.sqErr @R ab . applyA @R)
+
+  -- , runSynCirc "applyA-vv" $ toCcc $
+  --       applyA @R @(Vector 5 R) @(Vector 11 R)
 
   -- -- 50 sec with AD; 11 sec with ADFun.
   -- , onChoice @OkLFC (\ f -> runCirc "regress-line" (toCcc (step @R f)))

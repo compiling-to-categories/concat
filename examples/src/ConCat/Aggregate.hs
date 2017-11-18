@@ -1,3 +1,4 @@
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE ConstraintKinds #-}
@@ -20,7 +21,7 @@
 
 module ConCat.Aggregate where
 
-import Prelude hiding (id,(.),curry,uncurry,const,zip)
+import Prelude hiding (id,(.),curry,uncurry,const,zipWith)
 -- import qualified Prelude as P
 
 import qualified Control.Arrow as A
@@ -54,7 +55,8 @@ class (Functor h, OkFunctor k h) => FunctorCat k h where
 -- TODO: Maybe rename FunctorCat to avoid confusion.
 
 class (Zip h, OkFunctor k h) => ZipCat k h where
-  zipC   :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
+  -- zipC :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
+  zipWithC :: Ok3 k a b c => (a :* b -> c) `k` (h a :* h b -> h c)
 
 class (Pointed h, OkFunctor k h) => PointedCat k h where
   pointC :: Ok  k a => a `k` h a
@@ -97,7 +99,9 @@ instance (Pointed h, Representable h) => PointedCat (->) h where
 #else
 
 instance Zip h => ZipCat (->) h where
-  zipC = uncurry (inline zip)
+  -- zipC = uncurry (inline zip)
+  zipWithC :: (a :* b -> c) -> (h a :* h b -> h c)
+  zipWithC f = uncurry (inline zipWith (curry f))
 instance Pointed h => PointedCat (->) h where
   pointC = inline point
 
@@ -114,8 +118,9 @@ instance (FunctorCat k h, FunctorCat k' h) => FunctorCat (k :**: k') h where
   {-# INLINE fmapC #-}
 
 instance (ZipCat k h, ZipCat k' h) => ZipCat (k :**: k') h where
-  zipC   = zipC   :**: zipC
-  {-# INLINE zipC #-}
+  -- zipC = zipC :**: zipC
+  zipWithC = zipWithC :**: zipWithC
+  {-# INLINE zipWithC #-}
 instance (PointedCat k h, PointedCat k' h) => PointedCat (k :**: k') h where
   pointC = pointC :**: pointC
   {-# INLINE pointC #-}

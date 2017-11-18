@@ -41,15 +41,17 @@ import ConCat.AltCat
 -- Catify etc
 #include "ConCat/Ops.inc"
 
-Op0(fmapC , (FunctorCat k h, Ok2 k a b)     => (a -> b) `k` (h a -> h b))
-Op0(zipC  , (ZipCat     k h, Ok2 k a b)     => (h a :* h b) `k` h (a :* b))
-Op0(pointC, (PointedCat k h, Ok k a)        => a `k` h a)
-Op0(sumC  , (SumCat     k h, Ok k a, Num a) => h a `k` a)
+Op0(fmapC   , (FunctorCat k h, Ok2 k a b)     => (a -> b) `k` (h a -> h b))
+Op0(zipWithC, (ZipCat     k h, Ok3 k a b c)   => (a :* b -> c) `k` (h a :* h b -> h c))
+Op0(pointC  , (PointedCat k h, Ok k a)        => a `k` h a)
+Op0(sumC    , (SumCat     k h, Ok k a, Num a) => h a `k` a)
 
-Catify(fmap , fmapC)
-CatifyC(zip , zipC)
-Catify(point, pointC)
-Catify(sum  , sumC)
+-- Op0(zipC  , (ZipCat     k h, Ok2 k a b)     => (h a :* h b) `k` h (a :* b))
+
+Catify(fmap   , fmapC)
+Catify(zipWith, curry . zipWithC . uncurry)
+Catify(point  , pointC)
+Catify(sum    , sumC)
 
 -- TODO: Try merging Catify into Op0: Op0 (fmapC,fmap,...).
 
@@ -88,11 +90,17 @@ unzipC = fmapC' exl &&& fmapC' exr
            <+ okProd    @k @a @b
 {-# INLINE unzipC #-}
 
-zipWithC :: Zip f => (a -> b -> c) -> f a -> f b -> f c
-zipWithC f as bs = fmap (uncurry f) (as `zip` bs)
-{-# INLINE zipWithC #-}
+#if 1
 
-Catify(zipWith,zipWithC)
+CatifyC(zip , zipWithC id)
+
+#else
+
+zipC :: Zip h => (h a :* h b) `k` h (a :* b)
+zipC = zipWithC id
+{-# INLINE zipC #-}
+
+CatifyC(zip , zipC)
 
 zapC :: forall k h a b.
         (FunctorCat k h, ZipCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
@@ -106,6 +114,8 @@ zapC = fmapC' apply . zipC
          <+ okProd    @k    @(a -> b) @a
          <+ okExp     @k    @a @b
 {-# INLINE zapC #-}
+
+#endif
 
 -- TODO: Is there any value to defining utility functions like unzipC and zapC
 -- in categorical generality? Maybe df only for functions, but still using the
