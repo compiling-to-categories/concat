@@ -24,8 +24,10 @@ import ConCat.Misc ((:*))
 import ConCat.Rep
 import qualified ConCat.Category as C
 import ConCat.AltCat
-import ConCat.Free.VectorSpace
+import ConCat.Free.VectorSpace hiding ((^+^))
+import qualified ConCat.Free.VectorSpace as V
 import ConCat.Free.LinearRow
+import ConCat.Additive (Additive(..))
 
 AbsTyImports
 
@@ -33,9 +35,11 @@ data Affine s a b = Affine (L s a b) b
 
 linearA :: forall s a b. Ok2 (L s) a b => L s a b -> Affine s a b
 linearA = flip Affine (unV @s zeroV)
+{-# INLINE linearA #-}
 
 applyA :: forall s a b. Ok2 (L s) a b => Affine s a b -> (a -> b)
 applyA (Affine p u) a = add @s (lapply p a) u
+{-# INLINE applyA #-}
 
 instance HasRep (Affine s a b) where
   type Rep (Affine s a b) = L s a b :* b
@@ -44,10 +48,18 @@ instance HasRep (Affine s a b) where
 
 AbsTy(Affine s a b)
 
+instance Ok2 (L s) a b => Additive (Affine s a b) where
+  zero = linearA zeroLM
+  Affine p u ^+^ Affine q v = Affine (p `addLM` q) (add @s u v)
+  {-# INLINE zero #-}
+  {-# INLINE (^+^) #-}
+
 instance Category (Affine s) where
   type Ok (Affine s) = Ok (L s)
   id = linearA id
   (.) = inAbst2 $ \ (q,v) (p,u) -> (q . p, add @s (lapply q u) v)
+  {-# INLINE id #-}
+  {-# INLINE (.) #-}
 
 -- Semantic homomorphism: applyA g . applyA f == applyA (g . f)
 
@@ -63,6 +75,9 @@ instance ProductCat (Affine s) where
   exl = linearA exl
   exr = linearA exr
   (&&&) = inAbst2 $ \ (p,u) (q,v) -> (p &&& q, (u,v))
+  {-# INLINE exl #-}
+  {-# INLINE exr #-}
+  {-# INLINE (&&&) #-}
 
 --    applyA (Affine p u) &&& applyA (Affine q v)
 -- == \ a -> (applyA (Affine p u) &&& applyA (Affine q v)) a
@@ -77,4 +92,5 @@ instance ProductCat (Affine s) where
 --------------------------------------------------------------------}
 
 add :: forall s a. (HasV s a, Zip (V s a), Num s) => a -> a -> a
-add = onV2 @s (^+^)
+add = onV2 @s (V.^+^)
+{-# INLINE add #-}
