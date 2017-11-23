@@ -29,13 +29,13 @@ import ConCat.Free.LinearRow
 
 -- Square of distance between predicted and observed datum
 sqErrF :: forall s a g. (Num s, Foldable g, Zip g)
-       => a :* g s -> (a -> g s) -> s
-sqErrF (x,y) h = h x `V.distSqr` y
+       => (a -> g s) -> a :* g s -> s
+sqErrF h (x,y) = h x `V.distSqr` y
 {-# INLINE sqErrF #-}
 
 -- Square of distance between predicted and observed datum
-sqErr :: forall s a b. Ok (L s) b => a :* b -> (a -> b) -> s
-sqErr (x,y) h = h x `distSqr` y
+sqErr :: forall s a b. Ok (L s) b => (a -> b) -> a :* b -> s
+sqErr h (x,y) = h x `distSqr` y
 {-# INLINE sqErr #-}
 
 -- add :: forall s a. (HasV s a, Zip (V s a), Num s) => Binop a
