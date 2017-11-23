@@ -52,7 +52,7 @@ import TcRnDriver
 -- import HERMIT.GHC.Typechecker (initTcFromModGuts)
 -- import ConCat.GHC
 
--- import ConCat.Simplify
+import ConCat.Simplify
 
 isFound :: FindResult -> Bool
 isFound (Found _ _) = True
@@ -191,7 +191,7 @@ buildDictionary env dflags guts inScope goalTy =
       res | null bnds          = Left (text "no bindings")
           | notNull holeyBinds = Left (text "coercion holes: " <+> ppr holeyBinds)
           | notNull freeIdTys  = Left (text "free id types:" <+> ppr freeIdTys)
-          | otherwise          = return $ -- simplifyE dflags False
+          | otherwise          = return $ simplifyE dflags False
                                           dict
       dict =
         case bnds of
