@@ -120,7 +120,7 @@ Rebox1(boxD,unboxI,double2Int#,truncateC)
 -- Generating truncateC instead of truncate to avoid an infinite rewrite loop
 -- between this rule and GHC's "truncat/Double->Int" rule. Maybe change all of
 -- the generated functions to be the categorical versions to more robustly avoid
--- such loops.
+-- such loops. This change would make rewriting a little more efficient as well.
 
 Rebox1F(negateFloat#,negate)
 Rebox2F(plusFloat#,(+))
