@@ -848,17 +848,19 @@ instance (OkFunctor (:>) f, OkFunctor (:>) g)
 instance KnownNat i => OkFunctor (:>) (Vector i) where
   okFunctor = Entail (Sub Dict)
 
+-- Use *uncurried* fmap and zipWith primitives.
+
 instance (Functor h, OkFunctor (:>) h) => FunctorCat (:>) h where
   fmapC :: forall a b. Ok2 (:>) a b => (a -> b) :> (h a -> h b)
   fmapC = -- trace "fmapC on (:>)" $
-          namedC "fmap"
+          curry (namedC "fmap")
             <+ okFunctor' @(:>) @h @a
             <+ okFunctor' @(:>) @h @b
 
 instance (Zip h, OkFunctor (:>) h) => ZipCat (:>) h where
 #if 1
   zipWithC  :: forall a b c. Ok3 (:>) a b c => (a :* b -> c) :> (h a :* h b -> h c)
-  zipWithC = namedC "zipWith"
+  zipWithC = curry (namedC "zipWith")
                <+ okFunctor' @(:>) @h @a
                <+ okFunctor' @(:>) @h @b
                <+ okFunctor' @(:>) @h @c
