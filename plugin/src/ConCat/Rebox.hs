@@ -116,6 +116,7 @@ Rebox2I((-#),(-))
 Rebox2I((*#),(*))
 -- Rebox1(boxD,unboxI,double2Int#,truncate)
 Rebox1(boxD,unboxI,double2Int#,truncateC)
+Rebox1(boxF,unboxI,float2Int#,truncateC)
 
 -- Generating truncateC instead of truncate to avoid an infinite rewrite loop
 -- between this rule and GHC's "truncate/Double->Int" rule. Maybe change all of
