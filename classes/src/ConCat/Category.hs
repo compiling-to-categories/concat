@@ -378,23 +378,28 @@ class (OkProd k, Category k) => ProductCat k where
   f &&& g = (f *** g) . dup
     <+ okProd @k @a @a
     <+ okProd @k @c @d
+  {-# INLINE (&&&) #-}
 #endif
   first :: forall a a' b. Ok3 k a b a' 
         => (a `k` a') -> (Prod k a b `k` Prod k a' b)
   first = (*** id)
+  {-# INLINE first #-}
   second :: forall a b b'. Ok3 k a b b' 
          => (b `k` b') -> (Prod k a b `k` Prod k a b')
   second = (id ***)
+  {-# INLINE second #-}
   lassocP :: forall a b c. Ok3 k a b c
           => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
   lassocP = second exl &&& (exr . exr)
             <+ okProd @k @a @b
             <+ inOpR' @(Prod k) @(Ok' k) @a @b @c
+  {-# INLINE lassocP #-}
   rassocP :: forall a b c. Ok3 k a b c
           => Prod k (Prod k a b) c `k` Prod k a (Prod k b c)
   rassocP = (exl . exl) &&& first  exr
             <+ okProd @k    @b @c
             <+ inOpL' @(Prod k) @(Ok' k) @a @b @c
+  {-# INLINE rassocP #-}
 #ifdef DefaultCat
   -- These defaults are not kicking in for (->). Why not?
   -- default exl :: A.Arrow k => Prod k a b `k` a
@@ -420,11 +425,12 @@ lassocP' :: forall k a b c. (ProductCat k, Ok3 k a b c, Ok3 k (Prod k b c) (Prod
 lassocP' = second exl &&& (exr . exr)
 --            <+ okProd @k @a @b
 --            <+ inOpR' @(Prod k) @(Ok' k) @a @b @c
+{-# INLINE lassocP' #-}
 
 rassocP' :: forall k a b c. (ProductCat k, Oks k [a,b,c], Oks k [Prod k a b, Prod k b c, Prod k (Prod k a b) c])
         => Prod k (Prod k a b) c `k` Prod k a (Prod k b c)
 rassocP' = (exl . exl) &&& first  exr
-
+{-# INLINE lassocP' #-}
 
 inLassocP' :: forall k a b c a' b' c'.
              -- (ProductCat k, Ok6 k a b c a' b' c') 
@@ -494,6 +500,7 @@ inLassocP :: forall k a b c a' b' c'.
 inLassocP = rassocP <~ lassocP
               <+ (inOpLR @(Prod k) @(Ok' k) @a  @b  @c ***
                   inOpLR @(Prod k) @(Ok' k) @a' @b' @c')
+{-# INLINE inLassocP #-}
 
 -- | Operate on right-associated form
 inRassocP :: forall a b c a' b' c' k.
@@ -504,6 +511,7 @@ inRassocP :: forall a b c a' b' c' k.
 inRassocP = lassocP <~ rassocP
               <+ (inOpLR @(Prod k) @(Ok' k) @a  @b  @c ***
                   inOpLR @(Prod k) @(Ok' k) @a' @b' @c')
+{-# INLINE inRassocP #-}
 
 transposeP :: forall k a b c d. (ProductCat k, Oks k [a,b,c,d])
            => Prod k (Prod k a b) (Prod k c d) `k` Prod k (Prod k a c) (Prod k b d)
@@ -513,11 +521,13 @@ transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
   <+ okProd @k @a @b
   <+ okProd @k @b @d
   <+ okProd @k @a @c
+{-# INLINE transposeP #-}
 
 -- | Inverse to '(&&&)'
 unfork :: forall k a c d. (ProductCat k, Ok3 k a c d) 
        => (a `k` Prod k c d) -> (a `k` c, a `k` d)
 unfork f = (exl . f, exr . f)  <+ okProd @k @c @d
+{-# INLINE unfork #-}
 
 instance Monad m => ProductCat (Kleisli m) where
   -- type Prod (Kleisli m) = (:*)
@@ -563,10 +573,12 @@ class (OpCon (Coprod k) (Ok' k), Category k) => CoproductCat k where
   swapS :: forall a b. Oks k [a,b] => Coprod k a b `k` Coprod k b a
   swapS = inr ||| inl
           <+ okCoprod @k @b @a
+  {-# INLINE swapS #-}
   (+++) :: forall a b c d. Oks k [a,b,c,d] 
         => (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b)
   f +++ g = inl . f ||| inr . g
             <+ okCoprod @k @a @b
+  {-# INLINE (+++) #-}
   (|||) :: forall a c d. Oks k [a,c,d] 
         => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a)
 #ifndef DefaultCat
@@ -574,23 +586,28 @@ class (OpCon (Coprod k) (Ok' k), Category k) => CoproductCat k where
   f ||| g = jam . (f +++ g)
           <+ okCoprod @k @a @a
           <+ okCoprod @k @c @d
+  {-# INLINE (|||) #-}
 #endif
   left  :: forall a a' b. Oks k [a,b,a'] 
         => (a `k` a') -> (Coprod k a b `k` Coprod k a' b)
   left  = (+++ id)
+  {-# INLINE left #-}
   right :: forall a b b'. Oks k [a,b,b'] 
         => (b `k` b') -> (Coprod k a b `k` Coprod k a b')
   right = (id +++)
+  {-# INLINE right #-}
   lassocS :: forall a b c. Oks k [a,b,c]
           => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c
   lassocS = inl.inl ||| (inl.inr ||| inr)
             <+ inOpL' @(Coprod k) @(Ok' k) @a @b @c
             <+ okCoprod @k    @b @c
+  {-# INLINE lassocS #-}
   rassocS :: forall a b c. Oks k [a,b,c]
           => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c)
   rassocS = (inl ||| inr.inl) ||| inr.inr
             <+ inOpR' @(Coprod k) @(Ok' k) @a @b @c
             <+ okCoprod @k @a @b
+  {-# INLINE rassocS #-}
 #ifdef DefaultCat
   default inl :: A.ArrowChoice k => a `k` Coprod k a b
   inl = arr inl
@@ -667,6 +684,7 @@ inLassocS :: forall k a b c a' b' c'.
 inLassocS = rassocS <~ lassocS
             <+ (inOpLR @(Coprod k) @(Ok' k) @a  @b  @c ***
                 inOpLR @(Coprod k) @(Ok' k) @a' @b' @c')
+{-# INLINE inLassocS #-}
 
 -- | Operate on right-associated form
 inRassocS :: forall a b c a' b' c' k.
@@ -677,6 +695,7 @@ inRassocS :: forall a b c a' b' c' k.
 inRassocS = lassocS <~ rassocS
             <+ (inOpLR @(Coprod k) @(Ok' k) @a  @b  @c ***
                 inOpLR @(Coprod k) @(Ok' k) @a' @b' @c')
+{-# INLINE inRassocS #-}
 
 transposeS :: forall k a b c d. (CoproductCat k, Oks k [a,b,c,d])
            => Coprod k (Coprod k a b) (Coprod k c d) `k` Coprod k (Coprod k a c) (Coprod k b d)
@@ -686,11 +705,13 @@ transposeS = (inl.inl ||| inr.inl) ||| (inl.inr ||| inr.inr)
   <+ okCoprod @k @a @b
   <+ okCoprod @k @b @d
   <+ okCoprod @k @a @c
+{-# INLINE transposeS #-}
 
 -- | Inverse to '(|||)'
 unjoin :: forall k a c d. (CoproductCat k, Oks k [a,c,d]) 
        => (Coprod k c d `k` a) -> (c `k` a, d `k` a)
 unjoin f = (f . inl, f . inr)  <+ okCoprod @k @c @d
+{-# INLINE unjoin #-}
 
 {--------------------------------------------------------------------
     Distributive
@@ -711,6 +732,7 @@ class (ProductCat k, CoproductCat k) => DistribCat k where
     <+ okProd   @k @a @v
     <+ okProd   @k @a @(Coprod k u v)
     <+ okCoprod @k @u @v
+  {-# INLINE distl #-}
   distr = (swapP +++ swapP) . distl . swapP
     <+ okProd   @k @b @(Coprod k u v)
     <+ okCoprod @k @(Prod k b u) @(Prod k b v)
@@ -721,6 +743,7 @@ class (ProductCat k, CoproductCat k) => DistribCat k where
     <+ okProd   @k @v @b
     <+ okProd   @k @(Coprod k u v) @b
     <+ okCoprod @k @u @v
+  {-# INLINE distr #-}
   {-# MINIMAL distl | distr #-}
 
 -- instance DistribCat (->) where
@@ -751,6 +774,7 @@ undistl = (exl ||| exl) &&& (exr +++ exr)
   <+ okProd   @k @a @u
   <+ okProd   @k @a @v
   <+ okCoprod @k @u @v
+{-# INLINE undistl #-}
 
 -- | Inverse to 'distr': @(u * b) + (v * b) --> (u + v) * b@
 undistr :: forall k u v b. (ProductCat k, CoproductCat k, Oks k [u,v,b])
@@ -760,6 +784,7 @@ undistr = (exl +++ exl) &&& (exr ||| exr)
   <+ okCoprod @k @u @v
   <+ okProd   @k @u @b
   <+ okProd   @k @v @b
+{-# INLINE undistr #-}
 
 {--------------------------------------------------------------------
     Exponentials
@@ -785,6 +810,7 @@ class (OkExp k, ProductCat k) => ClosedCat k where
   apply   :: forall a b. Ok2 k a b => Prod k (Exp k a b) a `k` b
   apply = uncurry id
           <+ okExp @k @a @b
+  {-# INLINE apply #-}
   curry   :: Ok3 k a b c => (Prod k a b `k` c) -> (a `k` Exp k b c)
   uncurry :: forall a b c. Ok3 k a b c
           => (a `k` Exp k b c)  -> (Prod k a b `k` c)
@@ -792,6 +818,7 @@ class (OkExp k, ProductCat k) => ClosedCat k where
               <+ okProd @k @(Exp k b c) @b
               <+ okProd @k @a @b
               <+ okExp  @k @b @c
+  {-# INLINE uncurry #-}
   {-# MINIMAL curry, (apply | uncurry) #-}
 
 --   apply   :: (Oks k [a,b], p ~ Prod k, e ~ Exp k) => ((a `e` b) `p` a) `k` b
