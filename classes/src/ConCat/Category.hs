@@ -28,7 +28,7 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
-{-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
+-- {-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-} -- for Oks
 
 -- For ConCat.Inline.ClassOp
@@ -61,17 +61,17 @@ import GHC.Types (Constraint)
 import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import GHC.Types (type (*))  -- experiment with TypeInType
 -- import qualified Data.Constraint as K
-import GHC.TypeLits
+-- import GHC.TypeLits
 -- import Data.Array (Array,(!),bounds,Ix)
 -- import qualified Data.Array as Arr
-import GHC.Generics ((:*:)(..),(:.:)(..))
-import qualified Data.Vector.Sized as VS
+-- import GHC.Generics ((:*:)(..),(:.:)(..))
+-- import qualified Data.Vector.Sized as VS
 
 import Control.Newtype (Newtype(..))
 #ifdef VectorSized
-import Data.Finite (Finite)
-import Data.Vector.Sized (Vector)
-import qualified Data.Vector.Sized as VS
+-- import Data.Finite (Finite)
+-- import Data.Vector.Sized (Vector)
+-- import qualified Data.Vector.Sized as VS
 #endif
 
 -- import Data.MemoTrie
@@ -1230,8 +1230,8 @@ class (BoolCat k, Ok k a) => EqCat k a where
   {-# MINIMAL equal | notEqual #-}
 
 instance Eq a => EqCat (->) a where
-  equal    = uncurry (X.inline (==))
-  notEqual = uncurry (X.inline (/=))
+  equal    = uncurry (IC.inline (==))
+  notEqual = uncurry (IC.inline (/=))
 
 #ifdef KleisliInstances
 instance (Monad m, Eq a) => EqCat (Kleisli m) a where
@@ -1258,10 +1258,10 @@ class EqCat k a => OrdCat k a where
   {-# MINIMAL lessThan | greaterThan #-}
 
 instance Ord a => OrdCat (->) a where
-  lessThan           = uncurry (X.inline (<))
-  greaterThan        = uncurry (X.inline (>))
-  lessThanOrEqual    = uncurry (X.inline (<=))
-  greaterThanOrEqual = uncurry (X.inline (>=))
+  lessThan           = uncurry (IC.inline (<))
+  greaterThan        = uncurry (IC.inline (>))
+  lessThanOrEqual    = uncurry (IC.inline (<=))
+  greaterThanOrEqual = uncurry (IC.inline (>=))
 
 #ifdef KleisliInstances
 instance (Monad m, Ord a) => OrdCat (Kleisli m) a where
@@ -1295,8 +1295,8 @@ class (Category k, Ok k a) => EnumCat k a where
   predC = subC . rconst 1 <+ okProd @k @a @a
 
 instance Enum a => EnumCat (->) a where
-  succC = X.inline succ
-  predC = X.inline pred
+  succC = IC.inline succ
+  predC = IC.inline pred
 
 instance EnumCat U2 a where
   succC = U2
@@ -1317,10 +1317,10 @@ class Ok k a => NumCat k a where
   {-# INLINE subC #-}
 
 instance Num a => NumCat (->) a where
-  negateC = X.inline negate
-  addC    = uncurry (X.inline (+))
-  subC    = uncurry (X.inline (-))
-  mulC    = uncurry (X.inline (*))
+  negateC = IC.inline negate
+  addC    = uncurry (IC.inline (+))
+  subC    = uncurry (IC.inline (-))
+  mulC    = uncurry (IC.inline (*))
   powIC   = uncurry (^)
             -- (^) is not a class-op
 
@@ -1362,8 +1362,8 @@ divModC :: forall k a. (ProductCat k, IntegralCat k a, Ok k a)
 divModC = divC &&& modC  <+ okProd @k @a @a
 
 instance Integral a => IntegralCat (->) a where
-  divC = uncurry (X.inline div)
-  modC = uncurry (X.inline mod)
+  divC = uncurry (IC.inline div)
+  modC = uncurry (IC.inline mod)
 
 #ifdef KleisliInstances
 instance (Monad m, Integral a) => IntegralCat (Kleisli m) a where
@@ -1393,8 +1393,8 @@ class Ok k a => FractionalCat k a where
   {-# MINIMAL recipC | divideC #-}
 
 instance Fractional a => FractionalCat (->) a where
-  recipC  = X.inline recip
-  divideC = uncurry (X.inline (/))
+  recipC  = IC.inline recip
+  divideC = uncurry (IC.inline (/))
 
 #ifdef KleisliInstances
 instance (Monad m, Fractional a) => FractionalCat (Kleisli m) a where
@@ -1420,11 +1420,11 @@ class Ok k a => FloatingCat k a where
 -- ln = logBase (exp 1)
 
 instance Floating a => FloatingCat (->) a where
-  expC = X.inline exp
-  logC = X.inline log
-  cosC = X.inline cos
-  sinC = X.inline sin
-  -- powC = X.inline (**)
+  expC = IC.inline exp
+  logC = IC.inline log
+  cosC = IC.inline cos
+  sinC = IC.inline sin
+  -- powC = IC.inline (**)
 
 #ifdef KleisliInstances
 instance (Monad m, Floating a) => FloatingCat (Kleisli m) a where
@@ -1459,9 +1459,9 @@ class Ok k a => RealFracCat k a b where
   truncateC :: a `k` b
 
 instance (RealFrac a, Integral b) => RealFracCat (->) a b where
-  floorC    = X.inline floor
-  ceilingC  = X.inline ceiling
-  truncateC = X.inline truncate
+  floorC    = IC.inline floor
+  ceilingC  = IC.inline ceiling
+  truncateC = IC.inline truncate
 
 #ifdef KleisliInstances
 instance (Monad m, RealFrac a, Integral b) => RealFracCat (Kleisli m) a b where
