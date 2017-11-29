@@ -28,7 +28,7 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
--- {-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
+{-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-} -- for Oks
 
 -- For ConCat.Inline.ClassOp
@@ -47,7 +47,7 @@ import qualified Control.Category as C
 #endif
 import Control.Arrow (Kleisli(..),arr)
 import qualified Control.Arrow as A
-import Control.Applicative (liftA2)
+-- import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
 import Data.Typeable (Typeable)
 import GHC.Exts (Coercible,coerce)
@@ -57,7 +57,7 @@ import qualified Data.Type.Equality as Eq
 import Data.Type.Coercion (Coercion(..))
 import qualified Data.Type.Coercion as Co
 import GHC.Types (Constraint)
-import qualified Data.Constraint as Con
+-- import qualified Data.Constraint as Con
 import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import GHC.Types (type (*))  -- experiment with TypeInType
 -- import qualified Data.Constraint as K
@@ -81,7 +81,7 @@ import ConCat.Misc hiding ((<~),(~>),type (&&))
 import ConCat.Rep
 -- import ConCat.Orphans ()
 -- import ConCat.Additive (Additive)
-import ConCat.Inline.ClassOp (inline)
+import qualified ConCat.Inline.ClassOp as IC
 
 #define PINLINER(nm) {-# INLINE nm #-}
 -- #define PINLINER(nm)
@@ -1230,8 +1230,8 @@ class (BoolCat k, Ok k a) => EqCat k a where
   {-# MINIMAL equal | notEqual #-}
 
 instance Eq a => EqCat (->) a where
-  equal    = uncurry (inline (==))
-  notEqual = uncurry (inline (/=))
+  equal    = uncurry (X.inline (==))
+  notEqual = uncurry (X.inline (/=))
 
 #ifdef KleisliInstances
 instance (Monad m, Eq a) => EqCat (Kleisli m) a where
@@ -1258,10 +1258,10 @@ class EqCat k a => OrdCat k a where
   {-# MINIMAL lessThan | greaterThan #-}
 
 instance Ord a => OrdCat (->) a where
-  lessThan           = uncurry (inline (<))
-  greaterThan        = uncurry (inline (>))
-  lessThanOrEqual    = uncurry (inline (<=))
-  greaterThanOrEqual = uncurry (inline (>=))
+  lessThan           = uncurry (X.inline (<))
+  greaterThan        = uncurry (X.inline (>))
+  lessThanOrEqual    = uncurry (X.inline (<=))
+  greaterThanOrEqual = uncurry (X.inline (>=))
 
 #ifdef KleisliInstances
 instance (Monad m, Ord a) => OrdCat (Kleisli m) a where
@@ -1295,8 +1295,8 @@ class (Category k, Ok k a) => EnumCat k a where
   predC = subC . rconst 1 <+ okProd @k @a @a
 
 instance Enum a => EnumCat (->) a where
-  succC = inline succ
-  predC = inline pred
+  succC = X.inline succ
+  predC = X.inline pred
 
 instance EnumCat U2 a where
   succC = U2
@@ -1317,10 +1317,10 @@ class Ok k a => NumCat k a where
   {-# INLINE subC #-}
 
 instance Num a => NumCat (->) a where
-  negateC = inline negate
-  addC    = uncurry (inline (+))
-  subC    = uncurry (inline (-))
-  mulC    = uncurry (inline (*))
+  negateC = X.inline negate
+  addC    = uncurry (X.inline (+))
+  subC    = uncurry (X.inline (-))
+  mulC    = uncurry (X.inline (*))
   powIC   = uncurry (^)
             -- (^) is not a class-op
 
@@ -1362,8 +1362,8 @@ divModC :: forall k a. (ProductCat k, IntegralCat k a, Ok k a)
 divModC = divC &&& modC  <+ okProd @k @a @a
 
 instance Integral a => IntegralCat (->) a where
-  divC = uncurry (inline div)
-  modC = uncurry (inline mod)
+  divC = uncurry (X.inline div)
+  modC = uncurry (X.inline mod)
 
 #ifdef KleisliInstances
 instance (Monad m, Integral a) => IntegralCat (Kleisli m) a where
@@ -1393,8 +1393,8 @@ class Ok k a => FractionalCat k a where
   {-# MINIMAL recipC | divideC #-}
 
 instance Fractional a => FractionalCat (->) a where
-  recipC  = inline recip
-  divideC = uncurry (inline (/))
+  recipC  = X.inline recip
+  divideC = uncurry (X.inline (/))
 
 #ifdef KleisliInstances
 instance (Monad m, Fractional a) => FractionalCat (Kleisli m) a where
@@ -1420,11 +1420,11 @@ class Ok k a => FloatingCat k a where
 -- ln = logBase (exp 1)
 
 instance Floating a => FloatingCat (->) a where
-  expC = inline exp
-  logC = inline log
-  cosC = inline cos
-  sinC = inline sin
-  -- powC = inline (**)
+  expC = X.inline exp
+  logC = X.inline log
+  cosC = X.inline cos
+  sinC = X.inline sin
+  -- powC = X.inline (**)
 
 #ifdef KleisliInstances
 instance (Monad m, Floating a) => FloatingCat (Kleisli m) a where
@@ -1459,9 +1459,9 @@ class Ok k a => RealFracCat k a b where
   truncateC :: a `k` b
 
 instance (RealFrac a, Integral b) => RealFracCat (->) a b where
-  floorC    = inline floor
-  ceilingC  = inline ceiling
-  truncateC = inline truncate
+  floorC    = X.inline floor
+  ceilingC  = X.inline ceiling
+  truncateC = X.inline truncate
 
 #ifdef KleisliInstances
 instance (Monad m, RealFrac a, Integral b) => RealFracCat (Kleisli m) a b where
@@ -1476,8 +1476,8 @@ instance Integral b => RealFracCat U2 a b where
   truncateC = U2
 
 instance (RealFracCat k a b, RealFracCat k' a b) => RealFracCat (k :**: k') a b where
-  floorC = floorC  :**: floorC
-  ceilingC = ceilingC :**: ceilingC
+  floorC    = floorC    :**: floorC
+  ceilingC  = ceilingC  :**: ceilingC
   truncateC = truncateC :**: truncateC
   PINLINER(floorC)
   PINLINER(ceilingC)
