@@ -1257,10 +1257,10 @@ class EqCat k a => OrdCat k a where
   {-# MINIMAL lessThan | greaterThan #-}
 
 instance Ord a => OrdCat (->) a where
-  lessThan           = uncurry (<)
-  greaterThan        = uncurry (>)
-  lessThanOrEqual    = uncurry (<=)
-  greaterThanOrEqual = uncurry (>=)
+  lessThan           = uncurry (inline (<))
+  greaterThan        = uncurry (inline (>))
+  lessThanOrEqual    = uncurry (inline (<=))
+  greaterThanOrEqual = uncurry (inline (>=))
 
 #ifdef KleisliInstances
 instance (Monad m, Ord a) => OrdCat (Kleisli m) a where
