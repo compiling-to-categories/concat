@@ -28,7 +28,7 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
-{-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
+-- {-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-} -- for Oks
 
 -- For ConCat.Inline.ClassOp
@@ -51,6 +51,7 @@ import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
 import Data.Typeable (Typeable)
 import GHC.Exts (Coercible,coerce)
+import qualified GHC.Exts as X
 import Data.Type.Equality ((:~:)(..))
 import qualified Data.Type.Equality as Eq
 import Data.Type.Coercion (Coercion(..))
@@ -1490,9 +1491,7 @@ class FromIntegralCat k a b where
   foo_FromIntegralCat = ()
 
 instance (Integral a, Num b) => FromIntegralCat (->) a b where
-  fromIntegralC = fromIntegral
-
--- No inline for fromIntegral (not a classop)
+  fromIntegralC = X.inline fromIntegral -- non-class-op
 
 #ifdef KleisliInstances
 instance (Monad m, Integral a, Num b) => FromIntegralCat (Kleisli m) a b where
