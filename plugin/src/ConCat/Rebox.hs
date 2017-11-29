@@ -134,7 +134,7 @@ Rebox1F(sinFloat#,sin)
 Rebox1F(cosFloat#,cos)
 Rebox1F(expFloat#,exp)
 Rebox1F(logFloat#,log)
-Rebox1(boxI,unboxF,int2Float#,fromIntegral)
+Rebox1(boxI,unboxF,int2Float#,fromIntegralC)
 
 Rebox1D(negateDouble#,negate)
 Rebox2D((+##),(+))
@@ -146,7 +146,10 @@ Rebox1D(cosDouble#,cos)
 Rebox1D(expDouble#,exp)
 Rebox1D(logDouble#,log)
 Rebox2D((**##),(**))
-Rebox1(boxI,unboxD,int2Double#,fromIntegral)
+Rebox1(boxI,unboxD,int2Double#,fromIntegralC)
+
+-- fromIntegralC to avoid looping with GHC's fromIntegral/Int->Float and
+-- fromIntegral/Int->Double
 
 Rebox2(id,unboxIB, eqInteger#,(==))
 Rebox2(id,unboxIB,neqInteger#,(/=))
