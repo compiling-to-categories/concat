@@ -37,6 +37,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Text.Printf (printf)
 import System.IO.Unsafe (unsafePerformIO)
+import Data.IORef
 
 import GhcPlugins hiding (substTy,cat)
 import Class (classAllSelIds)
@@ -336,15 +337,18 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -- | dtrace "top App tests" (ppr (exprType v,liftedExpr v, mkConst' cat dom v,mkUncurryMaybe cat (mkCcc u))) False -> undefined
        | liftedExpr v
        , Just v' <- mkConst' cat dom v
-       , dtrace "top App mkConst --> " (ppr v) True
+       -- , dtrace "top App  --> " (pprWithType v') True
        , Just uncU' <- mkUncurryMaybe cat (mkCcc u)
-       -> dtrace "go App v'" (pprWithType v') $
-          Doing("top App")
+       -- , dtrace "top App uncU'" (pprWithType uncU') True
+       -> Doing("top App")
           -- u v == uncurry u . (constFun v &&& id)
-          dtrace "top App result" (ppr (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))) $
+          -- dtrace "mkFork cat v' (mkId cat dom) -->" (ppr (mkFork cat v' (mkId cat dom))) $
+          -- dtrace "mkCompose cat uncU' (mkFork cat v' (mkId cat dom)) -->" (ppr (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))) $
+          -- dtrace "top App result" (ppr (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))) $
           return (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))
       where
         Just (dom,_) = splitFunTy_maybe (exprType e)
+#if 1
      Trying("top unfold")
      e@(exprHead -> Just _v)
        | -- Temp hack: avoid unfold/case-of-product loop.
@@ -353,6 +357,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -> Doing("top unfold")
           -- , dtrace "top unfold" (ppr e <+> text "-->" <+> ppr e') True
           return (mkCcc e')
+#endif
 #if 0
      Trying("top Wait for unfolding")
      (collectArgs -> (Var v,_)) | waitForVar ->
@@ -950,11 +955,14 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    -- catOp k op = catOp k op []
    catOpMaybe :: Cat -> Var -> [Type] -> Maybe CoreExpr
    catOpMaybe k op tys = onDictMaybe (Var op `mkTyApps` (k : tys))
-   mkCcc :: Unop CoreExpr  -- Any reason to parametrize over Cat?
-   mkCcc e = varApps cccV [cat,a,b] [e]
+   mkCcc' :: Unop CoreExpr  -- Any reason to parametrize over Cat?
+   mkCcc' e = varApps cccV [cat,a,b] [e]
     where
       (a,b) = fromMaybe (pprPanic "mkCcc non-function:" (pprWithType e)) $
               splitFunTy_maybe (exprType e)
+   mkCcc :: Unop CoreExpr  -- Any reason to parametrize over Cat?
+   mkCcc e = -- dtrace "mkCcc" (ppr (cat, e)) $
+             mkCcc' e
    -- TODO: replace composeV with mkCompose in CccEnv
    -- Maybe other variables as well
    mkId :: Cat -> Type -> CoreExpr
@@ -1067,8 +1075,8 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    mkBottomC :: Cat -> Type -> Type -> Maybe CoreExpr
    mkBottomC k dom cod = catOpMaybe k bottomCV [dom,cod]
    mkConst :: Cat -> Type -> ReExpr
-   mkConst k dom e | dtrace "mkConst1" (ppr (k,dom,e)) False = undefined
-   mkConst k dom e | dtrace "mkConst2" (ppr ((`App` e) <$> (onDictMaybe =<< catOpMaybe k constV [exprType e, dom]))) False = undefined
+   -- mkConst k dom e | dtrace "mkConst1" (ppr (k,dom,e)) False = undefined
+   -- mkConst k dom e | dtrace "mkConst2" (ppr ((`App` e) <$> (onDictMaybe =<< catOpMaybe k constV [exprType e, dom]))) False = undefined
    mkConst k dom e =
      -- const :: forall (k :: * -> * -> *) b. ConstCat k b => forall dom.
      --          Ok k dom => b -> k dom (ConstObj k b)
@@ -1076,7 +1084,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      (`App` e) <$> (onDictMaybe =<< catOpMaybe k constV [exprType e, dom])
      -- onDict (catOp k constV [exprType e] `App` Type dom) `App` e
    mkConstFun :: Cat -> Type -> ReExpr
-   mkConstFun k dom e | dtrace "mkConstFun" (ppr (k,dom,e)) False = undefined
+   -- mkConstFun k dom e | dtrace "mkConstFun" (ppr (k,dom,e)) False = undefined
    mkConstFun k dom e =
      -- constFun :: forall k p a b. (ClosedCat k, Oks k '[p, a, b])
      --          => k a b -> k p (Exp k a b)
@@ -1088,7 +1096,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    -- TODO: check that k == cat
    -- Turn U into either const U or constFun (mkCcc U) if possible.
    mkConst' :: Cat -> Type -> ReExpr
-   mkConst' k dom e | dtrace "mkConst'" (ppr (k,dom) <+> pprWithType e) False = undefined
+   -- mkConst' k dom e | dtrace "mkConst'" (ppr (k,dom) <+> pprWithType e) False = undefined
    -- mkConst' k dom e = (mkConst k dom <+ (mkConstFun k dom . mkCcc)) e
    mkConst' k dom e | isFunTy (exprType e) = mkConstFun k dom (mkCcc e)
                     | otherwise            = mkConst k dom e
@@ -1155,7 +1163,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    lintReExpr :: Unop ReExpr
    lintReExpr rew before =
      do after <- rew before
-        let before' = mkCcc before
+        let before' = mkCcc' before
             oops str doc = pprPanic ("ccc post-transfo check. " ++ str)
                              (doc $$ ppr before' $$ "-->" $$ ppr after)
             beforeTy = exprType before'
@@ -1187,8 +1195,11 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    -- TODO: handle Prelude.const. Or let it inline.
    catFun _ = Nothing
 #endif
+
    transCatOp :: ReExpr
-   transCatOp (collectArgs -> (Var v, Type (TyConApp (isFunTyCon -> True) []) : rest))
+   transCatOp orig@(collectArgs -> (Var v, Type (isFunCat -> True) : rest))
+     | isFunCat cat = Just orig
+     | otherwise
      = -- dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) $
        let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
            addArg :: Maybe CoreExpr -> CoreExpr -> Maybe CoreExpr
@@ -1215,11 +1226,17 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
            final = foldl addArg (Just (Var v `App` Type cat)) rest
        in
          -- Make sure we have no remaining cat arguments
+         -- dtrace "transCatOp final" (ppr final) $
          case final of
-           Just e' | not (hasCatArg e') -> Just e'
+           Just e' | -- dtrace "hasCatArg" (ppr (hasCatArg e')) $
+                     not (hasCatArg e') -> Just e'
            _                            -> Nothing
    transCatOp _ = -- dtrace "transCatOp" (text "fail") $
                   Nothing
+
+   isFunCat :: Type -> Bool
+   isFunCat (TyConApp tc []) = isFunTyCon tc
+   isFunCat _                = False
 
    isCatTy :: Type -> Bool
    isCatTy (splitAppTy_maybe -> Just (splitAppTy_maybe -> Just (k,_),_)) =
@@ -1397,8 +1414,8 @@ cccRuleName = fsLit "toCcc'"
 composeRuleName :: FastString
 composeRuleName = fsLit "compose/coerce"
 
-cccRules :: FamInstEnvs -> CccEnv -> ModGuts -> AnnEnv -> [CoreRule]
-cccRules famEnvs env@(CccEnv {..}) guts annotations =
+cccRules :: Maybe (IORef Int) -> FamInstEnvs -> CccEnv -> ModGuts -> AnnEnv -> [CoreRule]
+cccRules steps famEnvs env@(CccEnv {..}) guts annotations =
   [ BuiltinRule { ru_name  = cccRuleName
                 , ru_fn    = varName cccV
                 , ru_nargs = 4  -- including type args
@@ -1407,7 +1424,9 @@ cccRules famEnvs env@(CccEnv {..}) guts annotations =
                                   -- _args | pprTrace "ccc ru_try args" (ppr _args) False -> undefined
                                   _es@(Type k : Type _a : Type _b : arg : _) ->
                                     -- pprTrace "ccc: going in" (ppr es) $
-                                    ccc env (ops dflags inScope k) k arg
+                                    -- ccc env (ops dflags inScope k) k arg
+                                    unsafeLimit steps $
+                                      ccc env (ops dflags inScope k) k arg
                                   _args -> -- pprTrace "ccc ru_try mismatch args" (ppr _args) $
                                            Nothing
                 }
@@ -1431,6 +1450,12 @@ cccRules famEnvs env@(CccEnv {..}) guts annotations =
 plugin :: Plugin
 plugin = defaultPlugin { installCoreToDos = install }
 
+-- Find an option "foo=bar" for optName "foo", returning a read of "bar".
+parseOpt :: Read a => String -> [CommandLineOption] -> Maybe a
+parseOpt optName = listToMaybe . catMaybes . map parse
+ where
+   parse = fmap read . stripPrefix (optName ++ "=")
+
 install :: [CommandLineOption] -> [CoreToDo] -> CoreM [CoreToDo]
 install opts todos =
   do -- pprTrace ("CCC install " ++ show opts) empty (return ())
@@ -1451,7 +1476,9 @@ install opts todos =
                 -- pprTrace "Program binds before ccc" (ppr (mg_binds guts)) $
                 do allAnns <- liftIO (prepareAnnotations hsc_env (Just guts))
                    let famEnvs = (pkgFamEnv, mg_fam_inst_env guts)
-                   return (on_mg_rules (++ cccRules famEnvs env guts allAnns) guts)
+                       maxSteps = (unsafePerformIO . newIORef) <$>
+                                  parseOpt "maxSteps" opts
+                   return (on_mg_rules (++ cccRules maxSteps famEnvs env guts allAnns) guts)
               delRule guts = return (on_mg_rules (filter (not . isOurRule)) guts)
               isOurRule r = isBuiltinRule r && ru_name r `elem` [cccRuleName,composeRuleName]
               -- isCCC r | is = pprTrace "delRule" (ppr cccRuleName) is
@@ -1474,7 +1501,7 @@ install opts todos =
    flagCcc :: CccEnv -> PluginPass
    flagCcc (CccEnv {..}) guts
      --  | pprTrace "ccc residuals:" (ppr (toList remaining)) False = undefined
-     -- | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
+     | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
      | Seq.null remaining = -- pprTrace "transformed program binds" (ppr (mg_binds guts)) $
                             return guts
      | otherwise = -- pprPanic "ccc residuals:" (ppr (toList remaining))
@@ -2160,3 +2187,16 @@ hasTyCon _ _ = False
 mkCase1 :: CoreExpr -> Id -> [CoreAlt] -> CoreExpr
 mkCase1 scrut v alts@(alt0:_) = Case scrut v (exprType (altRhs alt0)) alts
 mkCase1 _ _ _ = pprPanic "mkCase1 with empty alts" empty
+
+-- Experiment: wrap a stateful counter around a Maybe.
+unsafeLimit :: Maybe (IORef Int) -> Unop (Maybe a)
+unsafeLimit Nothing = id
+unsafeLimit (Just r) = \ a -> unsafePerformIO $
+  do n <- readIORef r
+     if n == 0 then
+       return Nothing
+      else
+       do -- pprTrace "unsafeLimit" (ppr n) (return ())
+          writeIORef r (n-1)
+          return a
+{-# NOINLINE unsafeLimit #-}
