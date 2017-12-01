@@ -34,6 +34,8 @@
 -- {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:maxSteps=4 #-}
+
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
 
@@ -98,10 +100,13 @@ import qualified Data.Vector.Sized as VS
 
 import ConCat.Misc
   ((:*),(:+),R,sqr,magSqr,Unop,Binop,inNew,inNew2,Yes1,oops,type (&+&),PseudoFun(..))
+import ConCat.Rep (HasRep(..))
 import ConCat.Incremental (andInc,inc)
 import ConCat.AD
+import ConCat.GAD (unD)
 import ConCat.ADFun hiding (D)
-import ConCat.Free.VectorSpace (HasV(..),distSqr)
+import qualified ConCat.ADFun as ADFun
+import ConCat.Free.VectorSpace (HasV(..),distSqr,(<.>))
 import ConCat.GradientDescent
 import ConCat.Interval
 import ConCat.Syntactic (Syn,render)
@@ -170,6 +175,7 @@ main = sequence_
   , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
   , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
+  -- , runSynCirc "truncate" $ toCcc $ truncate @R @Int
   -- , runSynCirc "log" $ toCcc $ log @R
   -- , runSynCirc "pow" $ toCcc $ uncurry ((**) @R)
 
@@ -241,8 +247,44 @@ main = sequence_
 
   -- , runSynCirc "distSqr-v" $ toCcc $ distSqr @R @(Vector 5)
   -- , runSynCirc "sqErr-vv" $ toCcc $ R.sqErr @R @(Vector 5 R) @(Vector 11 R)
+
   -- , runCirc "sqErrF-vv" $ toCcc $ R.sqErrF @R @(Vector 5 R) @(Vector 11)
 
+  -- , runSynCirc "sqErrF-uncurry-vv-c" $ toCcc $ uncurry (R.sqErrF @R @(Vector 5 R) @(Vector 11)) 
+
+  -- , runSynCirc "sqErrF-der-a" $ toCcc $ \ sample -> andDerF $ \ aff ->
+  --     R.sqErrF @R @(Vector 5 R) @(Vector 11) (applyA @R aff) sample
+
+  -- $s$*_sl5c :: (:-*) (V R (Vector 5 R)) (V R (Vector 11 R)) R
+  --              -> V R (Vector 5 R) R -> V R (Vector 11 R) R
+
+  -- , runCirc "dot-vv" $ toCcc $ (<.>) @R @(Vector 5)
+
+  -- , runCirc "sum-vv" $ toCcc $ sum @(Vector 5) @R
+
+  -- , runCirc "sum-vv-der" $ toCcc $ andDerF $ sum @(Vector 5) @R -- okay
+
+  -- , runCirc "zipWith-vv" $ toCcc $ (zipWith (*) :: Binop (Vector 5 R))
+
+  -- , runCirc "zipWith-vv-der" $ toCcc $ andDerF $ (zipWith (*) :: Binop (Vector 5 R))
+
+  -- , runCirc "zipWithC-vv-der" $ toCcc $ andDerF $ (A.zipWithC A.mulC :: Vector 5 R :* Vector 5 R -> Vector 5 R)
+
+  -- , runCirc "fmapC-v-der" $ toCcc $ andDerF $ (fmap negate :: Unop (Vector 5 R))
+
+  -- , runCirc "fmapC-v-der-b" $ toCcc $ andDerF $ (A.fmapC :: Unop R -> Unop (Vector 5 R))
+
+  -- , runCirc "dot-vv-der" $ toCcc $ andDerF $ (<.>) @R @(Vector 5)
+
+  -- , runCirc "foo" $ toCcc $ andDerF $ A.uncurry (A.fmapC :: Unop R -> Unop (Par1 R))
+
+  -- , runCirc "lapply-vv" $ toCcc $ ($*) @R @(Vector 5) @(Vector 11)
+
+  -- , runCirc "lapply-vv-der" $ toCcc $ andDerF $ ($*) @R @(Vector 5) @(Vector 11)
+
+  -- , runSynCirc "sqErrF-der-b" $ toCcc $
+  --     \ (sample :: Vector 5 R :* Vector 11 R) -> andDerF $ \ aff ->
+  --        R.sqErrF (applyA @R aff) sample
 
   -- , runSynCirc "zipWith-v" $ toCcc $ zipWith @(Vector 7) (||)
 
@@ -894,6 +936,7 @@ horner (c:cs) a = c + a * horner cs a
 -- foo1 :: R -> L R R R
 -- foo1 = coerce
 
+#if 0
 
 samples0 :: Par1 Sample
 samples0 = Par1 (3,4)
@@ -938,7 +981,8 @@ fac9 n0 = go (n0,1)
  where
    go (n,acc) = if n < 1 then acc else go (n-1,n * acc)
 
----------
+
+#endif
 
 -- -- coerceTest :: Pair R -> (Par1 :*: Par1) R
 -- -- coerceTest = coerce
@@ -973,11 +1017,48 @@ fac9 n0 = go (n0,1)
 -- -- foo1 f = reveal (toCcc' (unCcc' (conceal (Choice @Yes1 f))))
 -- foo1 f = toCcc (unCcc (Choice @Yes1 f))
 
-type OkLC' = OkLM R &+& GenBuses
+-- type OkLC' = OkLM R &+& GenBuses
 
 -- Experimenting with a rule failure. See 2017-10-20 notes.
 
 -- -- Works ok
 -- foo1 :: Choice (Ok (:>)) a b -> Choice GenBuses a b
 -- foo1 z = toCcc (unCcc z)
+
+-- foo1 :: Unop R -> Unop (Par1 R)
+-- foo1 = toCcc' A.fmapC -- 
+
+-- foo2 :: Unop R :* Par1 R -> Par1 R
+-- foo2 = toCcc' (A.uncurry A.fmapC) -- 
+
+-- foo3 :: ADFun.D (Vector 5 R) (Vector 5 R)
+-- -- foo3 = toCcc' (fmap negate :: Unop (Vector 5 R))
+-- foo3 = toCcc (fmap negate :: Unop (Vector 5 R))
+
+-- foo4 :: Vector 5 R -> Vector 5 R :* (Vector 5 R -> Vector 5 R)
+-- foo4 = andDerF (fmap negate :: Unop (Vector 5 R))
+
+-- foo4 :: Vector 5 R -> Vector 5 R :* (Vector 5 R -> Vector 5 R)
+-- -- foo4 = andDerF (fmap negate :: Unop (Vector 5 R))
+-- -- foo4 = unD (toCcc' (fmap negate :: Unop (Vector 5 R)))
+-- foo4 = unD (reveal (toCcc' (fmap negate :: Unop (Vector 5 R))))
+
+-- foo5 :: Vector 5 R :> Vector 5 R :* (Vector 5 R -> Vector 5 R)
+-- foo5 = toCcc (andDerF (fmap negate :: Unop (Vector 5 R)))
+
+-- bar :: Float
+-- bar = fromIntegral (3 :: Int)
+
+-- data Foo = Foo Double
+
+-- negateFoo :: Unop Foo
+-- negateFoo (Foo x) = Foo (negate x)
+
+-- instance HasRep Foo where
+--   type Rep Foo = R
+--   abst x = Foo x
+--   repr (Foo x) = x
+
+-- foo1 :: Foo -> Foo :* (Foo -> Foo)
+-- foo1 = andDerF negateFoo
 
