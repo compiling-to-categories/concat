@@ -48,8 +48,13 @@ Op0(sumC    , (SumCat     k h, Ok k a, Num a) => h a `k` a)
 
 -- Op0(zipC  , (ZipCat     k h, Ok2 k a b)     => (h a :* h b) `k` h (a :* b))
 
+zipWithCC :: Zip h => (a -> b -> c) -> (h a -> h b -> h c)
+-- zipWithCC = curry . zipWithC . uncurry
+zipWithCC f = curry (zipWithC (uncurry f))
+
 Catify(fmap   , fmapC)
-Catify(zipWith, curry . zipWithC . uncurry)
+-- Catify(zipWith, curry . zipWithC . uncurry)
+Catify(zipWith, zipWithCC)
 Catify(point  , pointC)
 Catify(sum    , sumC)
 
