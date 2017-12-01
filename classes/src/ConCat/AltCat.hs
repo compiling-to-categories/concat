@@ -7,6 +7,8 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
+-- {-# LANGUAGE ConstraintKinds #-}
+-- {-# LANGUAGE RankNTypes #-}
 
 -- For Uncurriable:
 {-# LANGUAGE TypeFamilies          #-}
@@ -624,3 +626,20 @@ instance Pointed (Arr i) where
 
 #endif
 
+#if 0
+
+-- Experiment
+
+satisfy :: forall c a . (c => a) -> a
+satisfy = oops "satisfy"
+{-# NOINLINE satisfy #-}
+
+toCcc'' :: forall proxy (k :: * -> * -> *) a b. proxy k -> (a -> b) -> (a `k` b)
+toCcc'' _ = oops "toCcc'' called"
+{-# NOINLINE toCcc'' #-}
+
+{-# RULES "ccc notC" forall (_p :: _proxy k). toCcc'' _p notC = satisfy @(BoolCat k) notC #-}
+
+#endif
+
+-- {-# RULES "ccc (->)" forall f. toCcc' f = f #-}
