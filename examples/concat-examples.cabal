@@ -70,8 +70,8 @@ library
                        -- ConCat.Free.LinearCol -- needs updating
                        ConCat.Free.LinearRow
                        ConCat.Free.Affine
-                       ConCat.Aggregate
-                       ConCat.AltAggregate
+                       -- ConCat.Aggregate
+                       -- ConCat.AltAggregate
                        ConCat.Complex
                        ConCat.Syntactic
                        ConCat.Circuit

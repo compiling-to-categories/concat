@@ -67,6 +67,10 @@ import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import GHC.Generics ((:*:)(..),(:.:)(..))
 -- import qualified Data.Vector.Sized as VS
 
+import Data.Pointed (Pointed(..))
+import Data.Key (Zip(..))
+import Data.Distributive (Distributive(..))
+import Data.Functor.Rep (Representable(..))
 import Control.Newtype (Newtype(..))
 #ifdef VectorSized
 -- import Data.Finite (Finite)
@@ -78,7 +82,8 @@ import Control.Newtype (Newtype(..))
 
 import ConCat.Misc hiding ((<~),(~>),type (&&))
 -- import ConCat.Free.Diagonal (Diagonal(..),diag)
-import ConCat.Rep
+import ConCat.Rep hiding (Rep)
+import qualified ConCat.Rep as R
 -- import ConCat.Orphans ()
 -- import ConCat.Additive (Additive)
 import qualified ConCat.Inline.ClassOp as IC
@@ -1019,13 +1024,13 @@ instance (ProductCat k, ConstCat k b, ConstCat k c, Ok k a)
   const = pairConst
 
 instance {-# OVERLAPPABLE #-}
-  ( Category k, ConstCat k (Rep b), RepCat k, HasRep (ConstObj k b)
+  ( Category k, ConstCat k (R.Rep b), RepCat k, HasRep (ConstObj k b)
   , Ok k (ConstObj k b) ) => ConstCat k b where
   const = repConst
 
 #endif
 
-repConst :: (HasRep b, r ~ Rep b, RepCat k b (ConstObj k r), ConstCat k r, Ok k a, Ok k (ConstObj k b))
+repConst :: (HasRep b, r ~ R.Rep b, RepCat k b (ConstObj k r), ConstCat k r, Ok k a, Ok k (ConstObj k b))
          => b -> (a `k` ConstObj k b)
 repConst b = abstC . const (repr b)
 
@@ -1630,11 +1635,11 @@ class RepCat k a r | a -> r where
   reprC :: a `k` r
   abstC :: r `k` a
 
-instance (HasRep a, r ~ Rep a) => RepCat (->) a r where
+instance (HasRep a, r ~ R.Rep a) => RepCat (->) a r where
   reprC = repr
   abstC = abst
 
-instance (r ~ Rep a) => RepCat U2 a r where
+instance (r ~ R.Rep a) => RepCat U2 a r where
   reprC = U2
   abstC = U2
 
@@ -1781,3 +1786,148 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
 --   -- Laws:
 --   -- fmapC id == id
 --   -- fmapC (q . p) == fmapC q . fmapC p
+
+{--------------------------------------------------------------------
+    Functor-level operations
+--------------------------------------------------------------------}
+class OkFunctor k h where
+  okFunctor :: Ok' k a |- Ok' k (h a)
+
+instance OkFunctor (->) h where okFunctor = Entail (Sub Dict)
+
+instance (OkFunctor k h, OkFunctor k' h)
+      => OkFunctor (k :**: k') h where
+  okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
+
+class (Functor h, OkFunctor k h) => FunctorCat k h where
+  fmapC :: Ok2 k a b => (a `k` b) -> (h a `k` h b)
+
+-- TODO: Maybe rename FunctorCat to avoid confusion.
+
+class (Zip h, OkFunctor k h) => ZipCat k h where
+  zipC :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
+  -- zipWithC :: Ok3 k a b c => (a :* b -> c) `k` (h a :* h b -> h c)
+
+class (Pointed h, OkFunctor k h) => PointedCat k h where
+  pointC :: Ok  k a => a `k` h a
+
+-- TODO: eliminate pointC in favor of using tabulate
+
+-- TODO: Try removing Representable h and maybe OkFunctor k h from the
+-- superclasses.
+
+-- class DiagCat k h where
+--   diagC  :: Ok k a => (a :* a) `k` h (h a)
+
+class SumCat k h where
+  sumC :: (Ok k a, Num a) => h a `k` a
+
+instance Functor h => FunctorCat (->) h where
+  fmapC = IC.inline fmap
+
+#if 0
+instance (Zip h, Representable h) => ZipCat (->) h where
+  zipC (as,bs) = tabulate (index as &&& index bs)
+instance (Pointed h, Representable h) => PointedCat (->) h where
+  pointC a = tabulate (const a)
+
+-- Overlapping instances for ConCat.Misc.Yes1 (Rep h)
+--   arising from a use of ‘&&&’
+-- Matching instances:
+--   instance [safe] forall k (a :: k). ConCat.Misc.Yes1 a
+--     -- Defined at /Users/conal/Haskell/concat/classes/src/ConCat/Misc.hs:123:10
+-- There exists a (perhaps superclass) match:
+--   from the context: Representable h
+--     bound by the instance declaration
+--     at /Users/conal/Haskell/concat/examples/src/ConCat/Aggregate.hs:55:10-44
+--   or from: Ok2 (->) a b
+--     bound by the type signature for:
+--                zipC :: Ok2 (->) a b => h a :* h b -> h (a :* b)
+
+-- TODO: inline for tabulate and index?
+
+#else
+
+instance Zip h => ZipCat (->) h where
+  zipC = uncurry (IC.inline zip)
+  -- zipWithC :: (a :* b -> c) -> (h a :* h b -> h c)
+  -- zipWithC f = uncurry (inline zipWith (curry f))
+instance Pointed h => PointedCat (->) h where
+  pointC = IC.inline point
+
+#endif
+
+instance Foldable h => SumCat (->) h where
+  sumC = IC.inline sum
+
+-- instance (OkFunctor k h, OkFunctor k' h) => OkFunctor (k :**: k') h where
+--   okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
+
+instance (FunctorCat k h, FunctorCat k' h) => FunctorCat (k :**: k') h where
+  fmapC (f :**: g) = fmapC f :**: fmapC g
+  {-# INLINE fmapC #-}
+
+instance (ZipCat k h, ZipCat k' h) => ZipCat (k :**: k') h where
+  zipC = zipC :**: zipC
+  {-# INLINE zipC #-}
+  -- zipWithC = zipWithC :**: zipWithC
+  -- {-# INLINE zipWithC #-}
+instance (PointedCat k h, PointedCat k' h) => PointedCat (k :**: k') h where
+  pointC = pointC :**: pointC
+  {-# INLINE pointC #-}
+
+-- instance (DiagCat k h, DiagCat k' h) => DiagCat (k :**: k') h where
+--   diagC  = diagC :**: diagC
+--   {-# INLINE diagC #-}
+
+instance (SumCat k h, SumCat k' h) => SumCat (k :**: k') h where
+  sumC   = sumC :**: sumC
+  {-# INLINE sumC #-}
+
+class DistributiveCat k g f where
+  distributeC :: Ok k a => f (g a) `k` g (f a)
+
+-- TODO: perhaps remove the f parameter:
+-- 
+-- class DistributiveCat k g where
+--   distributeC :: (OkFunctor k f, Ok k a) => f (g a) `k` g (f a)
+
+instance (Distributive g, Functor f) => DistributiveCat (->) g f where
+  distributeC = IC.inline distribute
+
+instance (DistributiveCat k g f, DistributiveCat k' g f)
+      => DistributiveCat (k :**: k') g f where
+  distributeC = distributeC :**: distributeC
+  {-# INLINE distributeC #-}
+
+class RepresentableCat k f where
+  tabulateC :: Ok k a => (Rep f -> a) `k` f a
+  indexC    :: Ok k a => f a `k` (Rep f -> a)
+
+instance Representable f => RepresentableCat (->) f where
+  tabulateC = IC.inline tabulate
+  indexC    = IC.inline index
+
+instance (RepresentableCat k h, RepresentableCat k' h)
+      => RepresentableCat (k :**: k') h where
+  tabulateC = tabulateC :**: tabulateC
+  indexC    = indexC    :**: indexC
+  {-# INLINE tabulateC #-}
+  {-# INLINE indexC #-}
+
+-- Experiment
+
+-- fmap' and liftA2' are class-op-inlining synonyms for fmap and liftA2. Look
+-- for a better alternative. See 2017-10-20 notes.
+
+fmap' :: Functor f => (a -> b) -> f a -> f b
+fmap' = IC.inline fmap
+
+liftA2' :: Applicative f => (a -> b -> c) -> f a -> f b -> f c
+liftA2' f as bs = fmap' f as <*> bs
+
+class FunctorCat k h => Strong k h where
+  strength :: Ok2 k a b => (a :* h b) `k` h (a :* b)
+
+instance Functor h => Strong (->) h where
+  strength (a,bs) = (a,) <$> bs

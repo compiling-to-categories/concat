@@ -18,6 +18,8 @@
 -- For ConCat.Inline.ClassOp
 {-# OPTIONS_GHC -fplugin=ConCat.Inline.Plugin #-}
 
+## No longer in use. Content moved into ConCat.Category
+
 -- | Some aggregate operations
 
 module ConCat.Aggregate where

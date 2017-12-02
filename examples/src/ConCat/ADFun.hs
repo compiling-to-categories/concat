@@ -34,12 +34,11 @@ import ConCat.Misc ((:*),R,Yes1,oops,unzip,type (&+&))
 import ConCat.Free.VectorSpace (HasV(..),inV,IsScalar)
 import ConCat.Free.LinearRow -- hiding (linear)
 import ConCat.AltCat
-import ConCat.AltAggregate
 import ConCat.GAD
 import ConCat.Additive
 -- The following imports allows the instances to type-check. Why?
 import qualified ConCat.Category  as C
-import qualified ConCat.Aggregate as C
+-- import qualified ConCat.Aggregate as C
 
 -- Differentiable functions
 type D = GD (->)

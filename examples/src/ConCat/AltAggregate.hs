@@ -13,6 +13,8 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-inline-rule-shadowing #-}
 
+## No longer in use. Content moved into ConCat.Category
+
 -- | Late-inlining counterparts to ConCat.Aggregate
 
 module ConCat.AltAggregate (module ConCat.AltAggregate, module C) where

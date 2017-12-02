@@ -45,7 +45,6 @@ import ConCat.Free.VectorSpace
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
 import ConCat.AltCat hiding (const)
-import ConCat.AltAggregate
 import ConCat.Rep
 -- import ConCat.Free.Diagonal
 import qualified ConCat.Additive as Ad

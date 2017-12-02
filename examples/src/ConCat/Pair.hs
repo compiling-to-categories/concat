@@ -54,7 +54,7 @@ import ConCat.Scan
 import ConCat.Circuit ((:>),GenBuses(..),Buses(..),BusesM,Ty(..),abstB)
 import ConCat.Free.VectorSpace (HasV(..))
 import ConCat.AltCat (type (|-)(..),Ok)
-import ConCat.Aggregate (OkFunctor(..))
+-- import ConCat.Aggregate (OkFunctor(..))
 #endif
 
 #ifndef SpecialPair

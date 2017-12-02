@@ -42,7 +42,7 @@ import Data.Functor.Rep (Representable)
 import ConCat.Misc ((:*),oops,inNew,inNew2)
 import ConCat.Category
 import ConCat.AltCat (toCcc,unCcc)
-import ConCat.Aggregate
+-- import ConCat.Aggregate
 
 -- | Nondeterminism category. Like a set of morphisms all of the same type, but
 -- represented as a function whose range is that set. The function's domain is
@@ -170,8 +170,8 @@ op2C = inNew2 . liftA2'
 {-# INLINE op2C #-}
 
 -- fmap' and liftA2' are class-op-inlining synonyms for fmap and liftA2, defined
--- in ConCat.Aggregate and re-exported from ConCat.AltAggregate. When I use fmap
--- and liftA2, a rule in AltAggregate replaces fmap with fmapC, breaking the
+-- in ConCat.Category and re-exported from ConCat.AltCat. When I use fmap
+-- and liftA2, a rule in AltCat replaces fmap with fmapC, breaking the
 -- inlining of fmap in the OptArg instance. As a result, we don't get to
 -- eliminate a case that case-binds a variable we need to (but cannot) inline.
 -- Look for a better alternative. See 2017-10-20 notes.

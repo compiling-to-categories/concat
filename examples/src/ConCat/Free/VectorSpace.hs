@@ -42,8 +42,7 @@ import ConCat.Orphans ()
 import ConCat.Misc ((:*),(:+),(<~),sqr)
 import ConCat.Rep
 -- import ConCat.Category (UT(..),Constrained(..),FunctorC(..))
-import ConCat.AltCat (OpCon(..),Sat,type (|-)(..))
-import ConCat.AltAggregate (fmapC)
+import ConCat.AltCat (OpCon(..),Sat,type (|-)(..),fmapC)
 
 {--------------------------------------------------------------------
     Vector spaces
