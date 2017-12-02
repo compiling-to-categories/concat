@@ -30,7 +30,7 @@ import Data.Finite (Finite)
 import Data.Vector.Sized (Vector)
 
 import ConCat.Misc ((:*))
-import ConCat.Aggregate ( OkFunctor(..),FunctorCat,ZipCat,PointedCat,SumCat
+import ConCat.Aggregate ( OkFunctor(..),FunctorCat,ZipCat,PointedCat,SumCat,Strong
                         , DistributiveCat,RepresentableCat 
                         , fmap', liftA2' )
 import qualified ConCat.Aggregate as C
@@ -98,6 +98,8 @@ fmapId = id <+ okFunctor @k @h @a
 "fmapC compose" forall g f. fmapC g . fmapC f = fmapC (g . f)
  #-}
 
+Op0(strength, (Strong k h, OkFunctor k h, Ok2 k a b) => (a :* h b) `k` h (a :* b))
+
 Op0(distributeC, (DistributiveCat k g f, Ok k a) => f (g a) `k` g (f a))
 Op0(tabulateC  , (RepresentableCat k f , Ok k a) => (Rep f -> a) `k` f a)
 Op0(indexC     , (RepresentableCat k f , Ok k a) => f a `k` (Rep f -> a))
@@ -157,3 +159,95 @@ diag z o =
 -- HACK: the equal here is to postpone dealing with equality on sum types just yet.
 -- See notes from 2017-10-15.
 -- TODO: remove and test, now that we're translating (==) early (via Catify).
+
+fmapTrans :: forall k a b c h. (ClosedCat k, Strong k h, Ok3 k a b c)
+          => (a `k` (b -> c)) -> (a `k` h b) -> (a `k` h c)
+fmapTrans f g = fmapC (uncurry f) . strength . (id &&& g)
+                <+ okFunctor @k @h @(a :* b)
+                <+ okProd @k @a @(h b)
+                <+ okFunctor @k @h @c
+                <+ okFunctor @k @h @b
+                <+ okProd @k @a @b
+
+#if 0
+-- Types:
+
+f :: a `k` (b -> c)
+g :: a `k` h b
+
+strength :: (a :* h b) `k` h (a :* b)
+
+       uncurry f  :: a :* b `k` c
+fmapC (uncurry f) :: h (a :* b) `k` h c
+
+                                id &&& g  :: a `k` (a :* h b)
+                    strength . (id &&& g) :: a `k` h (a :* b)
+fmapC (uncurry f) . strength . (id &&& g) :: a `k` h c
+
+#endif
+
+-- TODO: Maybe use the following function-only definition instead, and wrap
+-- toCcc' around it in the plugin.
+
+fmapTrans' :: Functor h => (a -> (b -> c)) -> (a -> h b) -> (a -> h c)
+fmapTrans' f g = fmapC (uncurry f) . strength . (id &&& g)
+
+-- To make it easier yet on the plugin, move the `toCcc'` call into `fmapTrans`:
+
+fmapTrans'' :: Functor h => (a -> (b -> c)) -> (a -> h b) -> (a `k` h c)
+fmapTrans'' f g = toCcc' (fmapC (uncurry f) . strength . (id &&& g))
+
+-- Simpler
+fmapT :: Functor h => (a -> b -> c) -> (a -> h b -> h c)
+fmapT f = curry (fmap (uncurry f) . strength)
+
+
+-- I could use this style to simplify the plugin, e.g.,
+
+app' :: (a -> b -> c) -> (a -> b) -> (a `k` c)
+app' f a = toCcc' (apply . (f &&& a))
+
+-- The plugin would then turn `\ x -> U V` into `app (\ x -> U) (\ x -> V)`.
+-- Or leave the `toCcc'` call in the plugin for separation of concerns.
+
+-- One drawback of using these function-only definitions is that the plugin
+-- cannot first check whether the target category has the required properties,
+-- such as `ClosedCat`.
+
+-- For `\ x -> fmap U`
+fmapTrans1 :: forall k a b c h. (ClosedCat k, Strong k h, Ok3 k a b c)
+           => (a `k` (b -> c)) -> (a `k` (h b -> h c))
+fmapTrans1 g = curry (fmapTrans (g . exl) exr)
+               <+ okProd @k @a @(h b)
+               <+ okFunctor @k @h @b
+               <+ okFunctor @k @h @c
+               <+ okExp @k @b @c
+
+#if 0
+-- Types:
+
+                               exl       :: a :* h b `k` a
+                                    exr  :: a :* h b `k` h b
+                  (\ a -> U)             :: a `k` (b -> c)
+                  (\ a -> U) . exl       :: (a :* h b) `k` (b -> c)
+       fmapTrans ((\ a -> U) . exl) exr  :: (a :* h b) `k` h c
+curry (fmapTrans ((\ a -> U) . exl) exr) :: a `k` (h b -> h c)
+
+#endif
+
+{-# RULES
+
+-- "toCcc'/fmap" forall u v.
+--   toCcc' (\ x -> fmap u v) = fmapTrans (toCcc' (\ x -> u)) (toCcc' (\ x -> v))
+
+-- "toCcc''/fmap" forall (_k :: _kproxy k) (_a :: _aproxy a) (u :: b -> c) (v :: h b).
+--   toCcc'' _k _a (\ x -> fmap u v) =
+--      satisfy @(ClosedCat k, Strong k h, Ok3 k a b c)
+--      (fmapTrans (toCcc' (\ x -> u)) (toCcc' (\ x -> v)))
+
+-- "toCcc''/fmap" forall (_p :: _proxy (a `k` h c)) (u :: b -> c) (v :: h b).
+--   toCcc'' _p (\ x -> fmap u v) =
+--      satisfy @(ClosedCat k, Strong k h, Ok3 k a b c)
+--      (fmapTrans (toCcc' (\ x -> u)) (toCcc' (\ x -> v)))
+
+ #-}

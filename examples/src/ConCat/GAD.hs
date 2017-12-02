@@ -25,6 +25,7 @@ import GHC.Exts (Constraint)
 
 -- import GHC.Generics (Par1(..),(:.:)(..),(:*:)())
 -- import Control.Newtype
+-- import Data.Key (Zip(..))
 
 import ConCat.Misc ((:*),type (&+&)) -- ,PseudoFun(..),oops
 -- import ConCat.Free.VectorSpace
@@ -32,6 +33,7 @@ import ConCat.Misc ((:*),type (&+&)) -- ,PseudoFun(..),oops
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
 import ConCat.AltCat
+-- import ConCat.AltAggregate
 import ConCat.Rep
 
 AbsTyImports

@@ -32,7 +32,10 @@ import Control.Applicative (liftA2)
 import GHC.TypeLits (KnownNat)
 #endif
 
+import Data.Constraint (Dict(..),(:-)(..))  -- temp
 import Control.Newtype (Newtype(..))
+import Data.Key (Zip)
+import Data.Pointed (Pointed)
 import Data.Distributive (Distributive)
 import Data.Functor.Rep (Representable)
 
@@ -274,6 +277,25 @@ instance con () => UnknownCat (Choice con) a b where
 instance (RepCat (->) a r, con ()) => RepCat (Choice con) a r where
   reprC = exactly reprC
   abstC = exactly abstC
+
+instance OkFunctor (Choice con) h where okFunctor = Entail (Sub Dict)
+
+instance (CartCon con, Functor h) => FunctorCat (Choice con) h where
+  fmapC = op1C fmapC
+
+-- Question: should fmap replicate degrees of freedom or share them?
+
+instance (Zip h, CartCon con) => ZipCat (Choice con) h where
+  zipC = exactly zipC
+
+instance (Pointed h, CartCon con) => PointedCat (Choice con) h where
+  pointC = exactly pointC
+
+instance (Foldable h, CartCon con) => SumCat (Choice con) h where
+  sumC = exactly sumC
+
+instance (FunctorCat k h, CartCon con) => Strong (Choice con) h where
+  strength = exactly strength
 
 instance (Distributive g, Functor f, CartCon con)
       => DistributiveCat (Choice con) g f where

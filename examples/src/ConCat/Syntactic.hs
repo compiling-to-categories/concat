@@ -393,6 +393,10 @@ instance Foldable h => SumCat Syn h where
   sumC = app0 "sum"
   INLINER(sumC)
 
+instance Functor h => Strong Syn h where
+  strength = app0 "strength"
+  INLINER(strength)
+
 instance DistributiveCat Syn g f where
   distributeC = app0 "distribute"
   INLINER(distributeC)

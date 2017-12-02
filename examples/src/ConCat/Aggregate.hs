@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE IncoherentInstances #-}
@@ -47,7 +48,6 @@ instance OkFunctor (->) h where okFunctor = Entail (Sub Dict)
 instance (OkFunctor k h, OkFunctor k' h)
       => OkFunctor (k :**: k') h where
   okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
-
 
 class (Functor h, OkFunctor k h) => FunctorCat k h where
   fmapC :: Ok2 k a b => (a `k` b) -> (h a `k` h b)
@@ -175,3 +175,9 @@ fmap' = inline fmap
 
 liftA2' :: Applicative f => (a -> b -> c) -> f a -> f b -> f c
 liftA2' f as bs = fmap' f as <*> bs
+
+class FunctorCat k h => Strong k h where
+  strength :: Ok2 k a b => (a :* h b) `k` h (a :* b)
+
+instance Functor h => Strong (->) h where
+  strength (a,bs) = (a,) <$> bs

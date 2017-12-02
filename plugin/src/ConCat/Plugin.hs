@@ -634,6 +634,15 @@ ccc (CccEnv {..}) (Ops {..}) cat =
          dtrace "lam recaster" (ppr re) $
          return (mkCcc (Lam x (re `App` e)))
 #endif
+
+#if 0
+
+  Trying("lam fmap")
+
+  (collectArgs -> (Var v, [Type k,Type a,Type b,_dict]))
+
+#endif
+
      Trying("lam App compose")
      -- (\ x -> U V) --> U . (\ x -> V) if x not free in U
 #if 0

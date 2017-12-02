@@ -886,6 +886,12 @@ instance (Foldable h, OkFunctor (:>) h) => SumCat (:>) h where
   sumC :: forall a. (Ok (:>) a, Num a) => h a :> a
   sumC = namedC "sum" <+ okFunctor' @(:>) @h @a
 
+instance (Functor h, OkFunctor (:>) h) => Strong (:>) h where
+  strength :: forall a b. Ok2 (:>) a b => (a :* h b) :> h (a :* b)
+  strength = namedC "strength"
+              <+ okFunctor' @(:>) @h @(a :* b)
+              <+ okFunctor' @(:>) @h @b
+
 okFunctor' :: forall k h a. OkFunctor k h => Ok' k a |- Ok' k (h a)
 okFunctor' = {- trace "" $ -} okFunctor @k @h @a
 {-# INLINE okFunctor' #-}
