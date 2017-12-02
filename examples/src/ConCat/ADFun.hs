@@ -171,10 +171,6 @@ instance Additive1 h => OkFunctor D h where
   okFunctor = inForkCon (yes1 *** additive1 @h @a)
   {-# INLINE okFunctor #-}
 
--- instance (Functor h, Additive1 h) => FunctorCat D h where
---   fmapC = linearDF fmapC
---   {-# INLINE fmapC  #-}
-
 instance (Functor h, Zip h, Additive1 h) => FunctorCat D h where
   fmapC (D q) = D (second zap . unzip . fmap q)
   {-# INLINE fmapC #-}
@@ -184,9 +180,7 @@ instance (Functor h, Zip h, Additive1 h) => FunctorCat D h where
 -- fmap q :: h a -> h (b :* (a -> b))
 -- unzip . fmap q :: h a -> h b :* h (a -> b)
 
-
 -- TODO: Move OkFunctor and FunctorCat instances to GAD.
-
 
 instance (Zip h, Additive1 h) => ZipCat D h where
   zipC = linearDF zipC
@@ -201,6 +195,10 @@ instance (Pointed h, Additive1 h) => PointedCat D h where
 instance Foldable h => SumCat D h where
   sumC = linearDF sumC
   {-# INLINE sumC #-}
+
+instance (Zip h, Foldable h, Additive1 h) => Strong D h where
+  strength = linearDF strength
+  {-# INLINE strength #-}
 
 instance (Distributive g, Functor f) => DistributiveCat D g f where
   distributeC = linearDF distributeC
