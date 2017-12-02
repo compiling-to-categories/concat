@@ -42,7 +42,6 @@ import Data.Functor.Rep (Representable)
 import ConCat.Misc ((:*),oops,inNew,inNew2)
 import ConCat.Category
 import ConCat.AltCat (toCcc,unCcc)
--- import ConCat.Aggregate
 
 -- | Nondeterminism category. Like a set of morphisms all of the same type, but
 -- represented as a function whose range is that set. The function's domain is

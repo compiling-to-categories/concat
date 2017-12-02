@@ -1839,7 +1839,6 @@ instance (Pointed h, Representable h) => PointedCat (->) h where
 -- There exists a (perhaps superclass) match:
 --   from the context: Representable h
 --     bound by the instance declaration
---     at /Users/conal/Haskell/concat/examples/src/ConCat/Aggregate.hs:55:10-44
 --   or from: Ok2 (->) a b
 --     bound by the type signature for:
 --                zipC :: Ok2 (->) a b => h a :* h b -> h (a :* b)

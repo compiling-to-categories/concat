@@ -33,7 +33,6 @@ import ConCat.Misc ((:*),type (&+&)) -- ,PseudoFun(..),oops
 -- The following import allows the instances to type-check. Why?
 import qualified ConCat.Category as C
 import ConCat.AltCat
--- import ConCat.AltAggregate
 import ConCat.Rep
 
 AbsTyImports

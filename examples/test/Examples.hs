@@ -116,8 +116,6 @@ import qualified ConCat.AltCat as A
 -- import ConCat.AltCat
 import ConCat.AltCat
   (toCcc,toCcc',unCcc,unCcc',reveal,conceal,(:**:)(..),Ok,Ok2,U2,equal)
--- import ConCat.AltAggregate ()
--- import qualified ConCat.AltAggregate as A
 import qualified ConCat.Rep
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Nat

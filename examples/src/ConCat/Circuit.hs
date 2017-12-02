@@ -167,7 +167,6 @@ import ConCat.Rep
 import ConCat.Category
 import qualified ConCat.AltCat as A
 import ConCat.AltCat (Uncurriable(..))
--- import ConCat.Aggregate
 
 import qualified ConCat.Free.LinearRow as LR
 -- import qualified ConCat.Free.LinearCol as LC

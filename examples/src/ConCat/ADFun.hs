@@ -38,7 +38,6 @@ import ConCat.GAD
 import ConCat.Additive
 -- The following imports allows the instances to type-check. Why?
 import qualified ConCat.Category  as C
--- import qualified ConCat.Aggregate as C
 
 -- Differentiable functions
 type D = GD (->)
