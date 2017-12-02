@@ -376,14 +376,14 @@ instance (Typeable a, Typeable b) => CoerceCat Syn a b where
 instance OkFunctor Syn h where okFunctor = Entail (Sub Dict)
 
 instance Functor h => FunctorCat Syn h where
-  fmapC = app0 "fmap"
+  fmapC = app1 "fmap"
   INLINER(fmapC)
 
 instance Zip h => ZipCat Syn h where
-  -- zipC = app0 "zip"
-  -- INLINER(zipC)
-  zipWithC = app0 "zipWith"
-  INLINER(zipWithC)
+  zipC = app0 "zip"
+  INLINER(zipC)
+  -- zipWithC = app0 "zipWith"
+  -- INLINER(zipWithC)
 
 instance Pointed h => PointedCat Syn h where
   pointC = app0 "point"

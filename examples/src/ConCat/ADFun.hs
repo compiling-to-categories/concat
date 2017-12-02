@@ -169,16 +169,30 @@ instance (Floating s, Additive s) => FloatingCat D s where
 instance Additive1 h => OkFunctor D h where
   okFunctor :: forall a. Ok' D a |- Ok' D (h a)
   okFunctor = inForkCon (yes1 *** additive1 @h @a)
+  {-# INLINE okFunctor #-}
 
-instance (Functor h, Additive1 h) => FunctorCat D h where
-  fmapC = linearDF fmapC
-  {-# INLINE fmapC  #-}
+-- instance (Functor h, Additive1 h) => FunctorCat D h where
+--   fmapC = linearDF fmapC
+--   {-# INLINE fmapC  #-}
+
+instance (Functor h, Zip h, Additive1 h) => FunctorCat D h where
+  fmapC (D q) = D (second zap . unzip . fmap q)
+  {-# INLINE fmapC #-}
+
+-- q :: a -> b :* (a -> b)
+
+-- fmap q :: h a -> h (b :* (a -> b))
+-- unzip . fmap q :: h a -> h b :* h (a -> b)
+
+
+-- TODO: Move OkFunctor and FunctorCat instances to GAD.
+
 
 instance (Zip h, Additive1 h) => ZipCat D h where
-  -- zipC = linearDF zipC
-  -- {-# INLINE zipC #-}
-  zipWithC = linearDF zipWithC
-  {-# INLINE zipWithC #-}
+  zipC = linearDF zipC
+  {-# INLINE zipC #-}
+  -- zipWithC = linearDF zipWithC
+  -- {-# INLINE zipWithC #-}
 
 instance (Pointed h, Additive1 h) => PointedCat D h where
   pointC = linearDF pointC

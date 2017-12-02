@@ -851,14 +851,19 @@ instance KnownNat i => OkFunctor (:>) (Vector i) where
 -- Use *uncurried* fmap and zipWith primitives.
 
 instance (Functor h, OkFunctor (:>) h) => FunctorCat (:>) h where
-  fmapC :: forall a b. Ok2 (:>) a b => (a -> b) :> (h a -> h b)
-  fmapC = -- trace "fmapC on (:>)" $
-          curry (namedC "fmap")
-            <+ okFunctor' @(:>) @h @a
-            <+ okFunctor' @(:>) @h @b
+  fmapC :: forall a b. Ok2 (:>) a b => (a :> b) -> (h a :> h b)
+  fmapC = inCK $ \ f as ->
+            do ab <- genSubgraph f
+               genComp (Prim "fmap") (ProdB ab as)
+                 <+ okFunctor' @(:>) @h @a
+                 <+ okFunctor' @(:>) @h @b
+
+-- genSubgraph :: BCirc a b -> CircuitM (Buses (a -> b))
+-- f :: BCirc a b
+-- genSubgraph f :: CircuitM (Buses (a -> b))
 
 instance (Zip h, OkFunctor (:>) h) => ZipCat (:>) h where
-#if 1
+#if 0
   zipWithC  :: forall a b c. Ok3 (:>) a b c => (a :* b -> c) :> (h a :* h b -> h c)
   zipWithC = curry (namedC "zipWith")
                <+ okFunctor' @(:>) @h @a

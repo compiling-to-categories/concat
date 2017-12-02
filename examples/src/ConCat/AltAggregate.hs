@@ -41,76 +41,37 @@ import ConCat.AltCat
 -- Catify etc
 #include "ConCat/Ops.inc"
 
-Op0(fmapC   , (FunctorCat k h, Ok2 k a b)     => (a -> b) `k` (h a -> h b))
-Op0(zipWithC, (ZipCat     k h, Ok3 k a b c)   => (a :* b -> c) `k` (h a :* h b -> h c))
-Op0(pointC  , (PointedCat k h, Ok k a)        => a `k` h a)
-Op0(sumC    , (SumCat     k h, Ok k a, Num a) => h a `k` a)
+Op1(fmapC , (FunctorCat k h, Ok2 k a b)     => (a `k` b) -> (h a `k` h b))
+Op0(zipC  , (ZipCat k h    , Ok2 k a b)     => (h a :* h b) `k` h (a :* b))
+Op0(pointC, (PointedCat k h, Ok k a)        => a `k` h a)
+Op0(sumC  , (SumCat k h    , Ok k a, Num a) => h a `k` a)
 
--- Op0(zipC  , (ZipCat     k h, Ok2 k a b)     => (h a :* h b) `k` h (a :* b))
+Catify(fmap , fmapC)
+Catify(zip  , curry zipC)
+Catify(point, pointC)
+Catify(sum  , sumC)
 
-zipWithCC :: Zip h => (a -> b -> c) -> (h a -> h b -> h c)
--- zipWithCC = curry . zipWithC . uncurry
-zipWithCC f = curry (zipWithC (uncurry f))
+zipWithC :: Zip h => (a -> b -> c) -> (h a -> h b -> h c)
+zipWithC f as bs = fmapC (uncurry f) (zipC (as,bs))
+{-# INLINE zipWithC #-}
 
-Catify(fmap   , fmapC)
--- Catify(zipWith, curry . zipWithC . uncurry)
-Catify(zipWith, zipWithCC)
-Catify(point  , pointC)
-Catify(sum    , sumC)
-
--- TODO: Try merging Catify into Op0: Op0 (fmapC,fmap,...).
-
-{-# RULES
-"fmapC id" fmapC id = id
--- "fmapC compose" forall g f. fmapC g . fmapC f = fmapC (g . f)
- #-}
-
-Op0(distributeC, (DistributiveCat k g f, Ok k a) => f (g a) `k` g (f a))
-Op0(tabulateC  , (RepresentableCat k f , Ok k a) => (Rep f -> a) `k` f a)
-Op0(indexC     , (RepresentableCat k f , Ok k a) => f a `k` (Rep f -> a))
-
-Catify(distribute, distributeC)
-Catify(tabulate  , tabulateC)
-Catify(index     , indexC)
-
-fmapC' :: forall k h a b. (FunctorCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
-        => (a `k` b) -> (h a `k` h b)
-fmapC' f = funConst (fmapC . constFun f)
-             <+ okExp     @k @(h a) @(h b)
-             <+ okFunctor @k @h @a
-             <+ okFunctor @k @h @b
-             <+ okExp     @k @a @b
-
---                            f  :: a `k` b
---                   constFun f  :: () `k` (a -> b)
---           fmapC . constFun f  :: () `k` (h a -> h b)
--- funConst (fmapC . constFun f) :: h a `k` h b
+Catify(zipWith, zipWithC)
 
 unzipC :: forall k h a b. (FunctorCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
        => h (a :* b) `k` (h a :* h b)
-unzipC = fmapC' exl &&& fmapC' exr
+unzipC = fmapC exl &&& fmapC exr
            <+ okFunctor @k @h @(a :* b)
            <+ okFunctor @k @h @a
            <+ okFunctor @k @h @b
            <+ okProd    @k @a @b
 {-# INLINE unzipC #-}
 
-#if 1
-
-CatifyC(zip , zipWithC id)
-
-#else
-
-zipC :: Zip h => (h a :* h b) `k` h (a :* b)
-zipC = zipWithC id
-{-# INLINE zipC #-}
-
-CatifyC(zip , zipC)
+Catify(unzip,unzipC)  -- Not firing. Why? (Unnecessary.)
 
 zapC :: forall k h a b.
         (FunctorCat k h, ZipCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
      => (h (a -> b) :* h a) `k` h b
-zapC = fmapC' apply . zipC
+zapC = fmapC apply . zipC
          <+ okFunctor @k @h @((a -> b) :* a)
          <+ okProd    @k    @(h (a -> b)) @(h a)
          <+ okFunctor @k @h @(a -> b)
@@ -120,12 +81,30 @@ zapC = fmapC' apply . zipC
          <+ okExp     @k    @a @b
 {-# INLINE zapC #-}
 
-#endif
+Catify(zap, curry zapC)
 
 -- TODO: Is there any value to defining utility functions like unzipC and zapC
--- in categorical generality? Maybe df only for functions, but still using the
--- categorical building blocks. Later extend to other categories by translation,
--- at which point the Ok constraints will be checked anyway.
+-- in categorical generality? Maybe define only for functions, but still using
+-- the categorical building blocks. Later extend to other categories by
+-- translation, at which point the Ok constraints will be checked anyway.
+
+-- TODO: Try merging Catify into Op0: Op0 (fmapC,fmap,...).
+
+fmapId :: forall k h a. (Category k, FunctorCat k h, Ok k a) => h a `k` h a
+fmapId = id <+ okFunctor @k @h @a
+
+{-# RULES
+"fmapC id" fmapC id = fmapId
+"fmapC compose" forall g f. fmapC g . fmapC f = fmapC (g . f)
+ #-}
+
+Op0(distributeC, (DistributiveCat k g f, Ok k a) => f (g a) `k` g (f a))
+Op0(tabulateC  , (RepresentableCat k f , Ok k a) => (Rep f -> a) `k` f a)
+Op0(indexC     , (RepresentableCat k f , Ok k a) => f a `k` (Rep f -> a))
+
+Catify(distribute, distributeC)
+Catify(tabulate  , tabulateC)
+Catify(index     , indexC)
 
 collectC :: (Distributive g, Functor f) => (a -> g b) -> f a -> g (f b)
 collectC f = distribute . fmap f

@@ -21,7 +21,7 @@
 
 module ConCat.Aggregate where
 
-import Prelude hiding (id,(.),curry,uncurry,const,zipWith)
+import Prelude hiding (id,(.),curry,uncurry,const,zip,zipWith)
 -- import qualified Prelude as P
 
 import qualified Control.Arrow as A
@@ -50,13 +50,13 @@ instance (OkFunctor k h, OkFunctor k' h)
 
 
 class (Functor h, OkFunctor k h) => FunctorCat k h where
-  fmapC :: Ok2 k a b => (a -> b) `k` (h a -> h b)
+  fmapC :: Ok2 k a b => (a `k` b) -> (h a `k` h b)
 
 -- TODO: Maybe rename FunctorCat to avoid confusion.
 
 class (Zip h, OkFunctor k h) => ZipCat k h where
-  -- zipC :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
-  zipWithC :: Ok3 k a b c => (a :* b -> c) `k` (h a :* h b -> h c)
+  zipC :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
+  -- zipWithC :: Ok3 k a b c => (a :* b -> c) `k` (h a :* h b -> h c)
 
 class (Pointed h, OkFunctor k h) => PointedCat k h where
   pointC :: Ok  k a => a `k` h a
@@ -99,9 +99,9 @@ instance (Pointed h, Representable h) => PointedCat (->) h where
 #else
 
 instance Zip h => ZipCat (->) h where
-  -- zipC = uncurry (inline zip)
-  zipWithC :: (a :* b -> c) -> (h a :* h b -> h c)
-  zipWithC f = uncurry (inline zipWith (curry f))
+  zipC = uncurry (inline zip)
+  -- zipWithC :: (a :* b -> c) -> (h a :* h b -> h c)
+  -- zipWithC f = uncurry (inline zipWith (curry f))
 instance Pointed h => PointedCat (->) h where
   pointC = inline point
 
@@ -114,13 +114,14 @@ instance Foldable h => SumCat (->) h where
 --   okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
 
 instance (FunctorCat k h, FunctorCat k' h) => FunctorCat (k :**: k') h where
-  fmapC = fmapC :**: fmapC
+  fmapC (f :**: g) = fmapC f :**: fmapC g
   {-# INLINE fmapC #-}
 
 instance (ZipCat k h, ZipCat k' h) => ZipCat (k :**: k') h where
-  -- zipC = zipC :**: zipC
-  zipWithC = zipWithC :**: zipWithC
-  {-# INLINE zipWithC #-}
+  zipC = zipC :**: zipC
+  {-# INLINE zipC #-}
+  -- zipWithC = zipWithC :**: zipWithC
+  -- {-# INLINE zipWithC #-}
 instance (PointedCat k h, PointedCat k' h) => PointedCat (k :**: k') h where
   pointC = pointC :**: pointC
   {-# INLINE pointC #-}
