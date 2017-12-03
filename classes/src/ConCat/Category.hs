@@ -1930,3 +1930,6 @@ class FunctorCat k h => Strong k h where
 
 instance Functor h => Strong (->) h where
   strength (a,bs) = (a,) <$> bs
+
+instance (Strong k h, Strong k' h) => Strong (k :**: k') h where
+  strength = strength :**: strength
