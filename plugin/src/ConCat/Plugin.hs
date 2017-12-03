@@ -78,6 +78,9 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , constFunV        :: Id
                      , fmapV            :: Id
                      , fmapTV           :: Id
+                     , casePairTV       :: Id
+                     , casePairLTV      :: Id
+                     , casePairRTV      :: Id
                      , reprCV           :: Id
                      , abstCV           :: Id
                      , coerceV          :: Id
@@ -547,22 +550,45 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam Case of product")
      e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
          | isBoxedTupleTyCon (dataConTyCon dc) ->
+       Doing("lam Case of product")
+#if 1
+       if | not (isDeadBinder wild) ->
+              -- TODO: handle this case
+              pprPanic "lam Case of product live wild binder" (ppr e)
+          | not (b `isFreeIn` rhs) ->
+              return $ mkCcc $ -- inlineE $  -- already inlines early
+                varApps casePairLTV
+                  [xty,varType a,varType b,_rhsTy]
+                  [Lam x scrut, mkLams [x,a] rhs]
+          | not (a `isFreeIn` rhs) ->
+              return $ mkCcc $ -- inlineE $  -- already inlines early
+                varApps casePairRTV
+                  [xty,varType a, varType b,_rhsTy]
+                  [Lam x scrut, mkLams [x,b] rhs]
+          -- TODO: do the L & R optimizations help?
+          | otherwise ->
+              return $ mkCcc $ inlineE $  -- wasn't inlining early
+                varApps casePairTV
+                  [xty,varType a,varType b,_rhsTy]
+                  [Lam x scrut, mkLams [x,a,b] rhs]
+
+#else
        -- To start, require v to be unused. Later, extend.
        if False && not (isDeadBinder wild) && wild `isFreeIn` rhs then
             pprPanic "lam Case of product: live wild var (not yet handled)" (ppr e)
        else
-          Doing("lam Case of product")
           --    \ x -> case scrut of c { (a, b) -> rhs }
           -- == \ x -> let c = scrut in let {a = exl c; b = exr c} in rhs
           let -- cName = uqVarName a ++ "_" ++ uqVarName b
               -- c     = freshId (exprFreeVars e) cName (exprType scrut)
               c = zapIdOccInfo wild
-              sub   = [(a,mkEx funCat exlV (Var c)),(b,mkEx funCat exrV (Var c))]
+              sub = [(a,mkEx funCat exlV (Var c)),(b,mkEx funCat exrV (Var c))]
           in
             return (mkCcc (Lam x (mkCoreLets
                                   [ NonRec c scrut
                                   , NonRec a (mkEx funCat exlV (Var c))
                                   , NonRec b (mkEx funCat exrV (Var c)) ] rhs)))
+#endif
 
 #if 0
      -- Experimental
@@ -641,10 +667,10 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam fmap")
      -- This rule goes after lam App compose, so we know that the fmap'd
      -- function depends on x, and the extra complexity is warranted.
-     e@(collectArgs -> (Var v, [_arrow,Type h,Type b,Type c,_dict,_ok,f])) | v == fmapV ->
+     _e@(collectArgs -> (Var v, [_arrow,Type h,Type b,Type c,_dict,_ok,f])) | v == fmapV ->
         Doing("lam fmap")
         -- pprTrace "fmapT type" (ppr (varType fmapTV)) $
-        -- pprTrace "lam fmap arg" (ppr e) $
+        -- pprTrace "lam fmap arg" (ppr _e) $
         -- pprTrace "lam fmap pieces" (ppr (h,b,c,f)) $
         let e' = mkCcc (onDict (varApps fmapTV [h,xty,b,c] []) `App` Lam x f) in
           -- pprTrace "fmap constructed expression" (ppr e') $
@@ -1585,21 +1611,16 @@ mkCccEnv opts = do
   constFunV   <- findCatId "constFun"
   abstCV      <- findCatId "abstC"
   reprCV      <- findCatId "reprC"
-  -- abstC'V     <- findCatId "abstCp"
-  -- reprC'V     <- findCatId "reprCp"
   coerceV     <- findCatId "coerceC"
   bottomCV    <- findCatId "bottomC"
   cccV        <- findCatId "toCcc'"
   uncccV      <- findCatId "unCcc'"
   fmapV       <- findCatId "fmapC"
   fmapTV      <- findCatId "fmapT"
-  -- floatT      <- findFloatTy "Float"
-  -- doubleT     <- findFloatTy "Double"
-  -- reprV       <- findRepId "repr"
-  -- abstV       <- findRepId "abst"
-  -- hasRepTc    <- findRepTc "HasRep"
+  casePairTV  <- findCatId "casePairT"
+  casePairLTV <- findCatId "casePairLT"
+  casePairRTV <- findCatId "casePairRT"
   repTc       <- findRepTc "Rep"
-  -- hasRepMeth  <- hasRepMethodM tracing hasRepTc repTc idV
   prePostV    <- findId "ConCat.Misc" "~>"
   boxIV       <- findBoxId "boxI"
   boxFV       <- findBoxId "boxF"
@@ -1608,10 +1629,6 @@ mkCccEnv opts = do
   ifEqIntHash <- findBoxId "ifEqInt#"
   tagToEnumV  <- findId "GHC.Prim" "tagToEnum#"
   bottomV     <- findId "ConCat.Misc" "bottom"
-  -- lazyV    <- findExtId "lazy"
-  -- reboxV   <- findBoxId "rebox"
-  -- coercibleTc <- findExtTc "Coercible"
-  -- coerceV     <- findExtId "coerce"
   inlineV     <- findExtId "inline"
   let mkPolyOp :: (String,(String,String)) -> CoreM (String,Var)
       mkPolyOp (stdName,(cmod,cop)) =
