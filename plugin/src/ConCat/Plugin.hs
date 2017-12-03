@@ -76,6 +76,8 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , exlV             :: Id
                      , exrV             :: Id
                      , constFunV        :: Id
+                     , fmapV            :: Id
+                     , fmapTV           :: Id
                      , reprCV           :: Id
                      , abstCV           :: Id
                      , coerceV          :: Id
@@ -635,12 +637,19 @@ ccc (CccEnv {..}) (Ops {..}) cat =
          return (mkCcc (Lam x (re `App` e)))
 #endif
 
-#if 0
-
-  Trying("lam fmap")
-
-  (collectArgs -> (Var v, [Type k,Type a,Type b,_dict]))
-
+#if 1
+     Trying("lam fmap")
+     -- This rule goes after lam App compose, so we know that the fmap'd
+     -- function depends on x, and the extra complexity is warranted.
+     e@(collectArgs -> (Var v, [_arrow,Type h,Type b,Type c,_dict,_ok,f])) | v == fmapV ->
+        Doing("lam fmap")
+        -- pprTrace "fmapT type" (ppr (varType fmapTV)) $
+        -- pprTrace "lam fmap arg" (ppr e) $
+        -- pprTrace "lam fmap pieces" (ppr (h,b,c,f)) $
+        let e' = mkCcc (onDict (varApps fmapTV [h,xty,b,c] []) `App` Lam x f) in
+          -- pprTrace "fmap constructed expression" (ppr e') $
+          -- pprPanic "lam fmap bailing" empty
+          return e'
 #endif
 
      Trying("lam App compose")
@@ -667,6 +676,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
                -> Doing("lam App compose")
                   return $ mkCompose cat (mkCcc u) (mkCcc (Lam x v))
 #endif
+
      Trying("lam App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
 #if 0
@@ -1581,6 +1591,8 @@ mkCccEnv opts = do
   bottomCV    <- findCatId "bottomC"
   cccV        <- findCatId "toCcc'"
   uncccV      <- findCatId "unCcc'"
+  fmapV       <- findCatId "fmapC"
+  fmapTV      <- findCatId "fmapT"
   -- floatT      <- findFloatTy "Float"
   -- doubleT     <- findFloatTy "Double"
   -- reprV       <- findRepId "repr"
