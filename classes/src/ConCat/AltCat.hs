@@ -806,15 +806,43 @@ fmapTrans'' f g = toCcc' (fmapC (uncurry f) . strength . (id &&& g))
 -- Simpler
 fmapT :: Functor h => (a -> b -> c) -> (a -> h b -> h c)
 fmapT f = curry (fmap (uncurry f) . strength)
+{-# INLINE fmapT #-}
 
+-- Categorical version
+fmapTC :: forall k h a b c.
+          (ClosedCat k, FunctorCat k h, Strong k h, Ok3 k a b c)
+       => (a `k` (b -> c)) -> (a `k` (h b -> h c))
+fmapTC f = curry (fmapC (uncurry f) . strength)
+           <+ okFunctor @k @h @(a :* b)
+           <+ okProd    @k @a @(h b)
+           <+ okProd    @k @a @b
+           <+ okFunctor @k @h @b
+           <+ okFunctor @k @h @c
 
--- I could use this style to simplify the plugin, e.g.,
+-- I could use this simpler style to simplify the plugin, e.g.,
 
-app' :: (a -> b -> c) -> (a -> b) -> (a `k` c)
-app' f a = toCcc' (apply . (f &&& a))
+appT :: forall a b c. (a -> b -> c) -> (a -> b) -> (a -> c)
+appT f a = apply . (f &&& a)
+{-# INLINE appT #-}
 
--- The plugin would then turn `\ x -> U V` into `app (\ x -> U) (\ x -> V)`.
+-- The plugin would then turn `\ x -> U V` into `appT (\ x -> U) (\ x -> V)`.
 -- Or leave the `toCcc'` call in the plugin for separation of concerns.
+
+casePairT :: forall a b c d. (a -> b :* c) -> (a -> b -> c -> d) -> (a -> d)
+casePairT f g a = let { bc = f a ; b = exl bc ; c = exr bc } in g a b c
+{-# INLINE casePairT #-}
+
+-- casePairT f g a = uncurry (g a) (f a)  -- but uncurry re-introduces case-of-pair
+
+-- Specialization for unused c
+casePairLT :: forall a b c d. (a -> b :* c) -> (a -> b -> d) -> (a -> d)
+casePairLT f g = appT g (exl . f)
+{-# INLINE casePairLT #-}
+
+-- Specialization for unused b
+casePairRT :: forall a b c d. (a -> b :* c) -> (a -> c -> d) -> (a -> d)
+casePairRT f g = appT g (exr . f)
+{-# INLINE casePairRT #-}
 
 -- One drawback of using these function-only definitions is that the plugin
 -- cannot first check whether the target category has the required properties,
