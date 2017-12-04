@@ -46,14 +46,6 @@ type D = GD (->)
 
 type instance GDOk (->) = Additive
 
-instance OpCon (:*) (Sat Additive) where
-  inOp = Entail (Sub Dict)
-  {-# INLINE inOp #-}
-
-instance OpCon (->) (Sat Additive) where
-  inOp = Entail (Sub Dict)
-  {-# INLINE inOp #-}
-
 #if 0
 instance ClosedCat D where
   apply = D (\ (f,a) -> (f a, \ (df,da) -> df a ^+^ deriv f a da))
@@ -171,6 +163,7 @@ instance Additive1 h => OkFunctor D h where
 
 instance (Functor h, Zip h, Additive1 h) => FunctorCat D h where
   fmapC (D q) = D (second zap . unzip . fmap q)
+  unzipC = linearDF unzipC
   {-# INLINE fmapC #-}
 
 -- q :: a -> b :* (a -> b)

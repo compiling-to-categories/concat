@@ -375,8 +375,10 @@ instance (Typeable a, Typeable b) => CoerceCat Syn a b where
 instance OkFunctor Syn h where okFunctor = Entail (Sub Dict)
 
 instance Functor h => FunctorCat Syn h where
-  fmapC = app1 "fmap"
+  fmapC  = app1 "fmap"
+  unzipC = app0 "unzip"
   INLINER(fmapC)
+  INLINER(unzipC)
 
 instance Zip h => ZipCat Syn h where
   zipC = app0 "zip"

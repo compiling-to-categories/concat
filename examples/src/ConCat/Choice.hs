@@ -281,6 +281,7 @@ instance OkFunctor (Choice con) h where okFunctor = Entail (Sub Dict)
 
 instance (CartCon con, Functor h) => FunctorCat (Choice con) h where
   fmapC = op1C fmapC
+  unzipC = exactly unzipC
 
 -- Question: should fmap replicate degrees of freedom or share them?
 

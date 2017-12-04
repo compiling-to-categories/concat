@@ -7,6 +7,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 {-# OPTIONS_GHC -Wall #-}
@@ -147,6 +148,14 @@ instance Additive a => Additive (Maybe a) where
 -- instance (HasTrie u, Additive v) => Additive (u :->: v) where
 --   zero  = pure   zero
 --   (^+^) = liftA2 (^+^)
+
+instance OpCon (:*) (Sat Additive) where
+  inOp = Entail (Sub Dict)
+  {-# INLINE inOp #-}
+
+instance OpCon (->) (Sat Additive) where
+  inOp = Entail (Sub Dict)
+  {-# INLINE inOp #-}
 
 {--------------------------------------------------------------------
     Monoid wrapper

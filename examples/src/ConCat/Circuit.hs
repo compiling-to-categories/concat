@@ -856,6 +856,11 @@ instance (Functor h, OkFunctor (:>) h) => FunctorCat (:>) h where
                genComp (Prim "fmap") (ProdB ab as)
                  <+ okFunctor' @(:>) @h @a
                  <+ okFunctor' @(:>) @h @b
+  unzipC :: forall a b. Ok2 (:>) a b => h (a :* b) :> (h a :* h b)
+  unzipC = namedC "unzip"
+             <+ okFunctor' @(:>) @h @(a :* b)
+             <+ okFunctor' @(:>) @h @a
+             <+ okFunctor' @(:>) @h @b
 
 -- genSubgraph :: BCirc a b -> CircuitM (Buses (a -> b))
 -- f :: BCirc a b

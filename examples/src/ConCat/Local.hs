@@ -1,9 +1,15 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
@@ -17,8 +23,9 @@ import Control.Applicative (pure,liftA2)
 
 import Control.Newtype
 import Data.Copointed
+import Data.Constraint (Dict(..),(:-)(..))
 
-import ConCat.Misc ((:*),inNew2)
+import ConCat.Misc ((:*),inNew2,type (&&))
 import qualified ConCat.Category as C
 import ConCat.AltCat
 import ConCat.Free.LinearRow
@@ -52,11 +59,34 @@ instance Category k => Category (Local k) where
                                  in
                                    g' . f'
 
-instance (OpCon (Prod k) (Sat (Ok (Local k))), ProductCat k)
+#if 0
+
+type OkCart k = OpCon (Prod k) (Sat (Ok (Local k)))
+
+instance OpCon (:*) (Sat (Ok k)) => OpCon (:*) (Sat (OkLocal k)) where
+  inOp :: (Sat (OkLocal k) a, Sat (OkLocal k) b) |- Sat (OkLocal k) (a :* b)
+  inOp = Entail (Sub Dict) -- <+ okProd @k @a @b
+
+-- Could not deduce (Copointed (k (a, b)))
+
+-- instance OpCon (:*) (Sat (Ok k)) => OpCon (:*) (Sat (OkLocal k)) where
+--   inOp = Entail (Sub Dict)
+--   {-# INLINE inOp #-}
+
+instance (OkCart k, ProductCat k)
       => ProductCat (Local k) where
   exl = simpleL exl
   exr = simpleL exr
   (&&&) = (inNew2.liftA2) (&&&)
 
--- Local f &&& Local g = Local (\ a -> f a &&& g a)
+--    Local f &&& Local g
+-- == Local (\ a -> f a &&& g a)
+-- == Local (\ a da -> (f a da, g a da)
   
+-- Affine approximation. Later make explicit via ConCat.Free.Affine.
+instance (Num a, Copointed ((->) a)) => NumCat (Local (->)) a where
+  negateC = Local (\ x dx -> - (x + dx))
+  addC = Local (\ (x,y) (dx,dy) -> x + y + dx + dy)
+  mulC = Local (\ (x,y) (dx,dy) -> x*y + dy*x + dx*y)
+
+#endif

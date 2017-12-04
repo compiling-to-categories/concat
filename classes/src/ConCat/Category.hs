@@ -40,7 +40,7 @@
 
 module ConCat.Category where
 
-import Prelude hiding (id,(.),curry,uncurry,const,zip)
+import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip)
 import qualified Prelude as P
 #ifdef DefaultCat
 import qualified Control.Category as C
@@ -1801,6 +1801,17 @@ instance (OkFunctor k h, OkFunctor k' h)
 
 class (Functor h, OkFunctor k h) => FunctorCat k h where
   fmapC :: Ok2 k a b => (a `k` b) -> (h a `k` h b)
+  unzipC :: forall a b. Ok2 k a b => h (a :* b) `k` (h a :* h b)
+#if 0
+  default unzipC :: forall a b.
+          (FunctorCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
+       => h (a :* b) `k` (h a :* h b)
+  unzipC = fmapC exl &&& fmapC exr
+             <+ okFunctor @k @h @(a :* b)
+             <+ okFunctor @k @h @a
+             <+ okFunctor @k @h @b
+             <+ okProd    @k @a @b
+#endif
 
 -- TODO: Maybe rename FunctorCat to avoid confusion.
 
@@ -1824,6 +1835,7 @@ class SumCat k h where
 
 instance Functor h => FunctorCat (->) h where
   fmapC = IC.inline fmap
+  unzipC = X.inline unzip
 
 #if 0
 instance (Zip h, Representable h) => ZipCat (->) h where
@@ -1864,6 +1876,7 @@ instance Foldable h => SumCat (->) h where
 
 instance (FunctorCat k h, FunctorCat k' h) => FunctorCat (k :**: k') h where
   fmapC (f :**: g) = fmapC f :**: fmapC g
+  unzipC = unzipC :**: unzipC
   {-# INLINE fmapC #-}
 
 instance (ZipCat k h, ZipCat k' h) => ZipCat (k :**: k') h where

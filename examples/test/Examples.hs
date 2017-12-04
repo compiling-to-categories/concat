@@ -77,7 +77,7 @@
 
 module Main where
 
-import Prelude hiding (zip,zipWith) -- (id,(.),curry,uncurry)
+import Prelude hiding (unzip,zip,zipWith) -- (id,(.),curry,uncurry)
 import qualified Prelude as P
 
 import Data.Monoid (Sum(..))
@@ -99,7 +99,7 @@ import Data.Vector.Sized (Vector)
 import qualified Data.Vector.Sized as VS
 
 import ConCat.Misc
-  ((:*),(:+),R,sqr,magSqr,Unop,Binop,inNew,inNew2,Yes1,oops,type (&+&),PseudoFun(..))
+  ((:*),(:+),R,sqr,magSqr,Unop,Binop,unzip,inNew,inNew2,Yes1,oops,type (&+&),PseudoFun(..))
 import ConCat.Rep (HasRep(..))
 import ConCat.Incremental (andInc,inc)
 import ConCat.AD
@@ -164,14 +164,14 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- Circuit graphs
-  , runSynCirc "twice"       $ toCcc $ twice @R
-  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
-  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  -- -- Circuit graphs
+  -- , runSynCirc "twice"       $ toCcc $ twice @R
+  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  -- , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
+  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- , runSynCirc "truncate" $ toCcc $ truncate @R @Int
   -- , runSynCirc "log" $ toCcc $ log @R
@@ -268,11 +268,28 @@ main = sequence_
 
   -- , runCirc "zipWithC-vv-der" $ toCcc $ andDerF $ (A.zipWithC A.mulC :: Vector 5 R :* Vector 5 R -> Vector 5 R)
 
-  -- , runCirc "fmap-v-der" $ toCcc $ andDerF $ (fmap negate :: Unop (Vector 5 R))
+  -- , runSynCirc "fmap-v" $ toCcc $ (fmap negate :: Unop (Vector 5 R))
 
-  -- , runCirc "fmap-v-d" $ toCcc $ derF $ (fmap negate :: Unop (Vector 5 R))
+  -- , runSynCirc "unzip-b" $ toCcc $ unzip @(Vector 5) @R @R
 
-  -- , runCirc "fmap-v-dl" $ toCcc $ derFL @R $ (fmap negate :: Unop (Vector 5 R))
+  , runSynCirc "fmap-v-der" $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
+
+  -- , runSynCirc "fmap-v-d" $ toCcc $ derF (fmap negate :: Unop (Vector 5 R))
+
+  -- , runCirc "fmap-negate2" $ toCcc $ \ (v :: Vector 5 R) -> fmap negate (fmap (+ 1) v)
+
+  -- , runCirc "fmap-point" $ toCcc $ \ (x :: R) -> fmap negate (point @(Vector 5) x)
+
+  -- , runCirc "fmapT" $ toCcc $ \ x (v :: Vector 5 R) -> fmap (+x) v
+
+  -- -- Correct, but more complex/effortful than I'd like. See 2017-12-02 notes.
+  -- , runSynCirc "fmapT-oops-b" $ toCcc $ \ (x, v :: Vector 5 R) -> fmap (+x) v
+
+  -- , runCirc "foo" $ toCcc $ \ (_x :: R,y :: R) -> y
+
+  -- , runCirc "foo" $ toCcc $ \ (x,y) -> y + x :: R
+
+  -- , runSynCirc "fmap-v-dl" $ toCcc $ derFL @R $ (fmap negate :: Unop (Vector 5 R))
 
   -- , runCirc "fmapC-v-der-b" $ toCcc $ andDerF $ (A.fmapC :: Unop R -> Unop (Vector 5 R))
 
@@ -806,6 +823,8 @@ main = sequence_
 
   ]
 
+#if 0
+
 f1 :: Num a => a -> a
 f1 x = x^2
 
@@ -835,6 +854,8 @@ fermatMax (w,m) = fermat w && m == max3 w
 -- fermatMax but with an upper bound.
 fermatMaxUnder :: (Ord a, Num a) => a -> ((a,a,a),a) -> Bool
 fermatMaxUnder upper q = fermatMax q && snd q <= upper
+
+#endif
 
 {--------------------------------------------------------------------
     Testing utilities

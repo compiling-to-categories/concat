@@ -4,34 +4,40 @@
 -- #define OPINLINE INLINE CONLIKE [3]
 -- #define OPINLINE NOINLINE
 
+#define REVEAL(nm) C.nm
+-- #define REVEAL(nm) (GHC.Exts.inline (nm))
+
+-- TODO: Use 'inline nm' in place of 'C.nm'. I tried and got an empty case,
+-- which suggests that GHC has determined a scrutinee to be bottom. Investigate!
+
 #define Op(nm,ty) \
 {- | C.nm without the eager inlining -}; \
 nm :: ty; \
-nm = C.nm ;\
+nm = REVEAL(nm) ;\
 {-# OPINLINE nm #-}
 
 #define OpRule0(nm) {-# RULES "reveal op0" \
-  reveal nm = C.nm #-}
+  reveal nm = REVEAL(nm) #-}
 #define OpRule1(nm) {-# RULES "reveal op1" forall a1. \
-  reveal (nm a1) = C.nm (reveal a1) #-}
+  reveal (nm a1) = REVEAL(nm) (reveal a1) #-}
 #define OpRule2(nm) {-# RULES "reveal op2" forall a1 a2. \
-  reveal (nm a1 a2) = C.nm (reveal a1) (reveal a2) #-}
+  reveal (nm a1 a2) = REVEAL(nm) (reveal a1) (reveal a2) #-}
 
 #define IpRule0(nm) {-# RULES "reveal ip0" \
-  reveal (nm) = (C.nm) #-}
+  reveal (nm) = (REVEAL(nm)) #-}
 #define IpRule1(nm) {-# RULES "reveal ip1" forall a1. \
-  reveal ((nm) a1) = (C.nm) (reveal a1) #-}
+  reveal ((nm) a1) = (REVEAL(nm)) (reveal a1) #-}
 #define IpRule2(nm) {-# RULES "reveal ip2" forall a1 a2. \
-  reveal ((nm) a1 a2) = (C.nm) (reveal a1) (reveal a2) #-}
+  reveal ((nm) a1 a2) = (REVEAL(nm)) (reveal a1) (reveal a2) #-}
 
 #define Op0(nm,ty) Op(nm,ty); OpRule0(nm)
 #define Op1(nm,ty) Op(nm,ty); OpRule1(nm)
 #define Op2(nm,ty) Op(nm,ty); OpRule2(nm)
 
 #define Ip(nm,ty) \
-{- | (C.nm) without the eager inlining -}; \
+{- | (REVEAL(nm)) without the eager inlining -}; \
 (nm) :: ty; \
-(nm) = (C.nm) ;\
+(nm) = (REVEAL(nm)) ;\
 {-# OPINLINE (nm) #-}
 
 #define Ip1(nm,ty) Ip(nm,ty); IpRule1(nm)

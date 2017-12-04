@@ -32,10 +32,11 @@
 
 module ConCat.AltCat (module ConCat.AltCat, module C) where
 
-import Prelude hiding (id,(.),curry,uncurry,const,zip,zipWith)
+import Prelude hiding (id,(.),curry,uncurry,const,unzip,zip,zipWith)
 import qualified Prelude as P
 import Control.Arrow (runKleisli)
 import qualified Data.Tuple as P
+-- import qualified GHC.Exts
 import GHC.Exts (Coercible,coerce)
 import Data.Constraint ((\\))
 
@@ -54,7 +55,7 @@ import Data.Finite (Finite)
 import qualified ConCat.Category as C
 import ConCat.Rep hiding (Rep)
 import qualified ConCat.Rep as R
-import ConCat.Misc ((:*),(:+),PseudoFun(..),oops,type (&+&))
+import ConCat.Misc ((:*),(:+),unzip,PseudoFun(..),oops,type (&+&))
 
 import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5, Ok'
@@ -86,12 +87,13 @@ import ConCat.Category
 -- inling operations.
 reveal :: (a `k` b) -> (a `k` b)
 reveal f = f
-{-# INLINE [0] reveal #-}
 
 -- | Dummy identity function to delay rewriting of non-inlining operations to
 -- inling operations.
 conceal :: (a `k` b) -> (a `k` b)
 conceal f = f
+
+{-# INLINE [0] reveal #-}
 {-# INLINE [0] conceal #-}
 
 {-# RULES
@@ -648,11 +650,13 @@ toCcc'' _ = oops "toCcc'' called"
 
 
 Op1(fmapC , (FunctorCat k h, Ok2 k a b)     => (a `k` b) -> (h a `k` h b))
+Op0(unzipC, (FunctorCat k h, Ok2 k a b)     => h (a :* b) `k` (h a :* h b))
 Op0(zipC  , (ZipCat k h    , Ok2 k a b)     => (h a :* h b) `k` h (a :* b))
 Op0(pointC, (PointedCat k h, Ok k a)        => a `k` h a)
 Op0(sumC  , (SumCat k h    , Ok k a, Num a) => h a `k` a)
 
 Catify(fmap , fmapC)
+Catify(unzip, unzipC)
 Catify(zip  , curry zipC)
 Catify(point, pointC)
 Catify(sum  , sumC)
@@ -663,6 +667,7 @@ zipWithC f as bs = fmapC (uncurry f) (zipC (as,bs))
 
 Catify(zipWith, zipWithC)
 
+#if 0
 unzipC :: forall k h a b. (FunctorCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
        => h (a :* b) `k` (h a :* h b)
 unzipC = fmapC exl &&& fmapC exr
@@ -671,8 +676,7 @@ unzipC = fmapC exl &&& fmapC exr
            <+ okFunctor @k @h @b
            <+ okProd    @k @a @b
 {-# INLINE unzipC #-}
-
-Catify(unzip,unzipC)  -- Not firing. Why? (Unnecessary.)
+#endif
 
 zapC :: forall k h a b.
         (FunctorCat k h, ZipCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
@@ -686,6 +690,8 @@ zapC = fmapC apply . zipC
          <+ okProd    @k    @(a -> b) @a
          <+ okExp     @k    @a @b
 {-# INLINE zapC #-}
+
+-- TODO: define zapC via zipWithC
 
 Catify(zap, curry zapC)
 
