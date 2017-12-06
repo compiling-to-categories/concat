@@ -60,7 +60,12 @@
 
 -- {-# OPTIONS_GHC -dsuppress-all #-}
 
--- Experiments
+-- {-# OPTIONS_GHC -fno-float-in #-}
+-- {-# OPTIONS_GHC -ffloat-in #-}
+-- {-# OPTIONS_GHC -fdicts-cheap #-}
+{-# OPTIONS_GHC -fdicts-strict #-}
+
+-- For experiments
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 ----------------------------------------------------------------------
@@ -262,7 +267,9 @@ main = sequence_
 
   -- , runCirc "sum-vv-der" $ toCcc $ andDerF $ sum @(Vector 5) @R -- okay
 
-  -- , runCirc "zipWith-vv" $ toCcc $ (zipWith (*) :: Binop (Vector 5 R))
+  -- , runCirc "zipWith-vv-b" $ toCcc $ (zipWith (*) :: Binop (Vector 5 R))
+
+  -- , runSyn $ toCcc $ (zipWith (*) :: Binop (Vector 5 R))
 
   -- , runCirc "zipWith-vv-der" $ toCcc $ andDerF $ (zipWith (*) :: Binop (Vector 5 R))
 
@@ -272,7 +279,15 @@ main = sequence_
 
   -- , runSynCirc "unzip-b" $ toCcc $ unzip @(Vector 5) @R @R
 
-  , runSynCirc "fmap-v-der" $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
+  -- , runSyn $ toCcc $ derF $ fmap @(Vector 5) @R negate
+
+  -- , runSyn $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
+
+  , runCirc "fmap-v-der-e" $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
+
+  -- , runSynCirc "fmap-v-der-e" $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
+
+  -- , runSyn $ toCcc $ fmap @(Vector 5) @R (const True)
 
   -- , runSynCirc "fmap-v-d" $ toCcc $ derF (fmap negate :: Unop (Vector 5 R))
 
@@ -1085,3 +1100,22 @@ fac9 n0 = go (n0,1)
 -- foo1 :: Foo -> Foo :* (Foo -> Foo)
 -- foo1 = andDerF negateFoo
 
+{--------------------------------------------------------------------
+    
+--------------------------------------------------------------------}
+
+-- -- fmap negate
+-- foo :: ADFun.D (Vector 5 R) (Vector 5 R)
+-- foo = toCcc $ fmap @(Vector 5) @R negate
+
+-- -- case fmap negate of { D f -> f }
+-- foo :: Vector 5 R -> Vector 5 R :* (Vector 5 R -> Vector 5 R)
+-- foo = andDerF $ fmap @(Vector 5) @R negate
+
+-- -- second (curry (fmapC apply) . zipC) . (unzipC . fmap (\ a -> negate a, negate))
+-- foo :: Vector 5 R -> Vector 5 R :* (Vector 5 R -> Vector 5 R)
+-- foo = toCcc $ andDerF $ fmap @(Vector 5) @R negate
+
+-- -- Vector mess
+-- foo :: Vector 5 R -> Vector 5 R :* (Vector 5 R -> Vector 5 R)
+-- foo = reveal $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
