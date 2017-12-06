@@ -23,7 +23,9 @@
 {-# OPTIONS_GHC -Wno-inline-rule-shadowing #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
-{-# OPTIONS_GHC -Wno-orphans #-} -- See Functor (Arr n)
+{-# OPTIONS_GHC -Wno-orphans #-} -- For Catify
+
+-- {-# OPTIONS_GHC -ddump-rules #-}
 
 -- | Alternative interface to the class operations from ConCat.Category, so as
 -- not to get inlined too eagerly to optimize.
@@ -37,7 +39,7 @@ import qualified Prelude as P
 import Control.Arrow (runKleisli)
 import qualified Data.Tuple as P
 -- import qualified GHC.Exts
-import GHC.Exts (Coercible,coerce)
+import GHC.Exts (Coercible,coerce,inline)
 import Data.Constraint ((\\))
 
 import Data.Pointed (Pointed(..))
@@ -116,7 +118,7 @@ Ip2(***,forall k a b c d. (ProductCat k, Ok4 k a b c d) => (a `k` c) -> (b `k` d
 Op0(dup,forall k a. (ProductCat k, Ok k a) => a `k` Prod k a a)
 Op0(swapP,forall k a b. (ProductCat k, Ok2 k a b) => Prod k a b `k` Prod k b a)
 Op1(first,forall k a aa b. (ProductCat k, Ok3 k a b aa) => (a `k` aa) -> (Prod k a b `k` Prod k aa b))
-Op2(second,forall k a b bb. (ProductCat k, Ok3 k a b bb) => (b `k` bb) -> (Prod k a b `k` Prod k a bb))
+Op1(second,forall k a b bb. (ProductCat k, Ok3 k a b bb) => (b `k` bb) -> (Prod k a b `k` Prod k a bb))
 Op1(lassocP,forall k a b c. (ProductCat k, Ok3 k a b c) => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c)
 Op1(rassocP,forall k a b c. (ProductCat k, Ok3 k a b c) => Prod k (Prod k a b) c `k` Prod k a (Prod k b c))
 
@@ -352,6 +354,7 @@ unCcc' _ = oops "unCcc' called"
 -- inlining.
 toCcc :: forall k a b. (a -> b) -> (a `k` b)
 toCcc f = reveal (toCcc' f)
+-- toCcc f = toCcc' f  -- Try doing without reveal/conceal
 {-# INLINE toCcc #-}
 
 -- 2017-09-24
@@ -363,6 +366,7 @@ ccc f = toCcc f
 -- | Pseudo function to stop rewriting from CCC form.
 unCcc :: forall k a b. (a `k` b) -> (a -> b)
 unCcc f = unCcc' (conceal f)
+-- unCcc f = unCcc' f  -- Try doing without reveal/conceal
 {-# INLINE unCcc #-}
 
 {--------------------------------------------------------------------
@@ -445,8 +449,9 @@ unCcc f = unCcc' (conceal f)
 -- Warning: this rule may be dangerous. Note that `apply == uncurry id`, so if
 -- `h == id`, then we aren't making progress.
 
-
 -- "uncurry . constFun" forall (f :: p -> q). uncurry (constFun f) = f . exr
+
+"curry apply" curry apply = id
 
 -- -- experiment
 -- "constFun id" constFun id = curry exr
@@ -460,6 +465,8 @@ unCcc f = unCcc' (conceal f)
 -- "constFun 2" apply . (curry exr &&& id) = id
 
 -- "constFun 3" forall x. apply . (curry (const x) &&& id) = const x
+
+"second h . (f &&& g)" forall h f g. second h . (f &&& g) = f &&& h . g
 
 #if 0
 -- Prelude versions of categorical ops
@@ -662,8 +669,11 @@ Catify(point, pointC)
 Catify(sum  , sumC)
 
 zipWithC :: Zip h => (a -> b -> c) -> (h a -> h b -> h c)
-zipWithC f as bs = fmapC (uncurry f) (zipC (as,bs))
+-- zipWithC f = curry (fmapC (uncurry f) . zipC)
+zipWithC f = curry (fmap (uncurry f) . uncurry zip)
 {-# INLINE zipWithC #-}
+
+-- zipWithC f as bs = fmapC (uncurry f) (zipC (as,bs))
 
 Catify(zipWith, zipWithC)
 
@@ -709,6 +719,112 @@ fmapId = id <+ okFunctor @k @h @a
 "fmapC id" fmapC id = fmapId
 "fmapC compose" forall g f. fmapC g . fmapC f = fmapC (g . f)
  #-}
+
+unzipFmapFork :: forall k h a b c.
+                 (ProductCat k, Ok3 k a b c, FunctorCat k h)
+              => (a `k` b) -> (a `k` c) -> (h a `k` (h b :* h c))
+unzipFmapFork f g = fmapC f &&& fmapC g
+  <+ okFunctor @k @h @a
+  <+ okFunctor @k @h @b
+  <+ okFunctor @k @h @c
+{-# INLINE unzipFmapFork #-}
+
+-- constPoint :: forall k h a z.
+--       (FunctorCat k h, Pointed h, Ok2 k a z, ConstCat k (h a))
+--    => a -> (z `k` h a)
+-- constPoint a = const (pointC a <+ okFunctor @k @h @a)
+
+constPoint :: forall k h a z. (ConstCat k a, PointedCat k h, Ok2 k a z)
+   => a -> (z `k` h a)
+constPoint a = pointC . const a <+ okFunctor @k @h @a
+
+-- foo :: Zip h => (b :* c -> d) -> (a -> b) -> h a -> (h c -> h d)
+-- foo g f = curry (fmapC g . zipC) . fmap f
+
+zipWithFmap :: forall k h a b c d.
+               (ClosedCat k, FunctorCat k h, ZipCat k h, Ok4 k a b c d)
+            => ((b :* c) `k` d) -> (a `k` b) -> (h a `k` (h c -> h d))
+zipWithFmap g f = curry (fmapC (uncurry (curry g . f)) . zipC)
+  <+ okFunctor @k @h @(a :* c)
+  <+ okProd @k @(h a) @(h c)
+  <+ okProd @k @a @c
+  <+ okExp  @k @c @d
+  <+ okFunctor @k @h @a
+  <+ okFunctor @k @h @c
+  <+ okFunctor @k @h @d
+{-# INLINE zipWithFmap #-}
+
+{-# RULES
+
+"unzipC . zipC" unzipC . zipC = id
+
+-- -- Fail. Needs ZipCat on RHS but not LHS.
+-- "fmap (f &&& g)" forall f g. fmapC (f &&& g) = zipC . (fmapC f &&& fmapC g)
+
+-- -- Less modular, but uses ZipCat on LHS. Needs Ok constraints on right.
+-- "unzipC . fmapC (f &&& g)" forall f g. unzipC . fmapC (f &&& g) = fmapC f &&& fmapC g
+
+-- unzipC . fmapC (f &&& g) = fmapC f &&& fmapC g
+-- Use an external definition to get RHS Ok constraints.
+-- GHC isn't inlining that definition, so force it.
+"unzipC . fmapC (f &&& g)" forall f g.
+   unzipC . fmapC (f &&& g) = inline unzipFmapFork f g
+
+-- "fmapC (constFun f)" forall f.
+--   fmapC (constFun f) = constFun (pointC f)
+
+-- Do I need to inline constFun, at least on the left?
+
+-- -- *Applying* pointC restricts to functions
+
+-- -- RHS needs PointedCat
+-- "fmapC (constFun f)" forall f.
+--   fmapC (curry (f . exr)) = pointC . constFun f
+
+-- -- Seems iffy for staging. RHS needs Pointed.
+-- "fmapC (constFun f)" forall f. fmapC (constFun f) = const (point f)
+
+-- -- Needs RHS constraints
+-- "fmapC (const a)" forall a. fmapC (const a) = const (pointC a)
+
+-- "fmapC (const a)" forall a. fmapC (const a) = constPoint a
+
+-- "zipWith g . fmap f" forall f g .
+--   curry (fmapC g . zipC) . fmapC f = fmapC (uncurry (g . f)) . zipC
+
+-- 2017-11-05 notes
+"zipWith g . fmap f" forall f g .
+  -- zipWith g . fmap f = zipWith (g . f)
+  curry (fmapC g . zipC) . fmapC f = inline zipWithFmap g f
+  -- curry (fmapC g . zipC) . fmapC f = curry (fmapC (uncurry (curry g . f)) . zipC)
+
+-- 2017-11-05 notes
+"constFun (fmap f)" forall f .
+  curry (fmap (f . exr) . zipC) = inline constFun (fmap f)
+
+-- -- 2017-11-06 notes
+-- "constFun (fmap f)" forall f .
+--   curry (fmapC (f . exr) . zipC) = constFun (fmapC f)
+
+ #-}
+
+
+
+#if 0
+-- Experiment
+
+idCon :: forall con k a b. con k => (a `k` b) -> (a `k` b)
+idCon f = f
+{-# INLINE idCon #-}
+
+{-# RULES
+"idCon test a" fmapC id = fmapId
+"idCon test b" idCon @ProductCat (fmapC id) = fmapId
+ #-}
+
+-- Too bad. The idCon appears in the rule's LHS.
+
+#endif
 
 Op0(strength, (Strong k h, OkFunctor k h, Ok2 k a b) => (a :* h b) `k` h (a :* b))
 
