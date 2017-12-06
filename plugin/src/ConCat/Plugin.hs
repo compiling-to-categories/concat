@@ -1134,7 +1134,8 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      -- constFun :: forall k p a b. (ClosedCat k, Oks k '[p, a, b])
      --          => k a b -> k p (Exp k a b)
      -- (`App` e) <$> onDictMaybe (catOp k constFunV [dom,a,b])
-     (`App` e) <$> (onDictMaybe =<< catOpMaybe k constFunV [dom,a,b])
+     -- constFun isn't inlining on its own, so push it.
+     (`App` e) <$> (onDictMaybe . inlineE =<< catOpMaybe k constFunV [dom,a,b])
     where
       (a,b) = tyArgs2 (exprType e)
    -- Split k a b into a & b.
