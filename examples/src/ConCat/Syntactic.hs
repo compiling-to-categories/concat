@@ -376,12 +376,12 @@ instance OkFunctor Syn h where okFunctor = Entail (Sub Dict)
 
 instance Functor h => FunctorCat Syn h where
   fmapC  = app1 "fmap"
-  unzipC = app0 "unzip"
+  unzipC = app0 "unzipC"
   INLINER(fmapC)
   INLINER(unzipC)
 
 instance Zip h => ZipCat Syn h where
-  zipC = app0 "zip"
+  zipC = app0 "zipC"
   INLINER(zipC)
   -- zipWithC = app0 "zipWith"
   -- INLINER(zipWithC)
