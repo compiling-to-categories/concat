@@ -1878,6 +1878,7 @@ instance (FunctorCat k h, FunctorCat k' h) => FunctorCat (k :**: k') h where
   fmapC (f :**: g) = fmapC f :**: fmapC g
   unzipC = unzipC :**: unzipC
   {-# INLINE fmapC #-}
+  {-# INLINE unzipC #-}
 
 instance (ZipCat k h, ZipCat k' h) => ZipCat (k :**: k') h where
   zipC = zipC :**: zipC
