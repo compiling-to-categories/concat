@@ -1,6 +1,8 @@
 # To do
 
 *   Define utility functions to do most of the work of various plugin transformations, including application, abstraction, pairing, etc.
+*   Experiment with `-fexpose-all-unfoldings` as an alternative to explicit `INLINE` declarations.
+    Also consider `INLINABLE`.
 *   Move (some?) todo items to github repo.
 *   Add `INLINE` pragmas for the method defaults in `ConCat.Category`.
     So far, I've added them for just a few `(***)`, `subC`, `recipC`, `divideC`.
