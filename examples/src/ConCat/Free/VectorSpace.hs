@@ -155,6 +155,11 @@ outerV = (>.<)
 {-# INLINE (>.<) #-}
 {-# INLINE outerV #-}
 
+-- | Normalize a vector (scale to unit magnitude)
+normalizeV :: (Functor f, Foldable f, Floating a) => f a -> f a
+normalizeV xs = (/ sum xs) <$> xs
+{-# INLINE normalizeV #-}
+
 -- Would I rather prefer swapping the arguments (equivalently, transposing the
 -- result)?
 
