@@ -232,6 +232,10 @@ instance (Ord a, CartCon con) => OrdCat (Choice con) a where
   lessThanOrEqual    = exactly lessThanOrEqual
   greaterThanOrEqual = exactly greaterThanOrEqual
 
+instance (Ord a, CartCon con) => MinMaxCat (Choice con) a where
+  minC = exactly minC
+  maxC = exactly maxC
+
 instance (Enum a, CartCon con) => EnumCat (Choice con) a where
   succC = exactly succC
   predC = exactly predC

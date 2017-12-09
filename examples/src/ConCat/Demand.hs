@@ -250,6 +250,10 @@ instance OrdCat (->) a => OrdCat (:-?) a where
   lessThanOrEqual    = hyperStrict
   greaterThanOrEqual = hyperStrict
 
+-- instance MinMaxCat (->) a => MinMaxCat (:-?) a where
+--   minC = ...
+--   maxC = ...
+
 instance EnumCat (->) a => EnumCat (:-?) a where
   succC = hyperStrict
   predC = hyperStrict

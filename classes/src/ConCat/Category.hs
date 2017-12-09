@@ -1262,6 +1262,23 @@ class EqCat k a => OrdCat k a where
   greaterThanOrEqual = notC . lessThan     <+ okTT @k @a
   {-# MINIMAL lessThan | greaterThan #-}
 
+class MinMaxCat k a where
+  minC, maxC :: Prod k a a `k` a
+#if 0
+  default minC :: (OrdCat k a, IfCat k a, Ok k a) => Prod k a a `k` a
+  default maxC :: (OrdCat k a, IfCat k a, Ok k a) => Prod k a a `k` a
+  minC = ifC . (lessThanOrEqual &&& id)
+           <+ okProd @k @Bool @(a :* a)
+           <+ okProd @k @a @a
+  maxC = ifC . (greaterThan     &&& id)
+           <+ okProd @k @Bool @(a :* a)
+           <+ okProd @k @a @a
+#endif
+
+instance Ord a => MinMaxCat (->) a where
+  minC = uncurry (IC.inline min)
+  maxC = uncurry (IC.inline max)
+
 instance Ord a => OrdCat (->) a where
   lessThan           = uncurry (IC.inline (<))
   greaterThan        = uncurry (IC.inline (>))
@@ -1282,6 +1299,10 @@ instance OrdCat U2 a where
   lessThanOrEqual    = U2
   greaterThanOrEqual = U2
 
+instance MinMaxCat U2 a where
+  minC = U2
+  maxC = U2
+
 instance (OrdCat k a, OrdCat k' a) => OrdCat (k :**: k') a where
   lessThan = lessThan :**: lessThan
   greaterThan = greaterThan :**: greaterThan
@@ -1291,6 +1312,12 @@ instance (OrdCat k a, OrdCat k' a) => OrdCat (k :**: k') a where
   PINLINER(greaterThan)
   PINLINER(lessThanOrEqual)
   PINLINER(greaterThanOrEqual)
+
+instance (MinMaxCat k a, MinMaxCat k' a) => MinMaxCat (k :**: k') a where
+  minC = minC :**: minC
+  maxC = maxC :**: maxC
+  PINLINER(minC)
+  PINLINER(maxC)
 
 class (Category k, Ok k a) => EnumCat k a where
   succC, predC :: a `k` a

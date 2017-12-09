@@ -154,6 +154,14 @@ instance (Floating s, Additive s) => FloatingCat D s where
   {-# INLINE cosC #-}
   {-# INLINE logC #-}
 
+instance Ord a => MinMaxCat D a where
+  -- minC = D (\ (x,y) -> (minC (x,y), if x <= y then exl else exr))
+  -- maxC = D (\ (x,y) -> (maxC (x,y), if x <= y then exr else exl))
+  minC = D (\ xy -> (minC xy, if lessThanOrEqual xy then exl else exr))
+  maxC = D (\ xy -> (maxC xy, if lessThanOrEqual xy then exr else exl))
+  {-# INLINE minC #-} 
+  {-# INLINE maxC #-} 
+
 -- type Ok D = (Yes1 &+& Additive)
 
 instance Additive1 h => OkFunctor D h where
@@ -312,3 +320,4 @@ gradFR f = dualVR . derF f
 {-# INLINE gradFR #-}
 
 #endif
+

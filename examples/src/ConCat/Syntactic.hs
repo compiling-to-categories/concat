@@ -253,6 +253,10 @@ instance OrdCat Syn a where
   INLINER(lessThanOrEqual)
   INLINER(greaterThanOrEqual)
 
+instance MinMaxCat Syn a where
+  minC = app0 "minC"
+  maxC = app0 "maxC"
+
 instance EnumCat Syn a where
   succC = app0 "succ"
   predC = app0 "pred"

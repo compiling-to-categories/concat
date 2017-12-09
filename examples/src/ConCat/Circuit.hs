@@ -1339,6 +1339,10 @@ instance (Read a, Ord a) => OrdCat (:>) a where
 
 #endif
 
+instance Ok (:>) a => MinMaxCat (:>) a where
+  minC = namedC "min"
+  maxC = namedC "max"
+
 -- TODO: Move to a general definition in ConCat.Classes, and reference here.
 
 -- instance NumCat (:>) Int  where { add = namedC "+" ; mul = namedC "×" }
@@ -1549,6 +1553,7 @@ ifOptI = \ case
 
 instance IfCat (:>) Bool    where ifC = primOpt "if" (ifOpt `orOpt` ifOptB)
 instance IfCat (:>) Int     where ifC = primOpt "if" (ifOpt `orOpt` ifOptI)
+instance IfCat (:>) Integer where ifC = primOpt "if" ifOpt
 instance IfCat (:>) Float   where ifC = primOpt "if" ifOpt
 instance IfCat (:>) Double  where ifC = primOpt "if" ifOpt
 

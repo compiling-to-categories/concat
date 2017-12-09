@@ -71,7 +71,7 @@ import ConCat.Category
   , BiCCC
   , BoolCat, BoolOf
   , NumCat, IntegralCat, FractionalCat, FloatingCat, RealFracCat, FromIntegralCat
-  , EqCat, OrdCat, EnumCat, BottomCat, IfCat, IfT, UnknownCat, RepCat, CoerceCat
+  , EqCat, OrdCat, MinMaxCat, EnumCat, BottomCat, IfCat, IfT, UnknownCat, RepCat, CoerceCat
   , repIf
   -- , Arr, ArrayCat
   , TransitiveCon(..)
@@ -169,6 +169,9 @@ Op0(lessThan,OrdCat k a => Prod k a a `k` BoolOf k)
 Op0(greaterThan,OrdCat k a => Prod k a a `k` BoolOf k)
 Op0(lessThanOrEqual,OrdCat k a => Prod k a a `k` BoolOf k)
 Op0(greaterThanOrEqual,OrdCat k a => Prod k a a `k` BoolOf k)
+
+Op0(minC, MinMaxCat k a => Prod k a a `k` a)
+Op0(maxC, MinMaxCat k a => Prod k a a `k` a)
 
 Op0(succC,EnumCat k a => a `k` a)
 Op0(predC,EnumCat k a => a `k` a)
@@ -466,6 +469,9 @@ unCcc f = unCcc' (conceal f)
 
 -- "constFun 3" forall x. apply . (curry (const x) &&& id) = const x
 
+-- "apply . (curry f . exl &&& exr)" forall f .
+--   apply . (curry f . exl &&& exr) = f
+
 "second h . (f &&& g)" forall h f g. second h . (f &&& g) = f &&& h . g
 
 #if 0
@@ -663,6 +669,8 @@ Op0(pointC, (PointedCat k h, Ok k a)        => a `k` h a)
 Op0(sumC  , (SumCat k h    , Ok k a, Num a) => h a `k` a)
 
 Catify(fmap , fmapC)
+-- Catify(fmap , fmapIdT)  -- experiment
+
 Catify(unzip, unzipC)
 Catify(zip  , curry zipC)
 Catify(point, pointC)
@@ -709,8 +717,6 @@ Catify(zap, curry zapC)
 -- in categorical generality? Maybe define only for functions, but still using
 -- the categorical building blocks. Later extend to other categories by
 -- translation, at which point the Ok constraints will be checked anyway.
-
--- TODO: Try merging Catify into Op0: Op0 (fmapC,fmap,...).
 
 fmapId :: forall k h a. (Category k, FunctorCat k h, Ok k a) => h a `k` h a
 fmapId = id <+ okFunctor @k @h @a
@@ -930,6 +936,15 @@ fmapT :: Functor h => (a -> b -> c) -> (a -> h b -> h c)
 fmapT f = curry (fmap (uncurry f) . strength)
 {-# INLINE fmapT #-}
 
+#if 0
+                     f              :: a -> b -> c
+             uncurry f              :: a :* b -> c
+       fmap (uncurry f)             :: h (a :* b) -> h c
+                          strength  :: a :* h b -> h (a :* b)
+       fmap (uncurry f) . strength  :: a :* h b -> h c
+curry (fmap (uncurry f) . strength) :: a -> h b -> h c
+#endif
+
 -- Categorical version
 fmapTC :: forall k h a b c.
           (ClosedCat k, FunctorCat k h, Strong k h, Ok3 k a b c)
@@ -940,6 +955,27 @@ fmapTC f = curry (fmapC (uncurry f) . strength)
            <+ okProd    @k @a @b
            <+ okFunctor @k @h @b
            <+ okFunctor @k @h @c
+
+-- Still simpler, restricting to fmapT id
+fmapIdT :: Functor h => (b -> c) -> (h b -> h c)
+fmapIdT = curry (fmapC apply . strength)
+-- fmapIdT = fmapT id
+{-# INLINE fmapIdT #-}
+
+-- Categorical version
+fmapIdTC :: forall k h b c . (ClosedCat k, Strong k h, FunctorCat k h, Ok2 k b c)
+         => (b -> c) `k` (h b -> h c)
+fmapIdTC = curry (fmapC apply . strength)
+             <+ okFunctor @k @h @((b -> c) :* b)
+             <+ okProd    @k @(h (b -> c)) @b
+             <+ okFunctor @k @h @(b -> c)
+             <+ okProd    @k @(b -> c) @(h b)
+             <+ okFunctor @k @h @b
+             <+ okFunctor @k @h @c
+             <+ okProd    @k @(b -> c) @b
+             <+ okExp     @k @b @c
+-- fmapIdTC = fmapTC id
+{-# INLINE fmapIdTC #-}
 
 -- I could use this simpler style to simplify the plugin, e.g.,
 
