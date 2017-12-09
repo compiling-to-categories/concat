@@ -372,10 +372,10 @@ Catify((P.+++) @(->),(+++))
 Catify(P.left,left)
 Catify(P.right,right)
 
+#endif
+
 CatifyP(curry)
 CatifyP(uncurry)
-
-#endif
 
 Catify(swap,swapP)
 
@@ -394,6 +394,9 @@ CatifyC((<),lessThan)
 CatifyC((>),greaterThan)
 CatifyC((<=),lessThanOrEqual)
 CatifyC((>=),greaterThanOrEqual)
+
+CatifyC(min,minC)
+CatifyC(max,maxC)
 
 Catify(succ,succC)
 Catify(pred,predC)
