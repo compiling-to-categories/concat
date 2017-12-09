@@ -80,6 +80,7 @@ runTcM :: HscEnv -> DynFlags -> ModGuts -> TcM a -> IO a
 runTcM env0 dflags guts m = do
     -- Remove hidden modules from dep_orphans
     orphans <- filterM (moduleIsOkay env0) (moduleName <$> dep_orphs (mg_deps guts))
+    -- pprTrace' "runTcM orphans" (ppr orphans) (return ())
     (msgs, mr) <- runTcInteractive (env orphans) m
     let showMsgs (warns, errs) = showSDoc dflags $ vcat $
               text "Errors:"   : pprErrMsgBagWithLoc errs
@@ -87,17 +88,10 @@ runTcM env0 dflags guts m = do
     maybe (fail $ showMsgs msgs) return mr
  where
    imports0 = ic_imports (hsc_IC env0)
-   -- imports0 shows up empty for my uses. Add GHC.Float and ConCat.Orphans for
-   -- orphans, plus GHC.Generics for its newtypes (Coercible).
-   -- TODO: find a better way.
-   -- Hack: these ones lead to "Failed to load interface for ..."
-                      -- mkModuleName <$> ["GHC.Float"","GHC.Exts","ConCat.Orphans","ConCat.AD"]
-                      -- map moduleName (dep_orphs (mg_deps guts))
    env :: [ModuleName] -> HscEnv
    env extraModuleNames = 
      -- pprTrace' "runTcM extraModuleNames" (ppr extraModuleNames) $
      -- pprTrace' "runTcM dep_mods" (ppr (dep_mods (mg_deps guts))) $
-     -- pprTrace' "runTcM orphans" (ppr orphans) $
      -- pprTrace' "runTcM dep_orphs" (ppr (dep_orphs (mg_deps guts))) $
      -- pprTrace' "runTcM dep_finsts" (ppr (dep_finsts (mg_deps guts))) $
      -- pprTrace' "runTcM mg_insts" (ppr (mg_insts guts)) $
