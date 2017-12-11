@@ -1,5 +1,7 @@
 # To do
 
+
+*   Add a plugin flag for showing the Core resulting of the plugin's pass.
 *   Define utility functions to do most of the work of various plugin transformations, including application, abstraction, pairing, etc.
 *   Experiment with `-fexpose-all-unfoldings` as an alternative to explicit `INLINE` declarations.
     Also consider `INLINABLE`.
