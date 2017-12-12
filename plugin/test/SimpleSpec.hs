@@ -70,7 +70,7 @@ spec = describe "free syntactic ccc" $ do
 
   -- -- fails to compile: "panic! lam Case of boxer: bare unboxed var"
   -- it "twice" $
-  --   toCcc (double @Float)
+  --   toCcc (\(x :: Float) -> x + x)
   --     `shouldBe`
   --       CComp CAdd (CId `CPAnd` CId)
 
