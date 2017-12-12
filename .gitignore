@@ -7,3 +7,5 @@
 *.o
 *.pdf
 o[1-9]*
+tags
+TAGS
