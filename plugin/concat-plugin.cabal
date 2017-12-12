@@ -49,8 +49,11 @@ test-suite tests
                      , hspec
                      , ghc-prim >= 0.5.0.0
   other-modules:   SimpleSpec
+                 , Types
   ghc-options:      -O2
                     -fplugin=ConCat.Plugin
+                    -Wall
+                    -Werror
 
 -- Do I want to depend on integer-gmp? Maybe conditionally depend on integer-gmp
 -- or integer-simple.
