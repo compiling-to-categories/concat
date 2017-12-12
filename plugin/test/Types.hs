@@ -12,7 +12,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 ----------------------------------------------------------------------------
 -- | The free category construction over all of the relevant concat classes.
 data FreeSyn a b where
-  CId    :: FreeSyn a b
+  CId    :: FreeSyn a a
   CComp  :: FreeSyn b c -> FreeSyn a b -> FreeSyn a c
   CTerm  :: FreeSyn a ()
   CExl   :: FreeSyn (a, b) a
