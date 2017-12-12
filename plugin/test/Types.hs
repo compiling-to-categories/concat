@@ -9,7 +9,8 @@ import           Data.Typeable
 import           Unsafe.Coerce (unsafeCoerce)
 
 
------------------------------------------------------------------------------- | The free category construction over all of the relevant concat classes.
+----------------------------------------------------------------------------
+-- | The free category construction over all of the relevant concat classes.
 data FreeSyn a b where
   CId    :: FreeSyn a b
   CComp  :: FreeSyn b c -> FreeSyn a b -> FreeSyn a c
