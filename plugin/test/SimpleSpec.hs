@@ -8,6 +8,7 @@ module SimpleSpec where
 import ConCat.AltCat (toCcc)
 import Test.Hspec
 import Types
+-- import ConCat.Rebox ()
 
 
 spec :: Spec
@@ -23,13 +24,6 @@ spec = describe "free syntactic ccc" $ do
     toCcc (const True)
       `shouldNotBe`
         CConst False
-
-  -- fails: "(const False)"
-  -- NOTE(sandy): this is caused by GHC simplifying
-  it "compose consts (not simplified)" $
-    toCcc (\x -> const False (const True x))
-      `shouldBe`
-        CComp (CConst False) (CConst True)
 
   it "compose consts (simplified)" $
     toCcc (\x -> const False (const True x))
@@ -68,9 +62,8 @@ spec = describe "free syntactic ccc" $ do
       `shouldBe`
         CInr
 
-  -- -- fails to compile: "panic! lam Case of boxer: bare unboxed var"
-  -- it "twice" $
-  --   toCcc (\(x :: Float) -> x + x)
-  --     `shouldBe`
-  --       CComp CAdd (CId `CPAnd` CId)
+  it "twice" $
+    toCcc (\(x :: Float) -> x + x)
+      `shouldBe`
+        CComp CAdd (CId `CPAnd` CId)
 

@@ -28,6 +28,8 @@ data FreeSyn a b where
   CInr   :: FreeSyn b (Either a b)
   CCOr   :: FreeSyn a c -> FreeSyn b c -> FreeSyn (Either a b) c
   CConst :: (Show b, Eq b, Typeable b) => b -> FreeSyn a b
+  CDistl :: FreeSyn (a, Either u v) (Either (a, u) (a, v))
+
 
 
 instance Show (FreeSyn a b) where
@@ -47,6 +49,7 @@ instance Show (FreeSyn a b) where
   show CInr        = "inr"
   show (CCOr a b)  = "(or " ++ show a ++ " " ++ show b ++ ")"
   show (CConst a)  = "(const " ++ show a ++ ")"
+  show CDistl      = "distl"
 
 
 instance Eq (FreeSyn a b) where
@@ -70,6 +73,7 @@ instance Eq (FreeSyn a b) where
   CInr      == CInr = True
   CCOr a b  == CCOr c d = a == c && b == d
   CConst a  == CConst b = cast a == Just b
+  CDistl    == CDistl = True
   _         == _ = False
 
 
@@ -125,3 +129,6 @@ instance (Show a, Eq a, Typeable a) => CC.ConstCat FreeSyn a where
   const = CConst
   {-# INLINE const #-}
 
+instance CC.DistribCat FreeSyn where
+  distl = CDistl
+  {-# INLINE distl #-}
