@@ -8,7 +8,7 @@ module SimpleSpec where
 import ConCat.AltCat (toCcc)
 import Test.Hspec
 import Types
--- import ConCat.Rebox ()
+import ConCat.Rebox ()
 
 
 spec :: Spec
