@@ -232,13 +232,11 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        case rest of
          []    -> -- (,) == curry id
                   -- Do we still need this case, or is it handled by catFun?
-                  dtrace "Doing" (text ("lam Plain (,)")) id $
-                  -- return (mkCurry cat (mkId cat (pairTy a b)))
+                  Doing("lam Plain (,)")
                   mkCurry' cat (mkId cat (pairTy a b))
          [_]   -> Doing("lam Pair eta-expand")
                   goLam x (etaExpand 1 body)
          [u,v] -> Doing("lam Pair")
-                  -- dtrace "Pair test" (pprWithType u <> comma <+> pprWithType v) $
                   return (mkFork cat (mkCcc (Lam x u)) (mkCcc (Lam x v)))
          _     -> pprPanic "goLam Pair: too many arguments: " (ppr rest)
 
@@ -257,7 +255,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
 
      -- TODO: refactor with top Let
      _e@(Let bind@(NonRec v rhs) body') ->
-       -- dtrace "lam Let subst criteria" (ppr (substFriendly (isClosed cat) rhs, not xInRhs, idOccs True v body')) $
        if not (isClosed cat) || -- experiment
           substFriendly (isClosed cat) rhs || not xInRhs || idOccs True v body' <= 1 then
          -- TODO: decide whether to float or substitute.
@@ -367,10 +364,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
                   [xty,varType a,varType b,_rhsTy]
                   [Lam x scrut, mkLams [x,a,b] rhs]
 
-     --
-     -- Case (Cast scrut (setNominalRole_maybe -> Just co')) v altsTy alts
-     --   -> Doing("lam Case cast")
-     --
      Case scrut v altsTy alts
        | Just scrut' <- unfoldMaybe' scrut
        -> Doing("lam Case unfold")
@@ -411,12 +404,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      -- function depends on x, and the extra complexity is warranted.
      _e@(collectArgs -> (Var v, [_arrow,Type h,Type b,Type c,_dict,_ok,f])) | v == fmapV ->
         Doing("lam fmap")
-        -- pprTrace "fmapT type" (ppr (varType fmapTV)) $
-        -- pprTrace "lam fmap arg" (ppr _e) $
-        -- pprTrace "lam fmap pieces" (ppr (h,b,c,f)) $
         let e' = mkCcc (onDict (varApps fmapTV [h,xty,b,c] []) `App` Lam x f) in
-          -- pprTrace "fmap constructed expression" (ppr e') $
-          -- pprPanic "lam fmap bailing" empty
           return e'
 
      -- (\ x -> U V) --> U . (\ x -> V) if x not free in U
