@@ -72,6 +72,13 @@ spec = describe "free syntactic ccc" $ do
       `shouldBe`
         CInr
 
+  it "choose" $ toCcc
+    (\z ->
+      case z of
+        Right (y :: Int) -> y + y
+        Left  x          -> x
+    ) `shouldBe` CCOr CId (CComp CAdd (CId `CPAnd` CId))
+
   it "twice" $
     toCcc (\(x :: Float) -> x + x)
       `shouldBe`

@@ -58,6 +58,7 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , idV              :: Id
                      , constV           :: Id
                      , forkV            :: Id
+                     , chooseV          :: Id
                      , applyV           :: Id
                      , composeV         :: Id
                      , curryV           :: Id
@@ -329,6 +330,18 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        Doing("lam Case to let")
        return (mkCcc (Lam x (Let (NonRec v scrut) rhs)))
 
+     e@(Case _scrut wild _rhsTy [(DataAlt left, [scrutL], rhsL),(DataAlt right, [scrutR], rhsR)])
+         | dataConName left == leftDataConName
+         , dataConName right == rightDataConName ->
+       -- To start, require v to be unused. Later, extend.
+       if not (isDeadBinder wild) && wild `isFreeIns` [rhsL,rhsR] then
+            pprPanic "lam Case of Either: live wild var (not yet handled)" (ppr e)
+       else
+          Doing("lam Case of Either")
+          Just . mkChoose cat (mkCcc $ Lam scrutL rhsL)
+               . mkCcc
+               $ Lam scrutR rhsR
+
      e@(Case scrut wild rhsTy [(DataAlt false, [], rhsF),(DataAlt true, [], rhsT)])
          | false == falseDataCon && true == trueDataCon ->
        -- To start, require v to be unused. Later, extend.
@@ -500,6 +513,7 @@ data Ops = Ops
  , mkEx           :: Cat -> Var -> Unop CoreExpr
  , mkFork         :: Cat -> Binop CoreExpr
  , mkFork'        :: Cat -> ReExpr2 -- experiment
+ , mkChoose       :: Cat -> Binop CoreExpr
  , mkApplyMaybe   :: Cat -> Type -> Type -> Maybe CoreExpr
  , isClosed       :: Cat -> Bool
  , mkCurry        :: Cat -> Unop CoreExpr
@@ -696,6 +710,16 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
     where
       (a,c) = tyArgs2 (exprType f)
       (_,d) = tyArgs2 (exprType g)
+
+   mkChoose :: Cat -> Binop CoreExpr
+   mkChoose k f g =
+     -- (|||) :: forall {k :: * -> * -> *} {a} {c} {d}.
+     --          (ProductCat k, Ok k d, Ok k c, Ok k a)
+     --       => k a c -> k a d -> k a (Prod k c d)
+     onDict (catOp k chooseV [c,d,a]) `mkCoreApps` [f,g]
+    where
+      (c,a) = tyArgs2 (exprType f)
+      (d,_) = tyArgs2 (exprType g)
 
    mkApplyMaybe :: Cat -> Type -> Type -> Maybe CoreExpr
    mkApplyMaybe k a b =
@@ -1076,6 +1100,7 @@ mkCccEnv opts = do
   inlV        <- findCatId "inl"
   inrV        <- findCatId "inr"
   forkV       <- findCatId "&&&"
+  chooseV     <- findCatId "|||"
   applyV      <- findCatId "apply"
   curryV      <- findCatId "curry"
   uncurryV    <- findCatId "uncurry"
