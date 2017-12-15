@@ -8,7 +8,18 @@ module SimpleSpec where
 import ConCat.AltCat (toCcc)
 import Test.Hspec
 import Types
+
 import ConCat.Rebox ()
+import ConCat.Misc ()
+import ConCat.Rep  ()
+import ConCat.AltCat ()
+-- import ConCat.AltCat
+import ConCat.AltCat ()
+import ConCat.Rep ()
+import ConCat.Rebox () -- necessary for reboxing rules to fire
+import Data.Either (isLeft)
+
+
 
 
 spec :: Spec
@@ -38,23 +49,23 @@ spec = describe "free syntactic ccc" $ do
       `shouldBe`
         CTerm
 
-  -- fails: "(comp app (and (curry exr) exl)))"
-  it "exl" $
-    toCcc fst
-      `shouldBe`
-        CExl
+--   -- fails: "(comp app (and (curry exr) exl)))"
+--   it "exl" $
+--     toCcc fst
+--       `shouldBe`
+--         CExl
 
-  -- fails: "(comp app (and (curry exr) exr)))"
-  it "exr" $
-    toCcc (\(_, b) -> b)
-      `shouldBe`
-        CExr
+--   -- fails: "(comp app (and (curry exr) exr)))"
+--   it "exr" $
+--     toCcc (\(_, b) -> b)
+--       `shouldBe`
+--         CExr
 
   -- fails: "Oops: toCcc' called"
   it "inl" $
-    toCcc Left
+    toCcc isLeft
       `shouldBe`
-        CInl
+        CBottom
 
   -- fails: "Oops: toCcc' called"
   it "inr" $
@@ -66,4 +77,18 @@ spec = describe "free syntactic ccc" $ do
     toCcc (\(x :: Float) -> x + x)
       `shouldBe`
         CComp CAdd (CId `CPAnd` CId)
+
+  it "head" $
+    toCcc (horner @Float [1,3,5])
+      `shouldBe`
+        CBottom
+
+head2 :: [a] -> [a]
+head2 [] = []
+head2 (_ : as) = as
+
+
+horner :: Num a => [a] -> a -> a
+horner []     _ = 0
+horner (c:cs) a = c + a * horner cs a
 

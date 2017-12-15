@@ -12,23 +12,30 @@ import           Unsafe.Coerce (unsafeCoerce)
 ----------------------------------------------------------------------------
 -- | The free category construction over all of the relevant concat classes.
 data FreeSyn a b where
-  CId    :: FreeSyn a a
-  CComp  :: FreeSyn b c -> FreeSyn a b -> FreeSyn a c
-  CTerm  :: FreeSyn a ()
-  CExl   :: FreeSyn (a, b) a
-  CExr   :: FreeSyn (a, b) b
-  CPAnd  :: FreeSyn a b -> FreeSyn a c -> FreeSyn a (b, c)
-  CCurry :: FreeSyn (a, b) c -> FreeSyn a (b -> c)
-  CApply :: FreeSyn (a -> b, a) b
-  CMul   :: FreeSyn (a, a) a
-  CAdd   :: FreeSyn (a, a) a
-  CPow   :: FreeSyn (a, Int) a
-  CNeg   :: FreeSyn a a
-  CInl   :: FreeSyn a (Either a b)
-  CInr   :: FreeSyn b (Either a b)
-  CCOr   :: FreeSyn a c -> FreeSyn b c -> FreeSyn (Either a b) c
-  CConst :: (Show b, Eq b, Typeable b) => b -> FreeSyn a b
-  CDistl :: FreeSyn (a, Either u v) (Either (a, u) (a, v))
+  CId     :: FreeSyn a a
+  CComp   :: FreeSyn b c -> FreeSyn a b -> FreeSyn a c
+  CTerm   :: FreeSyn a ()
+  CExl    :: FreeSyn (a, b) a
+  CExr    :: FreeSyn (a, b) b
+  CPAnd   :: FreeSyn a b -> FreeSyn a c -> FreeSyn a (b, c)
+  CCurry  :: FreeSyn (a, b) c -> FreeSyn a (b -> c)
+  CApply  :: FreeSyn (a -> b, a) b
+  CMul    :: FreeSyn (a, a) a
+  CAdd    :: FreeSyn (a, a) a
+  CPow    :: FreeSyn (a, Int) a
+  CNeg    :: FreeSyn a a
+  CInl    :: FreeSyn a (Either a b)
+  CInr    :: FreeSyn b (Either a b)
+  CCOr    :: FreeSyn a c -> FreeSyn b c -> FreeSyn (Either a b) c
+  CConst  :: (Show b, Eq b, Typeable b) => b -> FreeSyn a b
+  CDistl  :: FreeSyn (a, Either u v) (Either (a, u) (a, v))
+  CBottom :: FreeSyn a b
+  CNot    :: FreeSyn Bool Bool
+  CAnd    :: FreeSyn (Bool, Bool) Bool
+  COr     :: FreeSyn (Bool, Bool) Bool
+  CXor    :: FreeSyn (Bool, Bool) Bool
+  CEq     :: FreeSyn (a, a) Bool
+  CCoerce :: FreeSyn a b
 
 
 
@@ -38,7 +45,7 @@ instance Show (FreeSyn a b) where
   show CTerm       = "unit"
   show CExl        = "exl"
   show CExr        = "exr"
-  show (CPAnd a b) = "(and " ++ show a ++ " " ++ show b ++ ")"
+  show (CPAnd a b) = "(" ++ show a ++ " &&& " ++ show b ++ ")"
   show (CCurry a)  = "(curry " ++ show a ++ ")"
   show CApply      = "app"
   show CMul        = "mul"
@@ -47,9 +54,16 @@ instance Show (FreeSyn a b) where
   show CNeg        = "neg"
   show CInl        = "inl"
   show CInr        = "inr"
-  show (CCOr a b)  = "(or " ++ show a ++ " " ++ show b ++ ")"
+  show (CCOr a b)  = "(" ++ show a ++ " ||| " ++ show b ++ ")"
   show (CConst a)  = "(const " ++ show a ++ ")"
   show CDistl      = "distl"
+  show CBottom     = "bottom"
+  show CNot        = "not"
+  show CAnd        = "and"
+  show COr         = "or"
+  show CXor        = "xor"
+  show CEq         = "eq"
+  show CCoerce     = "coerce"
 
 
 instance Eq (FreeSyn a b) where
@@ -60,21 +74,28 @@ instance Eq (FreeSyn a b) where
     and [ unsafeCoerce a == c
         , unsafeCoerce b == d
         ]
-  CTerm     == CTerm = True
-  CExl      == CExl = True
-  CExr      == CExr = True
+  CTerm     == CTerm     = True
+  CExl      == CExl      = True
+  CExr      == CExr      = True
   CPAnd a b == CPAnd c d = a == c && b == d
-  CCurry a  == CCurry b = a == b
-  CMul      == CMul = True
-  CAdd      == CAdd = True
-  CPow      == CPow = True
-  CNeg      == CNeg = True
-  CInl      == CInl = True
-  CInr      == CInr = True
-  CCOr a b  == CCOr c d = a == c && b == d
-  CConst a  == CConst b = cast a == Just b
-  CDistl    == CDistl = True
-  _         == _ = False
+  CCurry a  == CCurry b  = a == b
+  CMul      == CMul      = True
+  CAdd      == CAdd      = True
+  CPow      == CPow      = True
+  CNeg      == CNeg      = True
+  CInl      == CInl      = True
+  CInr      == CInr      = True
+  CCOr a b  == CCOr c d  = a == c && b == d
+  CConst a  == CConst b  = cast a == Just b
+  CDistl    == CDistl    = True
+  CBottom   == CBottom   = True
+  CNot      == CNot      = True
+  CAnd      == CAnd      = True
+  COr       == COr       = True
+  CXor      == CXor      = True
+  CEq       == CEq       = True
+  CCoerce   == CCoerce   = True
+  _         == _         = False
 
 
 instance CC.Category FreeSyn where
@@ -129,6 +150,31 @@ instance (Show a, Eq a, Typeable a) => CC.ConstCat FreeSyn a where
   const = CConst
   {-# INLINE const #-}
 
+
 instance CC.DistribCat FreeSyn where
   distl = CDistl
   {-# INLINE distl #-}
+
+
+instance CC.BottomCat FreeSyn a b where
+  bottomC = CBottom
+
+
+instance CC.UnknownCat FreeSyn a b where
+  unknownC = CBottom
+
+
+instance CC.BoolCat FreeSyn where
+  notC = CNot
+  andC = CAnd
+  orC = COr
+  xorC = CXor
+
+
+instance Eq a => CC.EqCat FreeSyn a where
+  equal = CEq
+
+
+instance CC.CoerceCat FreeSyn a b where
+  coerceC = CCoerce
+
