@@ -11,29 +11,24 @@
 {-# LANGUAGE MultiWayIf #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
 -- | GHC plugin converting to CCC form.
 
 module ConCat.Plugin (plugin) where
 
 import Data.Monoid (Any(..))
-import Control.Arrow (first,second,(***))
+import Control.Arrow (first)
 import Control.Applicative (liftA2,(<|>))
-import Control.Monad (unless,when,guard,(<=<))
+import Control.Monad (when)
 import Data.Foldable (toList)
-import Data.Maybe (isNothing,isJust,fromMaybe,catMaybes,listToMaybe)
-import Data.List (isPrefixOf,isSuffixOf,elemIndex,sort,stripPrefix)
-import Data.Char (toLower)
+import Data.Maybe (isJust,fromMaybe,catMaybes,listToMaybe)
+import Data.List (elemIndex,stripPrefix)
 import Data.Data (Data)
-import Data.Generics (GenericQ,GenericM,gmapM,mkQ,mkT,mkM,everything,everywhere',everywhereM)
+import Data.Generics (GenericQ,mkQ,mkT,mkM,everything,everywhere',everywhereM)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
-import Data.Set (Set)
-import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Text.Printf (printf)
 import System.IO.Unsafe (unsafePerformIO)
 import Data.IORef
 
@@ -42,11 +37,9 @@ import Class (classAllSelIds)
 import CoreArity (etaExpand)
 import CoreLint (lintExpr)
 import DynamicLoading
-import MkId (mkDictSelRhs,coerceId)
-import Pair (Pair(..))
-import PrelNames (leftDataConName,rightDataConName)
-import Type (coreView)
-import TcType (isIntTy,isIntegerTy,tcSplitTyConApp_maybe)
+import MkId (mkDictSelRhs)
+-- import PrelNames (leftDataConName,rightDataConName)
+import TcType (isIntegerTy,tcSplitTyConApp_maybe)
 import TysPrim (intPrimTyCon)
 import FamInstEnv (normaliseType)
 import TyCoRep                          -- TODO: explicit imports
@@ -54,9 +47,8 @@ import Unique (mkBuiltinUnique)
 -- For normaliseType etc
 import FamInstEnv
 
-import ConCat.Misc (Unop,Binop,Ternop,PseudoFun(..),(~>))
+import ConCat.Misc (Unop,Binop,Ternop,PseudoFun(..))
 import ConCat.BuildDictionary
--- import ConCat.Simplify
 
 -- Information needed for reification. We construct this info in
 -- CoreM and use it in the ccc rule, which must be pure.
