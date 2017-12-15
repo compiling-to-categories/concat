@@ -38,7 +38,7 @@ import CoreArity (etaExpand)
 import CoreLint (lintExpr)
 import DynamicLoading
 import MkId (mkDictSelRhs)
--- import PrelNames (leftDataConName,rightDataConName)
+import PrelNames (leftDataConName, rightDataConName)
 import TcType (isIntegerTy,tcSplitTyConApp_maybe)
 import TysPrim (intPrimTyCon)
 import FamInstEnv (normaliseType)
@@ -65,6 +65,8 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , ifV              :: Id
                      , exlV             :: Id
                      , exrV             :: Id
+                     , inlV             :: Id
+                     , inrV             :: Id
                      , constFunV        :: Id
                      , fmapV            :: Id
                      , fmapTV           :: Id
@@ -108,6 +110,12 @@ ccc (CccEnv {..}) (Ops {..}) cat =
  where
    go :: ReExpr
    go = \ case
+     (collectTyArgs -> (Var x, tys))
+       | fqVarName x == qualifiedName leftDataConName
+          -> Just $ catOp cat inlV tys
+       | fqVarName x == qualifiedName rightDataConName
+          -> Just $ catOp cat inrV tys
+
      e | dtrace ("go ccc "++pp cat++":") (pprWithType e) False -> undefined
      -- Sanity check: ccc should only take functions.
      e@(exprType -> isFunTy -> False) ->
@@ -1065,6 +1073,8 @@ mkCccEnv opts = do
   composeV    <- findCatId "."
   exlV        <- findCatId "exl"
   exrV        <- findCatId "exr"
+  inlV        <- findCatId "inl"
+  inrV        <- findCatId "inr"
   forkV       <- findCatId "&&&"
   applyV      <- findCatId "apply"
   curryV      <- findCatId "curry"
@@ -1327,3 +1337,9 @@ unsafeLimit (Just r) = \ a -> unsafePerformIO $
        do writeIORef r (n-1)
           return a
 {-# NOINLINE unsafeLimit #-}
+
+collectTyArgs :: CoreExpr -> (CoreExpr,[Type])
+collectTyArgs = go []
+ where
+   go tys (App e (Type ty)) = go (ty:tys) e
+   go tys e                 = (e,tys)

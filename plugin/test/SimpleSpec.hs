@@ -17,7 +17,6 @@ import ConCat.AltCat ()
 import ConCat.AltCat ()
 import ConCat.Rep ()
 import ConCat.Rebox () -- necessary for reboxing rules to fire
-import Data.Either (isLeft)
 
 
 
@@ -63,9 +62,9 @@ spec = describe "free syntactic ccc" $ do
 
   -- fails: "Oops: toCcc' called"
   it "inl" $
-    toCcc isLeft
+    toCcc Left
       `shouldBe`
-        CBottom
+        CInl
 
   -- fails: "Oops: toCcc' called"
   it "inr" $
