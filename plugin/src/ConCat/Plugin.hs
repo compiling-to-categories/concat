@@ -84,21 +84,13 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , coerceV          :: Id
                      , bottomCV         :: Id
                      , repTc            :: TyCon
-                  -- , hasRepMeth       :: HasRepMeth
-                     -- , hasRepFromAbstCo :: Coercion   -> CoreExpr
                      , prePostV         :: Id
-                  -- , lazyV            :: Id
                      , boxers           :: Map TyCon Id  -- to remove
                      , tagToEnumV       :: Id
                      , bottomV          :: Id
                      , boxIBV           :: Id
                      , ifEqIntHash      :: Id
-                  -- , reboxV           :: Id
                      , inlineV          :: Id
-                  -- , coercibleTc      :: TyCon
-                  -- , coerceV          :: Id
-                  -- , polyOps          :: PolyOpsMap
-                  -- , monoOps          :: MonoOpsMap
                      , hsc_env          :: HscEnv
                      , ruleBase         :: RuleBase  -- to remove
                      }
@@ -143,28 +135,23 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      (reCat -> Just e') ->
        dtrace "Doing" (text ("top reCat")) id $
        Just e'
-# 195 "Plugin.hs"
 
      (isPseudoApp -> True) ->
        dtrace "Doing" (text ("top Avoid pseudo-app")) id $
        Nothing
-# 207 "Plugin.hs"
+
      -- ccc-of-case. Maybe restrict to isTyCoDictArg for all bound variables, but
      -- perhaps I don't need to.
-
      Case scrut wild rhsTy alts
        | Just scrut' <- unfoldMaybe scrut
        -> dtrace "Doing" (text ("top Case unfold")) id $  --  of dictionary
           return $ mkCcc (Case scrut' wild rhsTy alts)
           -- TODO: also for lam?
 
-
      Case scrut wild rhsTy alts ->
        dtrace "Doing" (text ("top Case")) id $
        -- TODO: take care about orphaning regular variables
        return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
-
-
 
      Cast e co@( -- dtrace "top nominal cast co" (pprCoWithType co {-<+> (ppr (setNominalRole_maybe co))-}) id
                 setNominalRole_maybe -> Just (reCatCo -> Just co')) ->
@@ -176,9 +163,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -- I think GHC is undoing this transformation, so continue eagerly
        -- (`Cast` co') <$> go e
 
-
-
-# 252 "Plugin.hs"
      e@(Cast e' (coercionRole -> Representational))
        | FunTy a  b  <- exprType e
        , FunTy a' b' <- exprType e'
@@ -188,7 +172,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           return $ mkCompose cat (mkCoerceC cat b' b) $
                    mkCompose cat (mkCcc e') $
                    mkCoerceC cat a a'
-# 322 "Plugin.hs"
 
      -- Constructor application
      e@(collectArgs -> (Var (isDataConId_maybe -> Just dc),_))
@@ -202,12 +185,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
            mkLams binds $
             abst `App` (inlineE repr `App` body)
 
-
-
-
-
-
-
      e@(App u v)
        | liftedExpr v
        , Just v' <- mkConst' cat dom v
@@ -217,22 +194,18 @@ ccc (CccEnv {..}) (Ops {..}) cat =
       where
         Just (dom,_) = splitFunTy_maybe (exprType e)
 
-
      e@(exprHead -> Just _v)
        | -- Temp hack: avoid unfold/case-of-product loop.
          Just e' <- unfoldMaybe e
        -> dtrace "Doing" (text ("top unfold")) id $
           return (mkCcc e')
-# 379 "Plugin.hs"
+
      Tick t e -> dtrace "Doing" (text ("top tick")) id $
                  return $ Tick t (mkCcc e)
      _e -> dtrace "Doing" (text ("top Unhandled")) id $
            Nothing
 
-
-
    goLam x body = case body of
-
      Var y | x == y -> dtrace "Doing" (text ("lam Id")) id $
                        return (mkId cat xty)
 
@@ -249,11 +222,9 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -> dtrace "Doing" (text ("lam mkConst'")) id $
        return body'
 
-
      (isPseudoApp -> True) ->
          dtrace "Doing" (text ("lam Avoid pseudo-app")) id $
          Nothing
-
 
      (collectArgs -> (PairVar,(Type a : Type b : rest))) ->
        case rest of
@@ -281,7 +252,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -> dtrace "Doing" (text ("lam abstReprCon")) id $
           return $ mkCcc $ Lam x $
             mkLams binds $ abst `App` (inlineE repr `App` body')
-
 
      -- TODO: refactor with top Let
      _e@(Let bind@(NonRec v rhs) body') ->
@@ -330,7 +300,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
         zName = uqVarName x ++ "_" ++ uqVarName y
         sub = [(x,mkEx funCat exlV (Var z)),(y,mkEx funCat exrV (Var z))]
         -- TODO: consider using fst & snd instead of exl and exr here
-
 
      e@(Case scrut wild _ty [(_dc,[unboxedV],rhs)])
        | Just (tc,[]) <- splitTyConApp_maybe (varType wild)
@@ -415,7 +384,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        in
          return (mkCcc (Cast (Lam x body') (FunCo r (mkReflCo r xty) co'')))
 
-# 634 "Plugin.hs"
      e@(Cast e' _) ->
        dtrace "Doing" (text ("lam representational cast")) id $
        -- Will I get unnecessary coerceCs due to nominal-able sub-coercions?
@@ -423,7 +391,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -- rename mkCoerceC.
        return $ mkCompose cat (mkCoerceC cat (exprType e') (exprType e)) $
                 mkCcc (Lam x e')
-
 
      -- Does unfolding suffice as an alternative? Not quite, since lambda-bound
      -- variables can appear as scrutinees. Maybe we could eliminate that
@@ -437,9 +404,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -> dtrace "Doing" (text ("lam abstReprCase")) id $
           return $ mkCcc $ Lam x $
            Case (inlineE abst `App` (repr `App` scrut)) v altsTy alts
-# 665 "Plugin.hs"
-
-
 
      -- This rule goes after lam App compose, so we know that the fmap'd
      -- function depends on x, and the extra complexity is warranted.
@@ -453,16 +417,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           -- pprPanic "lam fmap bailing" empty
           return e'
 
-
-
      -- (\ x -> U V) --> U . (\ x -> V) if x not free in U
-
-
-
-
-
-
-
      u `App` v | liftedExpr v
                , not (x `isFreeIn` u)
                -> case mkCompose' cat (mkCcc u) (mkCcc (Lam x v)) of
@@ -473,15 +428,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
                       dtrace "Doing" (text ("lam App compose")) id $
                       return e'
 
-
-
-
-
-
-
-
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
-# 720 "Plugin.hs"
      u `App` v | liftedExpr v
                , mbComp <- do app  <- mkApplyMaybe cat vty bty
                               fork <- mkFork' cat (mkCcc (Lam x u)) (mkCcc (Lam x v))
@@ -495,7 +442,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
                       return e'
       where
         vty = exprType v
-# 748 "Plugin.hs"
 
      e'| Just body' <- unfoldMaybe e'
        -> dtrace "Doing" (text ("lam unfold")) id $
@@ -547,7 +493,6 @@ data Ops = Ops
  , catTy          :: Unop Type
  , reCatCo        :: Rewrite Coercion
  , repTy          :: Unop Type
- -- , unfoldOkay     :: CoreExpr -> Bool
  , unfoldMaybe'   :: ReExpr
  , unfoldMaybe    :: ReExpr
  , inlineMaybe    :: Id -> Maybe CoreExpr
@@ -587,7 +532,6 @@ data Ops = Ops
  , tyArgs2        :: Type -> (Type,Type)
  , pprTrans       :: forall a b. (Outputable a, Outputable b) => String -> a -> b -> b
  , lintReExpr     :: Unop ReExpr
- -- , catFun         :: ReExpr
  , transCatOp     :: ReExpr
  , reCat          :: ReExpr
  , isPseudoApp    :: CoreExpr -> Bool
@@ -601,6 +545,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
  where
    inlineE :: Unop CoreExpr
    inlineE e = varApps inlineV [exprType e] [e]  -- move outward
+
    -- Replace boxing constructors by their boxing function synonyms (boxI etc)
    boxCon :: ReExpr
    boxCon e0 | tweaked   = -- dtrace "boxCon" (ppr (e0,e1)) $
@@ -609,6 +554,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
     where
       (Any tweaked,e1) = everywhereM (mkM tweak) e0
       success = (Any True,)
+
       tweak :: CoreExpr -> (Any,CoreExpr)
       tweak e@(App (Var con) e')
         | isDataConWorkId con
@@ -633,35 +579,25 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
       tweak e = (Any False, e)
       litAlt (LitAlt lit,[],rhs) = Just (lit,rhs)
       litAlt _ = Nothing
-   -- hrMeth :: Type -> Maybe (Id -> CoreExpr)
-   -- hrMeth ty = -- dtrace "hasRepMeth:" (ppr ty) $
-   --             hasRepMeth dflags guts inScope ty
-   -- Change categories
+
    catTy :: Unop Type
    catTy (tyArgs2 -> (a,b)) = mkAppTys cat [a,b]
+
    reCatCo :: Rewrite Coercion
-   -- reCatCo co | dtrace "reCatCo" (ppr co) False = undefined
    reCatCo (FunCo r a b) = Just (mkAppCos (mkReflCo r cat) [a,b])
    reCatCo (splitAppCo_maybe -> Just
             (splitAppCo_maybe -> Just
              (Refl r _k,a),b)) =
-     -- dtrace "reCatCo app" (ppr (r,_k,a,b)) $
      Just (mkAppCos (mkReflCo r cat) [a,b])
+
    reCatCo (co1 `TransCo` co2) = TransCo <$> reCatCo co1 <*> reCatCo co2
    reCatCo co = pprTrace "ccc reCatCo: unhandled coercion" (ppr co) $
                 Nothing
+
    -- Interpret a representational cast
    -- TODO: Try swapping argument order
    repTy :: Unop Type
    repTy t = mkTyConApp repTc [t]
-   -- coercibleTy :: Unop Type
-   -- coercibleTy t = mkTyConApp coercibleTc [t]
-
-
-
-
-
-
 
    -- Temp hack: avoid exl/exr and reprC/abstC.
    unfoldMaybe' :: ReExpr
@@ -856,19 +792,12 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    -- TODO: Remove non-maybe versions, and drop "_maybe" from names.
 
    mkReprC'_maybe :: Cat -> Type -> Maybe CoreExpr
-   mkReprC'_maybe k a =
-     -- pprTrace "mkReprC 1" (ppr (a,r)) $
-     -- pprTrace "mkReprC 2" (pprWithType (Var reprCV)) $
-     -- pprTrace "mkReprC 3" (pprMbWithType (catOpMaybe k reprCV [a,r])) $
-     catOpMaybe k reprCV [a,r]
+   mkReprC'_maybe k a = catOpMaybe k reprCV [a,r]
     where
       (_co,r) = normType Nominal (repTy a)
 
    mkAbstC'_maybe :: Cat -> Type -> Maybe CoreExpr
    mkAbstC'_maybe k a =
-     -- pprTrace "mkAbstC 1" (ppr (r,a)) $
-     -- pprTrace "mkAbstC 2" (pprWithType (Var abstCV)) $
-     -- pprTrace "mkAbstC 3" (pprMbWithType (catOpMaybe k abstCV [a,r])) $
      catOpMaybe k abstCV [a,r]
     where
       (_co,r) = normType Nominal (repTy a)
