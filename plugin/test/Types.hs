@@ -36,7 +36,7 @@ data FreeSyn a b where
   CXor    :: FreeSyn (Bool, Bool) Bool
   CEq     :: FreeSyn (a, a) Bool
   CCoerce :: FreeSyn a b
-
+  CIf     :: FreeSyn (Bool, (a, a)) a
 
 
 instance Show (FreeSyn a b) where
@@ -64,6 +64,7 @@ instance Show (FreeSyn a b) where
   show CXor        = "xor"
   show CEq         = "eq"
   show CCoerce     = "coerce"
+  show CIf         = "if"
 
 
 instance Eq (FreeSyn a b) where
@@ -79,6 +80,7 @@ instance Eq (FreeSyn a b) where
   CExr      == CExr      = True
   CPAnd a b == CPAnd c d = a == c && b == d
   CCurry a  == CCurry b  = a == b
+  CApply    == CApply    = True
   CMul      == CMul      = True
   CAdd      == CAdd      = True
   CPow      == CPow      = True
@@ -95,6 +97,7 @@ instance Eq (FreeSyn a b) where
   CXor      == CXor      = True
   CEq       == CEq       = True
   CCoerce   == CCoerce   = True
+  CIf       == CIf       = True
   _         == _         = False
 
 
@@ -177,4 +180,8 @@ instance Eq a => CC.EqCat FreeSyn a where
 
 instance CC.CoerceCat FreeSyn a b where
   coerceC = CCoerce
+
+
+instance CC.IfCat FreeSyn a where
+  ifC = CIf
 
