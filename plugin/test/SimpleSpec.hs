@@ -250,7 +250,7 @@ spec = do
       -}
       toCcc (\(a :: Float) -> a ^^ (2 :: Int))
         `shouldBe`
-          CBottom
+          CComp CPow (CId `CPAnd` CConst 2)
 
     panics "raise power" $
       {-
@@ -263,7 +263,7 @@ spec = do
       -}
       toCcc (\(a :: Float) (b :: Int) -> a ^^ b)
         `shouldBe`
-          CBottom
+          CCurry CPow
 
 
 
