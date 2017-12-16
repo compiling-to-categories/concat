@@ -144,16 +144,6 @@ spec = do
         `butCouldBeSimplifiedTo`
           CExl
 
-
-
-  describe "products" $ do
-    it "exl" $
-      toCcc fst
-        `isInFact`
-          CComp CApply (CCurry CExr `CPAnd` CExl)
-        `butCouldBeSimplifiedTo`
-          CExl
-
     it "exr" $
       toCcc (\(_, b) -> b)
         `isInFact`
