@@ -130,7 +130,8 @@ render (Syn synu) = renderStyle (Style PageMode 80 1) (prettyTree synu 0)
 -- I think I've fixed the empty-case issue via ConCat.Misc.oops. I still like
 -- the NOINLINE for keeping the generated code simple.
 
-#define INLINER(nm) {-# INLINE nm #-}
+-- #define INLINER(nm) {-# INLINE nm #-}
+#define INLINER(nm) {-# NOINLINE nm #-}
 -- #define INLINER(nm)
 
 instance Category Syn where
