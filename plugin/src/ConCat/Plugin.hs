@@ -78,6 +78,7 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , constFunV        :: Id
                      , fmapV            :: Id
                      , fmapTV           :: Id
+                     , fmapIdTV         :: Id
                      , casePairTV       :: Id
                      , casePairLTV      :: Id
                      , casePairRTV      :: Id
@@ -204,6 +205,16 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -> dtrace "top ruled var app" (text nm) $
           Nothing
 #endif
+#if 1
+     Trying("top Case hoist")
+     -- toCcc (case scrut of { p1 -> e1 ; ... })
+     --   -->  case scrut of { p1 -> toCcc e1 ; ... }
+     -- Unless we're orphaning regular (non-dict) variables.
+     Case scrut wild rhsTy alts
+       | all (isPredTy' . varType) (concatMap altVars alts)
+       -> Doing("top Case hoist")
+          return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
+#endif
      -- ccc-of-case. Maybe restrict to isTyCoDictArg for all bound variables, but
      -- perhaps I don't need to.
      Trying("top Case unfold")
@@ -214,13 +225,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -> Doing("top Case unfold")  --  of dictionary
           return $ mkCcc (Case scrut' wild rhsTy alts)
           -- TODO: also for lam?
-#if 1
-     Trying("top Case")
-     Case scrut wild rhsTy alts ->
-       Doing("top Case")
-       -- TODO: take care about orphaning regular variables
-       return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
-#endif
 #if 1
      Trying("top nominal Cast")
      Cast e co@( -- dtrace "top nominal cast co" (pprCoWithType co {-<+> (ppr (setNominalRole_maybe co))-}) id
@@ -507,6 +511,13 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        Doing("lam boxer")
        return (mkCcc (Lam x e'))
 #endif
+     Trying("lam Case hoist")
+     Case scrut wild ty [(dc,vs,rhs)]
+       | not (x `isFreeIn` scrut)
+       -> Doing("lam Case hoist")
+          return $
+           mkCcc (Case scrut wild (FunTy xty ty) [(dc,vs, Lam x rhs)])
+          -- pprPanic ("lam Case hoist") empty
      Trying("lam Case of boxer")
      e@(Case scrut wild _ty [(_dc,[unboxedV],rhs)])
        | Just (tc,[]) <- splitTyConApp_maybe (varType wild)
@@ -663,20 +674,25 @@ ccc (CccEnv {..}) (Ops {..}) cat =
          return (mkCcc (Lam x (re `App` e)))
 #endif
 
-#if 1
      Trying("lam fmap")
      -- This rule goes after lam App compose, so we know that the fmap'd
      -- function depends on x, and the extra complexity is warranted.
-     _e@(collectArgs -> (Var v, [_arrow,Type h,Type b,Type c,_dict,_ok,f])) | v == fmapV ->
+     _e@(collectArgs -> (Var v, [_arrow,Type h,Type b,Type c,_dict,_ok,u])) | v == fmapV ->
         Doing("lam fmap")
-        -- pprTrace "fmapT type" (ppr (varType fmapTV)) $
         -- pprTrace "lam fmap arg" (ppr _e) $
-        -- pprTrace "lam fmap pieces" (ppr (h,b,c,f)) $
-        let e' = mkCcc (onDict (varApps fmapTV [h,xty,b,c] []) `App` Lam x f) in
+        -- pprTrace "lam fmap pieces" (ppr (h,b,c,u)) $
+#if 1
+        -- (\ x -> fmap U)  -->  (\ x -> fmapIdTV U)
+        -- pprTrace "fmapIdT type" (ppr (varType fmapIdTV)) $
+        let e' = mkCcc (Lam x (onDict (varApps fmapIdTV [h,b,c] []) `App` u)) in
+#else
+        -- (\ x -> fmap U)  -->  fmapT (\ x -> U)
+        -- pprTrace "fmapT type" (ppr (varType fmapTV)) $
+        let e' = mkCcc (onDict (varApps fmapTV [h,xty,b,c] []) `App` Lam x u) in
+#endif
           -- pprTrace "fmap constructed expression" (ppr e') $
           -- pprPanic "lam fmap bailing" empty
           return e'
-#endif
 
      Trying("lam App compose")
      -- (\ x -> U V) --> U . (\ x -> V) if x not free in U
@@ -1547,7 +1563,7 @@ install opts todos =
    flagCcc :: CccEnv -> PluginPass
    flagCcc (CccEnv {..}) guts
      --  | pprTrace "ccc residuals:" (ppr (toList remaining)) False = undefined
-     -- | pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
+     | showCcc && pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
      | Seq.null remaining = -- pprTrace "transformed program binds" (ppr (mg_binds guts)) $
                             return guts
      | otherwise = -- pprPanic "ccc residuals:" (ppr (toList remaining))
@@ -1555,6 +1571,7 @@ install opts todos =
                    -- pprTrace "transformed program binds" (ppr (mg_binds guts)) $
                    return guts
     where
+      showCcc = "showCcc" `elem` opts
       remaining :: Seq CoreExpr
       remaining = collectQ cccArgs (mg_binds guts)
       cccArgs :: CoreExpr -> Seq CoreExpr
@@ -1618,6 +1635,7 @@ mkCccEnv opts = do
   uncccV      <- findCatId "unCcc'"
   fmapV       <- findCatId "fmapC"
   fmapTV      <- findCatId "fmapT"
+  fmapIdTV    <- findCatId "fmapIdT"  -- TODO: eliminate fmapT, and rename fmapIdT to "fmapT"
   casePairTV  <- findCatId "casePairT"
   casePairLTV <- findCatId "casePairLT"
   casePairRTV <- findCatId "casePairRT"
@@ -2192,6 +2210,9 @@ eitherToMaybe = either (const Nothing) Just
 
 altRhs :: Alt b -> Expr b
 altRhs (_,_,rhs) = rhs
+
+altVars :: Alt b -> [b]
+altVars (_,bs,_) = bs
 
 isCast :: Expr b -> Bool
 isCast (Cast {}) = True
