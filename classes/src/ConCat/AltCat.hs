@@ -474,6 +474,9 @@ unCcc f = unCcc' (conceal f)
 
 "second h . (f &&& g)" forall h f g. second h . (f &&& g) = f &&& h . g
 
+"apply . (curry exr &&& f)" forall f.
+  apply . (curry exr &&& f) = f
+
 #if 0
 -- Prelude versions of categorical ops
 
@@ -1043,3 +1046,7 @@ curry (fmapTrans ((\ a -> U) . exl) exr) :: a `k` (h b -> h c)
 --      (fmapTrans (toCcc' (\ x -> u)) (toCcc' (\ x -> v)))
 
  #-}
+
+letT :: (p -> a -> b) -> (p -> a) -> (p -> b)
+letT h f = uncurry h . (id &&& f)
+-- letT h f p = (h p) (f p)
