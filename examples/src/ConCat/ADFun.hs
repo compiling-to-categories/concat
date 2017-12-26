@@ -30,7 +30,7 @@ import Data.Constraint hiding ((&&&),(***),(:=>))
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..))
 
-import ConCat.Misc ((:*),R,Yes1,oops,unzip,type (&+&))
+import ConCat.Misc ((:*),R,Yes1,oops,unzip,type (&+&),sqr)
 import ConCat.Free.VectorSpace (HasV(..),inV,IsScalar)
 import ConCat.Free.LinearRow -- hiding (linear)
 import ConCat.AltCat
@@ -64,7 +64,7 @@ instance ClosedCat D where
   curry = curryD ; {-# INLINE curry #-}
 
 applyD :: forall a b. Ok2 D a b => D ((a -> b) :* a) b
--- applyD = D (\ (f,a)                   -> (f a, \ (df,da) -> df a ^+^ f da))
+-- applyD = D (\ (f,a) -> (f a, \ (df,da) -> df a ^+^ f da))
 applyD = -- trace "calling applyD" $
  D (\ (f,a) -> let (b,f') = andDerF f a in (b, \ (df,da) -> df a ^+^ f' da))
 -- applyD = oops "applyD called"   -- does it?
@@ -111,24 +111,24 @@ instance (Num s, Additive s) => NumCat D s where
   {-# INLINE mulC    #-}
   {-# INLINE powIC   #-}
 
-const' :: (a -> c) -> (a -> b -> c)
-const' = (const .)
+-- const' :: (a -> c) -> (a -> b -> c)
+-- const' = (const .)
 
 scalarD :: Num s => (s -> s) -> (s -> s -> s) -> D s s
-scalarD f d = D (\ x   -> let r = f x in (r, (* d x r)))
+scalarD f d = D (\ x -> let r = f x in (r, (* d x r)))
 {-# INLINE scalarD #-}
 
 -- Use scalarD with const f when only r matters and with const' g when only x
 -- matters.
 
-scalarR :: Num s => (s        -> s) -> (s -> s) -> D s s
-scalarR f f'   = scalarD f (\ _ -> f')
+scalarR :: Num s => (s -> s) -> (s -> s) -> D s s
+scalarR f f' = scalarD f (\ _ -> f')
 -- scalarR f x = scalarD f (const x)
 -- scalarR f   = scalarD f . const
 {-# INLINE scalarR #-}
 
-scalarX :: Num s => (s             -> s) -> (s -> s) -> D s s
-scalarX f f'    = scalarD f (\ x _    -> f' x)
+scalarX :: Num s => (s -> s) -> (s -> s) -> D s s
+scalarX f f' = scalarD f (\ x _ -> f' x)
 -- scalarX f f' = scalarD f (\ x y -> const (f' x) y)
 -- scalarX f f' = scalarD f (\ x   -> const (f' x))
 -- scalarX f f' = scalarD f (const . f')
@@ -136,12 +136,8 @@ scalarX f f'    = scalarD f (\ x _    -> f' x)
 -- scalarX f    = scalarD f . const'
 {-# INLINE scalarX #-}
 
-square :: Num a => a -> a
-square a = a * a
-{-# INLINE square #-}
-
 instance (Fractional s, Additive s) => FractionalCat D s where
-  recipC = scalarR recip (negate . square)
+  recipC = scalarR recip (negate . sqr)
   {-# INLINE recipC #-}
 
 instance (Floating s, Additive s) => FloatingCat D s where
