@@ -919,6 +919,9 @@ class (Category k, OkUnit k) => TerminalCat k where
   -- type Unit k :: u
   it :: Ok k a => a `k` Unit k
 
+-- TODO: add default it = const () when ConstCat k, and then remove instances
+-- that were using this definition explicitly.
+
 instance TerminalCat (->) where
   -- type Unit (->) = ()
   it = const ()
