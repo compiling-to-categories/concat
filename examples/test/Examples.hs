@@ -36,6 +36,8 @@
 
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:maxSteps=4 #-}
 
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showCcc #-}
+
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
 
@@ -43,7 +45,7 @@
 -- {-# OPTIONS_GHC -ddump-rules #-}
 
 -- Does this flag make any difference?
-{-# OPTIONS_GHC -fexpose-all-unfoldings #-}
+-- {-# OPTIONS_GHC -fexpose-all-unfoldings #-}
 
 -- Tweak simpl-tick-factor from default of 100
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=2800 #-}
@@ -111,7 +113,7 @@ import ConCat.AD
 import ConCat.GAD (unD)
 import ConCat.ADFun hiding (D)
 import qualified ConCat.ADFun as ADFun
-import ConCat.Free.VectorSpace (HasV(..),distSqr,(<.>))
+import ConCat.Free.VectorSpace (HasV(..),distSqr,(<.>),normalizeV)
 import ConCat.GradientDescent
 import ConCat.Interval
 import ConCat.Syntactic (Syn,render)
@@ -265,27 +267,57 @@ main = sequence_
 
   -- , runCirc "sum-vv" $ toCcc $ sum @(Vector 5) @R
 
-  -- , runCirc "sum-vv-der" $ toCcc $ andDerF $ sum @(Vector 5) @R -- okay
+  -- , runSynCirc "sum-vv-der" $ toCcc $ andDerF $ sum @(Vector 5) @R -- okay
 
-  -- , runCirc "zipWith-vv-b" $ toCcc $ (zipWith (*) :: Binop (Vector 5 R))
+  -- , runSynCirc "foo1" $ toCcc $ \ (x :: R) -> (sin x *)
+
+  -- , runSynCirc "foo" $ toCcc $ derFL @R $ sin @R
+
+  -- , runSynCirc "foo2" $ toCcc $ uncurry $ \ (x :: R) -> (sin x *)
+
+  -- , runSynCirc "zipWith-vv" $ toCcc $ uncurry (zipWith (*) :: Binop (Vector 5 R))
 
   -- , runSyn $ toCcc $ (zipWith (*) :: Binop (Vector 5 R))
 
-  -- , runCirc "zipWith-vv-der" $ toCcc $ andDerF $ (zipWith (*) :: Binop (Vector 5 R))
+  -- , runCirc "zipWith-vv-adf" $ toCcc $ andDerF $ (zipWith (*) :: Binop (Vector 5 R))
 
   -- , runCirc "zipWithC-vv-der" $ toCcc $ andDerF $ (A.zipWithC A.mulC :: Vector 5 R :* Vector 5 R -> Vector 5 R)
 
-  -- , runSynCirc "fmap-v" $ toCcc $ (fmap negate :: Unop (Vector 5 R))
+  -- , runSyn $ toCcc $ (fmap negate :: Unop (Vector 5 R))
+
+  -- , runCirc "fmap-b" $ toCcc $ (fmap negate :: Unop (Vector 5 R))
+
+  -- , runSynCirc "fmap-b" $ toCcc $ (fmap negate :: Unop (Vector 5 R))
+
+  -- , runSyn $ toCcc' $ fst @Bool @R
+
+  -- , runSynCirc "fmap-complex-b" $ toCcc $ (\ (x,xs :: Vector 5 R) -> fmap (+x) xs)
+
+  -- , runCirc "fmap-complex-b" $ toCcc $ (\ (x,xs :: Vector 5 R) -> fmap (+x) xs)
+
+  -- , runSyn $ toCcc $ (\ (x,xs :: Vector 5 R) -> fmap (+x) xs)
 
   -- , runSynCirc "unzip-b" $ toCcc $ unzip @(Vector 5) @R @R
 
   -- , runSyn $ toCcc $ derF $ fmap @(Vector 5) @R negate
 
+  -- , runSynCirc "max" $ toCcc $ uncurry (max @R)
+
+  -- , runSyn $ toCcc $ uncurry (max @R) 
+
+  -- , runSyn $ toCcc $ andDerF $ A.maxC @(->) @R 
+
+  -- , runSyn $ toCcc $ andDerF $ uncurry (max @R) 
+
+  -- , runSynCirc "max-ad" $ toCcc $ andDerF $ uncurry (max @R)
+
+  -- , runSynCirc "normalize" $ toCcc $ normalizeV @(Vector 5) @R
+
+  -- , runSynCirc "relu-ad" $ toCcc $ andDerF $ max @R 0
+
   -- , runSyn $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
 
-
   -- , runCirc "fmap-v-der-e" $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
-
 
   -- , runSynCirc "fmap-v-der-e" $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
 
@@ -593,7 +625,6 @@ main = sequence_
   -- , runSynCirc "cos-2xx-adfl"    $ toCcc $ andDerFL @R $ \ x -> cos (2 * x * x) :: R
   -- , runSynCirc "cos-xpy-adfl"    $ toCcc $ andDerFL @R $ \ (x,y) -> cos (x + y) :: R
   -- , runSynCirc "cosSinProd-adfl" $ toCcc $ andDerFL @R $ cosSinProd @R
-
 
   -- , runSynCirc "product-4-adfl"$ toCcc $ andDerFL @R $ \ (a,b,c,d) -> a*b*c*d :: R
 
