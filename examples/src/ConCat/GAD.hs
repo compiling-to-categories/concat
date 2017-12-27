@@ -20,8 +20,8 @@
 
 module ConCat.GAD where
 
-import Prelude hiding (id,(.),curry,uncurry,const)
--- import qualified Prelude as P
+import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip)
+import qualified Prelude as P
 -- import GHC.Exts (Coercible,coerce)
 import GHC.Exts (Constraint)
 
@@ -37,18 +37,26 @@ import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable)
 import qualified Data.Functor.Rep
 
-import ConCat.Misc ((:*),type (&+&)) -- ,PseudoFun(..),oops
+import ConCat.Misc ((:*),type (&+&),result,unzip) -- ,PseudoFun(..),oops
 -- import ConCat.Free.VectorSpace
 -- import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
-import qualified ConCat.Category as C
-import ConCat.AltCat
+import ConCat.Category
+import qualified ConCat.AltCat as A
 import ConCat.Rep
 
 AbsTyImports
 
 -- newtype GD k a b = D { unD :: a -> b :* (a `k` b) }
 data GD k a b = D { unD :: a -> (b :* (a `k` b)) }
+
+mkD :: HasRep (a `k` b) => (a -> b :* Rep (a `k` b)) -> GD k a b
+mkD = D . (result.second) abst
+{-# INLINE mkD #-}
+
+unMkD :: HasRep (a `k` b) => GD k a b -> (a -> b :* Rep (a `k` b))
+unMkD = (result.second) repr . unD
+{-# INLINE unMkD #-}
 
 -- Differentiable linear function, given the function and its constant derivative
 linearD :: (a -> b) -> (a `k` b) -> GD k a b
@@ -82,7 +90,7 @@ AbsTy(GD k a b)
 instance Category k => Category (GD k) where
   -- type Ok (GD k) = Ok k &+& GDOk k
   type Ok (GD k) = Ok k
-  id = linearD id id
+  id = linearD A.id A.id
   D g . D f = D (\ a ->
     let (b,f') = f a
         (c,g') = g b
@@ -108,8 +116,8 @@ instance Category k => Category (GD k) where
 type GDOk k = Ok k
 
 instance ProductCat k => ProductCat (GD k) where
-  exl = linearD exl exl
-  exr = linearD exr exr
+  exl = linearD A.exl A.exl
+  exr = linearD A.exr A.exr
   D f &&& D g = D (\ a ->
     let (b,f') = f a
         (c,g') = g a
@@ -144,8 +152,21 @@ instance ProductCat k => ProductCat (GD k) where
 --     • In the instance declaration for ‘ClosedCat (GD k)’
 
 {--------------------------------------------------------------------
-    Functor-level
+    Functor-level operations
 --------------------------------------------------------------------}
+
+#define Linear(nm) nm = linearD A.nm A.nm
+
+instance (FunctorCat k h, ZapCat k h) => FunctorCat (GD k) h where
+  fmapC = inAbst (\ q -> second A.zapC . A.unzipC . A.fmapC q)
+  unzipC = linearD A.unzipC A.unzipC
+  {-# INLINE fmapC #-}
+  {-# INLINE unzipC #-}
+
+--      q :: a -> b :* (a `k` b)
+-- fmap q :: h a -> h (b :* (a `k` b))
+-- unzip  :: h (b :* (a `k` b)) -> h b :* h (a `k` b)
+-- zapC   :: h (a `k` b) -> (h a `k` h b)
 
 instance OkFunctor k h => OkFunctor (GD k) h where
   okFunctor :: forall a. Ok' (GD k) a |- Ok' (GD k) (h a)
@@ -158,40 +179,49 @@ instance OkFunctor k h => OkFunctor (GD k) h where
 
 instance (SumCat (->) h, SumCat k h, OkFunctor (GD k) h)
       => SumCat (GD k) h where
-  sumC = linearD sumC sumC
+  Linear(sumC)
   {-# INLINE sumC #-}
 
 instance (ZipCat k h, OkFunctor (GD k) h) => ZipCat (GD k) h where
-  zipC = linearD zipC zipC
+  zipC = linearD A.zipC A.zipC
   {-# INLINE zipC #-}
   -- zipWithC = ??
   -- {-# INLINE zipWithC #-}
 
--- TODO: Move OkFunctor and FunctorCat instances to GAD.
+instance (ZapCat k h, OkFunctor k h, Zip h) => ZapCat (GD k) h where
+  zapC = abst . result (second zapC . unzip) . zapC . fmap repr
+
+-- fmap repr            :: h (GD k a b) -> h (a -> b :* k a b)
+-- zapC                 :: h (a -> b :* k a b) -> (h a -> h (b :* k a b))
+-- result unzip         :: (h a -> h (b :* k a b)) -> (h a -> h b :* h (k a b))
+-- (result.second) zapC :: (h a -> h b :* h (k a b)) -> (h a -> h b :* k (h a) (h b))
+-- abst                 :: (h a -> h b :* k (h a) (h b)) -> GD k (h a) (h b)
+
+-- TODO: What use can we make of the ZapCat instance? Maybe repeated differentiation.
 
 #if 0
 
 -- Change sumC to use Additive, and relate the regular sum method.
 
 instance (OkFunctor (GD k) h) => PointedCat (GD k) h where
-  pointC = linearD pointC pointC
+  pointC = linearD A.pointC A.pointC
   {-# INLINE pointC #-}
 
 instance (OkFunctor (GD k) h) => Strong (GD k) h where
-  strength = linearD strength strength
+  strength = linearD A.strength A.strength
   {-# INLINE strength #-}
 
 #endif
 
 instance (DistributiveCat (->) g f, DistributiveCat k g f)
       => DistributiveCat (GD k) g f where
-  distributeC = linearD distributeC distributeC
+  distributeC = linearD A.distributeC A.distributeC
   {-# INLINE distributeC #-}
 
 instance (RepresentableCat (->) g, RepresentableCat k g)
       => RepresentableCat (GD k) g where
-  indexC    = linearD indexC    indexC
-  tabulateC = linearD tabulateC tabulateC
+  indexC    = linearD A.indexC    A.indexC
+  tabulateC = linearD A.tabulateC A.tabulateC
   {-# INLINE indexC #-}
   {-# INLINE tabulateC #-}
 
@@ -204,17 +234,17 @@ notDef :: String -> a
 notDef meth = error (meth ++ " on D not defined")
 
 instance (RepCat (->) a r, RepCat k a r) => RepCat (GD k) a r where
-  reprC = linearD reprC reprC
-  abstC = linearD abstC abstC
+  reprC = linearD A.reprC A.reprC
+  abstC = linearD A.abstC A.abstC
 
 #if 0
 instance (Coercible a b, V s a ~ V s b, Ok2 k a b) => CoerceCat (GD k) a b where
-  coerceC = linearD coerceC coerceC
+  coerceC = linearD A.coerceC A.coerceC
 #else
 instance ( CoerceCat (->) a b
          , CoerceCat k a b
          ) => CoerceCat (GD k) a b where
-  coerceC = linearD coerceC coerceC
+  coerceC = linearD A.coerceC A.coerceC
 #endif
 
 {--------------------------------------------------------------------
@@ -223,7 +253,7 @@ instance ( CoerceCat (->) a b
 
 -- | A function combined with its derivative
 andDeriv :: forall k a b . (a -> b) -> (a -> b :* (a `k` b))
-andDeriv h = unD (toCcc h)
+andDeriv h = unD (A.toCcc h)
 {-# INLINE andDeriv #-}
 
 -- | The derivative of a given function
