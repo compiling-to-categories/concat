@@ -40,11 +40,16 @@ AbsTyImports
 -- newtype GD k a b = D { unD :: a -> b :* (a `k` b) }
 data GD k a b = D { unD :: a -> (b :* (a `k` b)) }
 
--- Differentiable linear function, given the function and linear map version
+-- Differentiable linear function, given the function and its constant derivative
 linearD :: (a -> b) -> (a `k` b) -> GD k a b
 -- linearD f f' = D (f &&& const f')
 linearD f f' = D (\ a -> (f a, f'))
 {-# INLINE linearD #-}
+
+-- Differentiable linear function
+linear :: (a -> b) -> GD k a b
+linear f = linearD f (toCcc' f)
+{-# INLINE linear #-}
 
 -- TODO: have linearD accept *just* the L version and convert via lapply
 
