@@ -124,6 +124,10 @@ infixr 1 ~>
 (h <~ f) g = h . g . f
 {-# INLINE (<~) #-}
 
+-- For SEC-style programming. I was using fmap instead, but my rules interfered.
+result :: (b -> c) -> ((a -> b) -> (a -> c))
+result = (.)
+
 class    Yes0
 instance Yes0
 
