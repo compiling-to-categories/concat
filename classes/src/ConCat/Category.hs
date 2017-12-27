@@ -1866,10 +1866,13 @@ class ({- Pointed h, -} OkFunctor k h) => PointedCat k h where
 -- TODO: Try removing Representable h and maybe OkFunctor k h from the
 -- superclasses.
 
+-- TODO: Try removing OkFunctor superclass constraint.
+-- When I first triec, I ran into trouble with a rule in AltCat.
+
 -- class DiagCat k h where
 --   diagC  :: Ok k a => (a :* a) `k` h (h a)
 
-class SumCat k h where
+class OkFunctor k h => SumCat k h where
   sumC :: (Ok k a, Num a) => h a `k` a
 
 instance Functor h => FunctorCat (->) h where
