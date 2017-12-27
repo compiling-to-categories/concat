@@ -126,11 +126,7 @@ instance Ord a => MinMaxCat RAD a where
   {-# INLINE minC #-} 
   {-# INLINE maxC #-} 
 
-
-instance (Functor h, Zip h, Additive1 h) => FunctorCat RAD h where
-  fmapC (unMkD -> q) = mkD (second zap . unzip . fmap q)
-  unzipC = affine unzipC zipC
-  {-# INLINE fmapC #-}
+-- Functor-level operations:
 
 instance Additive1 h => OkFunctor RAD h where
   okFunctor :: forall a. Ok' RAD a |- Ok' RAD (h a)
@@ -138,15 +134,23 @@ instance Additive1 h => OkFunctor RAD h where
   -- okFunctor = inForkCon (yes1 *** additive1 @h @a)
   {-# INLINE okFunctor #-}
 
+instance (Functor h, Zip h, Additive1 h) => FunctorCat RAD h where
+  fmapC (unMkD -> q) = mkD (second zap . unzip . fmap q)
+  unzipC = affine unzipC zipC
+  {-# INLINE fmapC #-}
+  {-# INLINE unzipC #-}
+
 instance (Foldable h, Pointed h) => SumCat RAD h where
-  sumC = affine A.sumC A.pointC
+  -- I'd like to use sumC and pointC from Category, but they lead to some sort of failure.
+  -- sumC = affine sumC pointC
   -- I'd like to use the following definition, but it triggers a plugin failure.
   -- TODO: track it down.
   -- sumC = affine sum point
+  sumC = affine A.sumC A.pointC
   {-# INLINE sumC #-}
 
 instance (Zip h, Additive1 h) => ZipCat RAD h where
-  zipC = affine zipC unzipC
+  zipC = affine A.zipC A.unzipC
   {-# INLINE zipC #-}
   -- zipWithC = linearDF zipWithC
   -- {-# INLINE zipWithC #-}
@@ -158,22 +162,22 @@ instance (Zip h, Additive1 h) => ZipCat RAD h where
 -- Change sumC to use Additive, and relate the regular sum method.
 
 instance (Pointed h, Foldable h, Additive1 h) => PointedCat RAD h where
-  pointC = affine pointC sumC
+  pointC = affine A.pointC A.sumC
   {-# INLINE pointC #-}
 
 instance (Zip h, Foldable h, Additive1 h) => Strong RAD h where
-  strength = affine strength (first sumC . unzip)
+  strength = affine A.strength (first A.sumC . unzip)
   {-# INLINE strength #-}
 
 #endif
 
 instance (Distributive g, Distributive f) => DistributiveCat RAD g f where
-  distributeC = affine distributeC distributeC
+  distributeC = affine A.distributeC A.distributeC
   {-# INLINE distributeC #-}
 
 instance Representable g => RepresentableCat RAD g where
-  indexC    = affine indexC tabulateC
-  tabulateC = affine tabulateC indexC
+  indexC    = affine A.indexC A.tabulateC
+  tabulateC = affine A.tabulateC A.indexC
   {-# INLINE indexC #-}
   {-# INLINE tabulateC #-}
 
