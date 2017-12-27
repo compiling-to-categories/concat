@@ -881,7 +881,7 @@ instance (Zip h, OkFunctor (:>) h) => ZipCat (:>) h where
            <+ okFunctor' @(:>) @h @b
 #endif
 
-instance (Pointed h, OkFunctor (:>) h) => PointedCat (:>) h where
+instance ({- Pointed h, -} OkFunctor (:>) h) => PointedCat (:>) h where
   pointC :: forall a. Ok (:>) a => a :> h a
   pointC = namedC "point"
              <+ okFunctor' @(:>) @h @a

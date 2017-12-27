@@ -391,7 +391,7 @@ instance Zip h => ZipCat Syn h where
   -- zipWithC = app0 "zipWith"
   -- INLINER(zipWithC)
 
-instance Pointed h => PointedCat Syn h where
+instance {- Pointed h => -} PointedCat Syn h where
   pointC = app0 "point"
   INLINER(pointC)
 

@@ -1824,6 +1824,7 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
 {--------------------------------------------------------------------
     Functor-level operations
 --------------------------------------------------------------------}
+
 class OkFunctor k h where
   okFunctor :: Ok' k a |- Ok' k (h a)
 
@@ -1853,8 +1854,12 @@ class (Zip h, OkFunctor k h) => ZipCat k h where
   zipC :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
   -- zipWithC :: Ok3 k a b c => (a :* b -> c) `k` (h a :* h b -> h c)
 
-class (Pointed h, OkFunctor k h) => PointedCat k h where
-  pointC :: Ok  k a => a `k` h a
+class ({- Pointed h, -} OkFunctor k h) => PointedCat k h where
+  pointC :: Ok k a => a `k` h a
+
+-- TODO: remove superclasses like Pointed from other classes, and then review
+-- instances for unnecessary parent constraints. I've removed them the
+-- PointedCat instances in Syntactic and Circuit.
 
 -- TODO: eliminate pointC in favor of using tabulate
 
@@ -1868,7 +1873,7 @@ class SumCat k h where
   sumC :: (Ok k a, Num a) => h a `k` a
 
 instance Functor h => FunctorCat (->) h where
-  fmapC = IC.inline fmap
+  fmapC  = IC.inline fmap
   unzipC = X.inline unzip
 
 #if 0
