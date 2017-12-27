@@ -38,7 +38,7 @@ import ConCat.GAD
 -- Differentiable functions
 type D s = GD (L s)
 
-type instance GDOk (L s) = Yes1
+-- type instance GDOk (L s) = Yes1
 
 -- instance ClosedCat (D s) where
 --   apply = applyD

@@ -34,7 +34,7 @@ import ConCat.Misc ((:*),R,Yes1,oops,unzip,type (&+&),sqr)
 import ConCat.Free.VectorSpace (HasV(..),inV,IsScalar)
 import ConCat.Free.LinearRow -- hiding (linear)
 import ConCat.AltCat
-import ConCat.GAD hiding (linear)
+import ConCat.GAD -- hiding (linear)
 import ConCat.Additive
 -- The following imports allows the instances to type-check. Why?
 import qualified ConCat.Category  as C
@@ -44,7 +44,7 @@ type D = GD (->)
 
 -- type instance GDOk (->) = Yes1
 
-type instance GDOk (->) = Additive
+-- type instance GDOk (->) = Additive
 
 #if 0
 instance ClosedCat D where
@@ -162,10 +162,10 @@ instance Ord a => MinMaxCat D a where
 
 -- type Ok D = (Yes1 &+& Additive)
 
-instance Additive1 h => OkFunctor D h where
-  okFunctor :: forall a. Ok' D a |- Ok' D (h a)
-  okFunctor = inForkCon (yes1 *** additive1 @h @a)
-  {-# INLINE okFunctor #-}
+-- instance Additive1 h => OkFunctor D h where
+--   okFunctor :: forall a. Ok' D a |- Ok' D (h a)
+--   okFunctor = inForkCon (yes1 *** additive1 @h @a)
+--   {-# INLINE okFunctor #-}
 
 instance (Functor h, Zip h, Additive1 h) => FunctorCat D h where
   fmapC (D q) = D (second zap . unzip . fmap q)
@@ -179,6 +179,10 @@ instance (Functor h, Zip h, Additive1 h) => FunctorCat D h where
 
 -- TODO: Move OkFunctor and FunctorCat instances to GAD.
 
+#if 0
+
+-- Now generalized in GAD
+
 instance (Zip h, Additive1 h) => ZipCat D h where
   zipC = linearDF zipC
   {-# INLINE zipC #-}
@@ -189,7 +193,7 @@ instance (Pointed h, Additive1 h) => PointedCat D h where
   pointC = linearDF pointC
   {-# INLINE pointC #-}
 
-instance Foldable h => SumCat D h where
+instance (Foldable h, Additive1 h) => SumCat D h where
   sumC = linearDF sumC
   {-# INLINE sumC #-}
 
@@ -206,6 +210,8 @@ instance Representable g => RepresentableCat D g where
   tabulateC = linearDF tabulateC
   {-# INLINE indexC #-}
   {-# INLINE tabulateC #-}
+
+#endif
 
 {--------------------------------------------------------------------
     Differentiation interface
