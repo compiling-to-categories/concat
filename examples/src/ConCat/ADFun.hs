@@ -34,7 +34,7 @@ import ConCat.Misc ((:*),R,Yes1,oops,unzip,type (&+&),sqr)
 import ConCat.Free.VectorSpace (HasV(..),inV,IsScalar)
 import ConCat.Free.LinearRow -- hiding (linear)
 import ConCat.AltCat
-import ConCat.GAD
+import ConCat.GAD hiding (linear)
 import ConCat.Additive
 -- The following imports allows the instances to type-check. Why?
 import qualified ConCat.Category  as C
@@ -92,6 +92,8 @@ curryD (D (unfork -> (f,f'))) =
 linearDF :: (a -> b) -> D a b
 linearDF f = linearD f f
 {-# INLINE linearDF #-}
+
+-- TODO: use linear in place of linearDF
 
 instance Additive b => ConstCat D b where
   const b = D (const (b, const zero))
