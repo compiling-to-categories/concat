@@ -48,9 +48,9 @@
 -- {-# OPTIONS_GHC -fexpose-all-unfoldings #-}
 
 -- Tweak simpl-tick-factor from default of 100
--- {-# OPTIONS_GHC -fsimpl-tick-factor=2800 #-}
+-- {-# OPTIONS_GHC -fsimpl-tick-factor=2500 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=500 #-}
--- {-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
+{-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=25  #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
@@ -111,8 +111,10 @@ import ConCat.Rep (HasRep(..))
 import ConCat.Incremental (andInc,inc)
 import ConCat.AD
 import ConCat.GAD (unD)
-import ConCat.ADFun hiding (D)
-import qualified ConCat.ADFun as ADFun
+-- ADFun is temporarily broken. See 2017-12-27 notes.
+-- import ConCat.ADFun hiding (D)
+-- import qualified ConCat.ADFun as ADFun
+import ConCat.RAD
 import ConCat.Free.VectorSpace (HasV(..),distSqr,(<.>),normalizeV)
 import ConCat.GradientDescent
 import ConCat.Interval
@@ -138,7 +140,7 @@ import qualified ConCat.Inline.SampleMethods as I
 import qualified ConCat.Regress as R
 import ConCat.Free.Affine
 import ConCat.Choice
-import ConCat.RegressChoice
+-- import ConCat.RegressChoice
 
 -- import ConCat.Vector -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
 #ifdef CONCAT_SMT
@@ -635,6 +637,34 @@ main = sequence_
   -- , runSyn $ toCcc $ andDerFL @R $ product @(RBin N4) @R
 
   -- , runSyn $ toCcc $ andDerF $ product @(RBin N4) @R
+
+  -- -- Automatic differentiation with RAD:
+
+  -- , runSynCirc "sin-adr"        $ toCcc $ andDerR $ sin @R
+  -- , runSynCirc "cos-adr"        $ toCcc $ andDerR $ cos @R
+  -- , runSynCirc "add-adr"        $ toCcc $ andDerR $ uncurry ((+) @R)
+  -- , runSynCirc "twice-adr"      $ toCcc $ andDerR $ twice @R
+  -- , runSynCirc "sqr-adr"        $ toCcc $ andDerR $ sqr @R
+  -- , runSynCirc "magSqr-adr"     $ toCcc $ andDerR $ magSqr @R
+  -- , runSynCirc "cos-2x-adr"     $ toCcc $ andDerR $ \ x -> cos (2 * x) :: R
+  -- , runSynCirc "cos-2xx-adr"    $ toCcc $ andDerR $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "cos-xpy-adr"    $ toCcc $ andDerR $ \ (x,y) -> cos (x + y) :: R
+  -- , runSynCirc "cosSinProd-adr" $ toCcc $ andDerR $ cosSinProd @R
+
+  -- , runSynCirc "sin-gradr"        $ toCcc $ andGradR $ sin @R
+  -- , runSynCirc "cos-gradr"        $ toCcc $ andGradR $ cos @R
+  -- , runSynCirc "add-gradr"        $ toCcc $ andGradR $ uncurry ((+) @R)
+  -- , runSynCirc "twice-gradr"      $ toCcc $ andGradR $ twice @R
+  -- , runSynCirc "sqr-gradr"        $ toCcc $ andGradR $ sqr @R
+  -- , runSynCirc "magSqr-gradr"     $ toCcc $ andGradR $ magSqr  @R
+  -- , runSynCirc "cos-2x-gradr"     $ toCcc $ andGradR $ \ x -> cos (2 * x) :: R
+  -- , runSynCirc "cos-2xx-gradr"    $ toCcc $ andGradR $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "cos-xpy-gradr"    $ toCcc $ andGradR $ \ (x,y) -> cos (x + y) :: R
+
+  -- , runSynCirc "sum-gradr"          $ toCcc $ andGradR $ sum @(Vector 5) @R 
+  -- , runSynCirc "fmap-cos-adr"       $ toCcc $ andDerR  $ fmap @(Vector 5) @R cos
+  -- , runSynCirc "sum-fmap-cos-gradr" $ toCcc $ andGradR $ sum . fmap @(Vector 5) @R cos
+  -- , runSynCirc "zip-adr-b"          $ toCcc $ andDerR  $ uncurry (zip @(Vector 5) @R @R)
 
   -- -- (0.8414709848078965,[[0.5403023058681398]]), i.e., (sin 1, [[cos 1]]),
   -- -- where the "[[ ]]" is matrix-style presentation of the underlying

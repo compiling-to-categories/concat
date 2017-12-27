@@ -76,7 +76,7 @@ library
                        ConCat.RunCircuit
                        ConCat.GAD
                        ConCat.AD
-                       ConCat.ADFun
+                       -- ConCat.ADFun  -- see 2017-12-27 notes
                        ConCat.DualAdditive
                        ConCat.RAD
                        ConCat.Incremental
@@ -95,7 +95,7 @@ library
                        ConCat.Scan
                        ConCat.FFT
                        ConCat.Choice
-                       ConCat.RegressChoice
+                       -- ConCat.RegressChoice  -- see 2017-12-27 notes
                        ConCat.LC
                        ConCat.Local
   if flag(smt)
