@@ -162,6 +162,9 @@ boolToInt :: Bool -> Int
 boolToInt c = if c then 1 else 0
 {-# INLINE boolToInt #-}
 
+cond :: a -> a -> Bool -> a
+cond t e i = if i then t else e
+
 {--------------------------------------------------------------------
     Type level computations
 --------------------------------------------------------------------}
