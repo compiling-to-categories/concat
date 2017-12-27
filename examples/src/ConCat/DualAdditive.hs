@@ -92,7 +92,7 @@ instance (Functor h, Zip h, Additive1 h) => FunctorCat Dual h where
   {-# INLINE fmapC #-}
   {-# INLINE unzipC #-}
 
-instance (Foldable h, Pointed h) => SumCat Dual h where
+instance (Foldable h, Pointed h, Additive1 h) => SumCat Dual h where
   -- I'd like to use sumC and pointC from Category, but they lead to some sort of failure.
   -- sumC = affine sumC pointC
   -- I'd like to use the following definition, but it triggers a plugin failure.
