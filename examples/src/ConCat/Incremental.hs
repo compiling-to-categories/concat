@@ -174,7 +174,7 @@ instance HasDelta b => HasDelta (a -> b) where
 infixr 1 -+>
 newtype a -+> b = DelX { unDelX :: Delta a -> Delta b }
 
-type instance GDOk (-+>) = Yes1
+-- type instance GDOk (-+>) = Yes1
 
 zeroDelX :: forall a b. HasDelta b => a -+> b
 zeroDelX = DelX (const (zeroD @b))

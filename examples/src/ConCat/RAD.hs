@@ -38,7 +38,7 @@ import ConCat.GAD
 -- Differentiable functions
 type RAD = GD Dual
 
-type instance GDOk Dual = Yes1
+-- type instance GDOk Dual = Yes1
 
 mkD :: (a -> b :* (b -> a)) -> RAD a b
 mkD = D . (result.second) Dual
@@ -52,8 +52,10 @@ unMkD = (result.second) unDual . unD
 
 -- mkD f f' = D (\ a -> (f a, Dual (f' a)))
 
+-- TODO: phase out mkD & unMkD.
+
 instance Additive b => ConstCat RAD b where
-  const b = linear (const b)
+  const b = linearD (const b) (const b)
   {-# INLINE const #-}
 
 instance TerminalCat RAD where
@@ -134,16 +136,10 @@ instance Ord a => MinMaxCat RAD a where
 
 -- TODO: IfCat. Maybe make ifC :: (a :* a) `k` (Bool -> a), which is linear.
 
-instance Additive1 h => OkFunctor RAD h where
-  okFunctor :: forall a. Ok' RAD a |- Ok' RAD (h a)
-  okFunctor = Entail (Sub (Dict <+ okFunctor @Dual @h @a))
-  -- okFunctor = inForkCon (yes1 *** additive1 @h @a)
-  {-# INLINE okFunctor #-}
-
 instance (Functor h, Zip h, Additive1 h) => FunctorCat RAD h where
   fmapC (unMkD -> q) = mkD (second zap . unzip . fmap q)
   -- fmapC (D q) = D (second zap . unzip . fmap q)
-  unzipC = linear unzipC
+  unzipC = linearD A.unzipC A.unzipC
   {-# INLINE fmapC #-}
   {-# INLINE unzipC #-}
 
@@ -155,47 +151,6 @@ instance (Functor h, Zip h, Additive1 h) => FunctorCat RAD h where
 -- Nope, since zap :: h (a -> b) -> (h a -> h b), and
 -- zapC :: (h (a -> b) :* h a) `k` h b.
 -- I think there's something here, so keep probing.
-
-instance (Foldable h, Pointed h) => SumCat RAD h where
-  -- I'd like to use sumC and pointC from Category, but they lead to some sort of failure.
-  -- sumC = affine sumC pointC
-  -- I'd like to use the following definition, but it triggers a plugin failure.
-  -- TODO: track it down.
-  -- sumC = affine sum point
-  sumC = linear A.sumC
-  {-# INLINE sumC #-}
-
-instance (Zip h, Additive1 h) => ZipCat RAD h where
-  zipC = linear A.zipC
-  {-# INLINE zipC #-}
-  -- zipWithC = ??
-  -- {-# INLINE zipWithC #-}
-
--- TODO: Move OkFunctor and FunctorCat instances to GAD.
-
-#if 0
-
--- Change sumC to use Additive, and relate the regular sum method.
-
-instance (Pointed h, Foldable h, Additive1 h) => PointedCat RAD h where
-  pointC = linear A.pointC
-  {-# INLINE pointC #-}
-
-instance (Zip h, Foldable h, Additive1 h) => Strong RAD h where
-  strength = linear A.strength
-  {-# INLINE strength #-}
-
-#endif
-
-instance (Distributive g, Distributive f) => DistributiveCat RAD g f where
-  distributeC = linear A.distributeC
-  {-# INLINE distributeC #-}
-
-instance Representable g => RepresentableCat RAD g where
-  indexC    = linear A.indexC
-  tabulateC = linear A.tabulateC
-  {-# INLINE indexC #-}
-  {-# INLINE tabulateC #-}
 
 {--------------------------------------------------------------------
     Differentiation interface
