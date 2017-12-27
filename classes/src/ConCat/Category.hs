@@ -1266,7 +1266,7 @@ class EqCat k a => OrdCat k a where
   {-# MINIMAL lessThan | greaterThan #-}
 
 class MinMaxCat k a where
-  minC, maxC :: Prod k a a `k` a
+  minC, maxC :: Ok k a => Prod k a a `k` a
 #if 0
   default minC :: (OrdCat k a, IfCat k a, Ok k a) => Prod k a a `k` a
   default maxC :: (OrdCat k a, IfCat k a, Ok k a) => Prod k a a `k` a
@@ -1277,6 +1277,10 @@ class MinMaxCat k a where
            <+ okProd @k @Bool @(a :* a)
            <+ okProd @k @a @a
 #endif
+
+-- TODO: maybe replace minC and maxC with sortP :: (a :* b) `k` (a :* b). Or add
+-- a sortP method and defaults for all three. Would be groovy for parallel
+-- sorting.
 
 instance Ord a => MinMaxCat (->) a where
   minC = uncurry (IC.inline min)
