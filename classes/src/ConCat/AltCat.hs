@@ -170,8 +170,8 @@ Op0(greaterThan,OrdCat k a => Prod k a a `k` BoolOf k)
 Op0(lessThanOrEqual,OrdCat k a => Prod k a a `k` BoolOf k)
 Op0(greaterThanOrEqual,OrdCat k a => Prod k a a `k` BoolOf k)
 
-Op0(minC, MinMaxCat k a => Prod k a a `k` a)
-Op0(maxC, MinMaxCat k a => Prod k a a `k` a)
+Op0(minC, (MinMaxCat k a, Ok k a) => Prod k a a `k` a)
+Op0(maxC, (MinMaxCat k a, Ok k a) => Prod k a a `k` a)
 
 Op0(succC,EnumCat k a => a `k` a)
 Op0(predC,EnumCat k a => a `k` a)
@@ -1048,5 +1048,8 @@ curry (fmapTrans ((\ a -> U) . exl) exr) :: a `k` (h b -> h c)
  #-}
 
 letT :: (p -> a -> b) -> (p -> a) -> (p -> b)
-letT h f = uncurry h . (id &&& f)
+letT h f = P.uncurry h . (id &&& f)
 -- letT h f p = (h p) (f p)
+
+-- Use the Prelude's uncurry (or Category's) to get inlining here.
+
