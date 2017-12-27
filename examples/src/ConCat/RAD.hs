@@ -30,6 +30,7 @@ import Data.Functor.Rep (Representable(..))
 import ConCat.Misc ((:*),Yes1,result,sqr,unzip)
 import ConCat.Category
 import ConCat.AltCat (toCcc)
+import qualified ConCat.AltCat as A
 import ConCat.Additive
 import ConCat.DualAdditive
 import ConCat.GAD
@@ -138,7 +139,10 @@ instance Additive1 h => OkFunctor RAD h where
   {-# INLINE okFunctor #-}
 
 instance (Foldable h, Pointed h) => SumCat RAD h where
-  sumC = affine sumC pointC
+  sumC = affine A.sumC A.pointC
+  -- I'd like to use the following definition, but it triggers a plugin failure.
+  -- TODO: track it down.
+  -- sumC = affine sum point
   {-# INLINE sumC #-}
 
 instance (Zip h, Additive1 h) => ZipCat RAD h where
