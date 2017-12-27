@@ -27,7 +27,7 @@ import Data.Key
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..))
 
-import ConCat.Misc ((:*),Yes1,result,sqr,unzip)
+import ConCat.Misc ((:*),Yes1,result,sqr,unzip,cond)
 import ConCat.Category
 import ConCat.AltCat (toCcc)
 import qualified ConCat.AltCat as A
@@ -52,26 +52,18 @@ unMkD = (result.second) unDual . unD
 
 -- mkD f f' = D (\ a -> (f a, Dual (f' a)))
 
--- Affine functions with function and transposed derivative
-affine :: (a -> b) -> (b -> a) -> RAD a b
-affine f f' = mkD (f &&& const f')
-{-# INLINE affine #-}
-
 instance Additive b => ConstCat RAD b where
-  const b = affine (const b) (const zero)
-            -- mkD (const (b, zero))
+  const b = linear (const b)
   {-# INLINE const #-}
-
--- TODO: Tweak GD, ADFun, and AD to use "affine", and apply it to const.
 
 instance TerminalCat RAD where
   it = const ()
   {-# INLINE it #-}
 
 instance (Num s, Additive s) => NumCat RAD s where
-  addC    = affine addC dup
-  negateC = affine negateC negateC
-  mulC    = D (\ (u,v) -> (u*v, Dual (\ s -> (s*v,s*u))))
+  addC    = D (addC &&& addD)
+  negateC = D (negateC &&& negateD)
+  mulC    = D (mulC &&& mulD)
   powIC   = notDef "powIC"       -- TODO
   {-# INLINE negateC #-}
   {-# INLINE addC    #-}
@@ -118,15 +110,29 @@ instance (Floating s, Additive s) => FloatingCat RAD s where
   {-# INLINE cosC #-}
   {-# INLINE logC #-}
 
+-- TODO: experiment with moving some of these dual derivatives to DualAdditive,
+-- in the style of addD, mulD, etc.
+
 instance Ord a => MinMaxCat RAD a where
-  -- minC = D (\ (x,y) -> (minC (x,y), if x <= y then exl else exr))
-  -- maxC = D (\ (x,y) -> (maxC (x,y), if x <= y then exr else exl))
-  minC = D (\ xy -> (minC xy, if lessThanOrEqual xy then exl else exr))
-  maxC = D (\ xy -> (maxC xy, if lessThanOrEqual xy then exr else exl))
+  minC = D (minC &&& cond exl exr . lessThanOrEqual)
+  maxC = D (maxC &&& cond exr exl . lessThanOrEqual)
   {-# INLINE minC #-} 
   {-# INLINE maxC #-} 
 
+-- Equivalently,
+
+  -- minC = D (\ (x,y) -> (minC (x,y), if x <= y then exl else exr))
+  -- maxC = D (\ (x,y) -> (maxC (x,y), if x <= y then exr else exl))
+
+  -- minC = D (\ xy -> (minC xy, if lessThanOrEqual xy then exl else exr))
+  -- maxC = D (\ xy -> (maxC xy, if lessThanOrEqual xy then exr else exl))
+
+  -- minC = D (\ xy -> (minC xy, cond exl exr (lessThanOrEqual xy)))
+  -- maxC = D (\ xy -> (maxC xy, cond exr exl (lessThanOrEqual xy)))
+
 -- Functor-level operations:
+
+-- TODO: IfCat. Maybe make ifC :: (a :* a) `k` (Bool -> a), which is linear.
 
 instance Additive1 h => OkFunctor RAD h where
   okFunctor :: forall a. Ok' RAD a |- Ok' RAD (h a)
@@ -136,9 +142,19 @@ instance Additive1 h => OkFunctor RAD h where
 
 instance (Functor h, Zip h, Additive1 h) => FunctorCat RAD h where
   fmapC (unMkD -> q) = mkD (second zap . unzip . fmap q)
-  unzipC = affine unzipC zipC
+  -- fmapC (D q) = D (second zap . unzip . fmap q)
+  unzipC = linear unzipC
   {-# INLINE fmapC #-}
   {-# INLINE unzipC #-}
+
+-- q :: a -> b :* Dual a b
+-- fmap q :: h a -> h (b :* Dual a b)
+-- unzip . fmap q :: h a -> h b :* h (Dual a b)
+-- second zap . unzip . fmap q :: h a -> h b :* Dual (h a) (h b)
+
+-- Nope, since zap :: h (a -> b) -> (h a -> h b), and
+-- zapC :: (h (a -> b) :* h a) `k` h b.
+-- I think there's something here, so keep probing.
 
 instance (Foldable h, Pointed h) => SumCat RAD h where
   -- I'd like to use sumC and pointC from Category, but they lead to some sort of failure.
@@ -146,13 +162,13 @@ instance (Foldable h, Pointed h) => SumCat RAD h where
   -- I'd like to use the following definition, but it triggers a plugin failure.
   -- TODO: track it down.
   -- sumC = affine sum point
-  sumC = affine A.sumC A.pointC
+  sumC = linear A.sumC
   {-# INLINE sumC #-}
 
 instance (Zip h, Additive1 h) => ZipCat RAD h where
-  zipC = affine A.zipC A.unzipC
+  zipC = linear A.zipC
   {-# INLINE zipC #-}
-  -- zipWithC = linearDF zipWithC
+  -- zipWithC = ??
   -- {-# INLINE zipWithC #-}
 
 -- TODO: Move OkFunctor and FunctorCat instances to GAD.
@@ -162,22 +178,22 @@ instance (Zip h, Additive1 h) => ZipCat RAD h where
 -- Change sumC to use Additive, and relate the regular sum method.
 
 instance (Pointed h, Foldable h, Additive1 h) => PointedCat RAD h where
-  pointC = affine A.pointC A.sumC
+  pointC = linear A.pointC
   {-# INLINE pointC #-}
 
 instance (Zip h, Foldable h, Additive1 h) => Strong RAD h where
-  strength = affine A.strength (first A.sumC . unzip)
+  strength = linear A.strength
   {-# INLINE strength #-}
 
 #endif
 
 instance (Distributive g, Distributive f) => DistributiveCat RAD g f where
-  distributeC = affine A.distributeC A.distributeC
+  distributeC = linear A.distributeC
   {-# INLINE distributeC #-}
 
 instance Representable g => RepresentableCat RAD g where
-  indexC    = affine A.indexC A.tabulateC
-  tabulateC = affine A.tabulateC A.indexC
+  indexC    = linear A.indexC
+  tabulateC = linear A.tabulateC
   {-# INLINE indexC #-}
   {-# INLINE tabulateC #-}
 
