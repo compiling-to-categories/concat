@@ -18,7 +18,7 @@ AbsTyPragmas
 
 module ConCat.DualAdditive where
 
-import Prelude hiding (id,(.),zip,unzip,const)
+import Prelude hiding (id,(.),zip,unzip,zipWith,const)
 
 import Data.Constraint (Dict(..),(:-)(..))
 import Data.Pointed
@@ -34,14 +34,19 @@ import ConCat.Additive
 
 AbsTyImports
 
-data Dual a b = Dual { unDual :: b -> a }
+-- data Dual a b = Dual { unDual :: b -> a }
+
+data Dual a b = Dual (b -> a)
 
 -- I'd use newtype, but then I run into some coercion challenges.
+-- TODO: investigate.
 
 instance HasRep (Dual a b) where
   type Rep (Dual a b) = b -> a
-  abst = Dual
-  repr = unDual
+  abst f = Dual f
+  repr (Dual f) = f
+  {-# INLINE abst #-}
+  {-# INLINE repr #-}
 
 AbsTy(Dual a b)
 
@@ -49,11 +54,16 @@ instance Category Dual where
   type Ok Dual = Additive
   id = abst id
   (.) = inAbst2 (flip (.))
+  {-# INLINE id #-}
+  {-# INLINE (.) #-}
 
 instance ProductCat Dual where
   exl = abst (,zero)
   exr = abst (zero,)
   (&&&) = inAbst2 (\ f g (x,y) -> f x ^+^ g y)
+  {-# INLINE exl #-}
+  {-# INLINE exr #-}
+  {-# INLINE (&&&) #-}
 
 -- This ProductCat definition corresponds to the *coproduct* (direct sum) for
 -- the Ab category, following duality. TODO: when we have associated products,
@@ -67,17 +77,28 @@ instance TerminalCat Dual where
   it = const ()
   {-# INLINE it #-}
 
+instance CoerceCat (->) b a => CoerceCat Dual a b where
+  coerceC = abst coerceC
+
 -- Dual (transpose) of addC
 addD :: (a :* a) -> Dual (a :* a) a
 addD = const (abst dup)
+{-# INLINE addD #-}
+
+-- Dual (transpose) of subC
+subD :: Num a => (a :* a) -> Dual (a :* a) a
+subD = const (abst (\ s -> (s,-s)))
+{-# INLINE subD #-}
 
 -- Dual of negateC
 negateD :: Num a => a -> Dual a a
 negateD = const (abst negateC)
+{-# INLINE negateD #-}
 
 -- Dual of mulC at @(u,v)@
 mulD :: Num a => (a :* a) -> Dual (a :* a) a
 mulD (u,v) = abst (\ s -> (s*v,s*u))
+{-# INLINE mulD #-}
 
 ---- Functor-level:
 
@@ -105,6 +126,17 @@ instance (Zip h, Additive1 h) => ZipCat Dual h where
   zipC = abst A.unzipC
   {-# INLINE zipC #-}
   -- {-# INLINE zipWithC #-}
+
+instance (Zip h, Additive1 h) => ZapCat Dual h where
+  zapC :: h (a `Dual` b) -> (h a `Dual` h b)
+  -- zapC = A.abstC . A.zapC . A.fmapC A.reprC
+  -- zapC = abst . A.zapC . fmap repr
+  zapC = abst . zipWith id . fmap repr
+  {-# INLINE zapC #-}
+
+-- fmap repr :: h (a `Dual` b) -> h (b -> a)
+-- zapC      :: h (b -> a) -> (h b -> h a)
+-- abst      :: (h b -> h a) -> (h a `Dual` h b)
 
 #if 0
 
