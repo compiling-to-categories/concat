@@ -20,7 +20,7 @@
 
 module ConCat.GAD where
 
-import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip)
+import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip,zipWith)
 import qualified Prelude as P
 -- import GHC.Exts (Coercible,coerce)
 import GHC.Exts (Constraint)
@@ -87,10 +87,26 @@ AbsTy(GD k a b)
 
 -- type family GDOk (k :: * -> * -> *) :: * -> Constraint
 
+-- Common pattern for linear functions
+#define Linear(nm) nm = linearD A.nm A.nm
+
+-- instance ConstCat k b => ConstCat (GD k) b where
+--   const b = linearD (const b) (const b)
+--   {-# INLINE const #-}
+
+-- I'm unsure about this ConstCat instance. It depends on const @k b mapping to
+-- a constant *zero* for some sensible notion of zero. What are the implications
+-- of this choice? We can't use (->), but then we already couldn't, since (a) we
+-- need Additive, and (b) I want a CoproductCat that uses cartesian products (as
+-- in direct sums).
+-- 
+-- What if we went further, and defined nonlinear arrows like mulC as if linear?
+-- Probably wouldn't work, since the linear approximations depend on input.
+
 instance Category k => Category (GD k) where
   -- type Ok (GD k) = Ok k &+& GDOk k
   type Ok (GD k) = Ok k
-  id = linearD A.id A.id
+  Linear(id)
   D g . D f = D (\ a ->
     let (b,f') = f a
         (c,g') = g b
@@ -116,8 +132,8 @@ instance Category k => Category (GD k) where
 type GDOk k = Ok k
 
 instance ProductCat k => ProductCat (GD k) where
-  exl = linearD A.exl A.exl
-  exr = linearD A.exr A.exr
+  Linear(exl)
+  Linear(exr)
   D f &&& D g = D (\ a ->
     let (b,f') = f a
         (c,g') = g a
@@ -155,14 +171,14 @@ instance ProductCat k => ProductCat (GD k) where
     Functor-level operations
 --------------------------------------------------------------------}
 
-#define Linear(nm) nm = linearD A.nm A.nm
-
 instance (FunctorCat k h, ZapCat k h) => FunctorCat (GD k) h where
   fmapC = inAbst (\ q -> second A.zapC . A.unzipC . A.fmapC q)
-  unzipC = linearD A.unzipC A.unzipC
+  Linear(unzipC)
   {-# INLINE fmapC #-}
   {-# INLINE unzipC #-}
 
+-- See 2017-12-27 notes
+-- 
 --      q :: a -> b :* (a `k` b)
 -- fmap q :: h a -> h (b :* (a `k` b))
 -- unzip  :: h (b :* (a `k` b)) -> h b :* h (a `k` b)
@@ -183,7 +199,7 @@ instance (SumCat (->) h, SumCat k h, OkFunctor (GD k) h)
   {-# INLINE sumC #-}
 
 instance (ZipCat k h, OkFunctor (GD k) h) => ZipCat (GD k) h where
-  zipC = linearD A.zipC A.zipC
+  Linear(zipC)
   {-# INLINE zipC #-}
   -- zipWithC = ??
   -- {-# INLINE zipWithC #-}
@@ -204,24 +220,24 @@ instance (ZapCat k h, OkFunctor k h, Zip h) => ZapCat (GD k) h where
 -- Change sumC to use Additive, and relate the regular sum method.
 
 instance (OkFunctor (GD k) h) => PointedCat (GD k) h where
-  pointC = linearD A.pointC A.pointC
+  Linear(pointC)
   {-# INLINE pointC #-}
 
 instance (OkFunctor (GD k) h) => Strong (GD k) h where
-  strength = linearD A.strength A.strength
+  Linear(strength)
   {-# INLINE strength #-}
 
 #endif
 
 instance (DistributiveCat (->) g f, DistributiveCat k g f)
       => DistributiveCat (GD k) g f where
-  distributeC = linearD A.distributeC A.distributeC
+  Linear(distributeC)
   {-# INLINE distributeC #-}
 
 instance (RepresentableCat (->) g, RepresentableCat k g)
       => RepresentableCat (GD k) g where
-  indexC    = linearD A.indexC    A.indexC
-  tabulateC = linearD A.tabulateC A.tabulateC
+  Linear(indexC)
+  Linear(tabulateC)
   {-# INLINE indexC #-}
   {-# INLINE tabulateC #-}
 
@@ -234,17 +250,17 @@ notDef :: String -> a
 notDef meth = error (meth ++ " on D not defined")
 
 instance (RepCat (->) a r, RepCat k a r) => RepCat (GD k) a r where
-  reprC = linearD A.reprC A.reprC
-  abstC = linearD A.abstC A.abstC
+  Linear(reprC)
+  Linear(abstC)
 
 #if 0
 instance (Coercible a b, V s a ~ V s b, Ok2 k a b) => CoerceCat (GD k) a b where
-  coerceC = linearD A.coerceC A.coerceC
+  Linear(coerceC)
 #else
 instance ( CoerceCat (->) a b
          , CoerceCat k a b
          ) => CoerceCat (GD k) a b where
-  coerceC = linearD A.coerceC A.coerceC
+  Linear(coerceC)
 #endif
 
 {--------------------------------------------------------------------
