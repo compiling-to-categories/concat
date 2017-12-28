@@ -31,6 +31,7 @@ import ConCat.Misc ((:*),Yes1,result,sqr,unzip,cond)
 import ConCat.Category
 import ConCat.AltCat (toCcc)
 import qualified ConCat.AltCat as A
+import qualified ConCat.Rep as R
 import ConCat.Additive
 import ConCat.DualAdditive
 import ConCat.GAD
@@ -39,20 +40,6 @@ import ConCat.GAD
 type RAD = GD Dual
 
 -- type instance GDOk Dual = Yes1
-
-mkD :: (a -> b :* (b -> a)) -> RAD a b
-mkD = D . (result.second) Dual
-{-# INLINE mkD #-}
--- mkD h = D (second Dual . h)
-
-unMkD :: RAD a b -> (a -> b :* (b -> a))
-unMkD = (result.second) unDual . unD
-{-# INLINE unMkD #-}
--- unMkD (D h) = second unDual . h
-
--- mkD f f' = D (\ a -> (f a, Dual (f' a)))
-
--- TODO: phase out mkD & unMkD.
 
 instance Additive b => ConstCat RAD b where
   const b = linearD (const b) (const b)
@@ -64,6 +51,7 @@ instance TerminalCat RAD where
 
 instance (Num s, Additive s) => NumCat RAD s where
   addC    = D (addC &&& addD)
+  subC    = D (subC &&& subD)
   negateC = D (negateC &&& negateD)
   mulC    = D (mulC &&& mulD)
   powIC   = notDef "powIC"       -- TODO
@@ -136,36 +124,18 @@ instance Ord a => MinMaxCat RAD a where
 
 -- TODO: IfCat. Maybe make ifC :: (a :* a) `k` (Bool -> a), which is linear.
 
-instance (Functor h, Zip h, Additive1 h) => FunctorCat RAD h where
-  fmapC (unMkD -> q) = mkD (second zap . unzip . fmap q)
-  -- fmapC (D q) = D (second zap . unzip . fmap q)
-  unzipC = linearD A.unzipC A.unzipC
-  {-# INLINE fmapC #-}
-  {-# INLINE unzipC #-}
-
--- q :: a -> b :* Dual a b
--- fmap q :: h a -> h (b :* Dual a b)
--- unzip . fmap q :: h a -> h b :* h (Dual a b)
--- second zap . unzip . fmap q :: h a -> h b :* Dual (h a) (h b)
-
--- Nope, since zap :: h (a -> b) -> (h a -> h b), and
--- zapC :: (h (a -> b) :* h a) `k` h b.
--- I think there's something here, so keep probing.
-
 {--------------------------------------------------------------------
     Differentiation interface
 --------------------------------------------------------------------}
 
 -- | Add a dual/reverse derivative
-andDerR :: (a -> b) -> (a -> b :* (b -> a))
-andDerR f = unMkD (toCcc f)
--- andDerR = (result.result.second) unDual andDeriv
+andDerR :: forall a b. (a -> b) -> (a -> b :* (b -> a))
+andDerR f = unMkD (toCcc f :: RAD a b)
 {-# INLINE andDerR #-}
 
 -- | Dual/reverse derivative
 derR :: (a -> b) -> (a -> (b -> a))
 derR = (result.result) snd andDerR
--- derR = (result.result) unDual deriv
 {-# INLINE derR #-}
 
 andGradR :: Num s => (a -> s) -> (a -> s :* a)
@@ -175,11 +145,3 @@ andGradR = (result.result.second) ($ 1) andDerR
 gradR :: Num s => (a -> s) -> (a -> a)
 gradR = (result.result) snd andGradR
 {-# INLINE gradR #-}
-
--- andGradR :: Num s => (a -> s) -> (a -> s :* a)
--- andGradR = (result.result.second) (($ 1) . unDual) andDeriv
--- {-# INLINE andGradR #-}
-
--- gradR :: Num s => (a -> s) -> (a -> a)
--- gradR = (result.result) snd andGradR
--- {-# INLINE gradR #-}
