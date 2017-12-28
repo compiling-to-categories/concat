@@ -292,6 +292,8 @@ instance (CartCon con, Functor h) => FunctorCat (Choice con) h where
 instance (Zip h, CartCon con) => ZipCat (Choice con) h where
   zipC = exactly zipC
 
+-- TODO: ZapCat instance? I don't think so, but we'll see.
+
 instance (Pointed h, CartCon con) => PointedCat (Choice con) h where
   pointC = exactly pointC
 
