@@ -164,58 +164,58 @@ Rebox2(id,unboxIB, leInteger#,(<=))
 
 {-# RULES
 
-"boxI ==" forall u v   . boxIB (u ==# v)          = equal              (boxI u,boxI v)
-"boxI /=" forall u v   . boxIB (u /=# v)          = notEqual           (boxI u,boxI v)
-"boxI >"  forall u v   . boxIB (u >#  v)          = greaterThan        (boxI u,boxI v)
-"boxI >=" forall u v   . boxIB (u >=# v)          = greaterThanOrEqual (boxI u,boxI v)
-"boxI <"  forall u v   . boxIB (u <#  v)          = lessThan           (boxI u,boxI v)
-"boxI <=" forall u v   . boxIB (u <=# v)          = lessThanOrEqual    (boxI u,boxI v)
+"boxI ==" [~0] forall u v   . boxIB (u ==# v)        = equal              (boxI u,boxI v)
+"boxI /=" [~0] forall u v   . boxIB (u /=# v)        = notEqual           (boxI u,boxI v)
+"boxI >"  [~0] forall u v   . boxIB (u >#  v)        = greaterThan        (boxI u,boxI v)
+"boxI >=" [~0] forall u v   . boxIB (u >=# v)        = greaterThanOrEqual (boxI u,boxI v)
+"boxI <"  [~0] forall u v   . boxIB (u <#  v)        = lessThan           (boxI u,boxI v)
+"boxI <=" [~0] forall u v   . boxIB (u <=# v)        = lessThanOrEqual    (boxI u,boxI v)
 
-"boxF ==" forall u v   . boxIB (u `eqFloat#` v)   = equal              (boxF u,boxF v)
-"boxF /=" forall u v   . boxIB (u `neFloat#` v)   = notEqual           (boxF u,boxF v)
-"boxF >"  forall u v   . boxIB (u `gtFloat#` v)   = greaterThan        (boxF u,boxF v)
-"boxF >=" forall u v   . boxIB (u `geFloat#` v)   = greaterThanOrEqual (boxF u,boxF v)
-"boxF <"  forall u v   . boxIB (u `ltFloat#` v)   = lessThan           (boxF u,boxF v)
-"boxF <=" forall u v   . boxIB (u `leFloat#` v)   = lessThanOrEqual    (boxF u,boxF v)
+"boxF ==" [~0] forall u v   . boxIB (u `eqFloat#` v) = equal              (boxF u,boxF v)
+"boxF /=" [~0] forall u v   . boxIB (u `neFloat#` v) = notEqual           (boxF u,boxF v)
+"boxF >"  [~0] forall u v   . boxIB (u `gtFloat#` v) = greaterThan        (boxF u,boxF v)
+"boxF >=" [~0] forall u v   . boxIB (u `geFloat#` v) = greaterThanOrEqual (boxF u,boxF v)
+"boxF <"  [~0] forall u v   . boxIB (u `ltFloat#` v) = lessThan           (boxF u,boxF v)
+"boxF <=" [~0] forall u v   . boxIB (u `leFloat#` v) = lessThanOrEqual    (boxF u,boxF v)
 
-"boxD ==" forall u v   . boxIB (u ==## v)         = equal              (boxD u,boxD v)
-"boxD /=" forall u v   . boxIB (u /=## v)         = notEqual           (boxD u,boxD v)
-"boxD >"  forall u v   . boxIB (u >##  v)         = greaterThan        (boxD u,boxD v)
-"boxD >=" forall u v   . boxIB (u >=## v)         = greaterThanOrEqual (boxD u,boxD v)
-"boxD <"  forall u v   . boxIB (u <##  v)         = lessThan           (boxD u,boxD v)
-"boxD <=" forall u v   . boxIB (u <=## v)         = lessThanOrEqual    (boxD u,boxD v)
+"boxD ==" [~0] forall u v   . boxIB (u ==## v)       = equal              (boxD u,boxD v)
+"boxD /=" [~0] forall u v   . boxIB (u /=## v)       = notEqual           (boxD u,boxD v)
+"boxD >"  [~0] forall u v   . boxIB (u >##  v)       = greaterThan        (boxD u,boxD v)
+"boxD >=" [~0] forall u v   . boxIB (u >=## v)       = greaterThanOrEqual (boxD u,boxD v)
+"boxD <"  [~0] forall u v   . boxIB (u <##  v)       = lessThan           (boxD u,boxD v)
+"boxD <=" [~0] forall u v   . boxIB (u <=## v)       = lessThanOrEqual    (boxD u,boxD v)
 
 -- TODO: shorten the OrdCat names
 
-"boxI negate" forall u . boxI (negateInt# u)      = negateC (boxI u)
-"boxI +" forall u v    . boxI (u +# v)            = addC (boxI u,boxI v)
-"boxI -" forall u v    . boxI (u -# v)            = subC (boxI u,boxI v)
-"boxI *" forall u v    . boxI (u *# v)            = mulC (boxI u,boxI v)
-"boxI trunc" forall u  . boxI (double2Int# u)     = truncateC (boxD u)
+"boxI negate" [~0] forall u   . boxI (negateInt# u)      = negateC (boxI u)
+"boxI +"      [~0] forall u v . boxI (u +# v)            = addC (boxI u,boxI v)
+"boxI -"      [~0] forall u v . boxI (u -# v)            = subC (boxI u,boxI v)
+"boxI *"      [~0] forall u v . boxI (u *# v)            = mulC (boxI u,boxI v)
+"boxI trunc"  [~0] forall u   . boxI (double2Int# u)     = truncateC (boxD u)
 
-"boxF negate" forall u . boxF (negateFloat# u)    = negateC (boxF u)
-"boxF +" forall u v    . boxF (u `plusFloat#`  v) = addC (boxF u,boxF v)
-"boxF -" forall u v    . boxF (u `minusFloat#` v) = subC (boxF u,boxF v)
-"boxF *" forall u v    . boxF (u `timesFloat#` v) = mulC (boxF u,boxF v)
-"boxF exp" forall u    . boxF (expFloat# u)       = expC (boxF u)
-"boxF log" forall u    . boxF (logFloat# u        = logC(boxF u)
-"boxF cos" forall u    . boxF (cosFloat# u)       = cosC (boxF u)
-"boxF sin" forall u    . boxF (sinFloat# u)       = sinC (boxF u)
+"boxF negate" [~0] forall u   . boxF (negateFloat# u)    = negateC (boxF u)
+"boxF +"      [~0] forall u v . boxF (u `plusFloat#`  v) = addC (boxF u,boxF v)
+"boxF -"      [~0] forall u v . boxF (u `minusFloat#` v) = subC (boxF u,boxF v)
+"boxF *"      [~0] forall u v . boxF (u `timesFloat#` v) = mulC (boxF u,boxF v)
+"boxF exp"    [~0] forall u   . boxF (expFloat# u)       = expC (boxF u)
+"boxF log"    [~0] forall u   . boxF (logFloat# u        = logC(boxF u)
+"boxF cos"    [~0] forall u   . boxF (cosFloat# u)       = cosC (boxF u)
+"boxF sin"    [~0] forall u   . boxF (sinFloat# u)       = sinC (boxF u)
 
-"boxD i2D"    forall n . boxD (int2Double# n)     = fromIntegralC (boxI n)
-"boxD negate" forall u . boxD (negateDouble# u)   = negateC (boxD u)
-"boxD +" forall u v    . boxD (u +## v)           = addC (boxD u,boxD v)
-"boxD -" forall u v    . boxD (u -## v)           = subC (boxD u,boxD v)
-"boxD *" forall u v    . boxD (u *## v)           = mulC (boxD u,boxD v)
-"boxD exp" forall u    . boxD (expDouble# u)      = expC (boxD u)
-"boxD log" forall u    . boxD (logDouble# u)      = logC (boxD u)
-"boxD cos" forall u    . boxD (cosDouble# u)      = cosC (boxD u)
-"boxD sin" forall u    . boxD (sinDouble# u)      = sinC (boxD u)
+"boxD i2D"    [~0] forall n   . boxD (int2Double# n)     = fromIntegralC (boxI n)
+"boxD negate" [~0] forall u   . boxD (negateDouble# u)   = negateC (boxD u)
+"boxD +"      [~0] forall u v . boxD (u +## v)           = addC (boxD u,boxD v)
+"boxD -"      [~0] forall u v . boxD (u -## v)           = subC (boxD u,boxD v)
+"boxD *"      [~0] forall u v . boxD (u *## v)           = mulC (boxD u,boxD v)
+"boxD exp"    [~0] forall u   . boxD (expDouble# u)      = expC (boxD u)
+"boxD log"    [~0] forall u   . boxD (logDouble# u)      = logC (boxD u)
+"boxD cos"    [~0] forall u   . boxD (cosDouble# u)      = cosC (boxD u)
+"boxD sin"    [~0] forall u   . boxD (sinDouble# u)      = sinC (boxD u)
 
 -- These two don't work:
 
--- "boxF /" forall u v. boxF (u `divideFloat#` v) = divideC (boxF u,boxF v)
--- "boxD /" forall u v. boxD (u /## v) = divideC (boxD u,boxD v)
+-- "boxF /" [~0] forall u v. boxF (u `divideFloat#` v) = divideC (boxF u,boxF v)
+-- "boxD /" [~0] forall u v. boxD (u /## v) = divideC (boxD u,boxD v)
 
 --     RULE left-hand side too complicated to desugar
 --       Optimised lhs: case /## u v of wild_00 { __DEFAULT ->
@@ -236,7 +236,7 @@ Rebox2(id,unboxIB, leInteger#,(<=))
 
 -- Also problematic:
 
--- "boxZ ==" forall u v . boxIB (eqInteger# u v) = equal (u,v)
+-- "boxZ ==" [~0] forall u v . boxIB (eqInteger# u v) = equal (u,v)
 
 -- RULE left-hand side too complicated to desugar
 --   Optimised lhs: case eqInteger# u v of wild_00 { __DEFAULT ->
@@ -323,8 +323,8 @@ ghc: panic! (the 'impossible' happened)
 -- When I turn off lintSteps in ConCat.Plugin, we get into an infinite
 -- unfolding/reboxing loop. I tried the following rules
 -- 
--- "D# . unboxD" forall u. D# (unboxD u) = u
--- "F# . unboxF" forall u. F# (unboxF u) = u
+-- "D# . unboxD" [~0] forall u. D# (unboxD u) = u
+-- "F# . unboxF" [~0] forall u. F# (unboxF u) = u
 -- 
 -- but
 -- 
