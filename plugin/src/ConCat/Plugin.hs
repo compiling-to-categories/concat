@@ -323,15 +323,15 @@ ccc (CccEnv {..}) (Ops {..}) cat =
          dtrace "top recaster" (ppr re) $
          return (mkCcc (re `App` e))
 #endif
-     Trying("top abstReprCon")
+     Trying("top con abstRepr")
      -- Constructor application
      e@(collectArgs -> (Var (isDataConId_maybe -> Just dc),_))
        | let (binds,body) = collectBinders (etaExpand (dataConRepArity dc) e)
              bodyTy = exprType body
-       -- , dtrace "top abstReprCon abst type" (ppr bodyTy) True
+       -- , dtrace "top con abstRepr abst type" (ppr bodyTy) True
        , Just repr <- mkReprC'_maybe funCat bodyTy
        , Just abst <- mkAbstC'_maybe funCat bodyTy
-       -> Doing("top abstReprCon")
+       -> Doing("top con abstRepr")
           return $ mkCcc $
            mkLams binds $
             abst `App` (inlineE repr `App` body)
@@ -438,7 +438,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
          _     -> pprPanic "goLam Pair: too many arguments: " (ppr rest)
 #if 1
      -- Revisit.
-     Trying("lam abstReprCon")
+     Trying("lam con abstRepr")
      -- Constructor applied to ty/co/dict arguments
      e@(collectNonTyCoDictArgs ->
         (collectTyCoDictArgs -> (Var (isDataConId_maybe -> Just dc),_), args))
@@ -446,7 +446,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
              bodyTy = exprType body'
        , Just repr <- mkReprC'_maybe funCat bodyTy
        , Just abst <- mkAbstC'_maybe funCat bodyTy
-       -> Doing("lam abstReprCon")
+       -> Doing("lam con abstRepr")
           return $ mkCcc $ Lam x $
             mkLams binds $ abst `App` (inlineE repr `App` body')
 #endif
@@ -616,12 +616,27 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      -- Case (Cast scrut (setNominalRole_maybe -> Just co')) v altsTy alts
      --   -> Doing("lam Case cast")
      --           Trying("lam Case cast")
+     Trying("lam Case unfold")
      Case scrut v altsTy alts
        -- | pprTrace "lam Case unfold" (ppr (scrut,unfoldMaybe' scrut)) False -> undefined
        | Just scrut' <- unfoldMaybe' scrut
        -> Doing("lam Case unfold")
           return $ mkCcc $ Lam x $
            Case scrut' v altsTy alts
+#if 1
+     -- Does unfolding suffice as an alternative? Not quite, since lambda-bound
+     -- variables can appear as scrutinees. Maybe we could eliminate that
+     -- possibility with another transformation.
+     -- 2016-01-04: I moved lam case abstRepr after unfold
+     -- Do I also need top case abstRepr?
+     Trying("lam case abstRepr")
+     Case scrut v@(varType -> vty) altsTy alts
+       | Just repr <- mkReprC'_maybe funCat vty
+       , Just abst <- mkAbstC'_maybe funCat vty
+       -> Doing("lam case abstRepr")
+          return $ mkCcc $ Lam x $
+           Case (inlineE abst `App` (repr `App` scrut)) v altsTy alts
+#endif
      Trying("lam nominal Cast")
      Cast body' co@(setNominalRole_maybe -> Just co') ->
        -- etaExpand turns cast lambdas into themselves
@@ -649,20 +664,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -- rename mkCoerceC.
        return $ mkCompose cat (mkCoerceC cat (exprType e') (exprType e)) $
                 mkCcc (Lam x e')
-#endif
-#if 1
-     -- Does unfolding suffice as an alternative? Not quite, since lambda-bound
-     -- variables can appear as scrutinees. Maybe we could eliminate that
-     -- possibility with another transformation.
-     -- 2016-01-04: I moved lam abstReprCase after unfold
-     Trying("lam abstReprCase")
-     -- Do I also need top abstReprCase?
-     Case scrut v@(varType -> vty) altsTy alts
-       | Just repr <- mkReprC'_maybe funCat vty
-       , Just abst <- mkAbstC'_maybe funCat vty
-       -> Doing("lam abstReprCase")
-          return $ mkCcc $ Lam x $
-           Case (inlineE abst `App` (repr `App` scrut)) v altsTy alts
 #endif
 #if 0
      Trying("lam recast")
