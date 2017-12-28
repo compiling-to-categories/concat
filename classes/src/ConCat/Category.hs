@@ -34,13 +34,15 @@
 -- For ConCat.Inline.ClassOp
 {-# OPTIONS_GHC -fplugin=ConCat.Inline.Plugin #-}
 
+-- {-# OPTIONS_GHC -ddump-simpl #-}
+
 -- | Another go at constrained categories. This time without Prod, Coprod, Exp.
 
 -- #define DefaultCat
 
 module ConCat.Category where
 
-import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip)
+import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip,zipWith)
 import qualified Prelude as P
 #ifdef DefaultCat
 import qualified Control.Category as C
@@ -59,6 +61,8 @@ import qualified Data.Type.Coercion as Co
 import GHC.Types (Constraint)
 -- import qualified Data.Constraint as Con
 import Data.Constraint hiding ((&&&),(***),(:=>))
+-- import Debug.Trace
+
 -- import GHC.Types (type (*))  -- experiment with TypeInType
 -- import qualified Data.Constraint as K
 -- import GHC.TypeLits
@@ -102,11 +106,14 @@ infixr 7 :**:
 -- | Product for binary type constructors
 data (p :**: q) a b = p a b :**: q a b
 
+unProd :: (p :**: q) a b -> p a b :* q a b
+unProd (p :**: q) = (p,q)
+
 exl2 :: (p :**: q) a b -> p a b
-exl2 (p :**: _) = p
+exl2 = exl . unProd
 
 exr2 :: (p :**: q) a b -> q a b
-exr2 (_ :**: q) = q
+exr2 = exr . unProd
 
 instance HasRep ((k :**: k') a b) where
   type Rep ((k :**: k') a b) = k a b :* k' a b
@@ -1240,6 +1247,8 @@ class (BoolCat k, Ok k a) => EqCat k a where
 instance Eq a => EqCat (->) a where
   equal    = uncurry (IC.inline (==))
   notEqual = uncurry (IC.inline (/=))
+  {-# INLINE [0] equal #-}
+  {-# INLINE [0] notEqual #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Eq a) => EqCat (Kleisli m) a where
@@ -1285,12 +1294,18 @@ class MinMaxCat k a where
 instance Ord a => MinMaxCat (->) a where
   minC = uncurry (IC.inline min)
   maxC = uncurry (IC.inline max)
+  {-# INLINE [0] minC #-}
+  {-# INLINE [0] maxC #-}
 
 instance Ord a => OrdCat (->) a where
   lessThan           = uncurry (IC.inline (<))
   greaterThan        = uncurry (IC.inline (>))
   lessThanOrEqual    = uncurry (IC.inline (<=))
   greaterThanOrEqual = uncurry (IC.inline (>=))
+  {-# INLINE [0] lessThan #-}
+  {-# INLINE [0] greaterThan #-}
+  {-# INLINE [0] lessThanOrEqual #-}
+  {-# INLINE [0] greaterThanOrEqual #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Ord a) => OrdCat (Kleisli m) a where
@@ -1336,6 +1351,8 @@ class (Category k, Ok k a) => EnumCat k a where
 instance Enum a => EnumCat (->) a where
   succC = IC.inline succ
   predC = IC.inline pred
+  {-# INLINE [0] succC #-}
+  {-# INLINE [0] predC #-}
 
 instance EnumCat U2 a where
   succC = U2
@@ -1357,11 +1374,17 @@ class Ok k a => NumCat k a where
 
 instance Num a => NumCat (->) a where
   negateC = IC.inline negate
+  -- mysterious bug workaround, but leads to different error. see 2017-12-27 notes.
+  -- addC (x,y) = IC.inline (+) x y
   addC    = uncurry (IC.inline (+))
   subC    = uncurry (IC.inline (-))
   mulC    = uncurry (IC.inline (*))
-  powIC   = uncurry (^)
-            -- (^) is not a class-op
+  powIC   = uncurry (^) -- (^) is not a class-op
+  {-# INLINE [0] negateC #-}
+  {-# INLINE [0] addC #-}
+  {-# INLINE [0] subC #-}
+  {-# INLINE [0] mulC #-}
+  {-# INLINE [0] powIC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Num a) => NumCat (Kleisli m) a where
@@ -1403,6 +1426,8 @@ divModC = divC &&& modC  <+ okProd @k @a @a
 instance Integral a => IntegralCat (->) a where
   divC = uncurry (IC.inline div)
   modC = uncurry (IC.inline mod)
+  {-# INLINE [0] divC #-}
+  {-# INLINE [0] modC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Integral a) => IntegralCat (Kleisli m) a where
@@ -1434,6 +1459,8 @@ class Ok k a => FractionalCat k a where
 instance Fractional a => FractionalCat (->) a where
   recipC  = IC.inline recip
   divideC = uncurry (IC.inline (/))
+  {-# INLINE [0] recipC #-}
+  {-# INLINE [0] divideC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Fractional a) => FractionalCat (Kleisli m) a where
@@ -1464,6 +1491,10 @@ instance Floating a => FloatingCat (->) a where
   cosC = IC.inline cos
   sinC = IC.inline sin
   -- powC = IC.inline (**)
+  {-# INLINE [0] expC #-}
+  {-# INLINE [0] logC #-}
+  {-# INLINE [0] cosC #-}
+  {-# INLINE [0] sinC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Floating a) => FloatingCat (Kleisli m) a where
@@ -1501,6 +1532,9 @@ instance (RealFrac a, Integral b) => RealFracCat (->) a b where
   floorC    = IC.inline floor
   ceilingC  = IC.inline ceiling
   truncateC = IC.inline truncate
+  {-# INLINE [0] floorC #-}
+  {-# INLINE [0] ceilingC #-}
+  {-# INLINE [0] truncateC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, RealFrac a, Integral b) => RealFracCat (Kleisli m) a b where
@@ -1531,6 +1565,7 @@ class FromIntegralCat k a b where
 
 instance (Integral a, Num b) => FromIntegralCat (->) a b where
   fromIntegralC = X.inline fromIntegral -- non-class-op
+  {-# INLINE [0] fromIntegralC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Integral a, Num b) => FromIntegralCat (Kleisli m) a b where
@@ -1854,6 +1889,9 @@ class (Zip h, OkFunctor k h) => ZipCat k h where
   zipC :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
   -- zipWithC :: Ok3 k a b c => (a :* b -> c) `k` (h a :* h b -> h c)
 
+class OkFunctor k h => ZapCat k h where
+  zapC :: Ok2 k a b => h (a `k` b) -> (h a `k` h b)
+
 class ({- Pointed h, -} OkFunctor k h) => PointedCat k h where
   pointC :: Ok k a => a `k` h a
 
@@ -1878,6 +1916,8 @@ class OkFunctor k h => SumCat k h where
 instance Functor h => FunctorCat (->) h where
   fmapC  = IC.inline fmap
   unzipC = X.inline unzip
+  {-# INLINE [0] fmapC #-}
+  {-# INLINE [0] unzipC #-}
 
 #if 0
 instance (Zip h, Representable h) => ZipCat (->) h where
@@ -1905,13 +1945,23 @@ instance Zip h => ZipCat (->) h where
   zipC = uncurry (IC.inline zip)
   -- zipWithC :: (a :* b -> c) -> (h a :* h b -> h c)
   -- zipWithC f = uncurry (inline zipWith (curry f))
+  {-# INLINE [0] zipC #-}
+
+instance Zip h => ZapCat (->) h where
+  -- zapC = IC.inline zap
+  -- zapC = zap
+  zapC = zipWith id  -- as in the default; 2017-12-27 notes
+  {-# INLINE [0] zapC #-}
+
 instance Pointed h => PointedCat (->) h where
   pointC = IC.inline point
+  {-# INLINE [0] pointC #-}
 
 #endif
 
 instance Foldable h => SumCat (->) h where
   sumC = IC.inline sum
+  {-# INLINE [0] sumC #-}
 
 -- instance (OkFunctor k h, OkFunctor k' h) => OkFunctor (k :**: k') h where
 --   okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
@@ -1927,6 +1977,17 @@ instance (ZipCat k h, ZipCat k' h) => ZipCat (k :**: k') h where
   {-# INLINE zipC #-}
   -- zipWithC = zipWithC :**: zipWithC
   -- {-# INLINE zipWithC #-}
+
+instance (ZapCat k h, ZapCat k' h, Functor h) => ZapCat (k :**: k') h where
+  zapC = uncurry (:**:) . (zapC *** zapC) . unzip . fmap unProd
+  {-# INLINE zapC #-}
+
+--             unProd  :: (p :**: q) a b -> p a b :* q a b
+--        fmap unProd  :: h ((p :**: q) a b) -> h (p a b :* q a b)
+-- unzip (fmap unProd) :: h (p a b :* q a b) -> h (p a b) :* h (q a b)
+-- (zapC *** zapC)     :: h (p a b) :* h (q a b) -> p (h a) (h b) :* q (h a) (h b)
+-- uncurry (:**:)      :: p (h a) (h b) :* q (h a) (h b) -> (p :**: q) (h a) (h b)
+
 instance (PointedCat k h, PointedCat k' h) => PointedCat (k :**: k') h where
   pointC = pointC :**: pointC
   {-# INLINE pointC #-}
@@ -1949,6 +2010,7 @@ class DistributiveCat k g f where
 
 instance (Distributive g, Functor f) => DistributiveCat (->) g f where
   distributeC = IC.inline distribute
+  {-# INLINE [0] distributeC #-}
 
 instance (DistributiveCat k g f, DistributiveCat k' g f)
       => DistributiveCat (k :**: k') g f where
@@ -1962,6 +2024,8 @@ class RepresentableCat k f where
 instance Representable f => RepresentableCat (->) f where
   tabulateC = IC.inline tabulate
   indexC    = IC.inline index
+  {-# INLINE [0] tabulateC #-}
+  {-# INLINE [0] indexC #-}
 
 instance (RepresentableCat k h, RepresentableCat k' h)
       => RepresentableCat (k :**: k') h where
@@ -1970,7 +2034,7 @@ instance (RepresentableCat k h, RepresentableCat k' h)
   {-# INLINE tabulateC #-}
   {-# INLINE indexC #-}
 
--- Experiment
+---- Experiment
 
 -- fmap' and liftA2' are class-op-inlining synonyms for fmap and liftA2. Look
 -- for a better alternative. See 2017-10-20 notes.
