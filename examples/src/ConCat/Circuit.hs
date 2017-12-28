@@ -881,6 +881,8 @@ instance (Zip h, OkFunctor (:>) h) => ZipCat (:>) h where
            <+ okFunctor' @(:>) @h @b
 #endif
 
+-- TODO: ZapCat instance? I don't think so, but we'll see.
+
 instance ({- Pointed h, -} OkFunctor (:>) h) => PointedCat (:>) h where
   pointC :: forall a. Ok (:>) a => a :> h a
   pointC = namedC "point"
