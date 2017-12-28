@@ -155,29 +155,12 @@ instance (Floating s, Additive s) => FloatingCat D s where
 instance Ord a => MinMaxCat D a where
   -- minC = D (\ (x,y) -> (minC (x,y), if x <= y then exl else exr))
   -- maxC = D (\ (x,y) -> (maxC (x,y), if x <= y then exr else exl))
-  minC = D (\ xy -> (minC xy, if lessThanOrEqual xy then exl else exr))
-  maxC = D (\ xy -> (maxC xy, if lessThanOrEqual xy then exr else exl))
+  -- minC = D (\ xy -> (minC xy, if lessThanOrEqual xy then exl else exr))
+  -- maxC = D (\ xy -> (maxC xy, if lessThanOrEqual xy then exr else exl))
+  minC = D (minC &&& cond exl exr . lessThanOrEqual)
+  maxC = D (maxC &&& cond exr exl . lessThanOrEqual)
   {-# INLINE minC #-} 
   {-# INLINE maxC #-} 
-
--- type Ok D = (Yes1 &+& Additive)
-
--- instance Additive1 h => OkFunctor D h where
---   okFunctor :: forall a. Ok' D a |- Ok' D (h a)
---   okFunctor = inForkCon (yes1 *** additive1 @h @a)
---   {-# INLINE okFunctor #-}
-
-instance (Functor h, Zip h, Additive1 h) => FunctorCat D h where
-  fmapC (D q) = D (second zap . unzip . fmap q)
-  unzipC = linearDF unzipC
-  {-# INLINE fmapC #-}
-
--- q :: a -> b :* (a -> b)
-
--- fmap q :: h a -> h (b :* (a -> b))
--- unzip . fmap q :: h a -> h b :* h (a -> b)
-
--- TODO: Move OkFunctor and FunctorCat instances to GAD.
 
 #if 0
 
