@@ -48,6 +48,7 @@ import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..),distributeRep)
 -- import qualified Data.Functor.Rep as R
 import Control.Newtype (Newtype(..))
+-- import Debug.Trace
 #ifdef VectorSized
 import Data.Proxy (Proxy(..))
 import GHC.TypeLits (KnownNat,natVal)
@@ -80,7 +81,7 @@ import ConCat.Category
   , OpCon(..),Sat(..) -- ,FunctorC(..)
   , yes1, forkCon, joinCon, inForkCon
   -- Functor-level
-  , OkFunctor(..),FunctorCat,ZipCat,PointedCat,SumCat,Strong
+  , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat,SumCat,Strong
   , DistributiveCat,RepresentableCat 
   , fmap', liftA2' 
   )
@@ -699,6 +700,8 @@ unzipC = fmapC exl &&& fmapC exr
 {-# INLINE unzipC #-}
 #endif
 
+#if 0
+-- See 2017-12-27 notes
 zapC :: forall k h a b.
         (FunctorCat k h, ZipCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
      => (h (a -> b) :* h a) `k` h b
@@ -712,9 +715,14 @@ zapC = fmapC apply . zipC
          <+ okExp     @k    @a @b
 {-# INLINE zapC #-}
 
--- TODO: define zapC via zipWithC
+Catify(zap, uncurry zapC)
 
-Catify(zap, curry zapC)
+-- TODO: define zapC via zipWithC
+#else
+Op1(zapC, (ZapCat k h, Ok2 k a b) => h (a `k` b) -> (h a `k` h b))
+-- Translation for zap? Maybe like fmap's.
+-- Catify(zap, zapC)  -- 2017-12-27 notes
+#endif
 
 -- TODO: Is there any value to defining utility functions like unzipC and zapC
 -- in categorical generality? Maybe define only for functions, but still using
@@ -1053,3 +1061,4 @@ letT h f = P.uncurry h . (id &&& f)
 
 -- Use the Prelude's uncurry (or Category's) to get inlining here.
 
+-- {-# RULES "ccc trace" forall str. toCcc' (trace str) = trace str P.id #-}
