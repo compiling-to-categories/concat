@@ -1395,6 +1395,9 @@ substFriendlyTy _ = False
 catModule :: String
 catModule = "ConCat.AltCat"
 
+trnModule :: String
+trnModule = "ConCat.Translators"
+
 repModule :: String
 repModule = "ConCat.Rep"
 
@@ -1612,6 +1615,7 @@ mkCccEnv opts = do
       findTc      = lookupTh mkTcOcc  lookupTyCon
       -- findFloatTy = fmap mkTyConTy . findTc floatModule -- TODO: eliminate
       findCatId   = findId catModule
+      findTrnId   = findId trnModule
       findRepTc   = findTc repModule
       findRepId   = findId repModule
       findBoxId   = findId boxModule
@@ -1635,11 +1639,11 @@ mkCccEnv opts = do
   cccV        <- findCatId "toCcc'"
   uncccV      <- findCatId "unCcc'"
   fmapV       <- findCatId "fmapC"
-  fmapTV      <- findCatId "fmapT"
-  fmapIdTV    <- findCatId "fmapIdT"  -- TODO: eliminate fmapT, and rename fmapIdT to "fmapT"
-  casePairTV  <- findCatId "casePairT"
-  casePairLTV <- findCatId "casePairLT"
-  casePairRTV <- findCatId "casePairRT"
+  fmapTV      <- findTrnId "fmapT"
+  fmapIdTV    <- findTrnId "fmapIdT"  -- TODO: eliminate fmapT, and rename fmapIdT to "fmapT"
+  casePairTV  <- findTrnId "casePairT"
+  casePairLTV <- findTrnId "casePairLT"
+  casePairRTV <- findTrnId "casePairRT"
   repTc       <- findRepTc "Rep"
   prePostV    <- findId "ConCat.Misc" "~>"
   boxIV       <- findBoxId "boxI"
