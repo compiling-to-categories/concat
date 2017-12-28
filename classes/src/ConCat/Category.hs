@@ -95,6 +95,10 @@ import qualified ConCat.Inline.ClassOp as IC
 #define PINLINER(nm) {-# INLINE nm #-}
 -- #define PINLINER(nm)
 
+-- Prevents some subtle non-termination errors. See 2017-12-27 notes.
+#define OPINLINE INLINE [0]
+-- #define OPINLINE INLINE
+
 {--------------------------------------------------------------------
     Unit and pairing for binary type constructors
 --------------------------------------------------------------------}
@@ -1247,8 +1251,8 @@ class (BoolCat k, Ok k a) => EqCat k a where
 instance Eq a => EqCat (->) a where
   equal    = uncurry (IC.inline (==))
   notEqual = uncurry (IC.inline (/=))
-  {-# INLINE [0] equal #-}
-  {-# INLINE [0] notEqual #-}
+  {-# OPINLINE equal #-}
+  {-# OPINLINE notEqual #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Eq a) => EqCat (Kleisli m) a where
@@ -1294,18 +1298,18 @@ class MinMaxCat k a where
 instance Ord a => MinMaxCat (->) a where
   minC = uncurry (IC.inline min)
   maxC = uncurry (IC.inline max)
-  {-# INLINE [0] minC #-}
-  {-# INLINE [0] maxC #-}
+  {-# OPINLINE minC #-}
+  {-# OPINLINE maxC #-}
 
 instance Ord a => OrdCat (->) a where
   lessThan           = uncurry (IC.inline (<))
   greaterThan        = uncurry (IC.inline (>))
   lessThanOrEqual    = uncurry (IC.inline (<=))
   greaterThanOrEqual = uncurry (IC.inline (>=))
-  {-# INLINE [0] lessThan #-}
-  {-# INLINE [0] greaterThan #-}
-  {-# INLINE [0] lessThanOrEqual #-}
-  {-# INLINE [0] greaterThanOrEqual #-}
+  {-# OPINLINE lessThan #-}
+  {-# OPINLINE greaterThan #-}
+  {-# OPINLINE lessThanOrEqual #-}
+  {-# OPINLINE greaterThanOrEqual #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Ord a) => OrdCat (Kleisli m) a where
@@ -1351,8 +1355,8 @@ class (Category k, Ok k a) => EnumCat k a where
 instance Enum a => EnumCat (->) a where
   succC = IC.inline succ
   predC = IC.inline pred
-  {-# INLINE [0] succC #-}
-  {-# INLINE [0] predC #-}
+  {-# OPINLINE succC #-}
+  {-# OPINLINE predC #-}
 
 instance EnumCat U2 a where
   succC = U2
@@ -1380,11 +1384,11 @@ instance Num a => NumCat (->) a where
   subC    = uncurry (IC.inline (-))
   mulC    = uncurry (IC.inline (*))
   powIC   = uncurry (^) -- (^) is not a class-op
-  {-# INLINE [0] negateC #-}
-  {-# INLINE [0] addC #-}
-  {-# INLINE [0] subC #-}
-  {-# INLINE [0] mulC #-}
-  {-# INLINE [0] powIC #-}
+  {-# OPINLINE negateC #-}
+  {-# OPINLINE addC #-}
+  {-# OPINLINE subC #-}
+  {-# OPINLINE mulC #-}
+  {-# OPINLINE powIC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Num a) => NumCat (Kleisli m) a where
@@ -1426,8 +1430,8 @@ divModC = divC &&& modC  <+ okProd @k @a @a
 instance Integral a => IntegralCat (->) a where
   divC = uncurry (IC.inline div)
   modC = uncurry (IC.inline mod)
-  {-# INLINE [0] divC #-}
-  {-# INLINE [0] modC #-}
+  {-# OPINLINE divC #-}
+  {-# OPINLINE modC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Integral a) => IntegralCat (Kleisli m) a where
@@ -1459,8 +1463,8 @@ class Ok k a => FractionalCat k a where
 instance Fractional a => FractionalCat (->) a where
   recipC  = IC.inline recip
   divideC = uncurry (IC.inline (/))
-  {-# INLINE [0] recipC #-}
-  {-# INLINE [0] divideC #-}
+  {-# OPINLINE recipC #-}
+  {-# OPINLINE divideC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Fractional a) => FractionalCat (Kleisli m) a where
@@ -1491,10 +1495,10 @@ instance Floating a => FloatingCat (->) a where
   cosC = IC.inline cos
   sinC = IC.inline sin
   -- powC = IC.inline (**)
-  {-# INLINE [0] expC #-}
-  {-# INLINE [0] logC #-}
-  {-# INLINE [0] cosC #-}
-  {-# INLINE [0] sinC #-}
+  {-# OPINLINE expC #-}
+  {-# OPINLINE logC #-}
+  {-# OPINLINE cosC #-}
+  {-# OPINLINE sinC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Floating a) => FloatingCat (Kleisli m) a where
@@ -1532,9 +1536,9 @@ instance (RealFrac a, Integral b) => RealFracCat (->) a b where
   floorC    = IC.inline floor
   ceilingC  = IC.inline ceiling
   truncateC = IC.inline truncate
-  {-# INLINE [0] floorC #-}
-  {-# INLINE [0] ceilingC #-}
-  {-# INLINE [0] truncateC #-}
+  {-# OPINLINE floorC #-}
+  {-# OPINLINE ceilingC #-}
+  {-# OPINLINE truncateC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, RealFrac a, Integral b) => RealFracCat (Kleisli m) a b where
@@ -1565,7 +1569,7 @@ class FromIntegralCat k a b where
 
 instance (Integral a, Num b) => FromIntegralCat (->) a b where
   fromIntegralC = X.inline fromIntegral -- non-class-op
-  {-# INLINE [0] fromIntegralC #-}
+  {-# OPINLINE fromIntegralC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Integral a, Num b) => FromIntegralCat (Kleisli m) a b where
@@ -1916,8 +1920,8 @@ class OkFunctor k h => SumCat k h where
 instance Functor h => FunctorCat (->) h where
   fmapC  = IC.inline fmap
   unzipC = X.inline unzip
-  {-# INLINE [0] fmapC #-}
-  {-# INLINE [0] unzipC #-}
+  {-# OPINLINE fmapC #-}
+  {-# OPINLINE unzipC #-}
 
 #if 0
 instance (Zip h, Representable h) => ZipCat (->) h where
@@ -1945,23 +1949,23 @@ instance Zip h => ZipCat (->) h where
   zipC = uncurry (IC.inline zip)
   -- zipWithC :: (a :* b -> c) -> (h a :* h b -> h c)
   -- zipWithC f = uncurry (inline zipWith (curry f))
-  {-# INLINE [0] zipC #-}
+  {-# OPINLINE zipC #-}
 
 instance Zip h => ZapCat (->) h where
   -- zapC = IC.inline zap
   -- zapC = zap
   zapC = zipWith id  -- as in the default; 2017-12-27 notes
-  {-# INLINE [0] zapC #-}
+  {-# OPINLINE zapC #-}
 
 instance Pointed h => PointedCat (->) h where
   pointC = IC.inline point
-  {-# INLINE [0] pointC #-}
+  {-# OPINLINE pointC #-}
 
 #endif
 
 instance Foldable h => SumCat (->) h where
   sumC = IC.inline sum
-  {-# INLINE [0] sumC #-}
+  {-# OPINLINE sumC #-}
 
 -- instance (OkFunctor k h, OkFunctor k' h) => OkFunctor (k :**: k') h where
 --   okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
@@ -2010,7 +2014,7 @@ class DistributiveCat k g f where
 
 instance (Distributive g, Functor f) => DistributiveCat (->) g f where
   distributeC = IC.inline distribute
-  {-# INLINE [0] distributeC #-}
+  {-# OPINLINE distributeC #-}
 
 instance (DistributiveCat k g f, DistributiveCat k' g f)
       => DistributiveCat (k :**: k') g f where
@@ -2024,8 +2028,8 @@ class RepresentableCat k f where
 instance Representable f => RepresentableCat (->) f where
   tabulateC = IC.inline tabulate
   indexC    = IC.inline index
-  {-# INLINE [0] tabulateC #-}
-  {-# INLINE [0] indexC #-}
+  {-# OPINLINE tabulateC #-}
+  {-# OPINLINE indexC #-}
 
 instance (RepresentableCat k h, RepresentableCat k' h)
       => RepresentableCat (k :**: k') h where
