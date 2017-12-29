@@ -64,6 +64,7 @@ import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5, Ok'
   , ProductCat, Prod, twiceP, inLassocP, inRassocP, transposeP --, unfork
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
+  , CoproductCatD, CoprodD, ScalarCat
   , DistribCat, undistl, undistr
   , ClosedCat, Exp
   , TerminalCat, Unit{-, lunit, runit, constFun-}, constFun2, unitFun, unUnitFun
@@ -136,6 +137,22 @@ Op1(left ,forall k a aa b. (CoproductCat k, Ok3 k a b aa) => (a `k` aa) -> (Copr
 Op1(right,forall k a b bb. (CoproductCat k, Ok3 k a b bb) => (b `k` bb) -> (Coprod k a b `k` Coprod k a bb))
 Op1(lassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c)
 Op1(rassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c))
+
+-- Temporary workaround. See ConCat.Category comments.
+infixr 2 ++++, ||||
+Op0(inlD,(CoproductCatD k, Ok2 k a b) => a `k` CoprodD k a b)
+Op0(inrD,(CoproductCatD k, Ok2 k a b) => b `k` CoprodD k a b)
+Ip2(||||,forall k a c d. (CoproductCatD k, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (CoprodD k c d `k` a))
+Ip2(++++,forall k a b c d. (CoproductCatD k, Ok4 k a b c d) => (c `k` a) -> (d `k` b) -> (CoprodD k c d `k` CoprodD k a b))
+Op0(jamD,(CoproductCatD k, Ok k a) => CoprodD k a a `k` a)
+Op0(swapSD,forall k a b. (CoproductCatD k, Ok2 k a b) => CoprodD k a b `k` CoprodD k b a)
+
+-- Op1(leftD ,forall k a aa b. (CoproductCatD k, Ok3 k a b aa) => (a `k` aa) -> (CoprodD k a b `k` CoprodD k aa b))
+-- Op1(rightD,forall k a b bb. (CoproductCatD k, Ok3 k a b bb) => (b `k` bb) -> (CoprodD k a b `k` CoprodD k a bb))
+-- Op1(lassocSD,forall k a b c. (CoproductCatD k, Ok3 k a b c) => CoprodD k a (CoprodD k b c) `k` CoprodD k (CoprodD k a b) c)
+-- Op1(rassocSD,forall k a b c. (CoproductCatD k, Ok3 k a b c) => CoprodD k (CoprodD k a b) c `k` CoprodD k a (CoprodD k b c))
+
+Op0(scalarMul,(ScalarCat k a => a -> (a `k` a)))
 
 Op0(apply,forall k a b. (ClosedCat k, Ok2 k a b) => Prod k (Exp k a b) a `k` b)
 Op1(curry,(ClosedCat k, Ok3 k a b c) => (Prod k a b `k` c) -> (a `k` Exp k b c))

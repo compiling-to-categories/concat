@@ -587,6 +587,7 @@ class (OpCon (Coprod k) (Ok' k), Category k) => CoproductCat k where
   inr :: Oks k [a,b] => b `k` Coprod k a b
   jam :: Oks k '[a] => Coprod k a a `k` a
   jam = id ||| id
+  {-# INLINE jam #-}
   swapS :: forall a b. Oks k [a,b] => Coprod k a b `k` Coprod k b a
   swapS = inr ||| inl
           <+ okCoprod @k @b @a
@@ -729,6 +730,97 @@ unjoin :: forall k a c d. (CoproductCat k, Oks k [a,c,d])
        => (Coprod k c d `k` a) -> (c `k` a, d `k` a)
 unjoin f = (f . inl, f . inr)  <+ okCoprod @k @c @d
 {-# INLINE unjoin #-}
+
+{--------------------------------------------------------------------
+    A dual to ProductCat. Temporary workaround.
+--------------------------------------------------------------------}
+
+-- TODO: eliminate CoproductCatD in favor of when we have associated products,
+-- coproducts, etc.
+
+infixr 2 ++++, ||||
+
+type CoprodD k = Prod k
+
+type OkCoprodD k = OkProd k
+
+okCoprodD :: forall k a b. OkCoprodD k
+           => Ok' k a && Ok' k b |- Ok' k (CoprodD k a b)
+okCoprodD = inOp
+{-# INLINE okCoprodD #-}
+
+-- | Category with coproduct.
+class (OpCon (CoprodD k) (Ok' k), Category k) => CoproductCatD k where
+  inlD :: Oks k [a,b] => a `k` CoprodD k a b
+  inrD :: Oks k [a,b] => b `k` CoprodD k a b
+  (++++) :: forall a b c d. Oks k [a,b,c,d] 
+         => (c `k` a) -> (d `k` b) -> (CoprodD k c d `k` CoprodD k a b)
+  f ++++ g = inlD . f |||| inrD . g
+             <+ okCoprodD @k @a @b
+  {-# INLINE (++++) #-}
+  jamD :: Ok k a => CoprodD k a a `k` a
+  jamD = id |||| id
+  {-# INLINE jamD #-}
+  swapSD :: forall a b. Oks k [a,b] => CoprodD k a b `k` CoprodD k b a
+  swapSD = inrD |||| inlD
+           <+ okCoprodD @k @b @a
+  {-# INLINE swapSD #-}
+  (||||) :: forall a c d. Ok3 k a c d 
+         => (c `k` a) -> (d `k` a) -> (CoprodD k c d `k` a)
+#ifndef DefaultCat
+  -- We canDt give two default definitions for (&&&).
+  f |||| g = jamD . (f ++++ g)
+           <+ okCoprodD @k @a @a
+           <+ okCoprodD @k @c @d
+  {-# INLINE (||||) #-}
+#endif
+  {-# MINIMAL inlD, inrD, ((||||) | ((++++), jamD)) #-}
+
+-- Don't bother with left, right, lassocS, rassocS, and misc helpers.
+
+instance CoproductCatD U2 where
+  inlD = U2
+  inrD = U2
+  U2 |||| U2 = U2
+
+instance (CoproductCatD k, CoproductCatD k') => CoproductCatD (k :**: k') where
+  inlD = inlD :**: inlD
+  inrD = inrD :**: inrD
+  (f :**: f') |||| (g :**: g') = (f |||| g) :**: (f' |||| g')
+  (f :**: f') ++++ (g :**: g') = (f ++++ g) :**: (f' ++++ g')
+  jamD = jamD :**: jamD
+  swapSD = swapSD :**: swapSD
+  -- leftD (f :**: f') = leftD f :**: leftD f'
+  -- rightD (f :**: f') = rightD f :**: rightD f'
+  -- lassocSD = lassocSD :**: lassocSD
+  -- rassocSD = rassocSD :**: rassocSD
+  PINLINER(inlD)
+  PINLINER(inrD)
+  PINLINER((||||))
+  PINLINER((++++))
+  PINLINER(swapSD)
+  -- PINLINER(leftD)
+  -- PINLINER(rightD)
+  -- PINLINER(lassocSD)
+  -- PINLINER(rassocSD)
+
+-- No (->) instance, but see Additive in examples
+
+-- Scalar multiplication
+
+class ScalarCat k a where
+  scalarMul :: a -> (a `k` a)
+
+instance Num a => ScalarCat (->) a where
+  scalarMul = (*)  -- I don't think I want to inline (*)
+  PINLINER(scalarMul)
+
+instance ScalarCat U2 a where
+  scalarMul = const U2
+
+instance (ScalarCat k a, ScalarCat k' a) => ScalarCat (k :**: k') a where
+  scalarMul s = scalarMul s :**: scalarMul s
+  PINLINER(scalarMul)
 
 {--------------------------------------------------------------------
     Distributive
