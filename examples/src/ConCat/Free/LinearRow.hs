@@ -332,11 +332,11 @@ linearF = flip collect idL
 -- collect :: (Distributive g, Functor f) => (a -> g b) -> f a -> g (f b)
 -- collect f = distribute . fmap f
 
-scale :: OkLM s a => s -> L s a a
-scale = L . scaleL
+scalarMul :: OkLM s a => s -> L s a a
+scalarMul = L . scaleL
 
 negateLM :: OkLM s a => L s a a
-negateLM = scale (-1)
+negateLM = scalarMul (-1)
 
 #if 0
 
