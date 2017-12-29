@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -37,6 +38,9 @@ import ConCat.Misc
 import ConCat.Orphans ()
 import ConCat.Pair
 import ConCat.AltCat
+import ConCat.Rep
+-- The following imports allows the instances to type-check. Why?
+import qualified ConCat.Category  as C
 
 -- | Commutative monoid intended to be used with a multiplicative monoid
 class Additive a where
@@ -187,3 +191,39 @@ instance Additive a => Additive (Add a) where
 
 add :: (Foldable f, Functor f, Additive a) => f a -> a
 add = getAdd . fold . fmap Add
+
+{--------------------------------------------------------------------
+    Additive homomorphisms
+--------------------------------------------------------------------}
+
+-- | Additive homomorphisms
+data AdditiveMap a b = AdditiveMap (a -> b)
+
+instance HasRep (AdditiveMap a b) where
+  type Rep (AdditiveMap a b) = a -> b
+  abst f = AdditiveMap f
+  repr (AdditiveMap f) = f
+
+instance Category AdditiveMap where
+  type Ok AdditiveMap = Additive
+  id = abst id
+  (.) = inAbst2 (.)
+
+instance ProductCat AdditiveMap where
+  exl    = abst exl
+  exr    = abst exr
+  (&&&)  = inAbst2 (&&&)
+  (***)  = inAbst2 (***)
+  dup    = abst dup
+  swapP  = abst swapP
+  first  = inAbst first
+  second = inAbst second
+
+instance CoproductCatD AdditiveMap where
+  inlD   = abst (,zero)
+  inrD   = abst (zero,)
+  (||||) = inAbst2 (\ f g (x,y) -> f x ^+^ g y)
+  (++++) = inAbst2 (***)
+  jamD   = abst (uncurry (^+^))
+  swapSD = abst swapP
+  -- ...
