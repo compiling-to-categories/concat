@@ -64,7 +64,7 @@ import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5, Ok'
   , ProductCat, Prod, twiceP, inLassocP, inRassocP, transposeP --, unfork
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
-  , CoproductCatD, CoprodD, ScalarCat
+  , CoproductCatD, CoprodD, ScalarCat, LinearCat
   , DistribCat, undistl, undistr
   , ClosedCat, Exp
   , TerminalCat, Unit{-, lunit, runit, constFun-}, constFun2, unitFun, unUnitFun
@@ -152,7 +152,7 @@ Op0(swapSD,forall k a b. (CoproductCatD k, Ok2 k a b) => CoprodD k a b `k` Copro
 -- Op1(lassocSD,forall k a b c. (CoproductCatD k, Ok3 k a b c) => CoprodD k a (CoprodD k b c) `k` CoprodD k (CoprodD k a b) c)
 -- Op1(rassocSD,forall k a b c. (CoproductCatD k, Ok3 k a b c) => CoprodD k (CoprodD k a b) c `k` CoprodD k a (CoprodD k b c))
 
-Op0(scalarMul,(ScalarCat k a => a -> (a `k` a)))
+Op0(scale,(ScalarCat k a => a -> (a `k` a)))
 
 Op0(apply,forall k a b. (ClosedCat k, Ok2 k a b) => Prod k (Exp k a b) a `k` b)
 Op1(curry,(ClosedCat k, Ok3 k a b c) => (Prod k a b `k` c) -> (a `k` Exp k b c))
