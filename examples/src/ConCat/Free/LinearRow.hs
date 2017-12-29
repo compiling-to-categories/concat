@@ -225,29 +225,13 @@ instance ProductCat (L s) where
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
 
--- Can I still have coproducts? Seems problematic without a definable Coprod
-
--- instance CoproductCat (L s) where
---   -- type Coprod (L s) = (,)
---   inl = abst inlL
---   inr = abst inrL
---   (|||) = inAbst2 joinL
-
-inlLM :: Ok2 (L s) a b => L s a (a :* b)
-inlLM = abst inlL
-{-# INLINE inlLM #-}
-
-inrLM :: Ok2 (L s) a b => L s b (a :* b)
-inrLM = abst inrL
-{-# INLINE inrLM #-}
-
-joinLM :: Ok3 (L s) a b c => L s a c -> L s b c -> L s (a :* b) c
-joinLM = inAbst2 joinL
-{-# INLINE joinLM #-}
-
-jamLM :: Ok (L s) a => L s (a :* a) a
-jamLM = id `joinLM` id
-{-# INLINE jamLM #-}
+instance CoproductCatD (L s) where
+  inlD = abst inlL
+  inrD = abst inrL
+  (||||) = inAbst2 joinL
+  {-# INLINE inlD #-}
+  {-# INLINE inrD #-}
+  {-# INLINE (||||) #-}
 
 instance (r ~ Rep a, V s r ~ V s a, Ok (L s) a) => RepCat (L s) a r where
   reprC = L idL
