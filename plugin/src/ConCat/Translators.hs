@@ -42,7 +42,7 @@ casePairQT f g = uncurryC g . f
 
 -- Unused c
 casePairLT :: forall a b c d. (a -> b :* c) -> (a -> b -> d) -> (a -> d)
-casePairLT f g = inline uncurryC g . (id &&& exl . f)
+casePairLT f g = uncurryC g . (id &&& exl . f)
 {-# INLINE casePairLT #-}
 
 -- Unused b
