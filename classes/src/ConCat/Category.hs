@@ -809,18 +809,20 @@ instance (CoproductCatD k, CoproductCatD k') => CoproductCatD (k :**: k') where
 -- Scalar multiplication
 
 class ScalarCat k a where
-  scalarMul :: a -> (a `k` a)
+  scale :: a -> (a `k` a)
 
 instance Num a => ScalarCat (->) a where
-  scalarMul = (*)  -- I don't think I want to inline (*)
-  PINLINER(scalarMul)
+  scale = (*)  -- I don't think I want to inline (*)
+  PINLINER(scale)
 
 instance ScalarCat U2 a where
-  scalarMul = const U2
+  scale = const U2
 
 instance (ScalarCat k a, ScalarCat k' a) => ScalarCat (k :**: k') a where
-  scalarMul s = scalarMul s :**: scalarMul s
-  PINLINER(scalarMul)
+  scale s = scale s :**: scale s
+  PINLINER(scale)
+
+type LinearCat k a = (ProductCat k, CoproductCatD k, ScalarCat k a, Ok k a)
 
 {--------------------------------------------------------------------
     Distributive
@@ -1021,6 +1023,9 @@ type OkUnit k = Ok k (Unit k)
 class (Category k, OkUnit k) => TerminalCat k where
   -- type Unit k :: u
   it :: Ok k a => a `k` Unit k
+  default it :: (ConstCat k (Unit k), Ok k a) => a `k` Unit k
+  it = const ()
+  {-# INLINE it #-}
 
 -- TODO: add default it = const () when ConstCat k, and then remove instances
 -- that were using this definition explicitly.
