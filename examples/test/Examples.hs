@@ -36,6 +36,8 @@
 
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:maxSteps=4 #-}
 
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showCcc #-}
+
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
 
@@ -43,22 +45,22 @@
 -- {-# OPTIONS_GHC -ddump-rules #-}
 
 -- Does this flag make any difference?
-{-# OPTIONS_GHC -fexpose-all-unfoldings #-}
+-- {-# OPTIONS_GHC -fexpose-all-unfoldings #-}
 
 -- Tweak simpl-tick-factor from default of 100
--- {-# OPTIONS_GHC -fsimpl-tick-factor=2800 #-}
+-- {-# OPTIONS_GHC -fsimpl-tick-factor=2500 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=500 #-}
--- {-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
+{-# OPTIONS_GHC -fsimpl-tick-factor=250 #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=25  #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
--- {-# OPTIONS_GHC -dsuppress-uniques #-}
+{-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
 -- {-# OPTIONS_GHC -ddump-tc-trace #-}
 
--- {-# OPTIONS_GHC -dsuppress-all #-}
+{-# OPTIONS_GHC -dsuppress-all #-}
 
 -- {-# OPTIONS_GHC -fno-float-in #-}
 -- {-# OPTIONS_GHC -ffloat-in #-}
@@ -109,9 +111,11 @@ import ConCat.Rep (HasRep(..))
 import ConCat.Incremental (andInc,inc)
 import ConCat.AD
 import ConCat.GAD (unD)
-import ConCat.ADFun hiding (D)
-import qualified ConCat.ADFun as ADFun
-import ConCat.Free.VectorSpace (HasV(..),distSqr,(<.>))
+-- ADFun is temporarily broken. See 2017-12-27 notes.
+-- import ConCat.ADFun hiding (D)
+-- import qualified ConCat.ADFun as ADFun
+import ConCat.RAD
+import ConCat.Free.VectorSpace (HasV(..),distSqr,(<.>),normalizeV)
 import ConCat.GradientDescent
 import ConCat.Interval
 import ConCat.Syntactic (Syn,render)
@@ -136,7 +140,7 @@ import qualified ConCat.Inline.SampleMethods as I
 import qualified ConCat.Regress as R
 import ConCat.Free.Affine
 import ConCat.Choice
-import ConCat.RegressChoice
+-- import ConCat.RegressChoice
 
 -- import ConCat.Vector -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
 #ifdef CONCAT_SMT
@@ -265,27 +269,57 @@ main = sequence_
 
   -- , runCirc "sum-vv" $ toCcc $ sum @(Vector 5) @R
 
-  -- , runCirc "sum-vv-der" $ toCcc $ andDerF $ sum @(Vector 5) @R -- okay
+  -- , runSynCirc "sum-vv-der" $ toCcc $ andDerF $ sum @(Vector 5) @R -- okay
 
-  -- , runCirc "zipWith-vv-b" $ toCcc $ (zipWith (*) :: Binop (Vector 5 R))
+  -- , runSynCirc "foo1" $ toCcc $ \ (x :: R) -> (sin x *)
+
+  -- , runSynCirc "foo" $ toCcc $ derFL @R $ sin @R
+
+  -- , runSynCirc "foo2" $ toCcc $ uncurry $ \ (x :: R) -> (sin x *)
+
+  -- , runSynCirc "zipWith-vv" $ toCcc $ uncurry (zipWith (*) :: Binop (Vector 5 R))
 
   -- , runSyn $ toCcc $ (zipWith (*) :: Binop (Vector 5 R))
 
-  -- , runCirc "zipWith-vv-der" $ toCcc $ andDerF $ (zipWith (*) :: Binop (Vector 5 R))
+  -- , runCirc "zipWith-vv-adf" $ toCcc $ andDerF $ (zipWith (*) :: Binop (Vector 5 R))
 
   -- , runCirc "zipWithC-vv-der" $ toCcc $ andDerF $ (A.zipWithC A.mulC :: Vector 5 R :* Vector 5 R -> Vector 5 R)
 
-  -- , runSynCirc "fmap-v" $ toCcc $ (fmap negate :: Unop (Vector 5 R))
+  -- , runSyn $ toCcc $ (fmap negate :: Unop (Vector 5 R))
+
+  -- , runCirc "fmap-b" $ toCcc $ (fmap negate :: Unop (Vector 5 R))
+
+  -- , runSynCirc "fmap-b" $ toCcc $ (fmap negate :: Unop (Vector 5 R))
+
+  -- , runSyn $ toCcc' $ fst @Bool @R
+
+  -- , runSynCirc "fmap-complex-b" $ toCcc $ (\ (x,xs :: Vector 5 R) -> fmap (+x) xs)
+
+  -- , runCirc "fmap-complex-b" $ toCcc $ (\ (x,xs :: Vector 5 R) -> fmap (+x) xs)
+
+  -- , runSyn $ toCcc $ (\ (x,xs :: Vector 5 R) -> fmap (+x) xs)
 
   -- , runSynCirc "unzip-b" $ toCcc $ unzip @(Vector 5) @R @R
 
   -- , runSyn $ toCcc $ derF $ fmap @(Vector 5) @R negate
 
+  -- , runSynCirc "max" $ toCcc $ uncurry (max @R)
+
+  -- , runSyn $ toCcc $ uncurry (max @R) 
+
+  -- , runSyn $ toCcc $ andDerF $ A.maxC @(->) @R 
+
+  -- , runSyn $ toCcc $ andDerF $ uncurry (max @R) 
+
+  -- , runSynCirc "max-ad" $ toCcc $ andDerF $ uncurry (max @R)
+
+  -- , runSynCirc "normalize" $ toCcc $ normalizeV @(Vector 5) @R
+
+  -- , runSynCirc "relu-ad" $ toCcc $ andDerF $ max @R 0
+
   -- , runSyn $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
 
-
   -- , runCirc "fmap-v-der-e" $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
-
 
   -- , runSynCirc "fmap-v-der-e" $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
 
@@ -594,7 +628,6 @@ main = sequence_
   -- , runSynCirc "cos-xpy-adfl"    $ toCcc $ andDerFL @R $ \ (x,y) -> cos (x + y) :: R
   -- , runSynCirc "cosSinProd-adfl" $ toCcc $ andDerFL @R $ cosSinProd @R
 
-
   -- , runSynCirc "product-4-adfl"$ toCcc $ andDerFL @R $ \ (a,b,c,d) -> a*b*c*d :: R
 
   -- , runSynCirc "product-rb3-adf"$ toCcc $ andDerF $ product @(RBin N3) @R
@@ -604,6 +637,36 @@ main = sequence_
   -- , runSyn $ toCcc $ andDerFL @R $ product @(RBin N4) @R
 
   -- , runSyn $ toCcc $ andDerF $ product @(RBin N4) @R
+
+  -- -- Automatic differentiation with RAD:
+
+  -- , runSynCirc "sin-adr"        $ toCcc $ andDerR $ sin @R
+  -- , runSynCirc "cos-adr"        $ toCcc $ andDerR $ cos @R
+  -- , runSynCirc "add-adr"        $ toCcc $ andDerR $ uncurry ((+) @R)
+  -- , runSynCirc "twice-adr"      $ toCcc $ andDerR $ twice @R
+  -- , runSynCirc "sqr-adr"        $ toCcc $ andDerR $ sqr @R
+  -- , runSynCirc "fst-adr" $ toCcc $ andDerR (fst @R @R)
+  -- , runSynCirc "magSqr-adr"     $ toCcc $ andDerR $ magSqr @R
+  -- , runSynCirc "cos-2x-adr"     $ toCcc $ andDerR $ \ x -> cos (2 * x) :: R
+  -- , runSynCirc "cos-2xx-adr"    $ toCcc $ andDerR $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "cos-xpy-adr"    $ toCcc $ andDerR $ \ (x,y) -> cos (x + y) :: R
+  -- , runSynCirc "cosSinProd-adr" $ toCcc $ andDerR $ cosSinProd @R
+
+  -- , runSynCirc "sin-gradr"     $ toCcc $ andGradR $ sin @R
+  -- , runSynCirc "cos-gradr"     $ toCcc $ andGradR $ cos @R
+  -- , runSynCirc "add-gradr"     $ toCcc $ andGradR $ uncurry ((+) @R)
+  -- , runSynCirc "twice-gradr"   $ toCcc $ andGradR $ twice @R
+  -- , runSynCirc "sqr-gradr"     $ toCcc $ andGradR $ sqr @R
+  -- , runSynCirc "fst-gradr"     $ toCcc $ andGradR (fst @R @R)
+  -- , runSynCirc "magSqr-gradr"  $ toCcc $ andGradR $ magSqr  @R
+  -- , runSynCirc "cos-2x-gradr"  $ toCcc $ andGradR $ \ x -> cos (2 * x) :: R
+  -- , runSynCirc "cos-2xx-gradr" $ toCcc $ andGradR $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "cos-xpy-gradr" $ toCcc $ andGradR $ \ (x,y) -> cos (x + y) :: R
+
+  -- , runSynCirc "sum-gradr"          $ toCcc $ andGradR $ sum @(Vector 5) @R 
+  -- , runSynCirc "zip-adr"            $ toCcc $ andDerR  $ uncurry (zip @(Vector 5) @R @R)
+  -- , runSynCirc "fmap-cos-adr"       $ toCcc $ andDerR  $ fmap @(Vector 5) @R cos
+  -- , runSynCirc "sum-fmap-cos-gradr" $ toCcc $ andGradR $ sum . fmap @(Vector 5) @R cos
 
   -- -- (0.8414709848078965,[[0.5403023058681398]]), i.e., (sin 1, [[cos 1]]),
   -- -- where the "[[ ]]" is matrix-style presentation of the underlying

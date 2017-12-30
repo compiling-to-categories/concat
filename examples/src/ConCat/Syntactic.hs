@@ -130,7 +130,8 @@ render (Syn synu) = renderStyle (Style PageMode 80 1) (prettyTree synu 0)
 -- I think I've fixed the empty-case issue via ConCat.Misc.oops. I still like
 -- the NOINLINE for keeping the generated code simple.
 
-#define INLINER(nm) {-# INLINE nm #-}
+-- #define INLINER(nm) {-# INLINE nm #-}
+#define INLINER(nm) {-# NOINLINE nm #-}
 -- #define INLINER(nm)
 
 instance Category Syn where
@@ -159,9 +160,7 @@ instance ProductCat Syn where
   INLINER(lassocP)
   INLINER(rassocP)
 
-instance TerminalCat Syn where
-  it = app0 "it"
-  INLINER(it)
+instance TerminalCat Syn
 
 instance CoproductCat Syn where
   inl     = app0 "inl"
@@ -265,10 +264,10 @@ instance EnumCat Syn a where
 
 instance NumCat Syn a where
   negateC = app0 "negate"
-  addC    = app0 "add"
-  subC    = app0 "sub"
-  mulC    = app0 "mul"
-  powIC   = app0 "powI"
+  addC    = app0 "addC"
+  subC    = app0 "subC"
+  mulC    = app0 "mulC"
+  powIC   = app0 "powIC"
   INLINER(negateC)
   INLINER(addC)
   INLINER(subC)
@@ -390,7 +389,7 @@ instance Zip h => ZipCat Syn h where
   -- zipWithC = app0 "zipWith"
   -- INLINER(zipWithC)
 
-instance Pointed h => PointedCat Syn h where
+instance {- Pointed h => -} PointedCat Syn h where
   pointC = app0 "point"
   INLINER(pointC)
 

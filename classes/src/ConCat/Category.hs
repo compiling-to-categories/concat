@@ -34,13 +34,15 @@
 -- For ConCat.Inline.ClassOp
 {-# OPTIONS_GHC -fplugin=ConCat.Inline.Plugin #-}
 
+-- {-# OPTIONS_GHC -ddump-simpl #-}
+
 -- | Another go at constrained categories. This time without Prod, Coprod, Exp.
 
 -- #define DefaultCat
 
 module ConCat.Category where
 
-import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip)
+import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip,zipWith)
 import qualified Prelude as P
 #ifdef DefaultCat
 import qualified Control.Category as C
@@ -59,6 +61,8 @@ import qualified Data.Type.Coercion as Co
 import GHC.Types (Constraint)
 -- import qualified Data.Constraint as Con
 import Data.Constraint hiding ((&&&),(***),(:=>))
+-- import Debug.Trace
+
 -- import GHC.Types (type (*))  -- experiment with TypeInType
 -- import qualified Data.Constraint as K
 -- import GHC.TypeLits
@@ -85,11 +89,17 @@ import ConCat.Misc hiding ((<~),(~>),type (&&))
 import ConCat.Rep hiding (Rep)
 import qualified ConCat.Rep as R
 -- import ConCat.Orphans ()
--- import ConCat.Additive (Additive)
+-- import ConCat.Additive
 import qualified ConCat.Inline.ClassOp as IC
 
 #define PINLINER(nm) {-# INLINE nm #-}
 -- #define PINLINER(nm)
+
+-- Prevents some subtle non-termination errors. See 2017-12-27 journal notes.
+-- #define OPINLINE INLINE [0]
+
+-- Changed to NOINLINE [0]. See 2017-12-29 journal notes.
+#define OPINLINE NOINLINE [0]
 
 {--------------------------------------------------------------------
     Unit and pairing for binary type constructors
@@ -102,11 +112,14 @@ infixr 7 :**:
 -- | Product for binary type constructors
 data (p :**: q) a b = p a b :**: q a b
 
+unProd :: (p :**: q) a b -> p a b :* q a b
+unProd (p :**: q) = (p,q)
+
 exl2 :: (p :**: q) a b -> p a b
-exl2 (p :**: _) = p
+exl2 = exl . unProd
 
 exr2 :: (p :**: q) a b -> q a b
-exr2 (_ :**: q) = q
+exr2 = exr . unProd
 
 instance HasRep ((k :**: k') a b) where
   type Rep ((k :**: k') a b) = k a b :* k' a b
@@ -576,6 +589,7 @@ class (OpCon (Coprod k) (Ok' k), Category k) => CoproductCat k where
   inr :: Oks k [a,b] => b `k` Coprod k a b
   jam :: Oks k '[a] => Coprod k a a `k` a
   jam = id ||| id
+  {-# INLINE jam #-}
   swapS :: forall a b. Oks k [a,b] => Coprod k a b `k` Coprod k b a
   swapS = inr ||| inl
           <+ okCoprod @k @b @a
@@ -718,6 +732,99 @@ unjoin :: forall k a c d. (CoproductCat k, Oks k [a,c,d])
        => (Coprod k c d `k` a) -> (c `k` a, d `k` a)
 unjoin f = (f . inl, f . inr)  <+ okCoprod @k @c @d
 {-# INLINE unjoin #-}
+
+{--------------------------------------------------------------------
+    A dual to ProductCat. Temporary workaround.
+--------------------------------------------------------------------}
+
+-- TODO: eliminate CoproductCatD in favor of when we have associated products,
+-- coproducts, etc.
+
+infixr 2 ++++, ||||
+
+type CoprodD k = Prod k
+
+type OkCoprodD k = OkProd k
+
+okCoprodD :: forall k a b. OkCoprodD k
+           => Ok' k a && Ok' k b |- Ok' k (CoprodD k a b)
+okCoprodD = inOp
+{-# INLINE okCoprodD #-}
+
+-- | Category with coproduct.
+class (OpCon (CoprodD k) (Ok' k), Category k) => CoproductCatD k where
+  inlD :: Oks k [a,b] => a `k` CoprodD k a b
+  inrD :: Oks k [a,b] => b `k` CoprodD k a b
+  (++++) :: forall a b c d. Oks k [a,b,c,d] 
+         => (c `k` a) -> (d `k` b) -> (CoprodD k c d `k` CoprodD k a b)
+  f ++++ g = inlD . f |||| inrD . g
+             <+ okCoprodD @k @a @b
+  {-# INLINE (++++) #-}
+  jamD :: Ok k a => CoprodD k a a `k` a
+  jamD = id |||| id
+  {-# INLINE jamD #-}
+  swapSD :: forall a b. Oks k [a,b] => CoprodD k a b `k` CoprodD k b a
+  swapSD = inrD |||| inlD
+           <+ okCoprodD @k @b @a
+  {-# INLINE swapSD #-}
+  (||||) :: forall a c d. Ok3 k a c d 
+         => (c `k` a) -> (d `k` a) -> (CoprodD k c d `k` a)
+#ifndef DefaultCat
+  -- We canDt give two default definitions for (&&&).
+  f |||| g = jamD . (f ++++ g)
+           <+ okCoprodD @k @a @a
+           <+ okCoprodD @k @c @d
+  {-# INLINE (||||) #-}
+#endif
+  {-# MINIMAL inlD, inrD, ((||||) | ((++++), jamD)) #-}
+
+-- Don't bother with left, right, lassocS, rassocS, and misc helpers.
+
+instance CoproductCatD U2 where
+  inlD = U2
+  inrD = U2
+  U2 |||| U2 = U2
+
+instance (CoproductCatD k, CoproductCatD k') => CoproductCatD (k :**: k') where
+  inlD = inlD :**: inlD
+  inrD = inrD :**: inrD
+  (f :**: f') |||| (g :**: g') = (f |||| g) :**: (f' |||| g')
+  (f :**: f') ++++ (g :**: g') = (f ++++ g) :**: (f' ++++ g')
+  jamD = jamD :**: jamD
+  swapSD = swapSD :**: swapSD
+  -- leftD (f :**: f') = leftD f :**: leftD f'
+  -- rightD (f :**: f') = rightD f :**: rightD f'
+  -- lassocSD = lassocSD :**: lassocSD
+  -- rassocSD = rassocSD :**: rassocSD
+  PINLINER(inlD)
+  PINLINER(inrD)
+  PINLINER((||||))
+  PINLINER((++++))
+  PINLINER(swapSD)
+  -- PINLINER(leftD)
+  -- PINLINER(rightD)
+  -- PINLINER(lassocSD)
+  -- PINLINER(rassocSD)
+
+-- No (->) instance, but see Additive in examples
+
+-- Scalar multiplication
+
+class ScalarCat k a where
+  scale :: a -> (a `k` a)
+
+instance Num a => ScalarCat (->) a where
+  scale = (*)  -- I don't think I want to inline (*)
+  PINLINER(scale)
+
+instance ScalarCat U2 a where
+  scale = const U2
+
+instance (ScalarCat k a, ScalarCat k' a) => ScalarCat (k :**: k') a where
+  scale s = scale s :**: scale s
+  PINLINER(scale)
+
+type LinearCat k a = (ProductCat k, CoproductCatD k, ScalarCat k a, Ok k a)
 
 {--------------------------------------------------------------------
     Distributive
@@ -915,9 +1022,15 @@ type Unit k = ()
 
 type OkUnit k = Ok k (Unit k)
 
-class (Category k, OkUnit k) => TerminalCat k where
+class OkUnit k => TerminalCat k where
   -- type Unit k :: u
   it :: Ok k a => a `k` Unit k
+  default it :: (ConstCat k (Unit k), Ok k a) => a `k` Unit k
+  it = const ()
+  {-# INLINE it #-}
+
+-- TODO: add default it = const () when ConstCat k, and then remove instances
+-- that were using this definition explicitly.
 
 instance TerminalCat (->) where
   -- type Unit (->) = ()
@@ -939,6 +1052,18 @@ lunit = it &&& id
 
 runit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k a (Unit k)
 runit = id &&& it
+
+type Counit k = ()  -- for now
+
+class Ok k (Counit k) => CoterminalCat k where
+  ti :: Ok k a => Counit k `k` a
+
+instance CoterminalCat U2 where
+  ti = U2
+
+instance (CoterminalCat k, CoterminalCat k') => CoterminalCat (k :**: k') where
+  ti = ti :**: ti
+  PINLINER(ti)
 
 #if 0
 
@@ -1237,6 +1362,8 @@ class (BoolCat k, Ok k a) => EqCat k a where
 instance Eq a => EqCat (->) a where
   equal    = uncurry (IC.inline (==))
   notEqual = uncurry (IC.inline (/=))
+  {-# OPINLINE equal #-}
+  {-# OPINLINE notEqual #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Eq a) => EqCat (Kleisli m) a where
@@ -1263,7 +1390,7 @@ class EqCat k a => OrdCat k a where
   {-# MINIMAL lessThan | greaterThan #-}
 
 class MinMaxCat k a where
-  minC, maxC :: Prod k a a `k` a
+  minC, maxC :: Ok k a => Prod k a a `k` a
 #if 0
   default minC :: (OrdCat k a, IfCat k a, Ok k a) => Prod k a a `k` a
   default maxC :: (OrdCat k a, IfCat k a, Ok k a) => Prod k a a `k` a
@@ -1275,15 +1402,25 @@ class MinMaxCat k a where
            <+ okProd @k @a @a
 #endif
 
+-- TODO: maybe replace minC and maxC with sortP :: (a :* b) `k` (a :* b). Or add
+-- a sortP method and defaults for all three. Would be groovy for parallel
+-- sorting.
+
 instance Ord a => MinMaxCat (->) a where
   minC = uncurry (IC.inline min)
   maxC = uncurry (IC.inline max)
+  {-# OPINLINE minC #-}
+  {-# OPINLINE maxC #-}
 
 instance Ord a => OrdCat (->) a where
   lessThan           = uncurry (IC.inline (<))
   greaterThan        = uncurry (IC.inline (>))
   lessThanOrEqual    = uncurry (IC.inline (<=))
   greaterThanOrEqual = uncurry (IC.inline (>=))
+  {-# OPINLINE lessThan #-}
+  {-# OPINLINE greaterThan #-}
+  {-# OPINLINE lessThanOrEqual #-}
+  {-# OPINLINE greaterThanOrEqual #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Ord a) => OrdCat (Kleisli m) a where
@@ -1329,6 +1466,8 @@ class (Category k, Ok k a) => EnumCat k a where
 instance Enum a => EnumCat (->) a where
   succC = IC.inline succ
   predC = IC.inline pred
+  {-# OPINLINE succC #-}
+  {-# OPINLINE predC #-}
 
 instance EnumCat U2 a where
   succC = U2
@@ -1350,11 +1489,17 @@ class Ok k a => NumCat k a where
 
 instance Num a => NumCat (->) a where
   negateC = IC.inline negate
+  -- mysterious bug workaround, but leads to different error. see 2017-12-27 notes.
+  -- addC (x,y) = IC.inline (+) x y
   addC    = uncurry (IC.inline (+))
   subC    = uncurry (IC.inline (-))
   mulC    = uncurry (IC.inline (*))
-  powIC   = uncurry (^)
-            -- (^) is not a class-op
+  powIC   = uncurry (^) -- (^) is not a class-op
+  {-# OPINLINE negateC #-}
+  {-# OPINLINE addC #-}
+  {-# OPINLINE subC #-}
+  {-# OPINLINE mulC #-}
+  {-# OPINLINE powIC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Num a) => NumCat (Kleisli m) a where
@@ -1396,6 +1541,8 @@ divModC = divC &&& modC  <+ okProd @k @a @a
 instance Integral a => IntegralCat (->) a where
   divC = uncurry (IC.inline div)
   modC = uncurry (IC.inline mod)
+  {-# OPINLINE divC #-}
+  {-# OPINLINE modC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Integral a) => IntegralCat (Kleisli m) a where
@@ -1427,6 +1574,8 @@ class Ok k a => FractionalCat k a where
 instance Fractional a => FractionalCat (->) a where
   recipC  = IC.inline recip
   divideC = uncurry (IC.inline (/))
+  {-# OPINLINE recipC #-}
+  {-# OPINLINE divideC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Fractional a) => FractionalCat (Kleisli m) a where
@@ -1457,6 +1606,10 @@ instance Floating a => FloatingCat (->) a where
   cosC = IC.inline cos
   sinC = IC.inline sin
   -- powC = IC.inline (**)
+  {-# OPINLINE expC #-}
+  {-# OPINLINE logC #-}
+  {-# OPINLINE cosC #-}
+  {-# OPINLINE sinC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Floating a) => FloatingCat (Kleisli m) a where
@@ -1494,6 +1647,9 @@ instance (RealFrac a, Integral b) => RealFracCat (->) a b where
   floorC    = IC.inline floor
   ceilingC  = IC.inline ceiling
   truncateC = IC.inline truncate
+  {-# OPINLINE floorC #-}
+  {-# OPINLINE ceilingC #-}
+  {-# OPINLINE truncateC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, RealFrac a, Integral b) => RealFracCat (Kleisli m) a b where
@@ -1524,6 +1680,7 @@ class FromIntegralCat k a b where
 
 instance (Integral a, Num b) => FromIntegralCat (->) a b where
   fromIntegralC = X.inline fromIntegral -- non-class-op
+  {-# OPINLINE fromIntegralC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Integral a, Num b) => FromIntegralCat (Kleisli m) a b where
@@ -1817,6 +1974,7 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
 {--------------------------------------------------------------------
     Functor-level operations
 --------------------------------------------------------------------}
+
 class OkFunctor k h where
   okFunctor :: Ok' k a |- Ok' k (h a)
 
@@ -1846,23 +2004,35 @@ class (Zip h, OkFunctor k h) => ZipCat k h where
   zipC :: Ok2 k a b => (h a :* h b) `k` h (a :* b)
   -- zipWithC :: Ok3 k a b c => (a :* b -> c) `k` (h a :* h b -> h c)
 
-class (Pointed h, OkFunctor k h) => PointedCat k h where
-  pointC :: Ok  k a => a `k` h a
+class OkFunctor k h => ZapCat k h where
+  zapC :: Ok2 k a b => h (a `k` b) -> (h a `k` h b)
+
+class ({- Pointed h, -} OkFunctor k h) => PointedCat k h where
+  pointC :: Ok k a => a `k` h a
+
+-- TODO: remove superclasses like Pointed from other classes, and then review
+-- instances for unnecessary parent constraints. I've removed them the
+-- PointedCat instances in Syntactic and Circuit.
 
 -- TODO: eliminate pointC in favor of using tabulate
 
 -- TODO: Try removing Representable h and maybe OkFunctor k h from the
 -- superclasses.
 
+-- TODO: Try removing OkFunctor superclass constraint.
+-- When I first triec, I ran into trouble with a rule in AltCat.
+
 -- class DiagCat k h where
 --   diagC  :: Ok k a => (a :* a) `k` h (h a)
 
-class SumCat k h where
+class OkFunctor k h => SumCat k h where
   sumC :: (Ok k a, Num a) => h a `k` a
 
 instance Functor h => FunctorCat (->) h where
-  fmapC = IC.inline fmap
+  fmapC  = IC.inline fmap
   unzipC = X.inline unzip
+  {-# OPINLINE fmapC #-}
+  {-# OPINLINE unzipC #-}
 
 #if 0
 instance (Zip h, Representable h) => ZipCat (->) h where
@@ -1890,13 +2060,23 @@ instance Zip h => ZipCat (->) h where
   zipC = uncurry (IC.inline zip)
   -- zipWithC :: (a :* b -> c) -> (h a :* h b -> h c)
   -- zipWithC f = uncurry (inline zipWith (curry f))
+  {-# OPINLINE zipC #-}
+
+instance Zip h => ZapCat (->) h where
+  -- zapC = IC.inline zap
+  -- zapC = zap
+  zapC = zipWith id  -- as in the default; 2017-12-27 notes
+  {-# OPINLINE zapC #-}
+
 instance Pointed h => PointedCat (->) h where
   pointC = IC.inline point
+  {-# OPINLINE pointC #-}
 
 #endif
 
 instance Foldable h => SumCat (->) h where
   sumC = IC.inline sum
+  {-# OPINLINE sumC #-}
 
 -- instance (OkFunctor k h, OkFunctor k' h) => OkFunctor (k :**: k') h where
 --   okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
@@ -1912,6 +2092,17 @@ instance (ZipCat k h, ZipCat k' h) => ZipCat (k :**: k') h where
   {-# INLINE zipC #-}
   -- zipWithC = zipWithC :**: zipWithC
   -- {-# INLINE zipWithC #-}
+
+instance (ZapCat k h, ZapCat k' h, Functor h) => ZapCat (k :**: k') h where
+  zapC = uncurry (:**:) . (zapC *** zapC) . unzip . fmap unProd
+  {-# INLINE zapC #-}
+
+--             unProd  :: (p :**: q) a b -> p a b :* q a b
+--        fmap unProd  :: h ((p :**: q) a b) -> h (p a b :* q a b)
+-- unzip (fmap unProd) :: h (p a b :* q a b) -> h (p a b) :* h (q a b)
+-- (zapC *** zapC)     :: h (p a b) :* h (q a b) -> p (h a) (h b) :* q (h a) (h b)
+-- uncurry (:**:)      :: p (h a) (h b) :* q (h a) (h b) -> (p :**: q) (h a) (h b)
+
 instance (PointedCat k h, PointedCat k' h) => PointedCat (k :**: k') h where
   pointC = pointC :**: pointC
   {-# INLINE pointC #-}
@@ -1934,6 +2125,7 @@ class DistributiveCat k g f where
 
 instance (Distributive g, Functor f) => DistributiveCat (->) g f where
   distributeC = IC.inline distribute
+  {-# OPINLINE distributeC #-}
 
 instance (DistributiveCat k g f, DistributiveCat k' g f)
       => DistributiveCat (k :**: k') g f where
@@ -1947,6 +2139,8 @@ class RepresentableCat k f where
 instance Representable f => RepresentableCat (->) f where
   tabulateC = IC.inline tabulate
   indexC    = IC.inline index
+  {-# OPINLINE tabulateC #-}
+  {-# OPINLINE indexC #-}
 
 instance (RepresentableCat k h, RepresentableCat k' h)
       => RepresentableCat (k :**: k') h where
@@ -1955,7 +2149,7 @@ instance (RepresentableCat k h, RepresentableCat k' h)
   {-# INLINE tabulateC #-}
   {-# INLINE indexC #-}
 
--- Experiment
+---- Experiment
 
 -- fmap' and liftA2' are class-op-inlining synonyms for fmap and liftA2. Look
 -- for a better alternative. See 2017-10-20 notes.

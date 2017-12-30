@@ -174,7 +174,7 @@ instance HasDelta b => HasDelta (a -> b) where
 infixr 1 -+>
 newtype a -+> b = DelX { unDelX :: Delta a -> Delta b }
 
-type instance GDOk (-+>) = Yes1
+-- type instance GDOk (-+>) = Yes1
 
 zeroDelX :: forall a b. HasDelta b => a -+> b
 zeroDelX = DelX (const (zeroD @b))
@@ -316,11 +316,7 @@ DelRep(L s a b)
 
 type Inc = GD (-+>)
 
-instance TerminalCat Inc where
-  -- it = linearD (const ()) zeroDelX
-  -- it = D (const ((),constantDelX ()))
-  it = A.const ()
-  {-# INLINE it #-}
+instance TerminalCat Inc
 
 instance HasDelta b => ConstCat Inc b where
   const b = D (const (b, zeroDelX))

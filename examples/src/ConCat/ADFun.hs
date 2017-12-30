@@ -30,12 +30,12 @@ import Data.Constraint hiding ((&&&),(***),(:=>))
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..))
 
-import ConCat.Misc ((:*),R,Yes1,oops,unzip,type (&+&))
+import ConCat.Misc ((:*),R,Yes1,oops,unzip,type (&+&),sqr)
 import ConCat.Free.VectorSpace (HasV(..),inV,IsScalar)
 import ConCat.Free.LinearRow -- hiding (linear)
 import ConCat.AltCat
-import ConCat.GAD
-import ConCat.Additive
+import ConCat.GAD -- hiding (linear)
+import ConCat.AdditiveMap
 -- The following imports allows the instances to type-check. Why?
 import qualified ConCat.Category  as C
 
@@ -44,7 +44,7 @@ type D = GD (->)
 
 -- type instance GDOk (->) = Yes1
 
-type instance GDOk (->) = Additive
+-- type instance GDOk (->) = Additive
 
 #if 0
 instance ClosedCat D where
@@ -64,7 +64,7 @@ instance ClosedCat D where
   curry = curryD ; {-# INLINE curry #-}
 
 applyD :: forall a b. Ok2 D a b => D ((a -> b) :* a) b
--- applyD = D (\ (f,a)                   -> (f a, \ (df,da) -> df a ^+^ f da))
+-- applyD = D (\ (f,a) -> (f a, \ (df,da) -> df a ^+^ f da))
 applyD = -- trace "calling applyD" $
  D (\ (f,a) -> let (b,f') = andDerF f a in (b, \ (df,da) -> df a ^+^ f' da))
 -- applyD = oops "applyD called"   -- does it?
@@ -93,13 +93,13 @@ linearDF :: (a -> b) -> D a b
 linearDF f = linearD f f
 {-# INLINE linearDF #-}
 
+-- TODO: use linear in place of linearDF
+
 instance Additive b => ConstCat D b where
   const b = D (const (b, const zero))
   {-# INLINE const #-}
 
-instance TerminalCat D where
-  it = const ()
-  {-# INLINE it #-}
+instance TerminalCat D
 
 instance (Num s, Additive s) => NumCat D s where
   negateC = linearDF negateC
@@ -111,24 +111,24 @@ instance (Num s, Additive s) => NumCat D s where
   {-# INLINE mulC    #-}
   {-# INLINE powIC   #-}
 
-const' :: (a -> c) -> (a -> b -> c)
-const' = (const .)
+-- const' :: (a -> c) -> (a -> b -> c)
+-- const' = (const .)
 
 scalarD :: Num s => (s -> s) -> (s -> s -> s) -> D s s
-scalarD f d = D (\ x   -> let r = f x in (r, (* d x r)))
+scalarD f d = D (\ x -> let r = f x in (r, (* d x r)))
 {-# INLINE scalarD #-}
 
 -- Use scalarD with const f when only r matters and with const' g when only x
 -- matters.
 
-scalarR :: Num s => (s        -> s) -> (s -> s) -> D s s
-scalarR f f'   = scalarD f (\ _ -> f')
+scalarR :: Num s => (s -> s) -> (s -> s) -> D s s
+scalarR f f' = scalarD f (\ _ -> f')
 -- scalarR f x = scalarD f (const x)
 -- scalarR f   = scalarD f . const
 {-# INLINE scalarR #-}
 
-scalarX :: Num s => (s             -> s) -> (s -> s) -> D s s
-scalarX f f'    = scalarD f (\ x _    -> f' x)
+scalarX :: Num s => (s -> s) -> (s -> s) -> D s s
+scalarX f f' = scalarD f (\ x _ -> f' x)
 -- scalarX f f' = scalarD f (\ x y -> const (f' x) y)
 -- scalarX f f' = scalarD f (\ x   -> const (f' x))
 -- scalarX f f' = scalarD f (const . f')
@@ -136,12 +136,8 @@ scalarX f f'    = scalarD f (\ x _    -> f' x)
 -- scalarX f    = scalarD f . const'
 {-# INLINE scalarX #-}
 
-square :: Num a => a -> a
-square a = a * a
-{-# INLINE square #-}
-
 instance (Fractional s, Additive s) => FractionalCat D s where
-  recipC = scalarR recip (negate . square)
+  recipC = scalarR recip (negate . sqr)
   {-# INLINE recipC #-}
 
 instance (Floating s, Additive s) => FloatingCat D s where
@@ -157,29 +153,16 @@ instance (Floating s, Additive s) => FloatingCat D s where
 instance Ord a => MinMaxCat D a where
   -- minC = D (\ (x,y) -> (minC (x,y), if x <= y then exl else exr))
   -- maxC = D (\ (x,y) -> (maxC (x,y), if x <= y then exr else exl))
-  minC = D (\ xy -> (minC xy, if lessThanOrEqual xy then exl else exr))
-  maxC = D (\ xy -> (maxC xy, if lessThanOrEqual xy then exr else exl))
+  -- minC = D (\ xy -> (minC xy, if lessThanOrEqual xy then exl else exr))
+  -- maxC = D (\ xy -> (maxC xy, if lessThanOrEqual xy then exr else exl))
+  minC = D (minC &&& cond exl exr . lessThanOrEqual)
+  maxC = D (maxC &&& cond exr exl . lessThanOrEqual)
   {-# INLINE minC #-} 
   {-# INLINE maxC #-} 
 
--- type Ok D = (Yes1 &+& Additive)
+#if 0
 
-instance Additive1 h => OkFunctor D h where
-  okFunctor :: forall a. Ok' D a |- Ok' D (h a)
-  okFunctor = inForkCon (yes1 *** additive1 @h @a)
-  {-# INLINE okFunctor #-}
-
-instance (Functor h, Zip h, Additive1 h) => FunctorCat D h where
-  fmapC (D q) = D (second zap . unzip . fmap q)
-  unzipC = linearDF unzipC
-  {-# INLINE fmapC #-}
-
--- q :: a -> b :* (a -> b)
-
--- fmap q :: h a -> h (b :* (a -> b))
--- unzip . fmap q :: h a -> h b :* h (a -> b)
-
--- TODO: Move OkFunctor and FunctorCat instances to GAD.
+-- Now generalized in GAD
 
 instance (Zip h, Additive1 h) => ZipCat D h where
   zipC = linearDF zipC
@@ -191,7 +174,7 @@ instance (Pointed h, Additive1 h) => PointedCat D h where
   pointC = linearDF pointC
   {-# INLINE pointC #-}
 
-instance Foldable h => SumCat D h where
+instance (Foldable h, Additive1 h) => SumCat D h where
   sumC = linearDF sumC
   {-# INLINE sumC #-}
 
@@ -208,6 +191,8 @@ instance Representable g => RepresentableCat D g where
   tabulateC = linearDF tabulateC
   {-# INLINE indexC #-}
   {-# INLINE tabulateC #-}
+
+#endif
 
 {--------------------------------------------------------------------
     Differentiation interface

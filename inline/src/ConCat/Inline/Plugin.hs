@@ -63,7 +63,10 @@ inlineClassOp (collectArgs -> (Var v,rest))
   -- | Just e' <- maybeUnfoldingTemplate (realIdUnfolding v)
   -- = pprTrace "inlining non-class-op to" (ppr e') $
   --   Just e'
-inlineClassOp e = pprPanic "inlineClassOp failed" (ppr e)
+inlineClassOp e = pprTrace "inlineClassOp failed/unnecessary" (ppr e) $
+                  Just e
+
+-- inlineClassOp e = pprPanic "inlineClassOp failed" (ppr e)
 
 -- inlineClassOp _e = pprTrace "inlineClassOp failed" (ppr _e) $
 --                    Nothing

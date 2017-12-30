@@ -48,6 +48,7 @@ import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..),distributeRep)
 -- import qualified Data.Functor.Rep as R
 import Control.Newtype (Newtype(..))
+-- import Debug.Trace
 #ifdef VectorSized
 import Data.Proxy (Proxy(..))
 import GHC.TypeLits (KnownNat,natVal)
@@ -57,15 +58,16 @@ import Data.Finite (Finite)
 import qualified ConCat.Category as C
 import ConCat.Rep hiding (Rep)
 import qualified ConCat.Rep as R
-import ConCat.Misc ((:*),(:+),unzip,PseudoFun(..),oops,type (&+&))
+import ConCat.Misc ((:*),(:+),unzip,PseudoFun(..),oops,type (&+&),result)
 
 import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5, Ok'
   , ProductCat, Prod, twiceP, inLassocP, inRassocP, transposeP --, unfork
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
+  , CoproductCatD, CoprodD, ScalarCat, LinearCat
   , DistribCat, undistl, undistr
   , ClosedCat, Exp
-  , TerminalCat, Unit{-, lunit, runit, constFun-}, constFun2, unitFun, unUnitFun
+  , TerminalCat, Unit{-, lunit, runit, constFun-}, CoterminalCat, Counit, constFun2, unitFun, unUnitFun
   , ConstCat, ConstObj, lconst, rconst
   , DelayCat, LoopCat
   , BiCCC
@@ -80,7 +82,7 @@ import ConCat.Category
   , OpCon(..),Sat(..) -- ,FunctorC(..)
   , yes1, forkCon, joinCon, inForkCon
   -- Functor-level
-  , OkFunctor(..),FunctorCat,ZipCat,PointedCat,SumCat,Strong
+  , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat,SumCat,Strong
   , DistributiveCat,RepresentableCat 
   , fmap', liftA2' 
   )
@@ -136,6 +138,22 @@ Op1(right,forall k a b bb. (CoproductCat k, Ok3 k a b bb) => (b `k` bb) -> (Copr
 Op1(lassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c)
 Op1(rassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c))
 
+-- Temporary workaround. See ConCat.Category comments.
+infixr 2 ++++, ||||
+Op0(inlD,(CoproductCatD k, Ok2 k a b) => a `k` CoprodD k a b)
+Op0(inrD,(CoproductCatD k, Ok2 k a b) => b `k` CoprodD k a b)
+Ip2(||||,forall k a c d. (CoproductCatD k, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (CoprodD k c d `k` a))
+Ip2(++++,forall k a b c d. (CoproductCatD k, Ok4 k a b c d) => (c `k` a) -> (d `k` b) -> (CoprodD k c d `k` CoprodD k a b))
+Op0(jamD,(CoproductCatD k, Ok k a) => CoprodD k a a `k` a)
+Op0(swapSD,forall k a b. (CoproductCatD k, Ok2 k a b) => CoprodD k a b `k` CoprodD k b a)
+
+-- Op1(leftD ,forall k a aa b. (CoproductCatD k, Ok3 k a b aa) => (a `k` aa) -> (CoprodD k a b `k` CoprodD k aa b))
+-- Op1(rightD,forall k a b bb. (CoproductCatD k, Ok3 k a b bb) => (b `k` bb) -> (CoprodD k a b `k` CoprodD k a bb))
+-- Op1(lassocSD,forall k a b c. (CoproductCatD k, Ok3 k a b c) => CoprodD k a (CoprodD k b c) `k` CoprodD k (CoprodD k a b) c)
+-- Op1(rassocSD,forall k a b c. (CoproductCatD k, Ok3 k a b c) => CoprodD k (CoprodD k a b) c `k` CoprodD k a (CoprodD k b c))
+
+Op0(scale,(ScalarCat k a => a -> (a `k` a)))
+
 Op0(apply,forall k a b. (ClosedCat k, Ok2 k a b) => Prod k (Exp k a b) a `k` b)
 Op1(curry,(ClosedCat k, Ok3 k a b c) => (Prod k a b `k` c) -> (a `k` Exp k b c))
 Op1(uncurry,forall k a b c. (ClosedCat k, Ok3 k a b c) => (a `k` Exp k b c)  -> (Prod k a b `k` c))
@@ -144,6 +162,7 @@ Op0(distl,forall k a u v. (DistribCat k, Ok3 k a u v) => Prod k a (Coprod k u v)
 Op0(distr,forall k u v b. (DistribCat k, Ok3 k u v b) => Prod k (Coprod k u v) b `k` Coprod k (Prod k u b) (Prod k v b))
 
 Op0(it,(TerminalCat k, Ok k a) => a `k` Unit k)
+Op0(ti,(CoterminalCat k, Ok k a) => Counit k `k` a)
 
 Op(const,(ConstCat k b, Ok k a) => b -> (a `k` ConstObj k b))
 -- Op(unitArrow,ConstCat k b => b -> (Unit k `k` ConstObj k b))
@@ -170,8 +189,8 @@ Op0(greaterThan,OrdCat k a => Prod k a a `k` BoolOf k)
 Op0(lessThanOrEqual,OrdCat k a => Prod k a a `k` BoolOf k)
 Op0(greaterThanOrEqual,OrdCat k a => Prod k a a `k` BoolOf k)
 
-Op0(minC, MinMaxCat k a => Prod k a a `k` a)
-Op0(maxC, MinMaxCat k a => Prod k a a `k` a)
+Op0(minC, (MinMaxCat k a, Ok k a) => Prod k a a `k` a)
+Op0(maxC, (MinMaxCat k a, Ok k a) => Prod k a a `k` a)
 
 Op0(succC,EnumCat k a => a `k` a)
 Op0(predC,EnumCat k a => a `k` a)
@@ -474,6 +493,9 @@ unCcc f = unCcc' (conceal f)
 
 "second h . (f &&& g)" forall h f g. second h . (f &&& g) = f &&& h . g
 
+"apply . (curry exr &&& f)" forall f.
+  apply . (curry exr &&& f) = f
+
 #if 0
 -- Prelude versions of categorical ops
 
@@ -696,6 +718,8 @@ unzipC = fmapC exl &&& fmapC exr
 {-# INLINE unzipC #-}
 #endif
 
+#if 0
+-- See 2017-12-27 notes
 zapC :: forall k h a b.
         (FunctorCat k h, ZipCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
      => (h (a -> b) :* h a) `k` h b
@@ -709,9 +733,14 @@ zapC = fmapC apply . zipC
          <+ okExp     @k    @a @b
 {-# INLINE zapC #-}
 
--- TODO: define zapC via zipWithC
+Catify(zap, uncurry zapC)
 
-Catify(zap, curry zapC)
+-- TODO: define zapC via zipWithC
+#else
+Op1(zapC, (ZapCat k h, Ok2 k a b) => h (a `k` b) -> (h a `k` h b))
+-- Translation for zap? Maybe like fmap's.
+-- Catify(zap, zapC)  -- 2017-12-27 notes
+#endif
 
 -- TODO: Is there any value to defining utility functions like unzipC and zapC
 -- in categorical generality? Maybe define only for functions, but still using
@@ -893,153 +922,3 @@ diag z o =
 -- HACK: the equal here is to postpone dealing with equality on sum types just yet.
 -- See notes from 2017-10-15.
 -- TODO: remove and test, now that we're translating (==) early (via Catify).
-
-fmapTrans :: forall k a b c h. (ClosedCat k, Strong k h, Ok3 k a b c)
-          => (a `k` (b -> c)) -> (a `k` h b) -> (a `k` h c)
-fmapTrans f g = fmapC (uncurry f) . strength . (id &&& g)
-                <+ okFunctor @k @h @(a :* b)
-                <+ okProd @k @a @(h b)
-                <+ okFunctor @k @h @c
-                <+ okFunctor @k @h @b
-                <+ okProd @k @a @b
-
-#if 0
--- Types:
-
-f :: a `k` (b -> c)
-g :: a `k` h b
-
-strength :: (a :* h b) `k` h (a :* b)
-
-       uncurry f  :: a :* b `k` c
-fmapC (uncurry f) :: h (a :* b) `k` h c
-
-                                id &&& g  :: a `k` (a :* h b)
-                    strength . (id &&& g) :: a `k` h (a :* b)
-fmapC (uncurry f) . strength . (id &&& g) :: a `k` h c
-
-#endif
-
--- TODO: Maybe use the following function-only definition instead, and wrap
--- toCcc' around it in the plugin.
-
-fmapTrans' :: Functor h => (a -> (b -> c)) -> (a -> h b) -> (a -> h c)
-fmapTrans' f g = fmapC (uncurry f) . strength . (id &&& g)
-
--- To make it easier yet on the plugin, move the `toCcc'` call into `fmapTrans`:
-
-fmapTrans'' :: Functor h => (a -> (b -> c)) -> (a -> h b) -> (a `k` h c)
-fmapTrans'' f g = toCcc' (fmapC (uncurry f) . strength . (id &&& g))
-
--- Simpler
-fmapT :: Functor h => (a -> b -> c) -> (a -> h b -> h c)
-fmapT f = curry (fmap (uncurry f) . strength)
-{-# INLINE fmapT #-}
-
-#if 0
-                     f              :: a -> b -> c
-             uncurry f              :: a :* b -> c
-       fmap (uncurry f)             :: h (a :* b) -> h c
-                          strength  :: a :* h b -> h (a :* b)
-       fmap (uncurry f) . strength  :: a :* h b -> h c
-curry (fmap (uncurry f) . strength) :: a -> h b -> h c
-#endif
-
--- Categorical version
-fmapTC :: forall k h a b c.
-          (ClosedCat k, FunctorCat k h, Strong k h, Ok3 k a b c)
-       => (a `k` (b -> c)) -> (a `k` (h b -> h c))
-fmapTC f = curry (fmapC (uncurry f) . strength)
-           <+ okFunctor @k @h @(a :* b)
-           <+ okProd    @k @a @(h b)
-           <+ okProd    @k @a @b
-           <+ okFunctor @k @h @b
-           <+ okFunctor @k @h @c
-
--- Still simpler, restricting to fmapT id
-fmapIdT :: Functor h => (b -> c) -> (h b -> h c)
-fmapIdT = curry (fmapC apply . strength)
--- fmapIdT = fmapT id
-{-# INLINE fmapIdT #-}
-
--- Categorical version
-fmapIdTC :: forall k h b c . (ClosedCat k, Strong k h, FunctorCat k h, Ok2 k b c)
-         => (b -> c) `k` (h b -> h c)
-fmapIdTC = curry (fmapC apply . strength)
-             <+ okFunctor @k @h @((b -> c) :* b)
-             <+ okProd    @k @(h (b -> c)) @b
-             <+ okFunctor @k @h @(b -> c)
-             <+ okProd    @k @(b -> c) @(h b)
-             <+ okFunctor @k @h @b
-             <+ okFunctor @k @h @c
-             <+ okProd    @k @(b -> c) @b
-             <+ okExp     @k @b @c
--- fmapIdTC = fmapTC id
-{-# INLINE fmapIdTC #-}
-
--- I could use this simpler style to simplify the plugin, e.g.,
-
-appT :: forall a b c. (a -> b -> c) -> (a -> b) -> (a -> c)
-appT f a = apply . (f &&& a)
-{-# INLINE appT #-}
-
--- The plugin would then turn `\ x -> U V` into `appT (\ x -> U) (\ x -> V)`.
--- Or leave the `toCcc'` call in the plugin for separation of concerns.
-
-casePairT :: forall a b c d. (a -> b :* c) -> (a -> b -> c -> d) -> (a -> d)
-casePairT f g a = let { bc = f a ; b = exl bc ; c = exr bc } in g a b c
-{-# INLINE casePairT #-}
-
--- casePairT f g a = uncurry (g a) (f a)  -- but uncurry re-introduces case-of-pair
-
--- Specialization for unused c
-casePairLT :: forall a b c d. (a -> b :* c) -> (a -> b -> d) -> (a -> d)
-casePairLT f g = appT g (exl . f)
-{-# INLINE casePairLT #-}
-
--- Specialization for unused b
-casePairRT :: forall a b c d. (a -> b :* c) -> (a -> c -> d) -> (a -> d)
-casePairRT f g = appT g (exr . f)
-{-# INLINE casePairRT #-}
-
--- One drawback of using these function-only definitions is that the plugin
--- cannot first check whether the target category has the required properties,
--- such as `ClosedCat`.
-
--- For `\ x -> fmap U`
-fmapTrans1 :: forall k a b c h. (ClosedCat k, Strong k h, Ok3 k a b c)
-           => (a `k` (b -> c)) -> (a `k` (h b -> h c))
-fmapTrans1 g = curry (fmapTrans (g . exl) exr)
-               <+ okProd @k @a @(h b)
-               <+ okFunctor @k @h @b
-               <+ okFunctor @k @h @c
-               <+ okExp @k @b @c
-
-#if 0
--- Types:
-
-                               exl       :: a :* h b `k` a
-                                    exr  :: a :* h b `k` h b
-                  (\ a -> U)             :: a `k` (b -> c)
-                  (\ a -> U) . exl       :: (a :* h b) `k` (b -> c)
-       fmapTrans ((\ a -> U) . exl) exr  :: (a :* h b) `k` h c
-curry (fmapTrans ((\ a -> U) . exl) exr) :: a `k` (h b -> h c)
-
-#endif
-
-{-# RULES
-
--- "toCcc'/fmap" forall u v.
---   toCcc' (\ x -> fmap u v) = fmapTrans (toCcc' (\ x -> u)) (toCcc' (\ x -> v))
-
--- "toCcc''/fmap" forall (_k :: _kproxy k) (_a :: _aproxy a) (u :: b -> c) (v :: h b).
---   toCcc'' _k _a (\ x -> fmap u v) =
---      satisfy @(ClosedCat k, Strong k h, Ok3 k a b c)
---      (fmapTrans (toCcc' (\ x -> u)) (toCcc' (\ x -> v)))
-
--- "toCcc''/fmap" forall (_p :: _proxy (a `k` h c)) (u :: b -> c) (v :: h b).
---   toCcc'' _p (\ x -> fmap u v) =
---      satisfy @(ClosedCat k, Strong k h, Ok3 k a b c)
---      (fmapTrans (toCcc' (\ x -> u)) (toCcc' (\ x -> v)))
-
- #-}

@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -23,19 +24,16 @@ import Data.Complex hiding (magnitude)
 import Data.Ratio
 import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
--- import Data.Constraint (Dict(..),(:-)(..))
 import GHC.TypeLits (KnownNat)
 
 import Data.Constraint (Dict(..),(:-)(..))
+import Control.Newtype (Newtype(..))
 import Data.Key(Zip(..))
 import Data.Pointed(Pointed(..))
 import Data.Vector.Sized (Vector)
 
-import Control.Newtype (Newtype(..))
-
 import ConCat.Misc
 import ConCat.Orphans ()
-import ConCat.Pair
 import ConCat.AltCat
 
 -- | Commutative monoid intended to be used with a multiplicative monoid
@@ -111,8 +109,6 @@ instance Additive v => Additive (Par1 v)
 instance (Additive v, AddF f, AddF g) => Additive ((f :*: g) v)
 instance (Additive v, AddF f, AddF g) => Additive ((g :.: f) v)
 
--- instance Additive v => Additive (Pair v)
-
 -- instance (Eq i, Additive v) => Additive (Arr i v) where
 --   zero = point zero
 --   as ^+^ bs = fmap (uncurry (^+^)) (zipC (as,bs))
@@ -131,8 +127,6 @@ instance Additive1 U1 where additive1 = Entail (Sub Dict)
 instance Additive1 Par1 where additive1 = Entail (Sub Dict)
 instance (AddF f, AddF g) => Additive1 (f :*: g) where additive1 = Entail (Sub Dict)
 instance (AddF f, AddF g) => Additive1 (g :.: f) where additive1 = Entail (Sub Dict)
-
-instance Additive1 Pair where additive1 = Entail (Sub Dict)
 
 instance KnownNat n => Additive1 (Vector n) where
   additive1 = Entail (Sub Dict)

@@ -49,8 +49,6 @@ library
                      , transformers >= 0.5.2.0, mtl >= 2.2.1
                      -- For Gui
                      , data-default
-                     -- For Polynomial
-                     , free
                      -- For Nondet
                      , ghc-prim
                      -- For simple machine learning
@@ -64,7 +62,6 @@ library
     build-depends: z3
     cpp-options:        -DCONCAT_SMT
   exposed-modules:     
-                       ConCat.Orphans
                        ConCat.Free.VectorSpace
                        -- ConCat.Free.Diagonal
                        -- ConCat.Free.LinearCol -- needs updating
@@ -76,13 +73,15 @@ library
                        ConCat.RunCircuit
                        ConCat.GAD
                        ConCat.AD
-                       ConCat.ADFun
+                       -- ConCat.ADFun  -- see 2017-12-27 notes
+                       ConCat.Dual
+                       ConCat.RAD
                        ConCat.Incremental
                        ConCat.Interval
                        ConCat.GradientDescent
                        ConCat.Regress
                        ConCat.Synchronous
-                       ConCat.Additive
+                       ConCat.AdditiveMap
                        -- ConCat.Polynomial
                        ConCat.Demand
                        -- ConCat.Arr
@@ -93,7 +92,7 @@ library
                        ConCat.Scan
                        ConCat.FFT
                        ConCat.Choice
-                       ConCat.RegressChoice
+                       -- ConCat.RegressChoice  -- see 2017-12-27 notes
                        ConCat.LC
                        ConCat.Local
   if flag(smt)

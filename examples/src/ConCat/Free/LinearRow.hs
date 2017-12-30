@@ -20,6 +20,9 @@
 {-# OPTIONS_GHC -Wall #-}
 -- {-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
 
+#include "ConCat/AbsTy.inc"
+AbsTyPragmas
+
 -- | Linear maps as "row-major" functor compositions
 
 module ConCat.Free.LinearRow where
@@ -47,7 +50,9 @@ import qualified ConCat.Category as C
 import ConCat.AltCat hiding (const)
 import ConCat.Rep
 -- import ConCat.Free.Diagonal
-import qualified ConCat.Additive as Ad
+import qualified ConCat.AdditiveMap as Ad
+
+AbsTyImports
 
 -- TODO: generalize from Num to Semiring
 
@@ -181,6 +186,8 @@ instance HasRep (L s a b) where
   {-# INLINE abst #-}
   {-# INLINE repr #-}
 
+AbsTy(L s a b)
+
 -- instance HasV s (L s a b) where
 --   type V s (L s a b) = V s b :.: V s a
 --   toV = abst . repr
@@ -225,29 +232,13 @@ instance ProductCat (L s) where
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
 
--- Can I still have coproducts? Seems problematic without a definable Coprod
-
--- instance CoproductCat (L s) where
---   -- type Coprod (L s) = (,)
---   inl = abst inlL
---   inr = abst inrL
---   (|||) = inAbst2 joinL
-
-inlLM :: Ok2 (L s) a b => L s a (a :* b)
-inlLM = abst inlL
-{-# INLINE inlLM #-}
-
-inrLM :: Ok2 (L s) a b => L s b (a :* b)
-inrLM = abst inrL
-{-# INLINE inrLM #-}
-
-joinLM :: Ok3 (L s) a b c => L s a c -> L s b c -> L s (a :* b) c
-joinLM = inAbst2 joinL
-{-# INLINE joinLM #-}
-
-jamLM :: Ok (L s) a => L s (a :* a) a
-jamLM = id `joinLM` id
-{-# INLINE jamLM #-}
+instance CoproductCatD (L s) where
+  inlD = abst inlL
+  inrD = abst inrL
+  (||||) = inAbst2 joinL
+  {-# INLINE inlD #-}
+  {-# INLINE inrD #-}
+  {-# INLINE (||||) #-}
 
 instance (r ~ Rep a, V s r ~ V s a, Ok (L s) a) => RepCat (L s) a r where
   reprC = L idL
@@ -332,11 +323,11 @@ linearF = flip collect idL
 -- collect :: (Distributive g, Functor f) => (a -> g b) -> f a -> g (f b)
 -- collect f = distribute . fmap f
 
-scale :: OkLM s a => s -> L s a a
-scale = L . scaleL
+scalarMul :: OkLM s a => s -> L s a a
+scalarMul = L . scaleL
 
 negateLM :: OkLM s a => L s a a
-negateLM = scale (-1)
+negateLM = scalarMul (-1)
 
 #if 0
 

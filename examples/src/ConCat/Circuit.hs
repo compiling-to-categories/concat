@@ -168,9 +168,6 @@ import ConCat.Category
 import qualified ConCat.AltCat as A
 import ConCat.AltCat (Uncurriable(..))
 
-import qualified ConCat.Free.LinearRow as LR
--- import qualified ConCat.Free.LinearCol as LC
-
 {--------------------------------------------------------------------
     Buses
 --------------------------------------------------------------------}
@@ -821,11 +818,7 @@ instance ClosedCat (:>) where
 
 -- TODO: use Newtype and inNew in curry and elsewhere.
 
-instance TerminalCat (:>) where
-  -- type Unit (:>) = ()
-  -- it = C (const UnitB . it)
-  -- it = mkCK (const (return UnitB))
-  it = C (arr (pure UnitB))
+instance TerminalCat (:>)
 
 instance OkFunctor (:>) G.U1   where okFunctor = Entail (Sub Dict)
 instance OkFunctor (:>) G.Par1 where okFunctor = Entail (Sub Dict)
@@ -881,7 +874,9 @@ instance (Zip h, OkFunctor (:>) h) => ZipCat (:>) h where
            <+ okFunctor' @(:>) @h @b
 #endif
 
-instance (Pointed h, OkFunctor (:>) h) => PointedCat (:>) h where
+-- TODO: ZapCat instance? I don't think so, but we'll see.
+
+instance ({- Pointed h, -} OkFunctor (:>) h) => PointedCat (:>) h where
   pointC :: forall a. Ok (:>) a => a :> h a
   pointC = namedC "point"
              <+ okFunctor' @(:>) @h @a
@@ -2103,10 +2098,5 @@ AbsTy(M.Identity a)
 AbsTy(M.ReaderT e m a)
 AbsTy(M.WriterT w m a)
 AbsTy(M.StateT s m a)
-
--- I put the following two here instead of in LinearRow and LinearCol to avoid
--- the GHCi problem with this module.
-AbsTy(LR.L s a b)
--- AbsTy(LC.L s a b)
 
 #endif

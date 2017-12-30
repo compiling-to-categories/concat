@@ -124,6 +124,10 @@ infixr 1 ~>
 (h <~ f) g = h . g . f
 {-# INLINE (<~) #-}
 
+-- For SEC-style programming. I was using fmap instead, but my rules interfered.
+result :: (b -> c) -> ((a -> b) -> (a -> c))
+result = (.)
+
 class    Yes0
 instance Yes0
 
@@ -157,6 +161,9 @@ instance Monoid Parity where
 boolToInt :: Bool -> Int
 boolToInt c = if c then 1 else 0
 {-# INLINE boolToInt #-}
+
+cond :: a -> a -> Bool -> a
+cond t e i = if i then t else e
 
 {--------------------------------------------------------------------
     Type level computations
