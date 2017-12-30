@@ -31,12 +31,17 @@ library
                      , newtype-generics >= 0.5.0.1
                      , transformers >= 0.5.2.0
                      , finite-typelits, vector-sized
+                     , free
                      , keys, pointed
                      , distributive, adjunctions
                      , concat-inline
-  exposed-modules:     ConCat.Category
-                       ConCat.AltCat
+                     , prettyclass
+  exposed-modules:     
+                       ConCat.Orphans
                        ConCat.Misc
                        ConCat.Rep
+                       ConCat.Additive
+                       ConCat.Category
+                       ConCat.AltCat
   ghc-options:      -O2
   cpp-options:      -DVectorSized

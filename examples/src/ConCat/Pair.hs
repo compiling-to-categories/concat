@@ -49,6 +49,7 @@ import Data.Constraint (Dict(..),(:-)(..))
 
 import ConCat.Misc ((:*))
 import ConCat.Rep (HasRep(..))
+import ConCat.Additive (Additive(..))
 import ConCat.Sized
 import ConCat.Scan
 import ConCat.Circuit ((:>),GenBuses(..),Buses(..),BusesM,Ty(..),abstB)
@@ -79,6 +80,8 @@ instance Generic1 Pair where
   type Rep1 Pair = GPair
   to1 p = Pair p
   from1 (Pair p) = p
+
+instance Additive1 Pair where additive1 = Entail (Sub Dict)
 
 infixl 1 :#
 

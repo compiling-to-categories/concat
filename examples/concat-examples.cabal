@@ -49,8 +49,6 @@ library
                      , transformers >= 0.5.2.0, mtl >= 2.2.1
                      -- For Gui
                      , data-default
-                     -- For Polynomial
-                     , free
                      -- For Nondet
                      , ghc-prim
                      -- For simple machine learning
@@ -64,7 +62,6 @@ library
     build-depends: z3
     cpp-options:        -DCONCAT_SMT
   exposed-modules:     
-                       ConCat.Orphans
                        ConCat.Free.VectorSpace
                        -- ConCat.Free.Diagonal
                        -- ConCat.Free.LinearCol -- needs updating
