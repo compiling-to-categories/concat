@@ -13,6 +13,9 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
+#include "ConCat/AbsTy.inc"
+AbsTyPragmas
+
 -- | Commutative monoid intended to be used with a multiplicative monoid
 
 module ConCat.Additive where
@@ -41,6 +44,8 @@ import ConCat.AltCat
 import ConCat.Rep
 -- The following imports allows the instances to type-check. Why?
 import qualified ConCat.Category  as C
+
+AbsTyImports
 
 -- | Commutative monoid intended to be used with a multiplicative monoid
 class Additive a where
@@ -204,6 +209,8 @@ instance HasRep (AdditiveMap a b) where
   abst f = AdditiveMap f
   repr (AdditiveMap f) = f
 
+AbsTy(AdditiveMap a b)
+
 instance Category AdditiveMap where
   type Ok AdditiveMap = Additive
   id = abst id
@@ -227,3 +234,14 @@ instance CoproductCatD AdditiveMap where
   jamD   = abst (uncurry (^+^))
   swapSD = abst swapP
   -- ...
+
+instance Num s => ScalarCat AdditiveMap s where
+  scale s = abst (s *)
+
+instance TerminalCat AdditiveMap where
+  it = abst zero
+
+instance CoterminalCat AdditiveMap where
+  ti = abst zero
+
+-- Note that zero for functions is point zero, i.e., const zero.
