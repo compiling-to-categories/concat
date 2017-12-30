@@ -264,10 +264,10 @@ instance EnumCat Syn a where
 
 instance NumCat Syn a where
   negateC = app0 "negate"
-  addC    = app0 "add"
-  subC    = app0 "sub"
-  mulC    = app0 "mul"
-  powIC   = app0 "powI"
+  addC    = app0 "addC"
+  subC    = app0 "subC"
+  mulC    = app0 "mulC"
+  powIC   = app0 "powIC"
   INLINER(negateC)
   INLINER(addC)
   INLINER(subC)
