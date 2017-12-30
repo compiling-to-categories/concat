@@ -207,12 +207,7 @@ instance ProductCat (:-?) where
   dup = pack mergeD
   (***) = inNew2 $ \ f g -> inUnpairD (f *** g)
 
--- class (Category k, Ok k (Unit k)) => TerminalCat k where
---   -- type Unit k :: u
---   it :: Ok k a => a `k` Unit k
-
-instance TerminalCat (:-?) where
-  it = pack (const NoneD)
+instance TerminalCat (:-?)
 
 -- need :: Demand () `k` Demand a
 

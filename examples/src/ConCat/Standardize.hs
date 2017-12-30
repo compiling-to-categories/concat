@@ -91,7 +91,7 @@ instance DistribCat StdFun where
   distl = StdFun distl
   distr = StdFun distr
 
-instance TerminalCat StdFun where it = StdFun it
+instance TerminalCat StdFun
 
 instance ClosedCat StdFun where
   apply = StdFun apply

@@ -316,11 +316,7 @@ DelRep(L s a b)
 
 type Inc = GD (-+>)
 
-instance TerminalCat Inc where
-  -- it = linearD (const ()) zeroDelX
-  -- it = D (const ((),constantDelX ()))
-  it = A.const ()
-  {-# INLINE it #-}
+instance TerminalCat Inc
 
 instance HasDelta b => ConstCat Inc b where
   const b = D (const (b, zeroDelX))

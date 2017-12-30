@@ -160,9 +160,7 @@ instance ProductCat Syn where
   INLINER(lassocP)
   INLINER(rassocP)
 
-instance TerminalCat Syn where
-  it = app0 "it"
-  INLINER(it)
+instance TerminalCat Syn
 
 instance CoproductCat Syn where
   inl     = app0 "inl"

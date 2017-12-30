@@ -12,8 +12,8 @@
 module ConCat.Translators where
 
 import Prelude hiding (id,(.),curry,uncurry,const,unzip,zip,zipWith)
-import qualified Prelude as P
-import GHC.Exts (inline)
+-- import qualified Prelude as P
+-- import GHC.Exts (inline)
 
 import ConCat.Misc ((:*),result)
 import ConCat.AltCat

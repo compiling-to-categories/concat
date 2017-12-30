@@ -210,8 +210,7 @@ instance CartCon con => ClosedCat (Choice con) where
   {-# INLINE curry #-}
   {-# INLINE uncurry #-}
 
-instance CartCon con => TerminalCat (Choice con) where
-  it = exactly it
+instance CartCon con => TerminalCat (Choice con)
 
 instance CartCon con => ConstCat (Choice con) b where
   const b = exactly (const b)

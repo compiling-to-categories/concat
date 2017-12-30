@@ -73,9 +73,7 @@ instance Additive b => ConstCat Dual b where
   const _ = abst (const zero)  -- TODO: justify via specification
   {-# INLINE const #-}
 
-instance TerminalCat Dual where
-  it = const ()
-  {-# INLINE it #-}
+instance TerminalCat Dual
 
 instance CoerceCat (->) b a => CoerceCat Dual a b where
   coerceC = abst coerceC
