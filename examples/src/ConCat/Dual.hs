@@ -157,40 +157,35 @@ mulD (u,v) = abst (scale v &&& scale u)
 
 #endif
 
-#if 0
+#if 1
 
 ---- Functor-level:
 
-instance Additive1 h => OkFunctor (Dual k) h where
-  okFunctor :: forall a. Ok' (Dual k) a |- Ok' Dual k (h a)
-  okFunctor = Entail (Sub (Dict <+ additive1 @h @a))
+instance OkFunctor k h => OkFunctor (Dual k) h where
+  okFunctor :: forall a. Ok' (Dual k) a |- Ok' (Dual k) (h a)
+  okFunctor = Entail (Sub (Dict <+ okFunctor @k @h @a))
   {-# INLINE okFunctor #-}
 
-instance (Functor h, Zip h, Additive1 h) => FunctorCat (Dual k) h where
+instance (Functor h, ZipCat k h, FunctorCat k h) => FunctorCat (Dual k) h where
   fmapC = inAbst fmapC
   unzipC = abst zipC
   {-# INLINE fmapC #-}
   {-# INLINE unzipC #-}
 
-instance (Foldable h, Pointed h, Additive1 h) => SumCat (Dual k) h where
-  -- I'd like to use sumC and pointC from Category, but they lead to some sort of failure.
-  -- sumC = affine sumC pointC
-  -- I'd like to use the following definition, but it triggers a plugin failure.
-  -- TODO: track it down.
-  -- sumC = affine sum point
-  sumC = abst A.pointC
-  {-# INLINE sumC #-}
+instance (Foldable h, Pointed h, PointedCat k h, OkFunctor k h) => AddCat (Dual k) h where
+  sumAC = abst A.pointC
+  {-# INLINE sumAC #-}
 
-instance (Zip h, Additive1 h) => ZipCat (Dual k) h where
+instance (Zip h, FunctorCat k h) => ZipCat (Dual k) h where
   zipC = abst A.unzipC
   {-# INLINE zipC #-}
   -- {-# INLINE zipWithC #-}
 
-instance (Zip h, Additive1 h) => ZapCat (Dual k) h where
-  zapC :: h (a `Dual` b) -> (h a `Dual` h b)
+instance (Zip h, ZapCat k h, OkFunctor k h) => ZapCat (Dual k) h where
+  zapC :: Ok2 k a b => h (Dual k a b) -> Dual k (h a) (h b)
   -- zapC = A.abstC . A.zapC . A.fmapC A.reprC
   -- zapC = abst . A.zapC . fmap repr
-  zapC = abst . zipWith id . fmap repr
+  zapC = abstC . zapC . fmapC reprC
   {-# INLINE zapC #-}
 
 -- fmap repr :: h (a `Dual` b) -> h (b -> a)
@@ -199,23 +194,25 @@ instance (Zip h, Additive1 h) => ZapCat (Dual k) h where
 
 #if 0
 
--- Change sumC to use Additive, and relate the regular sum method.
-
-instance (Pointed h, Foldable h, Additive1 h) => PointedCat (Dual k) h where
-  pointC = abst A.sumC
+instance (Pointed h, AddCat k h) => PointedCat (Dual k) h where
+  pointC = abst A.sumAC
   {-# INLINE pointC #-}
 
-instance (Zip h, Foldable h, Additive1 h) => Strong (Dual k) h where
-  strength = abst (first A.sumC . unzip)  -- maybe eliminate strength as method
+instance (Category k, FunctorCat k h, ZipCat k h, Zip h, AddCat k h) => Strong (Dual k) h where
+  -- TODO: maybe eliminate strength as method
+  strength :: forall a b. Ok2 k a b => Dual k (a :* h b) (h (a :* b))
+  strength = abst (first A.sumAC . unzipC)
   {-# INLINE strength #-}
+
+-- TODO: can I use sumA instead of A.sumAC?
 
 #endif
 
-instance (Distributive g, Distributive f) => DistributiveCat (Dual k) g f where
+instance DistributiveCat k f g => DistributiveCat (Dual k) g f where
   distributeC = abst A.distributeC
   {-# INLINE distributeC #-}
 
-instance Representable g => RepresentableCat (Dual k) g where
+instance RepresentableCat k g => RepresentableCat (Dual k) g where
   indexC    = abst A.tabulateC
   tabulateC = abst A.indexC
   {-# INLINE indexC #-}

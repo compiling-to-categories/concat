@@ -88,8 +88,8 @@ import ConCat.Misc hiding ((<~),(~>),type (&&))
 -- import ConCat.Free.Diagonal (Diagonal(..),diag)
 import ConCat.Rep hiding (Rep)
 import qualified ConCat.Rep as R
+import ConCat.Additive
 -- import ConCat.Orphans ()
--- import ConCat.Additive
 import qualified ConCat.Inline.ClassOp as IC
 
 #define PINLINER(nm) {-# INLINE nm #-}
@@ -260,13 +260,13 @@ instance Typeable op => OpCon op (Sat Typeable) where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
 
--- instance OpCon (:*) (Sat Additive) where
---   inOp = Entail (Sub Dict)
---   {-# INLINE inOp #-}
+instance OpCon (:*) (Sat Additive) where
+  inOp = Entail (Sub Dict)
+  {-# INLINE inOp #-}
 
--- instance OpCon (->) (Sat Additive) where
---   inOp = Entail (Sub Dict)
---   {-# INLINE inOp #-}
+instance OpCon (->) (Sat Additive) where
+  inOp = Entail (Sub Dict)
+  {-# INLINE inOp #-}
 
 #if 1
 -- Experiment. Smaller Core?
@@ -2025,8 +2025,8 @@ class ({- Pointed h, -} OkFunctor k h) => PointedCat k h where
 -- class DiagCat k h where
 --   diagC  :: Ok k a => (a :* a) `k` h (h a)
 
-class OkFunctor k h => SumCat k h where
-  sumC :: (Ok k a, Num a) => h a `k` a
+class OkFunctor k h => AddCat k h where
+  sumAC :: (Ok k a, Additive a) => h a `k` a
 
 instance Functor h => FunctorCat (->) h where
   fmapC  = IC.inline fmap
@@ -2074,9 +2074,9 @@ instance Pointed h => PointedCat (->) h where
 
 #endif
 
-instance Foldable h => SumCat (->) h where
-  sumC = IC.inline sum
-  {-# OPINLINE sumC #-}
+instance Foldable h => AddCat (->) h where
+  sumAC = IC.inline sumA
+  {-# OPINLINE sumAC #-}
 
 -- instance (OkFunctor k h, OkFunctor k' h) => OkFunctor (k :**: k') h where
 --   okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
@@ -2111,9 +2111,9 @@ instance (PointedCat k h, PointedCat k' h) => PointedCat (k :**: k') h where
 --   diagC  = diagC :**: diagC
 --   {-# INLINE diagC #-}
 
-instance (SumCat k h, SumCat k' h) => SumCat (k :**: k') h where
-  sumC   = sumC :**: sumC
-  {-# INLINE sumC #-}
+instance (AddCat k h, AddCat k' h) => AddCat (k :**: k') h where
+  sumAC = sumAC :**: sumAC
+  {-# INLINE sumAC #-}
 
 class DistributiveCat k g f where
   distributeC :: Ok k a => f (g a) `k` g (f a)

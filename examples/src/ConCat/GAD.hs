@@ -208,10 +208,10 @@ instance OkFunctor k h => OkFunctor (GD k) h where
 
 -- TODO: FunctorCat. See RAD
 
-instance (SumCat (->) h, SumCat k h, OkFunctor (GD k) h)
-      => SumCat (GD k) h where
-  Linear(sumC)
-  {-# INLINE sumC #-}
+instance (AddCat (->) h, AddCat k h, OkFunctor (GD k) h)
+      => AddCat (GD k) h where
+  Linear(sumAC)
+  {-# INLINE sumAC #-}
 
 instance (ZipCat k h, OkFunctor (GD k) h) => ZipCat (GD k) h where
   Linear(zipC)
@@ -230,19 +230,13 @@ instance (ZapCat k h, OkFunctor k h, Zip h) => ZapCat (GD k) h where
 
 -- TODO: What use can we make of the ZapCat instance? Maybe repeated differentiation.
 
-#if 0
-
--- Change sumC to use Additive, and relate the regular sum method.
-
-instance (OkFunctor (GD k) h) => PointedCat (GD k) h where
+instance (OkFunctor (GD k) h, Pointed h, PointedCat k h) => PointedCat (GD k) h where
   Linear(pointC)
   {-# INLINE pointC #-}
 
-instance (OkFunctor (GD k) h) => Strong (GD k) h where
+instance (OkFunctor (GD k) h, FunctorCat k h, Strong k h, ZapCat k h) => Strong (GD k) h where
   Linear(strength)
   {-# INLINE strength #-}
-
-#endif
 
 instance (DistributiveCat (->) g f, DistributiveCat k g f)
       => DistributiveCat (GD k) g f where

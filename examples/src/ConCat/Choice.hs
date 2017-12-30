@@ -296,8 +296,8 @@ instance (Zip h, CartCon con) => ZipCat (Choice con) h where
 instance (Pointed h, CartCon con) => PointedCat (Choice con) h where
   pointC = exactly pointC
 
-instance (Foldable h, CartCon con) => SumCat (Choice con) h where
-  sumC = exactly sumC
+instance (Foldable h, CartCon con) => AddCat (Choice con) h where
+  sumAC = exactly sumAC
 
 instance (FunctorCat k h, CartCon con) => Strong (Choice con) h where
   strength = exactly strength

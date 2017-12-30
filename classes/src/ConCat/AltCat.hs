@@ -55,10 +55,11 @@ import GHC.TypeLits (KnownNat,natVal)
 import Data.Finite (Finite)
 #endif
 
-import qualified ConCat.Category as C
+import ConCat.Misc ((:*),(:+),unzip,PseudoFun(..),oops,type (&+&),result)
 import ConCat.Rep hiding (Rep)
 import qualified ConCat.Rep as R
-import ConCat.Misc ((:*),(:+),unzip,PseudoFun(..),oops,type (&+&),result)
+import ConCat.Additive
+import qualified ConCat.Category as C
 
 import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5, Ok'
@@ -82,7 +83,7 @@ import ConCat.Category
   , OpCon(..),Sat(..) -- ,FunctorC(..)
   , yes1, forkCon, joinCon, inForkCon
   -- Functor-level
-  , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat,SumCat,Strong
+  , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat,AddCat,Strong
   , DistributiveCat,RepresentableCat 
   , fmap', liftA2' 
   )
@@ -684,11 +685,11 @@ toCcc'' _ = oops "toCcc'' called"
 -- {-# RULES "ccc (->)" forall f. toCcc' f = f #-}
 
 
-Op1(fmapC , (FunctorCat k h, Ok2 k a b)     => (a `k` b) -> (h a `k` h b))
-Op0(unzipC, (FunctorCat k h, Ok2 k a b)     => h (a :* b) `k` (h a :* h b))
-Op0(zipC  , (ZipCat k h    , Ok2 k a b)     => (h a :* h b) `k` h (a :* b))
-Op0(pointC, (PointedCat k h, Ok k a)        => a `k` h a)
-Op0(sumC  , (SumCat k h    , Ok k a, Num a) => h a `k` a)
+Op1(fmapC , (FunctorCat k h, Ok2 k a b)      => (a `k` b) -> (h a `k` h b))
+Op0(unzipC, (FunctorCat k h, Ok2 k a b)      => h (a :* b) `k` (h a :* h b))
+Op0(zipC  , (ZipCat k h    , Ok2 k a b)      => (h a :* h b) `k` h (a :* b))
+Op0(pointC, (PointedCat k h, Ok k a)         => a `k` h a)
+Op0(sumAC , (AddCat k h, Additive a, Ok k a) => h a `k` a)
 
 Catify(fmap , fmapC)
 -- Catify(fmap , fmapIdT)  -- experiment
@@ -696,7 +697,7 @@ Catify(fmap , fmapC)
 Catify(unzip, unzipC)
 Catify(zip  , curry zipC)
 Catify(point, pointC)
-Catify(sum  , sumC)
+Catify(sumA , sumAC)
 
 zipWithC :: Zip h => (a -> b -> c) -> (h a -> h b -> h c)
 -- zipWithC f = curry (fmapC (uncurry f) . zipC)

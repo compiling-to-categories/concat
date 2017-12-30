@@ -393,9 +393,9 @@ instance {- Pointed h => -} PointedCat Syn h where
   pointC = app0 "point"
   INLINER(pointC)
 
-instance Foldable h => SumCat Syn h where
-  sumC = app0 "sum"
-  INLINER(sumC)
+instance Foldable h => AddCat Syn h where
+  sumAC = app0 "sum"
+  INLINER(sumAC)
 
 instance Functor h => Strong Syn h where
   strength = app0 "strength"

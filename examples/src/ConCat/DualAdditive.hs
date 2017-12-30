@@ -111,14 +111,14 @@ instance (Functor h, Zip h, Additive1 h) => FunctorCat Dual h where
   {-# INLINE fmapC #-}
   {-# INLINE unzipC #-}
 
-instance (Foldable h, Pointed h, Additive1 h) => SumCat Dual h where
-  -- I'd like to use sumC and pointC from Category, but they lead to some sort of failure.
-  -- sumC = affine sumC pointC
+instance (Foldable h, Pointed h, Additive1 h) => AddCat Dual h where
+  -- I'd like to use sumAC and pointC from Category, but they lead to some sort of failure.
+  -- sumAC = affine sumAC pointC
   -- I'd like to use the following definition, but it triggers a plugin failure.
   -- TODO: track it down.
-  -- sumC = affine sum point
-  sumC = abst A.pointC
-  {-# INLINE sumC #-}
+  -- sumAC = affine sum point
+  sumAC = abst A.pointC
+  {-# INLINE sumAC #-}
 
 instance (Zip h, Additive1 h) => ZipCat Dual h where
   zipC = abst A.unzipC
@@ -136,16 +136,14 @@ instance (Zip h, Additive1 h) => ZapCat Dual h where
 -- zapC      :: h (b -> a) -> (h b -> h a)
 -- abst      :: (h b -> h a) -> (h a `Dual` h b)
 
-#if 0
-
--- Change sumC to use Additive, and relate the regular sum method.
+#if 1
 
 instance (Pointed h, Foldable h, Additive1 h) => PointedCat Dual h where
-  pointC = abst A.sumC
+  pointC = abst A.sumAC
   {-# INLINE pointC #-}
 
 instance (Zip h, Foldable h, Additive1 h) => Strong Dual h where
-  strength = abst (first A.sumC . unzip)  -- maybe eliminate strength as method
+  strength = abst (first A.sumAC . unzip)  -- maybe eliminate strength as method
   {-# INLINE strength #-}
 
 #endif

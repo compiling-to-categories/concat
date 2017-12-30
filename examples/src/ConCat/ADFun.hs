@@ -174,9 +174,9 @@ instance (Pointed h, Additive1 h) => PointedCat D h where
   pointC = linearDF pointC
   {-# INLINE pointC #-}
 
-instance (Foldable h, Additive1 h) => SumCat D h where
-  sumC = linearDF sumC
-  {-# INLINE sumC #-}
+instance (Foldable h, Additive1 h) => AddCat D h where
+  sumAC = linearDF sumAC
+  {-# INLINE sumAC #-}
 
 instance (Zip h, Foldable h, Additive1 h) => Strong D h where
   strength = linearDF strength

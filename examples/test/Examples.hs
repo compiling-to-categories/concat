@@ -463,41 +463,41 @@ main = sequence_
   -- , runSynCirc "linear-1-v" $ toCcc $ linear @R @R @(Vector 8 R)
   -- , runSynCirc "linear-2-v" $ toCcc $ linear @R @(R :* R) @(Vector 8 R)
 
-  -- , runSynCirc "sum-v-adf" $ toCcc $ andDerF (sumC :: Vector 8 R -> R)
+  -- , runSynCirc "sum-v-adf" $ toCcc $ andDerF (sumAC :: Vector 8 R -> R)
 
-  -- , runCirc "sum-v-adfl" $ toCcc $ andDerFL @R (sumC :: Vector 8 R -> R)
+  -- , runCirc "sum-v-adfl" $ toCcc $ andDerFL @R (sumAC :: Vector 8 R -> R)
 
   -- , runCirc "foo" $ toCcc $ \ () -> dualV (\ (x,y,z) -> x + y + z :: R) -- fail
 
-  -- , runCirc "foo" $ toCcc $ \ () -> dualV (sumC :: Pair R -> R) -- ok
+  -- , runCirc "foo" $ toCcc $ \ () -> dualV (sumAC :: Pair R -> R) -- ok
 
   -- , runCirc "foo" $ toCcc $ unV @R @(Vector 2 R)
 
-  -- , runCirc "foo" $ toCcc $ \ () -> dualV4 (sumC :: Vector Bool R -> R) -- fail
+  -- , runCirc "foo" $ toCcc $ \ () -> dualV4 (sumAC :: Vector Bool R -> R) -- fail
 
   -- , runCirc "foo" $ toCcc $ \ () -> diag @(Vector Bool) @R  -- OK
 
   -- , runCirc "foo" $ toCcc $ fmapC @(->) @(Vector Bool) @R @R -- OK
 
-  -- , runCirc "foo" $ toCcc $ (sumC :: Vector Bool R -> R) -- OK
+  -- , runCirc "foo" $ toCcc $ (sumAC :: Vector Bool R -> R) -- OK
 
   -- , runCirc "foo" $ toCcc $ (dualV @R @(Vector Bool R)) --
 
-  -- , runSyn $ toCcc $ \ () -> dualV (sumC :: Vector Bool R -> R) -- Ok
+  -- , runSyn $ toCcc $ \ () -> dualV (sumAC :: Vector Bool R -> R) -- Ok
 
-  -- , runCirc "dual-sum-pair" $ toCcc $ \ () -> dualV (sumC :: Pair R -> R)
+  -- , runCirc "dual-sum-pair" $ toCcc $ \ () -> dualV (sumAC :: Pair R -> R)
 
-  -- , runCirc "dual-sum-par1" $ toCcc $ \ () -> dualV (sumC :: Par1 R -> R)
+  -- , runCirc "dual-sum-par1" $ toCcc $ \ () -> dualV (sumAC :: Par1 R -> R)
 
-  -- , runCirc "dual-sum-arr" $ toCcc $ \ () -> dualV (sumC :: Vector Bool R -> R)
+  -- , runCirc "dual-sum-arr" $ toCcc $ \ () -> dualV (sumAC :: Vector Bool R -> R)
 
-  -- , runCirc "dual-sum-arr-unit" $ toCcc $ \ () -> dualV (sumC :: Vector () R -> R)
+  -- , runCirc "dual-sum-arr-unit" $ toCcc $ \ () -> dualV (sumAC :: Vector () R -> R)
 
-  -- , runCirc "foo" $ toCcc $ \ () -> dualV (sumC :: Vector Bool R -> R)
+  -- , runCirc "foo" $ toCcc $ \ () -> dualV (sumAC :: Vector Bool R -> R)
 
-  -- , runCirc "sum-arr-v3-adf" $ toCcc $ andDerF (sumC :: Vector (RVec N3 Bool) R -> R)
+  -- , runCirc "sum-arr-v3-adf" $ toCcc $ andDerF (sumAC :: Vector (RVec N3 Bool) R -> R)
 
-  -- , runSynCirc "sum-arr-v3-adfl" $ toCcc $ andDerFL' @R (sumC :: Vector (RVec N3 Bool) R -> R)
+  -- , runSynCirc "sum-arr-v3-adfl" $ toCcc $ andDerFL' @R (sumAC :: Vector (RVec N3 Bool) R -> R)
 
   -- , runSynCirc "fmapC-id-arr" $ toCcc $ (fmapC id :: Unop (Vector Bool R))
 

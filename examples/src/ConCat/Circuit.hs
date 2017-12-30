@@ -164,6 +164,7 @@ import qualified Control.Monad.State as M
 import ConCat.Misc ((:*),(:+),Unop,Binop,Yes1,typeR)
 -- import ConCat.Complex (Complex(..))
 import ConCat.Rep
+import ConCat.Additive (Additive)
 import ConCat.Category
 import qualified ConCat.AltCat as A
 import ConCat.AltCat (Uncurriable(..))
@@ -881,9 +882,9 @@ instance ({- Pointed h, -} OkFunctor (:>) h) => PointedCat (:>) h where
   pointC = namedC "point"
              <+ okFunctor' @(:>) @h @a
 
-instance (Foldable h, OkFunctor (:>) h) => SumCat (:>) h where
-  sumC :: forall a. (Ok (:>) a, Num a) => h a :> a
-  sumC = namedC "sum" <+ okFunctor' @(:>) @h @a
+instance (Foldable h, OkFunctor (:>) h) => AddCat (:>) h where
+  sumAC :: forall a. (Ok (:>) a, Additive a) => h a :> a
+  sumAC = namedC "sum" <+ okFunctor' @(:>) @h @a
 
 instance (Functor h, OkFunctor (:>) h) => Strong (:>) h where
   strength :: forall a b. Ok2 (:>) a b => (a :* h b) :> h (a :* b)

@@ -17,16 +17,14 @@
 
 module ConCat.Additive where
 
-import Prelude hiding (id,(.),curry,uncurry,zipWith)
+import Prelude hiding (zipWith)
 import Data.Monoid
-import Data.Foldable (fold)
 import Data.Complex hiding (magnitude)
 import Data.Ratio
 import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import GHC.TypeLits (KnownNat)
 
-import Data.Constraint (Dict(..),(:-)(..))
 import Control.Newtype (Newtype(..))
 import Data.Key(Zip(..))
 import Data.Pointed(Pointed(..))
@@ -34,7 +32,6 @@ import Data.Vector.Sized (Vector)
 
 import ConCat.Misc
 import ConCat.Orphans ()
-import ConCat.AltCat
 
 -- | Commutative monoid intended to be used with a multiplicative monoid
 class Additive a where
@@ -117,20 +114,6 @@ instance (Additive v, AddF f, AddF g) => Additive ((g :.: f) v)
 
 instance (Additive v, KnownNat n) => Additive (Vector n v)
 
-class Additive1 h where additive1 :: Sat Additive a |- Sat Additive (h a)
-
-instance Additive1 ((->) a) where additive1 = Entail (Sub Dict)
-
-instance Additive1 Sum where additive1 = Entail (Sub Dict)
-instance Additive1 Product where additive1 = Entail (Sub Dict)
-instance Additive1 U1 where additive1 = Entail (Sub Dict)
-instance Additive1 Par1 where additive1 = Entail (Sub Dict)
-instance (AddF f, AddF g) => Additive1 (f :*: g) where additive1 = Entail (Sub Dict)
-instance (AddF f, AddF g) => Additive1 (g :.: f) where additive1 = Entail (Sub Dict)
-
-instance KnownNat n => Additive1 (Vector n) where
-  additive1 = Entail (Sub Dict)
-
 -- Maybe is handled like the Maybe-of-Sum monoid
 instance Additive a => Additive (Maybe a) where
   zero                = Nothing
@@ -142,14 +125,6 @@ instance Additive a => Additive (Maybe a) where
 -- instance (HasTrie u, Additive v) => Additive (u :->: v) where
 --   zero  = pure   zero
 --   (^+^) = liftA2 (^+^)
-
-instance OpCon (:*) (Sat Additive) where
-  inOp = Entail (Sub Dict)
-  {-# INLINE inOp #-}
-
-instance OpCon (->) (Sat Additive) where
-  inOp = Entail (Sub Dict)
-  {-# INLINE inOp #-}
 
 {--------------------------------------------------------------------
     Monoid wrapper
@@ -179,5 +154,5 @@ instance Additive a => Additive (Add a) where
   zero  = mempty
   (^+^) = mappend
 
-add :: (Foldable f, Functor f, Additive a) => f a -> a
-add = getAdd . fold . fmap Add
+sumA :: (Foldable f, Additive a) => f a -> a
+sumA = getAdd . foldMap Add
