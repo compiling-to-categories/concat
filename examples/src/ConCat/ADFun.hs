@@ -99,9 +99,7 @@ instance Additive b => ConstCat D b where
   const b = D (const (b, const zero))
   {-# INLINE const #-}
 
-instance TerminalCat D where
-  it = const ()
-  {-# INLINE it #-}
+instance TerminalCat D
 
 instance (Num s, Additive s) => NumCat D s where
   negateC = linearDF negateC
