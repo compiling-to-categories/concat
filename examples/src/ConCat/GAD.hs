@@ -37,7 +37,7 @@ import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable)
 import qualified Data.Functor.Rep
 
-import ConCat.Misc ((:*),type (&+&),result,unzip) -- ,PseudoFun(..),oops
+import ConCat.Misc ((:*),type (&+&),cond,result,unzip,sqr) -- ,PseudoFun(..),oops
 -- import ConCat.Free.VectorSpace
 -- import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
@@ -85,26 +85,18 @@ instance HasRep (GD k a b) where
 
 AbsTy(GD k a b)
 
--- type family GDOk (k :: * -> * -> *) :: * -> Constraint
-
 -- Common pattern for linear functions
 #define Linear(nm) nm = linearD A.nm A.nm
 
--- instance ConstCat k b => ConstCat (GD k) b where
---   const b = linearD (const b) (const b)
---   {-# INLINE const #-}
+instance (TerminalCat k, CoterminalCat k, ConstCat k b) => ConstCat (GD k) b where
+  const b = linearD (const b) (const b)
+  {-# INLINE const #-}
 
--- I'm unsure about this ConstCat instance. It depends on const @k b mapping to
--- a constant *zero* for some sensible notion of zero. What are the implications
--- of this choice? We can't use (->), but then we already couldn't, since (a) we
--- need Additive, and (b) I want a CoproductCat that uses cartesian products (as
--- in direct sums).
--- 
 -- What if we went further, and defined nonlinear arrows like mulC as if linear?
--- Probably wouldn't work, since the linear approximations depend on input.
+-- Probably wouldn't work, since the linear approximations depend on input. On
+-- the other hand, maybe approximations of function shiftings at zero.
 
 instance Category k => Category (GD k) where
-  -- type Ok (GD k) = Ok k &+& GDOk k
   type Ok (GD k) = Ok k
   Linear(id)
   D g . D f = D (\ a ->
@@ -114,22 +106,6 @@ instance Category k => Category (GD k) where
       (c, g' . f'))
   {-# INLINE id #-}
   {-# INLINE (.) #-}
-
---   (.) = inNew2 $ \ g f -> \ a ->
---     let (b,f') = f a
---         (c,g') = g b
---     in
---       (c, g' . f')
-
---   (.) = inNew2 $ \ g f -> second (uncurry (.)) . rassocP . first g . f
-
---   D g . D f = D $ \ a ->
---     let (b,f') = f a
---         (c,g') = g b
---     in
---       (c, g' . f')
-
-type GDOk k = Ok k
 
 instance ProductCat k => ProductCat (GD k) where
   Linear(exl)
@@ -143,29 +119,68 @@ instance ProductCat k => ProductCat (GD k) where
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
 
--- OpCon (Prod k) (Sat (GDOk k))
-
---   (&&&) = inNew2 $ \ f g -> \ a ->
---     let (b,f') = f a
---         (c,g') = g a
---     in
---       ((b,c), f' &&& g')
-
 --   (&&&) = inNew2 $ \ f g -> second (uncurry (&&&)) . transposeP . (f &&& g)
 
---   D f &&& D g = D $ \ a ->
---     let (b,f') = f a
---         (c,g') = g a
---     in
---       ((b,c), f' &&& g')
+{--------------------------------------------------------------------
+    NumCat etc
+--------------------------------------------------------------------}
 
--- -- Don't define methods yet. I think I can optimize away the ClosedCat
--- -- operations in most cases. Once I'm happy with the results, define these methods and turn off the optimizations.
--- instance ClosedCat (GD k)
+instance (LinearCat k s, Num s) => NumCat (GD k) s where
+  addC    = linearD addC jamD
+  negateC = linearD negateC (scale (-1))
+  mulC    = D (mulC &&& \ (u,v) -> scale v |||| scale u) -- \ (du,dv) -> u*dv + v*du
+  powIC   = notDef "powIC"       -- TODO
+  {-# INLINE negateC #-}
+  {-# INLINE addC    #-}
+  {-# INLINE mulC    #-}
+  {-# INLINE powIC   #-}
 
---     • No instance for (OpCon (Exp (GD k)) (Sat (Ok k)))
---         arising from the superclasses of an instance declaration
---     • In the instance declaration for ‘ClosedCat (GD k)’
+scalarD :: (ScalarCat k s) => (s -> s) -> (s -> s -> s) -> GD k s s
+scalarD f d = D (\ x             -> let r = f x in (r, scale (d x r)))
+{-# INLINE scalarD #-}
+
+-- Use scalarD with const f when only r matters and with const' . g when only x
+-- matters.
+
+scalarR :: LinearCat k s => (s -> s) -> (s -> s) -> GD k s s
+scalarR f x = scalarD f (const x)
+{-# INLINE scalarR #-}
+
+scalarX :: LinearCat k s => (s -> s) -> (s -> s) -> GD k s s
+scalarX f f' = scalarD f (const . f')
+{-# INLINE scalarX #-}
+
+instance (LinearCat k s, Fractional s) => FractionalCat (GD k) s where
+  recipC = scalarR recip (negate . sqr)
+  {-# INLINE recipC #-}
+
+instance (LinearCat k s, Floating s) => FloatingCat (GD k) s where
+  expC = scalarR exp id
+  logC = scalarX log recip
+  sinC = scalarX sin cos
+  cosC = scalarX cos (negate . sin)
+  {-# INLINE expC #-}
+  {-# INLINE sinC #-}
+  {-# INLINE cosC #-}
+  {-# INLINE logC #-}
+
+-- TODO: experiment with moving some of these dual derivatives to DualAdditive,
+-- in the style of addD, mulD, etc.
+
+instance (ProductCat k, Ord a) => MinMaxCat (GD k) a where
+  minC = D (minC &&& cond exl exr . lessThanOrEqual)
+  maxC = D (maxC &&& cond exr exl . lessThanOrEqual)
+  {-# INLINE minC #-} 
+  {-# INLINE maxC #-} 
+
+-- Equivalently,
+-- 
+-- minC = D (\ (x,y) -> (minC (x,y), if x <= y then exl else exr))
+-- maxC = D (\ (x,y) -> (maxC (x,y), if x <= y then exr else exl))
+
+-- Functor-level operations:
+
+-- TODO: IfCat. Maybe make ifC :: (a :* a) `k` (Bool -> a), which is linear.
 
 {--------------------------------------------------------------------
     Functor-level operations
