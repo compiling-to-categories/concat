@@ -293,10 +293,10 @@ instance (Zip h, CartCon con) => ZipCat (Choice con) h where
 
 -- TODO: ZapCat instance? I don't think so, but we'll see.
 
-instance (Pointed h, CartCon con) => PointedCat (Choice con) h where
+instance (Pointed h, CartCon con) => PointedCat (Choice con) h a where
   pointC = exactly pointC
 
-instance (Foldable h, CartCon con) => AddCat (Choice con) h where
+instance (AddCat (->) h a, CartCon con) => AddCat (Choice con) h a where
   sumAC = exactly sumAC
 
 instance (FunctorCat k h, CartCon con) => Strong (Choice con) h where

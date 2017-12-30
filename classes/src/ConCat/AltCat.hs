@@ -685,11 +685,11 @@ toCcc'' _ = oops "toCcc'' called"
 -- {-# RULES "ccc (->)" forall f. toCcc' f = f #-}
 
 
-Op1(fmapC , (FunctorCat k h, Ok2 k a b)      => (a `k` b) -> (h a `k` h b))
-Op0(unzipC, (FunctorCat k h, Ok2 k a b)      => h (a :* b) `k` (h a :* h b))
-Op0(zipC  , (ZipCat k h    , Ok2 k a b)      => (h a :* h b) `k` h (a :* b))
-Op0(pointC, (PointedCat k h, Ok k a)         => a `k` h a)
-Op0(sumAC , (AddCat k h, Additive a, Ok k a) => h a `k` a)
+Op1(fmapC , (FunctorCat k h, Ok2 k a b) => (a `k` b) -> (h a `k` h b))
+Op0(unzipC, (FunctorCat k h, Ok2 k a b) => h (a :* b) `k` (h a :* h b))
+Op0(zipC  , (ZipCat k h    , Ok2 k a b) => (h a :* h b) `k` h (a :* b))
+Op0(pointC, (PointedCat k h a)          => a `k` h a)
+Op0(sumAC , (AddCat k h a)              => h a `k` a)
 
 Catify(fmap , fmapC)
 -- Catify(fmap , fmapIdT)  -- experiment
@@ -770,9 +770,9 @@ unzipFmapFork f g = fmapC f &&& fmapC g
 --    => a -> (z `k` h a)
 -- constPoint a = const (pointC a <+ okFunctor @k @h @a)
 
-constPoint :: forall k h a z. (ConstCat k a, PointedCat k h, Ok2 k a z)
-   => a -> (z `k` h a)
-constPoint a = pointC . const a <+ okFunctor @k @h @a
+-- constPoint :: forall k h a z. (ConstCat k a, PointedCat k h a, Ok2 k a z)
+--            => a -> (z `k` h a)
+-- constPoint a = pointC . const a <+ okFunctor @k @h @a
 
 -- foo :: Zip h => (b :* c -> d) -> (a -> b) -> h a -> (h c -> h d)
 -- foo g f = curry (fmapC g . zipC) . fmap f

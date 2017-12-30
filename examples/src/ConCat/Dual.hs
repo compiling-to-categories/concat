@@ -172,10 +172,6 @@ instance (Functor h, ZipCat k h, FunctorCat k h) => FunctorCat (Dual k) h where
   {-# INLINE fmapC #-}
   {-# INLINE unzipC #-}
 
-instance (Foldable h, Pointed h, PointedCat k h, OkFunctor k h) => AddCat (Dual k) h where
-  sumAC = abst A.pointC
-  {-# INLINE sumAC #-}
-
 instance (Zip h, FunctorCat k h) => ZipCat (Dual k) h where
   zipC = abst A.unzipC
   {-# INLINE zipC #-}
@@ -192,11 +188,15 @@ instance (Zip h, ZapCat k h, OkFunctor k h) => ZapCat (Dual k) h where
 -- zapC      :: h (b -> a) -> (h b -> h a)
 -- abst      :: (h b -> h a) -> (h a `Dual` h b)
 
-#if 0
+instance (PointedCat k h a, Additive a) => AddCat (Dual k) h a where
+  sumAC = abst A.pointC
+  {-# INLINE sumAC #-}
 
-instance (Pointed h, AddCat k h) => PointedCat (Dual k) h where
+instance (AddCat k h a, OkFunctor k h) => PointedCat (Dual k) h a where
   pointC = abst A.sumAC
   {-# INLINE pointC #-}
+
+#if 0
 
 instance (Category k, FunctorCat k h, ZipCat k h, Zip h, AddCat k h) => Strong (Dual k) h where
   -- TODO: maybe eliminate strength as method

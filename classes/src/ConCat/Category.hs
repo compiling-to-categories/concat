@@ -2007,8 +2007,8 @@ class (Zip h, OkFunctor k h) => ZipCat k h where
 class OkFunctor k h => ZapCat k h where
   zapC :: Ok2 k a b => h (a `k` b) -> (h a `k` h b)
 
-class ({- Pointed h, -} OkFunctor k h) => PointedCat k h where
-  pointC :: Ok k a => a `k` h a
+class ({- Pointed h, -} OkFunctor k h, Ok k a) => PointedCat k h a where
+  pointC :: a `k` h a
 
 -- TODO: remove superclasses like Pointed from other classes, and then review
 -- instances for unnecessary parent constraints. I've removed them the
@@ -2025,8 +2025,8 @@ class ({- Pointed h, -} OkFunctor k h) => PointedCat k h where
 -- class DiagCat k h where
 --   diagC  :: Ok k a => (a :* a) `k` h (h a)
 
-class OkFunctor k h => AddCat k h where
-  sumAC :: (Ok k a, Additive a) => h a `k` a
+class (Ok k a, Additive a) => AddCat k h a where
+  sumAC :: h a `k` a
 
 instance Functor h => FunctorCat (->) h where
   fmapC  = IC.inline fmap
@@ -2068,13 +2068,13 @@ instance Zip h => ZapCat (->) h where
   zapC = zipWith id  -- as in the default; 2017-12-27 notes
   {-# OPINLINE zapC #-}
 
-instance Pointed h => PointedCat (->) h where
+instance Pointed h => PointedCat (->) h a where
   pointC = IC.inline point
   {-# OPINLINE pointC #-}
 
 #endif
 
-instance Foldable h => AddCat (->) h where
+instance (Foldable h, Additive a) => AddCat (->) h a where
   sumAC = IC.inline sumA
   {-# OPINLINE sumAC #-}
 
@@ -2103,7 +2103,7 @@ instance (ZapCat k h, ZapCat k' h, Functor h) => ZapCat (k :**: k') h where
 -- (zapC *** zapC)     :: h (p a b) :* h (q a b) -> p (h a) (h b) :* q (h a) (h b)
 -- uncurry (:**:)      :: p (h a) (h b) :* q (h a) (h b) -> (p :**: q) (h a) (h b)
 
-instance (PointedCat k h, PointedCat k' h) => PointedCat (k :**: k') h where
+instance (PointedCat k h a, PointedCat k' h a) => PointedCat (k :**: k') h a where
   pointC = pointC :**: pointC
   {-# INLINE pointC #-}
 
@@ -2111,7 +2111,7 @@ instance (PointedCat k h, PointedCat k' h) => PointedCat (k :**: k') h where
 --   diagC  = diagC :**: diagC
 --   {-# INLINE diagC #-}
 
-instance (AddCat k h, AddCat k' h) => AddCat (k :**: k') h where
+instance (AddCat k h a, AddCat k' h a) => AddCat (k :**: k') h a where
   sumAC = sumAC :**: sumAC
   {-# INLINE sumAC #-}
 

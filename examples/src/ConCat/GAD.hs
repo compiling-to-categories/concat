@@ -208,8 +208,8 @@ instance OkFunctor k h => OkFunctor (GD k) h where
 
 -- TODO: FunctorCat. See RAD
 
-instance (AddCat (->) h, AddCat k h, OkFunctor (GD k) h)
-      => AddCat (GD k) h where
+instance (AddCat (->) h a, AddCat k h a, OkFunctor (GD k) h)
+      => AddCat (GD k) h a where
   Linear(sumAC)
   {-# INLINE sumAC #-}
 
@@ -230,7 +230,7 @@ instance (ZapCat k h, OkFunctor k h, Zip h) => ZapCat (GD k) h where
 
 -- TODO: What use can we make of the ZapCat instance? Maybe repeated differentiation.
 
-instance (OkFunctor (GD k) h, Pointed h, PointedCat k h) => PointedCat (GD k) h where
+instance (OkFunctor (GD k) h, Pointed h, PointedCat k h a) => PointedCat (GD k) h a where
   Linear(pointC)
   {-# INLINE pointC #-}
 

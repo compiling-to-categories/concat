@@ -43,6 +43,7 @@ import Data.Finite (Finite)
 
 import ConCat.Category
 import ConCat.Misc (inNew,inNew2,Unop,Binop,typeR,Yes1,(:*))
+import ConCat.Additive (Additive)
 import ConCat.Rep
 
 {--------------------------------------------------------------------
@@ -389,11 +390,11 @@ instance Zip h => ZipCat Syn h where
   -- zipWithC = app0 "zipWith"
   -- INLINER(zipWithC)
 
-instance {- Pointed h => -} PointedCat Syn h where
+instance {- Pointed h => -} PointedCat Syn h a where
   pointC = app0 "point"
   INLINER(pointC)
 
-instance Foldable h => AddCat Syn h where
+instance (Foldable h, Additive a) => AddCat Syn h a where
   sumAC = app0 "sum"
   INLINER(sumAC)
 

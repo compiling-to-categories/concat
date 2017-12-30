@@ -877,13 +877,13 @@ instance (Zip h, OkFunctor (:>) h) => ZipCat (:>) h where
 
 -- TODO: ZapCat instance? I don't think so, but we'll see.
 
-instance ({- Pointed h, -} OkFunctor (:>) h) => PointedCat (:>) h where
-  pointC :: forall a. Ok (:>) a => a :> h a
+instance ({- Pointed h, -} OkFunctor (:>) h, Ok (:>) a) => PointedCat (:>) h a where
+  pointC :: a :> h a
   pointC = namedC "point"
              <+ okFunctor' @(:>) @h @a
 
-instance (Foldable h, OkFunctor (:>) h) => AddCat (:>) h where
-  sumAC :: forall a. (Ok (:>) a, Additive a) => h a :> a
+instance (OkFunctor (:>) h, Additive a, Ok (:>) a) => AddCat (:>) h a where
+  sumAC :: h a :> a
   sumAC = namedC "sum" <+ okFunctor' @(:>) @h @a
 
 instance (Functor h, OkFunctor (:>) h) => Strong (:>) h where
