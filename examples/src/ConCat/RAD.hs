@@ -33,21 +33,20 @@ import ConCat.AltCat (toCcc)
 import qualified ConCat.AltCat as A
 import qualified ConCat.Rep as R
 import ConCat.Additive
-import ConCat.DualAdditive
+-- import ConCat.DualAdditive
+import ConCat.Dual
 import ConCat.GAD
 
 -- Differentiable functions
-type RAD = GD Dual
+type RAD = GD (Dual AdditiveMap)
 
--- type instance GDOk Dual = Yes1
+#if 0
 
 instance Additive b => ConstCat RAD b where
   const b = linearD (const b) (const b)
   {-# INLINE const #-}
 
-instance TerminalCat RAD where
-  it = const ()
-  {-# INLINE it #-}
+instance TerminalCat RAD
 
 instance (Num s, Additive s) => NumCat RAD s where
   addC    = D (addC &&& addD)
@@ -124,13 +123,15 @@ instance Ord a => MinMaxCat RAD a where
 
 -- TODO: IfCat. Maybe make ifC :: (a :* a) `k` (Bool -> a), which is linear.
 
+#endif
+
 {--------------------------------------------------------------------
     Differentiation interface
 --------------------------------------------------------------------}
 
 -- | Add a dual/reverse derivative
 andDerR :: forall a b. (a -> b) -> (a -> b :* (b -> a))
-andDerR f = unMkD (toCcc f :: RAD a b)
+andDerR f = (result.second) R.repr (unMkD (toCcc f :: RAD a b))
 {-# INLINE andDerR #-}
 
 -- | Dual/reverse derivative
