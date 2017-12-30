@@ -15,4 +15,4 @@ packages:
   - netlist-to-verilog
   extra-dep: true
 extra-deps: []
-resolver: lts-9.3
+resolver: lts-9.20
