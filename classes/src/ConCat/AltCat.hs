@@ -67,7 +67,7 @@ import ConCat.Category
   , CoproductCatD, CoprodD, ScalarCat, LinearCat
   , DistribCat, undistl, undistr
   , ClosedCat, Exp
-  , TerminalCat, Unit{-, lunit, runit, constFun-}, constFun2, unitFun, unUnitFun
+  , TerminalCat, Unit{-, lunit, runit, constFun-}, CoterminalCat, Counit, constFun2, unitFun, unUnitFun
   , ConstCat, ConstObj, lconst, rconst
   , DelayCat, LoopCat
   , BiCCC
@@ -162,6 +162,7 @@ Op0(distl,forall k a u v. (DistribCat k, Ok3 k a u v) => Prod k a (Coprod k u v)
 Op0(distr,forall k u v b. (DistribCat k, Ok3 k u v b) => Prod k (Coprod k u v) b `k` Coprod k (Prod k u b) (Prod k v b))
 
 Op0(it,(TerminalCat k, Ok k a) => a `k` Unit k)
+Op0(ti,(CoterminalCat k, Ok k a) => Counit k `k` a)
 
 Op(const,(ConstCat k b, Ok k a) => b -> (a `k` ConstObj k b))
 -- Op(unitArrow,ConstCat k b => b -> (Unit k `k` ConstObj k b))
