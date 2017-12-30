@@ -95,9 +95,11 @@ import qualified ConCat.Inline.ClassOp as IC
 #define PINLINER(nm) {-# INLINE nm #-}
 -- #define PINLINER(nm)
 
--- Prevents some subtle non-termination errors. See 2017-12-27 notes.
-#define OPINLINE INLINE [0]
--- #define OPINLINE INLINE
+-- Prevents some subtle non-termination errors. See 2017-12-27 journal notes.
+-- #define OPINLINE INLINE [0]
+
+-- Changed to NOINLINE [0]. See 2017-12-29 journal notes.
+#define OPINLINE NOINLINE [0]
 
 {--------------------------------------------------------------------
     Unit and pairing for binary type constructors
@@ -1020,7 +1022,7 @@ type Unit k = ()
 
 type OkUnit k = Ok k (Unit k)
 
-class (Category k, OkUnit k) => TerminalCat k where
+class OkUnit k => TerminalCat k where
   -- type Unit k :: u
   it :: Ok k a => a `k` Unit k
   default it :: (ConstCat k (Unit k), Ok k a) => a `k` Unit k
@@ -1050,6 +1052,18 @@ lunit = it &&& id
 
 runit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k a (Unit k)
 runit = id &&& it
+
+type Counit k = ()  -- for now
+
+class Ok k (Counit k) => CoterminalCat k where
+  ti :: Ok k a => Counit k `k` a
+
+instance CoterminalCat U2 where
+  ti = U2
+
+instance (CoterminalCat k, CoterminalCat k') => CoterminalCat (k :**: k') where
+  ti = ti :**: ti
+  PINLINER(ti)
 
 #if 0
 
