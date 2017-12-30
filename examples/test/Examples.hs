@@ -55,12 +55,12 @@
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
--- {-# OPTIONS_GHC -dsuppress-uniques #-}
+{-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
 -- {-# OPTIONS_GHC -ddump-tc-trace #-}
 
--- {-# OPTIONS_GHC -dsuppress-all #-}
+{-# OPTIONS_GHC -dsuppress-all #-}
 
 -- {-# OPTIONS_GHC -fno-float-in #-}
 -- {-# OPTIONS_GHC -ffloat-in #-}
@@ -645,26 +645,28 @@ main = sequence_
   -- , runSynCirc "add-adr"        $ toCcc $ andDerR $ uncurry ((+) @R)
   -- , runSynCirc "twice-adr"      $ toCcc $ andDerR $ twice @R
   -- , runSynCirc "sqr-adr"        $ toCcc $ andDerR $ sqr @R
+  -- , runSynCirc "fst-adr" $ toCcc $ andDerR (fst @R @R)
   -- , runSynCirc "magSqr-adr"     $ toCcc $ andDerR $ magSqr @R
   -- , runSynCirc "cos-2x-adr"     $ toCcc $ andDerR $ \ x -> cos (2 * x) :: R
   -- , runSynCirc "cos-2xx-adr"    $ toCcc $ andDerR $ \ x -> cos (2 * x * x) :: R
   -- , runSynCirc "cos-xpy-adr"    $ toCcc $ andDerR $ \ (x,y) -> cos (x + y) :: R
   -- , runSynCirc "cosSinProd-adr" $ toCcc $ andDerR $ cosSinProd @R
 
-  -- , runSynCirc "sin-gradr"        $ toCcc $ andGradR $ sin @R
-  -- , runSynCirc "cos-gradr"        $ toCcc $ andGradR $ cos @R
-  -- , runSynCirc "add-gradr"        $ toCcc $ andGradR $ uncurry ((+) @R)
-  -- , runSynCirc "twice-gradr"      $ toCcc $ andGradR $ twice @R
-  -- , runSynCirc "sqr-gradr"        $ toCcc $ andGradR $ sqr @R
-  -- , runSynCirc "magSqr-gradr"     $ toCcc $ andGradR $ magSqr  @R
-  -- , runSynCirc "cos-2x-gradr"     $ toCcc $ andGradR $ \ x -> cos (2 * x) :: R
-  -- , runSynCirc "cos-2xx-gradr"    $ toCcc $ andGradR $ \ x -> cos (2 * x * x) :: R
-  -- , runSynCirc "cos-xpy-gradr"    $ toCcc $ andGradR $ \ (x,y) -> cos (x + y) :: R
+  -- , runSynCirc "sin-gradr"     $ toCcc $ andGradR $ sin @R
+  -- , runSynCirc "cos-gradr"     $ toCcc $ andGradR $ cos @R
+  -- , runSynCirc "add-gradr"     $ toCcc $ andGradR $ uncurry ((+) @R)
+  -- , runSynCirc "twice-gradr"   $ toCcc $ andGradR $ twice @R
+  -- , runSynCirc "sqr-gradr"     $ toCcc $ andGradR $ sqr @R
+  -- , runSynCirc "fst-gradr"     $ toCcc $ andGradR (fst @R @R)
+  -- , runSynCirc "magSqr-gradr"  $ toCcc $ andGradR $ magSqr  @R
+  -- , runSynCirc "cos-2x-gradr"  $ toCcc $ andGradR $ \ x -> cos (2 * x) :: R
+  -- , runSynCirc "cos-2xx-gradr" $ toCcc $ andGradR $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "cos-xpy-gradr" $ toCcc $ andGradR $ \ (x,y) -> cos (x + y) :: R
 
   -- , runSynCirc "sum-gradr"          $ toCcc $ andGradR $ sum @(Vector 5) @R 
+  -- , runSynCirc "zip-adr"            $ toCcc $ andDerR  $ uncurry (zip @(Vector 5) @R @R)
   -- , runSynCirc "fmap-cos-adr"       $ toCcc $ andDerR  $ fmap @(Vector 5) @R cos
   -- , runSynCirc "sum-fmap-cos-gradr" $ toCcc $ andGradR $ sum . fmap @(Vector 5) @R cos
-  -- , runSynCirc "zip-adr-b"          $ toCcc $ andDerR  $ uncurry (zip @(Vector 5) @R @R)
 
   -- -- (0.8414709848078965,[[0.5403023058681398]]), i.e., (sin 1, [[cos 1]]),
   -- -- where the "[[ ]]" is matrix-style presentation of the underlying
