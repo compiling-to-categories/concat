@@ -35,7 +35,7 @@ import ConCat.Free.VectorSpace (HasV(..),inV,IsScalar)
 import ConCat.Free.LinearRow -- hiding (linear)
 import ConCat.AltCat
 import ConCat.GAD -- hiding (linear)
-import ConCat.Additive
+import ConCat.AdditiveMap
 -- The following imports allows the instances to type-check. Why?
 import qualified ConCat.Category  as C
 

@@ -32,7 +32,7 @@ import ConCat.Category
 import ConCat.AltCat (toCcc)
 import qualified ConCat.AltCat as A
 import qualified ConCat.Rep as R
-import ConCat.Additive
+import ConCat.AdditiveMap
 -- import ConCat.DualAdditive
 import ConCat.Dual
 import ConCat.GAD

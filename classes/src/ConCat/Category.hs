@@ -89,7 +89,7 @@ import ConCat.Misc hiding ((<~),(~>),type (&&))
 import ConCat.Rep hiding (Rep)
 import qualified ConCat.Rep as R
 -- import ConCat.Orphans ()
--- import ConCat.Additive (Additive)
+-- import ConCat.Additive
 import qualified ConCat.Inline.ClassOp as IC
 
 #define PINLINER(nm) {-# INLINE nm #-}

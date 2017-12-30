@@ -27,7 +27,7 @@ import ConCat.AltCat
 import ConCat.Free.VectorSpace hiding ((^+^))
 import qualified ConCat.Free.VectorSpace as V
 import ConCat.Free.LinearRow
-import ConCat.Additive (Additive(..))
+import ConCat.AdditiveMap (Additive(..))
 
 AbsTyImports
 
