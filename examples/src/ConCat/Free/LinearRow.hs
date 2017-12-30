@@ -20,6 +20,9 @@
 {-# OPTIONS_GHC -Wall #-}
 -- {-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
 
+#include "ConCat/AbsTy.inc"
+AbsTyPragmas
+
 -- | Linear maps as "row-major" functor compositions
 
 module ConCat.Free.LinearRow where
@@ -48,6 +51,8 @@ import ConCat.AltCat hiding (const)
 import ConCat.Rep
 -- import ConCat.Free.Diagonal
 import qualified ConCat.Additive as Ad
+
+AbsTyImports
 
 -- TODO: generalize from Num to Semiring
 
@@ -180,6 +185,8 @@ instance HasRep (L s a b) where
   repr (L ab) = ab
   {-# INLINE abst #-}
   {-# INLINE repr #-}
+
+AbsTy(L s a b)
 
 -- instance HasV s (L s a b) where
 --   type V s (L s a b) = V s b :.: V s a
