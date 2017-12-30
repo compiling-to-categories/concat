@@ -77,7 +77,7 @@ library
                        ConCat.GAD
                        ConCat.AD
                        -- ConCat.ADFun  -- see 2017-12-27 notes
-                       ConCat.DualAdditive
+                       ConCat.Dual
                        ConCat.RAD
                        ConCat.Incremental
                        ConCat.Interval
