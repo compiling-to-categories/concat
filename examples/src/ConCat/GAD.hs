@@ -135,26 +135,25 @@ instance (LinearCat k s, Num s) => NumCat (GD k) s where
   {-# INLINE mulC    #-}
   {-# INLINE powIC   #-}
 
-scalarD :: (ScalarCat k s) => (s -> s) -> (s -> s -> s) -> GD k s s
-scalarD f d = D (\ x             -> let r = f x in (r, scale (d x r)))
+scalarD :: ScalarCat k s => (s -> s) -> (s -> s -> s) -> GD k s s
+scalarD f d = D (\ x -> let r = f x in (r, scale (d x r)))
 {-# INLINE scalarD #-}
 
--- Use scalarD with const f when only r matters and with const' . g when only x
--- matters.
+-- Specializations
 
-scalarR :: LinearCat k s => (s -> s) -> (s -> s) -> GD k s s
+scalarR :: ScalarCat k s => (s -> s) -> (s -> s) -> GD k s s
 scalarR f x = scalarD f (const x)
 {-# INLINE scalarR #-}
 
-scalarX :: LinearCat k s => (s -> s) -> (s -> s) -> GD k s s
-scalarX f f' = scalarD f (const . f')
+scalarX :: ScalarCat k s => (s -> s) -> (s -> s) -> GD k s s
+scalarX f r = scalarD f (const . r)
 {-# INLINE scalarX #-}
 
 instance (LinearCat k s, Fractional s) => FractionalCat (GD k) s where
   recipC = scalarR recip (negate . sqr)
   {-# INLINE recipC #-}
 
-instance (LinearCat k s, Floating s) => FloatingCat (GD k) s where
+instance (ScalarCat k s, Ok k s, Floating s) => FloatingCat (GD k) s where
   expC = scalarR exp id
   logC = scalarX log recip
   sinC = scalarX sin cos
