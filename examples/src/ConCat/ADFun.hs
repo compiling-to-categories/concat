@@ -30,7 +30,8 @@ import Data.Constraint hiding ((&&&),(***),(:=>))
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..))
 
-import ConCat.Misc ((:*),R,Yes1,oops,unzip,type (&+&),sqr)
+import ConCat.Misc ((:*),R,Yes1,oops,unzip,type (&+&),sqr,result)
+import ConCat.Rep (repr)
 import ConCat.Free.VectorSpace (HasV(..),inV,IsScalar)
 import ConCat.Free.LinearRow -- hiding (linear)
 import ConCat.AltCat
@@ -40,11 +41,7 @@ import ConCat.AdditiveFun
 import qualified ConCat.Category  as C
 
 -- Differentiable functions
-type D = GD (->)
-
--- type instance GDOk (->) = Yes1
-
--- type instance GDOk (->) = Additive
+type D = GD AdditiveFun
 
 #if 0
 instance ClosedCat D where
@@ -57,7 +54,7 @@ instance ClosedCat D where
 
 -- TODO: generalize to ClosedCat k for an arbitrary CCC k. I guess I can simply
 -- apply ccc to the lambda expressions.
-#elif 1
+#elif 0
 
 instance ClosedCat D where
   apply = applyD ; {-# INLINE apply #-}
@@ -79,133 +76,17 @@ curryD (D (unfork -> (f,f'))) =
 -- No ClosedCat D instance
 #endif
 
-
--- instance ClosedCat (D s) where
---   apply = applyD
--- --   curry = curryD
-
--- applyD :: forall s a b. Ok2 (D s) a b => D s ((a -> b) :* a) b
--- applyD = D (\ (f,a) -> let (b,f') = andDeriv f a in
---               (b, _))
-
--- Differentiable linear function
-linearDF :: (a -> b) -> D a b
-linearDF f = linearD f f
-{-# INLINE linearDF #-}
-
--- TODO: use linear in place of linearDF
-
-instance Additive b => ConstCat D b where
-  const b = D (const (b, const zero))
-  {-# INLINE const #-}
-
-instance TerminalCat D
-
-instance (Num s, Additive s) => NumCat D s where
-  negateC = linearDF negateC
-  addC    = linearDF addC
-  mulC    = D (mulC &&& \ (a,b) (da,db) -> a * db + da * b)
-  powIC   = notDef "powIC"       -- TODO
-  {-# INLINE negateC #-}
-  {-# INLINE addC    #-}
-  {-# INLINE mulC    #-}
-  {-# INLINE powIC   #-}
-
--- const' :: (a -> c) -> (a -> b -> c)
--- const' = (const .)
-
-scalarD :: Num s => (s -> s) -> (s -> s -> s) -> D s s
-scalarD f d = D (\ x -> let r = f x in (r, (* d x r)))
-{-# INLINE scalarD #-}
-
--- Use scalarD with const f when only r matters and with const' g when only x
--- matters.
-
-scalarR :: Num s => (s -> s) -> (s -> s) -> D s s
-scalarR f f' = scalarD f (\ _ -> f')
--- scalarR f x = scalarD f (const x)
--- scalarR f   = scalarD f . const
-{-# INLINE scalarR #-}
-
-scalarX :: Num s => (s -> s) -> (s -> s) -> D s s
-scalarX f f' = scalarD f (\ x _ -> f' x)
--- scalarX f f' = scalarD f (\ x y -> const (f' x) y)
--- scalarX f f' = scalarD f (\ x   -> const (f' x))
--- scalarX f f' = scalarD f (const . f')
--- scalarX f f' = scalarD f (const' f')
--- scalarX f    = scalarD f . const'
-{-# INLINE scalarX #-}
-
-instance (Fractional s, Additive s) => FractionalCat D s where
-  recipC = scalarR recip (negate . sqr)
-  {-# INLINE recipC #-}
-
-instance (Floating s, Additive s) => FloatingCat D s where
-  expC = scalarR exp id
-  logC = scalarX log recip
-  sinC = scalarX sin cos
-  cosC = scalarX cos (negate . sin)
-  {-# INLINE expC #-}
-  {-# INLINE sinC #-}
-  {-# INLINE cosC #-}
-  {-# INLINE logC #-}
-
-instance Ord a => MinMaxCat D a where
-  -- minC = D (\ (x,y) -> (minC (x,y), if x <= y then exl else exr))
-  -- maxC = D (\ (x,y) -> (maxC (x,y), if x <= y then exr else exl))
-  -- minC = D (\ xy -> (minC xy, if lessThanOrEqual xy then exl else exr))
-  -- maxC = D (\ xy -> (maxC xy, if lessThanOrEqual xy then exr else exl))
-  minC = D (minC &&& cond exl exr . lessThanOrEqual)
-  maxC = D (maxC &&& cond exr exl . lessThanOrEqual)
-  {-# INLINE minC #-} 
-  {-# INLINE maxC #-} 
-
-#if 0
-
--- Now generalized in GAD
-
-instance (Zip h, Additive1 h) => ZipCat D h where
-  zipC = linearDF zipC
-  {-# INLINE zipC #-}
-  -- zipWithC = linearDF zipWithC
-  -- {-# INLINE zipWithC #-}
-
-instance (Pointed h, Additive1 h) => PointedCat D h where
-  pointC = linearDF pointC
-  {-# INLINE pointC #-}
-
-instance (Foldable h, Additive1 h) => AddCat D h where
-  sumAC = linearDF sumAC
-  {-# INLINE sumAC #-}
-
-instance (Zip h, Foldable h, Additive1 h) => Strong D h where
-  strength = linearDF strength
-  {-# INLINE strength #-}
-
-instance (Distributive g, Functor f) => DistributiveCat D g f where
-  distributeC = linearDF distributeC
-  {-# INLINE distributeC #-}
-
-instance Representable g => RepresentableCat D g where
-  indexC    = linearDF indexC
-  tabulateC = linearDF tabulateC
-  {-# INLINE indexC #-}
-  {-# INLINE tabulateC #-}
-
-#endif
-
 {--------------------------------------------------------------------
     Differentiation interface
 --------------------------------------------------------------------}
 
--- Type specialization of andDeriv
 andDerF :: forall a b . (a -> b) -> (a -> b :* (a -> b))
-andDerF = andDeriv
+andDerF f = unMkD (toCcc @(GD AdditiveFun) f)
 {-# INLINE andDerF #-}
 
 -- Type specialization of deriv
 derF :: forall a b . (a -> b) -> (a -> (a -> b))
-derF = deriv
+derF = (result.result) snd andDerF
 {-# INLINE derF #-}
 
 -- AD with derivative-as-function, then converted to linear map
@@ -236,6 +117,9 @@ andGradFL f = second dualV . andDerF f
 gradF :: (HasLin s a s, IsScalar s) => (a -> s) -> (a -> a)
 gradF f = dualV . derF f
 {-# INLINE gradF #-}
+
+-- NOTE: gradF is fairly expensive due to linear (via dualV). For efficiency,
+-- use GD (Dual AdditiveFun) instead.
 
 #if 1
 
