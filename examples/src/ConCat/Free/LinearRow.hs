@@ -232,7 +232,7 @@ instance ProductCat (L s) where
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
 
-instance CoproductCatD (L s) where
+instance CoproductPCat (L s) where
   inlD = abst inlL
   inrD = abst inrL
   (||||) = inAbst2 joinL

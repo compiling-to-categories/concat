@@ -737,55 +737,55 @@ unjoin f = (f . inl, f . inr)  <+ okCoprod @k @c @d
     A dual to ProductCat. Temporary workaround.
 --------------------------------------------------------------------}
 
--- TODO: eliminate CoproductCatD in favor of when we have associated products,
+-- TODO: eliminate CoproductPCat in favor of when we have associated products,
 -- coproducts, etc.
 
 infixr 2 ++++, ||||
 
-type CoprodD k = Prod k
+type CoprodP k = Prod k
 
-type OkCoprodD k = OkProd k
+type OkCoprodP k = OkProd k
 
-okCoprodD :: forall k a b. OkCoprodD k
-           => Ok' k a && Ok' k b |- Ok' k (CoprodD k a b)
-okCoprodD = inOp
-{-# INLINE okCoprodD #-}
+okCoprodP :: forall k a b. OkCoprodP k
+           => Ok' k a && Ok' k b |- Ok' k (CoprodP k a b)
+okCoprodP = inOp
+{-# INLINE okCoprodP #-}
 
 -- | Category with coproduct.
-class (OpCon (CoprodD k) (Ok' k), Category k) => CoproductCatD k where
-  inlD :: Oks k [a,b] => a `k` CoprodD k a b
-  inrD :: Oks k [a,b] => b `k` CoprodD k a b
+class (OpCon (CoprodP k) (Ok' k), Category k) => CoproductPCat k where
+  inlD :: Oks k [a,b] => a `k` CoprodP k a b
+  inrD :: Oks k [a,b] => b `k` CoprodP k a b
   (++++) :: forall a b c d. Oks k [a,b,c,d] 
-         => (c `k` a) -> (d `k` b) -> (CoprodD k c d `k` CoprodD k a b)
+         => (c `k` a) -> (d `k` b) -> (CoprodP k c d `k` CoprodP k a b)
   f ++++ g = inlD . f |||| inrD . g
-             <+ okCoprodD @k @a @b
+             <+ okCoprodP @k @a @b
   {-# INLINE (++++) #-}
-  jamD :: Ok k a => CoprodD k a a `k` a
+  jamD :: Ok k a => CoprodP k a a `k` a
   jamD = id |||| id
   {-# INLINE jamD #-}
-  swapSD :: forall a b. Oks k [a,b] => CoprodD k a b `k` CoprodD k b a
+  swapSD :: forall a b. Oks k [a,b] => CoprodP k a b `k` CoprodP k b a
   swapSD = inrD |||| inlD
-           <+ okCoprodD @k @b @a
+           <+ okCoprodP @k @b @a
   {-# INLINE swapSD #-}
   (||||) :: forall a c d. Ok3 k a c d 
-         => (c `k` a) -> (d `k` a) -> (CoprodD k c d `k` a)
+         => (c `k` a) -> (d `k` a) -> (CoprodP k c d `k` a)
 #ifndef DefaultCat
   -- We canDt give two default definitions for (&&&).
   f |||| g = jamD . (f ++++ g)
-           <+ okCoprodD @k @a @a
-           <+ okCoprodD @k @c @d
+           <+ okCoprodP @k @a @a
+           <+ okCoprodP @k @c @d
   {-# INLINE (||||) #-}
 #endif
   {-# MINIMAL inlD, inrD, ((||||) | ((++++), jamD)) #-}
 
 -- Don't bother with left, right, lassocS, rassocS, and misc helpers.
 
-instance CoproductCatD U2 where
+instance CoproductPCat U2 where
   inlD = U2
   inrD = U2
   U2 |||| U2 = U2
 
-instance (CoproductCatD k, CoproductCatD k') => CoproductCatD (k :**: k') where
+instance (CoproductPCat k, CoproductPCat k') => CoproductPCat (k :**: k') where
   inlD = inlD :**: inlD
   inrD = inrD :**: inrD
   (f :**: f') |||| (g :**: g') = (f |||| g) :**: (f' |||| g')
@@ -824,7 +824,7 @@ instance (ScalarCat k a, ScalarCat k' a) => ScalarCat (k :**: k') a where
   scale s = scale s :**: scale s
   PINLINER(scale)
 
-type LinearCat k a = (ProductCat k, CoproductCatD k, ScalarCat k a, Ok k a)
+type LinearCat k a = (ProductCat k, CoproductPCat k, ScalarCat k a, Ok k a)
 
 {--------------------------------------------------------------------
     Distributive

@@ -65,7 +65,7 @@ import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5, Ok'
   , ProductCat, Prod, twiceP, inLassocP, inRassocP, transposeP --, unfork
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
-  , CoproductCatD, CoprodD, ScalarCat, LinearCat
+  , CoproductPCat, CoprodP, ScalarCat, LinearCat
   , DistribCat, undistl, undistr
   , ClosedCat, Exp
   , TerminalCat, Unit{-, lunit, runit, constFun-}, CoterminalCat, Counit, constFun2, unitFun, unUnitFun
@@ -141,17 +141,17 @@ Op1(rassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k (Coprod k 
 
 -- Temporary workaround. See ConCat.Category comments.
 infixr 2 ++++, ||||
-Op0(inlD,(CoproductCatD k, Ok2 k a b) => a `k` CoprodD k a b)
-Op0(inrD,(CoproductCatD k, Ok2 k a b) => b `k` CoprodD k a b)
-Ip2(||||,forall k a c d. (CoproductCatD k, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (CoprodD k c d `k` a))
-Ip2(++++,forall k a b c d. (CoproductCatD k, Ok4 k a b c d) => (c `k` a) -> (d `k` b) -> (CoprodD k c d `k` CoprodD k a b))
-Op0(jamD,(CoproductCatD k, Ok k a) => CoprodD k a a `k` a)
-Op0(swapSD,forall k a b. (CoproductCatD k, Ok2 k a b) => CoprodD k a b `k` CoprodD k b a)
+Op0(inlD,(CoproductPCat k, Ok2 k a b) => a `k` CoprodP k a b)
+Op0(inrD,(CoproductPCat k, Ok2 k a b) => b `k` CoprodP k a b)
+Ip2(||||,forall k a c d. (CoproductPCat k, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (CoprodP k c d `k` a))
+Ip2(++++,forall k a b c d. (CoproductPCat k, Ok4 k a b c d) => (c `k` a) -> (d `k` b) -> (CoprodP k c d `k` CoprodP k a b))
+Op0(jamD,(CoproductPCat k, Ok k a) => CoprodP k a a `k` a)
+Op0(swapSD,forall k a b. (CoproductPCat k, Ok2 k a b) => CoprodP k a b `k` CoprodP k b a)
 
--- Op1(leftD ,forall k a aa b. (CoproductCatD k, Ok3 k a b aa) => (a `k` aa) -> (CoprodD k a b `k` CoprodD k aa b))
--- Op1(rightD,forall k a b bb. (CoproductCatD k, Ok3 k a b bb) => (b `k` bb) -> (CoprodD k a b `k` CoprodD k a bb))
--- Op1(lassocSD,forall k a b c. (CoproductCatD k, Ok3 k a b c) => CoprodD k a (CoprodD k b c) `k` CoprodD k (CoprodD k a b) c)
--- Op1(rassocSD,forall k a b c. (CoproductCatD k, Ok3 k a b c) => CoprodD k (CoprodD k a b) c `k` CoprodD k a (CoprodD k b c))
+-- Op1(leftD ,forall k a aa b. (CoproductPCat k, Ok3 k a b aa) => (a `k` aa) -> (CoprodP k a b `k` CoprodP k aa b))
+-- Op1(rightD,forall k a b bb. (CoproductPCat k, Ok3 k a b bb) => (b `k` bb) -> (CoprodP k a b `k` CoprodP k a bb))
+-- Op1(lassocSD,forall k a b c. (CoproductPCat k, Ok3 k a b c) => CoprodP k a (CoprodP k b c) `k` CoprodP k (CoprodP k a b) c)
+-- Op1(rassocSD,forall k a b c. (CoproductPCat k, Ok3 k a b c) => CoprodP k (CoprodP k a b) c `k` CoprodP k a (CoprodP k b c))
 
 Op0(scale,(ScalarCat k a => a -> (a `k` a)))
 

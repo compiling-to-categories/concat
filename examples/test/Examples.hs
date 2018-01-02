@@ -653,7 +653,7 @@ main = sequence_
   -- , runSynCirc "fst-af" $ toCcc $ repr $ toCcc @AdditiveFun $ fst @R @R
   -- , runSynCirc "fst-dual-af" $ toCcc $ repr $ repr $ toCcc @(Dual AdditiveFun) $ fst @R @R
 
-  -- -- Fails (rightly but not gracefully) because (->) lacks CoproductCatD instance
+  -- -- Fails (rightly but not gracefully) because (->) lacks CoproductPCat instance
   -- , runSynCirc "fst-dual" $ toCcc $ toDual $ fst @R @R
 
   -- , runSyn $ toCcc $ A.exl @(->) @R @R

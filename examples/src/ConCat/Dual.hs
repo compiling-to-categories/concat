@@ -60,7 +60,7 @@ instance Category k => Category (Dual k) where
   {-# INLINE id #-}
   {-# INLINE (.) #-}
 
-instance CoproductCatD k => ProductCat (Dual k) where
+instance CoproductPCat k => ProductCat (Dual k) where
   exl   = abst inlD
   exr   = abst inrD
   (&&&) = inAbst2 (||||)
@@ -74,7 +74,7 @@ instance CoproductCatD k => ProductCat (Dual k) where
   {-# INLINE dup #-}
   {-# INLINE swapP #-}
 
-instance ProductCat k => CoproductCatD (Dual k) where
+instance ProductCat k => CoproductPCat (Dual k) where
   inlD   = abst exl
   inrD   = abst exr
   (||||) = inAbst2 (&&&)
