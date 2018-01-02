@@ -30,7 +30,7 @@ import ConCat.Misc ((:*),inNew2,unzip)
 import ConCat.Rep
 import ConCat.Category
 import qualified ConCat.AltCat as A
-import ConCat.AdditiveMap
+import ConCat.AdditiveFun
 
 AbsTyImports
 

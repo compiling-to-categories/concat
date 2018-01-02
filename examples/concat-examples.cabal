@@ -81,7 +81,7 @@ library
                        ConCat.GradientDescent
                        ConCat.Regress
                        ConCat.Synchronous
-                       ConCat.AdditiveMap
+                       ConCat.AdditiveFun
                        -- ConCat.Polynomial
                        ConCat.Demand
                        -- ConCat.Arr

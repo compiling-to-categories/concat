@@ -34,7 +34,7 @@ import ConCat.AltCat (OpCon(..),Sat(..),type (|-)(..))
 
 import ConCat.Free.LinearRow
 -- import ConCat.ADFun (RepresentableVE)
-import ConCat.AdditiveMap (Additive)
+import ConCat.Additive (Additive)
 import ConCat.Circuit
 
 

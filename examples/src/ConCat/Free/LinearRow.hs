@@ -50,7 +50,7 @@ import qualified ConCat.Category as C
 import ConCat.AltCat hiding (const)
 import ConCat.Rep
 -- import ConCat.Free.Diagonal
-import qualified ConCat.AdditiveMap as Ad
+import qualified ConCat.AdditiveFun as Ad
 
 AbsTyImports
 

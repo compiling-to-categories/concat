@@ -11,7 +11,7 @@
 -- -- Improves hash consing, but can obscure equivalent circuits
 -- #define NoCommute
 
--- #define NoBusLabel
+#define NoBusLabel
 
 #define MealyToArrow
 
@@ -884,7 +884,7 @@ instance ({- Pointed h, -} OkFunctor (:>) h, Ok (:>) a) => PointedCat (:>) h a w
 
 instance (OkFunctor (:>) h, Additive a, Ok (:>) a) => AddCat (:>) h a where
   sumAC :: h a :> a
-  sumAC = namedC "sum" <+ okFunctor' @(:>) @h @a
+  sumAC = namedC "sumA" <+ okFunctor' @(:>) @h @a
 
 instance (Functor h, OkFunctor (:>) h) => Strong (:>) h where
   strength :: forall a b. Ok2 (:>) a b => (a :* h b) :> h (a :* b)

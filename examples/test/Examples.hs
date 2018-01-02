@@ -113,7 +113,7 @@ import ConCat.Rep (HasRep(..))
 import ConCat.Incremental (andInc,inc)
 import ConCat.Dual
 import ConCat.GAD
-import ConCat.AdditiveMap
+import ConCat.AdditiveFun
 import ConCat.AD
 -- ADFun is temporarily broken. See 2017-12-27 notes.
 -- import ConCat.ADFun hiding (D)
@@ -173,8 +173,8 @@ import GHC.Exts (Coercible,coerce)
 
 type C = Complex R
 
-type AM = AdditiveMap
-type DAM = Dual AM
+type AF = AdditiveFun
+type DAF = Dual AF
 
 main :: IO ()
 main = sequence_
@@ -650,8 +650,8 @@ main = sequence_
   -- , runSynCirc "sumA-dual"  $ toCcc $ toDual $ sumA @(Vector 5) @R
   -- , runSynCirc "point-dual" $ toCcc $ toDual $ point @(Vector 5) @R
 
-  -- , runSynCirc "fst-am" $ toCcc $ repr $ toCcc @AdditiveMap $ fst @R @R
-  -- , runSynCirc "fst-dual-am" $ toCcc $ repr $ repr $ toCcc @(Dual AdditiveMap) $ fst @R @R
+  -- , runSynCirc "fst-af" $ toCcc $ repr $ toCcc @AdditiveFun $ fst @R @R
+  -- , runSynCirc "fst-dual-af" $ toCcc $ repr $ repr $ toCcc @(Dual AdditiveFun) $ fst @R @R
 
   -- -- Fails (rightly but not gracefully) because (->) lacks CoproductCatD instance
   -- , runSynCirc "fst-dual" $ toCcc $ toDual $ fst @R @R
@@ -690,7 +690,7 @@ main = sequence_
 
 
   -- , runSynCirc "sumA" $ toCcc $ sumA @(Vector 5) @R 
-  -- , runSynCirc "sumA-fad" $ toCcc $ andDeriv @AM $ sumA @(Vector 5) @R 
+  -- , runSynCirc "sumA-fad" $ toCcc $ andDeriv @AF $ sumA @(Vector 5) @R 
   -- , runSynCirc "sumA-adr" $ toCcc $ andDerR $ sumA @(Vector 5) @R
 
   -- , runSynCirc "zip-adr"            $ toCcc $ andDerR  $ uncurry (zip @(Vector 5) @R @R)
@@ -1222,4 +1222,4 @@ fac9 n0 = go (n0,1)
 -- foo = reveal $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
 
 andDerF :: forall a b . (a -> b) -> (a -> b :* (a -> b))
-andDerF f = unMkD (toCcc @(GD AdditiveMap) f)
+andDerF f = unMkD (toCcc @(GD AdditiveFun) f)

@@ -32,13 +32,13 @@ import ConCat.Category
 import ConCat.AltCat (toCcc)
 import qualified ConCat.AltCat as A
 import qualified ConCat.Rep as R
-import ConCat.AdditiveMap
+import ConCat.AdditiveFun
 -- import ConCat.DualAdditive
 import ConCat.Dual
 import ConCat.GAD
 
 -- Differentiable functions
-type RAD = GD (Dual AdditiveMap)
+type RAD = GD (Dual AdditiveFun)
 
 {--------------------------------------------------------------------
     Differentiation interface
