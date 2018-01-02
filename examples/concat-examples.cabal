@@ -73,7 +73,7 @@ library
                        ConCat.RunCircuit
                        ConCat.GAD
                        ConCat.AD
-                       -- ConCat.ADFun  -- see 2017-12-27 notes
+                       ConCat.ADFun
                        ConCat.Dual
                        ConCat.RAD
                        ConCat.Incremental
