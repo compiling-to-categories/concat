@@ -38,13 +38,16 @@ AbsTyImports
 -- Category dual
 data Dual k a b = Dual (b `k` a)
 
+unDual :: Dual k a b -> b `k` a
+unDual (Dual f) = f
+
 -- I'd use newtype, but then I run into some coercion challenges.
 -- TODO: investigate.
 
 instance HasRep (Dual k a b) where
   type Rep (Dual k a b) = b `k` a
-  abst f = Dual f
-  repr (Dual f) = f
+  abst = Dual
+  repr = unDual
   {-# INLINE abst #-}
   {-# INLINE repr #-}
 
@@ -125,40 +128,6 @@ instance (Category k, TerminalCat k, CoterminalCat k, Ok k b) => ConstCat (Dual 
 instance CoerceCat k b a => CoerceCat (Dual k) a b where
   coerceC = abst coerceC
 
-#if 0
-
-addD :: forall k a. (ProductCat k, Ok k a) => a :* a -> Dual k (a :* a) a
-addD = const (abst dup)
-{-# INLINE addD #-}
-
--- subD :: forall k a. (ProductCat k, NumCat k a, Ok k a) => a :* a -> Dual k (a :* a) a
--- subD = const (abst (second negateC . dup <+ okProd @k @a))
--- {-# INLINE subD #-}
-
-negateD :: NumCat k a => a -> Dual k a a
-negateD = const (abst negateC)
-{-# INLINE negateD #-}
-
-mulD :: (ProductCat k, ScalarCat k a, Ok k a, Num a)
-     => a :* a -> Dual k (a :* a) a
-mulD (u,v) = abst (scale v &&& scale u)
-{-# INLINE mulD #-}
-
--- \ s -> (s*v,s*u) = (* v) &&& (* u)
-
--- scale v, scale u :: a `k` a
--- scale v &&& scale u :: a `k` (a :* a)
--- abst (scale v &&& scale u) :: Dual k (a :* a) a
-
--- TODO: consider dropping the ignored arguments from the linear ops (addD,
--- subD, negateD, but not mulD).
-
-...
-
-#endif
-
-#if 1
-
 ---- Functor-level:
 
 instance OkFunctor k h => OkFunctor (Dual k) h where
@@ -218,4 +187,10 @@ instance RepresentableCat k g => RepresentableCat (Dual k) g where
   {-# INLINE indexC #-}
   {-# INLINE tabulateC #-}
 
-#endif
+{--------------------------------------------------------------------
+    CCC interface
+--------------------------------------------------------------------}
+
+toDual :: (a -> b) -> (b `k` a)
+toDual f = unDual (A.toCcc f)
+{-# INLINE toDual #-}
