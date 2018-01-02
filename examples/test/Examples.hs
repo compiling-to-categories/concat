@@ -60,7 +60,7 @@
 
 -- {-# OPTIONS_GHC -ddump-tc-trace #-}
 
-{-# OPTIONS_GHC -dsuppress-all #-}
+-- {-# OPTIONS_GHC -dsuppress-all #-}
 
 -- {-# OPTIONS_GHC -fno-float-in #-}
 -- {-# OPTIONS_GHC -ffloat-in #-}
@@ -90,6 +90,7 @@ import qualified Prelude as P
 import Data.Monoid (Sum(..))
 import Data.Foldable (fold)
 import Control.Applicative (liftA2)
+import Control.Arrow (second)
 import Control.Monad ((<=<))
 import Data.List (unfoldr)  -- TEMP
 import Data.Complex (Complex)
@@ -106,11 +107,14 @@ import Data.Vector.Sized (Vector)
 import qualified Data.Vector.Sized as VS
 
 import ConCat.Misc
-  ((:*),(:+),R,sqr,magSqr,Unop,Binop,unzip,inNew,inNew2,Yes1,oops,type (&+&),PseudoFun(..))
+  ((:*),(:+),R,result,sqr,magSqr,Unop,Binop,unzip,inNew,inNew2,Yes1,oops,type (&+&),PseudoFun(..))
+import ConCat.Additive
 import ConCat.Rep (HasRep(..))
 import ConCat.Incremental (andInc,inc)
+import ConCat.Dual
+import ConCat.GAD
+import ConCat.AdditiveMap
 import ConCat.AD
-import ConCat.GAD (unD)
 -- ADFun is temporarily broken. See 2017-12-27 notes.
 -- import ConCat.ADFun hiding (D)
 -- import qualified ConCat.ADFun as ADFun
@@ -169,12 +173,16 @@ import GHC.Exts (Coercible,coerce)
 
 type C = Complex R
 
+type AM = AdditiveMap
+type DAM = Dual AM
+
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
   -- Circuit graphs
   , runSynCirc "twice"       $ toCcc $ twice @R
+  , runSynCirc "sqr"         $ toCcc $ sqr @R
   , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
   , runSynCirc "magSqr"      $ toCcc $ magSqr @R
   , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
@@ -638,6 +646,19 @@ main = sequence_
 
   -- , runSyn $ toCcc $ andDerF $ product @(RBin N4) @R
 
+  -- , runSynCirc "zip-dual"   $ toCcc $ toDual $ uncurry $ zip @(Vector 3) @R @Bool
+  -- , runSynCirc "sumA-dual"  $ toCcc $ toDual $ sumA @(Vector 5) @R
+  -- , runSynCirc "point-dual" $ toCcc $ toDual $ point @(Vector 5) @R
+
+  -- , runSynCirc "fst-am" $ toCcc $ repr $ toCcc @AdditiveMap $ fst @R @R
+  -- , runSynCirc "fst-dual-am" $ toCcc $ repr $ repr $ toCcc @(Dual AdditiveMap) $ fst @R @R
+
+  -- -- Fails (rightly but not gracefully) because (->) lacks CoproductCatD instance
+  -- , runSynCirc "fst-dual" $ toCcc $ toDual $ fst @R @R
+
+  -- , runSyn $ toCcc $ A.exl @(->) @R @R
+  -- , runSyn $ toCcc $ fst @R @R  -- works, but needs optimization
+
   -- -- Automatic differentiation with RAD:
 
   -- , runSynCirc "sin-adr"        $ toCcc $ andDerR $ sin @R
@@ -663,7 +684,22 @@ main = sequence_
   -- , runSynCirc "cos-2xx-gradr" $ toCcc $ andGradR $ \ x -> cos (2 * x * x) :: R
   -- , runSynCirc "cos-xpy-gradr" $ toCcc $ andGradR $ \ (x,y) -> cos (x + y) :: R
 
-  -- , runSynCirc "sum-gradr"          $ toCcc $ andGradR $ sum @(Vector 5) @R 
+  -- , runSynCirc "sumA-adf" $ toCcc $ andDeriv @(->) $ sumA @(Vector 5) @R 
+
+  -- , runSynCirc "sumA-adr" $ toCcc $ andDerR $ sumA @(Vector 5) @R
+
+
+  -- , runSynCirc "sumA" $ toCcc $ sumA @(Vector 5) @R 
+  -- , runSynCirc "sumA-fad" $ toCcc $ andDeriv @AM $ sumA @(Vector 5) @R 
+  -- , runSynCirc "sumA-adr" $ toCcc $ andDerR $ sumA @(Vector 5) @R
+
+  -- , runSynCirc "zip-adr"            $ toCcc $ andDerR  $ uncurry (zip @(Vector 5) @R @R)
+
+  -- -- Having trouble with fmap
+  -- , runSyn{-Circ "fmap-cos-adr"-}       $ toCcc $ andDerR  $ fmap @(Vector 5) @R cos
+  -- , runSynCirc "sum-fmap-cos-gradr" $ toCcc $ andGradR $ sum . fmap @(Vector 5) @R cos
+
+  -- , runSynCirc "sumA-gradr"          $ toCcc $ andGradR $ sumA @(Vector 5) @R 
   -- , runSynCirc "zip-adr"            $ toCcc $ andDerR  $ uncurry (zip @(Vector 5) @R @R)
   -- , runSynCirc "fmap-cos-adr"       $ toCcc $ andDerR  $ fmap @(Vector 5) @R cos
   -- , runSynCirc "sum-fmap-cos-gradr" $ toCcc $ andGradR $ sum . fmap @(Vector 5) @R cos
@@ -1184,3 +1220,6 @@ fac9 n0 = go (n0,1)
 -- -- Vector mess
 -- foo :: Vector 5 R -> Vector 5 R :* (Vector 5 R -> Vector 5 R)
 -- foo = reveal $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
+
+andDerF :: forall a b . (a -> b) -> (a -> b :* (a -> b))
+andDerF f = unMkD (toCcc @(GD AdditiveMap) f)
