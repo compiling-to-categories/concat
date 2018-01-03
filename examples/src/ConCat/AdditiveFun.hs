@@ -20,7 +20,7 @@ AbsTyPragmas
 -- | Additive maps
 
 module ConCat.AdditiveFun
-  ( Additive1(..),AdditiveFun(..),module ConCat.Additive
+  ( Additive1(..),type (-+>)(..),module ConCat.Additive
   ) where
 
 import Prelude hiding (id,(.),curry,uncurry,zipWith)
@@ -43,24 +43,25 @@ import ConCat.Additive
 
 AbsTyImports
 
+infixr 1 -+>
 -- | Additive homomorphisms
-data AdditiveFun a b = AdditiveFun (a -> b)
+newtype a -+> b = AddFun { unDelX :: a -> b }
 
-instance HasRep (AdditiveFun a b) where
-  type Rep (AdditiveFun a b) = a -> b
-  abst f = AdditiveFun f
-  repr (AdditiveFun f) = f
+instance HasRep (a -+> b) where
+  type Rep (a -+> b) = a -> b
+  abst f = AddFun f
+  repr (AddFun f) = f
 
-AbsTy(AdditiveFun a b)
+AbsTy(a -+> b)
 
-instance Category AdditiveFun where
-  type Ok AdditiveFun = Additive
+instance Category (-+>) where
+  type Ok (-+>) = Additive
   id = abst id
   (.) = inAbst2 (.)
   {-# INLINE id #-}
   {-# INLINE (.) #-}
 
-instance ProductCat AdditiveFun where
+instance ProductCat (-+>) where
   exl    = abst exl
   exr    = abst exr
   (&&&)  = inAbst2 (&&&)
@@ -78,7 +79,7 @@ instance ProductCat AdditiveFun where
   {-# INLINE first #-}
   {-# INLINE second #-}
 
-instance CoproductPCat AdditiveFun where
+instance CoproductPCat (-+>) where
   inlD   = abst (,zero)
   inrD   = abst (zero,)
   (||||) = inAbst2 (\ f g (x,y) -> f x ^+^ g y)
@@ -93,15 +94,15 @@ instance CoproductPCat AdditiveFun where
   {-# INLINE jamD #-}
   {-# INLINE swapSD #-}
 
-instance Num s => ScalarCat AdditiveFun s where
+instance Num s => ScalarCat (-+>) s where
   scale s = abst (s *)
   {-# INLINE scale #-}
 
-instance TerminalCat AdditiveFun where
+instance TerminalCat (-+>) where
   it = abst zero
   {-# INLINE it #-}
 
-instance CoterminalCat AdditiveFun where
+instance CoterminalCat (-+>) where
   ti = abst zero
   {-# INLINE ti #-}
 
@@ -122,38 +123,38 @@ instance KnownNat n       => Additive1 (Vector n) where additive1 = Entail (Sub 
     Functor-level operations
 --------------------------------------------------------------------}
 
-instance Additive1 h => OkFunctor AdditiveFun h where
+instance Additive1 h => OkFunctor (-+>) h where
   okFunctor :: forall a. Sat Additive a |- Sat Additive (h a)
   okFunctor = additive1
   {-# INLINE okFunctor #-}
 
-instance (Functor h, Additive1 h) => FunctorCat AdditiveFun h where
+instance (Functor h, Additive1 h) => FunctorCat (-+>) h where
   fmapC = inAbst fmapC
   unzipC = abst unzipC
   {-# INLINE fmapC #-}
   {-# INLINE unzipC #-}
 
-instance (Zip h, Additive1 h) => ZipCat AdditiveFun h where
+instance (Zip h, Additive1 h) => ZipCat (-+>) h where
   zipC = abst zipC
   {-# INLINE zipC #-}
 
-instance (Zip h, OkFunctor AdditiveFun h) => ZapCat AdditiveFun h where
+instance (Zip h, OkFunctor (-+>) h) => ZapCat (-+>) h where
   zapC fs = abst (zapC (repr <$> fs))
   {-# INLINE zapC #-}
 
---                      fs   :: h (AdditiveFun a b)
+--                      fs   :: h (a -+> b)
 --             repr <$> fs   :: h (a -> b)
 --       zapC (repr <$> fs)  :: h a -> h b
--- abst (zapC (repr <$> fs)) :: AdditiveFun (h a) (h b)
+-- abst (zapC (repr <$> fs)) :: (-+>) (h a) (h b)
 
 -- class ({- Pointed h, -} OkFunctor k h, Ok k a) => PointedCat k h a where
 --   pointC :: a `k` h a
 
-instance (Pointed h, Additive1 h, Additive a) => PointedCat AdditiveFun h a where
+instance (Pointed h, Additive1 h, Additive a) => PointedCat (-+>) h a where
   pointC = abst pointC
   {-# INLINE pointC #-}
 
-instance (Foldable h, Additive a) => AddCat AdditiveFun h a where
+instance (Foldable h, Additive a) => AddCat (-+>) h a where
   sumAC = abst sumA
   {-# INLINE sumAC #-}
   

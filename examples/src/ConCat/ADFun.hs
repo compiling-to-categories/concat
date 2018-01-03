@@ -41,7 +41,7 @@ import ConCat.AdditiveFun
 import qualified ConCat.Category  as C
 
 -- Differentiable functions
-type D = GD AdditiveFun
+type D = GD (-+>)
 
 #if 0
 instance ClosedCat D where
@@ -81,7 +81,7 @@ curryD (D (unfork -> (f,f'))) =
 --------------------------------------------------------------------}
 
 andDerF :: forall a b . (a -> b) -> (a -> b :* (a -> b))
-andDerF f = unMkD (toCcc @(GD AdditiveFun) f)
+andDerF f = unMkD (toCcc @D f)
 {-# INLINE andDerF #-}
 
 -- Type specialization of deriv

@@ -38,7 +38,7 @@ import ConCat.Dual
 import ConCat.GAD
 
 -- Differentiable functions
-type RAD = GD (Dual AdditiveFun)
+type RAD = GD (Dual (-+>))
 
 {--------------------------------------------------------------------
     Differentiation interface
