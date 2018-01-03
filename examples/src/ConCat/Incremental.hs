@@ -283,6 +283,7 @@ atomicD1 = abst . abst . inAbst . fmap
 abst (abst (inAbst (fmap f))) :: a -#> b
 #endif
 
+-- Similar to liftA2 on Maybe, but yields a Just when either argument does.
 orMaybe :: (a :* b -> c) -> a :* b -> (Maybe a :* Maybe b -> Maybe c)
 orMaybe _ (_,_) (Nothing,Nothing) = Nothing
 orMaybe f (_,b) (Just a',Nothing) = Just (f (a',b ))
