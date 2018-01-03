@@ -108,15 +108,13 @@ import qualified Data.Vector.Sized as VS
 
 import ConCat.Misc
   ((:*),(:+),R,result,sqr,magSqr,Unop,Binop,unzip,inNew,inNew2,Yes1,oops,type (&+&),PseudoFun(..))
-import ConCat.Additive
 import ConCat.Rep (HasRep(..))
 import ConCat.Incremental (andInc,inc)
 import ConCat.Dual
 import ConCat.GAD
 import ConCat.AdditiveFun
 import ConCat.AD
--- ADFun is temporarily broken. See 2017-12-27 notes.
--- import ConCat.ADFun hiding (D)
+import ConCat.ADFun hiding (D)
 -- import qualified ConCat.ADFun as ADFun
 import ConCat.RAD
 import ConCat.Free.VectorSpace (HasV(..),distSqr,(<.>),normalizeV)
@@ -173,22 +171,19 @@ import GHC.Exts (Coercible,coerce)
 
 type C = Complex R
 
-type AF = AdditiveFun
-type DAF = Dual AF
-
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- Circuit graphs
-  , runSynCirc "twice"       $ toCcc $ twice @R
-  , runSynCirc "sqr"         $ toCcc $ sqr @R
-  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
-  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  -- -- Circuit graphs
+  -- , runSynCirc "twice"       $ toCcc $ twice @R
+  -- , runSynCirc "sqr"         $ toCcc $ sqr @R
+  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  -- , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
+  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- , runSynCirc "truncate" $ toCcc $ truncate @R @Int
   -- , runSynCirc "log" $ toCcc $ log @R
@@ -650,8 +645,8 @@ main = sequence_
   -- , runSynCirc "sumA-dual"  $ toCcc $ toDual $ sumA @(Vector 5) @R
   -- , runSynCirc "point-dual" $ toCcc $ toDual $ point @(Vector 5) @R
 
-  -- , runSynCirc "fst-af" $ toCcc $ repr $ toCcc @AdditiveFun $ fst @R @R
-  -- , runSynCirc "fst-dual-af" $ toCcc $ repr $ repr $ toCcc @(Dual AdditiveFun) $ fst @R @R
+  -- , runSynCirc "fst-af" $ toCcc $ repr $ toCcc @(-+>) $ fst @R @R
+  -- , runSynCirc "fst-dual-af" $ toCcc $ repr $ repr $ toCcc @(Dual (-+>)) $ fst @R @R
 
   -- -- Fails (rightly but not gracefully) because (->) lacks CoproductPCat instance
   -- , runSynCirc "fst-dual" $ toCcc $ toDual $ fst @R @R
@@ -690,7 +685,7 @@ main = sequence_
 
 
   -- , runSynCirc "sumA" $ toCcc $ sumA @(Vector 5) @R 
-  -- , runSynCirc "sumA-fad" $ toCcc $ andDeriv @AF $ sumA @(Vector 5) @R 
+  -- , runSynCirc "sumA-fad" $ toCcc $ andDeriv @(-+>) $ sumA @(Vector 5) @R 
   -- , runSynCirc "sumA-adr" $ toCcc $ andDerR $ sumA @(Vector 5) @R
 
   -- , runSynCirc "zip-adr"            $ toCcc $ andDerR  $ uncurry (zip @(Vector 5) @R @R)
@@ -794,11 +789,11 @@ main = sequence_
 
   -- , print (regress r2 samples1)
 
-
   -- -- Incremental evaluation. Partly brooken
-  -- , runSynCirc "prod-ai" $ toCcc $ andInc $ uncurry ((*) @R)
-  -- , runSynCirc "sop1-ai" $ toCcc $ andInc $ \ (x,y,z) -> x * y + y * z + x * z :: R
-  -- , runSynCirc "magSqr-inc" $ toCcc $ inc $ andDer @R $ magSqr @R
+  -- , runSynCirc "negate-andInc" $ toCcc $ andInc $ (negate @R)
+  , runSynCirc "mul-andInc"    $ toCcc $ andInc $ uncurry ((*) @R)
+  , runSynCirc "sop1-andInc"   $ toCcc $ andInc $ \ ((x,y),z) -> x * y + y * z + x * z :: R
+  , runSynCirc "magSqr-andInc" $ toCcc $ andInc $ magSqr @R
 
 #ifdef CONCAT_SMT
   -- , runCirc "smt-a" $ toCcc $ (\ (x :: R) -> sqr x == 9)
@@ -1220,6 +1215,3 @@ fac9 n0 = go (n0,1)
 -- -- Vector mess
 -- foo :: Vector 5 R -> Vector 5 R :* (Vector 5 R -> Vector 5 R)
 -- foo = reveal $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
-
-andDerF :: forall a b . (a -> b) -> (a -> b :* (a -> b))
-andDerF f = unMkD (toCcc @(GD AdditiveFun) f)

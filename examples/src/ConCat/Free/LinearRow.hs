@@ -233,11 +233,11 @@ instance ProductCat (L s) where
   {-# INLINE (&&&) #-}
 
 instance CoproductPCat (L s) where
-  inlD = abst inlL
-  inrD = abst inrL
+  inlP = abst inlL
+  inrP = abst inrL
   (||||) = inAbst2 joinL
-  {-# INLINE inlD #-}
-  {-# INLINE inrD #-}
+  {-# INLINE inlP #-}
+  {-# INLINE inrP #-}
   {-# INLINE (||||) #-}
 
 instance (r ~ Rep a, V s r ~ V s a, Ok (L s) a) => RepCat (L s) a r where

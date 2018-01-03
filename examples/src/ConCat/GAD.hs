@@ -125,7 +125,7 @@ instance ProductCat k => ProductCat (GD k) where
     NumCat etc
 --------------------------------------------------------------------}
 
-instance (LinearCat k s, Num s) => NumCat (GD k) s where
+instance {-# overlappable #-} (LinearCat k s, Num s) => NumCat (GD k) s where
   addC    = linearD addC jamD
   negateC = linearD negateC (scale (-1))
   mulC    = D (mulC &&& \ (u,v) -> scale v |||| scale u) -- \ (du,dv) -> u*dv + v*du

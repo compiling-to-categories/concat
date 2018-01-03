@@ -141,8 +141,8 @@ Op1(rassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k (Coprod k 
 
 -- Temporary workaround. See ConCat.Category comments.
 infixr 2 ++++, ||||
-Op0(inlD,(CoproductPCat k, Ok2 k a b) => a `k` CoprodP k a b)
-Op0(inrD,(CoproductPCat k, Ok2 k a b) => b `k` CoprodP k a b)
+Op0(inlP,(CoproductPCat k, Ok2 k a b) => a `k` CoprodP k a b)
+Op0(inrP,(CoproductPCat k, Ok2 k a b) => b `k` CoprodP k a b)
 Ip2(||||,forall k a c d. (CoproductPCat k, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (CoprodP k c d `k` a))
 Ip2(++++,forall k a b c d. (CoproductPCat k, Ok4 k a b c d) => (c `k` a) -> (d `k` b) -> (CoprodP k c d `k` CoprodP k a b))
 Op0(jamD,(CoproductPCat k, Ok k a) => CoprodP k a a `k` a)

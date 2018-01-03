@@ -753,18 +753,18 @@ okCoprodP = inOp
 
 -- | Category with coproduct.
 class (OpCon (CoprodP k) (Ok' k), Category k) => CoproductPCat k where
-  inlD :: Oks k [a,b] => a `k` CoprodP k a b
-  inrD :: Oks k [a,b] => b `k` CoprodP k a b
+  inlP :: Oks k [a,b] => a `k` CoprodP k a b
+  inrP :: Oks k [a,b] => b `k` CoprodP k a b
   (++++) :: forall a b c d. Oks k [a,b,c,d] 
          => (c `k` a) -> (d `k` b) -> (CoprodP k c d `k` CoprodP k a b)
-  f ++++ g = inlD . f |||| inrD . g
+  f ++++ g = inlP . f |||| inrP . g
              <+ okCoprodP @k @a @b
   {-# INLINE (++++) #-}
   jamD :: Ok k a => CoprodP k a a `k` a
   jamD = id |||| id
   {-# INLINE jamD #-}
   swapSD :: forall a b. Oks k [a,b] => CoprodP k a b `k` CoprodP k b a
-  swapSD = inrD |||| inlD
+  swapSD = inrP |||| inlP
            <+ okCoprodP @k @b @a
   {-# INLINE swapSD #-}
   (||||) :: forall a c d. Ok3 k a c d 
@@ -776,18 +776,18 @@ class (OpCon (CoprodP k) (Ok' k), Category k) => CoproductPCat k where
            <+ okCoprodP @k @c @d
   {-# INLINE (||||) #-}
 #endif
-  {-# MINIMAL inlD, inrD, ((||||) | ((++++), jamD)) #-}
+  {-# MINIMAL inlP, inrP, ((||||) | ((++++), jamD)) #-}
 
 -- Don't bother with left, right, lassocS, rassocS, and misc helpers.
 
 instance CoproductPCat U2 where
-  inlD = U2
-  inrD = U2
+  inlP = U2
+  inrP = U2
   U2 |||| U2 = U2
 
 instance (CoproductPCat k, CoproductPCat k') => CoproductPCat (k :**: k') where
-  inlD = inlD :**: inlD
-  inrD = inrD :**: inrD
+  inlP = inlP :**: inlP
+  inrP = inrP :**: inrP
   (f :**: f') |||| (g :**: g') = (f |||| g) :**: (f' |||| g')
   (f :**: f') ++++ (g :**: g') = (f ++++ g) :**: (f' ++++ g')
   jamD = jamD :**: jamD
@@ -796,8 +796,8 @@ instance (CoproductPCat k, CoproductPCat k') => CoproductPCat (k :**: k') where
   -- rightD (f :**: f') = rightD f :**: rightD f'
   -- lassocSD = lassocSD :**: lassocSD
   -- rassocSD = rassocSD :**: rassocSD
-  PINLINER(inlD)
-  PINLINER(inrD)
+  PINLINER(inlP)
+  PINLINER(inrP)
   PINLINER((||||))
   PINLINER((++++))
   PINLINER(swapSD)

@@ -61,8 +61,8 @@ instance Category k => Category (Dual k) where
   {-# INLINE (.) #-}
 
 instance CoproductPCat k => ProductCat (Dual k) where
-  exl   = abst inlD
-  exr   = abst inrD
+  exl   = abst inlP
+  exr   = abst inrP
   (&&&) = inAbst2 (||||)
   (***) = inAbst2 (++++)
   dup   = abst jamD
@@ -75,14 +75,14 @@ instance CoproductPCat k => ProductCat (Dual k) where
   {-# INLINE swapP #-}
 
 instance ProductCat k => CoproductPCat (Dual k) where
-  inlD   = abst exl
-  inrD   = abst exr
+  inlP   = abst exl
+  inrP   = abst exr
   (||||) = inAbst2 (&&&)
   (++++) = inAbst2 (***)
   jamD   = abst dup
   swapSD = abst swapP
-  {-# INLINE inlD #-}
-  {-# INLINE inrD #-}
+  {-# INLINE inlP #-}
+  {-# INLINE inrP #-}
   {-# INLINE (||||) #-}
   {-# INLINE (++++) #-}
   {-# INLINE jamD #-}

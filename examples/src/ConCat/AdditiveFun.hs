@@ -80,15 +80,15 @@ instance ProductCat (-+>) where
   {-# INLINE second #-}
 
 instance CoproductPCat (-+>) where
-  inlD   = abst (,zero)
-  inrD   = abst (zero,)
+  inlP   = abst (,zero)
+  inrP   = abst (zero,)
   (||||) = inAbst2 (\ f g (x,y) -> f x ^+^ g y)
   (++++) = inAbst2 (***)
   jamD   = abst (uncurry (^+^))
   swapSD = abst swapP
   -- ...
-  {-# INLINE inlD #-}
-  {-# INLINE inrD #-}
+  {-# INLINE inlP #-}
+  {-# INLINE inrP #-}
   {-# INLINE (||||) #-}
   {-# INLINE (++++) #-}
   {-# INLINE jamD #-}
@@ -97,6 +97,8 @@ instance CoproductPCat (-+>) where
 instance Num s => ScalarCat (-+>) s where
   scale s = abst (s *)
   {-# INLINE scale #-}
+
+-- TODO: generalize from (*). Semimodule?
 
 instance TerminalCat (-+>) where
   it = abst zero
