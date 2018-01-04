@@ -23,7 +23,7 @@ module ConCat.AdditiveFun
   ( Additive1(..),type (-+>)(..),module ConCat.Additive
   ) where
 
-import Prelude hiding (id,(.),curry,uncurry,zipWith)
+import Prelude hiding (id,(.),const,curry,uncurry,zipWith)
 
 import Data.Monoid
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
@@ -99,6 +99,10 @@ instance Num s => ScalarCat (-+>) s where
   {-# INLINE scale #-}
 
 -- TODO: generalize from (*). Semimodule?
+
+instance Additive b => ConstCat (-+>) b where
+  const b = abst (const b)
+  {-# INLINE const #-}
 
 instance TerminalCat (-+>) where
   it = abst zero
