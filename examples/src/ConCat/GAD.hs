@@ -41,6 +41,7 @@ import ConCat.Misc ((:*),type (&+&),cond,result,unzip,sqr) -- ,PseudoFun(..),oop
 -- import ConCat.Free.VectorSpace
 -- import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
+import ConCat.Additive
 import ConCat.Category
 import qualified ConCat.AltCat as A
 import ConCat.Rep
@@ -120,6 +121,29 @@ instance ProductCat k => ProductCat (GD k) where
   {-# INLINE (&&&) #-}
 
 --   (&&&) = inNew2 $ \ f g -> second (uncurry (&&&)) . transposeP . (f &&& g)
+
+#if 0
+  
+instance (CoproductPCat k, OkAdd k) => CoproductPCat (GD k) where
+  Linear(inlP)
+  Linear(inrP)
+  (||||) :: forall a b c. Ok3 k a b c => GD k a c -> GD k b c -> GD k (a :* b) c
+  D f |||| D g = D (\ (a,b) ->
+    let (c ,f') = f a
+        (c',g') = g b
+    in
+      ((c ^+^ c' <+ okAdd @k @c), f' |||| g'))
+  {-# INLINE inlP #-}
+  {-# INLINE inrP #-}
+  {-# INLINE (||||) #-}
+
+-- Could not deduce CoproductPCat (->) arising from use of
+-- (||||), A.inlP, and A.inrP.
+
+-- f :: a -> c :* (a `k` c)
+-- g :: b -> c :* (b `k` c)
+
+#endif
 
 {--------------------------------------------------------------------
     NumCat etc
