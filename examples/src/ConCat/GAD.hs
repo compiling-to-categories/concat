@@ -140,6 +140,9 @@ instance (CoproductPCat k, OkAdd k) => CoproductPCat (GD k) where
 -- Could not deduce CoproductPCat (->) arising from use of
 -- (||||), A.inlP, and A.inrP.
 
+-- To fix both problems, replace (->) with (-+>) in the definition of GD.
+-- Use a pattern synonym for convenience.
+
 -- f :: a -> c :* (a `k` c)
 -- g :: b -> c :* (b `k` c)
 
