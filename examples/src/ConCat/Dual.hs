@@ -65,8 +65,8 @@ instance CoproductPCat k => ProductCat (Dual k) where
   exr   = abst inrP
   (&&&) = inAbst2 (||||)
   (***) = inAbst2 (++++)
-  dup   = abst jamD
-  swapP = abst swapSD
+  dup   = abst jamP
+  swapP = abst swapPS
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
@@ -79,14 +79,14 @@ instance ProductCat k => CoproductPCat (Dual k) where
   inrP   = abst exr
   (||||) = inAbst2 (&&&)
   (++++) = inAbst2 (***)
-  jamD   = abst dup
-  swapSD = abst swapP
+  jamP   = abst dup
+  swapPS = abst swapP
   {-# INLINE inlP #-}
   {-# INLINE inrP #-}
   {-# INLINE (||||) #-}
   {-# INLINE (++++) #-}
-  {-# INLINE jamD #-}
-  {-# INLINE swapSD #-}
+  {-# INLINE jamP #-}
+  {-# INLINE swapPS #-}
 
 instance ScalarCat k s => ScalarCat (Dual k) s where
   scale s = abst (scale s)

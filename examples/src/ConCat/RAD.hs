@@ -16,7 +16,7 @@
 
 -- | Reverse mode AD
 
-module ConCat.RAD (andDerR,derR,andGradR,gradR) where
+module ConCat.RAD where
 
 import Prelude hiding (id,(.),const,unzip)
 
@@ -36,6 +36,10 @@ import ConCat.AdditiveFun
 -- import ConCat.DualAdditive
 import ConCat.Dual
 import ConCat.GAD
+
+-- For andDerRL
+import ConCat.Free.VectorSpace (HasV)
+import ConCat.Free.LinearRow (L,linear)
 
 -- Differentiable functions
 type RAD = GD (Dual (-+>))
@@ -61,3 +65,19 @@ andGradR = (result.result.second) ($ 1) andDerR
 gradR :: Num s => (a -> s) -> (a -> a)
 gradR = (result.result) snd andGradR
 {-# INLINE gradR #-}
+
+andDerRL :: forall s a b. Ok2 (L s) a b => (a -> b) -> (a -> b :* L s b a)
+andDerRL f = (result.second) linear (andDerR f)
+{-# INLINE andDerRL #-}
+
+derRL :: forall s a b. Ok2 (L s) a b => (a -> b) -> (a -> L s b a)
+derRL f = result snd (andDerRL f)
+{-# INLINE derRL #-}
+
+-- TEMP
+
+andGrad2R :: Num s => (a -> s :* s) -> (a -> (s :* s) :* (a :* a))
+andGrad2R f = (result.second) sample (andDerR f)
+ where
+   sample f' = (f' (1,0), f' (0,1))
+{-# INLINE andGrad2R #-}
