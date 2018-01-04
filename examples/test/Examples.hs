@@ -175,15 +175,17 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- -- Circuit graphs
-  -- , runSynCirc "twice"       $ toCcc $ twice @R
-  -- , runSynCirc "sqr"         $ toCcc $ sqr @R
-  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  -- , runSynCirc "cosSin-xy"   $ toCcc $ cosSinProd @R
-  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  -- Circuit graphs
+  , runSynCirc "add"       $ toCcc $ uncurry ((+) @R)
+  , runSynCirc "fst"       $ toCcc $ fst @R @R
+  , runSynCirc "twice"       $ toCcc $ twice @R
+  , runSynCirc "sqr"         $ toCcc $ sqr @R
+  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  , runSynCirc "cosSinProd"  $ toCcc $ cosSinProd @R
+  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- , runSynCirc "truncate" $ toCcc $ truncate @R @Int
   -- , runSynCirc "log" $ toCcc $ log @R
@@ -661,7 +663,7 @@ main = sequence_
   -- , runSynCirc "add-adr"        $ toCcc $ andDerR $ uncurry ((+) @R)
   -- , runSynCirc "twice-adr"      $ toCcc $ andDerR $ twice @R
   -- , runSynCirc "sqr-adr"        $ toCcc $ andDerR $ sqr @R
-  -- , runSynCirc "fst-adr" $ toCcc $ andDerR (fst @R @R)
+  -- , runSynCirc "fst-adr"        $ toCcc $ andDerR (fst @R @R)
   -- , runSynCirc "magSqr-adr"     $ toCcc $ andDerR $ magSqr @R
   -- , runSynCirc "cos-2x-adr"     $ toCcc $ andDerR $ \ x -> cos (2 * x) :: R
   -- , runSynCirc "cos-2xx-adr"    $ toCcc $ andDerR $ \ x -> cos (2 * x * x) :: R
@@ -678,6 +680,12 @@ main = sequence_
   -- , runSynCirc "cos-2x-gradr"  $ toCcc $ andGradR $ \ x -> cos (2 * x) :: R
   -- , runSynCirc "cos-2xx-gradr" $ toCcc $ andGradR $ \ x -> cos (2 * x * x) :: R
   -- , runSynCirc "cos-xpy-gradr" $ toCcc $ andGradR $ \ (x,y) -> cos (x + y) :: R
+
+  -- -- Yikes! Needs simplification, at least.
+  -- , runSynCirc "cosSinProd-adrl" $ toCcc $ andDerRL @R $ cosSinProd @R
+
+  -- -- Temp hack
+  -- , runSynCirc "cosSinProd-adrl" $ toCcc $ andGrad2R @R $ cosSinProd @R
 
   -- , runSynCirc "sumA-adf" $ toCcc $ andDeriv @(->) $ sumA @(Vector 5) @R 
 
@@ -791,9 +799,9 @@ main = sequence_
 
   -- -- Incremental evaluation. Partly brooken
   -- , runSynCirc "negate-andInc" $ toCcc $ andInc $ (negate @R)
-  , runSynCirc "mul-andInc"    $ toCcc $ andInc $ uncurry ((*) @R)
-  , runSynCirc "sop1-andInc"   $ toCcc $ andInc $ \ ((x,y),z) -> x * y + y * z + x * z :: R
-  , runSynCirc "magSqr-andInc" $ toCcc $ andInc $ magSqr @R
+  -- , runSynCirc "mul-andInc"    $ toCcc $ andInc $ uncurry ((*) @R)
+  -- , runSynCirc "sop1-andInc"   $ toCcc $ andInc $ \ ((x,y),z) -> x * y + y * z + x * z :: R
+  -- , runSynCirc "magSqr-andInc" $ toCcc $ andInc $ magSqr @R
 
 #ifdef CONCAT_SMT
   -- , runCirc "smt-a" $ toCcc $ (\ (x :: R) -> sqr x == 9)
