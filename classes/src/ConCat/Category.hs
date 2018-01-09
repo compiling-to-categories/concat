@@ -268,6 +268,10 @@ instance OpCon (->) (Sat Additive) where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
 
+-- class OkAdd k where
+--   okAdd :: Ok' k a |- Sat Additive a
+
+
 #if 1
 -- Experiment. Smaller Core?
 type C1 (con :: u -> Constraint) a = con a
@@ -542,7 +546,7 @@ transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
   <+ okProd @k @a @c
 {-# INLINE transposeP #-}
 
--- | Inverse to '(&&&)'
+-- | Inverse to @uncurry '(&&&)'@
 unfork :: forall k a c d. (ProductCat k, Ok3 k a c d) 
        => (a `k` Prod k c d) -> (a `k` c, a `k` d)
 unfork f = (exl . f, exr . f)  <+ okProd @k @c @d
@@ -727,7 +731,7 @@ transposeS = (inl.inl ||| inr.inl) ||| (inl.inr ||| inr.inr)
   <+ okCoprod @k @a @c
 {-# INLINE transposeS #-}
 
--- | Inverse to '(|||)'
+-- | Inverse to @uncurry '(|||)'@
 unjoin :: forall k a c d. (CoproductCat k, Oks k [a,c,d]) 
        => (Coprod k c d `k` a) -> (c `k` a, d `k` a)
 unjoin f = (f . inl, f . inr)  <+ okCoprod @k @c @d
@@ -777,6 +781,17 @@ class (OpCon (CoprodP k) (Ok' k), Category k) => CoproductPCat k where
   {-# INLINE (||||) #-}
 #endif
   {-# MINIMAL inlP, inrP, ((||||) | ((++++), jamP)) #-}
+
+-- | Inverse to @uncurry '(||||)'@
+unjoinP :: forall k a c d. (CoproductPCat k, Ok3 k a c d)
+        => ((c :* d) `k` a) -> (c `k` a) :* (d `k` a)
+unjoinP cda = (cda . inlP, cda . inrP)
+            <+ okProd @k @c @d
+{-# INLINE unjoinP #-}
+
+-- Warning: unjoinP probably increases computation, as it turns one cda use into
+-- two uses with sparser arguments. It seems very similar to sampling a linear
+-- function on a basis.
 
 -- Don't bother with left, right, lassocS, rassocS, and misc helpers.
 
