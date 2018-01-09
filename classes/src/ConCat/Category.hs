@@ -230,7 +230,7 @@ inOpL = inOp . first  inOp
 inOpR :: OpCon op con => con a && (con b && con c) |- con (a `op` (b `op` c))
 inOpR = inOp . second inOp
 
-inOpL' :: OpCon op con 
+inOpL' :: OpCon op con
        => (con a && con b) && con c |- con (a `op` b) && con ((a `op` b) `op` c)
 inOpL' = inOp . exl &&& inOpL
 -- inOpL' = second inOp . rassocP . first (dup . inOp)
@@ -317,12 +317,12 @@ class Category k where
 infixl 1 <~
 infixr 1 ~>
 -- | Add post- and pre-processing
-(<~) :: (Category k, Oks k [a,b,a',b']) 
+(<~) :: (Category k, Oks k [a,b,a',b'])
      => (b `k` b') -> (a' `k` a) -> ((a `k` b) -> (a' `k` b'))
 (h <~ f) g = h . g . f
 
 -- | Add pre- and post-processing
-(~>) :: (Category k, Oks k [a,b,a',b']) 
+(~>) :: (Category k, Oks k [a,b,a',b'])
      => (a' `k` a) -> (b `k` b') -> ((a `k` b) -> (a' `k` b'))
 f ~> h = h <~ f
 
@@ -399,11 +399,11 @@ class (OkProd k, Category k) => ProductCat k where
     <+ okProd @k @c @d
   {-# INLINE (&&&) #-}
 #endif
-  first :: forall a a' b. Ok3 k a b a' 
+  first :: forall a a' b. Ok3 k a b a'
         => (a `k` a') -> (Prod k a b `k` Prod k a' b)
   first = (*** id)
   {-# INLINE first #-}
-  second :: forall a b b'. Ok3 k a b b' 
+  second :: forall a b b'. Ok3 k a b b'
          => (b `k` b') -> (Prod k a b `k` Prod k a b')
   second = (id ***)
   {-# INLINE second #-}
@@ -452,7 +452,7 @@ rassocP' = (exl . exl) &&& first  exr
 {-# INLINE lassocP' #-}
 
 inLassocP' :: forall k a b c a' b' c'.
-             -- (ProductCat k, Ok6 k a b c a' b' c') 
+             -- (ProductCat k, Ok6 k a b c a' b' c')
              -- Needs :set -fconstraint-solver-iterations=5 or greater:
              (ProductCat k, Oks k [a,b,c,a',b',c'])
           => Prod k (Prod k a b) c `k` Prod k (Prod k a' b') c'
@@ -505,13 +505,13 @@ instance (ProductCat k, ProductCat k') => ProductCat (k :**: k') where
   PINLINER(rassocP)
 
 -- | Apply to both parts of a product
-twiceP :: (ProductCat k, Oks k [a,c]) 
+twiceP :: (ProductCat k, Oks k [a,c])
        => (a `k` c) -> Prod k a a `k` (Prod k c c)
 twiceP f = f *** f
 
 -- | Operate on left-associated form
 inLassocP :: forall k a b c a' b' c'.
-             -- (ProductCat k, Ok6 k a b c a' b' c') 
+             -- (ProductCat k, Ok6 k a b c a' b' c')
              -- Needs :set -fconstraint-solver-iterations=5 or greater:
              (ProductCat k, Oks k [a,b,c,a',b',c'])
           => Prod k (Prod k a b) c `k` Prod k (Prod k a' b') c'
@@ -523,7 +523,7 @@ inLassocP = rassocP <~ lassocP
 
 -- | Operate on right-associated form
 inRassocP :: forall a b c a' b' c' k.
---              (ProductCat k, Ok6 k a b c a' b' c') 
+--              (ProductCat k, Ok6 k a b c a' b' c')
              (ProductCat k, Oks k [a,b,c,a',b',c'])
           => Prod k a (Prod k b c) `k` (Prod k a' (Prod k b' c'))
           -> Prod k (Prod k a b) c `k` Prod k (Prod k a' b') c'
@@ -543,7 +543,7 @@ transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
 {-# INLINE transposeP #-}
 
 -- | Inverse to '(&&&)'
-unfork :: forall k a c d. (ProductCat k, Ok3 k a c d) 
+unfork :: forall k a c d. (ProductCat k, Ok3 k a c d)
        => (a `k` Prod k c d) -> (a `k` c, a `k` d)
 unfork f = (exl . f, exr . f)  <+ okProd @k @c @d
 {-# INLINE unfork #-}
@@ -594,12 +594,12 @@ class (OpCon (Coprod k) (Ok' k), Category k) => CoproductCat k where
   swapS = inr ||| inl
           <+ okCoprod @k @b @a
   {-# INLINE swapS #-}
-  (+++) :: forall a b c d. Oks k [a,b,c,d] 
+  (+++) :: forall a b c d. Oks k [a,b,c,d]
         => (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b)
   f +++ g = inl . f ||| inr . g
             <+ okCoprod @k @a @b
   {-# INLINE (+++) #-}
-  (|||) :: forall a c d. Oks k [a,c,d] 
+  (|||) :: forall a c d. Oks k [a,c,d]
         => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a)
 #ifndef DefaultCat
   -- We can't give two default definitions for (&&&).
@@ -608,11 +608,11 @@ class (OpCon (Coprod k) (Ok' k), Category k) => CoproductCat k where
           <+ okCoprod @k @c @d
   {-# INLINE (|||) #-}
 #endif
-  left  :: forall a a' b. Oks k [a,b,a'] 
+  left  :: forall a a' b. Oks k [a,b,a']
         => (a `k` a') -> (Coprod k a b `k` Coprod k a' b)
   left  = (+++ id)
   {-# INLINE left #-}
-  right :: forall a b b'. Oks k [a,b,b'] 
+  right :: forall a b b'. Oks k [a,b,b']
         => (b `k` b') -> (Coprod k a b `k` Coprod k a b')
   right = (id +++)
   {-# INLINE right #-}
@@ -691,13 +691,13 @@ instance (CoproductCat k, CoproductCat k') => CoproductCat (k :**: k') where
   PINLINER(rassocS)
 
 -- | Apply to both parts of a coproduct
-twiceS :: (CoproductCat k, Oks k [a,c]) 
+twiceS :: (CoproductCat k, Oks k [a,c])
        => (a `k` c) -> Coprod k a a `k` (Coprod k c c)
 twiceS f = f +++ f
 
 -- | Operate on left-associated form
 inLassocS :: forall k a b c a' b' c'.
-             -- (CoproductCat k, Ok6 k a b c a' b' c') 
+             -- (CoproductCat k, Ok6 k a b c a' b' c')
              (CoproductCat k, Oks k [a,b,c,a',b',c'])
           => Coprod k (Coprod k a b) c `k` Coprod k (Coprod k a' b') c'
           -> Coprod k a (Coprod k b c) `k` (Coprod k a' (Coprod k b' c'))
@@ -708,7 +708,7 @@ inLassocS = rassocS <~ lassocS
 
 -- | Operate on right-associated form
 inRassocS :: forall a b c a' b' c' k.
-             -- (CoproductCat k, Ok6 k a b c a' b' c') 
+             -- (CoproductCat k, Ok6 k a b c a' b' c')
              (CoproductCat k, Oks k [a,b,c,a',b',c'])
           => Coprod k a (Coprod k b c) `k` (Coprod k a' (Coprod k b' c'))
           -> Coprod k (Coprod k a b) c `k` Coprod k (Coprod k a' b') c'
@@ -728,7 +728,7 @@ transposeS = (inl.inl ||| inr.inl) ||| (inl.inr ||| inr.inr)
 {-# INLINE transposeS #-}
 
 -- | Inverse to '(|||)'
-unjoin :: forall k a c d. (CoproductCat k, Oks k [a,c,d]) 
+unjoin :: forall k a c d. (CoproductCat k, Oks k [a,c,d])
        => (Coprod k c d `k` a) -> (c `k` a, d `k` a)
 unjoin f = (f . inl, f . inr)  <+ okCoprod @k @c @d
 {-# INLINE unjoin #-}
@@ -755,7 +755,7 @@ okCoprodP = inOp
 class (OpCon (CoprodP k) (Ok' k), Category k) => CoproductPCat k where
   inlP :: Oks k [a,b] => a `k` CoprodP k a b
   inrP :: Oks k [a,b] => b `k` CoprodP k a b
-  (++++) :: forall a b c d. Oks k [a,b,c,d] 
+  (++++) :: forall a b c d. Oks k [a,b,c,d]
          => (c `k` a) -> (d `k` b) -> (CoprodP k c d `k` CoprodP k a b)
   f ++++ g = inlP . f |||| inrP . g
              <+ okCoprodP @k @a @b
@@ -767,7 +767,7 @@ class (OpCon (CoprodP k) (Ok' k), Category k) => CoproductPCat k where
   swapSD = inrP |||| inlP
            <+ okCoprodP @k @b @a
   {-# INLINE swapSD #-}
-  (||||) :: forall a c d. Ok3 k a c d 
+  (||||) :: forall a c d. Ok3 k a c d
          => (c `k` a) -> (d `k` a) -> (CoprodP k c d `k` a)
 #ifndef DefaultCat
   -- We canDt give two default definitions for (&&&).
@@ -1075,7 +1075,7 @@ instance UnsafeArr (->) where
 
 instance Monad m => UnsafeArr (Kleisli m) where
   unsafeArr = A.arr
-  
+
 #endif
 
 constFun :: forall k p a b. (ClosedCat k, Ok3 k p a b)
@@ -2119,7 +2119,7 @@ class DistributiveCat k g f where
   distributeC :: Ok k a => f (g a) `k` g (f a)
 
 -- TODO: perhaps remove the f parameter:
--- 
+--
 -- class DistributiveCat k g where
 --   distributeC :: (OkFunctor k f, Ok k a) => f (g a) `k` g (f a)
 
@@ -2159,6 +2159,10 @@ fmap' = IC.inline fmap
 
 liftA2' :: Applicative f => (a -> b -> c) -> f a -> f b -> f c
 liftA2' f as bs = fmap' f as <*> bs
+
+-- dbanas 2018-01-08
+zipWith' :: Zip f => (a -> b -> c) -> f a -> f b -> f c
+zipWith' = IC.inline zipWith
 
 class FunctorCat k h => Strong k h where
   strength :: Ok2 k a b => (a :* h b) `k` h (a :* b)
