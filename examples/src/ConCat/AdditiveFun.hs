@@ -125,6 +125,25 @@ instance (AddF f, AddF g) => Additive1 (f :*: g)  where additive1 = Entail (Sub 
 instance (AddF f, AddF g) => Additive1 (g :.: f)  where additive1 = Entail (Sub Dict)
 instance KnownNat n       => Additive1 (Vector n) where additive1 = Entail (Sub Dict)
 
+-- instance OkAdd (-+>) where
+--   okAdd = Entail (Sub Dict)
+
+{--------------------------------------------------------------------
+    NumCat etc
+--------------------------------------------------------------------}
+
+instance (Num s, Additive s) => NumCat (-+>) s where
+  addC    = abst addC
+  negateC = abst negateC
+  mulC    = abst mulC
+  powIC   = abst powIC
+  {-# INLINE negateC #-}
+  {-# INLINE addC    #-}
+  {-# INLINE mulC    #-}
+  {-# INLINE powIC   #-}
+
+-- TODO: more
+
 {--------------------------------------------------------------------
     Functor-level operations
 --------------------------------------------------------------------}
