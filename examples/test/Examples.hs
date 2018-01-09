@@ -177,6 +177,7 @@ main = sequence_
 
   -- Circuit graphs
   , runSynCirc "add"       $ toCcc $ uncurry ((+) @R)
+  , runSynCirc "dup"     $ toCcc $ A.dup @(->) @R
   , runSynCirc "fst"       $ toCcc $ fst @R @R
   , runSynCirc "twice"       $ toCcc $ twice @R
   , runSynCirc "sqr"         $ toCcc $ sqr @R
@@ -661,6 +662,7 @@ main = sequence_
   -- , runSynCirc "sin-adr"        $ toCcc $ andDerR $ sin @R
   -- , runSynCirc "cos-adr"        $ toCcc $ andDerR $ cos @R
   -- , runSynCirc "add-adr"        $ toCcc $ andDerR $ uncurry ((+) @R)
+  -- , runSynCirc "dup-adr"        $ toCcc $ andDerR $ A.dup @(->) @R
   -- , runSynCirc "twice-adr"      $ toCcc $ andDerR $ twice @R
   -- , runSynCirc "sqr-adr"        $ toCcc $ andDerR $ sqr @R
   -- , runSynCirc "fst-adr"        $ toCcc $ andDerR (fst @R @R)
@@ -686,6 +688,7 @@ main = sequence_
 
   -- -- Temp hack
   -- , runSynCirc "cosSinProd-adrl" $ toCcc $ andGrad2R @R $ cosSinProd @R
+  -- , runSynCirc "dup-gradr"     $ toCcc $ andGrad2R $ A.dup @(->) @R
 
   -- , runSynCirc "sumA-adf" $ toCcc $ andDeriv @(->) $ sumA @(Vector 5) @R 
 
