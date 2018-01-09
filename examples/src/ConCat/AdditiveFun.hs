@@ -45,7 +45,7 @@ AbsTyImports
 
 infixr 1 -+>
 -- | Additive homomorphisms
-newtype a -+> b = AddFun { unDelX :: a -> b }
+newtype a -+> b = AddFun (a -> b)
 
 instance HasRep (a -+> b) where
   type Rep (a -+> b) = a -> b
@@ -84,15 +84,15 @@ instance CoproductPCat (-+>) where
   inrP   = abst (zero,)
   (||||) = inAbst2 (\ f g (x,y) -> f x ^+^ g y)
   (++++) = inAbst2 (***)
-  jamD   = abst (uncurry (^+^))
-  swapSD = abst swapP
+  jamP   = abst (uncurry (^+^))
+  swapPS = abst swapP
   -- ...
   {-# INLINE inlP #-}
   {-# INLINE inrP #-}
   {-# INLINE (||||) #-}
   {-# INLINE (++++) #-}
-  {-# INLINE jamD #-}
-  {-# INLINE swapSD #-}
+  {-# INLINE jamP #-}
+  {-# INLINE swapPS #-}
 
 instance Num s => ScalarCat (-+>) s where
   scale s = abst (s *)

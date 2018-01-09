@@ -760,23 +760,23 @@ class (OpCon (CoprodP k) (Ok' k), Category k) => CoproductPCat k where
   f ++++ g = inlP . f |||| inrP . g
              <+ okCoprodP @k @a @b
   {-# INLINE (++++) #-}
-  jamD :: Ok k a => CoprodP k a a `k` a
-  jamD = id |||| id
-  {-# INLINE jamD #-}
-  swapSD :: forall a b. Oks k [a,b] => CoprodP k a b `k` CoprodP k b a
-  swapSD = inrP |||| inlP
+  jamP :: Ok k a => CoprodP k a a `k` a
+  jamP = id |||| id
+  {-# INLINE jamP #-}
+  swapPS :: forall a b. Oks k [a,b] => CoprodP k a b `k` CoprodP k b a
+  swapPS = inrP |||| inlP
            <+ okCoprodP @k @b @a
-  {-# INLINE swapSD #-}
+  {-# INLINE swapPS #-}
   (||||) :: forall a c d. Ok3 k a c d
          => (c `k` a) -> (d `k` a) -> (CoprodP k c d `k` a)
 #ifndef DefaultCat
   -- We canDt give two default definitions for (&&&).
-  f |||| g = jamD . (f ++++ g)
+  f |||| g = jamP . (f ++++ g)
            <+ okCoprodP @k @a @a
            <+ okCoprodP @k @c @d
   {-# INLINE (||||) #-}
 #endif
-  {-# MINIMAL inlP, inrP, ((||||) | ((++++), jamD)) #-}
+  {-# MINIMAL inlP, inrP, ((||||) | ((++++), jamP)) #-}
 
 -- Don't bother with left, right, lassocS, rassocS, and misc helpers.
 
@@ -790,8 +790,8 @@ instance (CoproductPCat k, CoproductPCat k') => CoproductPCat (k :**: k') where
   inrP = inrP :**: inrP
   (f :**: f') |||| (g :**: g') = (f |||| g) :**: (f' |||| g')
   (f :**: f') ++++ (g :**: g') = (f ++++ g) :**: (f' ++++ g')
-  jamD = jamD :**: jamD
-  swapSD = swapSD :**: swapSD
+  jamP = jamP :**: jamP
+  swapPS = swapPS :**: swapPS
   -- leftD (f :**: f') = leftD f :**: leftD f'
   -- rightD (f :**: f') = rightD f :**: rightD f'
   -- lassocSD = lassocSD :**: lassocSD
@@ -800,7 +800,7 @@ instance (CoproductPCat k, CoproductPCat k') => CoproductPCat (k :**: k') where
   PINLINER(inrP)
   PINLINER((||||))
   PINLINER((++++))
-  PINLINER(swapSD)
+  PINLINER(swapPS)
   -- PINLINER(leftD)
   -- PINLINER(rightD)
   -- PINLINER(lassocSD)
