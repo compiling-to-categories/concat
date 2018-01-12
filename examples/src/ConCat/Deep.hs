@@ -24,6 +24,7 @@ import Data.Key
 import Data.Vector.Sized (Vector)
 
 import ConCat.Misc
+import ConCat.Additive
 import ConCat.Orphans ()
 import ConCat.RAD (gradR)
 
@@ -32,9 +33,13 @@ import ConCat.RAD (gradR)
 --------------------------------------------------------------------}
 
 infixr 1 -->
-type (f --> g) s = f s -> g s
+type f --> g = f R -> g R
 
-type UnopS f s = Unop (f s)
+-- Missing in GHC.Generics
+infixr 1 :->
+newtype (f :-> g) s = Fun1 (f s -> g s)
+
+type UnopR f = Unop (f R)
 
 {--------------------------------------------------------------------
     Simple linear algebra
@@ -42,8 +47,8 @@ type UnopS f s = Unop (f s)
 
 type OkS s = (Num s, Ord s)
 
-infixr 1 +->
-type (f +-> g) = forall s. OkS s => f s -> g s
+-- infixr 1 +->
+-- type (f +-> g) = forall s. OkS s => f s -> g s
 
 type OkL f = (Zip f, Foldable f)
 
@@ -53,13 +58,13 @@ type a :-* b = b :.: a
 
 infixl 7 <.>
 -- | Dot product
-(<.>) :: (OkL f, OkS s) => f s -> f s -> s
-x <.> y = sum (zipWith (*) x y)
+(<.>) :: (OkL f, Num s, Additive s) => f s -> f s -> s
+x <.> y = sumA (zipWith (*) x y)
 {-# INLINE (<.>) #-}
 
-lapply :: (OkL f, Functor g) => (f :-* g) +-> (f --> g)
-lapply (Comp1 as) a = (<.> a) <$> as
-{-# INLINE lapply #-}
+lap :: (OkL f, Functor g, Num s, Additive s) => (f :-* g) s -> (f s -> g s)
+lap (Comp1 as) a = (<.> a) <$> as
+{-# INLINE lap #-}
 
 -- | Norm squared
 normSqr :: (OkL f, Num s) => f s -> s
@@ -75,16 +80,16 @@ distSqr u v = normSqr (zipWith (-) u v)
     Learning
 --------------------------------------------------------------------}
 
-relus :: OkL f => f +-> f
+relus :: (OkL f, Num s, Ord s) => f s -> f s
 relus = fmap (max 0)
 {-# INLINE relus #-}
 
 -- Linear followed by RELUs.
-linRelu :: forall f g. (OkL f, OkL g) => (f :-* g) +-> (f --> g)
-linRelu l = fmap (max 0) . lapply l
+linRelu :: (OkL f, OkL g, Num s, Additive s, Ord s) => (f :-* g) s -> (f s -> g s)
+linRelu l = fmap (max 0) . lap l
 {-# INLINE linRelu #-}
 
-errSqr :: (Zip g, Foldable g, Num s) => (f :*: g) s -> (f --> g) s -> s
+errSqr :: (Zip g, Foldable g, Num s) => (f :*: g) s -> (f s -> g s) -> s
 errSqr (a :*: b) h = distSqr b (h a)
 {-# INLINE errSqr #-}
 
@@ -97,6 +102,8 @@ infixr 9 @.
 (f @. g) (x :*: y) = f x . g y
 {-# INLINE (@.) #-}
 
+-- TODO: Maybe simplify (:*:) to (*:) and (f :- g) s to g (f s)
+
 {--------------------------------------------------------------------
     Examples
 --------------------------------------------------------------------}
@@ -105,28 +112,33 @@ type V1 = Vector 10
 type V2 = Vector 20
 type V3 = Vector 30
 
-elr1 :: (OkL f, OkL g) => f :*: g +-> UnopS (f :-* g)
+elr1 :: (OkL f, OkL g) => (f :*: g) R -> UnopR (f :-* g)
 elr1 = errGrad linRelu
 {-# INLINE elr1 #-}
 
-elr2 :: (OkL f, OkL g, OkL h) => f :*: h +-> UnopS ((g :-* h) :*: (f :-* g))
+elr2 :: (OkL f, OkL g, OkL h)
+     => (f :*: h) R -> UnopR ((g :-* h) :*: (f :-* g))
 elr2 = errGrad (linRelu @. linRelu)
 {-# INLINE elr2 #-}
 
 elr3 :: (OkL f, OkL g, OkL h, OkL k)
-     => f :*: k +-> UnopS ((h :-* k) :*: (g :-* h) :*: (f :-* g))
+     => (f :*: k) R -> UnopR ((h :-* k) :*: (g :-* h) :*: (f :-* g))
 elr3 = errGrad (linRelu @. linRelu @. linRelu)
 {-# INLINE elr3 #-}
 
-lr1 :: (OkL f, OkL g) => (f :-* g) +-> (f --> g)
+
+lr1 :: (OkL f, OkL g) => (f :-* g) R -> (f R -> g R)
 lr1 = linRelu
 {-# INLINE lr1 #-}
 
-lr2 :: (OkL f, OkL g, OkL h) => f :*: h +-> UnopS ((g :-* h) :*: (f :-* g))
-lr2 = errGrad (linRelu @. linRelu)
+lr2 :: (OkL f, OkL g, OkL h) => ((g :-* h) :*: (f :-* g)) R -> (f R -> h R)
+lr2 = linRelu @. linRelu
 {-# INLINE lr2 #-}
 
 lr3 :: (OkL f, OkL g, OkL h, OkL k)
-    => f :*: k +-> UnopS ((h :-* k) :*: (g :-* h) :*: (f :-* g))
-lr3 = errGrad (linRelu @. linRelu @. linRelu)
+    => ((h :-* k) :*: (g :-* h) :*: (f :-* g)) R -> (f R -> k R)
+lr3 = linRelu @. linRelu @. linRelu
 {-# INLINE lr3 #-}
+
+#if 0
+#endif
