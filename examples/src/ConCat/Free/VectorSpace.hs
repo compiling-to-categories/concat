@@ -202,7 +202,7 @@ class HasV s a where
 inV :: forall s a b. (HasV s a, HasV s b) => (a -> b) -> (V s a s -> V s b s)
 inV = toV <~ unV
 
-onV :: (HasV s a, HasV s b) => (V s a s -> V s b s) -> (a -> b)
+onV :: forall s a b. (HasV s a, HasV s b) => (V s a s -> V s b s) -> (a -> b)
 onV = unV <~ toV
 
 onV2 :: forall s a b c. (HasV s a, HasV s b, HasV s c) => (V s a s -> V s b s -> V s c s) -> (a -> b -> c)
