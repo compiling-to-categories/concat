@@ -11,115 +11,102 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
+#include "ConCat/Ops.inc"
+
 -- | Simple feed-forward deep learning
 
 module ConCat.Deep where
 
 import Prelude hiding (zipWith)
 
-import GHC.TypeLits
+import GHC.TypeLits ()
 import GHC.Generics ((:*:)(..),(:.:)(..))
 
 import Data.Key
 import Data.Vector.Sized (Vector)
+import Data.NumInstances.Function ()
 
 import ConCat.Misc
-import ConCat.Additive
+-- import ConCat.Additive
+import ConCat.AltCat (forkF,joinPF,scale,jamPF)
 import ConCat.Orphans ()
 import ConCat.RAD (gradR)
-
-{--------------------------------------------------------------------
-    Misc
---------------------------------------------------------------------}
-
-infixr 1 -->
-type f --> g = f R -> g R
-
--- Missing in GHC.Generics
-infixr 1 :->
-newtype (f :-> g) s = Fun1 (f s -> g s)
-
-type UnopR f = Unop (f R)
 
 {--------------------------------------------------------------------
     Simple linear algebra
 --------------------------------------------------------------------}
 
-type OkL f = (Zip f, Foldable f)
+-- | "Matrix"
+infixr 1 --*
+type (m --* n) s = (s :^ m) :^ n
 
-infixr 1 :-*
--- | Linear map
-type a :-* b = b :.: a
+infixr 1 -->
+type (m --> n) s = s :^ m -> s :^ n
 
-infixl 7 <.>
--- | Dot product
-(<.>) :: (OkL f, Num s, Additive s) => f s -> f s -> s
-x <.> y = sumA (zipWith (*) x y)
-{-# INLINE (<.>) #-}
+lapply' :: Num s
+        => (m --* n) (s -> s) -> (m --> n) s
+lapply' = forkF . fmap joinPF
 
--- Apply a linear map
-lap :: (OkL f, Functor g, Num s, Additive s) => (f :-* g) s -> (f s -> g s)
-lap (Comp1 as) a = (<.> a) <$> as
-{-# INLINE lap #-}
+lapply :: Num s
+       => (m --* n) s -> (m --> n) s
+lapply = lapply' . (fmap.fmap) scale
 
--- | Norm squared
-normSqr :: (OkL f, Num s) => f s -> s
-normSqr = sum . fmap sqr
+-- NOTE: lapply' and lapply' depend on the bogus IxCoproductPCat (->) instance
+-- in ConCat.Category. Okay if we translate to another category. I'll find a
+-- more principled way.
+
+-- TODO: maybe constrain m and n.
+
+normSqr :: Num s => s :^ n -> s
+normSqr = jamPF . sqr
 {-# INLINE normSqr #-}
 
 -- | Distance squared
-distSqr :: (OkL f, Num s) => f s -> f s -> s
-distSqr u v = normSqr (zipWith (-) u v)
+distSqr :: Num s => s :^ n -> s :^ n -> s
+distSqr u v = normSqr (u - v)
 {-# INLINE distSqr #-}
+
+-- The normSqr and distSqr definitions rely on Num instances on functions.
 
 {--------------------------------------------------------------------
     Learning
 --------------------------------------------------------------------}
 
-relus :: (OkL f, Num s, Ord s) => f s -> f s
-relus = fmap (max 0)
-{-# INLINE relus #-}
-
--- Linear followed by RELUs.
-linRelu :: (OkL f, OkL g, Num s, Additive s, Ord s) => (f :-* g) s -> (f s -> g s)
-linRelu l = fmap (max 0) . lap l
+-- | Linear followed by RELUs.
+linRelu :: (Num s, Ord s) => (m --* n) s -> (m --> n) s
+linRelu = (result.result.fmap) (max 0) lapply
 {-# INLINE linRelu #-}
 
-errSqr :: (Zip g, Foldable g, Num s) => (f :*: g) s -> (f s -> g s) -> s
-errSqr (a :*: b) h = distSqr b (h a)
+-- linRelu l = fmap (max 0) . lapply l
+
+errSqr :: (Num s) => s :^ m :* s :^ n -> (m --> n) s -> s
+errSqr (a, b) h = distSqr b (h a)
 {-# INLINE errSqr #-}
 
-errGrad :: (OkL g, Num s) => (p -> f s -> g s) -> (f :*: g) s -> Unop p
+errGrad :: (Num s) => (p -> (m --> n) s) -> (s :^ m :* s :^ n) -> Unop p
 errGrad h sample = gradR (errSqr sample . h)
 {-# INLINE errGrad #-}
 
 infixr 9 @.
-(@.) :: (p s -> b -> c) -> (q s -> a -> b) -> ((p :*: q) s -> a -> c)
-(f @. g) (x :*: y) = f x . g y
+(@.) :: (p -> b -> c) -> (q -> a -> b) -> (p :* q -> a -> c)
+(f @. g) (p,q) = f p . g q
 {-# INLINE (@.) #-}
-
--- TODO: Maybe simplify (:*:) to (*:) and (f :- g) s to g (f s)
 
 {--------------------------------------------------------------------
     Examples
 --------------------------------------------------------------------}
 
-type V1 = Vector 10
-type V2 = Vector 20
-type V3 = Vector 30
-
-lr1 :: (OkL f, OkL g) => (f :-* g) R -> (f R -> g R)
+lr1 :: (m --* n) R -> (m --> n) R
 lr1 = linRelu
 {-# INLINE lr1 #-}
 
-lr2 :: (OkL f, OkL g, OkL h) => ((g :-* h) :*: (f :-* g)) R -> (f R -> h R)
+lr2 :: (n --* o) R :* (m --* n) R -> (m --> o) R
 lr2 = linRelu @. linRelu
 {-# INLINE lr2 #-}
 
-lr3 :: (OkL f, OkL g, OkL h, OkL k)
-    => ((h :-* k) :*: (g :-* h) :*: (f :-* g)) R -> (f R -> k R)
+lr3 :: (o --* p) R :* (n --* o) R :* (m --* n) R -> (m --> p) R
 lr3 = linRelu @. linRelu @. linRelu
 {-# INLINE lr3 #-}
 
-#if 0
-#endif
+-- TODO: Wire in R for easy reading. I can generalize later.
+-- TODO: replace n, m, o, p, with a, b, c, d.
