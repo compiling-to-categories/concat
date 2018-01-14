@@ -83,7 +83,7 @@ import ConCat.Category
   , OpCon(..),Sat(..) -- ,FunctorC(..)
   , yes1, forkCon, joinCon, inForkCon
   -- Functor-level
-  , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat,AddCat,Strong
+  , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat,Strong
   , DistributiveCat,RepresentableCat 
   , fmap', liftA2' 
   )
@@ -690,6 +690,8 @@ Op0(unzipC, (FunctorCat k h, Ok2 k a b) => h (a :* b) `k` (h a :* h b))
 Op0(zipC  , (ZipCat k h    , Ok2 k a b) => (h a :* h b) `k` h (a :* b))
 Op0(pointC, (PointedCat k h a)          => a `k` h a)
 Op0(sumAC , (AddCat k h a)              => h a `k` a)
+
+-- Op0(sumC  , (SumCat k h a)              => h a `k` a)
 
 Catify(fmap , fmapC)
 -- Catify(fmap , fmapIdT)  -- experiment
