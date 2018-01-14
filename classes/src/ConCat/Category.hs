@@ -112,6 +112,9 @@ infixr 7 :**:
 -- | Product for binary type constructors
 data (p :**: q) a b = p a b :**: q a b
 
+prod :: p a b :* q a b -> (p :**: q) a b
+prod (p,q) = (p :**: q)
+
 unProd :: (p :**: q) a b -> p a b :* q a b
 unProd (p :**: q) = (p,q)
 
@@ -2208,38 +2211,42 @@ instance (Strong k h, Strong k' h) => Strong (k :**: k') h where
 -- I intend to replace all of the functor-level vocabulary with indexed products
 -- and coproducts.
 
-class OkIxProd k i where
-  okIxProd :: Ok' k a |- Ok' k (i -> a)
+class OkIxProd k n where
+  okIxProd :: Ok' k a |- Ok' k (a :^ n)
 
-class (Category k, OkIxProd k i) => IxProductCat k i where
-  exF    :: forall a  . Ok  k a   => i -> ((i -> a) `k` a)
-  forkF  :: forall a b. Ok2 k a b => (i -> (a `k` b)) -> (a `k` (i -> b))
-  crossF :: forall a b. Ok2 k a b => (i -> (a `k` b)) -> ((i -> a) `k` (i -> b))
-  replF  :: forall a  . Ok  k a   => a `k` (i -> a)
+class (Category k, OkIxProd k n) => IxProductCat k n where
+  exF    :: forall a  . Ok  k a   => ((a :^ n) `k` a) :^ n
+  forkF  :: forall a b. Ok2 k a b => ((a `k` b) :^ n) -> (a `k` (b :^ n))
+  crossF :: forall a b. Ok2 k a b => ((a `k` b) :^ n) -> ((a :^ n) `k` (b :^ n))
+  replF  :: forall a  . Ok  k a   => a `k` (a :^ n)
   -- Defaults
-  forkF  fs = crossF fs . replF <+ okIxProd @k @i @a <+ okIxProd @k @i @b
-  crossF fs = forkF (zipWith (.) fs exF) <+ okIxProd @k @i @a
+  forkF  fs = crossF fs . replF <+ okIxProd @k @n @a <+ okIxProd @k @n @b
+  crossF fs = forkF (zipWith (.) fs exF) <+ okIxProd @k @n @a
   replF     = forkF (const id)
+  {-# INLINE forkF #-}
+  {-# INLINE crossF #-}
+  {-# INLINE replF #-}
   {-# MINIMAL exF, (forkF | (crossF, exF)) #-}
+
 
 #if 0
 -- Types for `forkF` via `crossF`:
 
-fs                :: i -> (a `k` b)
-crossF fs         :: (i -> a) `k` (i -> b)
-crossF fs . replF :: a `k` (i -> b)
+fs                :: (a `k` b) :^ n
+crossF fs         :: (a :^ n) `k` (b :^ n)
+crossF fs . replF :: a `k` (b :^ n)
 
 -- Types for `crossF` via `forkF`:
 
-                      exF  :: i -> ((i -> a) `k` a)
-                   fs      :: i -> (a `k` b)
-       zipWith (.) fs exF  :: i -> ((i -> a) `k` b)
-forkF (zipWith (.) fs exF) :: (i -> a) `k` (i -> b)
+                      exF  :: ((a :^ n) `k` a) :^ n
+                   fs      :: (a `k` b) :^ n
+       zipWith (.) fs exF  :: ((a :^ n) `k` b) :^ n
+forkF (zipWith (.) fs exF) :: (a :^ n) `k` (b :^ n)
 
 -- Types for `replF` via `forkF`:
 
-       const id  :: i -> (a `k` a)
-forkF (const id) :: a `k` (i -> a)
+       const id  :: (a `k` a) :^ n
+forkF (const id) :: a `k` (a :^ n)
 
 -- Laws:
 
@@ -2248,60 +2255,95 @@ forkF exF == id
 
 Types:
 
-      exF :: i -> ((i -> b) `k` b)
-forkF exF :: (i -> b) `k` (i -> b)
+      exF :: ((b :^ n) `k` b) :^ n
+forkF exF :: (b :^ n) `k` (b :^ n)
 
-         fs          :: i -> (a `k` b)
-   forkF fs          :: a `k` (i -> b)
-(. forkF fs)         :: ((i -> b) `k` b) -> (a `k` b)
-             <$> exF :: i -> ((i -> b) `k` b)
-(. forkF fs) <$> exF :: i -> (a `k` b)
+         fs          :: (a `k` b) :^ n
+   forkF fs          :: a `k` (b :^ n)
+(. forkF fs)         :: ((b :^ n) `k` b) -> (a `k` b)
+             <$> exF :: ((b :^ n) `k` b) :^ n
+(. forkF fs) <$> exF :: (a `k` b) :^ n
 
 #endif
 
-instance OkIxProd (->) i where okIxProd = Entail (Sub Dict)
+instance OkIxProd (->) n where okIxProd = Entail (Sub Dict)
 
-instance IxProductCat (->) i where
+instance IxProductCat (->) n where
   exF    = flip ($)
   forkF  = flip
   crossF = (<*>)
   replF  = pure
+  {-# OPINLINE exF    #-}
+  {-# OPINLINE forkF  #-}
+  {-# OPINLINE crossF #-}
+  {-# OPINLINE replF  #-}
 
+instance (OkIxProd k n, OkIxProd k' n) => OkIxProd (k :**: k') n where
+  okIxProd :: forall a. Ok' (k :**: k') a |- Ok' (k :**: k') (a :^ n)
+  okIxProd = Entail (Sub (Dict <+ okIxProd @k  @n @a
+                               <+ okIxProd @k' @n @a))
 
-class OkIxCoprod k i where
-  okIxCoprod :: Ok' k a |- Ok' k (i , a)
+instance (IxProductCat k n, IxProductCat k' n) => IxProductCat (k :**: k) n where
+  exF    = zipWith (:**:) exF exF
+  forkF  = prod . (forkF  *** forkF ) . unzip . fmap unProd
+  crossF = prod . (crossF *** crossF) . unzip . fmap unProd
+  replF  = replF :**: replF
+
+#if 0
+-- forkF:
+fmap unProd     :: (k :**: k') a b :^ n -> ((a `k` b) :* (a `k'` b)) :^ n
+unzip           :: ... -> (a `k` b) :^ n :* (a `k'` b) :^ n
+forkF *** forkF :: ... -> (a `k` (b :^ n)) :* (a `k'` (b :^ n))
+prod            :: ... -> (k :**: k') a (b :^ n)
+#endif
+
+class OkIxCoprod k n where
+  okIxCoprod :: Ok' k a |- Ok' k (n , a)
 
 -- | Indexed coproducts
-class (Category k, OkIxCoprod k i) => IxCoproductCat k i where
-  inF   :: forall a   . Ok  k a   => i -> (a `k` (i , a))
-  joinF :: forall a b . Ok2 k a b => (i -> (b `k` a)) -> ((i , b) `k` a)
-  plusF :: forall a b . Ok2 k a b => (i -> (b `k` a)) -> ((i , b) `k` (i , a))
-  jamF  :: forall a   . Ok  k a   => (i , a) `k` a
+class (Category k, OkIxCoprod k n) => IxCoproductCat k n where
+  inF   :: forall a   . Ok  k a   => (a `k` (n , a)) :^ n
+  joinF :: forall a b . Ok2 k a b => ((b `k` a) :^ n) -> ((n , b) `k` a)
+  plusF :: forall a b . Ok2 k a b => ((b `k` a) :^ n) -> ((n , b) `k` (n , a))
+  jamF  :: forall a   . Ok  k a   => (n , a) `k` a
   -- Defaults
-  plusF fs = joinF (zipWith (.) inF fs) <+ okIxCoprod @k @i @a
-  joinF fs = jamF . plusF fs <+ okIxCoprod @k @i @a <+ okIxCoprod @k @i @b
+  plusF fs = joinF (zipWith (.) inF fs) <+ okIxCoprod @k @n @a
+  joinF fs = jamF . plusF fs <+ okIxCoprod @k @n @a <+ okIxCoprod @k @n @b
   jamF     = joinF (const id)  -- or exr if we assumed products.
+  {-# INLINE plusF #-}
+  {-# INLINE joinF #-}
+  {-# INLINE jamF #-}
   {-# MINIMAL inF, (joinF | (plusF, jamF)) #-}
+
+instance OkIxCoprod (->) n where okIxCoprod = Entail (Sub Dict)
+
+instance IxCoproductCat (->) n where
+  inF   = (,)
+  joinF = uncurry
+  jamF  = snd
+  {-# OPINLINE inF   #-}
+  {-# OPINLINE joinF #-}
+  {-# OPINLINE jamF  #-}
 
 #if 0
 
 -- Types for plusF default:
 
-                   inF     :: i -> (a `k` (i , a))
-                       fs  :: i -> (b `k` a)
-       zipWith (.) inF fs  :: i -> (b `k` (i , a))
-joinF (zipWith (.) inF fs) :: (i , b) `k` (i , a)
+                   inF     :: (a `k` (n , a)) :^ n
+                       fs  :: (b `k` a) :^ n
+       zipWith (.) inF fs  :: (b `k` (n , a)) :^ n
+joinF (zipWith (.) inF fs) :: (n , b) `k` (n , a)
 
 -- Types for `joinPF` default:
 
-               fs :: i -> (b `k` a)
-        plusPF fs :: (i , b) `k` (i , a)
-jamPF . plusPF fs :: (i , b) `k` a
+               fs :: (b `k` a) :^ n
+        plusPF fs :: (n , b) `k` (n , a)
+jamPF . plusPF fs :: (n , b) `k` a
 
 -- Types for `jamF` default:
 
-       const id  :: i -> (a `k` a)
-joinF (const id) :: (i , a) `k` a
+       const id  :: (a `k` a) :^ n
+joinF (const id) :: (n , a) `k` a
 
 -- Laws:
 
@@ -2310,49 +2352,62 @@ joinF inF == id
 
 -- Types:
 
-       inF :: i -> (b `k` (i -> b))
-joinF inF :: (i -> b) `k` (i -> b)
+       inF :: (b `k` (b :^ n)) :^ n
+joinF inF :: (b :^ n) `k` (b :^ n)
 
-          fs           :: i -> (b `k` a)
-   joinF fs           :: (i -> b) `k` a
-(. joinF fs)          :: (b `k` (i -> b)) -> (b `k` a)
-              <$> inF :: i -> (b `k` (i -> b))
-(. joinF fs) <$> inF :: i -> (b `k` a)
+          fs         :: (b `k` a) :^ n
+   joinF fs          :: (b :^ n) `k` a
+(. joinF fs)         :: (b `k` (b :^ n)) -> (b `k` a)
+             <$> inF :: (b `k` (b :^ n)) :^ n
+(. joinF fs) <$> inF :: (b `k` a) :^ n
 
 #endif
 
+instance (OkIxCoprod k n, OkIxCoprod k' n) => OkIxCoprod (k :**: k') n where
+  okIxCoprod :: forall a. Ok' (k :**: k') a |- Ok' (k :**: k') (n , a)
+  okIxCoprod = Entail (Sub (Dict <+ okIxCoprod @k  @n @a
+                                 <+ okIxCoprod @k' @n @a))
+
+instance (IxCoproductCat k n, IxCoproductCat k' n) => IxCoproductCat (k :**: k) n where
+  inF   = zipWith (:**:) inF inF
+  joinF = prod . (joinF *** joinF) . unzip . fmap unProd
+  plusF = prod . (plusF *** plusF) . unzip . fmap unProd
+  jamF  = jamF :**: jamF
 
 -- | Indexed coproducts as indexed products
-class (Category k, OkIxProd k i) => IxCoproductPCat k i where
-  inPF   :: forall a   . Ok  k a   => i -> (a `k` (i -> a))
-  joinPF :: forall a b . Ok2 k a b => (i -> (b `k` a)) -> ((i -> b) `k` a)
-  plusPF :: forall a b . Ok2 k a b => (i -> (b `k` a)) -> ((i -> b) `k` (i -> a))  -- same as crossPF
-  jamPF  :: forall a   . Ok  k a   => (i -> a) `k` a
+class (Category k, OkIxProd k n) => IxCoproductPCat k n where
+  inPF   :: forall a   . Ok  k a   => (a `k` (a :^ n)) :^ n
+  joinPF :: forall a b . Ok2 k a b => ((b `k` a) :^ n) -> ((b :^ n) `k` a)
+  plusPF :: forall a b . Ok2 k a b => ((b `k` a) :^ n) -> ((b :^ n) `k` (a :^ n))  -- same as crossPF
+  jamPF  :: forall a   . Ok  k a   => (a :^ n) `k` a
   -- Defaults
-  joinPF fs = jamPF . plusPF fs <+ okIxProd @k @i @a <+ okIxProd @k @i @b
-  plusPF fs = joinPF (zipWith (.) inPF fs) <+ okIxProd @k @i @a
+  joinPF fs = jamPF . plusPF fs <+ okIxProd @k @n @a <+ okIxProd @k @n @b
+  plusPF fs = joinPF (zipWith (.) inPF fs) <+ okIxProd @k @n @a
   jamPF     = joinPF (const id)
+  {-# INLINE joinPF #-}
+  {-# INLINE plusPF #-}
+  {-# INLINE jamPF #-}
   {-# MINIMAL inPF, (joinPF | (plusPF, jamPF)) #-}
 
 #if 0
 
 -- Types for `joinPF` default:
 
-               fs :: i -> (b `k` a)
-        plusPF fs :: (i -> b) `k` (i -> a)
-jamPF . plusPF fs :: (i -> b) `k` a
+               fs :: (b `k` a) :^ n
+        plusPF fs :: (b :^ n) `k` (a :^ n)
+jamPF . plusPF fs :: (b :^ n) `k` a
 
 -- Types for `plusPF` default:
 
-                    inPF     :: i -> (a `k` (i -> a))
-                         fs  :: i -> (b `k` a)
-        zipWith (.) inPF fs  :: i -> (b `k` (i -> a))
-joinPF (zipWith (.) inPF fs) :: (i -> b) `k` (i -> a)
+                    inPF     :: (a `k` (a :^ n)) :^ n
+                         fs  :: (b `k` a) :^ n
+        zipWith (.) inPF fs  :: (b `k` (a :^ n)) :^ n
+joinPF (zipWith (.) inPF fs) :: (b :^ n) `k` (a :^ n)
 
 -- Types for `jamPF` via `joinPF`:
 
-        const id  :: i -> (a `k` a)
-joinPF (const id) :: (i -> a) `k` a
+        const id  :: (a `k` a) :^ n
+joinPF (const id) :: (a :^ n) `k` a
 
 -- Laws:
 
@@ -2361,13 +2416,28 @@ joinPF inPF == id
 
 -- Types:
 
-       inPF :: i -> (b `k` (i -> b))
-joinPF inPF :: (i -> b) `k` (i -> b)
+       inPF :: (b `k` (b :^ n)) :^ n
+joinPF inPF :: (b :^ n) `k` (b :^ n)
 
-          fs           :: i -> (b `k` a)
-   joinPF fs           :: (i -> b) `k` a
-(. joinPF fs)          :: (b `k` (i -> b)) -> (b `k` a)
-              <$> inPF :: i -> (b `k` (i -> b))
-(. joinPF fs) <$> inPF :: i -> (b `k` a)
+          fs           :: (b `k` a) :^ n
+   joinPF fs           :: (b :^ n) `k` a
+(. joinPF fs)          :: (b `k` (b :^ n)) -> (b `k` a)
+              <$> inPF :: (b `k` (b :^ n)) :^ n
+(. joinPF fs) <$> inPF :: (b `k` a) :^ n
 
 #endif
+
+-- Bogus instance. Experimental hack to let me translate from (->).
+-- See 2018-01-13 notes.
+instance IxCoproductPCat (->) n where
+  inPF   = error   "inPF: (->) is a bogus instance"
+  joinPF = error "joinPF: (->) is a bogus instance"
+  {-# OPINLINE inPF #-}
+  {-# OPINLINE joinPF #-}
+
+instance (IxCoproductPCat k n, IxCoproductPCat k' n)
+      => IxCoproductPCat (k :**: k) n where
+  inPF   = zipWith (:**:) inPF inPF
+  joinPF = prod . (joinPF *** joinPF) . unzip . fmap unProd
+  plusPF = prod . (plusPF *** plusPF) . unzip . fmap unProd
+  jamPF  = jamPF :**: jamPF
