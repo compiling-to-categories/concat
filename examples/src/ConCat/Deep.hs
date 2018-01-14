@@ -38,29 +38,29 @@ import ConCat.RAD (gradR)
 
 -- | "Matrix"
 infixr 1 --*
-type m --* n = (R :^ m) :^ n
+type a --* b = (R :^ a) :^ b
 
 infixr 1 -->
-type m --> n = R :^ m -> R :^ n
+type a --> b = R :^ a -> R :^ b
 
-lapply' :: ((R -> R) :^ m) :^ n -> (m --> n)
+lapply' :: ((R -> R) :^ a) :^ b -> (a --> b)
 lapply' = forkF . fmap joinPF
 
-lapply :: (m --* n) -> (m --> n)
+lapply :: (a --* b) -> (a --> b)
 lapply = lapply' . (fmap.fmap) scale
 
 -- NOTE: lapply' and lapply' depend on the bogus IxCoproductPCat (->) instance
 -- in ConCat.Category. Okay if we translate to another category. I'll find a
 -- more principled way.
 
--- TODO: maybe constrain m and n.
+-- TODO: maybe constrain a and b.
 
-normSqr :: Num s => s :^ n -> s
+normSqr :: Num s => s :^ b -> s
 normSqr = jamPF . sqr
 {-# INLINE normSqr #-}
 
 -- | Distance squared
-distSqr :: Num s => s :^ n -> s :^ n -> s
+distSqr :: Num s => s :^ b -> s :^ b -> s
 distSqr u v = normSqr (u - v)
 {-# INLINE distSqr #-}
 
@@ -71,17 +71,17 @@ distSqr u v = normSqr (u - v)
 --------------------------------------------------------------------}
 
 -- | Linear followed by RELUs.
-linRelu :: (m --* n) -> (m --> n)
+linRelu :: (a --* b) -> (a --> b)
 linRelu = (result.result.fmap) (max 0) lapply
 {-# INLINE linRelu #-}
 
 -- linRelu l = fmap (max 0) . lapply l
 
-errSqr :: R :^ m :* R :^ n -> (m --> n) -> R
+errSqr :: R :^ a :* R :^ b -> (a --> b) -> R
 errSqr (a, b) h = distSqr b (h a)
 {-# INLINE errSqr #-}
 
-errGrad :: (p -> m --> n) -> R :^ m :* R :^ n -> Unop p
+errGrad :: (p -> a --> b) -> R :^ a :* R :^ b -> Unop p
 errGrad h sample = gradR (errSqr sample . h)
 {-# INLINE errGrad #-}
 
@@ -94,16 +94,16 @@ infixr 9 @.
     Examples
 --------------------------------------------------------------------}
 
-lr1 :: (m --* n) -> (m --> n)
+lr1 :: (a --* b)  ->  (a --> b)
 lr1 = linRelu
 {-# INLINE lr1 #-}
 
-lr2 :: (n --* o) :* (m --* n) -> (m --> o)
+lr2 :: (b --* c) :* (a --* b)  ->  (a --> c)
 lr2 = linRelu @. linRelu
 {-# INLINE lr2 #-}
 
-lr3 :: (o --* p) :* (n --* o) :* (m --* n) -> (m --> p)
+lr3 :: (c --* d) :* (b --* c) :* (a --* b)  ->  (a --> d)
 lr3 = linRelu @. linRelu @. linRelu
 {-# INLINE lr3 #-}
 
--- TODO: replace n, m, o, p, with a, b, c, d.
+
