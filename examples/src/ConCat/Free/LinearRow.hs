@@ -72,7 +72,7 @@ type (a :-* b) s = b (a s)
 
 infixr 9 $*
 -- Apply a linear map
-($*), lapplyL :: forall s a b. (Zip a, Foldable a, Zip b, Num s)
+($*), lapplyL :: forall s a b. (Zip a, Foldable a, Functor b, Num s)
               => (a :-* b) s -> a s -> b s
 as $* a = (<.> a) <$> as
 lapplyL = ($*)
