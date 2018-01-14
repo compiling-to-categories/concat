@@ -45,11 +45,6 @@ type UnopR f = Unop (f R)
     Simple linear algebra
 --------------------------------------------------------------------}
 
-type OkS s = (Num s, Ord s)
-
--- infixr 1 +->
--- type (f +-> g) = forall s. OkS s => f s -> g s
-
 type OkL f = (Zip f, Foldable f)
 
 infixr 1 :-*
@@ -62,6 +57,7 @@ infixl 7 <.>
 x <.> y = sumA (zipWith (*) x y)
 {-# INLINE (<.>) #-}
 
+-- Apply a linear map
 lap :: (OkL f, Functor g, Num s, Additive s) => (f :-* g) s -> (f s -> g s)
 lap (Comp1 as) a = (<.> a) <$> as
 {-# INLINE lap #-}
@@ -111,21 +107,6 @@ infixr 9 @.
 type V1 = Vector 10
 type V2 = Vector 20
 type V3 = Vector 30
-
-elr1 :: (OkL f, OkL g) => (f :*: g) R -> UnopR (f :-* g)
-elr1 = errGrad linRelu
-{-# INLINE elr1 #-}
-
-elr2 :: (OkL f, OkL g, OkL h)
-     => (f :*: h) R -> UnopR ((g :-* h) :*: (f :-* g))
-elr2 = errGrad (linRelu @. linRelu)
-{-# INLINE elr2 #-}
-
-elr3 :: (OkL f, OkL g, OkL h, OkL k)
-     => (f :*: k) R -> UnopR ((h :-* k) :*: (g :-* h) :*: (f :-* g))
-elr3 = errGrad (linRelu @. linRelu @. linRelu)
-{-# INLINE elr3 #-}
-
 
 lr1 :: (OkL f, OkL g) => (f :-* g) R -> (f R -> g R)
 lr1 = linRelu
