@@ -38,17 +38,15 @@ import ConCat.RAD (gradR)
 
 -- | "Matrix"
 infixr 1 --*
-type (m --* n) s = (s :^ m) :^ n
+type m --* n = (R :^ m) :^ n
 
 infixr 1 -->
-type (m --> n) s = s :^ m -> s :^ n
+type m --> n = R :^ m -> R :^ n
 
-lapply' :: Num s
-        => (m --* n) (s -> s) -> (m --> n) s
+lapply' :: ((R -> R) :^ m) :^ n -> (m --> n)
 lapply' = forkF . fmap joinPF
 
-lapply :: Num s
-       => (m --* n) s -> (m --> n) s
+lapply :: (m --* n) -> (m --> n)
 lapply = lapply' . (fmap.fmap) scale
 
 -- NOTE: lapply' and lapply' depend on the bogus IxCoproductPCat (->) instance
@@ -73,17 +71,17 @@ distSqr u v = normSqr (u - v)
 --------------------------------------------------------------------}
 
 -- | Linear followed by RELUs.
-linRelu :: (Num s, Ord s) => (m --* n) s -> (m --> n) s
+linRelu :: (m --* n) -> (m --> n)
 linRelu = (result.result.fmap) (max 0) lapply
 {-# INLINE linRelu #-}
 
 -- linRelu l = fmap (max 0) . lapply l
 
-errSqr :: (Num s) => s :^ m :* s :^ n -> (m --> n) s -> s
+errSqr :: R :^ m :* R :^ n -> (m --> n) -> R
 errSqr (a, b) h = distSqr b (h a)
 {-# INLINE errSqr #-}
 
-errGrad :: (Num s) => (p -> (m --> n) s) -> (s :^ m :* s :^ n) -> Unop p
+errGrad :: (p -> m --> n) -> R :^ m :* R :^ n -> Unop p
 errGrad h sample = gradR (errSqr sample . h)
 {-# INLINE errGrad #-}
 
@@ -96,17 +94,16 @@ infixr 9 @.
     Examples
 --------------------------------------------------------------------}
 
-lr1 :: (m --* n) R -> (m --> n) R
+lr1 :: (m --* n) -> (m --> n)
 lr1 = linRelu
 {-# INLINE lr1 #-}
 
-lr2 :: (n --* o) R :* (m --* n) R -> (m --> o) R
+lr2 :: (n --* o) :* (m --* n) -> (m --> o)
 lr2 = linRelu @. linRelu
 {-# INLINE lr2 #-}
 
-lr3 :: (o --* p) R :* (n --* o) R :* (m --* n) R -> (m --> p) R
+lr3 :: (o --* p) :* (n --* o) :* (m --* n) -> (m --> p)
 lr3 = linRelu @. linRelu @. linRelu
 {-# INLINE lr3 #-}
 
--- TODO: Wire in R for easy reading. I can generalize later.
 -- TODO: replace n, m, o, p, with a, b, c, d.
