@@ -66,6 +66,7 @@ import ConCat.Category
   , ProductCat, Prod, twiceP, inLassocP, inRassocP, transposeP --, unfork
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
   , CoproductPCat, CoprodP, ScalarCat, LinearCat
+  , OkIxProd, IxProductCat, OkIxProd, IxCoproductCat, IxCoproductPCat
   , DistribCat, undistl, undistr
   , ClosedCat, Exp
   , TerminalCat, Unit{-, lunit, runit, constFun-}, CoterminalCat, Counit, constFun2, unitFun, unUnitFun
@@ -82,7 +83,7 @@ import ConCat.Category
   , type (|-)(..), (<+), okProd, okExp
   , OpCon(..),Sat(..) -- ,FunctorC(..)
   , yes1, forkCon, joinCon, inForkCon
-  -- Functor-level
+  -- Functor-level. To be removed.
   , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat,Strong
   , DistributiveCat,RepresentableCat 
   , fmap', liftA2' 
@@ -152,6 +153,21 @@ Op0(swapPS,forall k a b. (CoproductPCat k, Ok2 k a b) => CoprodP k a b `k` Copro
 -- Op1(rightD,forall k a b bb. (CoproductPCat k, Ok3 k a b bb) => (b `k` bb) -> (CoprodP k a b `k` CoprodP k a bb))
 -- Op1(lassocSD,forall k a b c. (CoproductPCat k, Ok3 k a b c) => CoprodP k a (CoprodP k b c) `k` CoprodP k (CoprodP k a b) c)
 -- Op1(rassocSD,forall k a b c. (CoproductPCat k, Ok3 k a b c) => CoprodP k (CoprodP k a b) c `k` CoprodP k a (CoprodP k b c))
+
+Op0(exF   , (IxProductCat k i, Ok  k a  ) => i -> ((i -> a) `k` a))
+Op1(forkF , (IxProductCat k i, Ok2 k a b) => (i -> (a `k` b)) -> (a `k` (i -> b)))
+Op1(crossF, (IxProductCat k i, Ok2 k a b) => (i -> (a `k` b)) -> ((i -> a) `k` (i -> b)))
+Op0(replF , (IxProductCat k i, Ok  k a  ) => a `k` (i -> a))
+
+Op0(inF  , (IxCoproductCat k i, Ok  k a  ) => i -> (a `k` (i , a)))
+Op1(joinF, (IxCoproductCat k i, Ok2 k a b) => (i -> (b `k` a)) -> ((i , b) `k` a))
+Op1(plusF, (IxCoproductCat k i, Ok2 k a b) => (i -> (b `k` a)) -> ((i , b) `k` (i , a)))
+Op0(jamF , (IxCoproductCat k i, Ok  k a  ) => (i , a) `k` a)
+
+Op0(inPF  , (IxCoproductPCat k i, Ok  k a  ) => i -> (a `k` (i -> a)))
+Op1(joinPF, (IxCoproductPCat k i, Ok2 k a b) => (i -> (b `k` a)) -> ((i -> b) `k` a))
+Op1(plusPF, (IxCoproductPCat k i, Ok2 k a b) => (i -> (b `k` a)) -> ((i -> b) `k` (i -> a)))
+Op0(jamPF , (IxCoproductPCat k i, Ok  k a  ) => (i -> a) `k` a)
 
 Op0(scale,(ScalarCat k a => a -> (a `k` a)))
 
