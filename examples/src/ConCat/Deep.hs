@@ -43,24 +43,31 @@ type a --* b = (R :^ a) :^ b
 infixr 1 -->
 type a --> b = R :^ a -> R :^ b
 
-lapply' :: ((R -> R) :^ a) :^ b -> (a --> b)
-lapply' = forkF . fmap joinPF
+-- dot' :: ((s -> s) :^ a) -> (s :^ a -> s)
+-- dot' = joinPF
 
-lapply :: (a --* b) -> (a --> b)
-lapply = lapply' . (fmap.fmap) scale
+dot :: Num s => s :^ a -> (s :^ a -> s)
+dot = joinPF . fmap scale
 
--- NOTE: lapply' and lapply' depend on the bogus IxCoproductPCat (->) instance
+lap' :: ((R -> R) :^ a) :^ b -> (a --> b)
+lap' = forkF . fmap joinPF
+
+-- | Apply a linear map
+lap :: (a --* b) -> (a --> b)
+lap = lap' . (fmap.fmap) scale
+
+-- NOTE: lap' and lap' depend on the bogus IxCoproductPCat (->) instance
 -- in ConCat.Category. Okay if we translate to another category. I'll find a
 -- more principled way.
 
 -- TODO: maybe constrain a and b.
 
 normSqr :: Num s => s :^ b -> s
-normSqr = jamPF . sqr
+normSqr' u  = u `dot` u
 {-# INLINE normSqr #-}
 
 -- | Distance squared
-distSqr :: Num s => s :^ b -> s :^ b -> s
+distSqr :: Num s => s :^ n -> s :^ n -> s
 distSqr u v = normSqr (u - v)
 {-# INLINE distSqr #-}
 
@@ -72,10 +79,10 @@ distSqr u v = normSqr (u - v)
 
 -- | Linear followed by RELUs.
 linRelu :: (a --* b) -> (a --> b)
-linRelu = (result.result.fmap) (max 0) lapply
+linRelu = (result.result.fmap) (max 0) lap
 {-# INLINE linRelu #-}
 
--- linRelu l = fmap (max 0) . lapply l
+-- linRelu l = fmap (max 0) . lap l
 
 errSqr :: R :^ a :* R :^ b -> (a --> b) -> R
 errSqr (a, b) h = distSqr b (h a)
