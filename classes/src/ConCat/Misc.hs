@@ -37,8 +37,8 @@ import Control.Newtype
     Type abbreviations
 --------------------------------------------------------------------}
 
-infixl 7 :*
-infixl 6 :+
+infixr 7 :*
+infixr 6 :+
 infixr 1 :=>
 
 type (:*)  = (,)
