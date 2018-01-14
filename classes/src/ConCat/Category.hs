@@ -2228,7 +2228,6 @@ class (Category k, OkIxProd k n) => IxProductCat k n where
   {-# INLINE replF #-}
   {-# MINIMAL exF, (forkF | (crossF, exF)) #-}
 
-
 #if 0
 -- Types for `forkF` via `crossF`:
 
@@ -2277,6 +2276,15 @@ instance IxProductCat (->) n where
   {-# OPINLINE forkF  #-}
   {-# OPINLINE crossF #-}
   {-# OPINLINE replF  #-}
+
+instance OkIxProd U2 n where
+  okIxProd = Entail (Sub Dict)
+
+instance IxProductCat U2 n where
+  exF    = pure U2
+  forkF  = const U2
+  crossF = const U2
+  replF  = U2
 
 instance (OkIxProd k n, OkIxProd k' n) => OkIxProd (k :**: k') n where
   okIxProd :: forall a. Ok' (k :**: k') a |- Ok' (k :**: k') (a :^ n)
@@ -2363,6 +2371,15 @@ joinF inF :: (b :^ n) `k` (b :^ n)
 
 #endif
 
+instance OkIxCoprod U2 n where
+  okIxCoprod = Entail (Sub Dict)
+
+instance IxCoproductCat U2 n where
+  inF   = pure U2
+  joinF = const U2
+  plusF = const U2
+  jamF  = U2
+
 instance (OkIxCoprod k n, OkIxCoprod k' n) => OkIxCoprod (k :**: k') n where
   okIxCoprod :: forall a. Ok' (k :**: k') a |- Ok' (k :**: k') (n , a)
   okIxCoprod = Entail (Sub (Dict <+ okIxCoprod @k  @n @a
@@ -2434,6 +2451,12 @@ instance IxCoproductPCat (->) n where
   joinPF = error "joinPF: (->) is a bogus instance"
   {-# OPINLINE inPF #-}
   {-# OPINLINE joinPF #-}
+
+instance IxCoproductPCat U2 n where
+  inPF   = pure U2
+  joinPF = const U2
+  plusPF = const U2
+  jamPF  = U2
 
 instance (IxCoproductPCat k n, IxCoproductPCat k' n)
       => IxCoproductPCat (k :**: k) n where
