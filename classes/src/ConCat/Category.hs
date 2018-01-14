@@ -2040,6 +2040,11 @@ class ({- Pointed h, -} OkFunctor k h, Ok k a) => PointedCat k h a where
 -- class DiagCat k h where
 --   diagC  :: Ok k a => (a :* a) `k` h (h a)
 
+-- TODO: do I want SumCat, AddCat, or both?
+
+-- class (Ok k a, Num a) => SumCat k h a where
+--   sumC :: h a `k` a
+
 class (Ok k a, Additive a) => AddCat k h a where
   sumAC :: h a `k` a
 
@@ -2089,6 +2094,10 @@ instance Pointed h => PointedCat (->) h a where
 
 #endif
 
+-- instance (Foldable h, Num a) => SumCat (->) h a where
+--   sumC = IC.inline sum
+--   {-# OPINLINE sumC #-}
+
 instance (Foldable h, Additive a) => AddCat (->) h a where
   sumAC = IC.inline sumA
   {-# OPINLINE sumAC #-}
@@ -2125,6 +2134,10 @@ instance (PointedCat k h a, PointedCat k' h a) => PointedCat (k :**: k') h a whe
 -- instance (DiagCat k h, DiagCat k' h) => DiagCat (k :**: k') h where
 --   diagC  = diagC :**: diagC
 --   {-# INLINE diagC #-}
+
+-- instance (SumCat k h a, SumCat k' h a) => SumCat (k :**: k') h a where
+--   sumC = sumC :**: sumC
+--   {-# INLINE sumC #-}
 
 instance (AddCat k h a, AddCat k' h a) => AddCat (k :**: k') h a where
   sumAC = sumAC :**: sumAC
@@ -2187,3 +2200,174 @@ instance Functor h => Strong (->) h where
 
 instance (Strong k h, Strong k' h) => Strong (k :**: k') h where
   strength = strength :**: strength
+
+{--------------------------------------------------------------------
+    Indexed products and coproducts
+--------------------------------------------------------------------}
+
+-- I intend to replace all of the functor-level vocabulary with indexed products
+-- and coproducts.
+
+class OkIxProd k i where
+  okIxProd :: Ok' k a |- Ok' k (i -> a)
+
+class (Category k, OkIxProd k i) => IxProductCat k i where
+  exF    :: forall a  . Ok  k a   => i -> ((i -> a) `k` a)
+  forkF  :: forall a b. Ok2 k a b => (i -> (a `k` b)) -> (a `k` (i -> b))
+  crossF :: forall a b. Ok2 k a b => (i -> (a `k` b)) -> ((i -> a) `k` (i -> b))
+  replF  :: forall a  . Ok  k a   => a `k` (i -> a)
+  -- Defaults
+  forkF  fs = crossF fs . replF <+ okIxProd @k @i @a <+ okIxProd @k @i @b
+  crossF fs = forkF (zipWith (.) fs exF) <+ okIxProd @k @i @a
+  replF     = forkF (const id)
+  {-# MINIMAL exF, (forkF | (crossF, exF)) #-}
+
+#if 0
+-- Types for `forkF` via `crossF`:
+
+fs                :: i -> (a `k` b)
+crossF fs         :: (i -> a) `k` (i -> b)
+crossF fs . replF :: a `k` (i -> b)
+
+-- Types for `crossF` via `forkF`:
+
+                      exF  :: i -> ((i -> a) `k` a)
+                   fs      :: i -> (a `k` b)
+       zipWith (.) fs exF  :: i -> ((i -> a) `k` b)
+forkF (zipWith (.) fs exF) :: (i -> a) `k` (i -> b)
+
+-- Types for `replF` via `forkF`:
+
+       const id  :: i -> (a `k` a)
+forkF (const id) :: a `k` (i -> a)
+
+-- Laws:
+
+forkF exF == id
+(. forkF fs) <$> exF == fs
+
+Types:
+
+      exF :: i -> ((i -> b) `k` b)
+forkF exF :: (i -> b) `k` (i -> b)
+
+         fs          :: i -> (a `k` b)
+   forkF fs          :: a `k` (i -> b)
+(. forkF fs)         :: ((i -> b) `k` b) -> (a `k` b)
+             <$> exF :: i -> ((i -> b) `k` b)
+(. forkF fs) <$> exF :: i -> (a `k` b)
+
+#endif
+
+instance OkIxProd (->) i where okIxProd = Entail (Sub Dict)
+
+instance IxProductCat (->) i where
+  exF    = flip ($)
+  forkF  = flip
+  crossF = (<*>)
+  replF  = pure
+
+
+class OkIxCoprod k i where
+  okIxCoprod :: Ok' k a |- Ok' k (i , a)
+
+-- | Indexed coproducts
+class (Category k, OkIxCoprod k i) => IxCoproductCat k i where
+  inF   :: forall a   . Ok  k a   => i -> (a `k` (i , a))
+  joinF :: forall a b . Ok2 k a b => (i -> (b `k` a)) -> ((i , b) `k` a)
+  plusF :: forall a b . Ok2 k a b => (i -> (b `k` a)) -> ((i , b) `k` (i , a))
+  jamF  :: forall a   . Ok  k a   => (i , a) `k` a
+  -- Defaults
+  plusF fs = joinF (zipWith (.) inF fs) <+ okIxCoprod @k @i @a
+  joinF fs = jamF . plusF fs <+ okIxCoprod @k @i @a <+ okIxCoprod @k @i @b
+  jamF     = joinF (const id)  -- or exr if we assumed products.
+  {-# MINIMAL inF, (joinF | (plusF, jamF)) #-}
+
+#if 0
+
+-- Types for plusF default:
+
+                   inF     :: i -> (a `k` (i , a))
+                       fs  :: i -> (b `k` a)
+       zipWith (.) inF fs  :: i -> (b `k` (i , a))
+joinF (zipWith (.) inF fs) :: (i , b) `k` (i , a)
+
+-- Types for `joinPF` default:
+
+               fs :: i -> (b `k` a)
+        plusPF fs :: (i , b) `k` (i , a)
+jamPF . plusPF fs :: (i , b) `k` a
+
+-- Types for `jamF` default:
+
+       const id  :: i -> (a `k` a)
+joinF (const id) :: (i , a) `k` a
+
+-- Laws:
+
+joinF inF == id
+(joinF fs .) <$> inF == fs
+
+-- Types:
+
+       inF :: i -> (b `k` (i -> b))
+joinF inF :: (i -> b) `k` (i -> b)
+
+          fs           :: i -> (b `k` a)
+   joinF fs           :: (i -> b) `k` a
+(. joinF fs)          :: (b `k` (i -> b)) -> (b `k` a)
+              <$> inF :: i -> (b `k` (i -> b))
+(. joinF fs) <$> inF :: i -> (b `k` a)
+
+#endif
+
+
+-- | Indexed coproducts as indexed products
+class (Category k, OkIxProd k i) => IxCoproductPCat k i where
+  inPF   :: forall a   . Ok  k a   => i -> (a `k` (i -> a))
+  joinPF :: forall a b . Ok2 k a b => (i -> (b `k` a)) -> ((i -> b) `k` a)
+  plusPF :: forall a b . Ok2 k a b => (i -> (b `k` a)) -> ((i -> b) `k` (i -> a))  -- same as crossPF
+  jamPF  :: forall a   . Ok  k a   => (i -> a) `k` a
+  -- Defaults
+  joinPF fs = jamPF . plusPF fs <+ okIxProd @k @i @a <+ okIxProd @k @i @b
+  plusPF fs = joinPF (zipWith (.) inPF fs) <+ okIxProd @k @i @a
+  jamPF     = joinPF (const id)
+  {-# MINIMAL inPF, (joinPF | (plusPF, jamPF)) #-}
+
+#if 0
+
+-- Types for `joinPF` default:
+
+               fs :: i -> (b `k` a)
+        plusPF fs :: (i -> b) `k` (i -> a)
+jamPF . plusPF fs :: (i -> b) `k` a
+
+-- Types for `plusPF` default:
+
+                    inPF     :: i -> (a `k` (i -> a))
+                         fs  :: i -> (b `k` a)
+        zipWith (.) inPF fs  :: i -> (b `k` (i -> a))
+joinPF (zipWith (.) inPF fs) :: (i -> b) `k` (i -> a)
+
+-- Types for `jamPF` via `joinPF`:
+
+        const id  :: i -> (a `k` a)
+joinPF (const id) :: (i -> a) `k` a
+
+-- Laws:
+
+joinPF inPF == id
+(joinPF fs .) <$> inPF == fs
+
+-- Types:
+
+       inPF :: i -> (b `k` (i -> b))
+joinPF inPF :: (i -> b) `k` (i -> b)
+
+          fs           :: i -> (b `k` a)
+   joinPF fs           :: (i -> b) `k` a
+(. joinPF fs)          :: (b `k` (i -> b)) -> (b `k` a)
+              <$> inPF :: i -> (b `k` (i -> b))
+(. joinPF fs) <$> inPF :: i -> (b `k` a)
+
+#endif
