@@ -20,7 +20,7 @@ module ConCat.Orphans where
 
 import Prelude hiding (zipWith)
 import Control.Applicative (liftA2)
--- import Control.Arrow ((&&&))
+import Control.Arrow ((|||))
 import Data.Monoid
 import GHC.Generics (U1(..),Par1(..),(:+:)(..),(:*:)(..),(:.:)(..))
 
@@ -403,3 +403,12 @@ instance (Foldable ((->) m), Foldable ((->) n)) => Foldable ((->) (m :* n)) wher
 instance KnownNat n => Foldable ((->) (Finite n)) where
   foldMap h as = foldMap h (as <$> finites @n)
   {-# INLINE foldMap #-}
+
+sumToMaybe :: () :+ a -> Maybe a
+sumToMaybe = const Nothing ||| Just
+
+maybeToSum :: Maybe a -> () :+ a
+maybeToSum = maybe (Left ()) Right
+
+instance Foldable ((->) a) => Foldable ((->) (Maybe a)) where
+  foldMap f = foldMap f . (. sumToMaybe)
