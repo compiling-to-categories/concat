@@ -37,10 +37,12 @@ import Control.Newtype
     Type abbreviations
 --------------------------------------------------------------------}
 
+infixr 8 :^
 infixr 7 :*
 infixr 6 :+
 infixr 1 :=>
 
+type s :^ n = n -> s
 type (:*)  = (,)
 type (:+)  = Either
 type (:=>) = (->)
