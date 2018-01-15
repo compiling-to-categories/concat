@@ -28,7 +28,7 @@ import Data.NumInstances.Function ()
 
 import ConCat.Misc
 import ConCat.Additive
-import ConCat.AltCat (forkF,joinPF,scale,jamPF,(:--*),lapply',lapply)
+import ConCat.AltCat (forkF,joinPF,scale,jamPF,(:--*),linearApp',linearApp)
 import ConCat.Orphans ()
 import ConCat.RAD (gradR)
 
@@ -69,20 +69,20 @@ outerV = (>.<)
 {-# INLINE (>.<) #-}
 {-# INLINE outerV #-}
 
-lap' :: (IxSummable a, Additive v)
-     => ((u -> v) :^ a) :^ b -> (u :^ a -> v :^ b)
-lap' = lapply'
-{-# INLINE lap' #-}
+linear' :: (IxSummable a, Additive v)
+        => ((u -> v) :^ a) :^ b -> (u :^ a -> v :^ b)
+linear' = linearApp'
+{-# INLINE linear' #-}
 
 -- | Apply a linear map
-lap :: (IxSummable a, Additive s, Num s)
-    => (s :^ a) :^ b -> (s :^ a -> s :^ b)
-lap = lapply
-{-# INLINE lap #-}
+linear :: (IxSummable a, Additive s, Num s)
+       => (s :^ a) :^ b -> (s :^ a -> s :^ b)
+linear = linearApp
+{-# INLINE linear #-}
 
--- lap :: (a --* b) -> (a --> b)
+-- linear :: (a --* b) -> (a --> b)
 
--- NOTE: lap' and lap' depend on the bogus IxCoproductPCat (->) instance
+-- NOTE: linear' and linear' depend on the bogus IxCoproductPCat (->) instance
 -- in ConCat.Category. Okay if we translate to another category. I'll find a
 -- more principled way.
 
@@ -91,20 +91,17 @@ infixr 1 --+
 type a --+ b = Maybe a --* b
 
 -- | Affine application
-aap :: (IxSummable a, Additive s, Num s)
-    => (s :^ Maybe a) :^ b -> (s :^ a -> s :^ b)
-aap m = lap m . maybe 1
-{-# INLINE aap #-}
+affine :: (IxSummable a, Additive s, Num s)
+       => (s :^ Maybe a) :^ b -> (s :^ a -> s :^ b)
+affine m = linear m . maybe 1
+{-# INLINE affine #-}
 
 --     m              :: b -> Maybe a -> s
 --                as  :: a -> s
 --        maybe 1 as  :: Maybe a -> a
--- lap m (maybe 1 as) :: b -> s
+-- linear m (maybe 1 as) :: b -> s
 
--- TODO: reconsider the names "lap" and "aap".
--- Maybe "linearApp" & "affineApp" and/or "($*)" & "($+)".
-
--- TODO: Is there an affine counterpart to lap'?
+-- TODO: Is there an affine counterpart to linear'?
 
 -- Considering the generality, move these definitions from `Deep` to `AltCat`.
 
@@ -123,14 +120,12 @@ distSqr u v = normSqr (u - v)
     Learning
 --------------------------------------------------------------------}
 
--- | Linear followed by RELUs.
-linRelu :: IxSummable a => (a --* b) -> (a --> b)
-linRelu = (result.result.fmap) (max 0) lap
-{-# INLINE linRelu #-}
+-- | Affine followed by RELUs.
+affRelu :: IxSummable a => (a --+ b) -> (a --> b)
+affRelu = (result.result.fmap) (max 0) affine
+{-# INLINE affRelu #-}
 
--- linRelu l = fmap (max 0) . lap l
-
--- TODO: add a constant ("bias") term. Use "--+*" or "--+" to notate.
+-- affRelu l = fmap (max 0) . affine l
 
 errSqr :: IxSummable b => R :^ a :* R :^ b -> (a --> b) -> R
 errSqr (a, b) h = distSqr b (h a)
@@ -149,16 +144,16 @@ infixr 9 @.
     Examples
 --------------------------------------------------------------------}
 
-lr1 :: IxSummable a => (a --* b)  ->  (a --> b)
-lr1 = linRelu
+lr1 :: IxSummable a => (a --+ b)  ->  (a --> b)
+lr1 = affRelu
 {-# INLINE lr1 #-}
 
 lr2 :: (IxSummable a, IxSummable b)
-    => (b --* c) :* (a --* b)  ->  (a --> c)
-lr2 = linRelu @. linRelu
+    => (b --+ c) :* (a --+ b)  ->  (a --> c)
+lr2 = affRelu @. affRelu
 {-# INLINE lr2 #-}
 
 lr3 :: (IxSummable a, IxSummable b, IxSummable c)
-    => (c --* d) :* (b --* c) :* (a --* b)  ->  (a --> d)
-lr3 = linRelu @. linRelu @. linRelu
+    => (c --+ d) :* (b --+ c) :* (a --+ b)  ->  (a --> d)
+lr3 = affRelu @. affRelu @. affRelu
 {-# INLINE lr3 #-}
