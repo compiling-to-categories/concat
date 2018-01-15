@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -19,6 +20,7 @@ module ConCat.Additive where
 
 import Prelude hiding (zipWith)
 import Data.Monoid
+import Data.Void (Void)
 import Data.Complex hiding (magnitude)
 import Data.Ratio
 import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
@@ -28,6 +30,7 @@ import GHC.TypeLits (KnownNat)
 import Control.Newtype (Newtype(..))
 import Data.Key(Zip(..))
 import Data.Pointed(Pointed(..))
+import Data.Finite (Finite,finites)
 import Data.Vector.Sized (Vector)
 
 import ConCat.Misc
@@ -156,3 +159,39 @@ instance Additive a => Additive (Add a) where
 
 sumA :: (Foldable f, Additive a) => f a -> a
 sumA = getAdd . foldMap Add
+
+{--------------------------------------------------------------------
+    Summing functions over its domain
+--------------------------------------------------------------------}
+
+class IxSummable n where
+  ixSum :: Additive a => a :^ n -> a
+
+-- The instances follow from folding and memoization
+
+instance IxSummable Void where
+  ixSum _ = zero
+  {-# INLINE ixSum #-}
+
+instance IxSummable () where
+  ixSum f = f ()
+  {-# INLINE ixSum #-}
+
+instance IxSummable Bool where
+  ixSum f = f False ^+^ f True
+  {-# INLINE ixSum #-}
+
+instance (IxSummable m, IxSummable n) => IxSummable (m :+ n) where
+  ixSum f = ixSum (f . Left) ^+^ ixSum (f . Right)
+  {-# INLINE ixSum #-}
+
+instance (IxSummable m, IxSummable n) => IxSummable (m :* n) where
+  ixSum f = ixSum (ixSum . curry f)
+  {-# INLINE ixSum #-}
+
+instance KnownNat n => IxSummable (Finite n) where
+  ixSum f = sumA (f <$> finites @n)
+  {-# INLINE ixSum #-}
+
+-- TODO: if I switch from functions to representable functors for indexed
+-- products etc, then replace ixSum by sumA from ConCat.Additive.
