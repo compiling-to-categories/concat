@@ -55,7 +55,7 @@ import GHC.TypeLits (KnownNat,natVal)
 import Data.Finite (Finite)
 #endif
 
-import ConCat.Misc ((:*),(:+),unzip,PseudoFun(..),oops,type (&+&),result)
+import ConCat.Misc ((:*),(:+),(:^),unzip,PseudoFun(..),oops,type (&+&),result)
 import ConCat.Rep hiding (Rep)
 import qualified ConCat.Rep as R
 import ConCat.Additive
@@ -66,7 +66,7 @@ import ConCat.Category
   , ProductCat, Prod, twiceP, inLassocP, inRassocP, transposeP --, unfork
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
   , CoproductPCat, CoprodP, ScalarCat, LinearCat
-  , OkIxProd, IxProductCat, OkIxProd, IxCoproductCat, IxCoproductPCat
+  , OkIxProd(..), IxProductCat, OkIxCoprod(..), IxCoproductCat, IxCoproductPCat
   , DistribCat, undistl, undistr
   , ClosedCat, Exp
   , TerminalCat, Unit{-, lunit, runit, constFun-}, CoterminalCat, Counit, constFun2, unitFun, unUnitFun
@@ -154,22 +154,47 @@ Op0(swapPS,forall k a b. (CoproductPCat k, Ok2 k a b) => CoprodP k a b `k` Copro
 -- Op1(lassocSD,forall k a b c. (CoproductPCat k, Ok3 k a b c) => CoprodP k a (CoprodP k b c) `k` CoprodP k (CoprodP k a b) c)
 -- Op1(rassocSD,forall k a b c. (CoproductPCat k, Ok3 k a b c) => CoprodP k (CoprodP k a b) c `k` CoprodP k a (CoprodP k b c))
 
-Op0(exF   , (IxProductCat k i, Ok  k a  ) => i -> ((i -> a) `k` a))
-Op1(forkF , (IxProductCat k i, Ok2 k a b) => (i -> (a `k` b)) -> (a `k` (i -> b)))
-Op1(crossF, (IxProductCat k i, Ok2 k a b) => (i -> (a `k` b)) -> ((i -> a) `k` (i -> b)))
-Op0(replF , (IxProductCat k i, Ok  k a  ) => a `k` (i -> a))
+Op0(exF   , (IxProductCat k n, Ok  k a  ) => ((a :^ n) `k` a) :^ n)
+Op1(forkF , (IxProductCat k n, Ok2 k a b) => ((a `k` b) :^ n) -> (a `k` (b :^ n)))
+Op1(crossF, (IxProductCat k n, Ok2 k a b) => ((a `k` b) :^ n) -> ((a :^ n) `k` (b :^ n)))
+Op0(replF , (IxProductCat k n, Ok  k a  ) => a `k` (a :^ n))
 
-Op0(inF  , (IxCoproductCat k i, Ok  k a  ) => i -> (a `k` (i , a)))
-Op1(joinF, (IxCoproductCat k i, Ok2 k a b) => (i -> (b `k` a)) -> ((i , b) `k` a))
-Op1(plusF, (IxCoproductCat k i, Ok2 k a b) => (i -> (b `k` a)) -> ((i , b) `k` (i , a)))
-Op0(jamF , (IxCoproductCat k i, Ok  k a  ) => (i , a) `k` a)
+Op0(inF  , (IxCoproductCat k n, Ok  k a  ) => (a `k` (n , a)) :^ n)
+Op1(joinF, (IxCoproductCat k n, Ok2 k a b) => ((b `k` a) :^ n) -> ((n , b) `k` a))
+Op1(plusF, (IxCoproductCat k n, Ok2 k a b) => ((b `k` a) :^ n) -> ((n , b) `k` (n , a)))
+Op0(jamF , (IxCoproductCat k n, Ok  k a  ) => (n , a) `k` a)
 
-Op0(inPF  , (IxCoproductPCat k i, Ok  k a  ) => i -> (a `k` (i -> a)))
-Op1(joinPF, (IxCoproductPCat k i, Ok2 k a b) => (i -> (b `k` a)) -> ((i -> b) `k` a))
-Op1(plusPF, (IxCoproductPCat k i, Ok2 k a b) => (i -> (b `k` a)) -> ((i -> b) `k` (i -> a)))
-Op0(jamPF , (IxCoproductPCat k i, Ok  k a  ) => (i -> a) `k` a)
+Op0(inPF  , (IxCoproductPCat k n, Ok  k a  ) => (a `k` (n -> a)) :^ n)
+Op1(joinPF, (IxCoproductPCat k n, Ok2 k a b) => ((b `k` a) :^ n) -> ((b :^ n) `k` a))
+Op1(plusPF, (IxCoproductPCat k n, Ok2 k a b) => ((b `k` a) :^ n) -> ((b :^ n) `k` (a :^ n)))
+Op0(jamPF , (IxCoproductPCat k n, Ok  k a  ) => (a :^ n) `k` a)
 
 Op0(scale,(ScalarCat k a => a -> (a `k` a)))
+
+Catify(ixSum, jamPF)
+
+#if 0
+
+-- | "Matrix"
+infixr 1 :-*
+type (m :-* n) s = (s :^ m) :^ n
+
+lapplyC' :: forall k m n s. (IxCoproductPCat k m, IxProductCat k n, Ok k s)
+        => (m :-* n) (s `k` s) -> ((s :^ m) `k` (s :^ n))
+lapplyC' = forkF . fmap joinPF <+ okIxProd @k @m @s
+
+lapplyC :: forall k m n s. (IxCoproductPCat k m, IxProductCat k n, ScalarCat k s, Ok k s)
+       => (m :-* n) s -> ((s :^ m) `k` (s :^ n))
+lapplyC = lapplyC' . (fmap.fmap) scale
+
+lapply :: Num s
+       => (m :-* n) s -> ((s :^ m) -> (s :^ n))
+lapply = oops "lapply undefined"
+-- TODO: maybe constrain m and n.
+
+Catify(lapply,lapplyC)
+
+#endif
 
 Op0(apply,forall k a b. (ClosedCat k, Ok2 k a b) => Prod k (Exp k a b) a `k` b)
 Op1(curry,(ClosedCat k, Ok3 k a b c) => (Prod k a b `k` c) -> (a `k` Exp k b c))
@@ -701,12 +726,13 @@ toCcc'' _ = oops "toCcc'' called"
 -- {-# RULES "ccc (->)" forall f. toCcc' f = f #-}
 
 
-Op1(fmapC , (FunctorCat k h, Ok2 k a b) => (a `k` b) -> (h a `k` h b))
-Op0(unzipC, (FunctorCat k h, Ok2 k a b) => h (a :* b) `k` (h a :* h b))
-Op0(zipC  , (ZipCat k h    , Ok2 k a b) => (h a :* h b) `k` h (a :* b))
-Op0(pointC, (PointedCat k h a)          => a `k` h a)
-Op0(sumAC , (AddCat k h a)              => h a `k` a)
+Op1(fmapC   , (FunctorCat k h, Ok2 k a b) => (a `k` b) -> (h a `k` h b))
+Op0(unzipC  , (FunctorCat k h, Ok2 k a b) => h (a :* b) `k` (h a :* h b))
+Op0(zipC    , (ZipCat k h    , Ok2 k a b) => (h a :* h b) `k` h (a :* b))
+Op0(pointC  , (PointedCat k h a)          => a `k` h a)
+Op0(sumAC   , (AddCat k h a)              => h a `k` a)
 
+-- Op0(ixSumAC , (IxSummableCat k n a)       => (a :^ n) `k` a)
 -- Op0(sumC  , (SumCat k h a)              => h a `k` a)
 
 Catify(fmap , fmapC)
