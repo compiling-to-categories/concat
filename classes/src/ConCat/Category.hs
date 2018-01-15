@@ -2416,12 +2416,13 @@ instance (IxCoproductCat k n, IxCoproductCat k' n) => IxCoproductCat (k :**: k) 
   plusF = prod . (plusF *** plusF) . unzip . fmap unProd
   jamF  = jamF :**: jamF
 
--- | Indexed coproducts as indexed products
+-- | Indexed coproducts as indexed products.
+-- Requires additivity for now. See 2018-01-14 notes.
 class (Category k, OkIxProd k n) => IxCoproductPCat k n where
-  inPF   :: forall a   . Ok  k a   => (a `k` (a :^ n)) :^ n
-  joinPF :: forall a b . Ok2 k a b => (b `k` a) :^ n -> ((b :^ n) `k` a)
-  plusPF :: forall a b . Ok2 k a b => (b `k` a) :^ n -> ((b :^ n) `k` (a :^ n))  -- same as crossPF
-  jamPF  :: forall a   . Ok  k a   => (a :^ n) `k` a
+  inPF   :: forall a   . (Additive a, Ok  k a  ) => (a `k` (a :^ n)) :^ n
+  joinPF :: forall a b . (Additive a, Ok2 k a b) => (b `k` a) :^ n -> ((b :^ n) `k` a)
+  plusPF :: forall a b . (Additive a, Ok2 k a b) => (b `k` a) :^ n -> ((b :^ n) `k` (a :^ n))  -- same as crossPF
+  jamPF  :: forall a   . (Additive a, Ok  k a  ) => (a :^ n) `k` a
   -- Defaults
   joinPF fs = jamPF . plusPF fs <+ okIxProd @k @n @a <+ okIxProd @k @n @b
   plusPF fs = joinPF (zipWith (.) inPF fs) <+ okIxProd @k @n @a
@@ -2469,13 +2470,23 @@ joinPF inPF :: (b :^ n) `k` (b :^ n)
 
 #endif
 
--- Bogus instance. Experimental hack to let me translate from (->).
--- See 2018-01-13 notes.
-instance IxCoproductPCat (->) n where
-  inPF   = error   "inPF: (->) is a bogus instance"
-  joinPF = error "joinPF: (->) is a bogus instance"
+-- -- Bogus instance. Experimental hack to let me translate from (->).
+-- -- See 2018-01-13 notes.
+-- instance IxCoproductPCat (->) n where
+--   inPF   = error   "inPF: (->) is a bogus instance"
+--   joinPF = error "joinPF: (->) is a bogus instance"
+--   {-# OPINLINE inPF #-}
+--   {-# OPINLINE joinPF #-}
+
+instance IxSummable n => IxCoproductPCat (->) n where
+  inPF      = \ i a j -> if i == j then a else zero
+  plusPF    = crossF
+  joinPF fs = jamPF . plusPF fs  -- default, so remove
+  jamPF     = ixSum
   {-# OPINLINE inPF #-}
   {-# OPINLINE joinPF #-}
+  {-# OPINLINE plusPF #-}
+  {-# OPINLINE jamPF #-}
 
 instance IxCoproductPCat U2 n where
   inPF   = pure U2

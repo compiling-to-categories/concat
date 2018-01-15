@@ -20,9 +20,9 @@ AbsTyPragmas
 -- | Additive maps
 
 module ConCat.AdditiveFun
-  ( Additive1(..),type (-+>)(..), IxSummable(..)
+  ( Additive1(..), type (-+>)(..), addFun, addFun'
   , module ConCat.Additive
-  , addFun, addFun'
+  
   ) where
 
 import Prelude hiding (id,(.),const,curry,uncurry,zipWith)
@@ -36,7 +36,6 @@ import Data.Key (Zip)
 import Data.Pointed (Pointed)
 import Data.Vector.Sized (Vector)
 
-import ConCat.Misc ((:^))
 import ConCat.Orphans ()
 import ConCat.AltCat
 import ConCat.Rep
@@ -152,31 +151,15 @@ class (Category k, OkIxProd k n) => IxCoproductPCat k n where
   jamPF  :: forall a   . Ok  k a   => (a :^ n) `k` a
 #endif
 
-instance (Eq n, IxSummable n) => IxCoproductPCat (-+>) n where
-  inPF   = abst . inPF'
-  joinPF = abst . joinPF' . fmap repr
-  plusPF = abst . plusPF' . fmap repr
-  jamPF  = abst jamPF'
+instance (IxSummable n) => IxCoproductPCat (-+>) n where
+  inPF   = abst . inPF
+  joinPF = abst . joinPF . fmap repr
+  plusPF = abst . plusPF . fmap repr
+  jamPF  = abst jamPF
   {-# OPINLINE inPF   #-}
   {-# OPINLINE joinPF #-}
   {-# OPINLINE plusPF #-}
   {-# OPINLINE jamPF  #-}
-
-inPF'   :: forall n a  . (Ok  (-+>) a, Eq n)   => (a -> (a :^ n)) :^ n
-inPF' i a j = if i == j then a else zero
-{-# INLINE inPF' #-}
-
-joinPF' :: forall n a b . (Ok2 (-+>) a b, IxSummable n) => (b -> a) :^ n -> ((b :^ n) -> a)
-joinPF' fs = jamPF' . plusPF' fs
-{-# INLINE joinPF' #-}
-
-plusPF' :: forall n a b . Ok2 (-+>) a b => (b -> a) :^ n -> ((b :^ n) -> (a :^ n))  -- same as crossPF
-plusPF' = plusPF
-{-# INLINE plusPF' #-}
-
-jamPF'  :: forall n a   . (Ok  (-+>) a, IxSummable n)   => (a :^ n) -> a
-jamPF' = ixSum
-{-# INLINE jamPF' #-}
 
 {--------------------------------------------------------------------
     Functor additivity

@@ -164,10 +164,10 @@ Op1(joinF, (IxCoproductCat k n, Ok2 k a b) => ((b `k` a) :^ n) -> ((n , b) `k` a
 Op1(plusF, (IxCoproductCat k n, Ok2 k a b) => ((b `k` a) :^ n) -> ((n , b) `k` (n , a)))
 Op0(jamF , (IxCoproductCat k n, Ok  k a  ) => (n , a) `k` a)
 
-Op0(inPF  , (IxCoproductPCat k n, Ok  k a  ) => (a `k` (n -> a)) :^ n)
-Op1(joinPF, (IxCoproductPCat k n, Ok2 k a b) => ((b `k` a) :^ n) -> ((b :^ n) `k` a))
-Op1(plusPF, (IxCoproductPCat k n, Ok2 k a b) => ((b `k` a) :^ n) -> ((b :^ n) `k` (a :^ n)))
-Op0(jamPF , (IxCoproductPCat k n, Ok  k a  ) => (a :^ n) `k` a)
+Op0(inPF  , (IxCoproductPCat k n, Additive a, Ok  k a  ) => (a `k` (n -> a)) :^ n)
+Op1(joinPF, (IxCoproductPCat k n, Additive a, Ok2 k a b) => ((b `k` a) :^ n) -> ((b :^ n) `k` a))
+Op1(plusPF, (IxCoproductPCat k n, Additive a, Ok2 k a b) => ((b `k` a) :^ n) -> ((b :^ n) `k` (a :^ n)))
+Op0(jamPF , (IxCoproductPCat k n, Additive a, Ok  k a  ) => (a :^ n) `k` a)
 
 Op0(scale,(ScalarCat k a => a -> (a `k` a)))
 
