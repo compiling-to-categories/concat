@@ -173,28 +173,17 @@ Op0(scale,(ScalarCat k a => a -> (a `k` a)))
 
 Catify(ixSum, jamPF)
 
-#if 0
+-- | Generalized matrix
+infixr 1 :--*
+type (m :--* n) s = (s :^ m) :^ n
 
--- | "Matrix"
-infixr 1 :-*
-type (m :-* n) s = (s :^ m) :^ n
+lapply' :: forall k m n u v. (IxCoproductPCat k m, IxProductCat k n, Additive v, Ok2 k u v)
+       => (m :--* n) (u `k` v) -> ((u :^ m) `k` (v :^ n))
+lapply' = forkF . fmap joinPF <+ okIxProd @k @m @u
 
-lapplyC' :: forall k m n s. (IxCoproductPCat k m, IxProductCat k n, Ok k s)
-        => (m :-* n) (s `k` s) -> ((s :^ m) `k` (s :^ n))
-lapplyC' = forkF . fmap joinPF <+ okIxProd @k @m @s
-
-lapplyC :: forall k m n s. (IxCoproductPCat k m, IxProductCat k n, ScalarCat k s, Ok k s)
-       => (m :-* n) s -> ((s :^ m) `k` (s :^ n))
-lapplyC = lapplyC' . (fmap.fmap) scale
-
-lapply :: Num s
-       => (m :-* n) s -> ((s :^ m) -> (s :^ n))
-lapply = oops "lapply undefined"
--- TODO: maybe constrain m and n.
-
-Catify(lapply,lapplyC)
-
-#endif
+lapply :: forall k m n s. (IxCoproductPCat k m, IxProductCat k n, ScalarCat k s, Additive s, Ok k s)
+      => (m :--* n) s -> ((s :^ m) `k` (s :^ n))
+lapply = lapply' . (fmap.fmap) scale
 
 Op0(apply,forall k a b. (ClosedCat k, Ok2 k a b) => Prod k (Exp k a b) a `k` b)
 Op1(curry,(ClosedCat k, Ok3 k a b c) => (Prod k a b `k` c) -> (a `k` Exp k b c))
