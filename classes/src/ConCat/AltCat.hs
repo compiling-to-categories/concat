@@ -175,15 +175,16 @@ Catify(ixSum, jamPF)
 
 -- | Generalized matrix
 infixr 1 :--*
-type (m :--* n) s = (s :^ m) :^ n
+type (m :--* n) u = (u :^ m) :^ n
 
-lapply' :: forall k m n u v. (IxCoproductPCat k m, IxProductCat k n, Additive v, Ok2 k u v)
-       => (m :--* n) (u `k` v) -> ((u :^ m) `k` (v :^ n))
-lapply' = forkF . fmap joinPF <+ okIxProd @k @m @u
+linearApp' :: forall k m n u v. (IxCoproductPCat k m, IxProductCat k n, Additive v, Ok2 k u v)
+           => (m :--* n) (u `k` v) -> ((u :^ m) `k` (v :^ n))
+linearApp' = forkF . fmap joinPF <+ okIxProd @k @m @u
 
-lapply :: forall k m n s. (IxCoproductPCat k m, IxProductCat k n, ScalarCat k s, Additive s, Ok k s)
-      => (m :--* n) s -> ((s :^ m) `k` (s :^ n))
-lapply = lapply' . (fmap.fmap) scale
+linearApp :: forall k m n s. (IxCoproductPCat k m, IxProductCat k n, ScalarCat k s, Additive s, Ok k s)
+          => (m :--* n) s -> ((s :^ m) `k` (s :^ n))
+linearApp = linearApp' . (result.result) scale
+
 
 Op0(apply,forall k a b. (ClosedCat k, Ok2 k a b) => Prod k (Exp k a b) a `k` b)
 Op1(curry,(ClosedCat k, Ok3 k a b c) => (Prod k a b `k` c) -> (a `k` Exp k b c))
