@@ -44,7 +44,7 @@ s *^ v = scale s <$> v
 scaleV = (*^)
 {-# INLINE (*^) #-}
 
--- | "Matrix"
+-- | Linear map representation ("matrix")
 infixr 1 --*
 type a --* b = (R :^ a) :^ b
 
@@ -68,14 +68,16 @@ outerV = (>.<)
 {-# INLINE (>.<) #-}
 {-# INLINE outerV #-}
 
-lap' :: (IxSummable a, Additive z)
-     => ((z -> z) :^ a) :^ b -> (z :^ a -> z :^ b)
+lap' :: (IxSummable a, Additive v)
+     => ((u -> v) :^ a) :^ b -> (u :^ a -> v :^ b)
 lap' = forkF . fmap joinPF
+{-# INLINE lap' #-}
 
 -- | Apply a linear map
 lap :: (IxSummable a, Additive s, Num s)
     => (s :^ a) :^ b -> (s :^ a -> s :^ b)
 lap = lap' . (fmap.fmap) scale
+{-# INLINE lap #-}
 
 -- lap :: (a --* b) -> (a --> b)
 
@@ -83,7 +85,27 @@ lap = lap' . (fmap.fmap) scale
 -- in ConCat.Category. Okay if we translate to another category. I'll find a
 -- more principled way.
 
--- TODO: maybe constrain a and b.
+-- | Affine map representation
+infixr 1 --+
+type a --+ b = Maybe a --* b
+
+-- | Affine application
+aap :: (IxSummable a, Additive s, Num s)
+    => (s :^ Maybe a) :^ b -> (s :^ a -> s :^ b)
+aap m = lap m . maybe 1
+{-# INLINE aap #-}
+
+--     m              :: b -> Maybe a -> s
+--                as  :: a -> s
+--        maybe 1 as  :: Maybe a -> a
+-- lap m (maybe 1 as) :: b -> s
+
+-- TODO: reconsider the names "lap" and "aap".
+-- Maybe "linearApp" & "affineApp" and/or "($*)" & "($+)".
+
+-- TODO: Is there an affine counterpart to lap'?
+
+-- Considering the generality, move these definitions from `Deep` to `AltCat`.
 
 normSqr :: (IxSummable n, Additive s, Num s) => s :^ n -> s
 normSqr u  = u <.> u
@@ -101,8 +123,7 @@ distSqr u v = normSqr (u - v)
 --------------------------------------------------------------------}
 
 -- | Linear followed by RELUs.
-linRelu :: IxSummable a
-        => (a --* b) -> (a --> b)
+linRelu :: IxSummable a => (a --* b) -> (a --> b)
 linRelu = (result.result.fmap) (max 0) lap
 {-# INLINE linRelu #-}
 
