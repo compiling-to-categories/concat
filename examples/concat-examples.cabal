@@ -54,6 +54,8 @@ library
                      -- For simple machine learning
                      , vector
                      , vector-sized
+                     -- For Deep
+                     , NumInstances
                      -- concat
                      , concat-inline
                      , concat-classes
@@ -95,6 +97,7 @@ library
                        -- ConCat.RegressChoice  -- see 2017-12-27 notes
                        ConCat.LC
                        ConCat.Local
+                       ConCat.Deep
   if flag(smt)
     exposed-modules: ConCat.SMT
   ghc-options:      -O2
