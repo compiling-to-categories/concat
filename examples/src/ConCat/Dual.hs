@@ -191,6 +191,6 @@ instance RepresentableCat k g => RepresentableCat (Dual k) g where
     CCC interface
 --------------------------------------------------------------------}
 
-toDual :: (a -> b) -> (b `k` a)
+toDual :: forall k a b. (a -> b) -> (b `k` a)
 toDual f = unDual (A.toCcc f)
 {-# INLINE toDual #-}
