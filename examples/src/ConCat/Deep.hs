@@ -28,7 +28,7 @@ import Data.NumInstances.Function ()
 
 import ConCat.Misc
 import ConCat.Additive
-import ConCat.AltCat (forkF,joinPF,scale,jamPF)
+import ConCat.AltCat (forkF,joinPF,scale,jamPF,(:--*),lapply',lapply)
 import ConCat.Orphans ()
 import ConCat.RAD (gradR)
 
@@ -46,7 +46,8 @@ scaleV = (*^)
 
 -- | Linear map representation ("matrix")
 infixr 1 --*
-type a --* b = (R :^ a) :^ b
+type a --* b = (a :--* b) R
+-- type a --* b = (R :^ a) :^ b
 
 infixr 1 -->
 type a --> b = R :^ a -> R :^ b
@@ -70,13 +71,13 @@ outerV = (>.<)
 
 lap' :: (IxSummable a, Additive v)
      => ((u -> v) :^ a) :^ b -> (u :^ a -> v :^ b)
-lap' = forkF . fmap joinPF
+lap' = lapply'
 {-# INLINE lap' #-}
 
 -- | Apply a linear map
 lap :: (IxSummable a, Additive s, Num s)
     => (s :^ a) :^ b -> (s :^ a -> s :^ b)
-lap = lap' . (fmap.fmap) scale
+lap = lapply
 {-# INLINE lap #-}
 
 -- lap :: (a --* b) -> (a --> b)
