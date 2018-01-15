@@ -263,6 +263,16 @@ instance Typeable op => OpCon op (Sat Typeable) where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
 
+instance OpCon (:*) (Sat Eq) where
+  inOp = Entail (Sub Dict)
+  {-# INLINE inOp #-}
+
+instance OpCon (:*) (Sat Ord) where
+  inOp = Entail (Sub Dict)
+  {-# INLINE inOp #-}
+
+-- TODO: more OpCon instances for standard type classes
+
 instance OpCon (:*) (Sat Additive) where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
@@ -2051,6 +2061,13 @@ class ({- Pointed h, -} OkFunctor k h, Ok k a) => PointedCat k h a where
 class (Ok k a, Additive a) => AddCat k h a where
   sumAC :: h a `k` a
 
+-- class IxSummable n => IxSummableCat k n where
+--   ixSumC ::  (Ok k a, Additive a) => (a :^ n) `k` a
+
+-- TODO: Keep only one of AddCat and IxSummableCat, depending on whether I go
+-- with functions or functors for indexed products and coproducts.
+-- Nope. Use jamPF instead of ixSumC.
+
 instance Functor h => FunctorCat (->) h where
   fmapC  = IC.inline fmap
   unzipC = X.inline unzip
@@ -2102,8 +2119,12 @@ instance Pointed h => PointedCat (->) h a where
 --   {-# OPINLINE sumC #-}
 
 instance (Foldable h, Additive a) => AddCat (->) h a where
-  sumAC = IC.inline sumA
+  sumAC = sumA  -- not a method
   {-# OPINLINE sumAC #-}
+
+-- instance (IxSummable n, Additive a) => IxSummableCat (->) n a where
+--   ixSumC = IC.inline ixSum
+--   {-# OPINLINE ixSumC #-}
 
 -- instance (OkFunctor k h, OkFunctor k' h) => OkFunctor (k :**: k') h where
 --   okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
@@ -2145,6 +2166,10 @@ instance (PointedCat k h a, PointedCat k' h a) => PointedCat (k :**: k') h a whe
 instance (AddCat k h a, AddCat k' h a) => AddCat (k :**: k') h a where
   sumAC = sumAC :**: sumAC
   {-# INLINE sumAC #-}
+
+-- instance (IxSummableCat k h a, IxSummableCat k' h a) => IxSummableCat (k :**: k') h a where
+--   ixSumC = ixSumC :**: ixSumC
+--   {-# INLINE ixSumC #-}
 
 class DistributiveCat k g f where
   distributeC :: Ok k a => f (g a) `k` g (f a)
@@ -2216,8 +2241,8 @@ class OkIxProd k n where
 
 class (Category k, OkIxProd k n) => IxProductCat k n where
   exF    :: forall a  . Ok  k a   => ((a :^ n) `k` a) :^ n
-  forkF  :: forall a b. Ok2 k a b => ((a `k` b) :^ n) -> (a `k` (b :^ n))
-  crossF :: forall a b. Ok2 k a b => ((a `k` b) :^ n) -> ((a :^ n) `k` (b :^ n))
+  forkF  :: forall a b. Ok2 k a b => (a `k` b) :^ n -> (a `k` (b :^ n))
+  crossF :: forall a b. Ok2 k a b => (a `k` b) :^ n -> ((a :^ n) `k` (b :^ n))
   replF  :: forall a  . Ok  k a   => a `k` (a :^ n)
   -- Defaults
   forkF  fs = crossF fs . replF <+ okIxProd @k @n @a <+ okIxProd @k @n @b
@@ -2311,8 +2336,8 @@ class OkIxCoprod k n where
 -- | Indexed coproducts
 class (Category k, OkIxCoprod k n) => IxCoproductCat k n where
   inF   :: forall a   . Ok  k a   => (a `k` (n , a)) :^ n
-  joinF :: forall a b . Ok2 k a b => ((b `k` a) :^ n) -> ((n , b) `k` a)
-  plusF :: forall a b . Ok2 k a b => ((b `k` a) :^ n) -> ((n , b) `k` (n , a))
+  joinF :: forall a b . Ok2 k a b => (b `k` a) :^ n -> ((n , b) `k` a)
+  plusF :: forall a b . Ok2 k a b => (b `k` a) :^ n -> ((n , b) `k` (n , a))
   jamF  :: forall a   . Ok  k a   => (n , a) `k` a
   -- Defaults
   plusF fs = joinF (zipWith (.) inF fs) <+ okIxCoprod @k @n @a
@@ -2394,8 +2419,8 @@ instance (IxCoproductCat k n, IxCoproductCat k' n) => IxCoproductCat (k :**: k) 
 -- | Indexed coproducts as indexed products
 class (Category k, OkIxProd k n) => IxCoproductPCat k n where
   inPF   :: forall a   . Ok  k a   => (a `k` (a :^ n)) :^ n
-  joinPF :: forall a b . Ok2 k a b => ((b `k` a) :^ n) -> ((b :^ n) `k` a)
-  plusPF :: forall a b . Ok2 k a b => ((b `k` a) :^ n) -> ((b :^ n) `k` (a :^ n))  -- same as crossPF
+  joinPF :: forall a b . Ok2 k a b => (b `k` a) :^ n -> ((b :^ n) `k` a)
+  plusPF :: forall a b . Ok2 k a b => (b `k` a) :^ n -> ((b :^ n) `k` (a :^ n))  -- same as crossPF
   jamPF  :: forall a   . Ok  k a   => (a :^ n) `k` a
   -- Defaults
   joinPF fs = jamPF . plusPF fs <+ okIxProd @k @n @a <+ okIxProd @k @n @b
@@ -2459,7 +2484,7 @@ instance IxCoproductPCat U2 n where
   jamPF  = U2
 
 instance (IxCoproductPCat k n, IxCoproductPCat k' n)
-      => IxCoproductPCat (k :**: k) n where
+      => IxCoproductPCat (k :**: k') n where
   inPF   = zipWith (:**:) inPF inPF
   joinPF = prod . (joinPF *** joinPF) . unzip . fmap unProd
   plusPF = prod . (plusPF *** plusPF) . unzip . fmap unProd
