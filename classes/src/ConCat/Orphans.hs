@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE InstanceSigs #-}
@@ -6,6 +7,8 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 
@@ -32,9 +35,9 @@ import qualified Data.Functor.Rep as Rep
 
 -- import Data.Stream (Stream(..))
 import Control.Newtype
-import Text.PrettyPrint.HughesPJClass
+import Text.PrettyPrint.HughesPJClass hiding ((<>))
 import GHC.TypeLits (KnownNat)
-import Data.Finite (Finite,finite)
+import Data.Finite (Finite,finite,finites)
 import Data.Vector.Sized (Vector)
 import qualified Data.Vector.Sized as V
 
@@ -372,3 +375,31 @@ instance KnownNat n => Representable (Vector n) where
 instance KnownNat n => Pointed (Vector n) where
   point = V.replicate
   {-# INLINE point #-}
+
+{--------------------------------------------------------------------
+    Foldable for functions
+--------------------------------------------------------------------}
+
+instance Foldable ((->) Void) where
+  foldMap _ _ = mempty
+  {-# INLINE foldMap #-}
+
+instance Foldable ((->) ()) where
+  foldMap f as = f (as ())
+  {-# INLINE foldMap #-}
+
+instance Foldable ((->) Bool) where
+  foldMap f as = f (as False) <> f (as True)
+  {-# INLINE foldMap #-}
+
+instance (Foldable ((->) m), Foldable ((->) n)) => Foldable ((->) (m :+ n)) where
+  foldMap h as = foldMap h (as . Left) <> foldMap h (as . Right)
+  {-# INLINE foldMap #-}
+
+instance (Foldable ((->) m), Foldable ((->) n)) => Foldable ((->) (m :* n)) where
+  foldMap h as = (foldMap.foldMap) h (curry as)
+  {-# INLINE foldMap #-}
+
+instance KnownNat n => Foldable ((->) (Finite n)) where
+  foldMap h as = foldMap h (as <$> finites @n)
+  {-# INLINE foldMap #-}
