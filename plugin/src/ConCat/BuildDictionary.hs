@@ -169,10 +169,10 @@ buildDictionary env dflags guts inScope goalTy =
    keepVar v =
      -- Keep evidence that relates to free type variables in the goal.
      isEvVar v
-     -- && not (isEmptyVarSet (goalTyVars `intersectVarSet` tyCoVarsOfType (varType v)))
+     -- && not (isEmptyVarSet (goalTyVars `intersectVarSet` tyCoVarsOfType (varType v))) -- see issue #20
    -- freeIds = filter isId (uniqSetToList (exprFreeVars dict))
    -- freeIdTys = varType <$> freeIds
-   goalTyVars = tyCoVarsOfType goalTy
+   -- goalTyVars = tyCoVarsOfType goalTy
    reassemble (i,bnds) =
      -- pprTrace' "buildDictionary" (ppr goalTy $$ text "-->" $$ ppr dict) $
      -- pprTrace' "buildDictionary inScope" (ppr (fst inScope)) $
