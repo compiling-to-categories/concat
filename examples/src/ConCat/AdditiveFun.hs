@@ -176,8 +176,7 @@ instance (AddF f, AddF g) => Additive1 (f :*: g)  where additive1 = Entail (Sub 
 instance (AddF f, AddF g) => Additive1 (g :.: f)  where additive1 = Entail (Sub Dict)
 instance KnownNat n       => Additive1 (Vector n) where additive1 = Entail (Sub Dict)
 
--- instance OkAdd (-+>) where
---   okAdd = Entail (Sub Dict)
+instance OkAdd (-+>) where okAdd = Entail (Sub Dict)
 
 {--------------------------------------------------------------------
     NumCat etc
