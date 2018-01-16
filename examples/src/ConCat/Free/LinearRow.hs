@@ -51,6 +51,7 @@ import ConCat.AltCat hiding (const)
 import ConCat.Rep
 -- import ConCat.Free.Diagonal
 import qualified ConCat.AdditiveFun as Ad
+import ConCat.Additive
 
 AbsTyImports
 
@@ -199,8 +200,8 @@ type OkLF f = (Foldable f, Zeroable f, Zip f, Diagonal f)
 
 type OkLM' s a = (Num s, HasV s a, OkLF (V s a))
 
-class    (Num s, HasV s a, OkLF (V s a)) => OkLM s a
-instance (Num s, HasV s a, OkLF (V s a)) => OkLM s a
+class    (Num s, Additive a, HasV s a, OkLF (V s a)) => OkLM s a
+instance (Num s, Additive a, HasV s a, OkLF (V s a)) => OkLM s a
 
 zeroLM :: (Num s, Zeroable (V s a), Zeroable (V s b)) => L s a b
 zeroLM = L zeroL
@@ -231,6 +232,8 @@ instance ProductCat (L s) where
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
+
+instance OkAdd (L s) where okAdd = Entail (Sub Dict)
 
 instance CoproductPCat (L s) where
   inlP = abst inlL
