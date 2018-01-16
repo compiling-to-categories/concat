@@ -1,6 +1,7 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -37,7 +38,7 @@ import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable)
 import qualified Data.Functor.Rep
 
-import ConCat.Misc ((:*),type (&+&),cond,result,unzip,sqr) -- ,PseudoFun(..),oops
+import ConCat.Misc ((:*),(:^),type (&+&),cond,result,unzip,sqr) -- ,PseudoFun(..),oops
 -- import ConCat.Free.VectorSpace
 -- import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
@@ -47,6 +48,8 @@ import qualified ConCat.AltCat as A
 import ConCat.Rep
 
 AbsTyImports
+
+-- TODO: try again with importing Category qualified and AltCat unqualified.
 
 -- newtype GD k a b = D { unD :: a -> b :* (a `k` b) }
 data GD k a b = D { unD :: a -> (b :* (a `k` b)) }
@@ -111,48 +114,105 @@ instance Category k => Category (GD k) where
 instance ProductCat k => ProductCat (GD k) where
   Linear(exl)
   Linear(exr)
-  D f &&& D g = D (\ a ->
-    let (b,f') = f a
-        (c,g') = g a
-    in
-      ((b,c), f' &&& g'))
+  Linear(dup)
+  D f *** D g = D (second (uncurry (A.***)) . A.transposeP . (f A.*** g))
+  -- D f *** D g = D (\ (a,b) ->
+  --   let (c,f') = f a
+  --       (d,g') = g b
+  --   in
+  --     ((c,d), f' *** g'))
   {-# INLINE exl #-}
   {-# INLINE exr #-}
-  {-# INLINE (&&&) #-}
+  {-# INLINE (***) #-}
+  {-# INLINE dup #-}
 
---   (&&&) = inNew2 $ \ f g -> second (uncurry (&&&)) . transposeP . (f &&& g)
+  -- D f &&& D g = D (\ a ->
+  --   let (c,f') = f a
+  --       (d,g') = g a
+  --   in
+  --     ((c,d), f' &&& g')) -- or default
+  -- {-# INLINE (&&&) #-}
 
-#if 0
-  
-instance (CoproductPCat k, OkAdd k) => CoproductPCat (GD k) where
+instance OkAdd k => OkAdd (GD k) where
+  okAdd :: forall a. Ok' (GD k) a |- Sat Additive a
+  okAdd = Entail (Sub (Dict <+ okAdd @k @a))
+
+instance CoproductPCat k => CoproductPCat (GD k) where
   Linear(inlP)
   Linear(inrP)
-  (||||) :: forall a b c. Ok3 k a b c => GD k a c -> GD k b c -> GD k (a :* b) c
-  D f |||| D g = D (\ (a,b) ->
-    let (c ,f') = f a
-        (c',g') = g b
+  -- D f ++++ D g = D (second (uncurry (A.++++)) . A.transposeP . (f A.++++ g))
+  D f ++++ D g = D (\ (a,b) ->
+    let (c,f') = f a
+        (d,g') = g b
     in
-      ((c ^+^ c' <+ okAdd @k @c), f' |||| g'))
+      ((c,d), f' ++++ g'))
+  Linear(jamP)
+  Linear(swapPS)
   {-# INLINE inlP #-}
   {-# INLINE inrP #-}
-  {-# INLINE (||||) #-}
+  {-# INLINE (++++) #-}
+  {-# INLINE jamP #-}
 
--- Could not deduce CoproductPCat (->) arising from use of
--- (||||), A.inlP, and A.inrP.
+  -- D f |||| D g = D (\ (a,b) ->
+  --   let (c ,f') = f a
+  --       (c',g') = g b
+  --   in
+  --     (c ^+^ c', f' |||| g')) -- or default
+  -- {-# INLINE (||||) #-}
 
--- To fix both problems, replace (->) with (-+>) in the definition of GD.
--- Use a pattern synonym for convenience.
+{--------------------------------------------------------------------
+    Indexed products and coproducts
+--------------------------------------------------------------------}
 
--- f :: a -> c :* (a `k` c)
--- g :: b -> c :* (b `k` c)
+#if 0
+class (Category k, OkIxProd k n) => IxProductCat k n where
+  exF    :: forall a  . Ok  k a   => ((a :^ n) `k` a) :^ n
+  forkF  :: forall a b. Ok2 k a b => (a `k` b) :^ n -> (a `k` (b :^ n))
+  crossF :: forall a b. Ok2 k a b => (a `k` b) :^ n -> ((a :^ n) `k` (b :^ n))
+  replF  :: forall a  . Ok  k a   => a `k` (a :^ n)
 
+class (Category k, OkIxProd k n) => IxCoproductPCat k n where
+  inPF   :: forall a   . (Additive a, Ok  k a  ) => (a `k` (a :^ n)) :^ n
+  joinPF :: forall a b . (Additive a, Ok2 k a b) => (b `k` a) :^ n -> ((b :^ n) `k` a)
+  plusPF :: forall a b . (Additive a, Ok2 k a b) => (b `k` a) :^ n -> ((b :^ n) `k` (a :^ n))  -- same as crossPF
+  jamPF  :: forall a   . (Additive a, Ok  k a  ) => (a :^ n) `k` a
+
+class OkIxProd k n where
+  okIxProd :: Ok' k a |- Ok' k (a :^ n)
 #endif
+
+instance OkIxProd k n => OkIxProd (GD k) n where
+  okIxProd :: forall a. Ok' (GD k) a |- Ok' (GD k) (a :^ n)
+  okIxProd = Entail (Sub (Dict <+ okIxProd @k @n @a))
+
+-- #define Linear(nm) nm = linearD A.nm A.nm
+
+-- linearD :: (a -> b) -> (a `k` b) -> GD k a b
+-- -- linearD f f' = D (f &&& const f')
+-- linearD f f' = D (\ a -> (f a, f'))
+
+instance IxProductCat k n => IxProductCat (GD k) n where
+  -- exF i = linearD (A.exF i) (A.exF i)
+  exF = zipWith linearD A.exF A.exF
+  crossF (fmap repr -> fs) = D (second crossF . unzip . crossF fs)
+  Linear(replF)
+
+  -- exF    = abst <$> inPF
+  -- forkF  = abst . joinPF . fmap repr
+  -- crossF = abst . plusPF . fmap repr
+  -- replF  = abst jamPF
+
+-- crossF types:
+-- 
+--   crossF fs     :: a :^ n -> (b :* (a `k` b)) :^ n
+--   unzip         :: .. -> b :^ n :* (a `k` b) :^ n
+--   second crossF :: .. -> b :^ n :* ((a :^ n) `k` (b :^ n)
 
 {--------------------------------------------------------------------
     NumCat etc
 --------------------------------------------------------------------}
 
-instance {-# overlappable #-} (LinearCat k s, Num s) => NumCat (GD k) s where
+instance {-# overlappable #-} (LinearCat k s, Additive s, Num s) => NumCat (GD k) s where
   addC    = linearD addC jamP
   negateC = linearD negateC (scale (-1))
   mulC    = D (mulC &&& \ (u,v) -> scale v |||| scale u) -- \ (du,dv) -> u*dv + v*du
@@ -176,7 +236,7 @@ scalarX :: ScalarCat k s => (s -> s) -> (s -> s) -> GD k s s
 scalarX f r = scalarD f (const . r)
 {-# INLINE scalarX #-}
 
-instance (LinearCat k s, Fractional s) => FractionalCat (GD k) s where
+instance (LinearCat k s, Additive s, Fractional s) => FractionalCat (GD k) s where
   recipC = scalarR recip (negate . sqr)
   {-# INLINE recipC #-}
 
