@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeOperators #-}
@@ -27,11 +28,11 @@ import Data.Key
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable)
 
-import ConCat.Misc ((:*),inNew2,unzip)
+import ConCat.Misc ((:*),(:^),inNew2,unzip,type (&+&))
 import ConCat.Rep
 import ConCat.Category
 import qualified ConCat.AltCat as A
-import ConCat.Additive (Additive)
+import ConCat.AdditiveFun (Additive,Additive1(..))
 
 AbsTyImports
 
@@ -54,7 +55,7 @@ instance HasRep (Dual k a b) where
 AbsTy(Dual k a b)
 
 instance Category k => Category (Dual k) where
-  type Ok (Dual k) = Ok k
+  type Ok (Dual k) = Ok k &+& Additive -- for ProductCat instance
   id = abst id
   (.) = inAbst2 (flip (.))
   {-# INLINE id #-}
@@ -91,6 +92,22 @@ instance ProductCat k => CoproductPCat (Dual k) where
 instance ScalarCat k s => ScalarCat (Dual k) s where
   scale s = abst (scale s)
 
+instance OkIxProd k n => OkIxProd (Dual k) n where
+  okIxProd :: forall a. Ok' (Dual k) a |- Ok' (Dual k) (a :^ n)
+  okIxProd = Entail (Sub (Dict <+ okIxProd @k @n @a))
+
+instance IxCoproductPCat k n => IxProductCat (Dual k) n where
+  exF    = abst <$> inPF
+  forkF  = abst . joinPF . fmap repr
+  crossF = abst . plusPF . fmap repr
+  replF  = abst jamPF
+
+instance IxProductCat k n => IxCoproductPCat (Dual k) n where
+  inPF   = abst <$> exF
+  joinPF = abst . forkF  . fmap repr
+  plusPF = abst . crossF . fmap repr
+  jamPF  = abst replF
+
 #if 1
 
 -- This ProductCat definition corresponds to the *coproduct* (direct sum) for
@@ -117,7 +134,7 @@ instance CoterminalCat k => TerminalCat (Dual k) where
 
 -- Is there a standard name for ti . it ?
 
-instance (Category k, TerminalCat k, CoterminalCat k, Ok k b) => ConstCat (Dual k) b where
+instance (Category k, TerminalCat k, CoterminalCat k, Ok (Dual k) b) => ConstCat (Dual k) b where
   const _ = abst (ti . it)
   {-# INLINE const #-}
 
@@ -130,23 +147,25 @@ instance CoerceCat k b a => CoerceCat (Dual k) a b where
 
 ---- Functor-level:
 
-instance OkFunctor k h => OkFunctor (Dual k) h where
+type OkF k h = (Additive1 h, OkFunctor k h)
+
+instance (OkFunctor k h, Additive1 h) => OkFunctor (Dual k) h where
   okFunctor :: forall a. Ok' (Dual k) a |- Ok' (Dual k) (h a)
-  okFunctor = Entail (Sub (Dict <+ okFunctor @k @h @a))
+  okFunctor = Entail (Sub (Dict <+ okFunctor @k @h @a <+ additive1 @h @a))
   {-# INLINE okFunctor #-}
 
-instance (Functor h, ZipCat k h, FunctorCat k h) => FunctorCat (Dual k) h where
+instance (Functor h, ZipCat k h, Additive1 h, FunctorCat k h) => FunctorCat (Dual k) h where
   fmapC = inAbst fmapC
   unzipC = abst zipC
   {-# INLINE fmapC #-}
   {-# INLINE unzipC #-}
 
-instance (Zip h, FunctorCat k h) => ZipCat (Dual k) h where
+instance (Zip h, Additive1 h, FunctorCat k h) => ZipCat (Dual k) h where
   zipC = abst A.unzipC
   {-# INLINE zipC #-}
   -- {-# INLINE zipWithC #-}
 
-instance (Zip h, ZapCat k h, OkFunctor k h) => ZapCat (Dual k) h where
+instance (Zip h, ZapCat k h, OkF k h) => ZapCat (Dual k) h where
   zapC :: Ok2 k a b => h (Dual k a b) -> Dual k (h a) (h b)
   -- zapC = A.abstC . A.zapC . A.fmapC A.reprC
   -- zapC = abst . A.zapC . fmap repr
@@ -161,7 +180,7 @@ instance (PointedCat k h a, Additive a) => AddCat (Dual k) h a where
   sumAC = abst A.pointC
   {-# INLINE sumAC #-}
 
-instance (AddCat k h a, OkFunctor k h) => PointedCat (Dual k) h a where
+instance (AddCat k h a, OkF k h) => PointedCat (Dual k) h a where
   pointC = abst A.sumAC
   {-# INLINE pointC #-}
 
