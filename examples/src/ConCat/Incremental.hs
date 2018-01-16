@@ -220,6 +220,12 @@ unPairD :: Del (u :* v) -+> Del u :* Del v
 unPairD = abst (\ (Del (du,dv)) -> (Del du, Del dv))
 {-# INLINE unPairD #-}
 
+inPairD :: (C4 HasDelta u v u' v')
+        => (Del u :* Del v -+> Del u' :* Del v')
+        -> (Del (u :* v)   -+> Del (u' :* v'))
+-- inPairD = pairD <~ unPairD  -- when (<~) etc are moved from Category to AltCat
+inPairD h = pairD . h . unPairD
+
 instance Category (-#>) where
   type Ok (-#>) = HasDelta
   id  = abst id
@@ -230,10 +236,17 @@ instance Category (-#>) where
 instance ProductCat (-#>) where
   exl   = abst (exl . unPairD)
   exr   = abst (exr . unPairD)
-  (&&&) = inAbst2 (\ f g -> pairD . (f &&& g))
+  (&&&) = inAbst2 ((result.result) (pairD .) (&&&))
+  (***) = inAbst2 ((result.result) inPairD (***))
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
+  {-# INLINE (***) #-}
+
+  -- (&&&) = inAbst2 (\ f g -> pairD . (f &&& g))
+  -- (***) = inAbst2 (\ f g -> pairD . (f *** g) . unPairD)
+  -- (***) = inAbst2 (\ f g -> inPairD (f *** g))
+  -- (***) = (inAbst2 . (result.result) inPairD) (***)
 
 #if 0
 -- Types for exl:
@@ -253,9 +266,12 @@ instance CoproductPCat (-#>) where
   inlP = abst (pairD . inlP)
   inrP = abst (pairD . inrP)
   (||||) = inAbst2 (\ f g -> (f |||| g) . unPairD)
+  (++++) = inAbst2 (\ f g -> pairD . (f ++++ g) . unPairD)
+  swapPS = abst (inPairD swapPS)
   {-# INLINE inlP #-}
   {-# INLINE inrP #-}
   {-# INLINE (||||) #-}
+  {-# INLINE (++++) #-}
 
 #if 0
 -- Types for inlP:
