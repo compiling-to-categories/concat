@@ -55,21 +55,27 @@ instance HasRep (Dual k a b) where
 AbsTy(Dual k a b)
 
 instance Category k => Category (Dual k) where
-  type Ok (Dual k) = Ok k &+& Additive -- for ProductCat instance
+  type Ok (Dual k) = Ok k
   id = abst id
   (.) = inAbst2 (flip (.))
   {-# INLINE id #-}
   {-# INLINE (.) #-}
 
--- I could define Ok (Dual k) = Ok k, and rely on Ok k and OkAdd k for Additive,
--- but doing do requires a lot of entailments and explicit signatures.
+instance OkAdd k => OkAdd (Dual k) where
+  okAdd :: forall a. Ok' (Dual k) a |- Sat Additive a
+  okAdd = Entail (Sub (Dict <+ okAdd @k @a))
 
-instance CoproductPCat k => ProductCat (Dual k) where
-  exl   = abst inlP
-  exr   = abst inrP
-  (&&&) = inAbst2 (||||)
+instance (OkAdd k, CoproductPCat k) => ProductCat (Dual k) where
+  exl :: forall a b. Ok2 k a b => Dual k (a :* b) a
+  exl   = abst inlP <+ okAdd @(Dual k) @b
+  exr :: forall a b. Ok2 k a b => Dual k (a :* b) b
+  exr   = abst inrP <+ okAdd @(Dual k) @a
+  (&&&) :: forall a c d. Ok3 (Dual k) a c d
+        => Dual k a c -> Dual k a d -> Dual k a (c :* d)
+  (&&&) = inAbst2 (||||) <+ okAdd @(Dual k) @a
   (***) = inAbst2 (++++)
-  dup   = abst jamP
+  dup :: forall a. Ok (Dual k) a => Dual k a (a :* a)
+  dup   = abst jamP <+ okAdd @(Dual k) @a
   swapP = abst swapPS
   {-# INLINE exl #-}
   {-# INLINE exr #-}
@@ -99,11 +105,14 @@ instance OkIxProd k n => OkIxProd (Dual k) n where
   okIxProd :: forall a. Ok' (Dual k) a |- Ok' (Dual k) (a :^ n)
   okIxProd = Entail (Sub (Dict <+ okIxProd @k @n @a))
 
-instance IxCoproductPCat k n => IxProductCat (Dual k) n where
-  exF    = abst <$> inPF
-  forkF  = abst . joinPF . fmap repr
+instance (OkAdd k, IxCoproductPCat k n) => IxProductCat (Dual k) n where
+  exF    :: forall a  . Ok (Dual k) a => Dual k (a :^ n) a :^ n
+  exF    = abst <$> inPF <+ okAdd @k @a
+  forkF  :: forall a b. Ok2 (Dual k) a b => Dual k a b :^ n -> Dual k a (b :^ n)
+  forkF  = abst . joinPF . fmap repr <+ okAdd @k @a
   crossF = abst . plusPF . fmap repr
-  replF  = abst jamPF
+  replF  :: forall a  . Ok (Dual k) a => Dual k a (a :^ n)
+  replF  = abst jamPF <+ okAdd @k @a
 
 instance IxProductCat k n => IxCoproductPCat (Dual k) n where
   inPF   = abst <$> exF
@@ -150,20 +159,20 @@ instance CoerceCat k b a => CoerceCat (Dual k) a b where
 
 ---- Functor-level:
 
-type OkF k h = (Additive1 h, OkFunctor k h)
+type OkF k h = (Additive1 h, OkFunctor k h, OkAdd k)
 
-instance (OkFunctor k h, Additive1 h) => OkFunctor (Dual k) h where
+instance (OkFunctor k h, OkAdd k, Additive1 h) => OkFunctor (Dual k) h where
   okFunctor :: forall a. Ok' (Dual k) a |- Ok' (Dual k) (h a)
-  okFunctor = Entail (Sub (Dict <+ okFunctor @k @h @a <+ additive1 @h @a))
+  okFunctor = Entail (Sub (Dict <+ okFunctor @k @h @a <+ additive1 @h @a <+ okAdd @k @a))
   {-# INLINE okFunctor #-}
 
-instance (Functor h, ZipCat k h, Additive1 h, FunctorCat k h) => FunctorCat (Dual k) h where
+instance (Functor h, ZipCat k h, OkAdd k, Additive1 h, FunctorCat k h) => FunctorCat (Dual k) h where
   fmapC = inAbst fmapC
   unzipC = abst zipC
   {-# INLINE fmapC #-}
   {-# INLINE unzipC #-}
 
-instance (Zip h, Additive1 h, FunctorCat k h) => ZipCat (Dual k) h where
+instance (Zip h, Additive1 h, OkAdd k, FunctorCat k h) => ZipCat (Dual k) h where
   zipC = abst A.unzipC
   {-# INLINE zipC #-}
   -- {-# INLINE zipWithC #-}
