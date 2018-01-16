@@ -3,12 +3,7 @@
 *   Many modules depend on `ConCat.Circuit` for `AbsTy`.
     Find another solution, perhaps via default methods with default signatures.
 *   Define utility functions to do most of the work of various plugin transformations, including application, abstraction, pairing, etc.
-*   Experiment with `-fexpose-all-unfoldings` as an alternative to explicit `INLINE` declarations.
-    Also consider `INLINABLE`.
 *   Move (some?) todo items to github repo.
-*   Add `INLINE` pragmas for the method defaults in `ConCat.Category`.
-    So far, I've added them for just a few `(***)`, `subC`, `recipC`, `divideC`.
-    See personal notes for 2017-08-25.
 *   Look for a better solution to the problem of GHC eagerly inlining methods.
     My current workaround is `ConCat.Category` vs `ConCat.AltCat`.
     Inconvenient for adding classes (like `ChoiceCat` in `ConCat.Choice`).
@@ -64,8 +59,6 @@
 *   Use [dump-core](https://hackage.haskell.org/package/dump-core) ([GitHub](https://github.com/yav/dump-core)) to view generated Core.
 *   Representation/levity polymorphism, so that we can used unboxed primitives, rather than having to reverse GHC unboxing work.
 
-
-
 # Misc to be reviewed
 
 *   Compilation with AD is slow. Diagnose, and improve.
@@ -111,7 +104,6 @@
     What about other `Category` subclasses?
 *   There are `case` and `let` expressions in the middle of categorical compositions, where they can thwart CCC simplifications.
     Inlining those `let` expressions may be exactly what's needed to enable the simplifier's other transformations to eliminate the `case` expressions.
-*   AD with non-scalar domains.
 *   Simple, general treatment of `ccc (\ _ -> U)` as `constFun (ccc u)`.
     Oops! Take care.
     If I have to $\eta$-expand `U`, I'll then get `apply . (constFun (ccc U) &&& id)`.
@@ -130,6 +122,11 @@
 
 # Done
 
+*   Add `INLINE` pragmas for the method defaults in `ConCat.Category`.
+    So far, I've added them for just a few `(***)`, `subC`, `recipC`, `divideC`.
+    See personal notes for 2017-08-25.
+*   Experiment with `-fexpose-all-unfoldings` as an alternative to explicit `INLINE` declarations.
+    Also consider `INLINABLE`.
 *   Add a plugin flag for showing the Core resulting of the plugin's pass.
 *   Split concat into a few packages/repos:
     *   Constrained categories ("concat")
@@ -213,4 +210,5 @@
 *   Inspect categorical code, and start optimizing.
 *   Work around problem with numeric operations on `Float` and `Double`.
     I added a module `Float` with `Float` and `Double` types that `newtype`-wrap the standard versions.
+*   AD with non-scalar domains.
 
