@@ -2429,11 +2429,12 @@ instance (IxCoproductCat k n, IxCoproductCat k' n) => IxCoproductCat (k :**: k) 
 class (Category k, OkIxProd k n) => IxCoproductPCat k n where
   inPF   :: forall a   . (Additive a, Ok  k a  ) => (a `k` (a :^ n)) :^ n
   joinPF :: forall a b . (Additive a, Ok2 k a b) => (b `k` a) :^ n -> ((b :^ n) `k` a)
-  plusPF :: forall a b . (Additive a, Ok2 k a b) => (b `k` a) :^ n -> ((b :^ n) `k` (a :^ n))  -- same as crossPF
+  plusPF :: forall a b . (            Ok2 k a b) => (b `k` a) :^ n -> ((b :^ n) `k` (a :^ n))  -- same as crossPF
   jamPF  :: forall a   . (Additive a, Ok  k a  ) => (a :^ n) `k` a
   -- Defaults
+  default plusPF :: forall a b . (OkAdd k, Ok2 k a b) => (b `k` a) :^ n -> ((b :^ n) `k` (a :^ n))  -- same as crossPF
   joinPF fs = jamPF . plusPF fs <+ okIxProd @k @n @a <+ okIxProd @k @n @b
-  plusPF fs = joinPF (zipWith (.) inPF fs) <+ okIxProd @k @n @a
+  plusPF fs = joinPF (zipWith (.) inPF fs) <+ okIxProd @k @n @a <+ okAdd @k @a
   jamPF     = joinPF (const id)
   {-# INLINE joinPF #-}
   {-# INLINE plusPF #-}
