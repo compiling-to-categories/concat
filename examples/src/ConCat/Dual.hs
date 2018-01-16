@@ -61,6 +61,9 @@ instance Category k => Category (Dual k) where
   {-# INLINE id #-}
   {-# INLINE (.) #-}
 
+-- I could define Ok (Dual k) = Ok k, and rely on Ok k and OkAdd k for Additive,
+-- but doing do requires a lot of entailments and explicit signatures.
+
 instance CoproductPCat k => ProductCat (Dual k) where
   exl   = abst inlP
   exr   = abst inrP
