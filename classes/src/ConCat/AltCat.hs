@@ -62,10 +62,10 @@ import ConCat.Additive
 import qualified ConCat.Category as C
 
 import ConCat.Category
-  ( Category, Ok,Ok2,Ok3,Ok4,Ok5, Ok'
-  , ProductCat, Prod, twiceP, inLassocP, inRassocP, transposeP --, unfork
+  ( Category, C1,C2,C3,C4,C5,C6, Ok,Ok2,Ok3,Ok4,Ok5,Ok6, Ok'
+  , ProductCat, Prod, twiceP, inLassocP, inRassocP --, unfork
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
-  , CoproductPCat, CoprodP, ScalarCat, LinearCat
+  , OkAdd(..), CoproductPCat, CoprodP, ScalarCat, LinearCat
   , OkIxProd(..), IxProductCat, OkIxCoprod(..), IxCoproductCat, IxCoproductPCat
   , DistribCat, undistl, undistr
   , ClosedCat, Exp
@@ -142,11 +142,11 @@ Op1(rassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k (Coprod k 
 
 -- Temporary workaround. See ConCat.Category comments.
 infixr 2 ++++, ||||
-Op0(inlP,(CoproductPCat k, Ok2 k a b) => a `k` CoprodP k a b)
-Op0(inrP,(CoproductPCat k, Ok2 k a b) => b `k` CoprodP k a b)
-Ip2(||||,forall k a c d. (CoproductPCat k, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (CoprodP k c d `k` a))
+Op0(inlP,(CoproductPCat k, Additive b, Ok2 k a b) => a `k` CoprodP k a b)
+Op0(inrP,(CoproductPCat k, Additive a, Ok2 k a b) => b `k` CoprodP k a b)
+Ip2(||||,forall k a c d. (CoproductPCat k, Additive a, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (CoprodP k c d `k` a))
 Ip2(++++,forall k a b c d. (CoproductPCat k, Ok4 k a b c d) => (c `k` a) -> (d `k` b) -> (CoprodP k c d `k` CoprodP k a b))
-Op0(jamP,(CoproductPCat k, Ok k a) => CoprodP k a a `k` a)
+Op0(jamP,(CoproductPCat k, Additive a, Ok k a) => CoprodP k a a `k` a)
 Op0(swapPS,forall k a b. (CoproductPCat k, Ok2 k a b) => CoprodP k a b `k` CoprodP k b a)
 
 -- Op1(leftD ,forall k a aa b. (CoproductPCat k, Ok3 k a b aa) => (a `k` aa) -> (CoprodP k a b `k` CoprodP k aa b))
@@ -957,3 +957,19 @@ diag z o =
 -- HACK: the equal here is to postpone dealing with equality on sum types just yet.
 -- See notes from 2017-10-15.
 -- TODO: remove and test, now that we're translating (==) early (via Catify).
+
+{--------------------------------------------------------------------
+    Misc utilities
+--------------------------------------------------------------------}
+
+-- TODO: Finish moving utilities from Category to here
+
+transposeP :: forall k a b c d. (ProductCat k, Ok4 k a b c d)
+           => Prod k (Prod k a b) (Prod k c d) `k` Prod k (Prod k a c) (Prod k b d)
+transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
+  <+ okProd @k @(Prod k a b) @(Prod k c d)
+  <+ okProd @k @c @d
+  <+ okProd @k @a @b
+  <+ okProd @k @b @d
+  <+ okProd @k @a @c
+{-# INLINE transposeP #-}

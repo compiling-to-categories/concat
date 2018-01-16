@@ -281,9 +281,7 @@ instance OpCon (->) (Sat Additive) where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
 
--- class OkAdd k where
---   okAdd :: Ok' k a |- Sat Additive a
-
+class OkAdd k where okAdd :: Ok' k a |- Sat Additive a
 
 #if 1
 -- Experiment. Smaller Core?
@@ -439,7 +437,7 @@ class (OkProd k, Category k) => ProductCat k where
 #ifdef DefaultCat
   -- These defaults are not kicking in for (->). Why not?
   -- default exl :: A.Arrow k => Prod k a b `k` a
-  default exl :: (A.Arrow k, Ok k ~ Yes1, Oks k [a,b]) => (a :* b) `k` a
+  default exl :: (A.Arrow k, Ok k ~ Yes1, Ok2 k a b) => (a :* b) `k` a
   exl = arr exl
   default exr :: A.Arrow k => Prod k a b `k` b
   exr = arr exr
@@ -451,7 +449,7 @@ class (OkProd k, Category k) => ProductCat k where
 #if 0
 
 -- -- TEMP
--- fork :: forall k a b c d. (ProductCat k, Oks k [a,b,c,d])
+-- fork :: forall k a b c d. (ProductCat k, Ok4 k a b c d)
 --      => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d)
 -- f `fork` g = f . exl &&& g . exr
 --             -- <+ okProd @k @a @b
@@ -549,16 +547,6 @@ inRassocP = lassocP <~ rassocP
                   inOpLR @(Prod k) @(Ok' k) @a' @b' @c')
 {-# INLINE inRassocP #-}
 
-transposeP :: forall k a b c d. (ProductCat k, Oks k [a,b,c,d])
-           => Prod k (Prod k a b) (Prod k c d) `k` Prod k (Prod k a c) (Prod k b d)
-transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
-  <+ okProd @k @(Prod k a b) @(Prod k c d)
-  <+ okProd @k @c @d
-  <+ okProd @k @a @b
-  <+ okProd @k @b @d
-  <+ okProd @k @a @c
-{-# INLINE transposeP #-}
-
 -- | Inverse to @uncurry '(&&&)'@
 unfork :: forall k a c d. (ProductCat k, Ok3 k a c d) 
        => (a `k` Prod k c d) -> (a `k` c, a `k` d)
@@ -602,16 +590,16 @@ infixr 2 +++, |||
 class (OpCon (Coprod k) (Ok' k), Category k) => CoproductCat k where
   -- type Coprod k :: u -> u -> u
   -- type Coprod k = (:+)
-  inl :: Oks k [a,b] => a `k` Coprod k a b
-  inr :: Oks k [a,b] => b `k` Coprod k a b
+  inl :: Ok2 k a b => a `k` Coprod k a b
+  inr :: Ok2 k a b => b `k` Coprod k a b
   jam :: Oks k '[a] => Coprod k a a `k` a
   jam = id ||| id
   {-# INLINE jam #-}
-  swapS :: forall a b. Oks k [a,b] => Coprod k a b `k` Coprod k b a
+  swapS :: forall a b. Ok2 k a b => Coprod k a b `k` Coprod k b a
   swapS = inr ||| inl
           <+ okCoprod @k @b @a
   {-# INLINE swapS #-}
-  (+++) :: forall a b c d. Oks k [a,b,c,d]
+  (+++) :: forall a b c d. Ok4 k a b c d
         => (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b)
   f +++ g = inl . f ||| inr . g
             <+ okCoprod @k @a @b
@@ -734,7 +722,7 @@ inRassocS = lassocS <~ rassocS
                 inOpLR @(Coprod k) @(Ok' k) @a' @b' @c')
 {-# INLINE inRassocS #-}
 
-transposeS :: forall k a b c d. (CoproductCat k, Oks k [a,b,c,d])
+transposeS :: forall k a b c d. (CoproductCat k, Ok4 k a b c d)
            => Coprod k (Coprod k a b) (Coprod k c d) `k` Coprod k (Coprod k a c) (Coprod k b d)
 transposeS = (inl.inl ||| inr.inl) ||| (inl.inr ||| inr.inr)
   <+ okCoprod @k @(Coprod k a c) @(Coprod k b d)
@@ -768,23 +756,30 @@ okCoprodP :: forall k a b. OkCoprodP k
 okCoprodP = inOp
 {-# INLINE okCoprodP #-}
 
--- | Category with coproduct.
+-- | Category with coproduct as Cartesian product.
 class (OpCon (CoprodP k) (Ok' k), Category k) => CoproductPCat k where
-  inlP :: Oks k [a,b] => a `k` CoprodP k a b
-  inrP :: Oks k [a,b] => b `k` CoprodP k a b
-  (++++) :: forall a b c d. Oks k [a,b,c,d]
+  inlP :: (Additive b, Ok2 k a b) => a `k` CoprodP k a b
+  inrP :: (Additive a, Ok2 k a b) => b `k` CoprodP k a b
+  (++++) :: forall a b c d. ({- C2 Additive a b, -}Ok4 k a b c d)
          => (c `k` a) -> (d `k` b) -> (CoprodP k c d `k` CoprodP k a b)
+  default (++++) :: forall a b c d. (OkAdd k, Ok4 k a b c d)
+                 => (c `k` a) -> (d `k` b) -> (CoprodP k c d `k` CoprodP k a b)
   f ++++ g = inlP . f |||| inrP . g
              <+ okCoprodP @k @a @b
+             <+ okAdd @k @a <+ okAdd @k @b
   {-# INLINE (++++) #-}
-  jamP :: Ok k a => CoprodP k a a `k` a
+  jamP :: (Additive a, Ok k a) => CoprodP k a a `k` a
   jamP = id |||| id
   {-# INLINE jamP #-}
-  swapPS :: forall a b. Oks k [a,b] => CoprodP k a b `k` CoprodP k b a
+  swapPS :: forall a b. Ok2 k a b
+         => CoprodP k a b `k` CoprodP k b a
+  default swapPS :: forall a b. (OkAdd k, Ok2 k a b)
+                 => CoprodP k a b `k` CoprodP k b a
   swapPS = inrP |||| inlP
            <+ okCoprodP @k @b @a
+           <+ okAdd @k @a <+ okAdd @k @b
   {-# INLINE swapPS #-}
-  (||||) :: forall a c d. Ok3 k a c d
+  (||||) :: forall a c d. (Additive a, Ok3 k a c d)
          => (c `k` a) -> (d `k` a) -> (CoprodP k c d `k` a)
 #ifndef DefaultCat
   -- We canDt give two default definitions for (&&&).
@@ -795,8 +790,11 @@ class (OpCon (CoprodP k) (Ok' k), Category k) => CoproductPCat k where
 #endif
   {-# MINIMAL inlP, inrP, ((||||) | ((++++), jamP)) #-}
 
+-- TODO: consider moving (++++) to a superclass.
+-- Its Additive constraints are only for the default.
+
 -- | Inverse to @uncurry '(||||)'@
-unjoinP :: forall k a c d. (CoproductPCat k, Ok3 k a c d)
+unjoinP :: forall k a c d. (CoproductPCat k, C3 Additive a c d, Ok3 k a c d)
         => ((c :* d) `k` a) -> (c `k` a) :* (d `k` a)
 unjoinP cda = (cda . inlP, cda . inrP)
             <+ okProd @k @c @d
@@ -808,10 +806,20 @@ unjoinP cda = (cda . inlP, cda . inrP)
 
 -- Don't bother with left, right, lassocS, rassocS, and misc helpers.
 
+instance CoproductPCat (->) where
+  inlP a = (a,zero)
+  inrP b = (zero,b)
+  (f |||| g) (a,b) = f a ^+^ g b
+  jamP (a,a') = a ^+^ a'
+  (++++) = (***)  -- should probably (+++) to a super class
+  swapPS = swapP
+
 instance CoproductPCat U2 where
   inlP = U2
   inrP = U2
   U2 |||| U2 = U2
+  U2 ++++ U2 = U2
+  swapPS = U2
 
 instance (CoproductPCat k, CoproductPCat k') => CoproductPCat (k :**: k') where
   inlP = inlP :**: inlP
@@ -962,7 +970,7 @@ class (OkExp k, ProductCat k) => ClosedCat k where
   {-# INLINE uncurry #-}
   {-# MINIMAL curry, (apply | uncurry) #-}
 
---   apply   :: (Oks k [a,b], p ~ Prod k, e ~ Exp k) => ((a `e` b) `p` a) `k` b
+--   apply   :: (Ok2 k a b, p ~ Prod k, e ~ Exp k) => ((a `e` b) `p` a) `k` b
 
 instance ClosedCat (->) where
   -- type Exp (->) = (->)
@@ -1096,7 +1104,7 @@ instance (CoterminalCat k, CoterminalCat k') => CoterminalCat (k :**: k') where
 #if 0
 
 class Category k => UnsafeArr k where
-  unsafeArr :: Oks k [a,b] => (a -> b) -> a `k` b
+  unsafeArr :: Ok2 k a b => (a -> b) -> a `k` b
 
 instance UnsafeArr (->) where
   unsafeArr = A.arr
@@ -1122,7 +1130,7 @@ constFun2 :: forall k p a b c. (ClosedCat k, Oks k [p,a,b,c])
 constFun2 = constFun . curry
             <+ okExp @k @b @c
 
-unitFun :: forall k a b. (ClosedCat k, TerminalCat k, Oks k [a,b])
+unitFun :: forall k a b. (ClosedCat k, TerminalCat k, Ok2 k a b)
         => (a `k` b) -> (Unit k `k` (Exp k a b))
 unitFun = constFun
 
@@ -1994,7 +2002,7 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
 -- class (Category k, Category k'{-, OkTarget f k k'-})
 --    => FunctorC f k k' {-  | f -> k k'-} where
 --   -- | @fmapC@ maps arrows.
---   fmapC :: (Oks k [a,b], Oks k' [a,b]) => (a `k` b) -> (a `k'` b)
+--   fmapC :: (Ok2 k a b, Oks k' [a,b]) => (a `k` b) -> (a `k'` b)
 --   -- Laws:
 --   -- fmapC id == id
 --   -- fmapC (q . p) == fmapC q . fmapC p
@@ -2431,6 +2439,8 @@ class (Category k, OkIxProd k n) => IxCoproductPCat k n where
   {-# INLINE plusPF #-}
   {-# INLINE jamPF #-}
   {-# MINIMAL inPF, (joinPF | (plusPF, jamPF)) #-}
+
+-- TODO: try removin Additive constraint for plusPF
 
 #if 0
 
