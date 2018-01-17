@@ -272,17 +272,17 @@ instance Show (Buses a) where
 appParen :: Int -> Unop ShowS
 appParen p = showParen (p >= 10)
 
+shap :: Show a => a -> ShowS
+shap a = showChar ' ' . showsPrec 10 a
+
 showsApp1 :: Show a => Int -> String -> a -> ShowS
-showsApp1 p f a = appParen p $
-  showString f . showChar ' ' . showsPrec 10 a
+showsApp1 p f a = appParen p $ showString f . shap a
 
 showsApp2 :: (Show a, Show b) => Int -> String -> a -> b -> ShowS
-showsApp2 p f a b = appParen p $
-  showString f . showChar ' ' . showsPrec 10 a . showChar ' ' . showsPrec 10 b
+showsApp2 p f a b = appParen p $ showString f . shap a . shap b
 
 showsAppF :: (Show1 h, Show a) => Int -> String -> h a -> ShowS
-showsAppF p f as = appParen p $
-  showString f . showChar ' ' . showsPrec1 10 as
+showsAppF p f as = appParen p $ showString f . showChar ' ' . showsPrec1 10 as
 
 -- TODO: move these showsApp* functions elsewhere.
 
