@@ -29,6 +29,7 @@ import GHC.TypeLits (KnownNat)
 import Control.Newtype (Newtype(..))
 import Data.Key(Zip(..))
 import Data.Pointed(Pointed(..))
+import Data.Functor.Rep (Representable(..))
 import Data.Vector.Sized (Vector)
 
 import ConCat.Misc
@@ -155,59 +156,11 @@ instance Additive a => Additive (Add a) where
   zero  = mempty
   (^+^) = mappend
 
-sumA :: (Foldable f, Additive a) => f a -> a
+sumA' :: (Foldable h, Additive a) => h a -> a
+sumA' = getAdd . foldMap Add
+
+-- Enables translation of sumA to jamPF in AltCat.
+type Summable h = (Representable h, Eq (Rep h), Zip h, Pointed h, Foldable h)
+
+sumA :: (Summable h, Additive a) => h a -> a
 sumA = getAdd . foldMap Add
-
-{--------------------------------------------------------------------
-    Summing functions over its domain
---------------------------------------------------------------------}
-
-#if 1
-
-type IxSummable n = (Foldable ((->) n), Eq n)
-
-ixSum :: (IxSummable n, Additive a) => a :^ n -> a
-ixSum = sumA
-{-# INLINE ixSum #-}  -- [0] ?
--- The constraints on ixSum enables Catify(ixSum,jamPF) in ConCat.AltCat
-
-#else
-
-class Eq n => IxSummable n where
-  ixSum :: Additive a => a :^ n -> a
-
--- The instances follow from folding and memoization
-
-instance IxSummable Void where
-  ixSum _ = zero
-  {-# INLINE ixSum #-}
-
-instance IxSummable () where
-  ixSum f = f ()
-  {-# INLINE ixSum #-}
-
-instance IxSummable Bool where
-  ixSum f = f False ^+^ f True
-  {-# INLINE ixSum #-}
-
-instance (IxSummable m, IxSummable n) => IxSummable (m :+ n) where
-  ixSum f = ixSum (f . Left) ^+^ ixSum (f . Right)
-  {-# INLINE ixSum #-}
-
-instance (IxSummable m, IxSummable n) => IxSummable (m :* n) where
-  ixSum f = ixSum (ixSum . curry f)
-  {-# INLINE ixSum #-}
-
-instance KnownNat n => IxSummable (Finite n) where
-  ixSum f = sumA (f <$> finites @n)
-  {-# INLINE ixSum #-}
-
--- TODO: if I switch from functions to representable functors for indexed
--- products etc, then replace ixSum by sumA.
-
--- TODO: maybe move this logic into Foldable instances for functions, and then
--- use sumA in place of ixSum. Maybe define ixSum as a late-inlining,
--- type-specialized alias for sumA. I added the necessary Foldable instances for
--- functions to ConCat.Orphans. [Did it.]
-
-#endif
