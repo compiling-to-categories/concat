@@ -108,6 +108,7 @@ import Control.Monad (unless)
 import Control.Arrow (arr,Kleisli(..))
 import Data.Foldable ({-foldMap,-}toList)
 import qualified GHC.Generics as G
+import Data.Functor.Classes (Show1,showsPrec1)
 import Data.Void (Void)
 import Data.Function (on)
 import Data.Maybe (fromMaybe,isJust,maybeToList)
@@ -136,6 +137,7 @@ import Data.Constraint (Dict(..),(:-)(..))
 import Data.Pointed (Pointed)
 import Data.Key (Zip(..))
 import Data.Distributive (Distributive)
+import Data.Distributive (distribute)
 import Data.Functor.Rep (Representable(tabulate,index))
 import qualified Data.Functor.Rep as R
 import Data.Vector.Sized (Vector)
@@ -161,7 +163,7 @@ import qualified Control.Monad.State as M
 
 -- import TypeUnary.Vec hiding (get)
 
-import ConCat.Misc ((:*),(:+),Unop,Binop,Yes1,typeR)
+import ConCat.Misc ((:*),(:+),Unop,Binop,Yes1,typeR,transpose)
 -- import ConCat.Complex (Complex(..))
 import ConCat.Rep
 import ConCat.Additive (Additive,Add)
@@ -253,11 +255,36 @@ data Buses :: * -> * where
   UnitB    :: Buses ()
   PrimB    :: Source -> Buses b
   ProdB    :: Ok2 (:>) a b => Buses a -> Buses b -> Buses (a :* b)
+  IxProdB  :: (OkIxProd (:>) h, Show1 h, Foldable h, Ok (:>) a) => h (Buses a) -> Buses (h a)
   -- FunB     :: SubgraphId -> Buses (a -> b)
   ConvertB :: Ok2 (:>) a b => Buses a -> Buses b
   -- AbstB :: Buses (Rep b) -> Buses b
 
-deriving instance Show (Buses a)
+-- deriving instance Show (Buses a) -- not with IxProdB
+
+instance Show (Buses a) where
+  showsPrec _ UnitB        = showString "UnitB"
+  showsPrec p (PrimB s)    = showsApp1 p "PrimB" s
+  showsPrec p (ProdB a b)  = showsApp2 p "ProdB" a b
+  showsPrec p (IxProdB as) = showsAppF p "IxProdB " as
+  showsPrec p (ConvertB a) = showsApp1 p "ConvertB " a
+
+appParen :: Int -> Unop ShowS
+appParen p = showParen (p >= 10)
+
+showsApp1 :: Show a => Int -> String -> a -> ShowS
+showsApp1 p f a = appParen p $
+  showString f . showChar ' ' . showsPrec 10 a
+
+showsApp2 :: (Show a, Show b) => Int -> String -> a -> b -> ShowS
+showsApp2 p f a b = appParen p $
+  showString f . showChar ' ' . showsPrec 10 a . showChar ' ' . showsPrec 10 b
+
+showsAppF :: (Show1 h, Show a) => Int -> String -> h a -> ShowS
+showsAppF p f as = appParen p $
+  showString f . showChar ' ' . showsPrec1 10 as
+
+-- TODO: move these showsApp* functions elsewhere.
 
 #if 0
 
@@ -427,6 +454,7 @@ flattenB = toList . flat
    flat UnitB        = mempty
    flat (PrimB s)    = singleton s
    flat (ProdB a b)  = flat a <> flat b
+   flat (IxProdB as) = foldMap flat as
    flat (ConvertB b) = flat b
 
 badBuses :: forall a x. Ok (:>) a => String -> Buses a -> x
@@ -646,6 +674,9 @@ inCK2 :: (BCirc a a' -> BCirc b b' -> BCirc c c')
       -> ((a :> a') -> (b :> b') -> (c :> c'))
 inCK2 = inCK <~ unmkCK
 
+inCKF1 :: Functor h => (h (BCirc a a') -> BCirc b b') -> (h (a :> a') -> (b :> b'))
+inCKF1 = mkCK <~ fmap unmkCK
+
 namedC :: Ok2 (:>) a b => PrimName -> a :> b
 -- namedC name = primOpt name noOpt
 namedC name = -- trace ("namedC " ++ name) $
@@ -783,6 +814,13 @@ instance ProductCat (:>) where
 --   inr = namedC "inr"
 --   f ||| g = namedC "|||" . (f &&& g) -- not quite
 
+-- Indexed co/products
+
+
+{--------------------------------------------------------------------
+    Misc
+--------------------------------------------------------------------}
+
 instance (Ok (:>) a, IfCat (:>) b) => IfCat (:>) (a -> b) where
   ifC = funIf
 
@@ -847,20 +885,37 @@ instance KnownNat i => OkIxProd (:>) (Vector i) where
 --   crossF :: forall a b. Ok2 k a b => h (a `k` b) -> (h a `k` h b)
 --   replF  :: forall a  . Ok  k a   => a `k` h a
 
-instance (OkIxProd (:>) h, Representable h, Show (R.Rep h))
+instance (OkIxProd (:>) h, Representable h, Show (R.Rep h), Zip h, Traversable h, Show1 h)
       => IxProductCat (:>) h where
   exF :: forall a . Ok (:>) a => h (h a :> a)
   exF = tabulate $ \ i -> namedC ("ex " ++ showsPrec 10 i "") <+ okIxProd @(:>) @h @a
   replF :: forall a . Ok (:>) a => a :> h a
   replF = namedC "replF" <+ okIxProd @(:>) @h @a
   crossF :: forall a b. Ok2 (:>) a b => h (a :> b) -> (h a :> h b)
-  crossF = error "crossF @(:>): not yet defined"
+  crossF = inCKF1 crossFB
 
 -- instance Ok (:>) n => IxCoproductPCat (:>) n where
 --   inPF   = error "inPF @ (:>): not yet defined"
 --   joinPF = error "joinPF @ (:>): not yet defined"
 --   plusPF = error "plusPF @ (:>): not yet defined"
 --   jamPF  = namedC "sumA" -- "ixSum" -- "jamPF"
+
+unIxProdB :: Buses (h a) -> h (Buses a)
+unIxProdB (IxProdB bs) = bs
+unIxProdB b = error ("unIxProdB: unexpected bus: " ++ show b)
+
+crossFB :: ( OkIxProd (:>) h, Zip h, Traversable h, Show1 h
+           , Ok (:>) a, GenBuses b, Applicative m)
+        => h (Buses a -> m (Buses b)) -> (Buses (h a) -> m (Buses (h b)))
+crossFB fs = fmap IxProdB . transpose . zap fs . unIxProdB
+
+--                                    fs             :: h (Buses a -> m (Buses b))
+--                              cross fs             :: h (Buses a) -> h (m (Buses b))
+--                  transpose . cross fs             :: h (Buses a) -> m (h (Buses b))
+--                  transpose . cross fs . toIxProdB :: Buses (h a) -> m (h (Buses b))
+-- fmap unIxProdB . transpose . cross fs . toIxProdB :: Buses (h a) -> m (Buses (h b))
+
+
 
 {--------------------------------------------------------------------
     Ad hoc Functor-level operations, to be removed
