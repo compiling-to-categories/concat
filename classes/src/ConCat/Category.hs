@@ -75,6 +75,7 @@ import Data.Pointed (Pointed(..))
 import Data.Key (Zip(..))
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..))
+-- import qualified Data.Functor.Rep as DFR
 import Control.Newtype (Newtype(..))
 #ifdef VectorSized
 -- import Data.Finite (Finite)
@@ -2259,7 +2260,7 @@ class (Category k, OkIxProd k n) => IxProductCat k n where
   {-# INLINE forkF #-}
   {-# INLINE crossF #-}
   {-# INLINE replF #-}
-  {-# MINIMAL exF, (forkF | (crossF, exF)) #-}
+  {-# MINIMAL exF, (forkF | (crossF, replF)) #-}
 
 #if 0
 -- Types for `forkF` via `crossF`:
@@ -2441,8 +2442,6 @@ class (Category k, OkIxProd k n) => IxCoproductPCat k n where
   {-# INLINE jamPF #-}
   {-# MINIMAL inPF, (joinPF | (plusPF, jamPF)) #-}
 
--- TODO: try removin Additive constraint for plusPF
-
 #if 0
 
 -- Types for `joinPF` default:
@@ -2511,3 +2510,122 @@ instance (IxCoproductPCat k n, IxCoproductPCat k' n)
   joinPF = prod . (joinPF *** joinPF) . unzip . fmap unProd
   plusPF = prod . (plusPF *** plusPF) . unzip . fmap unProd
   jamPF  = jamPF :**: jamPF
+
+{--------------------------------------------------------------------
+   Experimental variation on indexed co/products
+--------------------------------------------------------------------}
+
+type family Fam (k :: * -> * -> *) (n :: *) :: (* -> *) -> Constraint
+
+class (Category k, OkIxProd k n) => IxProductQCat k n where
+  exQ    :: forall h a  . (Fam k n h, Ok  k a  ) => h ((a :^ n) `k` a)
+  forkQ  :: forall h a b. (Fam k n h, Ok2 k a b) => h (a `k` b) -> (a `k` (b :^ n))
+  crossQ :: forall h a b. (Fam k n h, Ok2 k a b) => h (a `k` b) -> ((a :^ n) `k` (b :^ n))
+  replQ  :: forall   a  . (           Ok  k a  ) => a `k` (a :^ n)
+  -- Defaults
+  forkQ  fs = crossQ fs . replQ <+ okIxProd @k @n @a <+ okIxProd @k @n @b
+  default crossQ :: forall h a b. (Zip h, Fam k n h, Ok2 k a b) => h (a `k` b) -> ((a :^ n) `k` (b :^ n))
+  crossQ fs = forkQ (zipWith (.) fs exQ) <+ okIxProd @k @n @a
+  default replQ :: forall h a. (Fam k n h, Pointed h, Ok k a) => a `k` (a :^ n)
+  replQ = forkQ (point @h id)
+  {-# INLINE forkQ  #-}
+  {-# INLINE crossQ #-}
+  {-# INLINE replQ  #-}
+  {-# MINIMAL exQ, (forkQ | (crossQ, replQ)) #-}
+
+-- Are the Zip and Pointed constraints in the crossF' and replF' default
+-- signatures really okay? I'd expect to need entailments from Fam k n.
+
+class (Category k, OkIxProd k n) => IxCoproductPQCat k n where
+  inPQ   :: forall h a   . (Fam k n h, Additive a, Ok  k a  ) => h (a `k` (a :^ n))
+  joinPQ :: forall h a b . (Fam k n h, Additive a, Ok2 k a b) => h (b `k` a) -> ((b :^ n) `k` a)
+  plusPQ :: forall h a b . (Fam k n h,             Ok2 k a b) => h (b `k` a) -> ((b :^ n) `k` (a :^ n))
+  jamPQ  :: forall   a   . (           Additive a, Ok  k a  ) => (a :^ n) `k` a
+  -- Defaults
+  default joinPQ :: forall h a b . (Fam k n h, Additive a, Ok2 k a b)
+                 => h (b `k` a) -> ((b :^ n) `k` a)
+  joinPQ fs = jamPQ . plusPQ fs <+ okIxProd @k @n @a <+ okIxProd @k @n @b
+  default plusPQ :: forall h a b . (Fam k n h, Zip h, OkAdd k, Ok2 k a b)
+                 => h (b `k` a) -> ((b :^ n) `k` (a :^ n))
+  plusPQ fs = joinPQ (zipWith (.) inPQ fs) <+ okIxProd @k @n @a <+ okAdd @k @a
+  default jamPQ :: forall h a . (Fam k n h, Pointed h, Additive a, Ok k a) => (a :^ n) `k` a
+  jamPQ = joinPQ (point @h id)
+  {-# INLINE joinPQ #-}
+  {-# INLINE plusPQ #-}
+  {-# INLINE jamPQ #-}
+  {-# MINIMAL inPQ, (joinPQ | (plusPQ, jamPQ)) #-}
+
+#if 1
+
+-- class    (Representable h, Rep h ~ n) => FunFam n h
+-- instance (Representable h, Rep h ~ n) => FunFam n h
+
+class    Rep h ~ n => RepIs n h
+instance Rep h ~ n => RepIs n h
+
+type instance Fam (->) n = Representable &+& RepIs n -- FunFam n
+
+instance IxProductQCat (->) n where
+  exQ    = tabulate (flip ($))
+  forkQ  = flip . index
+  crossQ = (<*>) . index
+  replQ  = pure
+  {-# OPINLINE exQ    #-}
+  {-# OPINLINE forkQ  #-}
+  {-# OPINLINE crossQ #-}
+  {-# OPINLINE replQ  #-}
+
+instance IxSummable n => IxCoproductPQCat (->) n where
+  inPQ   = tabulate (\ i a j -> if i == j then a else zero)
+  plusPQ = crossF . index
+  jamPQ  = ixSum
+  {-# OPINLINE inPQ   #-}
+  {-# OPINLINE plusPQ #-}
+  {-# OPINLINE jamPQ  #-}
+
+#else
+
+class    h ~ (->) n => FunFam n h
+instance h ~ (->) n => FunFam n h
+
+type Fam (->) n = FunFam n
+
+instance IxProductQCat (->) n where
+  exQ    = flip ($)
+  forkQ  = flip
+  crossQ = (<*>)
+  replQ  = pure
+  {-# OPINLINE exQ    #-}
+  {-# OPINLINE forkQ  #-}
+  {-# OPINLINE crossQ #-}
+  {-# OPINLINE replQ  #-}
+
+#endif
+
+type instance Fam U2 n = Pointed
+
+instance IxProductQCat U2 n where
+  exQ    = point U2
+  forkQ  = point U2
+  crossQ = point U2
+  replQ  = U2
+
+instance IxCoproductPQCat U2 n where
+  inPQ   = point U2
+  joinPQ = point U2
+  plusPQ = point U2
+  jamPQ  = U2
+
+type instance Fam (k :**: k') n = Fam k n &+& Fam k' n &+& Zip
+
+instance (IxProductQCat k n, IxProductQCat k' n) => IxProductQCat (k :**: k') n where
+  exQ    = zipWith (:**:) exQ exQ
+  forkQ  = prod . (forkQ  *** forkQ ) . unzip . fmap unProd
+  crossQ = prod . (crossQ *** crossQ) . unzip . fmap unProd
+  replQ  = replQ :**: replQ
+
+instance (IxCoproductPQCat k n, IxCoproductPQCat k' n) => IxCoproductPQCat (k :**: k') n where
+  inPQ   = zipWith (:**:) inPQ inPQ
+  joinPQ = prod . (joinPQ *** joinPQ) . unzip . fmap unProd
+  plusPQ = prod . (plusPQ *** plusPQ) . unzip . fmap unProd
+  jamPQ  = jamPQ :**: jamPQ

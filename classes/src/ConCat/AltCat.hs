@@ -67,6 +67,7 @@ import ConCat.Category
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
   , OkAdd(..), CoproductPCat, CoprodP, ScalarCat, LinearCat
   , OkIxProd(..), IxProductCat, OkIxCoprod(..), IxCoproductCat, IxCoproductPCat
+  , Fam, IxProductQCat, IxCoproductPQCat
   , DistribCat, undistl, undistr
   , ClosedCat, Exp
   , TerminalCat, Unit{-, lunit, runit, constFun-}, CoterminalCat, Counit, constFun2, unitFun, unUnitFun
@@ -172,6 +173,17 @@ Op0(jamPF , (IxCoproductPCat k n, Additive a, Ok  k a  ) => (a :^ n) `k` a)
 Op0(scale,(ScalarCat k a => a -> (a `k` a)))
 
 Catify(ixSum, jamPF)
+
+-- Experiment
+Op0(exQ   , (IxProductQCat k n, Fam k n h, Ok  k a  ) => h ((a :^ n) `k` a))
+Op1(forkQ , (IxProductQCat k n, Fam k n h, Ok2 k a b) => h (a `k` b) -> (a `k` (b :^ n)))
+Op1(crossQ, (IxProductQCat k n, Fam k n h, Ok2 k a b) => h (a `k` b) -> ((a :^ n) `k` (b :^ n)))
+Op0(replQ , (IxProductQCat k n,            Ok  k a  ) => a `k` (a :^ n))
+
+Op0(inPQ  , (IxCoproductPQCat k n, Fam k n h, Additive a, Ok  k a  ) => h (a `k` (a :^ n)))
+Op1(joinPQ, (IxCoproductPQCat k n, Fam k n h, Additive a, Ok2 k a b) => h (b `k` a) -> ((b :^ n) `k` a))
+Op1(plusPQ, (IxCoproductPQCat k n, Fam k n h,             Ok2 k a b) => h (b `k` a) -> ((b :^ n) `k` (a :^ n)))
+Op0(jamPQ , (IxCoproductPQCat k n,            Additive a, Ok  k a  ) => (a :^ n) `k` a)
 
 -- | Generalized matrix
 infixr 1 :--*

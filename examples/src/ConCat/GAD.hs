@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE PolyKinds #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-} -- TEMP
@@ -36,7 +37,7 @@ import Data.Pointed
 import Data.Key
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable)
-import qualified Data.Functor.Rep
+import qualified Data.Functor.Rep as R
 
 import ConCat.Misc ((:*),(:^),type (&+&),cond,result,unzip,sqr) -- ,PseudoFun(..),oops
 -- import ConCat.Free.VectorSpace
@@ -185,28 +186,62 @@ instance OkIxProd k n => OkIxProd (GD k) n where
   okIxProd :: forall a. Ok' (GD k) a |- Ok' (GD k) (a :^ n)
   okIxProd = Entail (Sub (Dict <+ okIxProd @k @n @a))
 
--- #define Linear(nm) nm = linearD A.nm A.nm
+#define Linears(nm) nm = zipWith linearD A.nm A.nm
 
--- linearD :: (a -> b) -> (a `k` b) -> GD k a b
--- -- linearD f f' = D (f &&& const f')
--- linearD f f' = D (\ a -> (f a, f'))
-
-instance IxProductCat k n => IxProductCat (GD k) n where
-  -- exF i = linearD (A.exF i) (A.exF i)
-  exF = zipWith linearD A.exF A.exF
+instance (IxProductCat (->) n, IxProductCat k n) => IxProductCat (GD k) n where
+  Linears(exF)
   crossF (fmap repr -> fs) = D (second crossF . unzip . crossF fs)
   Linear(replF)
-
-  -- exF    = abst <$> inPF
-  -- forkF  = abst . joinPF . fmap repr
-  -- crossF = abst . plusPF . fmap repr
-  -- replF  = abst jamPF
+  {-# INLINE exF #-}
+  {-# INLINE crossF #-}
+  {-# INLINE replF #-}
 
 -- crossF types:
 -- 
 --   crossF fs     :: a :^ n -> (b :* (a `k` b)) :^ n
 --   unzip         :: .. -> b :^ n :* (a `k` b) :^ n
 --   second crossF :: .. -> b :^ n :* ((a :^ n) `k` (b :^ n)
+
+instance (IxCoproductPCat (->) n, IxCoproductPCat k n) => IxCoproductPCat (GD k) n where
+  Linears(inPF)
+  plusPF (fmap repr -> fs) = D (second plusPF . unzip . plusPF fs)
+  Linear(jamPF)
+  {-# INLINE inPF   #-}
+  {-# INLINE plusPF #-}
+  {-# INLINE jamPF  #-}
+
+-- Experimental
+
+-- type instance Fam (GD k) n = Fam (->) n &+& Fam k n
+
+-- class    h ~ (->) n => IsFunOf n h
+-- instance h ~ (->) n => IsFunOf n h
+
+-- type instance Fam (GD k) n = IsFunOf n
+
+-- class    h ~ (->) n => IsFunOf n h
+-- instance h ~ (->) n => IsFunOf n h
+
+-- type instance Fam (GD k) n = IsFunOf n
+
+class    a ~ b => Equ a b
+instance a ~ b => Equ a b
+
+type instance Fam (GD k) n = Equ ((->) n)
+
+instance (IxProductQCat (->) n, IxProductQCat k n, Fam k n ((->) n) {- , Fam k n ~ Fam k (->)-})
+      => IxProductQCat (GD k) n where
+  Linears(exQ)
+  Linear(replQ)
+  -- crossQ = undefined
+  -- replQ  = undefined
+  -- Linears(exQ)
+  -- crossQ :: forall h a b. (Fam (GD k) n h, Ok2 (GD k) a b) => h (GD k a b) -> GD k (a :^ n) (b :^ n)
+  -- crossQ (fmap repr -> fs) = D (second (crossQ @k @n @h) . unzip . crossQ @(->) @n @h fs)
+  crossQ (fmap repr -> fs) = D (second crossQ . unzip . crossQ fs)
+  {-# INLINE exQ #-}
+  {-# INLINE crossQ #-}
+  {-# INLINE replQ #-}
 
 {--------------------------------------------------------------------
     NumCat etc
