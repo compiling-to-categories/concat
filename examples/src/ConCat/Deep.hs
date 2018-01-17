@@ -7,6 +7,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MonadComprehensions #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
@@ -20,15 +21,16 @@ module ConCat.Deep where
 import Prelude hiding (zipWith)
 
 import GHC.TypeLits ()
-import GHC.Generics ((:*:)(..),(:.:)(..))
+import GHC.Generics (Par1(..),(:*:)(..),(:.:)(..))
 
 import Data.Key
 import Data.Vector.Sized (Vector)
 import Data.NumInstances.Function ()
+import Data.Functor.Rep (Representable)
 
 import ConCat.Misc
 import ConCat.Additive
-import ConCat.AltCat (forkF,joinPF,scale,jamPF,(:--*),linearApp',linearApp)
+import ConCat.AltCat (forkF,joinPF,scale,crossF,jamPF,(:--*),linearApp',linearApp)
 import ConCat.Orphans ()
 import ConCat.RAD (gradR)
 
@@ -39,7 +41,7 @@ import ConCat.RAD (gradR)
 infixl 7 *^, <.>, >.<
 
 -- | Scale a vector
-scaleV, (*^) :: Num s => s -> s :^ n -> s :^ n
+scaleV, (*^) :: (Functor a, Num s) => s -> a s -> a s
 s *^ v = scale s <$> v
 scaleV = (*^)
 {-# INLINE (*^) #-}
@@ -47,36 +49,39 @@ scaleV = (*^)
 -- | Linear map representation ("matrix")
 infixr 1 --*
 type a --* b = (a :--* b) R
--- type a --* b = (R :^ a) :^ b
+-- type a --* b = b (a R)
 
 infixr 1 -->
-type a --> b = R :^ a -> R :^ b
+type a --> b = a R -> b R
 
--- dot' :: ((s -> s) :^ a) -> (s :^ a -> s)
+-- dot' :: (h (s -> s)) -> (h s -> s)
 -- dot' = joinPF
 
 -- | Inner product
-dotV,(<.>) :: (IxSummable a, Additive s, Num s) => s :^ a -> s :^ a -> s
+dotV,(<.>) :: (Summable a, Additive s, Num s) => a s -> a s -> s
 (<.>) = joinPF . fmap scale
 dotV = (<.>)
 {-# INLINE (<.>) #-}
 {-# INLINE dotV #-}
 
 -- | Outer product
-outerV, (>.<) :: Num s => s :^ m -> s :^ n -> (s :^ n) :^ m
-(u >.< v) m n = u m `scale` v n
+outerV, (>.<) :: (Functor a, Functor b, Num s) => a s -> b s -> a (b s)
+a >.< b = (*^ b) <$> a
 outerV = (>.<)
 {-# INLINE (>.<) #-}
 {-# INLINE outerV #-}
 
-linear' :: (IxSummable a, Additive v)
-        => ((u -> v) :^ a) :^ b -> (u :^ a -> v :^ b)
+-- (*^ b)       :: s -> b s
+-- (*^ b) <$> a :: a s -> a (b s)
+
+linear' :: (Summable a, Summable b, Additive v)
+        => b (a (u -> v)) -> (a u -> b v)
 linear' = linearApp'
 {-# INLINE linear' #-}
 
 -- | Apply a linear map
-linear :: (IxSummable a, Additive s, Num s)
-       => (s :^ a) :^ b -> (s :^ a -> s :^ b)
+linear :: (Summable a, Summable b, Additive s, Num s)
+       => b (a s) -> (a s -> b s)
 linear = linearApp
 {-# INLINE linear #-}
 
@@ -86,32 +91,34 @@ linear = linearApp
 -- in ConCat.Category. Okay if we translate to another category. I'll find a
 -- more principled way.
 
+type Bump h = h :*: Par1
+
+bump :: Num s => a s -> Bump a s
+bump a = a :*: Par1 1
+
 -- | Affine map representation
 infixr 1 --+
-type a --+ b = Maybe a --* b
+type a --+ b = Bump a --* b
 
 -- | Affine application
-affine :: (IxSummable a, Additive s, Num s)
-       => (s :^ Maybe a) :^ b -> (s :^ a -> s :^ b)
-affine m = linear m . maybe 1
+affine :: (Summable a, Summable b, Additive s, Num s)
+       => b (Bump a s) -> (a s -> b s)
+affine m = linear m . bump
 {-# INLINE affine #-}
 
---     m              :: b -> Maybe a -> s
---                as  :: a -> s
---        maybe 1 as  :: Maybe a -> a
--- linear m (maybe 1 as) :: b -> s
+--        m        :: b (Bump a s)
+-- linear m        :: Bump a s -> b s
+-- linear m . bump :: a s -> b s
 
 -- TODO: Is there an affine counterpart to linear'?
 
--- Considering the generality, move these definitions from `Deep` to `AltCat`.
-
-normSqr :: (IxSummable n, Additive s, Num s) => s :^ n -> s
+normSqr :: (Summable n, Additive s, Num s) => n s -> s
 normSqr u  = u <.> u
 {-# INLINE normSqr #-}
 
 -- | Distance squared
-distSqr :: (IxSummable n, Additive s, Num s) => s :^ n -> s :^ n -> s
-distSqr u v = normSqr (u - v)
+distSqr :: (Summable n, Additive s, Num s) => n s -> n s -> s
+distSqr u v = normSqr (zipWith (-) u v)
 {-# INLINE distSqr #-}
 
 -- The normSqr and distSqr definitions rely on Num instances on functions.
@@ -121,17 +128,17 @@ distSqr u v = normSqr (u - v)
 --------------------------------------------------------------------}
 
 -- | Affine followed by RELUs.
-affRelu :: IxSummable a => (a --+ b) -> (a --> b)
+affRelu :: (Summable a, Summable b) => (a --+ b) -> (a --> b)
 affRelu = (result.result.fmap) (max 0) affine
 {-# INLINE affRelu #-}
 
 -- affRelu l = fmap (max 0) . affine l
 
-errSqr :: IxSummable b => R :^ a :* R :^ b -> (a --> b) -> R
+errSqr :: Summable b => a R :* b R -> (a --> b) -> R
 errSqr (a, b) h = distSqr b (h a)
 {-# INLINE errSqr #-}
 
-errGrad :: IxSummable b => (p -> a --> b) -> R :^ a :* R :^ b -> Unop p
+errGrad :: Summable b => (p -> a --> b) -> a R :* b R -> Unop p
 errGrad h sample = gradR (errSqr sample . h)
 {-# INLINE errGrad #-}
 
@@ -144,16 +151,16 @@ infixr 9 @.
     Examples
 --------------------------------------------------------------------}
 
-lr1 :: IxSummable a => (a --+ b)  ->  (a --> b)
+lr1 :: (Summable a, Summable b) => (a --+ b)  ->  (a --> b)
 lr1 = affRelu
 {-# INLINE lr1 #-}
 
-lr2 :: (IxSummable a, IxSummable b)
+lr2 :: (Summable a, Summable b, Summable c)
     => (b --+ c) :* (a --+ b)  ->  (a --> c)
 lr2 = affRelu @. affRelu
 {-# INLINE lr2 #-}
 
-lr3 :: (IxSummable a, IxSummable b, IxSummable c)
+lr3 :: (Summable a, Summable b, Summable c, Summable d)
     => (c --+ d) :* (b --+ c) :* (a --+ b)  ->  (a --> d)
 lr3 = affRelu @. affRelu @. affRelu
 {-# INLINE lr3 #-}

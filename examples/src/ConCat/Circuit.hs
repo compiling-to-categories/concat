@@ -136,7 +136,7 @@ import Data.Constraint (Dict(..),(:-)(..))
 import Data.Pointed (Pointed)
 import Data.Key (Zip(..))
 import Data.Distributive (Distributive)
-import Data.Functor.Rep (Representable)
+import Data.Functor.Rep (Representable(tabulate,index))
 import qualified Data.Functor.Rep as R
 import Data.Vector.Sized (Vector)
 
@@ -164,7 +164,7 @@ import qualified Control.Monad.State as M
 import ConCat.Misc ((:*),(:+),Unop,Binop,Yes1,typeR)
 -- import ConCat.Complex (Complex(..))
 import ConCat.Rep
-import ConCat.Additive (Additive)
+import ConCat.Additive (Additive,Add)
 import ConCat.Category
 import qualified ConCat.AltCat as A
 import ConCat.AltCat (Uncurriable(..))
@@ -821,6 +821,51 @@ instance ClosedCat (:>) where
 
 instance TerminalCat (:>)
 
+{--------------------------------------------------------------------
+    Indexed co/products
+--------------------------------------------------------------------}
+
+instance OkIxProd (:>) G.U1   where okIxProd = Entail (Sub Dict)
+instance OkIxProd (:>) G.Par1 where okIxProd = Entail (Sub Dict)
+
+instance (OkIxProd (:>) f, OkIxProd (:>) g)
+      => OkIxProd (:>) (f G.:*: g) where
+  okIxProd :: forall a. Ok' (:>) a |- Ok' (:>) ((f G.:*: g) a)
+  okIxProd = Entail (Sub (Dict <+ okIxProd @(:>) @f @a <+ okIxProd @(:>) @g @a))
+
+instance (OkIxProd (:>) f, OkIxProd (:>) g)
+      => OkIxProd (:>) (g G.:.: f) where
+  okIxProd :: forall a. Ok' (:>) a |- Ok' (:>) ((g G.:.: f) a)
+  okIxProd = Entail (Sub (Dict <+ okIxProd @(:>) @g @(f a) <+ okIxProd @(:>) @f @a))
+
+instance KnownNat i => OkIxProd (:>) (Vector i) where
+  okIxProd = Entail (Sub Dict)
+
+-- class (Category k, OkIxProd k h) => IxProductCat k h where
+--   exF    :: forall a  . Ok  k a   => h (h a `k` a)
+--   forkF  :: forall a b. Ok2 k a b => h (a `k` b) -> (a `k` h b)
+--   crossF :: forall a b. Ok2 k a b => h (a `k` b) -> (h a `k` h b)
+--   replF  :: forall a  . Ok  k a   => a `k` h a
+
+instance (OkIxProd (:>) h, Representable h, Show (R.Rep h))
+      => IxProductCat (:>) h where
+  exF :: forall a . Ok (:>) a => h (h a :> a)
+  exF = tabulate $ \ i -> namedC ("ex " ++ showsPrec 10 i "") <+ okIxProd @(:>) @h @a
+  replF :: forall a . Ok (:>) a => a :> h a
+  replF = namedC "replF" <+ okIxProd @(:>) @h @a
+  crossF :: forall a b. Ok2 (:>) a b => h (a :> b) -> (h a :> h b)
+  crossF = error "crossF @(:>): not yet defined"
+
+-- instance Ok (:>) n => IxCoproductPCat (:>) n where
+--   inPF   = error "inPF @ (:>): not yet defined"
+--   joinPF = error "joinPF @ (:>): not yet defined"
+--   plusPF = error "plusPF @ (:>): not yet defined"
+--   jamPF  = namedC "sumA" -- "ixSum" -- "jamPF"
+
+{--------------------------------------------------------------------
+    Ad hoc Functor-level operations, to be removed
+--------------------------------------------------------------------}
+
 instance OkFunctor (:>) G.U1   where okFunctor = Entail (Sub Dict)
 instance OkFunctor (:>) G.Par1 where okFunctor = Entail (Sub Dict)
 
@@ -885,6 +930,10 @@ instance ({- Pointed h, -} OkFunctor (:>) h, Ok (:>) a) => PointedCat (:>) h a w
 instance (OkFunctor (:>) h, Additive a, Ok (:>) a) => AddCat (:>) h a where
   sumAC :: h a :> a
   sumAC = namedC "sumA" <+ okFunctor' @(:>) @h @a
+
+-- instance () => IxSummableCat (:>) n a where
+--   -- ixSumC :: forall a. (Additive a, Ok (:>) a) => a :^ n :> a
+--   ixSumC = namedC "ixSum" -- <+ okFunctor' @(:>) @n @a
 
 instance (Functor h, OkFunctor (:>) h) => Strong (:>) h where
   strength :: forall a b. Ok2 (:>) a b => (a :* h b) :> h (a :* b)
@@ -2099,5 +2148,7 @@ AbsTy(M.Identity a)
 AbsTy(M.ReaderT e m a)
 AbsTy(M.WriterT w m a)
 AbsTy(M.StateT s m a)
+
+AbsTy(Add a)
 
 #endif

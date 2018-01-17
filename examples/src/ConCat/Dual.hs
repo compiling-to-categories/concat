@@ -95,53 +95,29 @@ instance ProductCat k => CoproductPCat (Dual k) where
 instance ScalarCat k s => ScalarCat (Dual k) s where
   scale s = abst (scale s)
 
-instance OkIxProd k n => OkIxProd (Dual k) n where
-  okIxProd :: forall a. Ok' (Dual k) a |- Ok' (Dual k) (a :^ n)
-  okIxProd = Entail (Sub (Dict <+ okIxProd @k @n @a))
+instance (OkIxProd k h, Additive1 h) => OkIxProd (Dual k) h where
+  okIxProd :: forall a. Ok' (Dual k) a |- Ok' (Dual k) (h a)
+  okIxProd = Entail (Sub (Dict <+ okIxProd @k @h @a <+ additive1 @h @a))
 
-instance IxCoproductPCat k n => IxProductCat (Dual k) n where
+instance (IxCoproductPCat k h, Functor h, Additive1 h) => IxProductCat (Dual k) h where
   exF    = abst <$> inPF
-  forkF  = abst . joinPF . fmap repr
-  crossF = abst . plusPF . fmap repr
+  forkF  = inAbstF1 joinPF
+  crossF = inAbstF1 plusPF
   replF  = abst jamPF
   {-# INLINE exF #-}
   {-# INLINE forkF #-}
   {-# INLINE crossF #-}
   {-# INLINE replF #-}
 
-instance IxProductCat k n => IxCoproductPCat (Dual k) n where
+instance (IxProductCat k h, Functor h, Additive1 h) => IxCoproductPCat (Dual k) h where
   inPF   = abst <$> exF
-  joinPF = abst . forkF  . fmap repr
-  plusPF = abst . crossF . fmap repr
+  joinPF = inAbstF1 forkF
+  plusPF = inAbstF1 crossF
   jamPF  = abst replF
   {-# INLINE inPF #-}
   {-# INLINE joinPF #-}
   {-# INLINE plusPF #-}
   {-# INLINE jamPF #-}
-
--- Experimental
-
-type instance Fam (Dual k) n = Fam k n &+& Functor
-
-instance IxCoproductPQCat k n => IxProductQCat (Dual k) n where
-  exQ    = abst <$> inPQ
-  forkQ  = abst . joinPQ . fmap repr
-  crossQ = abst . plusPQ . fmap repr
-  replQ  = abst jamPQ
-  {-# INLINE exQ    #-}
-  {-# INLINE forkQ  #-}
-  {-# INLINE crossQ #-}
-  {-# INLINE replQ  #-}
-
-instance IxProductQCat k n => IxCoproductPQCat (Dual k) n where
-  inPQ   = abst <$> exQ
-  joinPQ = abst . forkQ  . fmap repr
-  plusPQ = abst . crossQ . fmap repr
-  jamPQ  = abst replQ
-  {-# INLINE inPQ   #-}
-  {-# INLINE joinPQ #-}
-  {-# INLINE plusPQ #-}
-  {-# INLINE jamPQ  #-}
 
 #if 1
 

@@ -27,21 +27,15 @@ module ConCat.AdditiveFun
 
 import Prelude hiding (id,(.),const,curry,uncurry,zipWith)
 
-import Data.Monoid
-import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
-import GHC.TypeLits (KnownNat)
-
 import Data.Constraint (Dict(..),(:-)(..))
 import Data.Key (Zip)
 import Data.Pointed (Pointed)
-import Data.Vector.Sized (Vector)
+import Data.Functor.Rep (Representable)
 
 import ConCat.Orphans ()
 import ConCat.AltCat
 import ConCat.Rep
 import ConCat.Additive
--- -- The following imports allows the instances to type-check. Why?
--- import qualified ConCat.Category  as C
 
 AbsTyImports
 
@@ -130,51 +124,29 @@ instance CoterminalCat (-+>) where
     Indexed products and coproducts
 --------------------------------------------------------------------}
 
-instance OkIxProd (-+>) n where okIxProd = Entail (Sub Dict)
+instance Additive1 h => OkIxProd (-+>) h where
+  okIxProd :: forall a. Ok' (-+>) a |- Ok' (-+>) (h a)
+  okIxProd = Entail (Sub (Dict <+ additive1 @h @a))
 
-instance IxProductCat (-+>) n where
-  exF    = abst . exF
-  forkF  = abst . forkF  . fmap repr
-  crossF = abst . crossF . fmap repr
+instance (Representable h, Zip h, Pointed h, Additive1 h) => IxProductCat (-+>) h where
+  exF    = abst <$> exF
+  forkF  = inAbstF1 forkF
+  crossF = inAbstF1 crossF
   replF  = abst replF
   {-# OPINLINE exF    #-}
   {-# OPINLINE forkF  #-}
   {-# OPINLINE crossF #-}
   {-# OPINLINE replF  #-}
 
-#if 0
--- | Indexed coproducts as indexed products
-class (Category k, OkIxProd k n) => IxCoproductPCat k n where
-  inPF   :: forall a   . Ok  k a   => (a `k` (a :^ n)) :^ n
-  joinPF :: forall a b . Ok2 k a b => (b `k` a) :^ n -> ((b :^ n) `k` a)
-  plusPF :: forall a b . Ok2 k a b => (b `k` a) :^ n -> ((b :^ n) `k` (a :^ n))  -- same as crossPF
-  jamPF  :: forall a   . Ok  k a   => (a :^ n) `k` a
-#endif
-
-instance (IxSummable n) => IxCoproductPCat (-+>) n where
-  inPF   = abst . inPF
-  joinPF = abst . joinPF . fmap repr
-  plusPF = abst . plusPF . fmap repr
+instance (Summable h, Additive1 h) => IxCoproductPCat (-+>) h where
+  inPF   = abst <$> inPF
+  joinPF = inAbstF1 joinPF
+  plusPF = inAbstF1 plusPF
   jamPF  = abst jamPF
   {-# OPINLINE inPF   #-}
   {-# OPINLINE joinPF #-}
   {-# OPINLINE plusPF #-}
   {-# OPINLINE jamPF  #-}
-
-{--------------------------------------------------------------------
-    Functor additivity
---------------------------------------------------------------------}
-
-class Additive1 h where additive1 :: Sat Additive a |- Sat Additive (h a)
-
-instance Additive1 ((->) a) where additive1 = Entail (Sub Dict)
-instance Additive1 Sum      where additive1 = Entail (Sub Dict)
-instance Additive1 Product  where additive1 = Entail (Sub Dict)
-instance Additive1 U1       where additive1 = Entail (Sub Dict)
-instance Additive1 Par1     where additive1 = Entail (Sub Dict)
-instance (AddF f, AddF g) => Additive1 (f :*: g)  where additive1 = Entail (Sub Dict)
-instance (AddF f, AddF g) => Additive1 (g :.: f)  where additive1 = Entail (Sub Dict)
-instance KnownNat n       => Additive1 (Vector n) where additive1 = Entail (Sub Dict)
 
 instance OkAdd (-+>) where okAdd = Entail (Sub Dict)
 
@@ -229,7 +201,7 @@ instance (Pointed h, Additive1 h, Additive a) => PointedCat (-+>) h a where
   pointC = abst pointC
   {-# OPINLINE pointC #-}
 
-instance (Foldable h, Additive a) => AddCat (-+>) h a where
+instance (Summable h, Additive a) => AddCat (-+>) h a where
   sumAC = abst sumA
   {-# OPINLINE sumAC #-}
 

@@ -39,7 +39,7 @@ import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable)
 import qualified Data.Functor.Rep as R
 
-import ConCat.Misc ((:*),(:^),type (&+&),cond,result,unzip,sqr) -- ,PseudoFun(..),oops
+import ConCat.Misc ((:*),type (&+&),cond,result,unzip,sqr) -- ,PseudoFun(..),oops
 -- import ConCat.Free.VectorSpace
 -- import ConCat.Free.LinearRow
 -- The following import allows the instances to type-check. Why?
@@ -166,82 +166,49 @@ instance CoproductPCat k => CoproductPCat (GD k) where
 --------------------------------------------------------------------}
 
 #if 0
-class (Category k, OkIxProd k n) => IxProductCat k n where
-  exF    :: forall a  . Ok  k a   => ((a :^ n) `k` a) :^ n
-  forkF  :: forall a b. Ok2 k a b => (a `k` b) :^ n -> (a `k` (b :^ n))
-  crossF :: forall a b. Ok2 k a b => (a `k` b) :^ n -> ((a :^ n) `k` (b :^ n))
-  replF  :: forall a  . Ok  k a   => a `k` (a :^ n)
+class (Category k, OkIxProd k h) => IxProductCat k h where
+  exF    :: forall a  . Ok  k a   => h (h a `k` a)
+  forkF  :: forall a b. Ok2 k a b => h (a `k` b) -> (a `k` h b)
+  crossF :: forall a b. Ok2 k a b => h (a `k` b) -> (h a `k` h b)
+  replF  :: forall a  . Ok  k a   => a `k` h a
 
-class (Category k, OkIxProd k n) => IxCoproductPCat k n where
-  inPF   :: forall a   . (Additive a, Ok  k a  ) => (a `k` (a :^ n)) :^ n
-  joinPF :: forall a b . (Additive a, Ok2 k a b) => (b `k` a) :^ n -> ((b :^ n) `k` a)
-  plusPF :: forall a b . (Additive a, Ok2 k a b) => (b `k` a) :^ n -> ((b :^ n) `k` (a :^ n))  -- same as crossPF
-  jamPF  :: forall a   . (Additive a, Ok  k a  ) => (a :^ n) `k` a
+class (Category k, OkIxProd k h) => IxCoproductPCat k h where
+  inPF   :: forall a   . (Additive a, Ok  k a  ) => h (a `k` h a)
+  joinPF :: forall a b . (Additive a, Ok2 k a b) => h (b `k` a) -> (h b `k` a)
+  plusPF :: forall a b . (Additive a, Ok2 k a b) => h (b `k` a) -> (h b `k` h a)  -- same as crossPF
+  jamPF  :: forall a   . (Additive a, Ok  k a  ) => h a `k` a
 
-class OkIxProd k n where
-  okIxProd :: Ok' k a |- Ok' k (a :^ n)
+class OkIxProd k h where
+  okIxProd :: Ok' k a |- Ok' k h a
 #endif
 
-instance OkIxProd k n => OkIxProd (GD k) n where
-  okIxProd :: forall a. Ok' (GD k) a |- Ok' (GD k) (a :^ n)
-  okIxProd = Entail (Sub (Dict <+ okIxProd @k @n @a))
+instance OkIxProd k h => OkIxProd (GD k) h where
+  okIxProd :: forall a. Ok' (GD k) a |- Ok' (GD k) (h a)
+  okIxProd = Entail (Sub (Dict <+ okIxProd @k @h @a))
 
 #define Linears(nm) nm = zipWith linearD A.nm A.nm
 
-instance (IxProductCat (->) n, IxProductCat k n) => IxProductCat (GD k) n where
+instance (IxProductCat (->) h, IxProductCat k h, Zip h) => IxProductCat (GD k) h where
   Linears(exF)
-  crossF (fmap repr -> fs) = D (second crossF . unzip . crossF fs)
   Linear(replF)
+  crossF (fmap repr -> fs) = D (second crossF . unzip . crossF fs)
   {-# INLINE exF #-}
-  {-# INLINE crossF #-}
   {-# INLINE replF #-}
+  {-# INLINE crossF #-}
 
 -- crossF types:
 -- 
---   crossF fs     :: a :^ n -> (b :* (a `k` b)) :^ n
---   unzip         :: .. -> b :^ n :* (a `k` b) :^ n
---   second crossF :: .. -> b :^ n :* ((a :^ n) `k` (b :^ n)
+--   crossF fs     :: h a -> h (b :* (a `k` b))
+--   unzip         :: .. -> h b :* h (a `k` b)
+--   second crossF :: .. -> h b :* (h a `k` h b
 
-instance (IxCoproductPCat (->) n, IxCoproductPCat k n) => IxCoproductPCat (GD k) n where
+instance (IxCoproductPCat (->) h, IxCoproductPCat k h, Zip h) => IxCoproductPCat (GD k) h where
   Linears(inPF)
-  plusPF (fmap repr -> fs) = D (second plusPF . unzip . plusPF fs)
   Linear(jamPF)
+  plusPF (fmap repr -> fs) = D (second plusPF . unzip . plusPF fs)
   {-# INLINE inPF   #-}
-  {-# INLINE plusPF #-}
   {-# INLINE jamPF  #-}
-
--- Experimental
-
--- type instance Fam (GD k) n = Fam (->) n &+& Fam k n
-
--- class    h ~ (->) n => IsFunOf n h
--- instance h ~ (->) n => IsFunOf n h
-
--- type instance Fam (GD k) n = IsFunOf n
-
--- class    h ~ (->) n => IsFunOf n h
--- instance h ~ (->) n => IsFunOf n h
-
--- type instance Fam (GD k) n = IsFunOf n
-
-class    a ~ b => Equ a b
-instance a ~ b => Equ a b
-
-type instance Fam (GD k) n = Equ ((->) n)
-
-instance (IxProductQCat (->) n, IxProductQCat k n, Fam k n ((->) n) {- , Fam k n ~ Fam k (->)-})
-      => IxProductQCat (GD k) n where
-  Linears(exQ)
-  Linear(replQ)
-  -- crossQ = undefined
-  -- replQ  = undefined
-  -- Linears(exQ)
-  -- crossQ :: forall h a b. (Fam (GD k) n h, Ok2 (GD k) a b) => h (GD k a b) -> GD k (a :^ n) (b :^ n)
-  -- crossQ (fmap repr -> fs) = D (second (crossQ @k @n @h) . unzip . crossQ @(->) @n @h fs)
-  crossQ (fmap repr -> fs) = D (second crossQ . unzip . crossQ fs)
-  {-# INLINE exQ #-}
-  {-# INLINE crossQ #-}
-  {-# INLINE replQ #-}
+  {-# INLINE plusPF #-}
 
 {--------------------------------------------------------------------
     NumCat etc
@@ -346,8 +313,8 @@ instance (ZapCat k h, OkFunctor k h, Zip h) => ZapCat (GD k) h where
 -- fmap repr            :: h (GD k a b) -> h (a -> b :* k a b)
 -- zapC                 :: h (a -> b :* k a b) -> (h a -> h (b :* k a b))
 -- result unzip         :: (h a -> h (b :* k a b)) -> (h a -> h b :* h (k a b))
--- (result.second) zapC :: (h a -> h b :* h (k a b)) -> (h a -> h b :* k (h a) (h b))
--- abst                 :: (h a -> h b :* k (h a) (h b)) -> GD k (h a) (h b)
+-- (result.second) zapC :: (h a -> h b :* h (k a b)) -> (h a -> h b :* k h a h b)
+-- abst                 :: (h a -> h b :* k h a h b) -> GD k h a h b
 
 -- TODO: What use can we make of the ZapCat instance? Maybe repeated differentiation.
 
