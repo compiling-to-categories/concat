@@ -25,7 +25,7 @@
 -- TODO: Can I replace HasRep with Generic or Newtype?
 ----------------------------------------------------------------------
 
-module ConCat.Rep (HasRep(..), inAbst,inAbst2, inRepr,inRepr2) where
+module ConCat.Rep (HasRep(..), inAbst,inAbst2, inAbstF1, inRepr,inRepr2) where
 
 import Data.Monoid
 -- import Data.Newtypes.PrettyDouble
@@ -242,6 +242,10 @@ inAbst2 :: (HasRep p, HasRep q, HasRep r) =>
            (Rep p -> Rep q -> Rep r) -> (p -> q -> r)
 inAbst2 = inAbst <~ repr
 {-# INLINE inAbst2 #-}
+
+inAbstF1 :: (HasRep p, HasRep q, Functor f) => (f (Rep p) -> Rep q) -> (f p -> q)
+inAbstF1 = abst <~ fmap repr
+{-# INLINE inAbstF1 #-}
 
 inRepr :: (HasRep p, HasRep q) =>
           (p -> q) -> (Rep p -> Rep q)
