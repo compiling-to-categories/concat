@@ -96,6 +96,7 @@ import Data.List (unfoldr)  -- TEMP
 import Data.Complex (Complex)
 import GHC.Exts (inline)
 import GHC.Float (int2Double)
+import GHC.TypeLits ()
 
 import Data.Constraint (Dict(..),(:-)(..))
 import Data.Pointed
@@ -129,12 +130,15 @@ import ConCat.AltCat
   (toCcc,toCcc',unCcc,unCcc',reveal,conceal,(:**:)(..),Ok,Ok2,U2,equal)
 import qualified ConCat.Rep
 import ConCat.Rebox () -- necessary for reboxing rules to fire
+import ConCat.Orphans ()
 import ConCat.Nat
 import ConCat.Shaped
 import ConCat.Scan
 import ConCat.FFT
 import ConCat.Free.LinearRow -- (L,OkLM,linearL)
 import ConCat.LC
+import ConCat.Deep
+import qualified ConCat.Deep as D
 
 -- Experimental
 import qualified ConCat.Inline.SampleMethods as I
@@ -174,6 +178,16 @@ type C = Complex R
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
+
+  -- , runSynCirc 
+
+  -- , runSyn $ toCcc $ negateFoo
+
+  -- , runSynCirc "jamPF" $ toCcc $ A.jamPF @(->) @(Finite 10) @R
+
+  -- , runCirc "linear" $ toCcc $ D.linear @(Vector 10) @(Vector 20) @R
+
+  -- , runSynCirc "elr1" $ toCcc $ linRelu @(Vector 10) @(Vector 20) @R
 
   -- Circuit graphs
   , runSynCirc "add"       $ toCcc $ uncurry ((+) @R)
@@ -648,8 +662,22 @@ main = sequence_
   -- , runSynCirc "sumA-dual"  $ toCcc $ toDual $ sumA @(Vector 5) @R
   -- , runSynCirc "point-dual" $ toCcc $ toDual $ point @(Vector 5) @R
 
-  -- , runSynCirc "fst-af" $ toCcc $ repr $ toCcc @(-+>) $ fst @R @R
-  -- , runSynCirc "fst-dual-af" $ toCcc $ repr $ repr $ toCcc @(Dual (-+>)) $ fst @R @R
+  -- , runSynCirc "ixSum-n-a" $ toCcc $ ixSum @(Finite 5) @R
+
+  -- , runSynCirc "ixSum-n" $ toCcc $ addFun $ ixSum @(Finite 5) @R
+
+  -- , runSynCirc "ixSum-n-b" $ toCcc $ addFun' $ ixSum @(Finite 5) @R
+
+  -- , runSyn{-Circ "ixSum-n-c"-} $ toCcc $ ixSum @(Finite 5) @R
+
+  -- , runCirc "ixSum-n-d" $ toCcc $ ixSum @(Finite 5) @R
+
+  -- , runSynCirc "ixSum-n-e" $ toCcc $ ixSum @(Finite 5) @R
+
+  -- , runSynCirc "jamPF-n" $ toCcc $ A.jamPF @(Finite 5) @R
+
+  -- , runSynCirc "fst-af"  $ toCcc $ addFun $ fst @R @R
+  -- , runSynCirc "fst-daf" $ toCcc $ dadFun $ fst @R @R
 
   -- -- Fails (rightly but not gracefully) because (->) lacks CoproductPCat instance
   -- , runSynCirc "fst-dual" $ toCcc $ toDual $ fst @R @R
@@ -1194,15 +1222,15 @@ fac9 n0 = go (n0,1)
 -- bar :: Float
 -- bar = fromIntegral (3 :: Int)
 
--- data Foo = Foo Double
+data Foo = Foo Double
 
--- negateFoo :: Unop Foo
--- negateFoo (Foo x) = Foo (negate x)
+negateFoo :: Unop Foo
+negateFoo (Foo x) = Foo (negate x)
 
--- instance HasRep Foo where
---   type Rep Foo = R
---   abst x = Foo x
---   repr (Foo x) = x
+instance HasRep Foo where
+  type Rep Foo = R
+  abst x = Foo x
+  repr (Foo x) = x
 
 -- foo1 :: Foo -> Foo :* (Foo -> Foo)
 -- foo1 = andDerF negateFoo
@@ -1226,3 +1254,10 @@ fac9 n0 = go (n0,1)
 -- -- Vector mess
 -- foo :: Vector 5 R -> Vector 5 R :* (Vector 5 R -> Vector 5 R)
 -- foo = reveal $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
+
+  -- , runSynCirc "fst-dual-af" $ toCcc $ repr $ repr $ toCcc @(Dual (-+>)) $ fst @R @R
+
+-- Dual additive
+dadFun :: (a -> b) -> (b -> a)
+dadFun f = repr (toDual @(-+>) f)
+{-# INLINE dadFun #-}
