@@ -183,11 +183,13 @@ linearApp' :: forall k p q u v. ( IxCoproductPCat k p, IxProductCat k q, Additiv
                                 , Functor q)
            => (p :--* q) (u `k` v) -> (p u `k` q v)
 linearApp' = forkF . fmap joinPF <+ okIxProd @k @p @u
+{-# INLINE linearApp' #-}
 
 linearApp :: forall k p q s. ( IxCoproductPCat k p, IxProductCat k q, ScalarCat k s, Additive s, Ok k s
                              , Functor p, Functor q)
           => (p :--* q) s -> (p s `k` q s)
 linearApp = linearApp' . (fmap.fmap) scale
+{-# INLINE linearApp #-}
 
 
 Op0(apply,forall k a b. (ClosedCat k, Ok2 k a b) => Prod k (Exp k a b) a `k` b)
