@@ -34,8 +34,9 @@ library
                      , free
                      , keys, pointed
                      , distributive, adjunctions
-                     , concat-inline
                      , prettyclass
+                     , concat-inline
+                     , concat-satisfy
   exposed-modules:     
                        ConCat.Orphans
                        ConCat.Misc

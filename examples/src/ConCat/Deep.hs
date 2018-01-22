@@ -87,12 +87,14 @@ linear' = linearApp'
 -- | Apply a linear map
 linear :: (Summable a, Summable b, Additive s, Num s)
        => (a :--* b) s -> (a s -> b s)
-linear = linearApp
+-- linear = linearApp
+-- Try a more direct version for now:
+linear = forkF . fmap joinPF . (fmap.fmap) scale
 {-# INLINE linear #-}
 
 -- linear :: (a --* b) -> (a --> b)
 
--- NOTE: linear' and linear' depend on the bogus IxCoproductPCat (->) instance
+-- NOTE: linear' and linear depend on the bogus IxCoproductPCat (->) instance
 -- in ConCat.Category. Okay if we translate to another category. I'll find a
 -- more principled way.
 

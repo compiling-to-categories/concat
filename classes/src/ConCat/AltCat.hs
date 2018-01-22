@@ -10,6 +10,7 @@
 -- 'satisfy' experiment
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
 
 -- For Uncurriable:
 {-# LANGUAGE TypeFamilies          #-}
@@ -60,6 +61,7 @@ import ConCat.Rep hiding (Rep)
 import qualified ConCat.Rep as R
 import ConCat.Additive
 import qualified ConCat.Category as C
+import ConCat.Satisfy
 
 import ConCat.Category
   ( Category, C1,C2,C3,C4,C5,C6, Ok,Ok2,Ok3,Ok4,Ok5,Ok6, Ok'
@@ -160,6 +162,23 @@ Op0(exF   , (IxProductCat k h, Ok  k a  ) => h (h a `k` a))
 Op1(forkF , (IxProductCat k h, Ok2 k a b) => h (a `k` b) -> (a `k` h b))
 Op1(crossF, (IxProductCat k h, Ok2 k a b) => h (a `k` b) -> (h a `k` h b))
 Op0(replF , (IxProductCat k h, Ok  k a  ) => a `k` h a)
+
+class    (IxProductCat k h, Functor h, Ok2 k a b) => OkFork h a b k
+instance (IxProductCat k h, Functor h, Ok2 k a b) => OkFork h a b k
+
+-- Potential superclass cycle for ‘OkFork’
+--   one of whose superclass constraints is headed by a type family:
+--     ‘Ok k a’
+-- Use UndecidableSuperClasses to accept this
+
+#if 1
+{-# RULES
+
+"toCcc'/forkF" forall (fs :: h (a -> b)).
+  toCcc' (forkF fs) = satisfy2 @(OkFork h a b) (forkF (toCcc' <$> fs))
+
+ #-}
+#endif
 
 Op0(inPF  , (IxCoproductPCat k h, Additive a, Ok  k a  ) => h (a `k` h a))
 Op1(joinPF, (IxCoproductPCat k h, Additive a, Ok2 k a b) => h (b `k` a) -> (h b `k` a))
@@ -703,24 +722,7 @@ instance Pointed (Arr i) where
 
 #endif
 
-#if 1
-
--- Experiment
-
-satisfy :: forall c a . (c => a) -> a
-satisfy = oops "satisfy"
-{-# NOINLINE satisfy #-}
-
-toCcc'' :: forall proxy k a b. proxy (a `k` b) -> (a -> b) -> (a `k` b)
-toCcc'' _ = oops "toCcc'' called"
-{-# NOINLINE toCcc'' #-}
-
-{-# RULES "ccc notC" forall (_p :: _proxy (Bool `k` Bool)). toCcc'' _p notC = satisfy @(BoolCat k) notC #-}
-
-#endif
-
 -- {-# RULES "ccc (->)" forall f. toCcc' f = f #-}
-
 
 Op1(fmapC   , (FunctorCat k h, Ok2 k a b) => (a `k` b) -> (h a `k` h b))
 Op0(unzipC  , (FunctorCat k h, Ok2 k a b) => h (a :* b) `k` (h a :* h b))

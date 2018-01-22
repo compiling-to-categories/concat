@@ -32,8 +32,6 @@ import CoreStats (exprSize)
 import OccurAnal (occurAnalyseExpr)
 import FamInstEnv (emptyFamInstEnvs)
 
-import ConCat.Misc (Unop)
-
 
 {--------------------------------------------------------------------
     Simplification
@@ -43,7 +41,7 @@ import ConCat.Misc (Unop)
 
 -- TODO: I don't think I'm using inline with simplifyE, so switch to simplifyExpr.
 
-simplifyE :: DynFlags -> Bool -> Unop CoreExpr
+simplifyE :: DynFlags -> Bool -> CoreExpr -> CoreExpr
 simplifyE dflags inline = unsafePerformIO . simplifyExpr dflags inline
 
 simplifyExpr :: DynFlags -- includes spec of what core-to-core passes to do

@@ -29,9 +29,8 @@ library
                      , integer-gmp
                      , syb >= 0.6
                      , concat-classes
+                     , concat-satisfy
   exposed-modules:     
-                       ConCat.Simplify
-                       ConCat.BuildDictionary
                        ConCat.Translators
                        ConCat.Plugin
                        ConCat.Rebox
