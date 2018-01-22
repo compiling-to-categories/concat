@@ -46,10 +46,15 @@ s *^ v = scale s <$> v
 scaleV = (*^)
 {-# INLINE (*^) #-}
 
+-- From AltCat:
+--
+-- -- | Generalized matrix
+-- infixr 1 :--*
+-- type (p :--* q) u = q (p u)
+
 -- | Linear map representation ("matrix")
 infixr 1 --*
 type a --* b = (a :--* b) R
--- type a --* b = b (a R)
 
 infixr 1 -->
 type a --> b = a R -> b R
@@ -75,13 +80,13 @@ outerV = (>.<)
 -- (*^ b) <$> a :: a s -> a (b s)
 
 linear' :: (Summable a, Summable b, Additive v)
-        => b (a (u -> v)) -> (a u -> b v)
+        => (a :--* b) (u -> v) -> (a u -> b v)
 linear' = linearApp'
 {-# INLINE linear' #-}
 
 -- | Apply a linear map
 linear :: (Summable a, Summable b, Additive s, Num s)
-       => b (a s) -> (a s -> b s)
+       => (a :--* b) s -> (a s -> b s)
 linear = linearApp
 {-# INLINE linear #-}
 
@@ -97,12 +102,17 @@ bump :: Num s => a s -> Bump a s
 bump a = a :*: Par1 1
 
 -- | Affine map representation
+infixr 1 :--+
+type (a :--+ b) s = (Bump a :--* b) s
+
+-- | Affine map over R
 infixr 1 --+
-type a --+ b = Bump a --* b
+type a --+ b = (a :--+ b) R
+               -- Bump a --* b
 
 -- | Affine application
 affine :: (Summable a, Summable b, Additive s, Num s)
-       => b (Bump a s) -> (a s -> b s)
+       => (a :--+ b) s -> (a s -> b s)
 affine m = linear m . bump
 {-# INLINE affine #-}
 
