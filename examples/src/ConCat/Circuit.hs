@@ -269,6 +269,35 @@ instance Show (Buses a) where
   showsPrec p (IxProdB as) = showsAppF p "IxProdB " as
   showsPrec p (ConvertB a) = showsApp1 p "ConvertB " a
 
+-- TODO: use operations from Data.Functor.Classes, such as showsUnaryWith.
+-- Give a Show1 instance for Buses in the style below, and then use
+-- 
+--   showsPrec1 :: (Show1 f, Show a) => Int -> f a -> ShowS
+
+{- From Data.Functor.Classes:
+
+> data T f a = Zero a | One (f a) | Two a (f a)
+
+a standard 'Read1' instance may be defined as
+
+> instance (Read1 f) => Read1 (T f) where
+>     liftReadsPrec rp rl = readsData $
+>         readsUnaryWith rp "Zero" Zero `mappend`
+>         readsUnaryWith (liftReadsPrec rp rl) "One" One `mappend`
+>         readsBinaryWith rp (liftReadsPrec rp rl) "Two" Two
+
+and the corresponding 'Show1' instance as
+
+> instance (Show1 f) => Show1 (T f) where
+>     liftShowsPrec sp _ d (Zero x) =
+>         showsUnaryWith sp "Zero" d x
+>     liftShowsPrec sp sl d (One x) =
+>         showsUnaryWith (liftShowsPrec sp sl) "One" d x
+>     liftShowsPrec sp sl d (Two x y) =
+>         showsBinaryWith sp (liftShowsPrec sp sl) "Two" d x y
+
+-}
+
 appParen :: Int -> Unop ShowS
 appParen p = showParen (p >= 10)
 
