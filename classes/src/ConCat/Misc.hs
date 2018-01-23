@@ -40,8 +40,8 @@ import Control.Newtype
 --------------------------------------------------------------------}
 
 infixr 8 :^
-infixr 7 :*
-infixr 6 :+
+infixl 7 :*
+infixl 6 :+
 infixr 1 :=>
 
 type s :^ n = n -> s

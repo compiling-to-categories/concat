@@ -67,7 +67,7 @@ dotV = (<.>)
 {-# INLINE (<.>) #-}
 {-# INLINE dotV #-}
 
--- | Outer product
+-- | Outer product. (Do we want this order of functor composition?)
 outerV, (>.<) :: (Functor a, Functor b, Num s) => a s -> b s -> a (b s)
 a >.< b = (*^ b) <$> a
 outerV = (>.<)
@@ -149,8 +149,8 @@ errGrad h sample = gradR (errSqr sample . h)
 {-# INLINE errGrad #-}
 
 infixr 9 @.
-(@.) :: (q -> b -> c) -> (p -> a -> b) -> (q :* p -> a -> c)
-(g @. f) (q,p) = g q . f p
+(@.) :: (q -> b -> c) -> (p -> a -> b) -> (p :* q -> a -> c)
+(g @. f) (p,q) = g q . f p
 {-# INLINE (@.) #-}
 
 {--------------------------------------------------------------------
@@ -161,11 +161,11 @@ lr1 :: C2 Summable a b => (a --+ b)  ->  (a --> b)
 lr1 = affRelu
 {-# INLINE lr1 #-}
 
-lr2 :: C3 Summable a b c => (b --+ c) :* (a --+ b)  ->  (a --> c)
+lr2 :: C3 Summable a b c => (a --+ b) :* (b --+ c)  ->  (a --> c)
 lr2 = affRelu @. affRelu
 {-# INLINE lr2 #-}
 
-lr3 :: C4 Summable a b c d => (c --+ d) :* (b --+ c) :* (a --+ b)  ->  (a --> d)
+lr3 :: C4 Summable a b c d => (a --+ b) :* (b --+ c) :* (c --+ d)  ->  (a --> d)
 lr3 = affRelu @. affRelu @. affRelu
 {-# INLINE lr3 #-}
 
@@ -173,11 +173,11 @@ elr1 :: C2 Summable a b => a R :* b R -> Unop (a --+ b)
 elr1 = errGrad lr1
 {-# INLINE elr1 #-}
 
-elr2 :: C3 Summable a b c => a R :* c R -> Unop ((b --+ c) :* (a --+ b))
+elr2 :: C3 Summable a b c => a R :* c R -> Unop ((a --+ b) :* (b --+ c))
 elr2 = errGrad lr2
 {-# INLINE elr2 #-}
 
 elr3 :: C4 Summable a b c d
-     => a R :* d R -> Unop ((c --+ d) :* (b --+ c) :* (a --+ b))
+     => a R :* d R -> Unop ((a --+ b) :* (b --+ c) :* (c --+ d))
 elr3 = errGrad lr3
 {-# INLINE elr3 #-}
