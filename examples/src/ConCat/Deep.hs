@@ -21,14 +21,14 @@ module ConCat.Deep where
 import Prelude hiding (zipWith)
 
 import GHC.TypeLits ()
-import GHC.Generics (Par1(..),(:*:)(..),(:.:)(..))
+import GHC.Generics (Par1(..),(:*:)(..))
 
 import Data.Key
 import Data.NumInstances.Function ()
 
 import ConCat.Misc
 import ConCat.Additive
-import ConCat.AltCat (forkF,joinPF,scale,crossF,jamPF,(:--*),linearApp',linearApp)
+import ConCat.AltCat (forkF,joinPF,scale,(:--*)) -- ,crossF,jamPF,linearApp',linearApp
 import ConCat.Orphans ()
 import ConCat.RAD (gradR)
 
