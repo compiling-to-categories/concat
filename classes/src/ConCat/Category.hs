@@ -288,23 +288,6 @@ instance OpCon (->) (Sat Additive) where
 
 class OkAdd k where okAdd :: Ok' k a |- Sat Additive a
 
-#if 1
--- Experiment. Smaller Core?
-type C1 (con :: u -> Constraint) a = con a
-type C2 (con :: u -> Constraint) a b = (con a, con b)
-type C3 (con :: u -> Constraint) a b c = (con a, con b, con c)
-type C4 (con :: u -> Constraint) a b c d = (con a, con b, con c, con d)
-type C5 (con :: u -> Constraint) a b c d e = (con a, con b, con c, con d, con e)
-type C6 (con :: u -> Constraint) a b c d e f = (con a, con b, con c, con d, con e, con f)
-#else
-type C1 (con :: u -> Constraint) a = con a
-type C2 con a b         = (C1 con a, con b)
-type C3 con a b c       = (C2 con a b, con c)
-type C4 con a b c d     = (C2 con a b, C2 con c d)
-type C5 con a b c d e   = (C3 con a b c, C2 con d e)
-type C6 con a b c d e f = (C3 con a b c, C3 con d e f)
-#endif
-
 type Ok2 k a b         = C2 (Ok k) a b
 type Ok3 k a b c       = C3 (Ok k) a b c
 type Ok4 k a b c d     = C4 (Ok k) a b c d
