@@ -10,7 +10,7 @@
 {-# LANGUAGE MonadComprehensions #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
+-- {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
 #include "ConCat/Ops.inc"
 
@@ -24,9 +24,7 @@ import GHC.TypeLits ()
 import GHC.Generics (Par1(..),(:*:)(..),(:.:)(..))
 
 import Data.Key
-import Data.Vector.Sized (Vector)
 import Data.NumInstances.Function ()
-import Data.Functor.Rep (Representable)
 
 import ConCat.Misc
 import ConCat.Additive
@@ -81,7 +79,8 @@ outerV = (>.<)
 
 linear' :: (Summable a, Summable b, Additive v)
         => (a :--* b) (u -> v) -> (a u -> b v)
-linear' = linearApp'
+-- linear' = linearApp'
+linear' = forkF . fmap joinPF
 {-# INLINE linear' #-}
 
 -- | Apply a linear map
@@ -89,14 +88,9 @@ linear :: (Summable a, Summable b, Additive s, Num s)
        => (a :--* b) s -> (a s -> b s)
 -- linear = linearApp
 -- Try a more direct version for now:
-linear = forkF . fmap joinPF . (fmap.fmap) scale
+-- linear = forkF . fmap joinPF . (fmap.fmap) scale
+linear = linear' . (fmap.fmap) scale
 {-# INLINE linear #-}
-
--- linear :: (a --* b) -> (a --> b)
-
--- NOTE: linear' and linear depend on the bogus IxCoproductPCat (->) instance
--- in ConCat.Category. Okay if we translate to another category. I'll find a
--- more principled way.
 
 type Bump h = h :*: Par1
 
@@ -140,7 +134,7 @@ distSqr u v = normSqr (zipWith (-) u v)
 --------------------------------------------------------------------}
 
 -- | Affine followed by RELUs.
-affRelu :: (Summable a, Summable b) => (a --+ b) -> (a --> b)
+affRelu :: (C2 Summable a b) => (a --+ b) -> (a --> b)
 affRelu = (result.result.fmap) (max 0) affine
 {-# INLINE affRelu #-}
 
@@ -155,24 +149,35 @@ errGrad h sample = gradR (errSqr sample . h)
 {-# INLINE errGrad #-}
 
 infixr 9 @.
-(@.) :: (p -> b -> c) -> (q -> a -> b) -> (p :* q -> a -> c)
-(f @. g) (p,q) = f p . g q
+(@.) :: (q -> b -> c) -> (p -> a -> b) -> (q :* p -> a -> c)
+(g @. f) (q,p) = g q . f p
 {-# INLINE (@.) #-}
 
 {--------------------------------------------------------------------
     Examples
 --------------------------------------------------------------------}
 
-lr1 :: (Summable a, Summable b) => (a --+ b)  ->  (a --> b)
+lr1 :: C2 Summable a b => (a --+ b)  ->  (a --> b)
 lr1 = affRelu
 {-# INLINE lr1 #-}
 
-lr2 :: (Summable a, Summable b, Summable c)
-    => (b --+ c) :* (a --+ b)  ->  (a --> c)
+lr2 :: C3 Summable a b c => (b --+ c) :* (a --+ b)  ->  (a --> c)
 lr2 = affRelu @. affRelu
 {-# INLINE lr2 #-}
 
-lr3 :: (Summable a, Summable b, Summable c, Summable d)
-    => (c --+ d) :* (b --+ c) :* (a --+ b)  ->  (a --> d)
+lr3 :: C4 Summable a b c d => (c --+ d) :* (b --+ c) :* (a --+ b)  ->  (a --> d)
 lr3 = affRelu @. affRelu @. affRelu
 {-# INLINE lr3 #-}
+
+elr1 :: C2 Summable a b => a R :* b R -> Unop (a --+ b)
+elr1 = errGrad lr1
+{-# INLINE elr1 #-}
+
+elr2 :: C3 Summable a b c => a R :* c R -> Unop ((b --+ c) :* (a --+ b))
+elr2 = errGrad lr2
+{-# INLINE elr2 #-}
+
+elr3 :: C4 Summable a b c d
+     => a R :* d R -> Unop ((c --+ d) :* (b --+ c) :* (a --+ b))
+elr3 = errGrad lr3
+{-# INLINE elr3 #-}
