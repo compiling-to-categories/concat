@@ -84,6 +84,10 @@ andDerF :: forall a b . (a -> b) -> (a -> b :* (a -> b))
 andDerF f = unMkD (toCcc @D f)
 {-# INLINE andDerF #-}
 
+andDerF' :: forall a b . (a -> b) -> (a -> b :* (a -> b))
+andDerF' f = unMkD (toCcc' @D f)
+{-# INLINE andDerF' #-}
+
 -- Type specialization of deriv
 derF :: forall a b . (a -> b) -> (a -> (a -> b))
 derF = (result.result) snd andDerF
