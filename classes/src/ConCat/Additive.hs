@@ -11,6 +11,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -160,7 +161,14 @@ sumA' :: (Foldable h, Additive a) => h a -> a
 sumA' = getAdd . foldMap Add
 
 -- Enables translation of sumA to jamPF in AltCat.
-type Summable h = (Representable h, Eq (Rep h), Zip h, Pointed h, Foldable h)
+type SummableF h = (Representable h, Eq (Rep h), Zip h, Pointed h, Foldable h)
+
+class    SummableF h => Summable h
+instance SummableF h => Summable h
+
+-- The constraint ‘Representable h’
+--   is no smaller than the instance head
+-- (Use UndecidableInstances to permit this)
 
 sumA :: (Summable h, Additive a) => h a -> a
 sumA = getAdd . foldMap Add
