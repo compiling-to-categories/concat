@@ -1,8 +1,10 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE InstanceSigs        #-}
 {-# LANGUAGE TypeOperators       #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 {-# OPTIONS_GHC -Wall #-}
 -- {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
@@ -163,3 +165,33 @@ fmapIdTC = curry (fmapC apply . strength)
              <+ okExp     @k @b @c
 -- fmapIdTC = fmapTC id
 {-# INLINE fmapIdTC #-}
+
+flipForkT :: forall k z a b. (IxProductCat k ((->) a), Ok2 k z b)
+          => (z -> a -> b) -> (z `k` (a -> b))
+-- flipForkT f = forkF (toCcc' P.. flip f)
+-- flipForkT f = forkF (\ a -> toCcc' (flip f a))
+flipForkT f = forkF (\ a -> toCcc' (\ z -> f z a))
+{-# INLINE flipForkT #-}
+
+--        f :: z -> a -> b
+-- toCcc' f :: z `k` (a -> b)
+
+-- flip f :: a -> z -> b  -- or forkF f
+-- toCcc' . flip f :: a -> (z `k` b)
+-- forkF (toCcc' . flip f) :: z `k` (a -> b)
+
+forkUnforkT :: forall k h a b.
+       (IxProductCat (->) h, Functor h, IxProductCat k h, Ok2 k a b)
+    => (a -> h  b) -> (a `k` h b)
+forkUnforkT f = forkF (fmap' toCcc' (unforkF f))
+{-# INLINE forkUnforkT #-}
+
+unforkF :: forall k h a b. (IxProductCat k h, Functor h, Ok2 k a b)
+        => (a `k` h b) -> h (a `k` b)
+unforkF g = fmap' (. g) exF <+ okIxProd @k @h @b
+{-# INLINE unforkF #-}
+
+--                           f  :: a -> h b
+--                   unforkF f  :: h (a -> b)
+--        toCcc' <$> unforkF f  :: h (a `k` b)
+-- forkF (toCcc' <$> unforkF f) :: a `k` h b

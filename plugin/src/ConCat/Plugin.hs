@@ -24,6 +24,7 @@ import Control.Arrow (first,second,(***))
 import Control.Applicative (liftA2,(<|>))
 import Control.Monad (unless,when,guard,(<=<))
 import Data.Foldable (toList)
+import Data.Either (isRight)
 import Data.Maybe (isNothing,isJust,fromMaybe,catMaybes,listToMaybe)
 import Data.List (isPrefixOf,isSuffixOf,elemIndex,sort,stripPrefix)
 import Data.Char (toLower)
@@ -65,6 +66,7 @@ import ConCat.BuildDictionary
 data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , cccV             :: Id
                      , uncccV           :: Id
+                     , closedTc         :: TyCon
                      , idV              :: Id
                      , constV           :: Id
                      , forkV            :: Id
@@ -82,6 +84,7 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , casePairTV       :: Id
                      , casePairLTV      :: Id
                      , casePairRTV      :: Id
+                     , flipForkTV       :: Id
                      , reprCV           :: Id
                      , abstCV           :: Id
                      , coerceV          :: Id
@@ -153,23 +156,36 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      -- my experiments, since much time is spent optimizing rules, IIUC. It'll
      -- be important to restore polymorphic transformation later for useful
      -- separate compilation.
---      Trying("top poly bail")
---      (exprType -> isMonoTy -> False) ->
---        Doing("top poly bail")
---        Nothing
+     -- Trying("top poly bail")
+     -- (exprType -> isMonoTy -> False) ->
+     --   Doing("top poly bail")
+     --   Nothing
+     Trying("top flipForkT")
+     -- f | pprTrace "flipForkT tests"
+     --      (ppr ( splitFunTy (exprType f)
+     --              , second splitFunTy_maybe (splitFunTy (exprType f))
+     --              , not catClosed)) False = undefined
+     f | z `FunTy` (a `FunTy` b) <- exprType f
+       , not catClosed 
+       -> Doing("top flipForkT")
+          -- pprTrace "flipForkT type" (ppr (varType flipForkTV)) $
+          return (onDicts (varApps flipForkTV [cat,z,a,b] []) `App` f)
      Trying("top Lam")
      Lam x body -> goLam x body
      Trying("top Let")
      Let bind@(NonRec v rhs) body ->
        -- Experiment: always float.
-       if -- dtrace "top Let tests" (ppr (not (isClosed cat), substFriendly (isClosed cat) rhs, idOccs False v body)) $
-          not (isClosed cat) ||  -- experiment
-          substFriendly (isClosed cat) rhs || idOccs False v body <= 1 then
+       if alwaysSubst rhs then
+         -- Experiment:
+         Doing("top Let subst")
+         go (subst1 v rhs body)
+         -- return (mkCcc (subst1 v rhs body))
+       else if
+          -- dtrace "top Let tests" (ppr (not catClosed, substFriendly catClosed rhs, idOccs False v body)) $
+          not catClosed ||  -- experiment
+          substFriendly catClosed rhs || idOccs False v body <= 1 then
          Doing("top Let float")
          return (Let bind (mkCcc body))
-         -- -- Experiment:
-         -- Doing("top Let substitution")
-         -- return (mkCcc (subst1 v rhs body))
        else
          Doing("top Let to beta-redex")
          go (App (Lam v body) rhs)
@@ -344,7 +360,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("top App")
      e@(App u v)
        -- | dtrace "top App tests" (ppr (exprType v,liftedExpr v, mkConst' cat dom v,mkUncurryMaybe cat (mkCcc u))) False -> undefined
-       | liftedExpr v
+       | catClosed, liftedExpr v
        , Just v' <- mkConst' cat dom v
        -- , dtrace "top App  --> " (pprWithType v') True
        , Just uncU' <- mkUncurryMaybe cat (mkCcc u)
@@ -389,6 +405,8 @@ ccc (CccEnv {..}) (Ops {..}) cat =
    -- go _ = Nothing
    -- goLam x body | dtrace "goLam:" (ppr (Lam x body)) False = undefined
    -- goLam x body | dtrace ("goLam body constr: " ++ exprConstr body) (ppr (Lam x body)) False = undefined
+    where
+      catClosed = isClosed cat
 #if 0
    goLam x body | Just e' <- etaReduce_maybe (Lam x body) =
     Doing("lam eta-reduce")
@@ -453,9 +471,9 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam Let")
      -- TODO: refactor with top Let
      _e@(Let bind@(NonRec v rhs) body') ->
-       -- dtrace "lam Let subst criteria" (ppr (substFriendly (isClosed cat) rhs, not xInRhs, idOccs True v body')) $
-       if not (isClosed cat) || -- experiment
-          substFriendly (isClosed cat) rhs || not xInRhs || idOccs True v body' <= 1 then
+       -- dtrace "lam Let subst criteria" (ppr (substFriendly catClosed rhs, not xInRhs, idOccs True v body')) $
+       if not catClosed || -- experiment
+          substFriendly catClosed rhs || not xInRhs || idOccs True v body' <= 1 then
          -- TODO: decide whether to float or substitute.
          -- To float, x must not occur freely in rhs
          -- return (mkCcc (Lam x (subst1 v rhs body'))) The simplifier seems to
@@ -724,7 +742,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
 #if 0
      u `App` v --  | pprTrace "lam App" (ppr (u,v)) False -> undefined
-               | liftedExpr v
+               | catClosed, liftedExpr v
                -- , pprTrace "lam App mkApplyMaybe -->" (ppr (mkApplyMaybe cat vty bty, cat)) True
                , Just app <- mkApplyMaybe cat vty bty ->
        Doing("lam App")
@@ -735,7 +753,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
         vty = exprType v
 #elif 1
      u `App` v --  | pprTrace "lam App" (ppr (u,v)) False -> undefined
-               | liftedExpr v
+               | catClosed, liftedExpr v
                -- , pprTrace "lam App mkApplyMaybe -->" (ppr (mkApplyMaybe cat vty bty, cat)) True
                , mbComp <- do app  <- mkApplyMaybe cat vty bty
                               fork <- mkFork' cat (mkCcc (Lam x u)) (mkCcc (Lam x v))
@@ -779,6 +797,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
       xty = varType x
       bty = exprType body
       isConst = not (x `isFreeIn` body)
+      catClosed = isClosed cat
 
 pattern Coerce :: Cat -> Type -> Type -> CoreExpr
 pattern Coerce k a b <-
@@ -842,6 +861,7 @@ data Ops = Ops
  , onDictTry      :: CoreExpr -> Either SDoc CoreExpr
  , onDictMaybe    :: ReExpr
  , onDict         :: Unop CoreExpr
+ , onDicts        :: Unop CoreExpr
  , buildDictMaybe :: Type -> Either SDoc CoreExpr
  , catOp          :: Cat -> Var -> [Type] -> CoreExpr
  , catOpMaybe     :: Cat -> Var -> [Type] -> Maybe CoreExpr
@@ -1093,7 +1113,8 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      -- onDict (catOp k applyV `mkTyApps` [a,b])
      onDictMaybe =<< catOpMaybe k applyV [a,b]
    isClosed :: Cat -> Bool
-   isClosed k = isJust (mkApplyMaybe k unitTy unitTy)
+   -- isClosed k = isJust (mkApplyMaybe k unitTy unitTy)
+   isClosed k = isRight (buildDictMaybe (TyConApp closedTc [k]))
    normType = normaliseType famEnvs
 
    mkCurry' :: Cat -> ReExpr
@@ -1262,6 +1283,10 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    transCatOp :: ReExpr
    transCatOp orig@(collectArgs -> (Var v, Type (isFunCat -> True) : rest))
      | isFunCat cat = Just orig
+     -- Take care with const, so we don't transform it alone.
+     -- TODO: look for a more general suitable test for wrong number of arguments.
+     | v == constV && length rest /= 6 = Nothing
+     -- | v == constV, pprTrace "transCatOp constV" (ppr orig) False = undefined
      | otherwise
      = -- dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) $
        let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
@@ -1621,6 +1646,7 @@ mkCccEnv opts = do
       findBoxId   = findId boxModule
       findExtTc   = findTc extModule
       findExtId   = findId extModule
+  closedTc    <- findTc catModule "ClosedCat"
   idV         <- findCatId "id"
   constV      <- findCatId "const"
   composeV    <- findCatId "."
@@ -1644,6 +1670,7 @@ mkCccEnv opts = do
   casePairTV  <- findTrnId "casePairT"
   casePairLTV <- findTrnId "casePairLT"
   casePairRTV <- findTrnId "casePairRT"
+  flipForkTV  <- findTrnId "flipForkT"
   repTc       <- findRepTc "Rep"
   prePostV    <- findId "ConCat.Misc" "~>"
   boxIV       <- findBoxId "boxI"
@@ -2141,7 +2168,7 @@ idOccs penalizeUnderLambda x = go
 
 -- GHC's isPredTy says "no" to unboxed tuples of pred types.
 isPredTy' :: Type -> Bool
--- isPredTy' ty | pprTrace "isPredTy'" (ppr (ty,splitTyConApp_maybe ty)) False = undefined
+-- isPredTy' ty | pprTrace "isPredTy'" (ppr (ty,isPredTy ty,splitTyConApp_maybe ty)) False = undefined
 isPredTy' ty = isPredTy ty || others ty
  where
    others (splitTyConApp_maybe -> Just (tc,tys)) =
@@ -2265,3 +2292,12 @@ unsafeLimit (Just r) = \ a -> unsafePerformIO $
           writeIORef r (n-1)
           return a
 {-# NOINLINE unsafeLimit #-}
+
+-- experiment
+alwaysSubst :: CoreExpr -> Bool
+-- alwaysSubst e@(collectArgs -> (Var _, args))
+--   | pprTrace "alwaysSubst" (ppr (e,not (isTyCoDictArg e), all isTyCoDictArg args)) False = undefined
+alwaysSubst e@(collectArgs -> (Var _, args)) =
+  not (isTyCoDictArg e) && all isTyCoDictArg args
+alwaysSubst _ = False
+
