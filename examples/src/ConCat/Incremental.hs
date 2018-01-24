@@ -40,7 +40,7 @@ import Data.Void (Void,absurd)
 import Control.Newtype
 import Data.Constraint ((:-)(..),Dict(..))
 
-import ConCat.Misc ((:*),(:+),Unop,Binop, inNew2,Parity,R,Yes1,result)
+import ConCat.Misc ((:*),(:+),Unop,Binop, inNew2,Parity,R,Yes1,result, C4)
 import ConCat.Rep
 import ConCat.Category
 import qualified ConCat.AltCat as A
