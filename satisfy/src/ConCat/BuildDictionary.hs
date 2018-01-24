@@ -167,8 +167,12 @@ buildDictionary env dflags guts inScope goalTy =
    name = "$d" ++ zEncodeString (filter (not . isSpace) (showPpr dflags goalTy))
    scopedDicts = filterVarSet keepVar (getInScopeVars (fst inScope))
    keepVar v =
+     -- Occasionally I get "StgCmmEnv: variable not found", so don't keep any.
+     -- See 2018-01-23 journal notes. For now, False
+     -- TODO: Investigate!
+     False &&
+     isEvVar v -- && not (isDeadBinder v)
      -- Keep evidence that relates to free type variables in the goal.
-     isEvVar v
      -- && not (isEmptyVarSet (goalTyVars `intersectVarSet` tyCoVarsOfType (varType v))) -- see issue #20
    -- freeIds = filter isId (uniqSetToList (exprFreeVars dict))
    -- freeIdTys = varType <$> freeIds
@@ -228,3 +232,10 @@ newtype WithType = WithType CoreExpr
 
 instance Outputable WithType where
   ppr (WithType e) = ppr e <+> dcolon <+> ppr (exprType e)
+
+newtype WithIdInfo = WithIdInfo Id
+
+instance Outputable WithIdInfo where
+  -- I wanted the full IdInfo, but it's not Outputtable
+  -- ppr (WithIdInfo v) = ppr v <+> colon <+> ppr (occInfo (idInfo v))
+  ppr (WithIdInfo v) = ppr v <+> colon <+> ppr (splitTyConApp_maybe (varType v))
