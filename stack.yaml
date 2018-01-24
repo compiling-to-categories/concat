@@ -7,6 +7,12 @@ packages:
 - examples
 - graphics
 - hardware
+# - /Users/conal/git-repos/vector-sized  # TEMP
+# While waiting for https://github.com/expipiplus1/vector-sized/pull/30
+- location:
+    git: https://github.com/conal/vector-sized
+    commit: e87a078a502e3b6dfa3738ca1c0851f7d3f14031
+  extra-dep: true
 - location:
     git: https://github.com/ku-fpg/netlist
     commit: c58d089f0349e9a3e9f9e264c7108c3d0b4ea4fd
