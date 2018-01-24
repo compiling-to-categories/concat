@@ -56,7 +56,7 @@ import GHC.TypeLits (KnownNat,natVal)
 import Data.Finite (Finite)
 #endif
 
-import ConCat.Misc ((:*),(:+),(:^),unzip,PseudoFun(..),oops,type (&+&),result)
+import ConCat.Misc ((:*),(:+),(:^),unzip,PseudoFun(..),oops,type (&+&),result, C1,C2,C3,C4,C5,C6)
 import ConCat.Rep hiding (Rep)
 import qualified ConCat.Rep as R
 import ConCat.Additive
@@ -64,7 +64,7 @@ import qualified ConCat.Category as C
 import ConCat.Satisfy
 
 import ConCat.Category
-  ( Category, C1,C2,C3,C4,C5,C6, Ok,Ok2,Ok3,Ok4,Ok5,Ok6, Ok'
+  ( Category, Ok,Ok2,Ok3,Ok4,Ok5,Ok6, Ok'
   , ProductCat, Prod, twiceP, inLassocP, inRassocP --, unfork
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
   , Additive1(..), OkAdd(..), CoproductPCat, CoprodP, ScalarCat, LinearCat
