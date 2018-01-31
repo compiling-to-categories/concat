@@ -22,5 +22,6 @@ packages:
     commit: 2e5ebd857af957fa5709f5ad17df1b5851664b70
   extra-dep: true
 extra-deps:
-  - pointed-5.0.1 ## has Pointed & Copointed for GHC.Generics
+  - pointed-5.0.1 ## instances for GHC.Generics
+  - keys-3.12     ## instances for GHC.Generics
 resolver: lts-9.20

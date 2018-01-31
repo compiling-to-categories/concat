@@ -19,7 +19,7 @@
 module ConCat.Orphans where
 
 import Prelude hiding (zipWith)
-import Control.Applicative (liftA2)
+-- import Control.Applicative (liftA2)
 import Control.Arrow ((|||))
 import Data.Monoid
 import GHC.Generics (U1(..),Par1(..),(:+:)(..),(:*:)(..),(:.:)(..))
@@ -41,14 +41,14 @@ import Data.Finite (Finite,finite,finites)
 import Data.Vector.Sized (Vector)
 import qualified Data.Vector.Sized as V
 
-import ConCat.Misc ((:*),(:+),inNew,inNew2)
+import ConCat.Misc ((:*),(:+),inNew2) -- ,inNew
+
+#if 0
+-- In keys-3.12 (2018-01-28)
 
 {--------------------------------------------------------------------
     GHC.Generics and keys
 --------------------------------------------------------------------}
-
--- Submitted to keys. Merge in progress.
-#if 1
 
 -- Key
 
