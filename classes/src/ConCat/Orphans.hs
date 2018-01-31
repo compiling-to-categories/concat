@@ -27,8 +27,8 @@ import GHC.Generics (U1(..),Par1(..),(:+:)(..),(:*:)(..),(:.:)(..))
 import Data.Void
 import Data.Key
 import Data.Pointed
-import Data.Copointed
-import Control.Comonad.Cofree
+-- import Data.Copointed
+-- import Control.Comonad.Cofree
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..),distributeRep)
 import qualified Data.Functor.Rep as Rep
@@ -177,6 +177,9 @@ instance (Adjustable g, Adjustable f) => Adjustable (g :.: f) where
 
 #endif
 
+#if 0
+-- No longer needed with pointed-5.0.1 (2018-01-22)
+
 {--------------------------------------------------------------------
     GHC.Generics and pointed
 --------------------------------------------------------------------}
@@ -213,6 +216,8 @@ instance Pointed f => Pointed (Cofree f) where
 
 instance Copointed (Cofree f) where
   copoint (a :< _) = a
+
+#endif
 
 {--------------------------------------------------------------------
     Control.Newtype and keys
