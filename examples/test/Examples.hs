@@ -179,28 +179,28 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- , runSynCirc 
+  -- , runSynCirc
 
   -- , runSyn $ toCcc $ negateFoo
 
   -- , runSynCirc "jamPF" $ toCcc $ A.jamPF @(->) @(Finite 10) @R
 
-  -- , runCirc "linear" $ toCcc $ D.linear @(Vector 10) @(Vector 20) @R
+  , runCirc "linear" $ toCcc $ D.linear @(Vector 10) @(Vector 20) @R
 
   -- , runSynCirc "elr1" $ toCcc $ linRelu @(Vector 10) @(Vector 20) @R
 
   -- Circuit graphs
-  , runSynCirc "add"       $ toCcc $ uncurry ((+) @R)
-  , runSynCirc "dup"     $ toCcc $ A.dup @(->) @R
-  , runSynCirc "fst"       $ toCcc $ fst @R @R
-  , runSynCirc "twice"       $ toCcc $ twice @R
-  , runSynCirc "sqr"         $ toCcc $ sqr @R
-  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  , runSynCirc "cosSinProd"  $ toCcc $ cosSinProd @R
-  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "add"       $ toCcc $ uncurry ((+) @R)
+  -- , runSynCirc "dup"     $ toCcc $ A.dup @(->) @R
+  -- , runSynCirc "fst"       $ toCcc $ fst @R @R
+  -- , runSynCirc "twice"       $ toCcc $ twice @R
+  -- , runSynCirc "sqr"         $ toCcc $ sqr @R
+  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  -- , runSynCirc "cosSinProd"  $ toCcc $ cosSinProd @R
+  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- , runSynCirc "truncate" $ toCcc $ truncate @R @Int
   -- , runSynCirc "log" $ toCcc $ log @R
@@ -245,10 +245,10 @@ main = sequence_
   --     (toCcc (choose @(Ok (:>)) ((+) @R)))
 
   -- , onChoice @GenBuses (runCirc "choice-foo" . toCcc)
-  --     (toCcc (choose @GenBuses (\ b x -> x + b :: R))) 
+  --     (toCcc (choose @GenBuses (\ b x -> x + b :: R)))
 
   -- , onChoice @(Ok (:>)) (runCirc "choice-foo" . toCcc)
-  --     (toCcc (choose @(Ok (:>)) (\ b x -> x + b :: R))) 
+  --     (toCcc (choose @(Ok (:>)) (\ b x -> x + b :: R)))
 
   -- , onChoice @GenBuses (runCirc "choice-line" . toCcc)
   --     (toCcc (choose @GenBuses (\ (m,b) x -> m * x + b :: R)))
@@ -268,7 +268,7 @@ main = sequence_
   --     (toCcc (choose @GenBuses line . sin . choose @GenBuses line))
 
   -- , onChoice @OkLC (runCirc "choice-line" . toCcc)
-  --     (toCcc (choose @OkLC line)) 
+  --     (toCcc (choose @OkLC line))
 
   -- , runSynCirc "foo" $ toCcc (step @R line)  -- Loops
 
@@ -277,7 +277,7 @@ main = sequence_
 
   -- , runCirc "sqErrF-vv" $ toCcc $ R.sqErrF @R @(Vector 5 R) @(Vector 11)
 
-  -- , runSynCirc "sqErrF-uncurry-vv-c" $ toCcc $ uncurry (R.sqErrF @R @(Vector 5 R) @(Vector 11)) 
+  -- , runSynCirc "sqErrF-uncurry-vv-c" $ toCcc $ uncurry (R.sqErrF @R @(Vector 5 R) @(Vector 11))
 
   -- , runSynCirc "sqErrF-der-a" $ toCcc $ \ sample -> andDerF $ \ aff ->
   --     R.sqErrF @R @(Vector 5 R) @(Vector 11) (applyA @R aff) sample
@@ -325,11 +325,11 @@ main = sequence_
 
   -- , runSynCirc "max" $ toCcc $ uncurry (max @R)
 
-  -- , runSyn $ toCcc $ uncurry (max @R) 
+  -- , runSyn $ toCcc $ uncurry (max @R)
 
-  -- , runSyn $ toCcc $ andDerF $ A.maxC @(->) @R 
+  -- , runSyn $ toCcc $ andDerF $ A.maxC @(->) @R
 
-  -- , runSyn $ toCcc $ andDerF $ uncurry (max @R) 
+  -- , runSyn $ toCcc $ andDerF $ uncurry (max @R)
 
   -- , runSynCirc "max-ad" $ toCcc $ andDerF $ uncurry (max @R)
 
@@ -432,12 +432,12 @@ main = sequence_
   --     (toCcc (choose @OkLC line))
 
   -- -- 12 sec
-  -- , onChoice @OkLFC (\ f -> runCirc "regress-line-df" $ toCcc $  -- ok 
+  -- , onChoice @OkLFC (\ f -> runCirc "regress-line-df" $ toCcc $  -- ok
   --                     \ ab -> derF (negate . sqErr @R ab . f))
   --     (toCcc (choose @OkLFC line))
 
   -- -- 12 sec
-  -- , onChoice @OkLFC (\ f -> runCirc "regress-line-gf" $ toCcc $  -- ok 
+  -- , onChoice @OkLFC (\ f -> runCirc "regress-line-gf" $ toCcc $  -- ok
   --                     \ ab -> gradF @R (negate . sqErr ab . f))
   --     (toCcc (choose @OkLFC line))
 
@@ -718,13 +718,13 @@ main = sequence_
   -- , runSynCirc "cosSinProd-adrl" $ toCcc $ andGrad2R @R $ cosSinProd @R
   -- , runSynCirc "dup-gradr"     $ toCcc $ andGrad2R $ A.dup @(->) @R
 
-  -- , runSynCirc "sumA-adf" $ toCcc $ andDeriv @(->) $ sumA @(Vector 5) @R 
+  -- , runSynCirc "sumA-adf" $ toCcc $ andDeriv @(->) $ sumA @(Vector 5) @R
 
   -- , runSynCirc "sumA-adr" $ toCcc $ andDerR $ sumA @(Vector 5) @R
 
 
-  -- , runSynCirc "sumA" $ toCcc $ sumA @(Vector 5) @R 
-  -- , runSynCirc "sumA-fad" $ toCcc $ andDeriv @(-+>) $ sumA @(Vector 5) @R 
+  -- , runSynCirc "sumA" $ toCcc $ sumA @(Vector 5) @R
+  -- , runSynCirc "sumA-fad" $ toCcc $ andDeriv @(-+>) $ sumA @(Vector 5) @R
   -- , runSynCirc "sumA-adr" $ toCcc $ andDerR $ sumA @(Vector 5) @R
 
   -- , runSynCirc "zip-adr"            $ toCcc $ andDerR  $ uncurry (zip @(Vector 5) @R @R)
@@ -733,7 +733,7 @@ main = sequence_
   -- , runSyn{-Circ "fmap-cos-adr"-}       $ toCcc $ andDerR  $ fmap @(Vector 5) @R cos
   -- , runSynCirc "sum-fmap-cos-gradr" $ toCcc $ andGradR $ sum . fmap @(Vector 5) @R cos
 
-  -- , runSynCirc "sumA-gradr"          $ toCcc $ andGradR $ sumA @(Vector 5) @R 
+  -- , runSynCirc "sumA-gradr"          $ toCcc $ andGradR $ sumA @(Vector 5) @R
   -- , runSynCirc "zip-adr"            $ toCcc $ andDerR  $ uncurry (zip @(Vector 5) @R @R)
   -- , runSynCirc "fmap-cos-adr"       $ toCcc $ andDerR  $ fmap @(Vector 5) @R cos
   -- , runSynCirc "sum-fmap-cos-gradr" $ toCcc $ andGradR $ sum . fmap @(Vector 5) @R cos
@@ -1199,10 +1199,10 @@ fac9 n0 = go (n0,1)
 -- foo1 z = toCcc (unCcc z)
 
 -- foo1 :: Unop R -> Unop (Par1 R)
--- foo1 = toCcc' A.fmapC -- 
+-- foo1 = toCcc' A.fmapC --
 
 -- foo2 :: Unop R :* Par1 R -> Par1 R
--- foo2 = toCcc' (A.uncurry A.fmapC) -- 
+-- foo2 = toCcc' (A.uncurry A.fmapC) --
 
 -- foo3 :: ADFun.D (Vector 5 R) (Vector 5 R)
 -- -- foo3 = toCcc' (fmap negate :: Unop (Vector 5 R))
@@ -1236,7 +1236,7 @@ instance HasRep Foo where
 -- foo1 = andDerF negateFoo
 
 {--------------------------------------------------------------------
-    
+
 --------------------------------------------------------------------}
 
 -- -- fmap negate

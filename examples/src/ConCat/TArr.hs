@@ -54,7 +54,7 @@ instance (HasFin a, HasFin b, KnownNat (Card a + Card b)) => HasFin (a :+ b) whe
   type Card (a :+ b) = Card a + Card b
 
   toFin (Left  x) = (finite . getFinite . toFin) x
-  toFin (Right y) = finite $ natVal (Proxy @(Card a)) + (natVal . toFin) y
+  toFin (Right y) = finite $ natVal (Proxy @(Card a)) + (getFinite . toFin) y
 
   unFin n = if getFinite n < natVal (Proxy @(Card a))
                then Left  ((unFin . finite . getFinite) n)
