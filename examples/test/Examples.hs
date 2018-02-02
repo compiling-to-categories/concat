@@ -179,15 +179,17 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- , runSynCirc 
-
-  -- , runSyn $ toCcc $ negateFoo
-
   -- , runSynCirc "jamPF" $ toCcc $ A.jamPF @(->) @(Finite 10) @R
+  -- , runSynCirc "sin-adf"        $ toCcc $ andDerF $ sin @R
+  -- , runCirc "curry1-adf" $ toCcc' $ andDerF' $ (*) @R
+  -- , runCirc "const" $ toCcc' $ A.const @(->) @R @R
+  -- , runCirc "curry2-adf" $ toCcc' $ andDerF' $ \ (a :: Vector 10 R) b -> fmap (+ b) a
+  -- , runCirc "linear" $ toCcc' $ D.linear @(Vector 10) @(Vector 20) @R
+  -- , runCirc "errGrad-a" $ toCcc $ err1Grad (\ p x -> p + x)
 
-  -- , runCirc "linear" $ toCcc $ D.linear @(Vector 10) @(Vector 20) @R
+  -- , runCirc "errGrad-b" $ toCcc $ \ ab -> err1Grad (\ p x -> p + x) ab
 
-  -- , runSynCirc "elr1" $ toCcc $ linRelu @(Vector 10) @(Vector 20) @R
+  -- , runCirc "elr1" $ toCcc $ errGrad (D.linear @(Vector 10) @(Vector 20) @R)
 
   -- Circuit graphs
   , runSynCirc "add"       $ toCcc $ uncurry ((+) @R)
@@ -620,6 +622,25 @@ main = sequence_
   -- , runSynCirc "distribute-4-1" $ toCcc $ distributeC @(->) @(V R (Vector 4 R)) @(V R R) @R
 
   -- , runSynCirc "distribute-1-4" $ toCcc $ (distributeC :: V R R (V R (Vector 4 R) R) -> V R (Vector 4 R) (V R R R))
+
+  -- , runSynCirc "sin-df"        $ toCcc $ derF $ sin @R
+
+  -- , runSynCirc "foo1" $ toCcc $ \ x -> derF (sin @R) x 1
+  -- , runSynCirc "foo2" $ toCcc $ derF (\ x -> derF (sin @R) x 1)
+
+  -- , runSynCirc "sin-d"  $ toCcc $ d (sin @R)
+  -- , runSynCirc "cos-d"  $ toCcc $ d (cos @R)
+  -- , runSynCirc "sin-dd" $ toCcc $ d (d (sin @R))
+  
+  -- -- Working here
+  -- , runSynCirc "dd2" $ toCcc $ d (\x -> d (x +) 2)
+
+  -- , runSynCirc "dd-ok" $ toCcc $ \ x -> x * d (x *) 2
+
+
+  -- , runSynCirc "dd3" $ toCcc $ d (\x -> x * d (\ y -> y * x) 2)
+
+  -- , runSynCirc "foo9-d"  $ toCcc $ derF (\ (_ :: R) -> 1 :: R)
 
   -- -- Automatic differentiation with ADFun:
   -- , runSynCirc "sin-adf"        $ toCcc $ andDerF $ sin @R
@@ -1261,3 +1282,8 @@ instance HasRep Foo where
 dadFun :: (a -> b) -> (b -> a)
 dadFun f = repr (toDual @(-+>) f)
 {-# INLINE dadFun #-}
+
+-- Define a restricted form of the d operator.
+d :: Unop (R -> a)
+d f = \ x -> derF f x 1
+{-# INLINE d #-}
