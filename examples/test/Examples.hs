@@ -196,24 +196,24 @@ main = sequence_
 
   -- , runCirc "err1Grad-b" $ toCcc $ err1Grad (\ (p,q) z -> p * z + q)
 
-  , runCirc "err1Grad-c" $ toCcc $ uncurry $ err1Grad (\ (p,q) z -> p * z + q)
+  -- , runCirc "err1Grad-c" $ toCcc $ uncurry $ err1Grad (\ (p,q) z -> p * z + q)
 
   -- , runCirc "linear" $ toCcc $ D.linear @(Vector 10) @(Vector 20) @R
 
   -- , runCirc "elr1" $ toCcc $ errGrad (D.linear @(Vector 10) @(Vector 20) @R)
 
-  -- -- Circuit graphs
-  -- , runSynCirc "add"         $ toCcc $ uncurry ((+) @R)
-  -- , runSynCirc "dup"         $ toCcc $ A.dup @(->) @R
-  -- , runSynCirc "fst"         $ toCcc $ fst @R @R
-  -- , runSynCirc "twice"       $ toCcc $ twice @R
-  -- , runSynCirc "sqr"         $ toCcc $ sqr @R
-  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  -- , runSynCirc "cosSinProd"  $ toCcc $ cosSinProd @R
-  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  -- Circuit graphs
+  , runSynCirc "add"         $ toCcc $ uncurry ((+) @R)
+  , runSynCirc "dup"         $ toCcc $ A.dup @(->) @R
+  , runSynCirc "fst"         $ toCcc $ fst @R @R
+  , runSynCirc "twice"       $ toCcc $ twice @R
+  , runSynCirc "sqr"         $ toCcc $ sqr @R
+  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  , runSynCirc "cosSinProd"  $ toCcc $ cosSinProd @R
+  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- , runSynCirc "truncate" $ toCcc $ truncate @R @Int
   -- , runSynCirc "log" $ toCcc $ log @R
