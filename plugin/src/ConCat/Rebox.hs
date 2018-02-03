@@ -17,7 +17,7 @@
 
 module ConCat.Rebox where
 
-import Prelude hiding (id,(.),curry,uncurry)
+import Prelude hiding (id,(.),curry,uncurry,const)
 import qualified Prelude as P
 import qualified Control.Arrow as P
 import Data.Tuple (swap)
@@ -446,5 +446,15 @@ Catify(fromIntegral,fromIntegralC)
 "curry apply 2" forall f a b. curry f a b = f (a,b)
 
 "swap" forall p. (,) (exr p) (exl p) = swap p
+
+ #-}
+
+-- Others
+
+
+{-# RULES
+
+-- I haven't seen this one working.
+"mulC 1 right" forall f. mulC . (f &&& const 1.0) = f
 
  #-}

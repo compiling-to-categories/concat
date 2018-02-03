@@ -214,6 +214,14 @@ instance Ok2 (L s) a b => Ad.Additive (L s a b) where
   zero  = zeroLM
   (^+^) = addLM
 
+-- lapply' :: forall s a b. (HasV s a, HasV s b, Zip (V s a), Zip (V s b), Foldable (V s a), Num s)
+--         => L s a b -> (a -> b)
+-- lapply' (L as) a = unV ((<.> toV a) <$> as)
+
+-- as :: V s b (V s a s)
+-- a :: a
+-- toV a :: V s a s
+
 instance Category (L s) where
   type Ok (L s) = OkLM s
   id = abst idL

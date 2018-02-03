@@ -11,6 +11,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -41,7 +42,11 @@ AbsTyImports
 
 infixr 1 -+>
 -- | Additive homomorphisms
-newtype a -+> b = AddFun (a -> b)
+data a -+> b = AddFun (a -> b)
+
+-- newtype
+
+-- deriving instance Additive b => Additive (a -+> b)
 
 instance HasRep (a -+> b) where
   type Rep (a -+> b) = a -> b
@@ -50,6 +55,15 @@ instance HasRep (a -+> b) where
 
 AbsTy(a -+> b)
 
+-- QQQ
+
+-- instance Additive (Double -+> Double) where
+--   zero = abst zero
+--   (^+^) = inAbst2 (^+^)
+
+instance Additive b => Additive (a -+> b) where
+  zero = abst zero
+  (^+^) = inAbst2 (^+^)
 
 #define OPINLINE INLINE
 

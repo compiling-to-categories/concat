@@ -98,6 +98,7 @@ library
                        ConCat.LC
                        ConCat.Local
                        ConCat.Deep
+                       ConCat.TArr
   if flag(smt)
     exposed-modules: ConCat.SMT
   ghc-options:      -O2
@@ -164,4 +165,15 @@ Test-Suite misc-trace
   if flag(smt)
     cpp-options:        -DCONCAT_SMT
   cpp-options:      -DVectorSized
+
+Test-Suite testHasFins
+  type:             exitcode-stdio-1.0
+  default-language: Haskell98
+  hs-Source-Dirs:   test
+  main-is:          testHasFins.hs
+  Build-Depends:    base<5
+                  , Cabal >= 1.24.0.0
+                  , vector-sized
+                  , concat-examples
+                  , concat-classes
 

@@ -91,10 +91,12 @@ instance HasRep (GD k a b) where
 AbsTy(GD k a b)
 
 -- Common pattern for linear functions
-#define Linear(nm) nm = linearD A.nm A.nm
+#define Linear(nm) nm = linearD nm nm
+-- #define Linear(nm) nm = linearD A.nm A.nm
 
-instance (TerminalCat k, CoterminalCat k, ConstCat k b) => ConstCat (GD k) b where
-  const b = linearD (const b) (const b)
+instance (TerminalCat k, CoterminalCat k, ConstCat k b, Additive b)
+      => ConstCat (GD k) b where
+  const b = linearD (const b) (const zero)
   {-# INLINE const #-}
 
 -- What if we went further, and defined nonlinear arrows like mulC as if linear?

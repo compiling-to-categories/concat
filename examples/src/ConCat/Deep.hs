@@ -141,7 +141,7 @@ affRelu = (result.result.fmap) (max 0) affine
 -- affRelu l = fmap (max 0) . affine l
 
 errSqr :: Summable b => a R :* b R -> (a --> b) -> R
-errSqr (a, b) h = distSqr b (h a)
+errSqr (a,b) h = distSqr b (h a)
 {-# INLINE errSqr #-}
 
 errGrad :: Summable b => (p -> a --> b) -> a R :* b R -> Unop p
@@ -152,6 +152,18 @@ infixr 9 @.
 (@.) :: (q -> b -> c) -> (p -> a -> b) -> (p :* q -> a -> c)
 (g @. f) (p,q) = g q . f p
 {-# INLINE (@.) #-}
+
+{--------------------------------------------------------------------
+    Temp
+--------------------------------------------------------------------}
+
+err1 :: (R -> R) -> R :* R -> R
+err1 h (a,b) = sqr (b - h a)
+{-# INLINE err1 #-}
+
+err1Grad :: (p -> R -> R) -> R :* R -> Unop p
+err1Grad h sample = gradR (\ a -> err1 (h a) sample)
+{-# INLINE err1Grad #-}
 
 {--------------------------------------------------------------------
     Examples

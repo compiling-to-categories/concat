@@ -17,7 +17,8 @@
 -- Adaptation of HERMIT's buildDictionaryT
 ----------------------------------------------------------------------
 
-module ConCat.BuildDictionary (buildDictionary) where
+module ConCat.BuildDictionary
+  (buildDictionary,WithType(..), withType,varWithType) where
 
 import Data.Monoid (Any(..))
 import Data.Char (isSpace)
@@ -170,7 +171,7 @@ buildDictionary env dflags guts inScope goalTy =
      -- Occasionally I get "StgCmmEnv: variable not found", so don't keep any.
      -- See 2018-01-23 journal notes. For now, False
      -- TODO: Investigate!
-     False &&
+     -- False &&
      isEvVar v -- && not (isDeadBinder v)
      -- Keep evidence that relates to free type variables in the goal.
      -- && not (isEmptyVarSet (goalTyVars `intersectVarSet` tyCoVarsOfType (varType v))) -- see issue #20
@@ -227,6 +228,12 @@ stringToName str =
 
 
 -- Maybe place in a GHC utils module.
+
+withType :: CoreExpr -> WithType
+withType = WithType
+
+varWithType :: Var -> WithType
+varWithType = withType . Var
 
 newtype WithType = WithType CoreExpr
 

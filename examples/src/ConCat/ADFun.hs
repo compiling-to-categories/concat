@@ -20,6 +20,7 @@
 module ConCat.ADFun where
 
 import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip)
+import qualified Prelude as P
 -- import Debug.Trace (trace)
 import GHC.Generics (Par1)
 
@@ -90,7 +91,8 @@ andDerF' f = unMkD (toCcc' @D f)
 
 -- Type specialization of deriv
 derF :: forall a b . (a -> b) -> (a -> (a -> b))
-derF = (result.result) snd andDerF
+derF = (result P.. result) snd andDerF
+-- derF f = \ a -> snd (andDerF f a)
 {-# INLINE derF #-}
 
 -- AD with derivative-as-function, then converted to linear map

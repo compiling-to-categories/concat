@@ -2291,9 +2291,11 @@ instance (Representable h, Zip h, Pointed h) => IxProductCat (->) h where
   exF    = tabulate (flip index)
   replF  = point
   crossF = zap
+  forkF = \ fs x -> ($ x) <$> fs
   {-# OPINLINE exF    #-}
   {-# OPINLINE replF  #-}
   {-# OPINLINE crossF #-}
+  {-# OPINLINE forkF #-}
 
 --           flip index :: Rep h -> h a -> a
 -- tabulate (flip index) :: h (h a -> a)

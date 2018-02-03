@@ -41,7 +41,7 @@ import ConCat.GAD
 import ConCat.Free.VectorSpace (HasV)
 import ConCat.Free.LinearRow (L,linear)
 
--- Differentiable functions
+-- Differentiable functions with transposed/dualized derivatives.
 type RAD = GD (Dual (-+>))
 
 {--------------------------------------------------------------------

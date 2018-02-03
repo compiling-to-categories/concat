@@ -29,6 +29,10 @@ appT f g = apply . (f &&& g)
 -- The plugin would then turn `\ x -> U V` into `appT (\ x -> U) (\ x -> V)`.
 -- Or leave the `toCcc'` call in the plugin for separation of concerns.
 
+casePairTopT :: forall b c d. b :* c -> (b -> c -> d) -> d
+casePairTopT bc g = uncurryC g bc
+{-# INLINE casePairTopT #-}
+
 casePairT :: forall a b c d. (a -> b :* c) -> (a -> b -> c -> d) -> (a -> d)
 casePairT f g = uncurryC (result uncurryC g) . (id &&& f)
 {-# INLINE casePairT #-}
