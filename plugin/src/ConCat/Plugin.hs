@@ -86,6 +86,7 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , casePairLTV      :: Id
                      , casePairRTV      :: Id
                      , flipForkTV       :: Id
+                     , castConstTV      :: Id
                      , reprCV           :: Id
                      , abstCV           :: Id
                      , coerceV          :: Id
@@ -224,20 +225,21 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -> dtrace "top ruled var app" (text nm) $
           Nothing
 #endif
-     -- See journal 2018-02-02. I'm no longer seeing these next two fire.
-     -- Perhaps remove them.
+     -- See journal 2018-02-02.
      Trying("top Case of product")
      e@(Case scrut wild _rhsTy [(DataAlt dc, [b,c], rhs)])
          | isBoxedTupleTyCon (dataConTyCon dc) ->
-       Doing("lam Case of product")
+       Doing("top Case of product")
        if | not (isDeadBinder wild) ->
               -- TODO: handle this case
               pprPanic "lam Case of product live wild binder" (ppr e)
           | otherwise ->
-              return $ mkCcc $ inlineE $  -- wasn't inlining early
+              return $ mkCcc $
                 varApps casePairTopTV
                   [varType b,varType c,_rhsTy]
                   [scrut, mkLams [b,c] rhs]
+
+#if 0
      Trying("top case abstRepr")
      Case scrut v@(varType -> vty) altsTy alts
        | Just repr <- mkReprC'_maybe funCat vty
@@ -245,6 +247,8 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -> Doing("top case abstRepr")
           return $ mkCcc $
             Case (inlineE abst `App` (repr `App` scrut)) v altsTy alts
+#endif
+
 #if 0
      Trying("top Case hoist")
      -- toCcc (case scrut of { p1 -> e1 ; ... })
@@ -279,6 +283,16 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -- I think GHC is undoing this transformation, so continue eagerly
        -- (`Cast` co') <$> go e
 #endif
+     Trying("top const cast")
+     Cast (Lam v e) (FunCo _r _ co'@(coercionKind -> Pair b b'))
+       | not (v `isFreeIn` e)
+       -> Doing("top const cast")
+          -- pprPanic "top const cast" (ppr (varWithType castConstTV))
+          -- pprPanic ("top const cast " ++ coercionTag co') empty
+          -- return (mkCcc (onDicts (varApps castConstTV [varType v,b,b'] []) `App` e))
+          return (mkCcc (varApps castConstTV [varType v,b,b']
+                           [mkCoercible starKind b b' co'] `App` e))
+          -- TODO: fail gracefully?
 #if 1
      Trying("top representational cast")
 #if 0
@@ -501,12 +515,20 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      -- (\ x -> let y = RHS in BODY) --> (\ y -> BODY) . (\ x -> RHS)
      --    if x not free in B
      Trying("lam Let compose")
+#if 1
+     Let (NonRec y rhs) body'
+       | not (x `isFreeIn` body')
+       , Just comp <- mkCompose' cat (mkCcc (Lam y body')) (mkCcc (Lam x rhs))
+       -> Doing("lam Let compose")
+          return comp
+#else
      Let (NonRec y rhs) body'
        | not (x `isFreeIn` body')
        -> Doing("lam Let compose")
           return $ mkCcc $ mkCompose funCat (Lam y body') (Lam x rhs)
           -- We could move the mkCcc in the two mkCompose arguments and
           -- switch categories here.
+#endif
      Trying("lam Let")
      -- TODO: refactor with top Let
      _e@(Let bind@(NonRec v rhs) body') ->
@@ -735,6 +757,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam fmap")
      -- This rule goes after lam App compose, so we know that the fmap'd
      -- function depends on x, and the extra complexity is warranted.
+     -- HM. It's *not* after lam App compose.
      _e@(collectArgs -> (Var v, [_arrow,Type h,Type b,Type c,_dict,_ok,u])) | v == fmapV ->
         Doing("lam fmap")
         -- pprTrace "lam fmap arg" (ppr _e) $
@@ -1100,7 +1123,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      | otherwise = pprPanic "mkCompose mismatch:" (pprWithType g $$ pprWithType f)
 
    -- Experiment
-   mkCompose' :: Cat -> CoreExpr -> CoreExpr -> Maybe CoreExpr
+   mkCompose' :: Cat -> ReExpr2
    -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
    mkCompose' k g f
      | Just (b,c ) <- tyArgs2_maybe (exprType g)
@@ -1324,8 +1347,8 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      | isFunCat cat = Just orig
      -- Take care with const, so we don't transform it alone.
      -- TODO: look for a more general suitable test for wrong number of arguments.
-     | v == constV && length rest /= 6 = Nothing
-     -- | v == constV, pprTrace "transCatOp constV" (ppr orig) False = undefined
+     -- | v == constV, pprTrace "transCatOp constV" (ppr (WithType (Var v),WithType <$> rest,length rest, orig)) False = undefined
+     | v == constV && length rest /= 5 = Nothing
      | fqVarName v == "ConCat.AltCat.forkF" && length rest /= 6 = Nothing
      | otherwise
      = -- dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) $
@@ -1719,6 +1742,7 @@ mkCccEnv opts = do
   casePairLTV   <- findTrnId "casePairLT"
   casePairRTV   <- findTrnId "casePairRT"
   flipForkTV    <- findTrnId "flipForkT"
+  castConstTV   <- findTrnId "castConstT"
   repTc         <- findRepTc "Rep"
   prePostV      <- findId "ConCat.Misc" "~>"
   boxIV         <- findBoxId "boxI"
@@ -2349,3 +2373,6 @@ alwaysSubst e@(collectArgs -> (Var _, args)) =
   not (isTyCoDictArg e) && all isTyCoDictArg args
 alwaysSubst _ = False
 
+mkCoercible :: Kind -> Type -> Type -> Coercion -> CoreExpr
+mkCoercible k a b co =
+  Var (dataConWrapId coercibleDataCon) `mkTyApps` [k,a,b] `App` Coercion co
