@@ -28,7 +28,9 @@ import Data.NumInstances.Function ()
 
 import ConCat.Misc
 import ConCat.Additive
-import ConCat.AltCat (forkF,joinPF,scale,(:--*)) -- ,crossF,jamPF,linearApp',linearApp
+-- import ConCat.AltCat (forkF,joinPF,scale,(:--*)) -- ,crossF,jamPF,linearApp',linearApp
+-- import ConCat.Category (forkF,joinPF,scale) -- eagerly inlining versions
+import ConCat.AltCat ((:--*))
 import ConCat.Orphans ()
 import ConCat.RAD (gradR)
 
@@ -40,7 +42,8 @@ infixl 7 *^, <.>, >.<
 
 -- | Scale a vector
 scaleV, (*^) :: (Functor a, Num s) => s -> a s -> a s
-s *^ v = scale s <$> v
+-- s *^ v = scale s <$> v
+s *^ v = (s *) <$> v
 scaleV = (*^)
 {-# INLINE (*^) #-}
 
@@ -62,35 +65,37 @@ type a --> b = a R -> b R
 
 -- | Inner product
 dotV,(<.>) :: (Summable a, Additive s, Num s) => a s -> a s -> s
-(<.>) = joinPF . fmap scale
-dotV = (<.>)
+xs <.> ys = sumA (zipWith (*) xs ys)
+-- (<.>)  = joinPF . fmap scale
+dotV      = (<.>)
 {-# INLINE (<.>) #-}
 {-# INLINE dotV #-}
 
 -- | Outer product. (Do we want this order of functor composition?)
 outerV, (>.<) :: (Functor a, Functor b, Num s) => a s -> b s -> a (b s)
 a >.< b = (*^ b) <$> a
-outerV = (>.<)
+outerV  = (>.<)
 {-# INLINE (>.<) #-}
 {-# INLINE outerV #-}
 
--- (*^ b)       :: s -> b s
+-- (*^ b)       :: s   -> b s
 -- (*^ b) <$> a :: a s -> a (b s)
 
-linear' :: (Summable a, Summable b, Additive v)
-        => (a :--* b) (u -> v) -> (a u -> b v)
+-- linear' :: (Summable a, Summable b, Additive v)
+--         => (a :--* b) (u -> v) -> (a u -> b v)
 -- linear' = linearApp'
-linear' = forkF . fmap joinPF
-{-# INLINE linear' #-}
+-- linear' = forkF . fmap joinPF
+-- {-# INLINE linear' #-}
 
 -- | Apply a linear map
 linear :: (Summable a, Summable b, Additive s, Num s)
        => (a :--* b) s -> (a s -> b s)
--- linear = linearApp
--- Try a more direct version for now:
--- linear = forkF . fmap joinPF . (fmap.fmap) scale
-linear = linear' . (fmap.fmap) scale
+linear ba a = (<.> a) <$> ba
 {-# INLINE linear #-}
+
+-- linear = linearApp
+-- linear = forkF . fmap joinPF . (fmap.fmap) scale
+-- linear = linear' . (fmap.fmap) scale
 
 type Bump h = h :*: Par1
 
@@ -105,7 +110,6 @@ type (a :--+ b) s = (Bump a :--* b) s
 infixr 1 --+
 type a --+ b = (a :--+ b) R
                -- Bump a --* b
-
 -- | Affine application
 affine :: (Summable a, Summable b, Additive s, Num s)
        => (a :--+ b) s -> (a s -> b s)
