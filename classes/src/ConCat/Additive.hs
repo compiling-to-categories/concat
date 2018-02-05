@@ -15,6 +15,8 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
+#include "ConCat/Ops.inc"
+
 -- | Commutative monoid intended to be used with a multiplicative monoid
 
 module ConCat.Additive where
@@ -27,13 +29,14 @@ import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CD
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import GHC.TypeLits (KnownNat)
 
-import Control.Newtype (Newtype(..))
 import Data.Key(Zip(..))
 import Data.Pointed(Pointed(..))
 import Data.Functor.Rep (Representable(..))
 import Data.Vector.Sized (Vector)
 
 import ConCat.Misc
+import ConCat.Rep (HasRep(abst),inAbst,inAbst2)
+import qualified ConCat.Rep
 import ConCat.Orphans ()
 
 -- | Commutative monoid intended to be used with a multiplicative monoid
@@ -138,27 +141,27 @@ instance Additive a => Additive (Maybe a) where
 newtype Add a = Add { getAdd :: a }
   deriving (Eq, Ord, Read, Show, Bounded)
 
-instance Newtype (Add a) where
-  type O (Add a) = a
-  pack   = Add
-  unpack = getAdd
+instance HasRep (Add a) where
+  type Rep (Add a) = a
+  abst = Add
+  repr = getAdd
 
-instance Functor Add where fmap = inNew
+instance Functor Add where fmap = inAbst
 
 instance Applicative Add where
-  pure  = pack
-  (<*>) = inNew2 ($)
+  pure  = abst
+  (<*>) = inAbst2 ($)
 
 instance Additive a => Monoid (Add a) where
-  mempty  = pack zero
-  mappend = inNew2 (^+^)
+  mempty  = abst zero
+  mappend = inAbst2 (^+^)
 
 instance Additive a => Additive (Add a) where
   zero  = mempty
   (^+^) = mappend
 
-sumA' :: (Foldable h, Additive a) => h a -> a
-sumA' = getAdd . foldMap Add
+-- sumA' :: (Foldable h, Additive a) => h a -> a
+-- sumA' = getAdd . foldMap Add
 
 -- Enables translation of sumA to jamPF in AltCat.
 type SummableF h = (Representable h, Eq (Rep h), Zip h, Pointed h, Foldable h)
@@ -172,3 +175,4 @@ instance SummableF h => Summable h
 
 sumA :: (Summable h, Additive a) => h a -> a
 sumA = getAdd . foldMap Add
+{-# OPINLINE sumA #-}
