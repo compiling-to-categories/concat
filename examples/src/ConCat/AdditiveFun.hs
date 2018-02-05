@@ -21,7 +21,7 @@ AbsTyPragmas
 -- | Additive maps
 
 module ConCat.AdditiveFun
-  ( Additive1(..), type (-+>)(..), addFun, addFun'
+  ( Additive1(..), type (-+>)(..), addFun, addFun', unAddFun
   , module ConCat.Additive
   
   ) where
@@ -45,6 +45,9 @@ infixr 1 -+>
 data a -+> b = AddFun (a -> b)
 
 -- newtype
+
+unAddFun :: (a -+> b) -> (a -> b)
+unAddFun (AddFun f) = f
 
 -- deriving instance Additive b => Additive (a -+> b)
 
@@ -105,6 +108,7 @@ instance CoproductPCat (-+>) where
   (||||) = inAbst2 (\ f g (x,y) -> f x ^+^ g y)
   (++++) = inAbst2 (***)
   jamP   = abst (uncurry (^+^))
+  -- jamP   = abst jamP
   swapPS = abst swapP
   -- ...
   {-# OPINLINE inlP #-}
@@ -133,6 +137,9 @@ instance CoterminalCat (-+>) where
   {-# OPINLINE ti #-}
 
 -- Note that zero for functions is point zero, i.e., const zero.
+
+instance CoerceCat (->) a b => CoerceCat (-+>) a b where
+  coerceC = abst coerceC
 
 {--------------------------------------------------------------------
     Indexed products and coproducts
