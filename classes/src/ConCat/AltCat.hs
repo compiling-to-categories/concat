@@ -743,7 +743,7 @@ Catify(sumA , sumAC)
 
 zipWithC :: Zip h => (a -> b -> c) -> (h a -> h b -> h c)
 -- zipWithC f = curry (fmapC (uncurry f) . zipC)
-zipWithC f = curry (fmap (uncurry f) . uncurry zip)
+zipWithC f = P.curry (fmap (P.uncurry f) . P.uncurry zip)
 {-# INLINE zipWithC #-}
 
 -- zipWithC f as bs = fmapC (uncurry f) (zipC (as,bs))
@@ -819,18 +819,18 @@ unzipFmapFork f g = fmapC f &&& fmapC g
 -- foo :: Zip h => (b :* c -> d) -> (a -> b) -> h a -> (h c -> h d)
 -- foo g f = curry (fmapC g . zipC) . fmap f
 
-zipWithFmap :: forall k h a b c d.
-               (ClosedCat k, FunctorCat k h, ZipCat k h, Ok4 k a b c d)
-            => ((b :* c) `k` d) -> (a `k` b) -> (h a `k` (h c -> h d))
-zipWithFmap g f = curry (fmapC (uncurry (curry g . f)) . zipC)
-  <+ okFunctor @k @h @(a :* c)
-  <+ okProd @k @(h a) @(h c)
-  <+ okProd @k @a @c
-  <+ okExp  @k @c @d
-  <+ okFunctor @k @h @a
-  <+ okFunctor @k @h @c
-  <+ okFunctor @k @h @d
-{-# INLINE zipWithFmap #-}
+-- zipWithFmap :: forall k h a b c d.
+--                (ClosedCat k, FunctorCat k h, ZipCat k h, Ok4 k a b c d)
+--             => ((b :* c) `k` d) -> (a `k` b) -> (h a `k` (h c -> h d))
+-- zipWithFmap g f = curry (fmapC (uncurry (curry g . f)) . zipC)
+--   <+ okFunctor @k @h @(a :* c)
+--   <+ okProd @k @(h a) @(h c)
+--   <+ okProd @k @a @c
+--   <+ okExp  @k @c @d
+--   <+ okFunctor @k @h @a
+--   <+ okFunctor @k @h @c
+--   <+ okFunctor @k @h @d
+-- {-# INLINE zipWithFmap #-}
 
 {-# RULES
 
@@ -870,11 +870,11 @@ zipWithFmap g f = curry (fmapC (uncurry (curry g . f)) . zipC)
 -- "zipWith g . fmap f" forall f g .
 --   curry (fmapC g . zipC) . fmapC f = fmapC (uncurry (g . f)) . zipC
 
--- 2017-11-05 notes
-"zipWith g . fmap f" forall f g .
-  -- zipWith g . fmap f = zipWith (g . f)
-  curry (fmapC g . zipC) . fmapC f = inline zipWithFmap g f
-  -- curry (fmapC g . zipC) . fmapC f = curry (fmapC (uncurry (curry g . f)) . zipC)
+-- -- 2017-11-05 notes
+-- "zipWith g . fmap f" forall f g .
+--   -- zipWith g . fmap f = zipWith (g . f)
+--   curry (fmapC g . zipC) . fmapC f = inline zipWithFmap g f
+--   -- curry (fmapC g . zipC) . fmapC f = curry (fmapC (uncurry (curry g . f)) . zipC)
 
 -- 2017-11-05 notes
 "constFun (fmap f)" forall f .
