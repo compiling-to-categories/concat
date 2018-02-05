@@ -21,6 +21,7 @@ AbsTyPragmas
 module ConCat.Dual where
 
 import Prelude hiding (id,(.),zip,unzip,zipWith,const)
+import qualified Prelude as P
 
 import Data.Constraint (Dict(..),(:-)(..))
 import Data.Pointed
@@ -30,8 +31,9 @@ import Data.Functor.Rep (Representable)
 
 import ConCat.Misc ((:*),(:^),inNew2,unzip,type (&+&))
 import ConCat.Rep
-import ConCat.Category
-import qualified ConCat.AltCat as A
+import qualified ConCat.Category as C
+-- import qualified ConCat.AltCat as A
+import ConCat.AltCat
 import ConCat.AdditiveFun (Additive,Additive1(..))
 
 AbsTyImports
@@ -166,13 +168,13 @@ instance (OkFunctor k h, Additive1 h) => OkFunctor (Dual k) h where
   {-# INLINE okFunctor #-}
 
 instance (Functor h, ZipCat k h, Additive1 h, FunctorCat k h) => FunctorCat (Dual k) h where
-  fmapC = inAbst fmapC
+  fmapC  = inAbst fmapC
   unzipC = abst zipC
   {-# INLINE fmapC #-}
   {-# INLINE unzipC #-}
 
 instance (Zip h, Additive1 h, FunctorCat k h) => ZipCat (Dual k) h where
-  zipC = abst A.unzipC
+  zipC = abst unzipC
   {-# INLINE zipC #-}
   -- {-# INLINE zipWithC #-}
 
@@ -188,11 +190,11 @@ instance (Zip h, ZapCat k h, OkF k h) => ZapCat (Dual k) h where
 -- abst      :: (h b -> h a) -> (h a `Dual` h b)
 
 instance (PointedCat k h a, Additive a) => AddCat (Dual k) h a where
-  sumAC = abst A.pointC
+  sumAC = abst pointC
   {-# INLINE sumAC #-}
 
 instance (AddCat k h a, OkF k h) => PointedCat (Dual k) h a where
-  pointC = abst A.sumAC
+  pointC = abst sumAC
   {-# INLINE pointC #-}
 
 #if 0
@@ -200,7 +202,7 @@ instance (AddCat k h a, OkF k h) => PointedCat (Dual k) h a where
 instance (Category k, FunctorCat k h, ZipCat k h, Zip h, AddCat k h) => Strong (Dual k) h where
   -- TODO: maybe eliminate strength as method
   strength :: forall a b. Ok2 k a b => Dual k (a :* h b) (h (a :* b))
-  strength = abst (first A.sumAC . unzipC)
+  strength = abst (first sumAC . unzipC)
   {-# INLINE strength #-}
 
 -- TODO: can I use sumA instead of A.sumAC?
@@ -208,12 +210,12 @@ instance (Category k, FunctorCat k h, ZipCat k h, Zip h, AddCat k h) => Strong (
 #endif
 
 instance DistributiveCat k f g => DistributiveCat (Dual k) g f where
-  distributeC = abst A.distributeC
+  distributeC = abst distributeC
   {-# INLINE distributeC #-}
 
 instance RepresentableCat k g => RepresentableCat (Dual k) g where
-  indexC    = abst A.tabulateC
-  tabulateC = abst A.indexC
+  indexC    = abst tabulateC
+  tabulateC = abst indexC
   {-# INLINE indexC #-}
   {-# INLINE tabulateC #-}
 
@@ -222,5 +224,5 @@ instance RepresentableCat k g => RepresentableCat (Dual k) g where
 --------------------------------------------------------------------}
 
 toDual :: forall k a b. (a -> b) -> (b `k` a)
-toDual f = unDual (A.toCcc f)
+toDual f = unDual (toCcc f)
 {-# INLINE toDual #-}
