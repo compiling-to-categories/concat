@@ -265,8 +265,8 @@ instance (ProductCat k, Ord a) => MinMaxCat (GD k) a where
     Functor-level operations
 --------------------------------------------------------------------}
 
-instance (FunctorCat k h, ZapCat k h) => FunctorCat (GD k) h where
-  fmapC = inAbst (\ q -> second zapC . unzipC . fmapC q)
+instance (IxProductCat k h, FunctorCat k h) => FunctorCat (GD k) h where
+  fmapC = inAbst (\ q -> second crossF . unzipC . fmapC q)
   Linear(unzipC)
   {-# INLINE fmapC #-}
 
@@ -309,7 +309,8 @@ instance (ZapCat k h, OkFunctor k h, Zip h) => ZapCat (GD k) h where
 instance (OkFunctor (GD k) h, Pointed h, PointedCat k h a) => PointedCat (GD k) h a where
   Linear(pointC)
 
-instance (OkFunctor (GD k) h, FunctorCat k h, Strong k h, ZapCat k h) => Strong (GD k) h where
+instance (IxProductCat k h, FunctorCat k h, Strong k h)
+      => Strong (GD k) h where
   Linear(strength)
 
 instance (DistributiveCat (->) g f, DistributiveCat k g f)
