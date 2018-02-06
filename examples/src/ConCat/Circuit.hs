@@ -915,11 +915,15 @@ instance (OkIxProd (:>) f, OkIxProd (:>) g)
 instance KnownNat i => OkIxProd (:>) (Vector i) where
   okIxProd = Entail (Sub Dict)
 
--- class (Category k, OkIxProd k h) => IxProductCat k h where
---   exF    :: forall a  . Ok  k a   => h (h a `k` a)
---   forkF  :: forall a b. Ok2 k a b => h (a `k` b) -> (a `k` h b)
---   crossF :: forall a b. Ok2 k a b => h (a `k` b) -> (h a `k` h b)
---   replF  :: forall a  . Ok  k a   => a `k` h a
+instance ( OkIxProd (:>) h, Representable h, Zip h, Traversable h
+         , Show (R.Rep h), Show1 h )
+      => IxCoproductPCat (:>) h where
+  inPF :: forall a. (Additive a, Ok  (:>) a  ) => h (a :> h a)
+  inPF = tabulate $ \ i -> namedC ("inP " ++ showsPrec 10 i "") <+ okIxProd @(:>) @h @a
+  jamPF :: forall a. (Additive a, Ok  (:>) a  ) => h a :> a
+  jamPF = namedC "jamPF" <+ okIxProd @(:>) @h @a
+  plusPF :: forall a b. Ok2 (:>) a b => h (a :> b) -> (h a :> h b)
+  plusPF = crossF
 
 instance (OkIxProd (:>) h, Representable h, Show (R.Rep h), Zip h, Traversable h, Show1 h)
       => IxProductCat (:>) h where
