@@ -1,0 +1,31 @@
+-- Started from concat-examples.cabal.
+
+name:                concat-sandbox
+version:             0.1.0
+cabal-version:       >=1.18
+synopsis:            A playground, or sandbox, for testing, proving, experimenting, etc.
+description:         An area for general, but succinct, experimentation, which can be tied
+                     to the larger ConCat project with ease, due to its embedded location,
+                     but is kept separate, so that its intent is clear. Please, give each
+                     new test, experiment, etc. a test instance in concat-sandbox.cabal.
+Category:            categories
+license:             BSD3
+license-file:        LICENSE
+author:              David Banas
+maintainer:          capn.freako@gmail.com
+Copyright:           (c) 2018 David Banas; all rights reserved World wide.
+build-type:          Simple
+
+source-repository head
+  type:             git
+  location:         git://github.com/conal/concat
+
+Test-Suite partial
+  type:             exitcode-stdio-1.0
+  default-language: Haskell98
+  hs-Source-Dirs:   test
+  main-is:          partial.hs
+  Build-Depends:    base<5
+                  , Cabal >= 1.24.0.0
+                  , finite-typelits
+
