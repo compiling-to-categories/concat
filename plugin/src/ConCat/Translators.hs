@@ -14,7 +14,7 @@
 module ConCat.Translators where
 
 import Prelude hiding (id,(.),curry,uncurry,const,unzip,zip,zipWith)
-import qualified Prelude as P
+-- import qualified Prelude as P
 import GHC.Exts (Coercible,coerce) -- inline
 
 import ConCat.Misc ((:*),result)
@@ -200,7 +200,12 @@ unforkF g = fmap' (. g) exF <+ okIxProd @k @h @b
 --        toCcc' <$> unforkF f  :: h (a `k` b)
 -- forkF (toCcc' <$> unforkF f) :: a `k` h b
 
-castConstT :: forall a b b'. Coercible b b' => b -> (a -> b')
--- castConstT b = P.const (coerce b)
+-- castConstT :: forall a b b'. Coercible b b' => b -> (a -> b')
+-- -- castConstT b = P.const (coerce b)
+-- castConstT b = const (coerce b)
+-- {-# INLINE castConstT #-}
+
+castConstT :: forall k a b b'. (ConstCat k b', Ok k a, Coercible b b')
+           => b -> (a `k` b')
 castConstT b = const (coerce b)
 {-# INLINE castConstT #-}
