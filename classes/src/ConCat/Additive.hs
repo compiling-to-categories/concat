@@ -48,6 +48,7 @@ class Additive a where
   zero = point zero
   default (^+^) :: (Zip h, Additive b) => Binop (h b)
   (^+^) = zipWith (^+^)
+  {-# INLINE zero #-}
   {-# INLINE (^+^) #-}
 
 -- zipWith' :: Representable h
