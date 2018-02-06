@@ -137,12 +137,16 @@ distSqr u v = normSqr (zipWith (-) u v)
     Learning
 --------------------------------------------------------------------}
 
+relus :: (Functor f, Ord a, Num a) => Unop (f a)
+relus = fmap (max 0)
+{-# INLINE relus #-}
+
 -- | Affine followed by RELUs.
 affRelu :: (C2 Summable a b) => (a --+ b) -> (a --> b)
-affRelu = (result.result.fmap) (max 0) affine
+affRelu l = relus . affine l
 {-# INLINE affRelu #-}
 
--- affRelu l = fmap (max 0) . affine l
+-- affRelu = (result.result) relus affine
 
 errSqr :: Summable b => a R :* b R -> (a --> b) -> R
 errSqr (a,b) h = distSqr b (h a)
