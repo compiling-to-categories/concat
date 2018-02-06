@@ -286,13 +286,11 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("top const cast")
      Cast (Lam v e) (FunCo _r _ co'@(coercionKind -> Pair b b'))
        | not (v `isFreeIn` e)
+       -- , dtrace "top const cast" (ppr (varWithType castConstTV)) True
+       , Just mk <- onDictMaybe <=< onDictMaybe $
+                      varApps castConstTV [cat,varType v,b,b'] []
        -> Doing("top const cast")
-          -- pprPanic "top const cast" (ppr (varWithType castConstTV))
-          -- pprPanic ("top const cast " ++ coercionTag co') empty
-          -- return (mkCcc (onDicts (varApps castConstTV [varType v,b,b'] []) `App` e))
-          return (mkCcc (varApps castConstTV [varType v,b,b']
-                           [mkCoercible starKind b b' co'] `App` e))
-          -- TODO: fail gracefully?
+          return (mk `App` mkCoercible starKind b b' co' `App` e)
 #if 1
      Trying("top representational cast")
 #if 0
