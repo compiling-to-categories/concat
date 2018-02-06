@@ -171,6 +171,8 @@ instance (Summable h, Additive1 h) => IxCoproductPCat (-+>) h where
 
 instance OkAdd (-+>) where okAdd = Entail (Sub Dict)
 
+#if 0
+
 {--------------------------------------------------------------------
     NumCat etc
 --------------------------------------------------------------------}
@@ -185,7 +187,9 @@ instance (Num s, Additive s) => NumCat (-+>) s where
   {-# OPINLINE mulC    #-}
   {-# OPINLINE powIC   #-}
 
--- TODO: more
+-- I don't think I need NumCat etc.
+
+#endif
 
 {--------------------------------------------------------------------
     Functor-level operations
