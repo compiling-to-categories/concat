@@ -12,14 +12,14 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+-- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
 -- {-# LANGUAGE DataKinds #-}  -- TEMP
 {-# OPTIONS_GHC -Wno-unused-foralls -Wno-redundant-constraints #-} -- TEMP
 
--- | Syntactic CCC
+-- #define ShowTypes
 
--- #define VectorSized
+-- | Syntactic CCC
 
 module ConCat.Syntactic where
 
@@ -27,24 +27,24 @@ import Prelude hiding (id,(.),lookup,const)
 
 import Data.Tree (Tree(..))
 import Data.Map (Map,fromList,lookup)
-import Control.Newtype
 import Text.PrettyPrint.HughesPJClass hiding (render,first)
 import Data.Typeable (Typeable)
 import Data.Constraint (Dict(..),(:-)(..))  -- temp
-import Data.Pointed (Pointed)
 import Data.Key (Zip)
-import Data.Distributive (Distributive)
-import Data.Functor.Rep (Representable)
-
-#ifdef VectorSized
 import GHC.TypeLits (KnownNat)
-import Data.Finite (Finite)
-#endif
+
+import Data.Vector.Sized (Vector)
 
 import ConCat.Category
-import ConCat.Misc (inNew,inNew2,Unop,Binop,typeR,Yes1,(:*))
+import ConCat.Misc (Unop)
 import ConCat.Additive (Additive)
 import ConCat.Rep
+
+#ifdef ShowTypes
+import ConCat.Misc (typeR)
+#else
+import ConCat.Misc (Yes1)
+#endif
 
 {--------------------------------------------------------------------
     Untyped S-expression
@@ -183,6 +183,18 @@ instance CoproductCat Syn where
   INLINER(right)
   INLINER(lassocS)
   INLINER(rassocS)
+
+instance CoproductPCat Syn where
+  inlP   = app0 "inlP"
+  inrP   = app0 "inrP"
+  jamP   = app0 "jamP"
+  swapPS = swapP
+  (++++) = (***)
+  INLINER(inlP)
+  INLINER(inrP)
+  INLINER(jamP)
+  INLINER(swapPS)
+  INLINER((++++))
   
 instance DistribCat Syn where
   distl = app0 "distl"
@@ -211,6 +223,12 @@ LitConst(Bool)
 LitConst(Int)
 LitConst(Float)
 LitConst(Double)
+
+instance (ConstCat Syn a, Show a, KnownNat n) => ConstCat Syn (Vector n a) where
+  const = atomicConst
+  INLINER(const)
+
+-- instance Show a => ConstCat Syn (Vector n a) where ...
 
 -- instance (ConstCat Syn a, ConstCat Syn b) => ConstCat Syn (a :* b) where
 --   const = pairConst
@@ -349,8 +367,6 @@ instance UnknownCat Syn a b where
   unknownC = app0 "unknown"
   INLINER(unknownC)
 
--- #define ShowTypes
-
 #ifdef ShowTypes
 type T a = Typeable a
 
@@ -389,6 +405,12 @@ instance Zip h => ZipCat Syn h where
   INLINER(zipC)
   -- zipWithC = app0 "zipWith"
   -- INLINER(zipWithC)
+
+-- class OkFunctor k h => ZapCat k h where
+--   zapC :: Ok2 k a b => h (a `k` b) -> (h a `k` h b)
+
+-- instance ZapCat Syn h where
+--   zapC = app0 "zapC"
 
 instance {- Pointed h => -} PointedCat Syn h a where
   pointC = app0 "point"
