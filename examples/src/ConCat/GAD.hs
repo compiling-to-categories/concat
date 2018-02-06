@@ -40,12 +40,8 @@ import Data.Functor.Rep (Representable)
 import qualified Data.Functor.Rep as R
 
 import ConCat.Misc ((:*),type (&+&),cond,result,unzip,sqr) -- ,PseudoFun(..),oops
--- import ConCat.Free.VectorSpace
--- import ConCat.Free.LinearRow
--- The following import allows the instances to type-check. Why?
 import ConCat.Additive
-import ConCat.Category
-import qualified ConCat.AltCat as A
+import ConCat.AltCat
 import ConCat.Rep
 
 AbsTyImports
@@ -91,13 +87,11 @@ instance HasRep (GD k a b) where
 AbsTy(GD k a b)
 
 -- Common pattern for linear functions
--- #define Linear(nm) nm = linearD nm nm ; {-# INLINE nm #-}
-#define Linear(nm) nm = linearD A.nm A.nm ; {-# INLINE nm #-}
--- #define Linear(nm) nm = linearD nm A.nm ; {-# INLINE nm #-}
+#define Linear(nm) nm = linearD nm nm ; {-# INLINE nm #-}
 
 instance (TerminalCat k, CoterminalCat k, ConstCat k b, Additive b)
       => ConstCat (GD k) b where
-  const b = linearD (A.const b) (A.const zero)
+  const b = linearD (const b) (const zero)
   {-# INLINE const #-}
 
 -- What if we went further, and defined nonlinear arrows like mulC as if linear?
@@ -120,7 +114,7 @@ instance ProductCat k => ProductCat (GD k) where
   Linear(exl)
   Linear(exr)
   Linear(dup)
-  -- D f *** D g = D (second (uncurry (A.***)) . A.transposeP . (f A.*** g))
+  -- D f *** D g = D (second (uncurry (***)) . transposeP . (f *** g))
   -- D f *** D g = D (\ (a,b) ->
   --   let (c,f') = f a
   --       (d,g') = g b
@@ -144,7 +138,7 @@ instance OkAdd k => OkAdd (GD k) where
 instance CoproductPCat k => CoproductPCat (GD k) where
   Linear(inlP)
   Linear(inrP)
-  -- D f ++++ D g = D (second (uncurry (A.++++)) . A.transposeP . (f A.++++ g))
+  -- D f ++++ D g = D (second (uncurry (++++)) . transposeP . (f ++++ g))
   -- D f ++++ D g = D (\ (a,b) ->
   --   let (c,f') = f a
   --       (d,g') = g b
@@ -187,7 +181,7 @@ instance OkIxProd k h => OkIxProd (GD k) h where
   okIxProd :: forall a. Ok' (GD k) a |- Ok' (GD k) (h a)
   okIxProd = Entail (Sub (Dict <+ okIxProd @k @h @a))
 
-#define Linears(nm) nm = zipWith linearD A.nm A.nm
+#define Linears(nm) nm = zipWith linearD nm nm
 
 instance (IxProductCat (->) h, IxProductCat k h, Zip h) => IxProductCat (GD k) h where
   Linears(exF)
@@ -272,7 +266,7 @@ instance (ProductCat k, Ord a) => MinMaxCat (GD k) a where
 --------------------------------------------------------------------}
 
 instance (FunctorCat k h, ZapCat k h) => FunctorCat (GD k) h where
-  fmapC = inAbst (\ q -> second A.zapC . A.unzipC . A.fmapC q)
+  fmapC = inAbst (\ q -> second zapC . unzipC . fmapC q)
   Linear(unzipC)
   {-# INLINE fmapC #-}
 
@@ -354,7 +348,7 @@ instance ( CoerceCat (->) a b
 
 -- | A function combined with its derivative
 andDeriv :: forall k a b . (a -> b) -> (a -> b :* (a `k` b))
-andDeriv h = unD (A.toCcc h)
+andDeriv h = unD (toCcc h)
 {-# INLINE andDeriv #-}
 
 -- | The derivative of a given function
