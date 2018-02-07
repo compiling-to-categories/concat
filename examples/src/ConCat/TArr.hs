@@ -21,6 +21,7 @@ import GHC.Types (Nat)
 import Data.Proxy
 import Data.Finite
 import Data.Vector.Sized
+import qualified Data.Vector.Sized as V
 
 import ConCat.Misc ((:*),(:+))
 
@@ -70,6 +71,9 @@ instance (HasFin a, HasFin b, KnownNat (Card a * Card b)) => HasFin (a :* b) whe
 
 -- Domain-typed "arrays"
 newtype Arr a b = Arr (Vector (Card a) b)
+
+instance Functor (Arr a) where
+  fmap f (Arr v) = Arr $ V.map f v
 
 (!) :: HasFin a => Arr a b -> (a -> b)
 Arr v ! a = v `index` toFin a
