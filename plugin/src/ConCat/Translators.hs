@@ -14,8 +14,8 @@
 module ConCat.Translators where
 
 import Prelude hiding (id,(.),curry,uncurry,const,unzip,zip,zipWith)
--- import qualified Prelude as P
--- import GHC.Exts (inline)
+import qualified Prelude as P
+import GHC.Exts (Coercible,coerce) -- inline
 
 import ConCat.Misc ((:*),result)
 import ConCat.AltCat
@@ -28,6 +28,10 @@ appT f g = apply . (f &&& g)
 
 -- The plugin would then turn `\ x -> U V` into `appT (\ x -> U) (\ x -> V)`.
 -- Or leave the `toCcc'` call in the plugin for separation of concerns.
+
+casePairTopT :: forall b c d. b :* c -> (b -> c -> d) -> d
+casePairTopT bc g = uncurryC g bc
+{-# INLINE casePairTopT #-}
 
 casePairT :: forall a b c d. (a -> b :* c) -> (a -> b -> c -> d) -> (a -> d)
 casePairT f g = uncurryC (result uncurryC g) . (id &&& f)
@@ -195,3 +199,8 @@ unforkF g = fmap' (. g) exF <+ okIxProd @k @h @b
 --                   unforkF f  :: h (a -> b)
 --        toCcc' <$> unforkF f  :: h (a `k` b)
 -- forkF (toCcc' <$> unforkF f) :: a `k` h b
+
+castConstT :: forall a b b'. Coercible b b' => b -> (a -> b')
+-- castConstT b = P.const (coerce b)
+castConstT b = const (coerce b)
+{-# INLINE castConstT #-}

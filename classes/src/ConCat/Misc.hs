@@ -131,6 +131,7 @@ infixr 1 ~>
 -- For SEC-style programming. I was using fmap instead, but my rules interfered.
 result :: (b -> c) -> ((a -> b) -> (a -> c))
 result = (.)
+{-# INLINE result #-}
 
 class    Yes0
 instance Yes0

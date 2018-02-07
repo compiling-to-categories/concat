@@ -81,10 +81,12 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , fmapV            :: Id
                      , fmapTV           :: Id
                      , fmapIdTV         :: Id
+                     , casePairTopTV    :: Id
                      , casePairTV       :: Id
                      , casePairLTV      :: Id
                      , casePairRTV      :: Id
                      , flipForkTV       :: Id
+                     , castConstTV      :: Id
                      , reprCV           :: Id
                      , abstCV           :: Id
                      , coerceV          :: Id
@@ -148,7 +150,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
  where
    go :: ReExpr
    go = \ case
-     e | dtrace ("go ccc "++pp cat++":") (pprWithType e) False -> undefined
+     e | dtrace ("go ccc "++pp cat++":") (pprWithType' e) False -> undefined
      -- Sanity check: ccc should only take functions.
      e@(exprType -> isFunTy -> False) ->
        pprPanic "ccc/go: not of function type" (pprWithType e)
@@ -160,6 +162,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      -- (exprType -> isMonoTy -> False) ->
      --   Doing("top poly bail")
      --   Nothing
+#if 0
      Trying("top flipForkT")
      -- f | pprTrace "flipForkT tests"
      --      (ppr ( splitFunTy (exprType f)
@@ -170,6 +173,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -> Doing("top flipForkT")
           -- pprTrace "flipForkT type" (ppr (varType flipForkTV)) $
           return (onDicts (varApps flipForkTV [cat,z,a,b] []) `App` f)
+#endif
      Trying("top Lam")
      Lam x body -> goLam x body
      Trying("top Let")
@@ -221,13 +225,39 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -> dtrace "top ruled var app" (text nm) $
           Nothing
 #endif
-#if 1
+     -- See journal 2018-02-02.
+     Trying("top Case of product")
+     e@(Case scrut wild _rhsTy [(DataAlt dc, [b,c], rhs)])
+         | isBoxedTupleTyCon (dataConTyCon dc) ->
+       Doing("top Case of product")
+       if | not (isDeadBinder wild) ->
+              -- TODO: handle this case
+              pprPanic "lam Case of product live wild binder" (ppr e)
+          | otherwise ->
+              return $ mkCcc $
+                varApps casePairTopTV
+                  [varType b,varType c,_rhsTy]
+                  [scrut, mkLams [b,c] rhs]
+
+#if 0
+     Trying("top case abstRepr")
+     Case scrut v@(varType -> vty) altsTy alts
+       | Just repr <- mkReprC'_maybe funCat vty
+       , Just abst <- mkAbstC'_maybe funCat vty
+       -> Doing("top case abstRepr")
+          return $ mkCcc $
+            Case (inlineE abst `App` (repr `App` scrut)) v altsTy alts
+#endif
+
+#if 0
      Trying("top Case hoist")
      -- toCcc (case scrut of { p1 -> e1 ; ... })
      --   -->  case scrut of { p1 -> toCcc e1 ; ... }
      -- Unless we're orphaning regular (non-dict) variables.
      Case scrut wild rhsTy alts
-       | all (isPredTy' . varType) (concatMap altVars alts)
+       -- | dtrace "top Case hoist vars" (ppr (withType . Var <$> concatMap altVars alts)) True
+       -- , all (isPredTy' . varType) (concatMap altVars alts)
+       -- | all (not . elem x . altVars)  alts
        -> Doing("top Case hoist")
           return $ Case scrut wild (catTy rhsTy) (onAltRhs mkCcc <$> alts)
 #endif
@@ -253,6 +283,16 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -- I think GHC is undoing this transformation, so continue eagerly
        -- (`Cast` co') <$> go e
 #endif
+     Trying("top const cast")
+     Cast (Lam v e) (FunCo _r _ co'@(coercionKind -> Pair b b'))
+       | not (v `isFreeIn` e)
+       -> Doing("top const cast")
+          -- pprPanic "top const cast" (ppr (varWithType castConstTV))
+          -- pprPanic ("top const cast " ++ coercionTag co') empty
+          -- return (mkCcc (onDicts (varApps castConstTV [varType v,b,b'] []) `App` e))
+          return (mkCcc (varApps castConstTV [varType v,b,b']
+                           [mkCoercible starKind b b' co'] `App` e))
+          -- TODO: fail gracefully?
 #if 1
      Trying("top representational cast")
 #if 0
@@ -357,22 +397,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        Doing("top lazy")
        return (mkCcc (mkCoreApps f args))
 #endif
-     Trying("top App")
-     e@(App u v)
-       -- | dtrace "top App tests" (ppr (exprType v,liftedExpr v, mkConst' cat dom v,mkUncurryMaybe cat (mkCcc u))) False -> undefined
-       | catClosed, liftedExpr v
-       , Just v' <- mkConst' cat dom v
-       -- , dtrace "top App  --> " (pprWithType v') True
-       , Just uncU' <- mkUncurryMaybe cat (mkCcc u)
-       -- , dtrace "top App uncU'" (pprWithType uncU') True
-       -> Doing("top App")
-          -- u v == uncurry u . (constFun v &&& id)
-          -- dtrace "mkFork cat v' (mkId cat dom) -->" (ppr (mkFork cat v' (mkId cat dom))) $
-          -- dtrace "mkCompose cat uncU' (mkFork cat v' (mkId cat dom)) -->" (ppr (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))) $
-          -- dtrace "top App result" (ppr (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))) $
-          return (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))
-      where
-        Just (dom,_) = splitFunTy_maybe (exprType e)
 #if 1
      Trying("top unfold")
      e@(exprHead -> Just _v)
@@ -396,6 +420,22 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      --        -- return $ mkCcc (etaExpand 1 e)
      -- TODO: If I don't etaReduceN, merge goLam back into the go Lam case.
 #endif
+     Trying("top App")
+     e@(App u v)
+       -- | dtrace "top App tests" (ppr (exprType v,liftedExpr v, mkConst' cat dom v,mkUncurryMaybe cat (mkCcc u))) False -> undefined
+       | catClosed, liftedExpr v
+       , Just v' <- mkConst' cat dom v
+       -- , dtrace "top App  --> " (pprWithType v') True
+       , Just uncU' <- mkUncurryMaybe cat (mkCcc u)
+       -- , dtrace "top App uncU'" (pprWithType uncU') True
+       -> Doing("top App")
+          -- u v == uncurry u . (constFun v &&& id)
+          -- dtrace "mkFork cat v' (mkId cat dom) -->" (ppr (mkFork cat v' (mkId cat dom))) $
+          -- dtrace "mkCompose cat uncU' (mkFork cat v' (mkId cat dom)) -->" (ppr (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))) $
+          -- dtrace "top App result" (ppr (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))) $
+          return (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))
+      where
+        Just (dom,_) = splitFunTy_maybe (exprType e)
      Tick t e -> Doing("top tick")
                  return $ Tick t (mkCcc e)
      _e -> Doing("top Unhandled")
@@ -407,6 +447,9 @@ ccc (CccEnv {..}) (Ops {..}) cat =
    -- goLam x body | dtrace ("goLam body constr: " ++ exprConstr body) (ppr (Lam x body)) False = undefined
     where
       catClosed = isClosed cat
+   goLam' x body = 
+     dtrace ("goLam "++pp x++" "++pp cat++":") (pprWithType body) $
+     goLam x body
 #if 0
    goLam x body | Just e' <- etaReduce_maybe (Lam x body) =
     Doing("lam eta-reduce")
@@ -449,7 +492,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
                   -- return (mkCurry cat (mkId cat (pairTy a b)))
                   mkCurry' cat (mkId cat (pairTy a b))
          [_]   -> Doing("lam Pair eta-expand")
-                  goLam x (etaExpand 1 body)
+                  goLam' x (etaExpand 1 body)
          [u,v] -> Doing("lam Pair")
                   -- dtrace "Pair test" (pprWithType u <> comma <+> pprWithType v) $
                   return (mkFork cat (mkCcc (Lam x u)) (mkCcc (Lam x v)))
@@ -468,6 +511,24 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           return $ mkCcc $ Lam x $
             mkLams binds $ abst `App` (inlineE repr `App` body')
 #endif
+     -- (\ x -> let y = f x in g y) --> g . f
+     -- (\ x -> let y = RHS in BODY) --> (\ y -> BODY) . (\ x -> RHS)
+     --    if x not free in B
+     Trying("lam Let compose")
+#if 1
+     Let (NonRec y rhs) body'
+       | not (x `isFreeIn` body')
+       , Just comp <- mkCompose' cat (mkCcc (Lam y body')) (mkCcc (Lam x rhs))
+       -> Doing("lam Let compose")
+          return comp
+#else
+     Let (NonRec y rhs) body'
+       | not (x `isFreeIn` body')
+       -> Doing("lam Let compose")
+          return $ mkCcc $ mkCompose funCat (Lam y body') (Lam x rhs)
+          -- We could move the mkCcc in the two mkCompose arguments and
+          -- switch categories here.
+#endif
      Trying("lam Let")
      -- TODO: refactor with top Let
      _e@(Let bind@(NonRec v rhs) body') ->
@@ -485,7 +546,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
            -- Just (mkCcc (Lam x (subst1 v rhs body')))
            -- Sometimes GHC then un-substitutes, leading to a loop.
            -- Using goLam prevents GHC from getting that chance. (Always?)
-           goLam x (subst1 v rhs body')
+           goLam' x (subst1 v rhs body')
            -- Yet another choice is to lambda-lift the binding over x and then
            -- float the let past the x binding.
          else
@@ -493,7 +554,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
            return (Let bind (mkCcc (Lam x body')))
        else
          Doing("lam Let to beta-redex")
-         goLam x (App (Lam v body') rhs)
+         goLam' x (App (Lam v body') rhs)
       where
         xInRhs = x `isFreeIn` rhs
      -- Trying("lam letrec")
@@ -503,7 +564,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam eta-reduce")
      (etaReduce_maybe -> Just e') ->
        Doing("lam eta-reduce")
-       goLam x e'
+       goLam' x e'
      Trying("lam Lam")
      Lam y e ->
        -- (\ x -> \ y -> U) --> curry (\ z -> U[fst z/x, snd z/y])
@@ -529,13 +590,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        Doing("lam boxer")
        return (mkCcc (Lam x e'))
 #endif
-     Trying("lam Case hoist")
-     Case scrut wild ty [(dc,vs,rhs)]
-       | not (x `isFreeIn` scrut)
-       -> Doing("lam Case hoist")
-          return $
-           mkCcc (Case scrut wild (FunTy xty ty) [(dc,vs, Lam x rhs)])
-          -- pprPanic ("lam Case hoist") empty
      Trying("lam Case of boxer")
      e@(Case scrut wild _ty [(_dc,[unboxedV],rhs)])
        | Just (tc,[]) <- splitTyConApp_maybe (varType wild)
@@ -551,6 +605,13 @@ ccc (CccEnv {..}) (Ops {..}) cat =
             -- Note top-down (everywhere') instead of bottom-up (everywhere)
             -- so that we can find 'boxI v' before v.
             return (mkCcc (Lam x (Let (NonRec wild' scrut) (everywhere' (mkT tweak) rhs))))
+     Trying("lam Case hoist")
+     Case scrut wild ty [(dc,vs,rhs)]
+       | not (x `isFreeIn` scrut)
+       -> Doing("lam Case hoist")
+          return $
+           mkCcc (Case scrut wild (FunTy xty ty) [(dc,vs, Lam x rhs)])
+          -- pprPanic ("lam Case hoist") empty
      Trying("lam Case default")
      Case _scrut (isDeadBinder -> True) _rhsTy [(DEFAULT,[],rhs)] ->
        Doing("lam case-default")
@@ -696,6 +757,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam fmap")
      -- This rule goes after lam App compose, so we know that the fmap'd
      -- function depends on x, and the extra complexity is warranted.
+     -- HM. It's *not* after lam App compose.
      _e@(collectArgs -> (Var v, [_arrow,Type h,Type b,Type c,_dict,_ok,u])) | v == fmapV ->
         Doing("lam fmap")
         -- pprTrace "lam fmap arg" (ppr _e) $
@@ -783,9 +845,9 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam unfold")
      e'| Just body' <- unfoldMaybe e'
        -> Doing("lam unfold")
-          -- dtrace "lam unfold" (ppr body <+> text "-->" <+> ppr body') $
+          -- dtrace "lam unfold" (ppr body $$ text "-->" $$ ppr body') $
           return (mkCcc (Lam x body'))
-          -- goLam x body'
+          -- goLam' x body'
           -- TODO: factor out Lam x (mkCcc ...)
      Tick t e -> Doing("lam tick")
                  return $ Tick t (mkCcc (Lam x e))
@@ -1061,7 +1123,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      | otherwise = pprPanic "mkCompose mismatch:" (pprWithType g $$ pprWithType f)
 
    -- Experiment
-   mkCompose' :: Cat -> CoreExpr -> CoreExpr -> Maybe CoreExpr
+   mkCompose' :: Cat -> ReExpr2
    -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
    mkCompose' k g f
      | Just (b,c ) <- tyArgs2_maybe (exprType g)
@@ -1285,8 +1347,9 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      | isFunCat cat = Just orig
      -- Take care with const, so we don't transform it alone.
      -- TODO: look for a more general suitable test for wrong number of arguments.
-     | v == constV && length rest /= 6 = Nothing
-     -- | v == constV, pprTrace "transCatOp constV" (ppr orig) False = undefined
+     -- | v == constV, pprTrace "transCatOp constV" (ppr (WithType (Var v),WithType <$> rest,length rest, orig)) False = undefined
+     | v == constV && length rest /= 5 = Nothing
+     | fqVarName v == "ConCat.AltCat.forkF" && length rest /= 6 = Nothing
      | otherwise
      = -- dtrace "transCatOp v rest" (text (fqVarName v) <+> ppr rest) $
        let -- Track how many regular (non-TyCo, non-pred) arguments we've seen
@@ -1493,8 +1556,15 @@ catOpArities = Map.fromList $ map (\ (nm,m,n) -> (catModule ++ '.' : nm, (m,n)))
 
 -- TODO: consider a mkCoreApps variant that automatically inserts dictionaries.
 
+-- pprVarWithType :: Id -> SDoc
+-- pprVarWithType = pprWithType . Var
+
 pprWithType :: CoreExpr -> SDoc
-pprWithType e = ppr e <+> dcolon <+> ppr (exprType e)
+pprWithType = ppr . WithType
+-- pprWithType e = ppr e <+> dcolon <+> ppr (exprType e)
+
+pprWithType' :: CoreExpr -> SDoc
+pprWithType' e = ppr e $+$ dcolon <+> ppr (exprType e)
 
 pprMbWithType :: Maybe CoreExpr -> SDoc
 pprMbWithType = maybe (text "failed") pprWithType
@@ -1646,41 +1716,43 @@ mkCccEnv opts = do
       findBoxId   = findId boxModule
       findExtTc   = findTc extModule
       findExtId   = findId extModule
-  closedTc    <- findTc catModule "ClosedCat"
-  idV         <- findCatId "id"
-  constV      <- findCatId "const"
-  composeV    <- findCatId "."
-  exlV        <- findCatId "exl"
-  exrV        <- findCatId "exr"
-  forkV       <- findCatId "&&&"
-  applyV      <- findCatId "apply"
-  curryV      <- findCatId "curry"
-  uncurryV    <- findCatId "uncurry"
-  ifV         <- findCatId "ifC"
-  constFunV   <- findCatId "constFun"
-  abstCV      <- findCatId "abstC"
-  reprCV      <- findCatId "reprC"
-  coerceV     <- findCatId "coerceC"
-  bottomCV    <- findCatId "bottomC"
-  cccV        <- findCatId "toCcc'"
-  uncccV      <- findCatId "unCcc'"
-  fmapV       <- findCatId "fmapC"
-  fmapTV      <- findTrnId "fmapT"
-  fmapIdTV    <- findTrnId "fmapIdT"  -- TODO: eliminate fmapT, and rename fmapIdT to "fmapT"
-  casePairTV  <- findTrnId "casePairT"
-  casePairLTV <- findTrnId "casePairLT"
-  casePairRTV <- findTrnId "casePairRT"
-  flipForkTV  <- findTrnId "flipForkT"
-  repTc       <- findRepTc "Rep"
-  prePostV    <- findId "ConCat.Misc" "~>"
-  boxIV       <- findBoxId "boxI"
-  boxFV       <- findBoxId "boxF"
-  boxDV       <- findBoxId "boxD"
-  boxIBV      <- findBoxId "boxIB"
-  ifEqIntHash <- findBoxId "ifEqInt#"
-  tagToEnumV  <- findId "GHC.Prim" "tagToEnum#"
-  bottomV     <- findId "ConCat.Misc" "bottom"
-  inlineV     <- findExtId "inline"
+  closedTc      <- findTc catModule "ClosedCat"
+  idV           <- findCatId "id"
+  constV        <- findCatId "const"
+  composeV      <- findCatId "."
+  exlV          <- findCatId "exl"
+  exrV          <- findCatId "exr"
+  forkV         <- findCatId "&&&"
+  applyV        <- findCatId "apply"
+  curryV        <- findCatId "curry"
+  uncurryV      <- findCatId "uncurry"
+  ifV           <- findCatId "ifC"
+  constFunV     <- findCatId "constFun"
+  abstCV        <- findCatId "abstC"
+  reprCV        <- findCatId "reprC"
+  coerceV       <- findCatId "coerceC"
+  bottomCV      <- findCatId "bottomC"
+  cccV          <- findCatId "toCcc'"
+  uncccV        <- findCatId "unCcc'"
+  fmapV         <- findCatId "fmapC"
+  fmapTV        <- findTrnId "fmapT"
+  fmapIdTV      <- findTrnId "fmapIdT"  -- TODO: eliminate fmapT, and rename fmapIdT to "fmapT"
+  casePairTopTV <- findTrnId "casePairTopT"
+  casePairTV    <- findTrnId "casePairT"
+  casePairLTV   <- findTrnId "casePairLT"
+  casePairRTV   <- findTrnId "casePairRT"
+  flipForkTV    <- findTrnId "flipForkT"
+  castConstTV   <- findTrnId "castConstT"
+  repTc         <- findRepTc "Rep"
+  prePostV      <- findId "ConCat.Misc" "~>"
+  boxIV         <- findBoxId "boxI"
+  boxFV         <- findBoxId "boxF"
+  boxDV         <- findBoxId "boxD"
+  boxIBV        <- findBoxId "boxIB"
+  ifEqIntHash   <- findBoxId "ifEqInt#"
+  tagToEnumV    <- findId "GHC.Prim" "tagToEnum#"
+  bottomV       <- findId "ConCat.Misc" "bottom"
+  inlineV       <- findExtId "inline"
   let mkPolyOp :: (String,(String,String)) -> CoreM (String,Var)
       mkPolyOp (stdName,(cmod,cop)) =
         do cv <- findId cmod cop
@@ -2301,3 +2373,6 @@ alwaysSubst e@(collectArgs -> (Var _, args)) =
   not (isTyCoDictArg e) && all isTyCoDictArg args
 alwaysSubst _ = False
 
+mkCoercible :: Kind -> Type -> Type -> Coercion -> CoreExpr
+mkCoercible k a b co =
+  Var (dataConWrapId coercibleDataCon) `mkTyApps` [k,a,b] `App` Coercion co

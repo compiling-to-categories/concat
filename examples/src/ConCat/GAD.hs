@@ -91,10 +91,13 @@ instance HasRep (GD k a b) where
 AbsTy(GD k a b)
 
 -- Common pattern for linear functions
-#define Linear(nm) nm = linearD A.nm A.nm
+-- #define Linear(nm) nm = linearD nm nm ; {-# INLINE nm #-}
+#define Linear(nm) nm = linearD A.nm A.nm ; {-# INLINE nm #-}
+-- #define Linear(nm) nm = linearD nm A.nm ; {-# INLINE nm #-}
 
-instance (TerminalCat k, CoterminalCat k, ConstCat k b) => ConstCat (GD k) b where
-  const b = linearD (const b) (const b)
+instance (TerminalCat k, CoterminalCat k, ConstCat k b, Additive b)
+      => ConstCat (GD k) b where
+  const b = linearD (A.const b) (A.const zero)
   {-# INLINE const #-}
 
 -- What if we went further, and defined nonlinear arrows like mulC as if linear?
@@ -104,28 +107,28 @@ instance (TerminalCat k, CoterminalCat k, ConstCat k b) => ConstCat (GD k) b whe
 instance Category k => Category (GD k) where
   type Ok (GD k) = Ok k
   Linear(id)
-  D g . D f = D (\ a ->
-    let (b,f') = f a
-        (c,g') = g b
-    in
-      (c, g' . f'))
-  {-# INLINE id #-}
+  -- D g . D f = D (\ a ->
+  --   let (b,f') = f a
+  --       (c,g') = g b
+  --   in
+  --     (c, g' . f'))
+  D g . D f = D (\ a -> let { (b,f') = f a ; (c,g') = g b } in (c, g' . f'))
+
   {-# INLINE (.) #-}
 
 instance ProductCat k => ProductCat (GD k) where
   Linear(exl)
   Linear(exr)
   Linear(dup)
-  D f *** D g = D (second (uncurry (A.***)) . A.transposeP . (f A.*** g))
+  -- D f *** D g = D (second (uncurry (A.***)) . A.transposeP . (f A.*** g))
   -- D f *** D g = D (\ (a,b) ->
   --   let (c,f') = f a
   --       (d,g') = g b
   --   in
   --     ((c,d), f' *** g'))
-  {-# INLINE exl #-}
-  {-# INLINE exr #-}
+  D f *** D g =
+    D (\ (a,b) -> let { (c,f') = f a ; (d,g') = g b } in ((c,d), f' *** g'))
   {-# INLINE (***) #-}
-  {-# INLINE dup #-}
 
   -- D f &&& D g = D (\ a ->
   --   let (c,f') = f a
@@ -142,18 +145,16 @@ instance CoproductPCat k => CoproductPCat (GD k) where
   Linear(inlP)
   Linear(inrP)
   -- D f ++++ D g = D (second (uncurry (A.++++)) . A.transposeP . (f A.++++ g))
-  D f ++++ D g = D (\ (a,b) ->
-    let (c,f') = f a
-        (d,g') = g b
-    in
-      ((c,d), f' ++++ g'))
+  -- D f ++++ D g = D (\ (a,b) ->
+  --   let (c,f') = f a
+  --       (d,g') = g b
+  --   in
+  --     ((c,d), f' ++++ g'))
+  D f ++++ D g =
+    D (\ (a,b) -> let { (c,f') = f a ; (d,g') = g b } in ((c,d), f' ++++ g'))
   Linear(jamP)
   Linear(swapPS)
-  {-# INLINE inlP #-}
-  {-# INLINE inrP #-}
   {-# INLINE (++++) #-}
-  {-# INLINE jamP #-}
-
   -- D f |||| D g = D (\ (a,b) ->
   --   let (c ,f') = f a
   --       (c',g') = g b
@@ -192,8 +193,6 @@ instance (IxProductCat (->) h, IxProductCat k h, Zip h) => IxProductCat (GD k) h
   Linears(exF)
   Linear(replF)
   crossF (fmap repr -> fs) = D (second crossF . unzip . crossF fs)
-  {-# INLINE exF #-}
-  {-# INLINE replF #-}
   {-# INLINE crossF #-}
 
 -- crossF types:
@@ -206,8 +205,6 @@ instance (IxCoproductPCat (->) h, IxCoproductPCat k h, Zip h) => IxCoproductPCat
   Linears(inPF)
   Linear(jamPF)
   plusPF (fmap repr -> fs) = D (second plusPF . unzip . plusPF fs)
-  {-# INLINE inPF   #-}
-  {-# INLINE jamPF  #-}
   {-# INLINE plusPF #-}
 
 {--------------------------------------------------------------------
@@ -278,7 +275,6 @@ instance (FunctorCat k h, ZapCat k h) => FunctorCat (GD k) h where
   fmapC = inAbst (\ q -> second A.zapC . A.unzipC . A.fmapC q)
   Linear(unzipC)
   {-# INLINE fmapC #-}
-  {-# INLINE unzipC #-}
 
 -- See 2017-12-27 notes
 -- 
@@ -299,11 +295,9 @@ instance OkFunctor k h => OkFunctor (GD k) h where
 instance (AddCat (->) h a, AddCat k h a, OkFunctor (GD k) h)
       => AddCat (GD k) h a where
   Linear(sumAC)
-  {-# INLINE sumAC #-}
 
 instance (ZipCat k h, OkFunctor (GD k) h) => ZipCat (GD k) h where
   Linear(zipC)
-  {-# INLINE zipC #-}
   -- zipWithC = ??
   -- {-# INLINE zipWithC #-}
 
@@ -320,24 +314,18 @@ instance (ZapCat k h, OkFunctor k h, Zip h) => ZapCat (GD k) h where
 
 instance (OkFunctor (GD k) h, Pointed h, PointedCat k h a) => PointedCat (GD k) h a where
   Linear(pointC)
-  {-# INLINE pointC #-}
 
 instance (OkFunctor (GD k) h, FunctorCat k h, Strong k h, ZapCat k h) => Strong (GD k) h where
   Linear(strength)
-  {-# INLINE strength #-}
 
 instance (DistributiveCat (->) g f, DistributiveCat k g f)
       => DistributiveCat (GD k) g f where
   Linear(distributeC)
-  {-# INLINE distributeC #-}
 
 instance (RepresentableCat (->) g, RepresentableCat k g)
       => RepresentableCat (GD k) g where
   Linear(indexC)
   Linear(tabulateC)
-  {-# INLINE indexC #-}
-  {-# INLINE tabulateC #-}
-
 
 {--------------------------------------------------------------------
     Other instances

@@ -17,15 +17,17 @@
 
 module ConCat.Rebox where
 
-import Prelude hiding (id,(.),curry,uncurry)
+import Prelude hiding (id,(.),curry,uncurry,const)
 import qualified Prelude as P
 import qualified Control.Arrow as P
 import Data.Tuple (swap)
 import GHC.Types
 import GHC.Prim
 import GHC.Integer
+import GHC.Float
 
 import ConCat.Misc (xor)
+import ConCat.Additive((^+^))
 import ConCat.AltCat
 
 boxI :: Int# -> Int
@@ -372,10 +374,10 @@ Catify((P.+++) @(->),(+++))
 Catify(P.left,left)
 Catify(P.right,right)
 
-#endif
-
 CatifyP(curry)
 CatifyP(uncurry)
+
+#endif
 
 Catify(swap,swapP)
 
@@ -437,6 +439,38 @@ Catify(fromIntegral,fromIntegralC)
 
 #endif
 
+CatifyC(plusFloat  , addC)
+CatifyC(minusFloat , subC)
+CatifyC(timesFloat , mulC)
+CatifyC(divideFloat, divideC)
+Catify(negateFloat , negate)
+
+CatifyC(gtFloat,greaterThan)
+CatifyC(geFloat,greaterThanOrEqual)
+CatifyC(ltFloat,lessThan)
+CatifyC(leFloat,lessThanOrEqual)
+
+Catify(expFloat,exp)
+Catify(logFloat,log)
+Catify(sinFloat,sin)
+Catify(cosFloat,cos)
+
+CatifyC(plusDouble  , addC)
+CatifyC(minusDouble , subC)
+CatifyC(timesDouble , mulC)
+CatifyC(divideDouble, divideC)
+Catify(negateDouble , negate)
+
+CatifyC(gtDouble,greaterThan)
+CatifyC(geDouble,greaterThanOrEqual)
+CatifyC(ltDouble,lessThan)
+CatifyC(leDouble,lessThanOrEqual)
+
+Catify(expDouble,exp)
+Catify(logDouble,log)
+Catify(sinDouble,sin)
+Catify(cosDouble,cos)
+
 -- Maybe move elsewhere
 
 {-# RULES
@@ -448,3 +482,15 @@ Catify(fromIntegral,fromIntegralC)
 "swap" forall p. (,) (exr p) (exl p) = swap p
 
  #-}
+
+-- Others
+
+
+{-# RULES
+
+-- I haven't seen this one working.
+"mulC 1 right" forall f. mulC . (f &&& const 1.0) = f
+
+ #-}
+
+CatifyC((^+^),jamP)

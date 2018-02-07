@@ -11,7 +11,7 @@
 -- -- Improves hash consing, but can obscure equivalent circuits
 -- #define NoCommute
 
-#define NoBusLabel
+-- #define NoBusLabel
 
 #define MealyToArrow
 
@@ -166,7 +166,7 @@ import qualified Control.Monad.State as M
 import ConCat.Misc ((:*),(:+),Unop,Binop,Yes1,typeR,transpose)
 -- import ConCat.Complex (Complex(..))
 import ConCat.Rep
-import ConCat.Additive (Additive,Add)
+import ConCat.Additive (Additive(..),Add)
 import ConCat.Category
 import qualified ConCat.AltCat as A
 import ConCat.AltCat (Uncurriable(..))
@@ -843,7 +843,14 @@ instance ProductCat (:>) where
 --   inr = namedC "inr"
 --   f ||| g = namedC "|||" . (f &&& g) -- not quite
 
--- Indexed co/products
+instance CoproductPCat (:>) where
+  inlP   = namedC "inlP"
+  inrP   = namedC "inrP"
+  jamP   = namedC "jamP"
+  swapPS = swapP
+  (++++) = inCK2 crossB
+
+-- TODO: indexed biproducts
 
 
 {--------------------------------------------------------------------
@@ -1070,6 +1077,9 @@ LitConst(Int)
 LitConst(Integer)
 LitConst(Float)
 LitConst(Double)
+-- LitConst(Vector n a)
+
+instance (Ok (:>) a, Show a, KnownNat n) => ConstCat (:>) (Vector n a) where const = constC
 
 -- -- This instance is problematic with Maybe / sums, since it leads to evaluating bottom.
 -- -- See notes from 2016-01-13.

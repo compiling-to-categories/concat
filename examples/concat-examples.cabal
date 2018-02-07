@@ -32,7 +32,7 @@ library
                      , constraints >= 0.8
                      , containers >= 0.5.7.1
                      , keys >= 3.11
-                     , pointed >= 5
+                     , pointed
                      , distributive
                      , adjunctions
                      , prettyclass
@@ -131,7 +131,6 @@ Test-Suite misc-examples
                   -- Array/vector experiments
                   , finite-typelits, vector-sized
   ghc-options:      -O2
-                    -fplugin=ConCat.Plugin
                     -fplugin=ConCat.Plugin
   if flag(smt)
     cpp-options:        -DCONCAT_SMT

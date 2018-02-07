@@ -11,6 +11,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -20,7 +21,7 @@ AbsTyPragmas
 -- | Additive maps
 
 module ConCat.AdditiveFun
-  ( Additive1(..), type (-+>)(..), addFun, addFun'
+  ( Additive1(..), type (-+>)(..), addFun, addFun', unAddFun
   , module ConCat.Additive
   
   ) where
@@ -41,7 +42,14 @@ AbsTyImports
 
 infixr 1 -+>
 -- | Additive homomorphisms
-newtype a -+> b = AddFun (a -> b)
+data a -+> b = AddFun (a -> b)
+
+-- newtype
+
+unAddFun :: (a -+> b) -> (a -> b)
+unAddFun (AddFun f) = f
+
+-- deriving instance Additive b => Additive (a -+> b)
 
 instance HasRep (a -+> b) where
   type Rep (a -+> b) = a -> b
@@ -50,6 +58,15 @@ instance HasRep (a -+> b) where
 
 AbsTy(a -+> b)
 
+-- QQQ
+
+-- instance Additive (Double -+> Double) where
+--   zero = abst zero
+--   (^+^) = inAbst2 (^+^)
+
+instance Additive b => Additive (a -+> b) where
+  zero = abst zero
+  (^+^) = inAbst2 (^+^)
 
 #define OPINLINE INLINE
 
@@ -91,6 +108,7 @@ instance CoproductPCat (-+>) where
   (||||) = inAbst2 (\ f g (x,y) -> f x ^+^ g y)
   (++++) = inAbst2 (***)
   jamP   = abst (uncurry (^+^))
+  -- jamP   = abst jamP
   swapPS = abst swapP
   -- ...
   {-# OPINLINE inlP #-}
@@ -119,6 +137,9 @@ instance CoterminalCat (-+>) where
   {-# OPINLINE ti #-}
 
 -- Note that zero for functions is point zero, i.e., const zero.
+
+instance CoerceCat (->) a b => CoerceCat (-+>) a b where
+  coerceC = abst coerceC
 
 {--------------------------------------------------------------------
     Indexed products and coproducts

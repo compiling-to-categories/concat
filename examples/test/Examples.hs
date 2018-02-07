@@ -34,7 +34,7 @@
 -- {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:maxSteps=4 #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:maxSteps=50 #-}
 
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showCcc #-}
 
@@ -54,8 +54,8 @@
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=25  #-}
 -- {-# OPTIONS_GHC -fsimpl-tick-factor=5  #-}
 
+-- {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
-{-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
 -- {-# OPTIONS_GHC -ddump-tc-trace #-}
@@ -179,28 +179,41 @@ main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
 
-  -- , runSynCirc
-
-  -- , runSyn $ toCcc $ negateFoo
-
   -- , runSynCirc "jamPF" $ toCcc $ A.jamPF @(->) @(Finite 10) @R
+  -- , runSynCirc "sin-adf"        $ toCcc $ andDerF $ sin @R
+  -- , runCirc "curry1-adf" $ toCcc' $ andDerF' $ (*) @R
+  -- , runCirc "const" $ toCcc' $ A.const @(->) @R @R
+  -- , runCirc "curry2-adf" $ toCcc' $ andDerF' $ \ (a :: Vector 10 R) b -> fmap (+ b) a
+  -- , runCirc "linear" $ toCcc' $ D.linear @(Vector 10) @(Vector 20) @R
 
-  , runCirc "linear" $ toCcc $ D.linear @(Vector 10) @(Vector 20) @R
+  -- , runCirc "err1-a" $ toCcc $ uncurry err1
 
-  -- , runSynCirc "elr1" $ toCcc $ linRelu @(Vector 10) @(Vector 20) @R
+  -- , runCirc "err1-b" $ toCcc $ err1 (\ z -> 3 * z + 2)
+
+  -- , runCirc "err1-c" $ toCcc $ \ (a,b) -> err1 (\ z -> a * z + b)
+
+  -- , runCirc "err1Grad-a" $ toCcc $ \ ab -> gradR (\ (p,q) -> err1 (\ z -> p * z + q) ab)
+
+  -- , runCirc "err1Grad-b" $ toCcc $ err1Grad (\ (p,q) z -> p * z + q)
+
+  -- , runCirc "err1Grad-c" $ toCcc $ uncurry $ err1Grad (\ (p,q) z -> p * z + q)
+
+  -- , runCirc "linear" $ toCcc $ D.linear @(Vector 10) @(Vector 20) @R
+
+  -- , runCirc "elr1" $ toCcc $ errGrad (D.linear @(Vector 10) @(Vector 20) @R)
 
   -- Circuit graphs
-  -- , runSynCirc "add"       $ toCcc $ uncurry ((+) @R)
-  -- , runSynCirc "dup"     $ toCcc $ A.dup @(->) @R
-  -- , runSynCirc "fst"       $ toCcc $ fst @R @R
-  -- , runSynCirc "twice"       $ toCcc $ twice @R
-  -- , runSynCirc "sqr"         $ toCcc $ sqr @R
-  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  -- , runSynCirc "cosSinProd"  $ toCcc $ cosSinProd @R
-  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  , runSynCirc "add"         $ toCcc $ uncurry ((+) @R)
+  , runSynCirc "dup"         $ toCcc $ A.dup @(->) @R
+  , runSynCirc "fst"         $ toCcc $ fst @R @R
+  , runSynCirc "twice"       $ toCcc $ twice @R
+  , runSynCirc "sqr"         $ toCcc $ sqr @R
+  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  , runSynCirc "cosSinProd"  $ toCcc $ cosSinProd @R
+  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- , runSynCirc "truncate" $ toCcc $ truncate @R @Int
   -- , runSynCirc "log" $ toCcc $ log @R
@@ -620,6 +633,25 @@ main = sequence_
   -- , runSynCirc "distribute-4-1" $ toCcc $ distributeC @(->) @(V R (Vector 4 R)) @(V R R) @R
 
   -- , runSynCirc "distribute-1-4" $ toCcc $ (distributeC :: V R R (V R (Vector 4 R) R) -> V R (Vector 4 R) (V R R R))
+
+  -- , runSynCirc "sin-df"        $ toCcc $ derF $ sin @R
+
+  -- , runSynCirc "foo1" $ toCcc $ \ x -> derF (sin @R) x 1
+  -- , runSynCirc "foo2" $ toCcc $ derF (\ x -> derF (sin @R) x 1)
+
+  -- , runSynCirc "sin-d"  $ toCcc $ d (sin @R)
+  -- , runSynCirc "cos-d"  $ toCcc $ d (cos @R)
+  -- , runSynCirc "sin-dd" $ toCcc $ d (d (sin @R))
+  
+  -- -- Working here
+  -- , runSynCirc "dd2" $ toCcc $ d (\x -> d (x +) 2)
+
+  -- , runSynCirc "dd-ok" $ toCcc $ \ x -> x * d (x *) 2
+
+
+  -- , runSynCirc "dd3" $ toCcc $ d (\x -> x * d (\ y -> y * x) 2)
+
+  -- , runSynCirc "foo9-d"  $ toCcc $ derF (\ (_ :: R) -> 1 :: R)
 
   -- -- Automatic differentiation with ADFun:
   -- , runSynCirc "sin-adf"        $ toCcc $ andDerF $ sin @R
@@ -1049,10 +1081,14 @@ runCircSMT nm circ = runCirc nm circ >> runSolve circ
 -- TODO: rework runCircSMT to generate the circuit graph once
 -- rather than twice.
 
+#if 0
+
 runSolveAsc :: ( GenBuses a, Show a, GenBuses r, Show r, EvalE a, EvalE r
                , OrdCat (:>) r, ConstCat (:>) r )
             => (a :* r :> Bool) -> IO ()
 runSolveAsc = mapM_ print . solveAscending
+
+#endif
 
 -- The following definition hangs with infinite lists. More generally, it
 -- produces no list output until all of the list elements have been constructed.
@@ -1067,6 +1103,8 @@ runSolveAsc = mapM_ print . solveAscending
 runPrint :: Show b => a -> (a -> b) -> IO ()
 runPrint a f = print (f a)
 
+#if 0
+
 runChase :: (HasV R a, Zip (V R a), Eq a, Show a)
          => a -> (a -> a) -> IO ()
 runChase a0 f = print (chase 1 f a0)
@@ -1074,6 +1112,8 @@ runChase a0 f = print (chase 1 f a0)
 runCircChase :: (GO a R, HasV R a, Zip (V R a), Eq a, Show a)
              => String -> a -> ((:>) :**: (->)) a a -> IO ()
 runCircChase nm a0 (circ :**: f) = runCirc nm circ >> runChase a0 f
+
+#endif
 
 -- gradient :: HasV R a => (a -> R) -> a -> a
 
@@ -1257,7 +1297,12 @@ instance HasRep Foo where
 
   -- , runSynCirc "fst-dual-af" $ toCcc $ repr $ repr $ toCcc @(Dual (-+>)) $ fst @R @R
 
--- Dual additive
-dadFun :: (a -> b) -> (b -> a)
-dadFun f = repr (toDual @(-+>) f)
-{-# INLINE dadFun #-}
+-- -- Dual additive
+-- dadFun :: (a -> b) -> (b -> a)
+-- dadFun f = repr (toDual @(-+>) f)
+-- {-# INLINE dadFun #-}
+
+-- -- Define a restricted form of the d operator.
+-- d :: Unop (R -> a)
+-- d f = \ x -> derF f x 1
+-- {-# INLINE d #-}
