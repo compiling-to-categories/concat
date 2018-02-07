@@ -3,9 +3,7 @@
 {-# LANGUAGE DataKinds #-}
 
 {-# OPTIONS_GHC -Wall #-}
--- {-# OPTIONS_GHC -dsimpl #-}
-
-module Main where
+{-# OPTIONS_GHC -ddump-simpl #-}
 
 -- import GHC.TypeLits
 import Data.Finite
