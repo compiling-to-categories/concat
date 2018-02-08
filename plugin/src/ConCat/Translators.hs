@@ -14,7 +14,7 @@
 module ConCat.Translators where
 
 import Prelude hiding (id,(.),curry,uncurry,const,unzip,zip,zipWith)
--- import qualified Prelude as P
+import qualified Prelude as P
 import GHC.Exts (Coercible,coerce) -- inline
 
 import ConCat.Misc ((:*),result)
@@ -65,13 +65,14 @@ casePairRT f g = uncurryC g . (id &&& exr . f)
 -- such as `ClosedCat`.
 
 -- For `\ x -> fmap U`
-fmapTrans1 :: forall k a b c h. (ClosedCat k, Strong k h, Ok3 k a b c)
-           => (a `k` (b -> c)) -> (a `k` (h b -> h c))
-fmapTrans1 g = curry (fmapTrans (g . exl) exr)
-               <+ okProd @k @a @(h b)
-               <+ okFunctor @k @h @b
-               <+ okFunctor @k @h @c
-               <+ okExp @k @b @c
+fmapTransT1 :: forall k a b c h. (ClosedCat k, Strong k h, Ok3 k a b c)
+            => (a `k` (b -> c)) -> (a `k` (h b -> h c))
+fmapTransT1 g = curry (fmapTransT2 (g . exl) exr)
+                <+ okProd @k @a @(h b)
+                <+ okFunctor @k @h @b
+                <+ okFunctor @k @h @c
+                <+ okExp @k @b @c
+{-# INLINE fmapTransT1 #-}
 
 --                                exl       :: a :* h b `k` a
 --                                     exr  :: a :* h b `k` h b
@@ -87,14 +88,15 @@ fmapTrans1 g = curry (fmapTrans (g . exl) exr)
 
 -- fmap musings to be sorted out.
 
-fmapTrans :: forall k a b c h. (ClosedCat k, Strong k h, Ok3 k a b c)
-          => (a `k` (b -> c)) -> (a `k` h b) -> (a `k` h c)
-fmapTrans f g = fmapC (uncurry f) . strength . (id &&& g)
-                <+ okFunctor @k @h @(a :* b)
-                <+ okProd @k @a @(h b)
-                <+ okFunctor @k @h @c
-                <+ okFunctor @k @h @b
-                <+ okProd @k @a @b
+fmapTransT2 :: forall k a b c h. (ClosedCat k, Strong k h, Ok3 k a b c)
+            => (a `k` (b -> c)) -> (a `k` h b) -> (a `k` h c)
+fmapTransT2 f g = fmapC (uncurry f) . strength . (id &&& g)
+                  <+ okFunctor @k @h @(a :* b)
+                  <+ okProd @k @a @(h b)
+                  <+ okFunctor @k @h @c
+                  <+ okFunctor @k @h @b
+                  <+ okProd @k @a @b
+{-# INLINE fmapTransT2 #-}
 
 #if 0
 -- Types:
@@ -117,16 +119,18 @@ fmapC (uncurry f) . strength . (id &&& g) :: a `k` h c
 -- toCcc' around it in the plugin.
 
 fmapTrans' :: Functor h => (a -> (b -> c)) -> (a -> h b) -> (a -> h c)
-fmapTrans' f g = fmapC (uncurry f) . strength . (id &&& g)
+fmapTrans' f g = fmapC (P.uncurry f) . strength . (id &&& g)
+{-# INLINE fmapTrans' #-}
 
 -- To make it easier yet on the plugin, move the `toCcc'` call into `fmapTrans`:
 
 fmapTrans'' :: Functor h => (a -> (b -> c)) -> (a -> h b) -> (a `k` h c)
 fmapTrans'' f g = toCcc' (fmapC (uncurry f) . strength . (id &&& g))
+{-# INLINE fmapTrans'' #-}
 
 -- Simpler
 fmapT :: Functor h => (a -> b -> c) -> (a -> h b -> h c)
-fmapT f = curry (fmap (uncurry f) . strength)
+fmapT f = curry (fmapC (uncurry f) . strength)
 {-# INLINE fmapT #-}
 
 #if 0
@@ -148,10 +152,11 @@ fmapTC f = curry (fmapC (uncurry f) . strength)
            <+ okProd    @k @a @b
            <+ okFunctor @k @h @b
            <+ okFunctor @k @h @c
+{-# INLINE fmapTC #-}
 
 -- Still simpler, restricting to fmapT id
 fmapIdT :: Functor h => (b -> c) -> (h b -> h c)
-fmapIdT = curry (fmapC apply . strength)
+fmapIdT = P.curry (fmapC apply . strength)
 -- fmapIdT = fmapT id
 {-# INLINE fmapIdT #-}
 
