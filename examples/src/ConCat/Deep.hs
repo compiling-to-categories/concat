@@ -47,6 +47,15 @@ s *^ v = (s *) <$> v
 scaleV = (*^)
 {-# INLINE (*^) #-}
 
+infixl 7 ^/
+(^/) :: (Functor a, Fractional s) => a s -> s -> a s
+v ^/ s = recip s *^ v
+{-# INLINE (^/) #-}
+
+normalize :: (Summable a, Fractional s, Additive s) => a s -> a s
+normalize v = v ^/ sumA v
+{-# INLINE normalize #-}
+
 -- From AltCat:
 --
 -- -- | Generalized matrix
@@ -152,8 +161,14 @@ errSqr :: Summable b => a R :* b R -> (a --> b) -> R
 errSqr (a,b) h = distSqr b (h a)
 {-# INLINE errSqr #-}
 
+errSqrSampled :: Summable b => (p -> a --> b) -> a R :* b R -> p -> R
+errSqrSampled h sample = errSqr sample . h
+{-# INLINE errSqrSampled #-}
+
 errGrad :: Summable b => (p -> a --> b) -> a R :* b R -> Unop p
-errGrad h sample = gradR (errSqr sample . h)
+-- errGrad h sample = gradR (errSqr sample . h)
+-- errGrad h sample = gradR (errSqrSampled h sample)
+errGrad = (result.result) gradR errSqrSampled
 {-# INLINE errGrad #-}
 
 infixr 9 @.
