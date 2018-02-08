@@ -88,7 +88,7 @@ import ConCat.Category
   , OpCon(..),Sat(..) -- ,FunctorC(..)
   , yes1, forkCon, joinCon, inForkCon
   -- Functor-level. To be removed.
-  , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat,Strong
+  , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat
   , DistributiveCat,RepresentableCat 
   , fmap', liftA2' 
   )
@@ -904,8 +904,6 @@ idCon f = f
 
 #endif
 
-Op0(strength, (Strong k h, OkFunctor k h, Ok2 k a b) => (a :* h b) `k` h (a :* b))
-
 Op0(distributeC, (DistributiveCat k g f, Ok k a) => f (g a) `k` g (f a))
 Op0(tabulateC  , (RepresentableCat k f , Ok k a) => (Rep f -> a) `k` f a)
 Op0(indexC     , (RepresentableCat k f , Ok k a) => f a `k` (Rep f -> a))
@@ -926,6 +924,29 @@ Catify(collect, collectC)
 "fmap id" uncurry fmapC . (curry exr &&& id) = id
 
  #-}
+
+-- type Strong k h a = (ProductCat k, ZipCat k h, PointedCat k h a)
+
+-- -- Functorial strength
+-- strength :: forall k h a b. (Strong k h a, Ok2 k a b)
+--          => (a :* h b) `k` h (a :* b)
+-- strength = zipC . first pointC
+--   <+ okProd @k @(h a) @(h b)
+--   <+ okProd @k @a @(h b)
+--   <+ okFunctor @k @h @(a :* b)
+--   <+ okFunctor @k @h @a
+--   <+ okFunctor @k @h @b
+--   <+ okProd @k @a @b
+
+-- -- Move to Translators
+-- -- Functorial strength
+-- strength :: (Zip h, Pointed h) => a :* h b -> h (a :* b)
+-- strength = zipC . first pointC
+
+
+-- TODO: does a (->)-specific strength suffice? Maybe it's used only
+-- Translators. If so, define it there, or skip it and use @zipC . first pointC@
+-- directly.
 
 -- -- Names are in transition
 
