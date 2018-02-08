@@ -275,7 +275,7 @@ instance (IxProductCat k h, FunctorCat k h) => FunctorCat (GD k) h where
 --      q :: a -> b :* (a `k` b)
 -- fmap q :: h a -> h (b :* (a `k` b))
 -- unzip  :: h (b :* (a `k` b)) -> h b :* h (a `k` b)
--- zapC   :: h (a `k` b) -> (h a `k` h b)
+-- crossF :: h (a `k` b) -> (h a `k` h b)
 
 instance OkFunctor k h => OkFunctor (GD k) h where
   okFunctor :: forall a. Ok' (GD k) a |- Ok' (GD k) (h a)
