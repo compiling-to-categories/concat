@@ -30,3 +30,13 @@ Test-Suite partial
                   , finite-typelits
   ghc-options:      -O2
 
+Test-Suite natnorm
+  type:             exitcode-stdio-1.0
+  default-language: Haskell98
+  hs-Source-Dirs:   test
+  main-is:          natnorm.hs
+  Build-Depends:    base<5
+                  , Cabal >= 1.24.0.0
+                  , ghc-typelits-natnormalise
+  ghc-options:      -O2
+
