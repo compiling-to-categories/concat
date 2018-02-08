@@ -309,9 +309,9 @@ instance (ZapCat k h, OkFunctor k h, Zip h) => ZapCat (GD k) h where
 instance (OkFunctor (GD k) h, Pointed h, PointedCat k h a) => PointedCat (GD k) h a where
   Linear(pointC)
 
-instance (IxProductCat k h, FunctorCat k h, Strong k h)
-      => Strong (GD k) h where
-  Linear(strength)
+-- instance (IxProductCat k h, FunctorCat k h, Strong k h)
+--       => Strong (GD k) h where
+--   Linear(strength)
 
 instance (DistributiveCat (->) g f, DistributiveCat k g f)
       => DistributiveCat (GD k) g f where

@@ -454,9 +454,9 @@ instance (Foldable h, Additive a) => AddCat Syn h a where
   sumAC = app0 "sumA"
   INLINER(sumAC)
 
-instance Functor h => Strong Syn h where
-  strength = app0 "strength"
-  INLINER(strength)
+-- instance Functor h => Strong Syn h where
+--   strength = app0 "strength"
+--   INLINER(strength)
 
 instance DistributiveCat Syn g f where
   distributeC = app0 "distribute"

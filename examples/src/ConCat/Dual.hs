@@ -158,6 +158,10 @@ instance (Category k, TerminalCat k, CoterminalCat k, Ok (Dual k) b) => ConstCat
 instance CoerceCat k b a => CoerceCat (Dual k) a b where
   coerceC = abst coerceC
 
+-- instance RepCat k a r => RepCat k r a where
+--   reprC = abst abstC
+--   abstC = abst reprC
+
 ---- Functor-level:
 
 type OkF k h = (Additive1 h, OkFunctor k h)
@@ -197,17 +201,13 @@ instance (AddCat k h a, OkF k h) => PointedCat (Dual k) h a where
   pointC = abst sumAC
   {-# INLINE pointC #-}
 
-#if 0
+-- instance (Category k, FunctorCat k h, ZipCat k h, Zip h, AddCat k h) => Strong (Dual k) h where
+--   -- TODO: maybe eliminate strength as method
+--   strength :: forall a b. Ok2 k a b => Dual k (a :* h b) (h (a :* b))
+--   strength = abst (first sumAC . unzipC)
+--   {-# INLINE strength #-}
 
-instance (Category k, FunctorCat k h, ZipCat k h, Zip h, AddCat k h) => Strong (Dual k) h where
-  -- TODO: maybe eliminate strength as method
-  strength :: forall a b. Ok2 k a b => Dual k (a :* h b) (h (a :* b))
-  strength = abst (first sumAC . unzipC)
-  {-# INLINE strength #-}
-
--- TODO: can I use sumA instead of A.sumAC?
-
-#endif
+-- -- TODO: can I use sumA instead of A.sumAC?
 
 instance DistributiveCat k f g => DistributiveCat (Dual k) g f where
   distributeC = abst distributeC
