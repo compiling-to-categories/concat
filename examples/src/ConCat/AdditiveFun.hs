@@ -107,8 +107,8 @@ instance CoproductPCat (-+>) where
   inrP   = abst (zero,)
   (||||) = inAbst2 (\ f g (x,y) -> f x ^+^ g y)
   (++++) = inAbst2 (***)
-  jamP   = abst (uncurry (^+^))
-  -- jamP   = abst jamP
+  jamP   = abst (uncurry (^+^))  -- 2018-02-04 notes
+  -- jamP   = abst jamP  -- 2018-02-07 notes
   swapPS = abst swapP
   -- ...
   {-# OPINLINE inlP #-}
@@ -194,6 +194,9 @@ instance (Num s, Additive s) => NumCat (-+>) s where
 {--------------------------------------------------------------------
     Functor-level operations
 --------------------------------------------------------------------}
+
+instance (Functor h, Additive1 h) => Strong (-+>) h where
+  strength = abst strength
 
 instance Additive1 h => OkFunctor (-+>) h where
   okFunctor :: forall a. Sat Additive a |- Sat Additive (h a)
