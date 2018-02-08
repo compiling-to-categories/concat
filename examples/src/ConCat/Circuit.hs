@@ -11,7 +11,7 @@
 -- -- Improves hash consing, but can obscure equivalent circuits
 -- #define NoCommute
 
--- #define NoBusLabel
+#define NoBusLabel
 
 #define MealyToArrow
 
@@ -915,16 +915,6 @@ instance (OkIxProd (:>) f, OkIxProd (:>) g)
 instance KnownNat i => OkIxProd (:>) (Vector i) where
   okIxProd = Entail (Sub Dict)
 
-instance ( OkIxProd (:>) h, Representable h, Zip h, Traversable h
-         , Show (R.Rep h), Show1 h )
-      => IxCoproductPCat (:>) h where
-  inPF :: forall a. (Additive a, Ok  (:>) a  ) => h (a :> h a)
-  inPF = tabulate $ \ i -> namedC ("inP " ++ showsPrec 10 i "") <+ okIxProd @(:>) @h @a
-  jamPF :: forall a. (Additive a, Ok  (:>) a  ) => h a :> a
-  jamPF = namedC "jamPF" <+ okIxProd @(:>) @h @a
-  plusPF :: forall a b. Ok2 (:>) a b => h (a :> b) -> (h a :> h b)
-  plusPF = crossF
-
 instance (OkIxProd (:>) h, Representable h, Show (R.Rep h), Zip h, Traversable h, Show1 h)
       => IxProductCat (:>) h where
   exF :: forall a . Ok (:>) a => h (h a :> a)
@@ -934,11 +924,15 @@ instance (OkIxProd (:>) h, Representable h, Show (R.Rep h), Zip h, Traversable h
   crossF :: forall a b. Ok2 (:>) a b => h (a :> b) -> (h a :> h b)
   crossF = inCKF1 crossFB
 
--- instance Ok (:>) n => IxCoproductPCat (:>) n where
---   inPF   = error "inPF @ (:>): not yet defined"
---   joinPF = error "joinPF @ (:>): not yet defined"
---   plusPF = error "plusPF @ (:>): not yet defined"
---   jamPF  = namedC "sumA" -- "ixSum" -- "jamPF"
+instance ( OkIxProd (:>) h, Representable h, Zip h, Traversable h
+         , Show (R.Rep h), Show1 h )
+      => IxCoproductPCat (:>) h where
+  inPF :: forall a. (Additive a, Ok  (:>) a  ) => h (a :> h a)
+  inPF = tabulate $ \ i -> namedC ("inP " ++ showsPrec 10 i "") <+ okIxProd @(:>) @h @a
+  jamPF :: forall a. (Additive a, Ok  (:>) a  ) => h a :> a
+  jamPF = namedC "jamPF" <+ okIxProd @(:>) @h @a
+  plusPF :: forall a b. Ok2 (:>) a b => h (a :> b) -> (h a :> h b)
+  plusPF = crossF
 
 unIxProdB :: Buses (h a) -> h (Buses a)
 unIxProdB (IxProdB bs) = bs
