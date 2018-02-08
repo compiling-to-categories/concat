@@ -141,6 +141,10 @@ instance CoterminalCat (-+>) where
 instance CoerceCat (->) a b => CoerceCat (-+>) a b where
   coerceC = abst coerceC
 
+instance RepCat (->) a r => RepCat (-+>) a r where
+  reprC = abst reprC
+  abstC = abst abstC
+
 {--------------------------------------------------------------------
     Indexed products and coproducts
 --------------------------------------------------------------------}
@@ -195,8 +199,8 @@ instance (Num s, Additive s) => NumCat (-+>) s where
     Functor-level operations
 --------------------------------------------------------------------}
 
-instance (Functor h, Additive1 h) => Strong (-+>) h where
-  strength = abst strength
+-- instance (Functor h, Additive1 h) => Strong (-+>) h where
+--   strength = abst strength
 
 instance Additive1 h => OkFunctor (-+>) h where
   okFunctor :: forall a. Sat Additive a |- Sat Additive (h a)
