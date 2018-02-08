@@ -110,6 +110,7 @@ import qualified Data.Vector.Sized as VS
 import ConCat.Misc
   ((:*),(:+),R,result,sqr,magSqr,Unop,Binop,unzip,inNew,inNew2,Yes1,oops,type (&+&),PseudoFun(..))
 import ConCat.Rep (HasRep(..))
+import qualified ConCat.Category as C
 import ConCat.Incremental (andInc,inc)
 import ConCat.Dual
 import ConCat.GAD
@@ -133,8 +134,8 @@ import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Orphans ()
 import ConCat.Nat
 import ConCat.Shaped
-import ConCat.Scan
-import ConCat.FFT
+-- import ConCat.Scan
+-- import ConCat.FFT
 import ConCat.Free.LinearRow -- (L,OkLM,linearL)
 import ConCat.LC
 import ConCat.Deep
@@ -192,15 +193,73 @@ main = sequence_
 
   -- , runCirc "err1-c" $ toCcc $ \ (a,b) -> err1 (\ z -> a * z + b)
 
+  -- , runCirc "err1-d" $ toCcc $ \ ab (p,q) -> err1 (\ z -> p * z + q) ab
+
   -- , runCirc "err1Grad-a" $ toCcc $ \ ab -> gradR (\ (p,q) -> err1 (\ z -> p * z + q) ab)
 
   -- , runCirc "err1Grad-b" $ toCcc $ err1Grad (\ (p,q) z -> p * z + q)
 
   -- , runCirc "err1Grad-c" $ toCcc $ uncurry $ err1Grad (\ (p,q) z -> p * z + q)
 
-  -- , runCirc "linear" $ toCcc $ D.linear @(Vector 10) @(Vector 20) @R
+  -- , runCirc "dot" $ toCcc $ D.dotV @(Vector 3) @R
 
-  -- , runCirc "elr1" $ toCcc $ errGrad (D.linear @(Vector 10) @(Vector 20) @R)
+  -- , runCirc "dot-unc"       $ toCcc $            uncurry $ D.dotV @(Vector 3) @R
+  -- , runCirc "dot-unc-adr"   $ toCcc $ andDerR  $ uncurry $ D.dotV @(Vector 3) @R
+  -- , runCirc "dot-unc-gradr" $ toCcc $ andGradR $ uncurry $ D.dotV @(Vector 3) @R
+
+  -- , runSynCirc "dot-u-adr" $ toCcc $ andDerR . D.dotV @(Vector 3) @R
+  -- , runSynCirc "dot-u-gradr" $ toCcc $ andGradR . D.dotV @(Vector 3) @R
+
+  -- , runCirc "linear" $ toCcc $ D.linear @(Vector 2) @(Vector 3) @R
+  -- , runCirc "affine" $ toCcc $ D.affine @(Vector 2) @(Vector 3) @R
+ 
+  -- , runCirc "linear-adf" $ toCcc $ andDerF $ D.linear @(Vector 2) @(Vector 3) @R
+
+  -- , runCirc "relu"  $ toCcc $ max @R 0
+  -- , runCirc "relus" $ toCcc $ relus @(Vector 3) @R
+
+  -- , runSynCirc "max" $ toCcc $ uncurry (max @R)
+
+  -- , runSynCirc "max-adr-b" $ toCcc $ andDerR $ uncurry (max @R)
+
+  -- , runSynCirc "relu-adr" $ toCcc $ andDerR $ max @R 0
+
+  -- , runSynCirc "relu-gradr" $ toCcc $ andGradR $ max @R 0
+
+  -- , runSynCirc "relus-adr" $ toCcc $ andDerR $ relus @(Vector 3) @R
+  -- , runSynCirc "relus-gradr" $ toCcc $ andGradR $ relus @(Vector 3) @R
+
+  -- , runCirc "affRelu" $ toCcc $ D.affRelu @(Vector 2) @(Vector 3)
+
+  -- , runCirc "linear-err" $ toCcc $ errSqrSampled (D.linear @(Vector 2) @(Vector 3) @R)
+
+  -- , runCirc "normalize" $ toCcc $ normalize @(Vector 5) @R
+
+  -- , runCirc "normalize-adf" $ toCcc $ andDerF $ normalize @(Vector 5) @R
+
+  -- , runCirc "normalize-adr" $ toCcc $ andDerR $ normalize @(Vector 5) @R
+
+  -- , runCirc "normalize-gradr" $ toCcc $ andGradR $ normalize @(Vector 5) @R
+
+  -- , runCirc "linear-err-gradr" $ toCcc $ errGrad (D.linear @(Vector 2) @(Vector 3) @R)
+
+  -- , runCirc "lin1-b" $ toCcc $ \ ab -> errSqr ab . D.linear @(Vector 10) @(Vector 20) @R
+
+  -- , runCirc "elr1-b" $ toCcc $ \ ab -> gradR (errSqr ab . D.linear @(Vector 10) @(Vector 20) @R)
+
+  -- , runCirc "elr2-b" $ toCcc $ \ (ab :: Vector 5 R) -> gradR (dotV ab) -- breaks
+
+  -- , runCirc "elr2-c" $ toCcc' $ \ (ab :: Vector 5 R) -> andDerR (dotV ab)
+
+  -- , runCirc "elr2-d" $ toCcc' $ \ (ab :: Vector 5 R) -> unD $ toCcc' @RAD $ dotV ab
+
+  -- , runCirc "elr3-b" $ toCcc $ gradR (sumA @(Vector 5) @R) -- 
+
+  -- , runCirc "dual-a" $ toCcc $ A.reprC $ toDual @(-+>) (sumA @(Vector 5) @R)
+
+  -- , runCirc "dual-b" $ toCcc $ unAddFun $ toDual @(-+>) (sumA @(Vector 5) @R)
+
+-- errGrad h sample = gradR (errSqr sample . h)
 
   -- Circuit graphs
   , runSynCirc "add"         $ toCcc $ uncurry ((+) @R)
@@ -725,7 +784,7 @@ main = sequence_
   -- , runSynCirc "dup-adr"        $ toCcc $ andDerR $ A.dup @(->) @R
   -- , runSynCirc "twice-adr"      $ toCcc $ andDerR $ twice @R
   -- , runSynCirc "sqr-adr"        $ toCcc $ andDerR $ sqr @R
-  -- , runSynCirc "fst-adr"        $ toCcc $ andDerR (fst @R @R)
+  -- , runSynCirc "fst-adr"        $ toCcc $ andDerR $ fst @R @R
   -- , runSynCirc "magSqr-adr"     $ toCcc $ andDerR $ magSqr @R
   -- , runSynCirc "cos-2x-adr"     $ toCcc $ andDerR $ \ x -> cos (2 * x) :: R
   -- , runSynCirc "cos-2xx-adr"    $ toCcc $ andDerR $ \ x -> cos (2 * x * x) :: R
@@ -737,7 +796,7 @@ main = sequence_
   -- , runSynCirc "add-gradr"     $ toCcc $ andGradR $ uncurry ((+) @R)
   -- , runSynCirc "twice-gradr"   $ toCcc $ andGradR $ twice @R
   -- , runSynCirc "sqr-gradr"     $ toCcc $ andGradR $ sqr @R
-  -- , runSynCirc "fst-gradr"     $ toCcc $ andGradR (fst @R @R)
+  -- , runSynCirc "fst-gradr"     $ toCcc $ andGradR $ fst @R @R
   -- , runSynCirc "magSqr-gradr"  $ toCcc $ andGradR $ magSqr  @R
   -- , runSynCirc "cos-2x-gradr"  $ toCcc $ andGradR $ \ x -> cos (2 * x) :: R
   -- , runSynCirc "cos-2xx-gradr" $ toCcc $ andGradR $ \ x -> cos (2 * x * x) :: R
@@ -1306,3 +1365,69 @@ instance HasRep Foo where
 -- d :: Unop (R -> a)
 -- d f = \ x -> derF f x 1
 -- {-# INLINE d #-}
+
+-- baz :: Vector 5 R -> Vector 5 R -> Vector 5 R
+-- baz ab = gradR (dotV ab)
+
+-- baz :: Vector 5 R -> RAD (Vector 5 R) R
+-- baz ab = toCcc' @RAD (dotV ab)
+
+-- baz :: Vector 5 R -> RAD (Vector 5 R) R
+-- baz ab = toCcc @RAD (dotV ab)
+
+-- baz :: Vector 5 R -> Vector 5 R -> R :* (Vector 5 R -> R
+-- baz ab = toCcc' @RAD (dotV ab)
+
+-- baz1 :: Vector 5 R :> Vector 5 R
+-- baz1 = toCcc $ gradR sumA -- 
+
+-- baz2 :: Vector 5 R :> R :* (R -> Vector 5 R)
+-- baz2 = toCcc $ andDerR sumA -- 
+
+-- baz2 :: Vector 5 R -> R :* Dual (-+>) (Vector 5 R) R
+-- baz2 = repr (toCcc @RAD sumA)
+
+-- baz3 :: Vector 5 R :> R :* Dual (-+>) (Vector 5 R) R
+-- baz3 = toCcc (repr (toCcc @RAD sumA))
+
+-- baz4 :: Vector 5 R :> R :* Dual (-+>) (Vector 5 R) R
+-- baz4 = toCcc (repr (A.sumAC @RAD @(Vector 5) @R))
+
+-- baz4 :: R :> R :* Dual (-+>) R R
+-- baz4 = toCcc (repr (A.negateC @RAD))
+
+-- baz5 :: Vector 5 R :> R
+-- baz5 = toCcc (repr (A.sumAC @(-+>)))
+
+-- baz5 :: R :> R
+-- baz5 = toCcc (A.reprC (A.negateC @(-+>)))
+
+-- baz :: R :> R
+-- baz = toCcc (repr (C.negateC @(-+>)))
+
+-- baz :: Vector 5 R -> Vector 5 R -> Vector 5 R
+-- baz ab = gradR (dotV ab)
+
+-- baz :: Vector 5 R -> (Vector 5 R :> Vector 5 R)
+-- baz ab = toCcc' (gradR (dotV ab))
+
+-- baz :: Vector 5 R -> Vector 5 R -> R :* (R -> Vector 5 R)
+-- baz ab = andDerR (dotV ab)  -- fine
+
+-- baz :: Vector 5 R -> Vector 5 R :> R :* (R -> Vector 5 R)
+-- baz ab = toCcc' (andDerR (dotV ab)) -- breaks
+
+-- baz :: Vector 5 R -> Vector 5 R :> Vector 5 R :* (Vector 5 R -> Vector 5 R)
+-- baz ab = toCcc' (andDerR (zipWith (*) ab)) -- 
+
+-- baz :: Vector 5 R -> Vector 5 R :> Vector 5 R :* (Vector 5 R -> Vector 5 R)
+-- baz ab = toCcc' (andDerF (zipWith (*) ab)) -- 
+
+-- baz :: Vector 5 R -> Vector 5 R -> R :* (R -> Vector 5 R)
+-- baz ab = andDerR (dotV ab)
+
+-- baz :: Vector 5 R -> Vector 5 R :> R :* (R -> Vector 5 R)
+-- baz ab = toCcc' (andDerR (dotV ab))  -- breaks
+
+-- baz :: Vector 5 R -> Vector 5 R :> R :* (Vector 5 R -> R)
+-- baz ab = toCcc' (andDerF (dotV ab))  -- ?
