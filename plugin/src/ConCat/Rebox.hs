@@ -493,4 +493,5 @@ Catify(cosDouble,cos)
 
  #-}
 
+-- Notes 2018-01-04 and 2018-01-07
 CatifyC((^+^),jamP)
