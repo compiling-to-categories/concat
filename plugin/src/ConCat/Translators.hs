@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE InstanceSigs        #-}
@@ -16,6 +17,9 @@ module ConCat.Translators where
 import Prelude hiding (id,(.),curry,uncurry,const,unzip,zip,zipWith)
 import qualified Prelude as P
 import GHC.Exts (Coercible,coerce) -- inline
+
+import Data.Pointed (Pointed(..))
+import Data.Key (Zip(..))
 
 import ConCat.Misc ((:*),result)
 import ConCat.AltCat
@@ -63,6 +67,8 @@ casePairRT f g = uncurryC g . (id &&& exr . f)
 -- One drawback of using these function-only definitions is that the plugin
 -- cannot first check whether the target category has the required properties,
 -- such as `ClosedCat`.
+
+#if 0
 
 -- For `\ x -> fmap U`
 fmapTransT1 :: forall k a b c h. (ClosedCat k, Strong k h, Ok3 k a b c)
@@ -115,23 +121,47 @@ fmapC (uncurry f) . strength . (id &&& g) :: a `k` h c
 
 #endif
 
+#endif
+
 -- TODO: Maybe use the following function-only definition instead, and wrap
 -- toCcc' around it in the plugin.
 
-fmapTrans' :: Functor h => (a -> (b -> c)) -> (a -> h b) -> (a -> h c)
+type Strong h = (Zip h, Pointed h)
+
+-- Functorial strength
+strength :: (Zip h, Pointed h) => a :* h b -> h (a :* b)
+strength = zipC . first pointC
+{-# INLINE strength #-}
+
+fmapTrans' :: (Zip h, Pointed h)
+           => (a -> (b -> c)) -> (a -> h b) -> (a -> h c)
+-- fmapTrans' f g = fmapC (P.uncurry f) . zipC . (pointC &&& g)
 fmapTrans' f g = fmapC (P.uncurry f) . strength . (id &&& g)
 {-# INLINE fmapTrans' #-}
 
+#if 0
+
+pointC &&& g      :: a -> h a * h b
+zipC              :: h a :* h b -> h (a :* b)
+fmapC (uncurry f) :: h (a :* b) -> h c
+
+#endif
+
+#if 0
+
 -- To make it easier yet on the plugin, move the `toCcc'` call into `fmapTrans`:
 
-fmapTrans'' :: Functor h => (a -> (b -> c)) -> (a -> h b) -> (a `k` h c)
+fmapTrans'' :: Strong h
+            => (a -> (b -> c)) -> (a -> h b) -> (a `k` h c)
 fmapTrans'' f g = toCcc' (fmapC (uncurry f) . strength . (id &&& g))
 {-# INLINE fmapTrans'' #-}
 
 -- Simpler
-fmapT :: Functor h => (a -> b -> c) -> (a -> h b -> h c)
+fmapT :: Strong h => (a -> b -> c) -> (a -> h b -> h c)
 fmapT f = curry (fmapC (uncurry f) . strength)
 {-# INLINE fmapT #-}
+
+#endif
 
 #if 0
                      f              :: a -> b -> c
@@ -142,6 +172,7 @@ fmapT f = curry (fmapC (uncurry f) . strength)
 curry (fmap (uncurry f) . strength) :: a -> h b -> h c
 #endif
 
+#if 0
 -- Categorical version
 fmapTC :: forall k h a b c.
           (ClosedCat k, FunctorCat k h, Strong k h, Ok3 k a b c)
@@ -174,6 +205,8 @@ fmapIdTC = curry (fmapC apply . strength)
              <+ okExp     @k @b @c
 -- fmapIdTC = fmapTC id
 {-# INLINE fmapIdTC #-}
+
+#endif
 
 flipForkT :: forall k z a b. (IxProductCat k ((->) a), Ok2 k z b)
           => (z -> a -> b) -> (z `k` (a -> b))

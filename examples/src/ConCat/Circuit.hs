@@ -1024,11 +1024,11 @@ instance (OkFunctor (:>) h, Additive a, Ok (:>) a) => AddCat (:>) h a where
 --   -- ixSumC :: forall a. (Additive a, Ok (:>) a) => a :^ n :> a
 --   ixSumC = namedC "ixSum" -- <+ okFunctor' @(:>) @n @a
 
-instance (Functor h, OkFunctor (:>) h) => Strong (:>) h where
-  strength :: forall a b. Ok2 (:>) a b => (a :* h b) :> h (a :* b)
-  strength = namedC "strength"
-              <+ okFunctor' @(:>) @h @(a :* b)
-              <+ okFunctor' @(:>) @h @b
+-- instance (Functor h, OkFunctor (:>) h) => Strong (:>) h where
+--   strength :: forall a b. Ok2 (:>) a b => (a :* h b) :> h (a :* b)
+--   strength = namedC "strength"
+--               <+ okFunctor' @(:>) @h @(a :* b)
+--               <+ okFunctor' @(:>) @h @b
 
 okFunctor' :: forall k h a. OkFunctor k h => Ok' k a |- Ok' k (h a)
 okFunctor' = {- trace "" $ -} okFunctor @k @h @a
