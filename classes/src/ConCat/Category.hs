@@ -2290,7 +2290,8 @@ instance OkIxProd (->) h where okIxProd = Entail (Sub Dict)
 instance (Representable h, Zip h, Pointed h) => IxProductCat (->) h where
   exF    = tabulate (flip index)
   replF  = point
-  crossF = zap
+  crossF = zipWith id -- 2018-02-07 notes
+           -- zap
   forkF = \ fs x -> ($ x) <$> fs
   {-# OPINLINE exF    #-}
   {-# OPINLINE replF  #-}
