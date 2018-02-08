@@ -27,6 +27,7 @@ library
                      , ghc-prim >= 0.5.0.0
                      , ghc >= 8.0.1
                      , integer-gmp
+                     , pointed, keys
                      , syb >= 0.6
                      , concat-classes
                      , concat-satisfy
