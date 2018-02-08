@@ -79,8 +79,8 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , exrV             :: Id
                      , constFunV        :: Id
                      , fmapV            :: Id
-                     , fmapTV           :: Id
-                     , fmapIdTV         :: Id
+                     -- , fmapTV           :: Id
+                     -- , fmapIdTV         :: Id
                      -- , fmapTransT1V     :: Id
                      , fmapTransT2V     :: Id
                      , casePairTopTV    :: Id
@@ -1748,10 +1748,10 @@ mkCccEnv opts = do
   cccV          <- findCatId "toCcc'"
   uncccV        <- findCatId "unCcc'"
   fmapV         <- findCatId "fmapC"
-  fmapTV        <- findTrnId "fmapT"
-  -- fmapTransT1V   <- findTrnId "fmapTrans'"
+  -- fmapTV        <- findTrnId "fmapT"
+  -- fmapTransT1V  <- findTrnId "fmapTrans'"
+  -- fmapIdTV      <- findTrnId "fmapIdT"  -- TODO: eliminate fmapT, and rename fmapIdT to "fmapT"
   fmapTransT2V   <- findTrnId "fmapTrans'"
-  fmapIdTV      <- findTrnId "fmapIdT"  -- TODO: eliminate fmapT, and rename fmapIdT to "fmapT"
   casePairTopTV <- findTrnId "casePairTopT"
   casePairTV    <- findTrnId "casePairT"
   casePairLTV   <- findTrnId "casePairLT"
