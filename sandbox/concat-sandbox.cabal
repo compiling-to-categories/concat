@@ -28,6 +28,8 @@ Test-Suite partial
   Build-Depends:    base<5
                   , Cabal >= 1.24.0.0
                   , finite-typelits
+                  , ghc-typelits-natnormalise
+                  , reflection
   ghc-options:      -O2
 
 Test-Suite natnorm
