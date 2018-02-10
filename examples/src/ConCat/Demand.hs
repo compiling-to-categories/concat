@@ -239,7 +239,7 @@ instance EqCat (->) a => EqCat (:-?) a where
   equal    = hyperStrict
   notEqual = hyperStrict
 
-instance OrdCat (->) a => OrdCat (:-?) a where
+instance Ord a => OrdCat (:-?) a where
   lessThan           = hyperStrict
   greaterThan        = hyperStrict
   lessThanOrEqual    = hyperStrict

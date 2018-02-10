@@ -151,11 +151,14 @@ relus = fmap (max 0)
 {-# INLINE relus #-}
 
 -- | Affine followed by RELUs.
-affRelu :: (C2 Summable a b) => (a --+ b) -> (a --> b)
+affRelu :: (C2 Summable a b, Ord s, Additive s, Num s)
+        => (a :--+ b) s -> (a s -> b s)
 affRelu l = relus . affine l
 {-# INLINE affRelu #-}
 
 -- affRelu = (result.result) relus affine
+
+-- affRelu :: forall a b. (C2 Summable a b) => (a --+ b) -> (a --> b)
 
 errSqr :: Summable b => a R :* b R -> (a --> b) -> R
 errSqr (a,b) h = distSqr b (h a)

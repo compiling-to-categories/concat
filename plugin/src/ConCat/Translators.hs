@@ -68,61 +68,6 @@ casePairRT f g = uncurryC g . (id &&& exr . f)
 -- cannot first check whether the target category has the required properties,
 -- such as `ClosedCat`.
 
-#if 0
-
--- For `\ x -> fmap U`
-fmapTransT1 :: forall k a b c h. (ClosedCat k, Strong k h, Ok3 k a b c)
-            => (a `k` (b -> c)) -> (a `k` (h b -> h c))
-fmapTransT1 g = curry (fmapTransT2 (g . exl) exr)
-                <+ okProd @k @a @(h b)
-                <+ okFunctor @k @h @b
-                <+ okFunctor @k @h @c
-                <+ okExp @k @b @c
-{-# INLINE fmapTransT1 #-}
-
---                                exl       :: a :* h b `k` a
---                                     exr  :: a :* h b `k` h b
---                   (\ a -> U)             :: a `k` (b -> c)
---                   (\ a -> U) . exl       :: (a :* h b) `k` (b -> c)
---        fmapTrans ((\ a -> U) . exl) exr  :: (a :* h b) `k` h c
--- curry (fmapTrans ((\ a -> U) . exl) exr) :: a `k` (h b -> h c)
-
-
--- letT :: (p -> a -> b) -> (p -> a) -> (p -> b)
--- letT h f = P.uncurry h . (id &&& f)
--- -- letT h f p = (h p) (f p)
-
--- fmap musings to be sorted out.
-
-fmapTransT2 :: forall k a b c h. (ClosedCat k, Strong k h, Ok3 k a b c)
-            => (a `k` (b -> c)) -> (a `k` h b) -> (a `k` h c)
-fmapTransT2 f g = fmapC (uncurry f) . strength . (id &&& g)
-                  <+ okFunctor @k @h @(a :* b)
-                  <+ okProd @k @a @(h b)
-                  <+ okFunctor @k @h @c
-                  <+ okFunctor @k @h @b
-                  <+ okProd @k @a @b
-{-# INLINE fmapTransT2 #-}
-
-#if 0
--- Types:
-
-f :: a `k` (b -> c)
-g :: a `k` h b
-
-strength :: (a :* h b) `k` h (a :* b)
-
-       uncurry f  :: a :* b `k` c
-fmapC (uncurry f) :: h (a :* b) `k` h c
-
-                                id &&& g  :: a `k` (a :* h b)
-                    strength . (id &&& g) :: a `k` h (a :* b)
-fmapC (uncurry f) . strength . (id &&& g) :: a `k` h c
-
-#endif
-
-#endif
-
 -- TODO: Maybe use the following function-only definition instead, and wrap
 -- toCcc' around it in the plugin.
 
@@ -133,78 +78,25 @@ strength :: (Zip h, Pointed h) => a :* h b -> h (a :* b)
 strength = zipC . first pointC
 {-# INLINE strength #-}
 
-fmapTrans' :: (Zip h, Pointed h)
-           => (a -> (b -> c)) -> (a -> h b) -> (a -> h c)
--- fmapTrans' f g = fmapC (P.uncurry f) . zipC . (pointC &&& g)
-fmapTrans' f g = fmapC (P.uncurry f) . strength . (id &&& g)
-{-# INLINE fmapTrans' #-}
+fmapT1 :: forall h a b c. Strong h => (a -> b -> c) -> (a -> h b -> h c)
+fmapT1 f = P.curry (fmapC (P.uncurry f) . strength)
+{-# INLINE fmapT1 #-}
+
+fmapT2 :: forall h a b c. (Zip h, Pointed h)
+       => (a -> b -> c) -> (a -> h b) -> (a -> h c)
+-- fmapT2 f g = fmapC (P.uncurry f) . strength . (id &&& g)
+fmapT2 f g = fmapC (P.uncurry f) . zipC . (point &&& g)
+{-# INLINE fmapT2 #-}
 
 #if 0
+
+id &&& g          :: a -> a :* h b
+strength          :: a :* h b -> h (a :* b)
+fmapC (uncurry f) :: h (a :* b) -> h c
 
 pointC &&& g      :: a -> h a * h b
 zipC              :: h a :* h b -> h (a :* b)
 fmapC (uncurry f) :: h (a :* b) -> h c
-
-#endif
-
-#if 0
-
--- To make it easier yet on the plugin, move the `toCcc'` call into `fmapTrans`:
-
-fmapTrans'' :: Strong h
-            => (a -> (b -> c)) -> (a -> h b) -> (a `k` h c)
-fmapTrans'' f g = toCcc' (fmapC (uncurry f) . strength . (id &&& g))
-{-# INLINE fmapTrans'' #-}
-
--- Simpler
-fmapT :: Strong h => (a -> b -> c) -> (a -> h b -> h c)
-fmapT f = curry (fmapC (uncurry f) . strength)
-{-# INLINE fmapT #-}
-
-#endif
-
-#if 0
-                     f              :: a -> b -> c
-             uncurry f              :: a :* b -> c
-       fmap (uncurry f)             :: h (a :* b) -> h c
-                          strength  :: a :* h b -> h (a :* b)
-       fmap (uncurry f) . strength  :: a :* h b -> h c
-curry (fmap (uncurry f) . strength) :: a -> h b -> h c
-#endif
-
-#if 0
--- Categorical version
-fmapTC :: forall k h a b c.
-          (ClosedCat k, FunctorCat k h, Strong k h, Ok3 k a b c)
-       => (a `k` (b -> c)) -> (a `k` (h b -> h c))
-fmapTC f = curry (fmapC (uncurry f) . strength)
-           <+ okFunctor @k @h @(a :* b)
-           <+ okProd    @k @a @(h b)
-           <+ okProd    @k @a @b
-           <+ okFunctor @k @h @b
-           <+ okFunctor @k @h @c
-{-# INLINE fmapTC #-}
-
--- Still simpler, restricting to fmapT id
-fmapIdT :: Functor h => (b -> c) -> (h b -> h c)
-fmapIdT = P.curry (fmapC apply . strength)
--- fmapIdT = fmapT id
-{-# INLINE fmapIdT #-}
-
--- Categorical version
-fmapIdTC :: forall k h b c . (ClosedCat k, Strong k h, FunctorCat k h, Ok2 k b c)
-         => (b -> c) `k` (h b -> h c)
-fmapIdTC = curry (fmapC apply . strength)
-             <+ okFunctor @k @h @((b -> c) :* b)
-             <+ okProd    @k @(h (b -> c)) @b
-             <+ okFunctor @k @h @(b -> c)
-             <+ okProd    @k @(b -> c) @(h b)
-             <+ okFunctor @k @h @b
-             <+ okFunctor @k @h @c
-             <+ okProd    @k @(b -> c) @b
-             <+ okExp     @k @b @c
--- fmapIdTC = fmapTC id
-{-# INLINE fmapIdTC #-}
 
 #endif
 
@@ -247,3 +139,8 @@ castConstT :: forall k a b b'. (ConstCat k b', Ok k a, Coercible b b')
            => b -> (a `k` b')
 castConstT b = const (coerce b)
 {-# INLINE castConstT #-}
+
+bottomT :: forall k a b. (Category k, TerminalCat k, BottomCat k () b, Ok2 k a b)
+        => a `k` b
+bottomT = bottomC . it
+{-# INLINE bottomT #-}

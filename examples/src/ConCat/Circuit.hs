@@ -11,7 +11,7 @@
 -- -- Improves hash consing, but can obscure equivalent circuits
 -- #define NoCommute
 
-#define NoBusLabel
+-- #define NoBusLabel
 
 #define MealyToArrow
 
@@ -167,9 +167,10 @@ import ConCat.Misc ((:*),(:+),Unop,Binop,Yes1,typeR,transpose)
 -- import ConCat.Complex (Complex(..))
 import ConCat.Rep
 import ConCat.Additive (Additive(..),Add)
-import ConCat.Category
+import ConCat.Category  -- AltCat instead?
+import qualified ConCat.AltCat  -- for AbsTy
 import qualified ConCat.AltCat as A
-import ConCat.AltCat (Uncurriable(..))
+import ConCat.AltCat (Uncurriable(..),funIf,repIf,unitIf,prodIf)
 
 {--------------------------------------------------------------------
     Buses
@@ -1108,25 +1109,33 @@ constM' :: GS b => b -> CircuitM (Buses b)
 
 #if 1
 
-bottomScalar :: GenBuses b => z :> b
-bottomScalar = -- trace "bottomScalar called" $
-               mkCK (constComp "undefined")
+bottomG :: Ok2 (:>) z b => z :> b
+bottomG = -- trace "bottomG called" $
+          namedC "bottom"
+          -- mkCK (constComp "undefined")
+
+#if 0
 
 #define BottomTemplate(ty) \
- instance BottomCat (:>) z (ty) where { bottomC = bottomScalar }
+ instance BottomCat (:>) z (ty) where { bottomC = bottomG }
 
 BottomTemplate(Bool)
 BottomTemplate(Int)
 BottomTemplate(Integer)
 BottomTemplate(Float)
 BottomTemplate(Double)
+-- BottomTemplate(Vector n)
+
+#endif
+
+#if 0
 
 instance BottomCat (:>) z () where
 --   bottomC = mkCK (const (return UnitB))
   bottomC = C (arr (const UnitB))
 
--- instance (BottomCat (:>) a, BottomCat (:>) b) => BottomCat (:>) (a :* b) where
---   bottomC = bottomC &&& bottomC
+instance (BottomCat (:>) a, BottomCat (:>) b) => BottomCat (:>) (a :* b) where
+  bottomC = bottomC &&& bottomC
 
 #if defined TypeDerivation
 bottomC :: () :> b
@@ -1134,6 +1143,9 @@ bottomC . exl :: () :* a :> b
 curry (bottomC . exl) :: () :> (a -> b)
 #endif
 
+#elif 1
+instance Ok2 (:>) a b => BottomCat (:>) a b where
+  bottomC = bottomG
 #elif 0
 instance GenBuses a => BottomCat (:>) a where
   bottomC = mkCK (const mkBot)
@@ -1146,6 +1158,8 @@ instance BottomCat (:>) where
 instance BottomCat (:>) where
   type BottomKon (:>) a = GenBuses a
   bottomC = mkCK (const mkBot)
+#endif
+
 #endif
 
 -- TODO: state names like "⊕" and "≡" just once.
@@ -2181,6 +2195,9 @@ genBusesRep' templ ins = abstB <$> genBuses' templ ins
 
 -- tweakValRep :: (HasRep a, Tweakable (Rep a)) => Unop a
 -- tweakValRep = abst . tweakVal . repr
+
+bottomRep :: (Ok3 (:>) a b (Rep b), BottomCat (:>) a (Rep b)) => a :> b
+bottomRep = abstC . bottomC
 
 tyRep :: forall a. GenBuses (Rep a) => Ty
 tyRep = ty @(Rep a)

@@ -133,6 +133,13 @@ instance Additive a => Additive (Maybe a) where
 --   zero  = pure   zero
 --   (^+^) = liftA2 (^+^)
 
+-- Experiment
+instance Additive Bool where
+  zero = undefined
+  _ ^+^ _ = undefined
+  {-# INLINE zero #-}
+  {-# INLINE (^+^) #-}
+
 {--------------------------------------------------------------------
     Monoid wrapper
 --------------------------------------------------------------------}

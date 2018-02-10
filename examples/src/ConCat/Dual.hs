@@ -13,6 +13,8 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
+{-# OPTIONS_GHC -fprint-potential-instances #-} -- TEMP
+
 #include "ConCat/AbsTy.inc"
 AbsTyPragmas
 
@@ -158,9 +160,17 @@ instance (Category k, TerminalCat k, CoterminalCat k, Ok (Dual k) b) => ConstCat
 instance CoerceCat k b a => CoerceCat (Dual k) a b where
   coerceC = abst coerceC
 
--- instance RepCat k a r => RepCat k r a where
---   reprC = abst abstC
---   abstC = abst reprC
+instance RepCat k a r => RepCat (Dual k) a r where
+  abstC = Dual (reprC @k @a @r)
+  reprC = Dual (abstC @k @a @r)
+  {-# INLINE abstC #-}
+  {-# INLINE reprC #-}
+
+-- abstC :: a `k` r
+-- Dual abstC :: Dual k r a
+-- 
+-- reprC :: r `k` a
+-- Dual reprC :: Dual k a r
 
 ---- Functor-level:
 
@@ -186,7 +196,7 @@ instance (Zip h, ZapCat k h, OkF k h) => ZapCat (Dual k) h where
   zapC :: Ok2 k a b => h (Dual k a b) -> Dual k (h a) (h b)
   -- zapC = A.abstC . A.zapC . A.fmapC A.reprC
   -- zapC = abst . A.zapC . fmap repr
-  zapC = abstC . zapC . fmapC reprC
+  zapC = abst . zapC . fmapC repr
   {-# INLINE zapC #-}
 
 -- fmap repr :: h (a `Dual` b) -> h (b -> a)

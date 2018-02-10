@@ -29,7 +29,7 @@ import Data.Functor.Rep (Representable(..))
 
 import ConCat.Misc ((:*),Yes1,result,sqr,unzip,cond)
 import ConCat.Category
-import ConCat.AltCat (toCcc)
+import ConCat.AltCat (toCcc,toCcc')
 import qualified ConCat.AltCat as A
 import qualified ConCat.Rep as R
 import ConCat.AdditiveFun
@@ -50,7 +50,7 @@ type RAD = GD (Dual (-+>))
 
 -- | Add a dual/reverse derivative
 andDerR :: forall a b. (a -> b) -> (a -> b :* (b -> a))
-andDerR f = (result.second) R.repr (unMkD (toCcc f :: RAD a b))
+andDerR f = (result.second) R.repr (unMkD (toCcc' f :: RAD a b))
 {-# INLINE andDerR #-}
 
 -- | Dual/reverse derivative

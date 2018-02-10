@@ -275,7 +275,7 @@ instance EqCat Syn a where
   INLINER(equal)
   INLINER(notEqual)
 
-instance OrdCat Syn a where
+instance Ord a => OrdCat Syn a where
   lessThan = app0 "lessThan"
   greaterThan = app0 "greaterThan"
   lessThanOrEqual = app0 "lessThanOrEqual"

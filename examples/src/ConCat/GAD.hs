@@ -39,7 +39,7 @@ import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable)
 import qualified Data.Functor.Rep as R
 
-import ConCat.Misc ((:*),type (&+&),cond,result,unzip,sqr) -- ,PseudoFun(..),oops
+import ConCat.Misc ((:*),type (&+&),cond,result,unzip,sqr,bottom)
 import ConCat.Additive
 import ConCat.AltCat
 import ConCat.Rep
@@ -52,11 +52,11 @@ AbsTyImports
 data GD k a b = D { unD :: a -> (b :* (a `k` b)) }
 
 mkD :: HasRep (a `k` b) => (a -> b :* Rep (a `k` b)) -> GD k a b
-mkD = D . (result.second) abst
+mkD = D P.. (result P.. second) abst
 {-# INLINE mkD #-}
 
 unMkD :: HasRep (a `k` b) => GD k a b -> (a -> b :* Rep (a `k` b))
-unMkD = (result.second) repr . unD
+unMkD = (result P.. second) repr P.. unD
 {-# INLINE unMkD #-}
 
 -- Differentiable linear function, given the function and its constant derivative
@@ -262,6 +262,28 @@ instance (ProductCat k, Ord a) => MinMaxCat (GD k) a where
 -- TODO: IfCat. Maybe make ifC :: (a :* a) `k` (Bool -> a), which is linear.
 
 {--------------------------------------------------------------------
+    Discrete
+--------------------------------------------------------------------}
+
+-- Experiment
+
+-- Differentiable discrete function, yielding 'bottom' derivative
+discreteD :: (a -> b) -> GD k a b
+discreteD f = D (\ a -> (f a, bottom))
+{-# INLINE discreteD #-}
+
+#define Discrete(nm) nm = discreteD nm ; {-# INLINE nm #-}
+
+instance (ProductCat k, Ok k Bool) => BoolCat (GD k) where
+  Discrete(notC)
+  Discrete(andC)
+  Discrete(orC)
+  Discrete(xorC)
+
+instance IfCat k a => IfCat (GD k) a where
+  Linear(ifC)
+
+{--------------------------------------------------------------------
     Functor-level operations
 --------------------------------------------------------------------}
 
@@ -354,5 +376,5 @@ andDeriv h = unD (toCcc h)
 
 -- | The derivative of a given function
 deriv :: forall k a b . (a -> b) -> (a -> (a `k` b))
-deriv h = snd . andDeriv h
+deriv h = snd P.. andDeriv h
 {-# INLINE deriv #-}

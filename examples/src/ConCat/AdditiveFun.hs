@@ -48,6 +48,7 @@ data a -+> b = AddFun (a -> b)
 
 unAddFun :: (a -+> b) -> (a -> b)
 unAddFun (AddFun f) = f
+{-# INLINE unAddFun #-}
 
 -- deriving instance Additive b => Additive (a -+> b)
 
@@ -58,16 +59,6 @@ instance HasRep (a -+> b) where
 
 AbsTy(a -+> b)
 
--- QQQ
-
--- instance Additive (Double -+> Double) where
---   zero = abst zero
---   (^+^) = inAbst2 (^+^)
-
-instance Additive b => Additive (a -+> b) where
-  zero = abst zero
-  (^+^) = inAbst2 (^+^)
-
 #define OPINLINE INLINE
 
 -- -- Prevents some subtle non-termination errors. See 2017-12-27 journal notes.
@@ -77,46 +68,45 @@ instance Additive b => Additive (a -+> b) where
 -- #define OPINLINE NOINLINE [0]
 -- -- I copied this definition from ConCat.Category. TODO: centralize.
 
+#define Abst(nm) nm = abst nm ; {-# INLINE nm #-}
+
+instance Additive b => Additive (a -+> b) where
+  Abst(zero)
+  (^+^) = inAbst2 (^+^)
+  {-# OPINLINE (^+^) #-}
+
 instance Category (-+>) where
   type Ok (-+>) = Additive -- &+& Eq  -- the Eq is for CoproductPCat
-  id = abst id
+  Abst(id)
   (.) = inAbst2 (.)
-  {-# OPINLINE id #-}
   {-# OPINLINE (.) #-}
 
 instance ProductCat (-+>) where
-  exl    = abst exl
-  exr    = abst exr
+  Abst(exl)
+  Abst(exr)
   (&&&)  = inAbst2 (&&&)
   (***)  = inAbst2 (***)
-  dup    = abst dup
-  swapP  = abst swapP
+  Abst(dup)
+  Abst(swapP)
   first  = inAbst first
   second = inAbst second
-  {-# OPINLINE exl #-}
-  {-# OPINLINE exr #-}
   {-# OPINLINE (&&&) #-}
   {-# OPINLINE (***) #-}
-  {-# OPINLINE dup #-}
-  {-# OPINLINE swapP #-}
   {-# OPINLINE first #-}
   {-# OPINLINE second #-}
 
 instance CoproductPCat (-+>) where
-  inlP   = abst (,zero)
-  inrP   = abst (zero,)
+  Abst(inlP)
+  Abst(inrP)
   (||||) = inAbst2 (\ f g (x,y) -> f x ^+^ g y)
   (++++) = inAbst2 (***)
   jamP   = abst (uncurry (^+^))  -- 2018-02-04 notes
   -- jamP   = abst jamP  -- 2018-02-07 notes
-  swapPS = abst swapP
+  Abst(swapPS)
   -- ...
-  {-# OPINLINE inlP #-}
-  {-# OPINLINE inrP #-}
   {-# OPINLINE (||||) #-}
   {-# OPINLINE (++++) #-}
   {-# OPINLINE jamP #-}
-  {-# OPINLINE swapPS #-}
 
 instance Num s => ScalarCat (-+>) s where
   scale s = abst (s *)
@@ -139,11 +129,22 @@ instance CoterminalCat (-+>) where
 -- Note that zero for functions is point zero, i.e., const zero.
 
 instance CoerceCat (->) a b => CoerceCat (-+>) a b where
-  coerceC = abst coerceC
+  Abst(coerceC)
 
 instance RepCat (->) a r => RepCat (-+>) a r where
-  reprC = abst reprC
-  abstC = abst abstC
+  Abst(reprC)
+  Abst(abstC)
+
+instance () => BoolCat (-+>) where
+  Abst(notC)
+  Abst(andC)
+  Abst(orC)
+  Abst(xorC)
+
+instance Additive a => IfCat (-+>) a where
+  Abst(ifC)
+
+-- TODO: macros for method definitions
 
 {--------------------------------------------------------------------
     Indexed products and coproducts
@@ -152,26 +153,25 @@ instance RepCat (->) a r => RepCat (-+>) a r where
 instance Additive1 h => OkIxProd (-+>) h where
   okIxProd :: forall a. Ok' (-+>) a |- Ok' (-+>) (h a)
   okIxProd = Entail (Sub (Dict <+ additive1 @h @a))
+  {-# OPINLINE okIxProd #-}
 
 instance (Representable h, Zip h, Pointed h, Additive1 h) => IxProductCat (-+>) h where
   exF    = abst <$> exF
   forkF  = inAbstF1 forkF
   crossF = inAbstF1 crossF
-  replF  = abst replF
+  Abst(replF)
   {-# OPINLINE exF    #-}
   {-# OPINLINE forkF  #-}
   {-# OPINLINE crossF #-}
-  {-# OPINLINE replF  #-}
 
 instance (Summable h, Additive1 h) => IxCoproductPCat (-+>) h where
   inPF   = abst <$> inPF
   joinPF = inAbstF1 joinPF
   plusPF = inAbstF1 plusPF
-  jamPF  = abst jamPF
+  Abst(jamPF)
   {-# OPINLINE inPF   #-}
   {-# OPINLINE joinPF #-}
   {-# OPINLINE plusPF #-}
-  {-# OPINLINE jamPF  #-}
 
 instance OkAdd (-+>) where okAdd = Entail (Sub Dict)
 
@@ -182,14 +182,10 @@ instance OkAdd (-+>) where okAdd = Entail (Sub Dict)
 --------------------------------------------------------------------}
 
 instance (Num s, Additive s) => NumCat (-+>) s where
-  addC    = abst addC
-  negateC = abst negateC
-  mulC    = abst mulC
-  powIC   = abst powIC
-  {-# OPINLINE negateC #-}
-  {-# OPINLINE addC    #-}
-  {-# OPINLINE mulC    #-}
-  {-# OPINLINE powIC   #-}
+  Abst(addC)
+  Abst(negateC)
+  Abst(mulC)
+  Abst(powIC)
 
 -- I don't think I need NumCat etc.
 
@@ -209,13 +205,11 @@ instance Additive1 h => OkFunctor (-+>) h where
 
 instance (Functor h, Additive1 h) => FunctorCat (-+>) h where
   fmapC = inAbst fmapC
-  unzipC = abst unzipC
+  Abst(unzipC)
   {-# OPINLINE fmapC #-}
-  {-# OPINLINE unzipC #-}
 
 instance (Zip h, Additive1 h) => ZipCat (-+>) h where
-  zipC = abst zipC
-  {-# OPINLINE zipC #-}
+  Abst(zipC)
 
 instance (Zip h, OkFunctor (-+>) h) => ZapCat (-+>) h where
   zapC fs = abst (zapC (repr <$> fs))
@@ -230,12 +224,10 @@ instance (Zip h, OkFunctor (-+>) h) => ZapCat (-+>) h where
 --   pointC :: a `k` h a
 
 instance (Pointed h, Additive1 h, Additive a) => PointedCat (-+>) h a where
-  pointC = abst pointC
-  {-# OPINLINE pointC #-}
+  Abst(pointC)
 
 instance (Summable h, Additive a) => AddCat (-+>) h a where
-  sumAC = abst sumA
-  {-# OPINLINE sumAC #-}
+  Abst(sumAC)
 
 {--------------------------------------------------------------------
     CCC interface
