@@ -185,8 +185,6 @@ main = sequence_
   -- , runCirc "curry1-adf" $ toCcc' $ andDerF' $ (*) @R
   -- , runCirc "const" $ toCcc' $ A.const @(->) @R @R
   -- , runCirc "curry2-adf" $ toCcc' $ andDerF' $ \ (a :: Vector 10 R) b -> fmap (+ b) a
-  -- , runCirc "linear" $ toCcc' $ D.linear @(Vector 10) @(Vector 20) @R
-
   -- , runCirc "err1-a" $ toCcc $ uncurry err1
 
   -- , runCirc "err1-b" $ toCcc $ err1 (\ z -> 3 * z + 2)
@@ -211,9 +209,15 @@ main = sequence_
   -- , runSynCirc "dot-u-gradr" $ toCcc $ andGradR . D.dotV @(Vector 3) @R
 
   -- , runCirc "linear" $ toCcc $ D.linear @(Vector 2) @(Vector 3) @R
-  -- , runCirc "affine" $ toCcc $ D.affine @(Vector 2) @(Vector 3) @R
  
-  -- , runCirc "linear-adf" $ toCcc $ andDerF $ D.linear @(Vector 2) @(Vector 3) @R
+  -- , runCirc "linear-adf"   $ toCcc $ andDerF  . D.linear @(Vector 2) @(Vector 3) @R
+  -- , runCirc "linear-adr"   $ toCcc $ andDerR  . D.linear @(Vector 2) @(Vector 3) @R
+  -- , runCirc "linear-gradr" $ toCcc $ andGradR . D.linear @(Vector 2) @(Vector 3) @R
+
+  -- , runCirc "affine"       $ toCcc $            D.affine @(Vector 2) @(Vector 3) @R
+  -- , runCirc "affine-adf"   $ toCcc $ andDerF  . D.affine @(Vector 2) @(Vector 3) @R
+  -- , runCirc "affine-adr"   $ toCcc $ andDerR  . D.affine @(Vector 2) @(Vector 3) @R
+  -- , runCirc "affine-gradr" $ toCcc $ andGradR . D.affine @(Vector 2) @(Vector 3) @R
 
   -- , runCirc "relu"  $ toCcc $ max @R 0
   -- , runCirc "relus" $ toCcc $ relus @(Vector 3) @R
@@ -229,16 +233,36 @@ main = sequence_
   -- , runSynCirc "relus-adr" $ toCcc $ andDerR $ relus @(Vector 3) @R
   -- , runSynCirc "relus-gradr" $ toCcc $ andGradR $ relus @(Vector 3) @R
 
-  -- , runCirc "affRelu" $ toCcc $ D.affRelu @(Vector 2) @(Vector 3)
+  -- , runCirc "affRelu"       $ toCcc $            D.affRelu @(Vector 2) @(Vector 3) @R
+  -- , runCirc "affRelu-adf"   $ toCcc $ andDerF  . D.affRelu @(Vector 2) @(Vector 3) @R
+  -- , runCirc "affRelu-adr"   $ toCcc $ andDerR  . D.affRelu @(Vector 2) @(Vector 3) @R
+  -- , runCirc "affRelu-gradr" $ toCcc $ andGradR . D.affRelu @(Vector 2) @(Vector 3) @R
+
 
   -- , runCirc "linear-err" $ toCcc $ errSqrSampled (D.linear @(Vector 2) @(Vector 3) @R)
+  -- , runCirc "linear-err-adf" $ toCcc $ andDerF . errSqrSampled (D.linear @(Vector 2) @(Vector 3) @R)
+  -- , runCirc "linear-err-adr" $ toCcc $ andDerR . errSqrSampled (D.linear @(Vector 2) @(Vector 3) @R)
+
+  -- , runCirc "linear-errGrad" $ toCcc $ errGrad (D.linear @(Vector 2) @(Vector 3) @R)
+  -- , runCirc "affine-errGrad" $ toCcc $ errGrad (D.affine @(Vector 2) @(Vector 3) @R)
+  -- , runCirc "affRelu-errGrad" $ toCcc $ errGrad (affRelu @(Vector 2) @(Vector 3) @R)
+
+  -- , runCirc "affRelu-errGrad" $ toCcc $ errGrad (lr1 @(Vector 2) @(Vector 3))
+
+  -- , runSynCirc "not-adf-b" $ toCcc $ andDerF not
+  -- , runSynCirc "not-adr-b" $ toCcc $ andDerR not
+
+  -- , runSynCirc "not-gradr" $ toCcc $ andGradR not -- nope. Bool not a Num
+
+  -- , runCirc "affRelu1" $ toCcc $ lr1 @(Vector 2) @(Vector 3) @(Vector 5)
+
+  -- , runCirc "affRelu2" $ toCcc $ lr2 @(Vector 2) @(Vector 3) @(Vector 5)
+
+  -- , runCirc "affRelu2-errGrad" $ toCcc $ errGrad (lr2 @(Vector 2) @(Vector 3) @(Vector 5))
 
   -- , runCirc "normalize" $ toCcc $ normalize @(Vector 5) @R
-
   -- , runCirc "normalize-adf" $ toCcc $ andDerF $ normalize @(Vector 5) @R
-
   -- , runCirc "normalize-adr" $ toCcc $ andDerR $ normalize @(Vector 5) @R
-
   -- , runCirc "normalize-gradr" $ toCcc $ andGradR $ normalize @(Vector 5) @R
 
   -- , runCirc "linear-err-gradr" $ toCcc $ errGrad (D.linear @(Vector 2) @(Vector 3) @R)
