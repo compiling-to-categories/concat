@@ -164,6 +164,8 @@ import qualified GHC.Generics as G
 import qualified ConCat.Free.LinearRow
 import qualified Data.Monoid
 
+import qualified GoldTests as GT
+
 -- For FFT
 import GHC.Generics hiding (C,R,D)
 
@@ -179,33 +181,16 @@ type C = Complex R
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
+  , GT.main
 
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "jamPF" $ toCcc $ A.jamPF @(->) @(Finite 10) @R
 
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sin-adf"        $ toCcc $ andDerF $ sin @R
-
   -- -- !! 2018-02-10: run failed
   -- , runCirc "curry1-adf" $ toCcc' $ andDerF' $ (*) @R
 
-  -- -- !! 2018-02-10: success
-  -- , runCirc "const" $ toCcc' $ A.const @(->) @R @R
-
   -- -- !! 2018-02-10: run failed
   -- , runCirc "curry2-adf" $ toCcc' $ andDerF' $ \ (a :: Vector 10 R) b -> fmap (+ b) a
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "linear" $ toCcc' $ D.linear @(Vector 10) @(Vector 20) @R
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "err1-a" $ toCcc $ uncurry err1
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "err1-b" $ toCcc $ err1 (\ z -> 3 * z + 2)
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "err1-c" $ toCcc $ \ (a,b) -> err1 (\ z -> a * z + b)
 
   -- , runCirc "err1-d" $ toCcc $ \ ab (p,q) -> err1 (\ z -> p * z + q) ab
 
@@ -214,9 +199,6 @@ main = sequence_
 
   -- -- !! 2018-02-10: compile timeout
   -- , runCirc "err1Grad-b" $ toCcc $ err1Grad (\ (p,q) z -> p * z + q)
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "err1Grad-c" $ toCcc $ uncurry $ err1Grad (\ (p,q) z -> p * z + q)
 
   -- , runCirc "dot" $ toCcc $ D.dotV @(Vector 3) @R
 
@@ -228,7 +210,7 @@ main = sequence_
   -- , runSynCirc "dot-u-gradr" $ toCcc $ andGradR . D.dotV @(Vector 3) @R
 
   -- , runCirc "linear" $ toCcc $ D.linear @(Vector 2) @(Vector 3) @R
- 
+
   -- , runCirc "linear-adf"   $ toCcc $ andDerF  . D.linear @(Vector 2) @(Vector 3) @R
   -- , runCirc "linear-adr"   $ toCcc $ andDerR  . D.linear @(Vector 2) @(Vector 3) @R
   -- , runCirc "linear-gradr" $ toCcc $ andGradR . D.linear @(Vector 2) @(Vector 3) @R
@@ -295,7 +277,7 @@ main = sequence_
 
   -- , runCirc "elr2-d" $ toCcc' $ \ (ab :: Vector 5 R) -> unD $ toCcc' @RAD $ dotV ab
 
-  -- , runCirc "elr3-b" $ toCcc $ gradR (sumA @(Vector 5) @R) -- 
+  -- , runCirc "elr3-b" $ toCcc $ gradR (sumA @(Vector 5) @R) --
 
   -- , runCirc "dual-a" $ toCcc $ A.reprC $ toDual @(-+>) (sumA @(Vector 5) @R)
 
@@ -305,76 +287,6 @@ main = sequence_
   -- , runCirc "elr1" $ toCcc $ errGrad (D.linear @(Vector 10) @(Vector 20) @R)
 
   -- -- Circuit graphs
-
-  -- !! 2018-02-10: success
-  , runSynCirc "add"         $ toCcc $ uncurry ((+) @R)
-
-  -- !! 2018-02-10: success
-  , runSynCirc "dup"         $ toCcc $ A.dup @(->) @R
-
-  -- !! 2018-02-10: success
-  , runSynCirc "fst"         $ toCcc $ fst @R @R
-
-  -- !! 2018-02-10: success
-  , runSynCirc "twice"       $ toCcc $ twice @R
-
-  -- !! 2018-02-10: success
-  , runSynCirc "sqr"         $ toCcc $ sqr @R
-
-  -- !! 2018-02-10: success
-  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-
-  -- !! 2018-02-10: success
-  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "cosSinProd"  $ toCcc $ cosSinProd @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "truncate" $ toCcc $ truncate @R @Int
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "log" $ toCcc $ log @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "pow" $ toCcc $ uncurry ((**) @R)
-
-  -- -- Play with the "cat equal" trick.
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc $ (==) @Int
-
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc $ uncurry ((==) @Int)
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "equal-pair-b" $ toCcc $ (==) @(R :* Int)
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "equal-pair-uncurry-b" $ toCcc $ uncurry ((==) @(R :* Int))
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "equal-pair-a" $ toCcc $ uncurry ((==) @(Bool :* Int))
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "equal-pair-b" $ toCcc $ uncurry ((==) @(Int :* R))
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "equal-pair-d" $ toCcc $ toCcc $ uncurry ((==) @(Int :* R))
-
-  -- -- !! 2018-02-10: success
-  -- , runSyn{-Circ "equal-pair-b"-} $ toCcc $ uncurry ((==) @(Bool :* Int))
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "add" $ toCcc $ (+) @Integer
 
   -- -- Try sized vector operations directly.
   -- -- !! 2018-02-10: run failed
@@ -472,111 +384,14 @@ main = sequence_
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "sum-vv-der" $ toCcc $ andDerF $ sum @(Vector 5) @R
 
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "foo1" $ toCcc $ \ (x :: R) -> (sin x *)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "foo" $ toCcc $ derFL @R $ sin @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "foo2" $ toCcc $ uncurry $ \ (x :: R) -> (sin x *)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "zipWith-vv" $ toCcc $ uncurry (zipWith (*) :: Binop (Vector 5 R))
-
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc $ (zipWith (*) :: Binop (Vector 5 R))
-
   -- -- !! 2018-02-10: run failed
   -- , runCirc "zipWith-vv-adf" $ toCcc $ andDerF $ (zipWith (*) :: Binop (Vector 5 R))
 
   -- -- !! 2018-02-10: compile failed
   -- , runCirc "zipWithC-vv-der" $ toCcc $ andDerF $ (A.zipWithC A.mulC :: Vector 5 R :* Vector 5 R -> Vector 5 R)
 
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc $ (fmap negate :: Unop (Vector 5 R))
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "fmap-b" $ toCcc $ (fmap negate :: Unop (Vector 5 R))
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "fmap-b" $ toCcc $ (fmap negate :: Unop (Vector 5 R))
-
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc' $ fst @Bool @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "fmap-complex-b" $ toCcc $ (\ (x,xs :: Vector 5 R) -> fmap (+x) xs)
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "fmap-complex-b" $ toCcc $ (\ (x,xs :: Vector 5 R) -> fmap (+x) xs)
-
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc $ (\ (x,xs :: Vector 5 R) -> fmap (+x) xs)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "unzip-b" $ toCcc $ unzip @(Vector 5) @R @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc $ derF $ fmap @(Vector 5) @R negate
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "max" $ toCcc $ uncurry (max @R)
-
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc $ uncurry (max @R)
-
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc $ andDerF $ A.maxC @(->) @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc $ andDerF $ uncurry (max @R)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "max-ad" $ toCcc $ andDerF $ uncurry (max @R)
-
   -- -- !! 2018-02-10: run failed
   -- , runSynCirc "normalize" $ toCcc $ normalizeV @(Vector 5) @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "relu-ad" $ toCcc $ andDerF $ max @R 0
-
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "fmap-v-der-e" $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "fmap-v-der-e" $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
-
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc $ fmap @(Vector 5) @R (const True)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "fmap-v-d" $ toCcc $ derF (fmap negate :: Unop (Vector 5 R))
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "fmap-negate2" $ toCcc $ \ (v :: Vector 5 R) -> fmap negate (fmap (+ 1) v)
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "fmap-point" $ toCcc $ \ (x :: R) -> fmap negate (point @(Vector 5) x)
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "fmapT" $ toCcc $ \ x (v :: Vector 5 R) -> fmap (+x) v
-
-  -- -- !! 2018-02-10: success
-  -- -- Correct, but more complex/effortful than I'd like. See 2017-12-02 notes.
-  -- , runSynCirc "fmapT-oops-b" $ toCcc $ \ (x, v :: Vector 5 R) -> fmap (+x) v
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "foo" $ toCcc $ \ (_x :: R,y :: R) -> y
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "foo" $ toCcc $ \ (x,y) -> y + x :: R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "fmap-v-dl" $ toCcc $ derFL @R $ (fmap negate :: Unop (Vector 5 R))
 
   -- -- !! 2018-02-10: compile failed
   -- , runCirc "fmapC-v-der-b" $ toCcc $ andDerF $ (A.fmapC :: Unop R -> Unop (Vector 5 R))
@@ -597,10 +412,6 @@ main = sequence_
   -- , runSynCirc "sqErrF-der-b" $ toCcc $
   --     \ (sample :: Vector 5 R :* Vector 11 R) -> andDerF $ \ aff ->
   --        R.sqErrF (applyA @R aff) sample
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "zipWith-v" $ toCcc $ zipWith @(Vector 7) (||)
-
 
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "foo-der" $ toCcc $
@@ -678,71 +489,11 @@ main = sequence_
 
   -- -- Integer
 
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "eq-integer"       $ toCcc ((==) @Integer)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "ne-integer"       $ toCcc ((/=) @Integer)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "le-integer"       $ toCcc ((<=) @Integer)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "ne-integer-b"     $ toCcc (\ (x :: Integer, y) -> not (x == y))
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "ge-integer-b"     $ toCcc (\ (x :: Integer, y) -> not (x < y))
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "plus-integer"     $ toCcc ((+) @Integer)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "plus-mul-integer" $ toCcc (\ (x :: Integer, y) -> x * (x + y))
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "fmap-not-v" $ toCcc $ (fmap not :: Unop (Vector 2 Bool))
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "point-v"       $ toCcc $ (point :: Bool -> Vector 8 Bool)
-
   -- -- !! 2018-02-10: compile failed
   -- , runCirc "sum-v"         $ toCcc $ (sum :: Vector 8 Int -> Int)
 
   -- -- !! 2018-02-10: compile failed
   -- , runCirc "sum-point-v"   $ toCcc $ (sum . (point :: Int -> Vector 8 Int))
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "tabulate-v" $ toCcc (tabulate :: (Finite 8 -> Bool) -> Vector 8 Bool)
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "distribute" $ toCcc (distribute @Pair @Pair @R)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "distribute" $ toCcc (distribute @(Vector 4) @(U1 :*: Par1) @R)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "distribute" $ toCcc (distribute :: (Vector 4) ((Par1 :*: Par1) R) -> ((Par1 :*: Par1)) (Vector 4 R))  -- ok
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "foo" $ toCcc $ id @((Par1 :*: Par1) (Vector 4 R)) -- hangs genBuses
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "foo" $ toCcc $ id @(Vector 4 Bool :* Bool)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "distribute" $ toCcc (A.distributeC :: ((Par1 :*: Par1)) (Vector 4 R) -> (Vector 4) ((Par1 :*: Par1) R))
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "distribute-p-v" $ toCcc (distribute @(Vector 4) @Pair @R)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "distribute-v-p" $ toCcc (distribute @Pair @(Vector 4) @R)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "fmap-idL-v" $ toCcc (\ (h :: Vector 8 R -> Vector 8 R) -> h <$> idL)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "linearF-v" $ toCcc $ linearF @R @(Vector 8) @Par1
 
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "linear-v-1" $ toCcc $ linear @R @(Vector 8 R) @R
@@ -767,9 +518,6 @@ main = sequence_
 
   -- -- !! 2018-02-10: compile failed
   -- , runCirc "foo" $ toCcc $ \ () -> dualV (sumAC :: Pair R -> R) -- ok
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "foo" $ toCcc $ unV @R @(Vector 2 R)
 
   -- -- !! 2018-02-10: compile failed
   -- , runCirc "foo" $ toCcc $ \ () -> dualV4 (sumAC :: Vector Bool R -> R) -- fail
@@ -816,9 +564,6 @@ main = sequence_
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "fmap-not" $ toCcc $ (fmapC not :: Unop (Pair Bool))
 
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc $ sqr @R
-
   -- -- !! 2018-02-10: compile failed
   -- , runSyn $ toCcc $ (fmapC sqr :: Unop (Pair R))
 
@@ -840,13 +585,6 @@ main = sequence_
   -- -- !! 2018-02-10: compile failed
   -- , runSyn $ toCcc $ andDer @R (fmapC sqr :: Unop (Pair R))
 
-  -- -- Circuit graphs on trees etc
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sum-pair"   $ toCcc $ sum   @Pair      @Int
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sum-rb4"    $ toCcc $ sum   @(RBin N4) @Int
-
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "lsums-pair" $ toCcc $ lsums @Pair      @Int
 
@@ -858,9 +596,6 @@ main = sequence_
 
   -- -- !! 2018-02-10: compile timeout
   -- , runSynCirc "lsums-rb4"  $ toCcc $ lsums @(RBin N4) @Int
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "fft-pair" $ toCcc $ fft @Pair @Double
 
   -- -- !! 2018-02-10: run failed
   -- , runCirc "fft-rb1"  $ toCcc $ fft @(RBin N1) @Double
@@ -877,30 +612,8 @@ main = sequence_
   -- -- !! 2018-02-10: compile timeout
   -- , runCirc "foo" $ toCcc $ \ ( fc :: ( (Pair :.: Pair) (Complex Double) )) -> fft fc
 
-  -- -- Interval analysis
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "add-iv"    $ toCcc $ ivFun $ uncurry ((+) @Int)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "mul-iv"    $ toCcc $ ivFun $ uncurry ((*) @Int)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "thrice-iv" $ toCcc $ ivFun $ \ x -> 3 * x :: Int
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sqr-iv"    $ toCcc $ ivFun $ sqr @Int
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "magSqr-iv" $ toCcc $ ivFun $ magSqr @Int
-
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "xp3y-iv"   $ toCcc $ ivFun $ \ ((x,y) :: R2) -> x + 3 * y
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "xyp3-iv"   $ toCcc $ ivFun $ \ (x,y) -> x * y + 3 :: R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "horner-iv" $ toCcc $ ivFun $ horner @R [1,3,5]
 
   -- -- Automatic differentiation
   -- -- !! 2018-02-10: compile failed
@@ -970,23 +683,11 @@ main = sequence_
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "linear-r2-r2" $ toCcc $ linear @R @(R :* R) @(R :* R)
 
-  -- -- !! 2018-02-10: success
-  -- , runCirc "equal-Int" $ toCcc $ (==) @Int
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "equal-sum" $ toCcc $ (==) @(() :+ ())
-
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "diag-2" $ toCcc $ diag @(Par1 :*: Par1) @R
 
-  -- -- !! 2018-02-10: success
-  -- , runCirc "idL-2" $ toCcc (\ () -> idL @(Par1 :*: Par1) @R) -- fail
-
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "tabulate2" $ toCcc $ tabulateC @(->) @(Par1 :*: Par1) @R  -- fail
-
-  -- -- !! 2018-02-10: success
-  -- , runCirc "idL-v" $ toCcc (\ () -> idL @(Vector 8) @R) -- ok
 
   -- -- !! 2018-02-10: run failed
   -- , runCirc "equal-v" $ toCcc $ (==) @(Vector 5 Int)
@@ -1002,12 +703,6 @@ main = sequence_
 
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "distribute-1-4" $ toCcc $ (distributeC :: V R R (V R (Vector 4 R) R) -> V R (Vector 4 R) (V R R R))
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sin-df"        $ toCcc $ derF $ sin @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "foo1" $ toCcc $ \ x -> derF (sin @R) x 1
 
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "foo2" $ toCcc $ derF (\ x -> derF (sin @R) x 1)
@@ -1031,16 +726,6 @@ main = sequence_
 
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "dd3" $ toCcc $ d (\x -> x * d (\ y -> y * x) 2)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "foo9-d"  $ toCcc $ derF (\ (_ :: R) -> 1 :: R)
-
-  -- -- Automatic differentiation with ADFun:
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sin-adf"        $ toCcc $ andDerF $ sin @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "cos-adf"        $ toCcc $ andDerF $ cos @R
 
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "twice-adf"      $ toCcc $ andDerF $ twice @R
@@ -1071,13 +756,6 @@ main = sequence_
 
   -- -- !! 2018-02-10: compile timeout
   -- , runSynCirc "product-rb3-adf"$ toCcc $ andDerF $ product @(RBin N3) @R
-
-  -- -- Automatic differentiation with ADFun + linear
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sin-adfl"        $ toCcc $ andDerFL @R $ sin @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "cos-adfl"        $ toCcc $ andDerFL @R $ cos @R
 
   -- -- !! 2018-02-10: compile timeout
   -- , runSynCirc "sqr-adfl"        $ toCcc $ andDerFL @R $ sqr @R
@@ -1115,12 +793,6 @@ main = sequence_
   -- -- !! 2018-02-10: run failed
   -- , runSynCirc "zip-dual"   $ toCcc $ toDual $ uncurry $ zip @(Vector 3) @R @Bool
 
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sumA-dual"  $ toCcc $ toDual $ sumA @(Vector 5) @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "point-dual" $ toCcc $ toDual $ point @(Vector 5) @R
-
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "ixSum-n-a" $ toCcc $ ixSum @(Finite 5) @R
 
@@ -1142,31 +814,10 @@ main = sequence_
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "jamPF-n" $ toCcc $ A.jamPF @(Finite 5) @R
 
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "fst-af"  $ toCcc $ addFun $ fst @R @R
-
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "fst-daf" $ toCcc $ dadFun $ fst @R @R
 
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "fst-dual" $ toCcc $ toDual $ fst @R @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc $ A.exl @(->) @R @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc $ fst @R @R  -- works, but needs optimization
-
   -- -- Automatic differentiation with RAD:
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sin-adr"        $ toCcc $ andDerR $ sin @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "cos-adr"        $ toCcc $ andDerR $ cos @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "add-adr"        $ toCcc $ andDerR $ uncurry ((+) @R)
 
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "dup-adr"        $ toCcc $ andDerR $ A.dup @(->) @R
@@ -1177,9 +828,6 @@ main = sequence_
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "sqr-adr"        $ toCcc $ andDerR $ sqr @R
 
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "fst-adr"        $ toCcc $ andDerR (fst @R @R)
-
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "magSqr-adr"     $ toCcc $ andDerR $ magSqr @R
 
@@ -1189,29 +837,14 @@ main = sequence_
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "cos-2xx-adr"    $ toCcc $ andDerR $ \ x -> cos (2 * x * x) :: R
 
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "cos-xpy-adr"    $ toCcc $ andDerR $ \ (x,y) -> cos (x + y) :: R
-
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "cosSinProd-adr" $ toCcc $ andDerR $ cosSinProd @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sin-gradr"     $ toCcc $ andGradR $ sin @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "cos-gradr"     $ toCcc $ andGradR $ cos @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "add-gradr"     $ toCcc $ andGradR $ uncurry ((+) @R)
 
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "twice-gradr"   $ toCcc $ andGradR $ twice @R
 
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "sqr-gradr"     $ toCcc $ andGradR $ sqr @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "fst-gradr"     $ toCcc $ andGradR (fst @R @R)
 
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "magSqr-gradr"  $ toCcc $ andGradR $ magSqr  @R
@@ -1222,9 +855,6 @@ main = sequence_
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "cos-2xx-gradr" $ toCcc $ andGradR $ \ x -> cos (2 * x * x) :: R
 
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "cos-xpy-gradr" $ toCcc $ andGradR $ \ (x,y) -> cos (x + y) :: R
-
   -- -- Yikes! Needs simplification, at least.
   -- -- !! 2018-02-10: compile timeout
   -- , runSynCirc "cosSinProd-adrl" $ toCcc $ andDerRL @R $ cosSinProd @R
@@ -1233,43 +863,8 @@ main = sequence_
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "cosSinProd-adrl" $ toCcc $ andGrad2R @R $ cosSinProd @R
 
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "dup-gradr"     $ toCcc $ andGrad2R $ A.dup @(->) @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sumA-adf" $ toCcc $ andDeriv @(->) $ sumA @(Vector 5) @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sumA-adr" $ toCcc $ andDerR $ sumA @(Vector 5) @R
-
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sumA" $ toCcc $ sumA @(Vector 5) @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sumA-fad" $ toCcc $ andDeriv @(-+>) $ sumA @(Vector 5) @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sumA-adr" $ toCcc $ andDerR $ sumA @(Vector 5) @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "zip-adr"            $ toCcc $ andDerR  $ uncurry (zip @(Vector 5) @R @R)
-
-  -- -- Having trouble with fmap
-  -- -- !! 2018-02-10: success
-  -- , runSyn{-Circ "fmap-cos-adr"-}       $ toCcc $ andDerR  $ fmap @(Vector 5) @R cos
-
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "sum-fmap-cos-gradr" $ toCcc $ andGradR $ sum . fmap @(Vector 5) @R cos
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sumA-gradr"          $ toCcc $ andGradR $ sumA @(Vector 5) @R
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "zip-adr"            $ toCcc $ andDerR  $ uncurry (zip @(Vector 5) @R @R)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "fmap-cos-adr"       $ toCcc $ andDerR  $ fmap @(Vector 5) @R cos
 
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "sum-fmap-cos-gradr" $ toCcc $ andGradR $ sum . fmap @(Vector 5) @R cos
@@ -1368,9 +963,6 @@ main = sequence_
   -- -- !! 2018-02-10: compile failed
   -- , runCircChase "mse-regress0b" $ toCcc $ regress (0,0) mse samples0
 
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "foo" $ toCcc $ \ (x,y) -> sqr (4 - (y + x * 3)) :: R
-
   -- -- !! 2018-02-10: compile timeout
   -- , runSyn $ toCcc $ andDer @R $ \ (x,y) -> x - y :: R
 
@@ -1388,12 +980,6 @@ main = sequence_
 
   -- -- !! 2018-02-10: compile timeout
   -- , runSyn $ toCcc $ andDer @R $ uncurry ((-) @R)
-
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc $ uncurry ((-) @R)
-
-  -- -- !! 2018-02-10: success
-  -- , runSyn $ toCcc $ \ x -> x - 1 :: R
 
   -- -- !! 2018-02-10: compile timeout
   -- , runSyn $ toCcc $ andDer @R $ \ x -> x - 1 :: R
@@ -1428,9 +1014,6 @@ main = sequence_
   -- -- Incremental evaluation. Partly brooken
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "negate-andInc" $ toCcc $ andInc $ (negate @R)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "mul-andInc"    $ toCcc $ andInc $ uncurry ((*) @R)
 
   -- -- !! 2018-02-10: compile timeout
   -- , runSynCirc "sop1-andInc"   $ toCcc $ andInc $ \ ((x,y),z) -> x * y + y * z + x * z :: R
@@ -1532,15 +1115,6 @@ main = sequence_
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "app-arr-bool" $ toCcc $ (<*>) @(Vector Bool) @Int @Int
 
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "fmap-fun-bool-plus" $ toCcc $ fmap   @((->) Bool) ((+) @Int)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "app-fun-bool"       $ toCcc $ (<*>)  @((->) Bool) @Int @Int
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "liftA2-fun-bool"    $ toCcc $ liftA2 @((->) Bool) ((+) @Int)
-
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "sum-arr-lb1" $ toCcc $ sum @(Vector (LB N1)) @Int
 
@@ -1571,24 +1145,9 @@ main = sequence_
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "sum-arr-rb8" $ toCcc $ sum @(Vector (RB N8)) @Int
 
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "fmap-fun-bool-plus" $ toCcc $ fmap   @((->) Bool) ((+) @Int)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "app-fun-bool"       $ toCcc $ (<*>)  @((->) Bool) @Int @Int
-
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "inArr2-liftA2-bool"    $ toCcc $
   --      (inNew2 (liftA2 (+)) :: Binop (Vector Bool Int))
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sum-fun-2" $ toCcc $ (sum @((->) Bool) @Int)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sum-fun-4" $ toCcc $ (sum @((->) (Bool :* Bool)) @Int)
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "sum-fun-8" $ toCcc $ (sum @((->) ((Bool :* Bool) :* Bool)) @Int)
 
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "unpack-arr-2" $ toCcc $ (unpack @(Vector Bool Int))
@@ -1623,17 +1182,6 @@ main = sequence_
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "sum-arr-bool" $ toCcc $ sum @(Vector Bool) @Int
 
-  -- -- Int equality turns into matching, which takes some care.
-  -- -- See boxCon/tweak in ConCat.Plugin
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "equal-3"     $ toCcc $ \ (x :: Int) -> x == 3
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "unequal-3"   $ toCcc $ \ (x :: Int) -> x /= 3
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "not-equal-3" $ toCcc $ \ (x :: Int) -> not (x == 3)
-
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "multi-if-equal-int" $ toCcc $
   --     \ case
@@ -1641,15 +1189,6 @@ main = sequence_
   --         5 -> 7
   --         7 -> 9
   --         (_ :: Int) -> 0 :: Int
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "foo" $ toCcc $ div @Int
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "foo" $ toCcc $ (*) @Int
-
-  -- -- !! 2018-02-10: success
-  -- , runSynCirc "foo" $ toCcc $ \ (x :: Int) -> 13 * x == 130
 
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "multi-if-equal-int-scrut" $ toCcc $
@@ -1984,10 +1523,10 @@ instance HasRep Foo where
 -- baz ab = toCcc' @RAD (dotV ab)
 
 -- baz1 :: Vector 5 R :> Vector 5 R
--- baz1 = toCcc $ gradR sumA -- 
+-- baz1 = toCcc $ gradR sumA --
 
 -- baz2 :: Vector 5 R :> R :* (R -> Vector 5 R)
--- baz2 = toCcc $ andDerR sumA -- 
+-- baz2 = toCcc $ andDerR sumA --
 
 -- baz2 :: Vector 5 R -> R :* Dual (-+>) (Vector 5 R) R
 -- baz2 = repr (toCcc @RAD sumA)
@@ -2023,10 +1562,10 @@ instance HasRep Foo where
 -- baz ab = toCcc' (andDerR (dotV ab)) -- breaks
 
 -- baz :: Vector 5 R -> Vector 5 R :> Vector 5 R :* (Vector 5 R -> Vector 5 R)
--- baz ab = toCcc' (andDerR (zipWith (*) ab)) -- 
+-- baz ab = toCcc' (andDerR (zipWith (*) ab)) --
 
 -- baz :: Vector 5 R -> Vector 5 R :> Vector 5 R :* (Vector 5 R -> Vector 5 R)
--- baz ab = toCcc' (andDerF (zipWith (*) ab)) -- 
+-- baz ab = toCcc' (andDerF (zipWith (*) ab)) --
 
 -- baz :: Vector 5 R -> Vector 5 R -> R :* (R -> Vector 5 R)
 -- baz ab = andDerR (dotV ab)
