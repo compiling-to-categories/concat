@@ -7,81 +7,40 @@
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
+{-# OPTIONS_GHC -Wall #-}
+
 module GoldTests where
 
-import Prelude hiding (unzip,zip,zipWith) -- (id,(.),curry,uncurry)
-import qualified Prelude as P
-
-import Data.Monoid (Sum(..))
-import Data.Foldable (fold)
-import Control.Applicative (liftA2)
-import Control.Arrow (second)
-import Control.Monad ((<=<))
-import Data.List (unfoldr)  -- TEMP
-import Data.Complex (Complex)
-import GHC.Exts (inline)
-import GHC.Float (int2Double)
-import GHC.TypeLits ()
-
-import Data.Constraint (Dict(..),(:-)(..))
-import Data.Pointed
-import Data.Key
-import Data.Distributive
-import Data.Functor.Rep
-import Data.Finite
-import Data.Vector.Sized (Vector)
-import qualified Data.Vector.Sized as VS
-
-import ConCat.Misc
-  ((:*),(:+),R,result,sqr,magSqr,Unop,Binop,unzip,inNew,inNew2,Yes1,oops,type (&+&),PseudoFun(..))
-import ConCat.Rep (HasRep(..))
-import qualified ConCat.Category as C
-import ConCat.Incremental (andInc,inc)
-import ConCat.Dual
-import ConCat.GAD
-import ConCat.AdditiveFun
-import ConCat.AD
-import ConCat.ADFun hiding (D)
-import ConCat.RAD
-import ConCat.Free.VectorSpace (HasV(..),distSqr,(<.>),normalizeV)
-import ConCat.GradientDescent
-import ConCat.Interval
-import ConCat.Syntactic (Syn,render)
-import ConCat.Circuit (GenBuses,(:>))
-import qualified ConCat.RunCircuit as RC
+import           ConCat.ADFun hiding (D)
+import           ConCat.AdditiveFun
+import           ConCat.AltCat (toCcc,toCcc',(:**:)(..),Ok2,U2)
 import qualified ConCat.AltCat as A
-import ConCat.AltCat
-  (toCcc,toCcc',unCcc,unCcc',reveal,conceal,(:**:)(..),Ok,Ok2,U2,equal)
-import qualified ConCat.Rep
-import ConCat.Rebox () -- necessary for reboxing rules to fire
-import ConCat.Orphans ()
-import ConCat.Nat
-import ConCat.Shaped
-import ConCat.Free.LinearRow -- (L,OkLM,linearL)
-import ConCat.LC
-import ConCat.Deep
-import qualified ConCat.Deep as D
-
-import qualified ConCat.Inline.SampleMethods as I
-
-import qualified ConCat.Regress as R
-import ConCat.Free.Affine
-import ConCat.Choice
-
-#ifdef CONCAT_SMT
-import ConCat.SMT
-#endif
-
-import qualified GHC.Generics as G
-import qualified ConCat.Free.LinearRow
-import qualified Data.Monoid
-
-import GHC.Generics hiding (C,R,D)
-import ConCat.FFT
-
-import Control.Newtype (Newtype(..))
-
-import GHC.Exts (Coercible,coerce)
+import           ConCat.Circuit (GenBuses,(:>))
+import           ConCat.Deep
+import           ConCat.Dual
+import           ConCat.FFT
+import           ConCat.Free.LinearRow
+import           ConCat.Free.VectorSpace (HasV(..))
+import           ConCat.GAD
+import           ConCat.Interval
+import           ConCat.Misc ((:*),(:+),R,sqr,magSqr,Unop,Binop,unzip)
+import           ConCat.Orphans ()
+import           ConCat.RAD
+import           ConCat.Rebox ()
+import           ConCat.Rep (HasRep(..))
+import qualified ConCat.RunCircuit as RC
+import           ConCat.Shaped
+import           ConCat.Syntactic (Syn,render)
+import           Control.Applicative (liftA2)
+import           Data.Distributive
+import           Data.Finite
+import           Data.Functor.Rep
+import           Data.Key
+import           Data.Pointed
+import           Data.Vector.Sized (Vector)
+import           GHC.Generics hiding (C,R,D)
+import           GHC.TypeLits ()
+import           Prelude hiding (unzip,zip,zipWith)
 
 
 main :: IO ()
