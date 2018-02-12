@@ -26,7 +26,8 @@ import Data.Finite.Internal (Finite(..))
 -- import Data.Vector.Sized
 import qualified Data.Vector.Sized as V
 
-import ConCat.Misc ((:*),(:+))
+import ConCat.Category ((+++),(***))
+import ConCat.Misc     ((:*),(:+))
 
 {----------------------------------------------------------------------
    Some useful isomorphisms.
@@ -107,28 +108,13 @@ instance KnownNat n => HasFin (Finite n) where
 
 instance (HasFin a, HasFin b, KnownNat (Card a + Card b)) => HasFin (a :+ b) where
   type Card (a :+ b) = Card a + Card b
-
-  -- I really want to write this as:
-  --   toFin = h . fmap toFin
-  -- but I can't, due to the fact that sums are only functorial in their second type argument.
-  -- We can get around this limitation, by wrapping (:+), but only when a ~ b.
-  toFin = \case
-            (Left  x) -> h $ Left  (toFin x)
-            (Right y) -> h $ Right (toFin y)
-    where h = isoRev finSum
-
-  unFin n = case (g n) of
-              (Left  m) -> Left  (unFin m)
-              (Right l) -> Right (unFin l)
-    where g = isoFwd finSum
+  toFin = isoRev finSum . (toFin +++ toFin)
+  unFin = (unFin +++ unFin) . isoFwd finSum
 
 instance (HasFin a, HasFin b, KnownNat (Card a * Card b)) => HasFin (a :* b) where
   type Card (a :* b) = Card a * Card b
-
-  toFin (x,y) = isoRev finProd (toFin x, toFin y)
-
-  unFin n = let (m, l) = isoFwd finProd n
-             in (unFin m, unFin l)
+  toFin = isoRev finProd . (toFin *** toFin)
+  unFin = (unFin *** unFin) . isoFwd finProd
 
 instance (HasFin a, HasFin b, KnownNat (Card a ^ Card b)) => HasFin (a :^ b) where
   type Card (a :^ b) = Card a ^ Card b
