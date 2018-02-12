@@ -1405,7 +1405,7 @@ instance (EqCat k a, EqCat k' a) => EqCat (k :**: k') a where
   PINLINER(equal)
   PINLINER(notEqual)
 
-class EqCat k a => OrdCat k a where
+class (EqCat k a, Ord a) => OrdCat k a where
   lessThan, greaterThan, lessThanOrEqual, greaterThanOrEqual :: Prod k a a `k` BoolOf k
   greaterThan        = lessThan . swapP    <+ okTT @k @a
   lessThan           = greaterThan . swapP <+ okTT @k @a
@@ -1454,7 +1454,7 @@ instance (Monad m, Ord a) => OrdCat (Kleisli m) a where
   greaterThanOrEqual = arr greaterThanOrEqual
 #endif
 
-instance OrdCat U2 a where
+instance Ord a => OrdCat U2 a where
   lessThan           = U2
   greaterThan        = U2
   lessThanOrEqual    = U2
@@ -1718,12 +1718,12 @@ instance (FromIntegralCat k a b, FromIntegralCat k' a b) => FromIntegralCat (k :
   fromIntegralC = fromIntegralC :**: fromIntegralC
   PINLINER(fromIntegralC)
 
+#if 1
+
+-- Revisit later. I used BottomCat for an encoding of sums via products.
 
 class BottomCat k a b where
   bottomC :: a `k` b
-
-bottomRep :: (Category k, RepCat k b r, BottomCat k a r, Ok3 k a b r) => a `k` b
-bottomRep = abstC . bottomC
 
 -- instance (BottomCat k a b, BottomCat k a c, ProductCat k, Ok3 k a b c) => BottomCat k a (b :* c) where
 --   bottomC = bottomC &&& bottomC
@@ -1739,6 +1739,8 @@ instance BottomCat U2 a b where
 instance (BottomCat k a b, BottomCat k' a b) => BottomCat (k :**: k') a b where
   bottomC = bottomC :**: bottomC
   PINLINER(bottomC)
+
+#endif
 
 type IfT k a = Prod k (BoolOf k) (Prod k a a) `k` a
 
@@ -1760,72 +1762,6 @@ instance (IfCat k a, IfCat k' a) => IfCat (k :**: k') a where
   ifC = ifC :**: ifC
   PINLINER(ifC)
 
-unitIf :: forall k. (TerminalCat k, BoolCat k) => IfT k (Unit k)
-unitIf = it <+ (inOpR @(Prod k) @(Ok' k) @(BoolOf k) @(Unit k) @(Unit k))
-
-okIf :: forall k a. BoolCat k => Ok' k a |- Ok' k (Prod k (BoolOf k) (Prod k a a)) && Ok' k (Prod k a a)
-okIf = inOpR' @(Prod k) @(Ok' k) @(BoolOf k) @a @a . Entail (Sub Dict)
-
-prodIf :: forall k a b. (IfCat k a, IfCat k b) => IfT k (Prod k a b)
-prodIf = (ifC . second (twiceP exl)) &&& (ifC . second (twiceP exr))
-           <+ okIf @k @(Prod k a b)
-           <+ okProd @k @a @b
-           <+ okIf @k @a
-           <+ okIf @k @b
-
-#if 0
-
-   prodIf
-== \ (c,((a,b),(a',b'))) -> (ifC (c,(a,a')), ifC (c,(b,b')))
-== (\ (c,((a,b),(a',b'))) -> ifC (c,(a,a'))) &&& ...
-== (ifC . (\ (c,((a,b),(a',b'))) -> (c,(a,a')))) &&& ...
-== (ifC . second (\ ((a,b),(a',b')) -> (a,a'))) &&& ...
-== (ifC . second (twiceP exl)) &&& (ifC . second (twiceP exr))
-
-#endif
-
--- funIf :: forall k a b. (ClosedCat k, IfCat k b) => IfT k (Exp k a b)
--- funIf = curry (ifC . (exl . exl &&& (half exl &&& half exr)))
---  where
---    half :: (u `k` Exp k a b) -> (Prod k (Prod k _bool u) a `k` b)
---    half h = apply . first (h . exr)
-
-funIf :: forall k a b. (ClosedCat k, Ok k a, IfCat k b) => IfT k (Exp k a b)
-funIf = curry (ifC . (exl . exl &&& (apply . first (exl . exr) &&& apply . first (exr . exr))))
-           <+ okProd @k @(Prod k (BoolOf k) (Prod k (Exp k a b) (Exp k a b))) @a
-           <+ okIf @k @(Exp k a b)
-           <+ okProd @k @(Exp k a b) @a
-           <+ okExp @k @a @b
-           <+ okIf @k @b
-
-#if 0
-
-   funIf
-== \ (c,(f,f')) -> \ a -> ifC (c,(f a,f' a))
-== curry (\ ((c,(f,f')),a) -> ifC (c,(f a,f' a)))
-== curry (ifC . \ ((c,(f,f')),a) -> (c,(f a,f' a)))
-== curry (ifC . (exl.exl &&& \ ((c,(f,f')),a) -> (f a,f' a)))
-== curry (ifC . (exl.exl &&& ((\ ((c,(f,f')),a) -> f a) &&& (\ ((c,(f,f')),a) -> f' a))))
-== curry (ifC . (exl.exl &&& (apply (first (exl.exr)) &&& (apply (first (exl.exr))))))
-
-#endif
-
-repIf :: forall k a r. (RepCat k a r, ProductCat k, Ok k a, IfCat k r)
-      => IfT k a
-repIf = abstC . ifC . second (twiceP reprC)
-        <+ okProd @k @(BoolOf k) @(Prod k r r)
-        <+ okProd @k @r @r
-        <+ okProd @k @(BoolOf k) @(Prod k a a)
-        <+ okProd @k @a @a
-
-#if 0
-   repIf
-== \ (c,(a,a')) -> abstC (ifC (c,(reprC a,reprC a')))
-== \ (c,(a,a')) -> abstC (ifC (c,(twiceP reprC (a,a'))))
-== \ (c,(a,a')) -> abstC (ifC (second (twiceP reprC) (c,((a,a')))))
-== abstC . ifC . second (twiceP reprC)
-#endif
-
 class UnknownCat k a b where
   unknownC :: a `k` b
 
@@ -1839,9 +1775,11 @@ instance (UnknownCat k a b, UnknownCat k' a b) => UnknownCat (k :**: k') a b whe
   unknownC = unknownC :**: unknownC
   PINLINER(unknownC)
 
-class RepCat k a r | a -> r where
+class RepCat k a r where
   reprC :: a `k` r
   abstC :: r `k` a
+
+-- 2018-02-08 (notes): I removed the "| a -> r" functional dependency.
 
 instance (HasRep a, r ~ R.Rep a) => RepCat (->) a r where
   reprC = repr
@@ -2212,6 +2150,8 @@ liftA2' f as bs = fmap' f as <*> bs
 zipWith' :: Zip f => (a -> b -> c) -> f a -> f b -> f c
 zipWith' = IC.inline zipWith
 
+#if 0
+
 class FunctorCat k h => Strong k h where
   strength :: Ok2 k a b => (a :* h b) `k` h (a :* b)
 
@@ -2220,6 +2160,8 @@ instance Functor h => Strong (->) h where
 
 instance (Strong k h, Strong k' h) => Strong (k :**: k') h where
   strength = strength :**: strength
+
+#endif
 
 {--------------------------------------------------------------------
     Indexed products and coproducts
@@ -2290,7 +2232,8 @@ instance OkIxProd (->) h where okIxProd = Entail (Sub Dict)
 instance (Representable h, Zip h, Pointed h) => IxProductCat (->) h where
   exF    = tabulate (flip index)
   replF  = point
-  crossF = zap
+  crossF = zipWith id -- 2018-02-07 notes
+           -- zap
   forkF = \ fs x -> ($ x) <$> fs
   {-# OPINLINE exF    #-}
   {-# OPINLINE replF  #-}

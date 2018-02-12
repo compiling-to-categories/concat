@@ -142,9 +142,9 @@ instance (Pointed h, Foldable h, Additive1 h) => PointedCat Dual h where
   pointC = abst A.sumAC
   {-# INLINE pointC #-}
 
-instance (Zip h, Foldable h, Additive1 h) => Strong Dual h where
-  strength = abst (first A.sumAC . unzip)  -- maybe eliminate strength as method
-  {-# INLINE strength #-}
+-- instance (Zip h, Foldable h, Additive1 h) => Strong Dual h where
+--   strength = abst (first A.sumAC . unzip)  -- maybe eliminate strength as method
+--   {-# INLINE strength #-}
 
 #endif
 

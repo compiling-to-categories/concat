@@ -48,6 +48,7 @@ class Additive a where
   zero = point zero
   default (^+^) :: (Zip h, Additive b) => Binop (h b)
   (^+^) = zipWith (^+^)
+  {-# INLINE zero #-}
   {-# INLINE (^+^) #-}
 
 -- zipWith' :: Representable h
@@ -131,6 +132,13 @@ instance Additive a => Additive (Maybe a) where
 -- instance (HasTrie u, Additive v) => Additive (u :->: v) where
 --   zero  = pure   zero
 --   (^+^) = liftA2 (^+^)
+
+-- Experiment
+instance Additive Bool where
+  zero = undefined
+  _ ^+^ _ = undefined
+  {-# INLINE zero #-}
+  {-# INLINE (^+^) #-}
 
 {--------------------------------------------------------------------
     Monoid wrapper

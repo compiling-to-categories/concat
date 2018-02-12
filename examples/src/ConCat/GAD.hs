@@ -39,13 +39,9 @@ import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable)
 import qualified Data.Functor.Rep as R
 
-import ConCat.Misc ((:*),type (&+&),cond,result,unzip,sqr) -- ,PseudoFun(..),oops
--- import ConCat.Free.VectorSpace
--- import ConCat.Free.LinearRow
--- The following import allows the instances to type-check. Why?
+import ConCat.Misc ((:*),type (&+&),cond,result,unzip,sqr,bottom)
 import ConCat.Additive
-import ConCat.Category
-import qualified ConCat.AltCat as A
+import ConCat.AltCat
 import ConCat.Rep
 
 AbsTyImports
@@ -56,11 +52,11 @@ AbsTyImports
 data GD k a b = D { unD :: a -> (b :* (a `k` b)) }
 
 mkD :: HasRep (a `k` b) => (a -> b :* Rep (a `k` b)) -> GD k a b
-mkD = D . (result.second) abst
+mkD = D P.. (result P.. second) abst
 {-# INLINE mkD #-}
 
 unMkD :: HasRep (a `k` b) => GD k a b -> (a -> b :* Rep (a `k` b))
-unMkD = (result.second) repr . unD
+unMkD = (result P.. second) repr P.. unD
 {-# INLINE unMkD #-}
 
 -- Differentiable linear function, given the function and its constant derivative
@@ -91,13 +87,11 @@ instance HasRep (GD k a b) where
 AbsTy(GD k a b)
 
 -- Common pattern for linear functions
--- #define Linear(nm) nm = linearD nm nm ; {-# INLINE nm #-}
-#define Linear(nm) nm = linearD A.nm A.nm ; {-# INLINE nm #-}
--- #define Linear(nm) nm = linearD nm A.nm ; {-# INLINE nm #-}
+#define Linear(nm) nm = linearD nm nm ; {-# INLINE nm #-}
 
 instance (TerminalCat k, CoterminalCat k, ConstCat k b, Additive b)
       => ConstCat (GD k) b where
-  const b = linearD (A.const b) (A.const zero)
+  const b = linearD (const b) (const zero)
   {-# INLINE const #-}
 
 -- What if we went further, and defined nonlinear arrows like mulC as if linear?
@@ -120,7 +114,7 @@ instance ProductCat k => ProductCat (GD k) where
   Linear(exl)
   Linear(exr)
   Linear(dup)
-  -- D f *** D g = D (second (uncurry (A.***)) . A.transposeP . (f A.*** g))
+  -- D f *** D g = D (second (uncurry (***)) . transposeP . (f *** g))
   -- D f *** D g = D (\ (a,b) ->
   --   let (c,f') = f a
   --       (d,g') = g b
@@ -144,7 +138,7 @@ instance OkAdd k => OkAdd (GD k) where
 instance CoproductPCat k => CoproductPCat (GD k) where
   Linear(inlP)
   Linear(inrP)
-  -- D f ++++ D g = D (second (uncurry (A.++++)) . A.transposeP . (f A.++++ g))
+  -- D f ++++ D g = D (second (uncurry (++++)) . transposeP . (f ++++ g))
   -- D f ++++ D g = D (\ (a,b) ->
   --   let (c,f') = f a
   --       (d,g') = g b
@@ -187,7 +181,7 @@ instance OkIxProd k h => OkIxProd (GD k) h where
   okIxProd :: forall a. Ok' (GD k) a |- Ok' (GD k) (h a)
   okIxProd = Entail (Sub (Dict <+ okIxProd @k @h @a))
 
-#define Linears(nm) nm = zipWith linearD A.nm A.nm
+#define Linears(nm) nm = zipWith linearD nm nm
 
 instance (IxProductCat (->) h, IxProductCat k h, Zip h) => IxProductCat (GD k) h where
   Linears(exF)
@@ -268,11 +262,33 @@ instance (ProductCat k, Ord a) => MinMaxCat (GD k) a where
 -- TODO: IfCat. Maybe make ifC :: (a :* a) `k` (Bool -> a), which is linear.
 
 {--------------------------------------------------------------------
+    Discrete
+--------------------------------------------------------------------}
+
+-- Experiment
+
+-- Differentiable discrete function, yielding 'bottom' derivative
+discreteD :: (a -> b) -> GD k a b
+discreteD f = D (\ a -> (f a, bottom))
+{-# INLINE discreteD #-}
+
+#define Discrete(nm) nm = discreteD nm ; {-# INLINE nm #-}
+
+instance (ProductCat k, Ok k Bool) => BoolCat (GD k) where
+  Discrete(notC)
+  Discrete(andC)
+  Discrete(orC)
+  Discrete(xorC)
+
+instance IfCat k a => IfCat (GD k) a where
+  Linear(ifC)
+
+{--------------------------------------------------------------------
     Functor-level operations
 --------------------------------------------------------------------}
 
-instance (FunctorCat k h, ZapCat k h) => FunctorCat (GD k) h where
-  fmapC = inAbst (\ q -> second A.zapC . A.unzipC . A.fmapC q)
+instance (IxProductCat k h, FunctorCat k h) => FunctorCat (GD k) h where
+  fmapC = inAbst (\ q -> second crossF . unzipC . fmapC q)
   Linear(unzipC)
   {-# INLINE fmapC #-}
 
@@ -281,7 +297,7 @@ instance (FunctorCat k h, ZapCat k h) => FunctorCat (GD k) h where
 --      q :: a -> b :* (a `k` b)
 -- fmap q :: h a -> h (b :* (a `k` b))
 -- unzip  :: h (b :* (a `k` b)) -> h b :* h (a `k` b)
--- zapC   :: h (a `k` b) -> (h a `k` h b)
+-- crossF :: h (a `k` b) -> (h a `k` h b)
 
 instance OkFunctor k h => OkFunctor (GD k) h where
   okFunctor :: forall a. Ok' (GD k) a |- Ok' (GD k) (h a)
@@ -315,8 +331,9 @@ instance (ZapCat k h, OkFunctor k h, Zip h) => ZapCat (GD k) h where
 instance (OkFunctor (GD k) h, Pointed h, PointedCat k h a) => PointedCat (GD k) h a where
   Linear(pointC)
 
-instance (OkFunctor (GD k) h, FunctorCat k h, Strong k h, ZapCat k h) => Strong (GD k) h where
-  Linear(strength)
+-- instance (IxProductCat k h, FunctorCat k h, Strong k h)
+--       => Strong (GD k) h where
+--   Linear(strength)
 
 instance (DistributiveCat (->) g f, DistributiveCat k g f)
       => DistributiveCat (GD k) g f where
@@ -354,10 +371,10 @@ instance ( CoerceCat (->) a b
 
 -- | A function combined with its derivative
 andDeriv :: forall k a b . (a -> b) -> (a -> b :* (a `k` b))
-andDeriv h = unD (A.toCcc h)
+andDeriv h = unD (toCcc h)
 {-# INLINE andDeriv #-}
 
 -- | The derivative of a given function
 deriv :: forall k a b . (a -> b) -> (a -> (a `k` b))
-deriv h = snd . andDeriv h
+deriv h = snd P.. andDeriv h
 {-# INLINE deriv #-}

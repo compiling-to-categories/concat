@@ -13,6 +13,8 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
+{-# OPTIONS_GHC -fprint-potential-instances #-} -- TEMP
+
 #include "ConCat/AbsTy.inc"
 AbsTyPragmas
 
@@ -158,6 +160,18 @@ instance (Category k, TerminalCat k, CoterminalCat k, Ok (Dual k) b) => ConstCat
 instance CoerceCat k b a => CoerceCat (Dual k) a b where
   coerceC = abst coerceC
 
+instance RepCat k a r => RepCat (Dual k) a r where
+  abstC = Dual (reprC @k @a @r)
+  reprC = Dual (abstC @k @a @r)
+  {-# INLINE abstC #-}
+  {-# INLINE reprC #-}
+
+-- abstC :: a `k` r
+-- Dual abstC :: Dual k r a
+-- 
+-- reprC :: r `k` a
+-- Dual reprC :: Dual k a r
+
 ---- Functor-level:
 
 type OkF k h = (Additive1 h, OkFunctor k h)
@@ -182,7 +196,7 @@ instance (Zip h, ZapCat k h, OkF k h) => ZapCat (Dual k) h where
   zapC :: Ok2 k a b => h (Dual k a b) -> Dual k (h a) (h b)
   -- zapC = A.abstC . A.zapC . A.fmapC A.reprC
   -- zapC = abst . A.zapC . fmap repr
-  zapC = abstC . zapC . fmapC reprC
+  zapC = abst . zapC . fmapC repr
   {-# INLINE zapC #-}
 
 -- fmap repr :: h (a `Dual` b) -> h (b -> a)
@@ -197,17 +211,13 @@ instance (AddCat k h a, OkF k h) => PointedCat (Dual k) h a where
   pointC = abst sumAC
   {-# INLINE pointC #-}
 
-#if 0
+-- instance (Category k, FunctorCat k h, ZipCat k h, Zip h, AddCat k h) => Strong (Dual k) h where
+--   -- TODO: maybe eliminate strength as method
+--   strength :: forall a b. Ok2 k a b => Dual k (a :* h b) (h (a :* b))
+--   strength = abst (first sumAC . unzipC)
+--   {-# INLINE strength #-}
 
-instance (Category k, FunctorCat k h, ZipCat k h, Zip h, AddCat k h) => Strong (Dual k) h where
-  -- TODO: maybe eliminate strength as method
-  strength :: forall a b. Ok2 k a b => Dual k (a :* h b) (h (a :* b))
-  strength = abst (first sumAC . unzipC)
-  {-# INLINE strength #-}
-
--- TODO: can I use sumA instead of A.sumAC?
-
-#endif
+-- -- TODO: can I use sumA instead of A.sumAC?
 
 instance DistributiveCat k f g => DistributiveCat (Dual k) g f where
   distributeC = abst distributeC

@@ -47,6 +47,15 @@ s *^ v = (s *) <$> v
 scaleV = (*^)
 {-# INLINE (*^) #-}
 
+infixl 7 ^/
+(^/) :: (Functor a, Fractional s) => a s -> s -> a s
+v ^/ s = recip s *^ v
+{-# INLINE (^/) #-}
+
+normalize :: (Summable a, Fractional s, Additive s) => a s -> a s
+normalize v = v ^/ sumA v
+{-# INLINE normalize #-}
+
 -- From AltCat:
 --
 -- -- | Generalized matrix
@@ -137,19 +146,32 @@ distSqr u v = normSqr (zipWith (-) u v)
     Learning
 --------------------------------------------------------------------}
 
+relus :: (Functor f, Ord a, Num a) => Unop (f a)
+relus = fmap (max 0)
+{-# INLINE relus #-}
+
 -- | Affine followed by RELUs.
-affRelu :: (C2 Summable a b) => (a --+ b) -> (a --> b)
-affRelu = (result.result.fmap) (max 0) affine
+affRelu :: (C2 Summable a b, Ord s, Additive s, Num s)
+        => (a :--+ b) s -> (a s -> b s)
+affRelu l = relus . affine l
 {-# INLINE affRelu #-}
 
--- affRelu l = fmap (max 0) . affine l
+-- affRelu = (result.result) relus affine
+
+-- affRelu :: forall a b. (C2 Summable a b) => (a --+ b) -> (a --> b)
 
 errSqr :: Summable b => a R :* b R -> (a --> b) -> R
 errSqr (a,b) h = distSqr b (h a)
 {-# INLINE errSqr #-}
 
+errSqrSampled :: Summable b => (p -> a --> b) -> a R :* b R -> p -> R
+errSqrSampled h sample = errSqr sample . h
+{-# INLINE errSqrSampled #-}
+
 errGrad :: Summable b => (p -> a --> b) -> a R :* b R -> Unop p
-errGrad h sample = gradR (errSqr sample . h)
+-- errGrad h sample = gradR (errSqr sample . h)
+-- errGrad h sample = gradR (errSqrSampled h sample)
+errGrad = (result.result) gradR errSqrSampled
 {-# INLINE errGrad #-}
 
 infixr 9 @.

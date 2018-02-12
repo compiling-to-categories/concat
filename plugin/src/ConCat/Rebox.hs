@@ -26,7 +26,7 @@ import GHC.Prim
 import GHC.Integer
 import GHC.Float
 
-import ConCat.Misc (xor)
+import ConCat.Misc (xor,cond)
 import ConCat.Additive((^+^))
 import ConCat.AltCat
 
@@ -491,6 +491,22 @@ Catify(cosDouble,cos)
 -- I haven't seen this one working.
 "mulC 1 right" forall f. mulC . (f &&& const 1.0) = f
 
+-- (\ z -> if f z <= g z then g z else f z) --> max . (f &&& g)
+-- "if-as-max" forall f g. 
+--   ifC . (lessThanOrEqual . (f &&& g) &&& (g &&& f)) = maxC . (f &&& g)
+
+--    • Could not deduce (MinMaxCat k c) arising from a use of ‘maxC’
+
+-- "if-as-max" forall a b.
+--   -- if lessThanOrEqual (a,b) then b else a = maxC (a,b)
+--   case lessThanOrEqual (a,b) of { False -> a ; True -> b} = maxC (a,b)
+
+"if-as-max" forall a b. cond b a (lessThanOrEqual (a,b)) = max a b
+
+-- Neither if-then-else nor case can be the LHS of a rule.
+
  #-}
 
+-- Notes 2018-01-04 and 2018-01-07
 CatifyC((^+^),jamP)
+

@@ -167,9 +167,10 @@ import ConCat.Misc ((:*),(:+),Unop,Binop,Yes1,typeR,transpose)
 -- import ConCat.Complex (Complex(..))
 import ConCat.Rep
 import ConCat.Additive (Additive(..),Add)
-import ConCat.Category
+import ConCat.Category  -- AltCat instead?
+import qualified ConCat.AltCat  -- for AbsTy
 import qualified ConCat.AltCat as A
-import ConCat.AltCat (Uncurriable(..))
+import ConCat.AltCat (Uncurriable(..),funIf,repIf,unitIf,prodIf)
 
 {--------------------------------------------------------------------
     Buses
@@ -915,12 +916,6 @@ instance (OkIxProd (:>) f, OkIxProd (:>) g)
 instance KnownNat i => OkIxProd (:>) (Vector i) where
   okIxProd = Entail (Sub Dict)
 
--- class (Category k, OkIxProd k h) => IxProductCat k h where
---   exF    :: forall a  . Ok  k a   => h (h a `k` a)
---   forkF  :: forall a b. Ok2 k a b => h (a `k` b) -> (a `k` h b)
---   crossF :: forall a b. Ok2 k a b => h (a `k` b) -> (h a `k` h b)
---   replF  :: forall a  . Ok  k a   => a `k` h a
-
 instance (OkIxProd (:>) h, Representable h, Show (R.Rep h), Zip h, Traversable h, Show1 h)
       => IxProductCat (:>) h where
   exF :: forall a . Ok (:>) a => h (h a :> a)
@@ -930,11 +925,15 @@ instance (OkIxProd (:>) h, Representable h, Show (R.Rep h), Zip h, Traversable h
   crossF :: forall a b. Ok2 (:>) a b => h (a :> b) -> (h a :> h b)
   crossF = inCKF1 crossFB
 
--- instance Ok (:>) n => IxCoproductPCat (:>) n where
---   inPF   = error "inPF @ (:>): not yet defined"
---   joinPF = error "joinPF @ (:>): not yet defined"
---   plusPF = error "plusPF @ (:>): not yet defined"
---   jamPF  = namedC "sumA" -- "ixSum" -- "jamPF"
+instance ( OkIxProd (:>) h, Representable h, Zip h, Traversable h
+         , Show (R.Rep h), Show1 h )
+      => IxCoproductPCat (:>) h where
+  inPF :: forall a. (Additive a, Ok  (:>) a  ) => h (a :> h a)
+  inPF = tabulate $ \ i -> namedC ("inP " ++ showsPrec 10 i "") <+ okIxProd @(:>) @h @a
+  jamPF :: forall a. (Additive a, Ok  (:>) a  ) => h a :> a
+  jamPF = namedC "jamPF" <+ okIxProd @(:>) @h @a
+  plusPF :: forall a b. Ok2 (:>) a b => h (a :> b) -> (h a :> h b)
+  plusPF = crossF
 
 unIxProdB :: Buses (h a) -> h (Buses a)
 unIxProdB (IxProdB bs) = bs
@@ -1026,11 +1025,11 @@ instance (OkFunctor (:>) h, Additive a, Ok (:>) a) => AddCat (:>) h a where
 --   -- ixSumC :: forall a. (Additive a, Ok (:>) a) => a :^ n :> a
 --   ixSumC = namedC "ixSum" -- <+ okFunctor' @(:>) @n @a
 
-instance (Functor h, OkFunctor (:>) h) => Strong (:>) h where
-  strength :: forall a b. Ok2 (:>) a b => (a :* h b) :> h (a :* b)
-  strength = namedC "strength"
-              <+ okFunctor' @(:>) @h @(a :* b)
-              <+ okFunctor' @(:>) @h @b
+-- instance (Functor h, OkFunctor (:>) h) => Strong (:>) h where
+--   strength :: forall a b. Ok2 (:>) a b => (a :* h b) :> h (a :* b)
+--   strength = namedC "strength"
+--               <+ okFunctor' @(:>) @h @(a :* b)
+--               <+ okFunctor' @(:>) @h @b
 
 okFunctor' :: forall k h a. OkFunctor k h => Ok' k a |- Ok' k (h a)
 okFunctor' = {- trace "" $ -} okFunctor @k @h @a
@@ -1110,25 +1109,33 @@ constM' :: GS b => b -> CircuitM (Buses b)
 
 #if 1
 
-bottomScalar :: GenBuses b => z :> b
-bottomScalar = -- trace "bottomScalar called" $
-               mkCK (constComp "undefined")
+bottomG :: Ok2 (:>) z b => z :> b
+bottomG = -- trace "bottomG called" $
+          namedC "bottom"
+          -- mkCK (constComp "undefined")
+
+#if 0
 
 #define BottomTemplate(ty) \
- instance BottomCat (:>) z (ty) where { bottomC = bottomScalar }
+ instance BottomCat (:>) z (ty) where { bottomC = bottomG }
 
 BottomTemplate(Bool)
 BottomTemplate(Int)
 BottomTemplate(Integer)
 BottomTemplate(Float)
 BottomTemplate(Double)
+-- BottomTemplate(Vector n)
+
+#endif
+
+#if 0
 
 instance BottomCat (:>) z () where
 --   bottomC = mkCK (const (return UnitB))
   bottomC = C (arr (const UnitB))
 
--- instance (BottomCat (:>) a, BottomCat (:>) b) => BottomCat (:>) (a :* b) where
---   bottomC = bottomC &&& bottomC
+instance (BottomCat (:>) a, BottomCat (:>) b) => BottomCat (:>) (a :* b) where
+  bottomC = bottomC &&& bottomC
 
 #if defined TypeDerivation
 bottomC :: () :> b
@@ -1136,6 +1143,9 @@ bottomC . exl :: () :* a :> b
 curry (bottomC . exl) :: () :> (a -> b)
 #endif
 
+#elif 1
+instance Ok2 (:>) a b => BottomCat (:>) a b where
+  bottomC = bottomG
 #elif 0
 instance GenBuses a => BottomCat (:>) a where
   bottomC = mkCK (const mkBot)
@@ -1148,6 +1158,8 @@ instance BottomCat (:>) where
 instance BottomCat (:>) where
   type BottomKon (:>) a = GenBuses a
   bottomC = mkCK (const mkBot)
+#endif
+
 #endif
 
 -- TODO: state names like "⊕" and "≡" just once.
@@ -2183,6 +2195,9 @@ genBusesRep' templ ins = abstB <$> genBuses' templ ins
 
 -- tweakValRep :: (HasRep a, Tweakable (Rep a)) => Unop a
 -- tweakValRep = abst . tweakVal . repr
+
+bottomRep :: (Ok3 (:>) a b (Rep b), BottomCat (:>) a (Rep b)) => a :> b
+bottomRep = abstC . bottomC
 
 tyRep :: forall a. GenBuses (Rep a) => Ty
 tyRep = ty @(Rep a)

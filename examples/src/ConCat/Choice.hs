@@ -299,8 +299,8 @@ instance (Pointed h, CartCon con) => PointedCat (Choice con) h a where
 instance (AddCat (->) h a, CartCon con) => AddCat (Choice con) h a where
   sumAC = exactly sumAC
 
-instance (FunctorCat k h, CartCon con) => Strong (Choice con) h where
-  strength = exactly strength
+-- instance (FunctorCat k h, CartCon con) => Strong (Choice con) h where
+--   strength = exactly strength
 
 instance (Distributive g, Functor f, CartCon con)
       => DistributiveCat (Choice con) g f where

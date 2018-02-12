@@ -56,7 +56,9 @@ import GHC.TypeLits (KnownNat,natVal)
 import Data.Finite (Finite)
 #endif
 
-import ConCat.Misc ((:*),(:+),(:^),unzip,PseudoFun(..),oops,type (&+&),result, C1,C2,C3,C4,C5,C6)
+import ConCat.Misc
+  ( (:*),(:+),(:^),unzip,PseudoFun(..),oops,type (&&),type (&+&)
+  , result, C1,C2,C3,C4,C5,C6 )
 import ConCat.Rep hiding (Rep)
 import qualified ConCat.Rep as R
 import ConCat.Additive
@@ -79,8 +81,8 @@ import ConCat.Category
   , BiCCC
   , BoolCat, BoolOf
   , NumCat, IntegralCat, FractionalCat, FloatingCat, RealFracCat, FromIntegralCat
-  , EqCat, OrdCat, MinMaxCat, EnumCat, BottomCat, IfCat, IfT, UnknownCat, RepCat, CoerceCat
-  , repIf
+  , EqCat, OrdCat, MinMaxCat, EnumCat, IfCat, IfT, RepCat
+  , CoerceCat, UnknownCat, BottomCat
   -- , Arr, ArrayCat
   , TransitiveCon(..)
   , U2(..), (:**:)(..)
@@ -88,7 +90,7 @@ import ConCat.Category
   , OpCon(..),Sat(..) -- ,FunctorC(..)
   , yes1, forkCon, joinCon, inForkCon
   -- Functor-level. To be removed.
-  , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat,Strong
+  , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat
   , DistributiveCat,RepresentableCat 
   , fmap', liftA2' 
   )
@@ -294,6 +296,10 @@ Op0(fromIntegralC,FromIntegralCat k a b => a `k` b)
 
 -- Unnecessary but helpful to track NOINLINE choice
 -- Op(constFun,forall k p a b. (ClosedCat k, Ok3 k p a b) => (a `k` b) -> (p `k` Exp k a b))
+
+bottomRep :: forall k a b r.
+  (Category k, RepCat k b r, BottomCat k a r, Ok3 k a b r) => a `k` b
+bottomRep = abstC @k @b @r . bottomC
 
 lunit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k (Unit k) a
 lunit = it &&& id
@@ -904,8 +910,6 @@ idCon f = f
 
 #endif
 
-Op0(strength, (Strong k h, OkFunctor k h, Ok2 k a b) => (a :* h b) `k` h (a :* b))
-
 Op0(distributeC, (DistributiveCat k g f, Ok k a) => f (g a) `k` g (f a))
 Op0(tabulateC  , (RepresentableCat k f , Ok k a) => (Rep f -> a) `k` f a)
 Op0(indexC     , (RepresentableCat k f , Ok k a) => f a `k` (Rep f -> a))
@@ -926,6 +930,29 @@ Catify(collect, collectC)
 "fmap id" uncurry fmapC . (curry exr &&& id) = id
 
  #-}
+
+-- type Strong k h a = (ProductCat k, ZipCat k h, PointedCat k h a)
+
+-- -- Functorial strength
+-- strength :: forall k h a b. (Strong k h a, Ok2 k a b)
+--          => (a :* h b) `k` h (a :* b)
+-- strength = zipC . first pointC
+--   <+ okProd @k @(h a) @(h b)
+--   <+ okProd @k @a @(h b)
+--   <+ okFunctor @k @h @(a :* b)
+--   <+ okFunctor @k @h @a
+--   <+ okFunctor @k @h @b
+--   <+ okProd @k @a @b
+
+-- -- Move to Translators
+-- -- Functorial strength
+-- strength :: (Zip h, Pointed h) => a :* h b -> h (a :* b)
+-- strength = zipC . first pointC
+
+
+-- TODO: does a (->)-specific strength suffice? Maybe it's used only
+-- Translators. If so, define it there, or skip it and use @zipC . first pointC@
+-- directly.
 
 -- -- Names are in transition
 
@@ -965,6 +992,86 @@ diag z o =
 -- HACK: the equal here is to postpone dealing with equality on sum types just yet.
 -- See notes from 2017-10-15.
 -- TODO: remove and test, now that we're translating (==) early (via Catify).
+
+{--------------------------------------------------------------------
+    
+--------------------------------------------------------------------}
+
+unitIf :: forall k. (TerminalCat k, BoolCat k) => IfT k (Unit k)
+unitIf = it
+  <+ okProd @k @Bool @(() :* ())
+  <+ okProd @k @() @()
+
+-- okIf :: forall k a. BoolCat k => Ok' k a |- Ok' k (Prod k (BoolOf k) (Prod k a a)) && Ok' k (Prod k a a)
+-- okIf = inOpR' @(Prod k) @(Ok' k) @(BoolOf k) @a @a . Entail (Sub Dict)
+
+-- okIf :: forall k a. BoolCat k => Ok' k a |- Ok' k (Bool :* (a :* a)) && Ok' k (a :* a)
+-- okIf = inOpR' @(Prod k) @(Ok' k) @(BoolOf k) @a @a . Entail (Sub Dict)
+
+prodIf :: forall k a b. (IfCat k a, IfCat k b) => IfT k (a :* b)
+prodIf = (ifC . second (twiceP exl)) &&& (ifC . second (twiceP exr))
+  <+ okProd @k @Bool @((a :* b) :* (a :* b))
+  <+ okProd @k @(a :* b) @(a :* b)
+  <+ okProd @k @Bool @(b :* b)
+  <+ okProd @k @Bool @(a :* a)
+  <+ okProd @k @b @b
+  <+ okProd @k @a @b
+  <+ okProd @k @a @a
+
+#if 0
+
+   prodIf
+== \ (c,((a,b),(a',b'))) -> (ifC (c,(a,a')), ifC (c,(b,b')))
+== (\ (c,((a,b),(a',b'))) -> ifC (c,(a,a'))) &&& ...
+== (ifC . (\ (c,((a,b),(a',b'))) -> (c,(a,a')))) &&& ...
+== (ifC . second (\ ((a,b),(a',b')) -> (a,a'))) &&& ...
+== (ifC . second (twiceP exl)) &&& (ifC . second (twiceP exr))
+
+#endif
+
+funIf :: forall k a b. (ClosedCat k, Ok k a, IfCat k b) => IfT k (a -> b)
+funIf = curry (ifC . (exl . exl &&& (apply . first (exl . exr) &&& apply . first (exr . exr))))
+  <+ okProd @k @(Bool :* ((a -> b) :* (a -> b))) @a
+  <+ okProd @k @Bool @((a -> b) :* (a -> b))
+  <+ okProd @k @Bool @(b :* b)
+  <+ okProd @k @(a -> b) @(a -> b)
+  <+ okProd @k @(a -> b) @a
+  <+ okExp @k @a @b
+  <+ okProd @k @b @b
+
+           -- <+ okProd @k @(Prod k (BoolOf k) (Prod k (Exp k a b) (Exp k a b))) @a
+           -- <+ okIf @k @(Exp k a b)
+           -- <+ okProd @k @(Exp k a b) @a
+           -- <+ okExp @k @a @b
+           -- <+ okIf @k @b
+
+#if 0
+
+   funIf
+== \ (c,(f,f')) -> \ a -> ifC (c,(f a,f' a))
+== curry (\ ((c,(f,f')),a) -> ifC (c,(f a,f' a)))
+== curry (ifC . \ ((c,(f,f')),a) -> (c,(f a,f' a)))
+== curry (ifC . (exl.exl &&& \ ((c,(f,f')),a) -> (f a,f' a)))
+== curry (ifC . (exl.exl &&& ((\ ((c,(f,f')),a) -> f a) &&& (\ ((c,(f,f')),a) -> f' a))))
+== curry (ifC . (exl.exl &&& (apply (first (exl.exr)) &&& (apply (first (exl.exr))))))
+
+#endif
+
+repIf :: forall k a r. (RepCat k a r, ProductCat k, Ok k a, IfCat k r)
+      => IfT k a
+repIf = abstC @k @a @r . ifC . second (twiceP reprC)
+        <+ okProd @k @(BoolOf k) @(Prod k r r)
+        <+ okProd @k @r @r
+        <+ okProd @k @(BoolOf k) @(Prod k a a)
+        <+ okProd @k @a @a
+
+#if 0
+   repIf
+== \ (c,(a,a')) -> abstC (ifC (c,(reprC a,reprC a')))
+== \ (c,(a,a')) -> abstC (ifC (c,(twiceP reprC (a,a'))))
+== \ (c,(a,a')) -> abstC (ifC (second (twiceP reprC) (c,((a,a')))))
+== abstC . ifC . second (twiceP reprC)
+#endif
 
 {--------------------------------------------------------------------
     Misc utilities

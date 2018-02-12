@@ -1,3 +1,4 @@
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ViewPatterns #-} -- TEMP
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -12,14 +13,14 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
+-- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
 
 -- {-# LANGUAGE DataKinds #-}  -- TEMP
 {-# OPTIONS_GHC -Wno-unused-foralls -Wno-redundant-constraints #-} -- TEMP
 
--- | Syntactic CCC
+-- #define ShowTypes
 
--- #define VectorSized
+-- | Syntactic CCC
 
 module ConCat.Syntactic where
 
@@ -27,24 +28,27 @@ import Prelude hiding (id,(.),lookup,const)
 
 import Data.Tree (Tree(..))
 import Data.Map (Map,fromList,lookup)
-import Control.Newtype
+import Data.Foldable (toList)
 import Text.PrettyPrint.HughesPJClass hiding (render,first)
 import Data.Typeable (Typeable)
 import Data.Constraint (Dict(..),(:-)(..))  -- temp
-import Data.Pointed (Pointed)
 import Data.Key (Zip)
-import Data.Distributive (Distributive)
-import Data.Functor.Rep (Representable)
-
-#ifdef VectorSized
 import GHC.TypeLits (KnownNat)
-import Data.Finite (Finite)
-#endif
+
+import Data.Functor.Rep (Representable(tabulate))
+import qualified Data.Functor.Rep as R
+import Data.Vector.Sized (Vector)
 
 import ConCat.Category
-import ConCat.Misc (inNew,inNew2,Unop,Binop,typeR,Yes1,(:*))
+import ConCat.Misc (Unop)
 import ConCat.Additive (Additive)
 import ConCat.Rep
+
+#ifdef ShowTypes
+import ConCat.Misc (typeR)
+#else
+import ConCat.Misc (Yes1)
+#endif
 
 {--------------------------------------------------------------------
     Untyped S-expression
@@ -81,7 +85,7 @@ appt = Node . const . text
 
 newtype Syn a b = Syn DocTree
 
-#if 0
+#if 1
 -- instance Newtype (Syn a b) where
 --   type O (Syn a b) = DocTree
 --   pack s = Syn s
@@ -103,6 +107,10 @@ app1 s = inAbst (\ p -> appt s [p])
 
 app2 :: String -> Syn a b -> Syn c d -> Syn e f
 app2 s = inAbst2 (\ p q -> appt s [p,q])
+
+apps :: (Functor h, Foldable h) => String -> h (Syn a b) -> Syn c d
+apps s (fmap repr -> ts) = abst (appt s (toList ts))
+
 #else
 
 atom :: Pretty a => a -> Syn a b
@@ -116,6 +124,12 @@ app1 s (Syn p) = Syn (appt s [p])
 
 app2 :: String -> Syn a b -> Syn c d -> Syn e f
 app2 s (Syn p) (Syn q) = Syn (appt s [p,q])
+
+unSyn :: Syn a b -> DocTree
+unSyn (Syn t) = t
+
+apps :: (Functor h, Foldable h) => String -> h (Syn a b) -> Syn c d
+apps s (fmap unSyn -> ts) = Syn (appt s (toList ts))
 
 #endif
 
@@ -183,6 +197,18 @@ instance CoproductCat Syn where
   INLINER(right)
   INLINER(lassocS)
   INLINER(rassocS)
+
+instance CoproductPCat Syn where
+  inlP   = app0 "inlP"
+  inrP   = app0 "inrP"
+  jamP   = app0 "jamP"
+  swapPS = swapP
+  (++++) = (***)
+  INLINER(inlP)
+  INLINER(inrP)
+  INLINER(jamP)
+  INLINER(swapPS)
+  INLINER((++++))
   
 instance DistribCat Syn where
   distl = app0 "distl"
@@ -211,6 +237,12 @@ LitConst(Bool)
 LitConst(Int)
 LitConst(Float)
 LitConst(Double)
+
+instance (ConstCat Syn a, Show a, KnownNat n) => ConstCat Syn (Vector n a) where
+  const = atomicConst
+  INLINER(const)
+
+-- instance Show a => ConstCat Syn (Vector n a) where ...
 
 -- instance (ConstCat Syn a, ConstCat Syn b) => ConstCat Syn (a :* b) where
 --   const = pairConst
@@ -243,7 +275,7 @@ instance EqCat Syn a where
   INLINER(equal)
   INLINER(notEqual)
 
-instance OrdCat Syn a where
+instance Ord a => OrdCat Syn a where
   lessThan = app0 "lessThan"
   greaterThan = app0 "greaterThan"
   lessThanOrEqual = app0 "lessThanOrEqual"
@@ -349,8 +381,6 @@ instance UnknownCat Syn a b where
   unknownC = app0 "unknown"
   INLINER(unknownC)
 
--- #define ShowTypes
-
 #ifdef ShowTypes
 type T a = Typeable a
 
@@ -376,6 +406,26 @@ instance (Typeable a, Typeable b) => CoerceCat Syn a b where
   coerceC = app0' "coerce"
   INLINER(coerceC)
 
+instance OkIxProd Syn h where okIxProd = Entail (Sub Dict)
+
+instance (OkIxProd Syn h, Representable h, Foldable h, Show (R.Rep h))
+      => IxProductCat Syn h where
+  exF :: forall a . Ok Syn a => h (h a `Syn` a)
+  exF = tabulate $ \ i -> app0 ("ex " ++ showsPrec 10 i "")
+  replF :: forall a . Ok Syn a => a `Syn` h a
+  replF = app0 "replF"
+  crossF :: forall a b. Ok2 Syn a b => h (a `Syn` b) -> (h a `Syn` h b)
+  crossF = apps "crossF"
+
+instance (OkIxProd Syn h, Representable h, Zip h, Traversable h, Show (R.Rep h))
+      => IxCoproductPCat Syn h where
+  inPF :: forall a. (Additive a, Ok Syn a) => h (a `Syn` h a)
+  inPF = tabulate $ \ i -> app0 ("inP " ++ showsPrec 10 i "")
+  jamPF :: forall a. (Additive a, Ok Syn a) => h a `Syn` a
+  jamPF = app0 "jamPF"
+  plusPF :: forall a b. Ok2 Syn a b => h (a `Syn` b) -> (h a `Syn` h b)
+  plusPF = crossF
+
 instance OkFunctor Syn h where okFunctor = Entail (Sub Dict)
 
 instance Functor h => FunctorCat Syn h where
@@ -390,6 +440,12 @@ instance Zip h => ZipCat Syn h where
   -- zipWithC = app0 "zipWith"
   -- INLINER(zipWithC)
 
+-- class OkFunctor k h => ZapCat k h where
+--   zapC :: Ok2 k a b => h (a `k` b) -> (h a `k` h b)
+
+-- instance ZapCat Syn h where
+--   zapC = app0 "zapC"
+
 instance {- Pointed h => -} PointedCat Syn h a where
   pointC = app0 "point"
   INLINER(pointC)
@@ -398,9 +454,9 @@ instance (Foldable h, Additive a) => AddCat Syn h a where
   sumAC = app0 "sumA"
   INLINER(sumAC)
 
-instance Functor h => Strong Syn h where
-  strength = app0 "strength"
-  INLINER(strength)
+-- instance Functor h => Strong Syn h where
+--   strength = app0 "strength"
+--   INLINER(strength)
 
 instance DistributiveCat Syn g f where
   distributeC = app0 "distribute"

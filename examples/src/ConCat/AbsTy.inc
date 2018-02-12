@@ -5,9 +5,10 @@
 #define AbsTy(abs) \
 instance (OkCAR (abs)) => GenBuses (abs) where \
   { genBuses' = genBusesRep' {- ; delay = delayCRep -} ; ty = tyRep @(abs) ; unflattenB' = genUnflattenB' }; \
-instance ({-OkCAR (abs), -} GenBuses z, GenBuses (Rep (abs)), ConCat.Category.BottomCat (:>) z (Rep (abs))) => ConCat.Category.BottomCat (:>) z (abs) where \
-  { bottomC = bottomRep }; \
-instance (OkCAR (abs), ConCat.Category.IfCat (:>) (Rep (abs))) => ConCat.Category.IfCat (:>) (abs) where { ifC = ConCat.Category.repIf };
+instance (OkCAR (abs), ConCat.Category.IfCat (:>) (Rep (abs))) => ConCat.Category.IfCat (:>) (abs) where \
+ { ifC = repIf @(:>) @(abs) @(Rep(abs)) }; \
+-- instance ({-OkCAR (abs), -} GenBuses z, GenBuses (Rep (abs)), ConCat.Category.BottomCat (:>) z (Rep (abs))) => ConCat.Category.BottomCat (:>) z (abs) where \
+--   { bottomC = bottomRep };
 
 --  \
 -- instance Uncurriable k _a_ (abs) where uncurries f = f ; {-# INLINE uncurries #-}
@@ -21,6 +22,10 @@ instance (OkCAR (abs), ConCat.Category.IfCat (:>) (Rep (abs))) => ConCat.Categor
 
 #define AbsTyImports \
 import qualified ConCat.Category ;\
-import ConCat.Circuit (GenBuses(..){-,delayCRep-},tyRep,bottomRep,genBusesRep',genUnflattenB',(:>),OkCAR);
+import ConCat.AltCat (repIf) ;\
+import ConCat.Circuit (GenBuses(..){-,delayCRep-},tyRep,genBusesRep',genUnflattenB',(:>),OkCAR);
+
+-- ,bottomRep
 
 -- import ConCat.AltCat (BottomCat(..),IfCat(..),repIf,Uncurriable(..)) ;\
+
