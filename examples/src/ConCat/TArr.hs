@@ -1,11 +1,14 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
@@ -14,16 +17,39 @@
 
 module ConCat.TArr where
 
--- import GHC.TypeLits (KnownNat)
 import GHC.TypeLits
 import GHC.Types (Nat)
 
 import Data.Proxy
 import Data.Finite
+import Data.Finite.Internal (Finite(..))
 import Data.Vector.Sized
 import qualified Data.Vector.Sized as V
 
 import ConCat.Misc ((:*),(:+))
+
+{----------------------------------------------------------------------
+   Some useful isomorphisms.
+----------------------------------------------------------------------}
+
+type a :^ b = b -> a
+
+data a <-> b = Iso (a -> b) (b -> a)
+
+type KnownNat2 m n = (KnownNat m, KnownNat n)
+
+finSum  :: KnownNat2 m n => Finite (m + n) <-> (Finite m :+ Finite n)
+finSum  = undefined
+
+finProd :: KnownNat2 m n => Finite (m * n) <-> Finite m :* Finite n
+finProd = undefined
+
+finExp  :: KnownNat2 m n => Finite (m ^ n) <-> Finite m :^ Finite n
+finExp  = undefined
+
+{----------------------------------------------------------------------
+   A class of types with known finite representations.
+----------------------------------------------------------------------}
 
 class KnownNat (Card a) => HasFin a where
   type Card a :: Nat
@@ -32,19 +58,17 @@ class KnownNat (Card a) => HasFin a where
 
 instance HasFin () where
   type Card () = 1
-  toFin _ = finite 0
+  toFin _ = Finite 0
   unFin _ = ()
 
 instance HasFin Bool where
   type Card Bool = 2
 
-  toFin False = finite 0
-  toFin True  = finite 1
+  toFin False = Finite 0
+  toFin True  = Finite 1
 
-  unFin x = case (getFinite x) of
-              0 -> False
-              1 -> True
-              _ -> error "Yikes! We just got a numerical representation of Bool >1."
+  unFin (Finite 0) = False
+  unFin _          = True
 
 instance KnownNat n => HasFin (Finite n) where
   type Card (Finite n) = n
@@ -54,12 +78,15 @@ instance KnownNat n => HasFin (Finite n) where
 instance (HasFin a, HasFin b, KnownNat (Card a + Card b)) => HasFin (a :+ b) where
   type Card (a :+ b) = Card a + Card b
 
-  toFin (Left  x) = (finite . getFinite . toFin) x
-  toFin (Right y) = finite $ natVal (Proxy @(Card a)) + (getFinite . toFin) y
+  toFin = let (Iso _ h) = finSum
+           in \case
+                (Left  x) -> h $ Left  (toFin x)
+                (Right y) -> h $ Right (toFin y)
 
-  unFin n = if getFinite n < natVal (Proxy @(Card a))
-               then Left  ((unFin . finite . getFinite) n)
-               else Right ((unFin . finite) $ getFinite n - natVal (Proxy @(Card a)))
+  unFin n = let (Iso g _) = finSum
+             in case (g n) of
+                (Left  m) -> Left  (unFin m)
+                (Right l) -> Right (unFin l)
 
 instance (HasFin a, HasFin b, KnownNat (Card a * Card b)) => HasFin (a :* b) where
   type Card (a :* b) = Card a * Card b
@@ -93,3 +120,11 @@ class HasTrie a where
 
 -- instance (HasTrie a, HasTrie b) => HasTrie (a :+ b) where -- ...
 -- instance (HasTrie a, HasTrie b) => HasTrie (a :* b) where -- ...
+
+{----------------------------------------------------------------------
+  Utilities
+----------------------------------------------------------------------}
+
+natValAt :: forall n. KnownNat n => Integer
+natValAt = natVal (Proxy @n)
+
