@@ -17,16 +17,21 @@
 
 module ConCat.TArr where
 
+import Prelude hiding (id, (.))  -- Coming from Control.Category.
+
 import GHC.TypeLits
 import GHC.Types (Nat)
 
+import Control.Arrow        (first, second)
+import Control.Category
 import Data.Proxy
 import Data.Finite
 import Data.Finite.Internal (Finite(..))
 -- import Data.Vector.Sized
 import qualified Data.Vector.Sized as V
 
-import ConCat.Category ((+++),(***))
+-- import ConCat.AltCat
+-- import ConCat.Category ((+++),(***))
 import ConCat.Misc     ((:*),(:+))
 
 {----------------------------------------------------------------------
@@ -37,10 +42,29 @@ type a :^ b = b -> a
 
 data a <-> b = Iso (a -> b) (b -> a)
 
+instance Category (<->) where
+  id = Iso id id
+  (Iso g h) . (Iso g' h') = Iso (g . g') (h' . h)
+
+infixr 3 ***
+infixr 2 +++
+
+(***) :: (a <-> c) -> (b <-> d) -> ((a :* b) <-> (c :* d))
+(Iso g h) *** (Iso g' h') = Iso (first g . second g') (first h . second h')
+
+(+++) :: (a <-> c) -> (b <-> d) -> ((a :+ b) <-> (c :+ d))
+(Iso g h) +++ (Iso g' h') = Iso u v
+  where u = \case
+              Left  x -> Left  (g  x)
+              Right y -> Right (g' y)
+        v = \case
+              Left  n -> Left  (h  n)
+              Right m -> Right (h' m)
+
 type KnownNat2 m n = (KnownNat m, KnownNat n)
 
-finSum :: KnownNat2 m n => Finite (m + n) <-> (Finite m :+ Finite n)
-finSum = Iso g h
+finSum :: KnownNat2 m n => (Finite m :+ Finite n) <-> Finite (m + n)
+finSum = Iso h g
   where g :: forall m n. KnownNat2 m n => Finite (m + n) -> Finite m :+ Finite n
         g (Finite l) = if l >= (natValAt @m)
                           then Right $ Finite (l - (natValAt @m))
@@ -50,8 +74,8 @@ finSum = Iso g h
         h (Left  (Finite l)) = Finite l  -- Need to do it this way, for type conversion.
         h (Right (Finite k)) = Finite (k + (natValAt @m))
 
-finProd :: KnownNat2 m n => Finite (m * n) <-> (Finite m :* Finite n)
-finProd = Iso g h
+finProd :: KnownNat2 m n => (Finite m :* Finite n) <-> Finite (m * n)
+finProd = Iso h g
   where g :: forall m n. KnownNat2 m n => Finite (m * n) -> Finite m :* Finite n
         g (Finite l) = let (q,r) = l `divMod` (natValAt @n)
                         in (Finite q, Finite r)
@@ -59,8 +83,8 @@ finProd = Iso g h
         h :: forall m n. KnownNat2 m n => Finite m :* Finite n -> Finite (m * n)
         h (Finite l, Finite k) = Finite $ l * (natValAt @n) + k
 
-finExp :: KnownNat2 m n => Finite (m ^ n) <-> (Finite m :^ Finite n)
-finExp = undefined
+-- finExp :: KnownNat2 m n => Finite (m ^ n) <-> (Finite m :^ Finite n)
+-- finExp = undefined
 -- finExp = Iso g h
 --   where g :: forall m n. KnownNat2 m n => Finite (m ^ n) -> Finite m :^ Finite n
 --         -- g (Finite l) =  -- Unique, n-element factorization? What about ordering?
@@ -84,13 +108,21 @@ isoRev (Iso _ h) = h
 
 class KnownNat (Card a) => HasFin a where
   type Card a :: Nat
+
+  iso :: a <-> Finite (Card a)
+  iso = Iso toFin unFin
+
   toFin :: a -> Finite (Card a)
+  toFin = isoFwd iso
+
   unFin :: Finite (Card a) -> a
+  unFin = isoRev iso
+
+  {-# MINIMAL (iso | (toFin, unFin)) #-}
 
 instance HasFin () where
   type Card () = 1
-  toFin _ = Finite 0
-  unFin _ = ()
+  iso = Iso (const (Finite 0)) (const ())
 
 instance HasFin Bool where
   type Card Bool = 2
@@ -103,26 +135,18 @@ instance HasFin Bool where
 
 instance KnownNat n => HasFin (Finite n) where
   type Card (Finite n) = n
-  toFin = id
-  unFin = id
+
+  iso = Iso id id
 
 instance (HasFin a, HasFin b, KnownNat (Card a + Card b)) => HasFin (a :+ b) where
   type Card (a :+ b) = Card a + Card b
-  toFin = isoRev finSum . (toFin +++ toFin)
-  unFin = (unFin +++ unFin) . isoFwd finSum
+
+  iso = finSum . (iso +++ iso)
 
 instance (HasFin a, HasFin b, KnownNat (Card a * Card b)) => HasFin (a :* b) where
   type Card (a :* b) = Card a * Card b
-  toFin = isoRev finProd . (toFin *** toFin)
-  unFin = (unFin *** unFin) . isoFwd finProd
 
-instance (HasFin a, HasFin b, KnownNat (Card a ^ Card b)) => HasFin (a :^ b) where
-  type Card (a :^ b) = Card a ^ Card b
-
-  toFin f = isoRev finExp (toFin . f . unFin)
-
-  unFin n = let f' = isoFwd finExp n
-             in (unFin . f' . toFin)
+  iso = finProd . (iso *** iso)
 
 -- Domain-typed "arrays"
 newtype Arr a b = Arr (V.Vector (Card a) b)
