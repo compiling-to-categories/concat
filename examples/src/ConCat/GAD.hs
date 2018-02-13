@@ -111,10 +111,7 @@ instance Category k => Category (GD k) where
 
   {-# INLINE (.) #-}
 
-instance ProductCat k => ProductCat (GD k) where
-  Linear(exl)
-  Linear(exr)
-  Linear(dup)
+instance MonoidalPCat k => MonoidalPCat (GD k) where
   -- D f *** D g = D (second (uncurry (***)) . transposeP . (f *** g))
   -- D f *** D g = D (\ (a,b) ->
   --   let (c,f') = f a
@@ -125,12 +122,13 @@ instance ProductCat k => ProductCat (GD k) where
     D (\ (a,b) -> let { (c,f') = f a ; (d,g') = g b } in ((c,d), f' *** g'))
   {-# INLINE (***) #-}
 
-  -- D f &&& D g = D (\ a ->
-  --   let (c,f') = f a
-  --       (d,g') = g a
-  --   in
-  --     ((c,d), f' &&& g')) -- or default
-  -- {-# INLINE (&&&) #-}
+instance ProductCat k => ProductCat (GD k) where
+  Linear(exl)
+  Linear(exr)
+  Linear(dup)
+  D f &&& D g =
+    D (\ a -> let { (c,f') = f a ; (d,g') = g a } in ((c,d), f' &&& g'))
+  {-# INLINE (&&&) #-}
 
 instance OkAdd k => OkAdd (GD k) where
   okAdd :: forall a. Ok' (GD k) a |- Sat Additive a
@@ -145,11 +143,11 @@ instance CoproductPCat k => CoproductPCat (GD k) where
   --       (d,g') = g b
   --   in
   --     ((c,d), f' ++++ g'))
-  D f ++++ D g =
-    D (\ (a,b) -> let { (c,f') = f a ; (d,g') = g b } in ((c,d), f' ++++ g'))
+  -- D f ++++ D g =
+  --   D (\ (a,b) -> let { (c,f') = f a ; (d,g') = g b } in ((c,d), f' ++++ g'))
   Linear(jamP)
   Linear(swapPS)
-  {-# INLINE (++++) #-}
+  -- {-# INLINE (++++) #-}
   -- D f |||| D g = D (\ (a,b) ->
   --   let (c ,f') = f a
   --       (c',g') = g b

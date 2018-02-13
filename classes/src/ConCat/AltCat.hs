@@ -67,10 +67,10 @@ import ConCat.Satisfy
 
 import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5,Ok6, Ok'
-  , ProductCat, Prod, twiceP, inLassocP, inRassocP --, unfork
+  , MonoidalPCat, ProductCat, Prod, twiceP, inLassocP, inRassocP --, unfork
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS
-  , AbelianCat
-  , Additive1(..), OkAdd(..), CoproductPCat, CoprodP, ScalarCat, LinearCat
+  , AbelianCat, Additive1(..), OkAdd(..)
+  , MonoidalSCat, CoproductPCat, CoprodP, ScalarCat, LinearCat
   , OkIxProd(..), IxProductCat
   , IxCoproductPCat
   -- , OkIxCoprod(..), IxCoproductCat
@@ -122,10 +122,12 @@ Op0(id,(Category k, Ok k a) => a `k` a)
 Ip2(.,forall k b c a. (Category k, Ok3 k a b c) => (b `k` c) -> (a `k` b) -> (a `k` c))
 
 infixr 3 ***, &&&
+
+Ip2(***,forall k a b c d. (MonoidalPCat k, Ok4 k a b c d) => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d))
+
 Op0(exl,(ProductCat k, Ok2 k a b) => Prod k a b `k` a)
 Op0(exr,(ProductCat k, Ok2 k a b) => Prod k a b `k` b)
 Ip2(&&&,forall k a c d. (ProductCat k, Ok3 k a c d) => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d))
-Ip2(***,forall k a b c d. (ProductCat k, Ok4 k a b c d) => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d))
 Op0(dup,forall k a. (ProductCat k, Ok k a) => a `k` Prod k a a)
 Op0(swapP,forall k a b. (ProductCat k, Ok2 k a b) => Prod k a b `k` Prod k b a)
 Op1(first,forall k a aa b. (ProductCat k, Ok3 k a b aa) => (a `k` aa) -> (Prod k a b `k` Prod k aa b))
@@ -136,10 +138,12 @@ Op1(rassocP,forall k a b c. (ProductCat k, Ok3 k a b c) => Prod k (Prod k a b) c
 -- Op1(unfork, forall k a c d. (ProductCat k, Ok3 k a c d) => (a `k` Prod k c d) -> (a `k` c, a `k` d))
 
 infixr 2 +++, |||
+
+Ip2(+++,forall k a b c d. (MonoidalSCat k, Ok4 k a b c d) => (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b))
+
 Op0(inl,(CoproductCat k, Ok2 k a b) => a `k` Coprod k a b)
 Op0(inr,(CoproductCat k, Ok2 k a b) => b `k` Coprod k a b)
 Ip2(|||,forall k a c d. (CoproductCat k, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a))
-Ip2(+++,forall k a b c d. (CoproductCat k, Ok4 k a b c d) => (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b))
 Op0(jam,(CoproductCat k, Ok k a) => Coprod k a a `k` a)
 Op0(swapS,forall k a b. (CoproductCat k, Ok2 k a b) => Coprod k a b `k` Coprod k b a)
 Op1(left ,forall k a aa b. (CoproductCat k, Ok3 k a b aa) => (a `k` aa) -> (Coprod k a b `k` Coprod k aa b))
@@ -152,10 +156,11 @@ Op0(plusC, forall k a b. (AbelianCat k, Ok2 k a b, Additive b) => Binop (a `k` b
 
 -- Temporary workaround. See ConCat.Category comments.
 infixr 2 ++++, ||||
+Ip2(++++,forall k a b c d. (MonoidalPCat k, Ok4 k a b c d) => (c `k` a) -> (d `k` b) -> (CoprodP k c d `k` CoprodP k a b))
+
 Op0(inlP,(CoproductPCat k, Additive b, Ok2 k a b) => a `k` CoprodP k a b)
 Op0(inrP,(CoproductPCat k, Additive a, Ok2 k a b) => b `k` CoprodP k a b)
 Ip2(||||,forall k a c d. (CoproductPCat k, Additive a, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (CoprodP k c d `k` a))
-Ip2(++++,forall k a b c d. (CoproductPCat k, Ok4 k a b c d) => (c `k` a) -> (d `k` b) -> (CoprodP k c d `k` CoprodP k a b))
 Op0(jamP,(CoproductPCat k, Additive a, Ok k a) => CoprodP k a a `k` a)
 Op0(swapPS,forall k a b. (CoproductPCat k, Ok2 k a b) => CoprodP k a b `k` CoprodP k b a)
 

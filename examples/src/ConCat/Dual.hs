@@ -68,17 +68,19 @@ instance Category k => Category (Dual k) where
 -- I could define Ok (Dual k) = Ok k, and rely on Ok k and OkAdd k for Additive,
 -- but doing do requires a lot of entailments and explicit signatures.
 
+instance MonoidalPCat k => MonoidalPCat (Dual k) where
+  (***) = inAbst2 (++++)
+  {-# INLINE (***) #-}
+
 instance CoproductPCat k => ProductCat (Dual k) where
   exl   = abst inlP
   exr   = abst inrP
   (&&&) = inAbst2 (||||)
-  (***) = inAbst2 (++++)
   dup   = abst jamP
   swapP = abst swapPS
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
-  {-# INLINE (***) #-}
   {-# INLINE dup #-}
   {-# INLINE swapP #-}
 
@@ -86,13 +88,13 @@ instance ProductCat k => CoproductPCat (Dual k) where
   inlP   = abst exl
   inrP   = abst exr
   (||||) = inAbst2 (&&&)
-  (++++) = inAbst2 (***)
+  -- (++++) = inAbst2 (***)
   jamP   = abst dup
   swapPS = abst swapP
   {-# INLINE inlP #-}
   {-# INLINE inrP #-}
   {-# INLINE (||||) #-}
-  {-# INLINE (++++) #-}
+  -- {-# INLINE (++++) #-}
   {-# INLINE jamP #-}
   {-# INLINE swapPS #-}
 

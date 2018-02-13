@@ -16,7 +16,9 @@ import Prelude hiding (id,(.),uncurry)
 
 import ConCat.Misc ((:*))
 import ConCat.Rep
-import ConCat.Category
+import qualified ConCat.Category
+import ConCat.AltCat
+import ConCat.Additive (Additive)
 
 newtype Cont k r a b = Cont ((b `k` r) -> (a `k` r))
 
@@ -35,12 +37,37 @@ instance Category (Cont k r) where
   id = Cont id
   (.) = inAbst2 (flip (.))
 
-instance (ProductCat k, CoproductPCat k, Ok k r) => ProductCat (Cont k r) where
+instance (ProductCat k, CoproductPCat k, AbelianCat k, OkAdd k, Ok k r)
+      => ProductCat (Cont k r) where
   exl :: forall a b. Ok2 k a b => Cont k r (a :* b) a
-  exl = cont exl <+ okProd @k @a @b
+  exl = Cont (|||| zeroC) <+ okAdd @k @r
+  -- exl = cont exl <+ okProd @k @a @b
   exr :: forall a b. Ok2 k a b => Cont k r (a :* b) b
-  exr = cont exr <+ okProd @k @a @b
-  (&&&) = inAbst2 (\ f g -> (f |||| g) . unjoinP)
+  -- exr = cont exr <+ okProd @k @a @b
+  exr = Cont (zeroC ||||) <+ okAdd @k @r
+  dup :: forall a. Ok k a => Cont k r a (a :* a)
+  dup = Cont (uncurry plusC . unjoinP)
+    <+ okAdd @k @a
+    <+ okAdd @k @r
+  (***) :: forall a b c d. Ok4 k a b c d
+        => Cont k r a c -> Cont k r b d -> Cont k r (Prod k a b) (Prod k c d)
+  -- (***) = undefined
+  Cont f *** Cont g = Cont (joinP . (f *** g) . unjoinP) 
+    <+ okAdd @k @c
+    <+ okAdd @k @d
+    <+ okAdd @k @r
+  -- (&&&) :: forall a c d. Ok3 k a c d
+  --       => Cont k r a c -> Cont k r a d -> Cont k r a (Prod k c d)
+  -- (&&&) = undefined
+  -- (&&&) = inAbst2 (\ f g -> (f |||| g) . unjoinP) 
+  -- (&&&) = inAbst2 (\ f g -> uncurry plusC . (f *** g) . unjoinP) 
+  --   <+ okAdd @k @c
+  --   <+ okAdd @k @d
+  --   <+ okAdd @k @r
+
+-- h            :: a `k` r
+--        zeroC :: b `k` r
+-- h |||| zeroC :: (a :* b) `k` r
 
 -- Could not deduce (CoproductPCat (->))
 --   arising from a use of ‘||||’
@@ -53,12 +80,12 @@ instance (ProductCat k, CoproductPCat k, Ok k r) => ProductCat (Cont k r) where
 --            f |||| g  :: (c `k` r) :* (d `k` r) -> (a `k` r)
 -- (f |||| g) . unjoinP :: ((c :* d) `k` r) -> (a `k` r)
 
-instance (CoproductPCat k, Ok k r) => CoproductPCat (Cont k r) where
-  inlP :: forall a b. Ok2 k a b => Cont k r a (a :* b)
-  inlP = cont inlP <+ okProd @k @a @b
-  inrP :: forall a b. Ok2 k a b => Cont k r b (a :* b)
-  inrP = cont inrP <+ okProd @k @a @b
-  (||||) = inAbst2 (\ f g -> uncurry (||||) . (f &&& g))
+-- instance (CoproductPCat k, Ok k r) => CoproductPCat (Cont k r) where
+--   inlP :: forall a b. Ok2 k a b => Cont k r a (a :* b)
+--   inlP = cont inlP <+ okProd @k @a @b
+--   inrP :: forall a b. Ok2 k a b => Cont k r b (a :* b)
+--   inrP = cont inrP <+ okProd @k @a @b
+--   (||||) = inAbst2 (\ f g -> uncurry (||||) . (f &&& g))
 
 
 --            f       :: (c `k` r) -> (a `k` r)

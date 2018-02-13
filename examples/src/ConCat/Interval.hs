@@ -75,6 +75,10 @@ instance Category IF where
 
 type instance Iv (a :* b) = Iv a :* Iv b
 
+instance MonoidalPCat IF where
+  (***) = inNew2 (***)
+  {-# INLINE (***) #-}
+
 instance ProductCat IF where
   exl = pack exl
   exr = pack exr
@@ -85,6 +89,10 @@ instance ProductCat IF where
   {-# INLINE (&&&) #-}
 
 type instance Iv (a :+ b) = Iv a :+ Iv b
+
+instance MonoidalSCat IF where
+  (+++) = inNew2 (+++)
+  {-# INLINE (+++) #-}
 
 instance CoproductCat IF where
   inl = pack inl

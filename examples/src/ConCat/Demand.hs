@@ -201,15 +201,23 @@ instance Category (:-?) where
   id  = pack id
   (.) = inNew2 (flip (.))                -- note flow reversal
 
+instance MonoidalPCat (:-?) where
+  (***) = inNew2 $ \ f g -> inUnpairD (f *** g)
+  {-# INLINE (***) #-}
+
 instance ProductCat (:-?) where
   exl = pack (*: NoneD)
   exr = pack (NoneD *:)
   dup = pack mergeD
-  (***) = inNew2 $ \ f g -> inUnpairD (f *** g)
+  {-# INLINE exl #-}
+  {-# INLINE exr #-}
+  {-# INLINE dup #-}
 
 instance TerminalCat (:-?)
 
 -- need :: Demand () `k` Demand a
+
+instance MonoidalSCat (:-?)
 
 instance CoproductCat (:-?) where
   inl = pack (exl . unplusD)
