@@ -85,7 +85,7 @@ fmapT1 f = P.curry (fmapC (P.uncurry f) . strength)
 fmapT2 :: forall h a b c. (Zip h, Pointed h)
        => (a -> b -> c) -> (a -> h b) -> (a -> h c)
 -- fmapT2 f g = fmapC (P.uncurry f) . strength . (id &&& g)
-fmapT2 f g = fmapC (P.uncurry f) . zipC . (point &&& g)
+fmapT2 f g = fmapC (P.uncurry f) . zipC . (pointC &&& g)
 {-# INLINE fmapT2 #-}
 
 #if 0
