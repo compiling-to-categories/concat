@@ -182,6 +182,10 @@ instance CartCon con => Category (Choice con) where
   {-# INLINE id #-}
   {-# INLINE (.) #-}
 
+instance CartCon con => MonoidalPCat (Choice con) where
+  (***) = op2C (***)
+  {-# INLINE (***) #-}
+
 instance CartCon con => ProductCat (Choice con) where
   exl = exactly exl
   exr = exactly exr
@@ -189,6 +193,10 @@ instance CartCon con => ProductCat (Choice con) where
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
+
+instance CartCon con => MonoidalSCat (Choice con) where
+  (+++) = op2C (+++)
+  {-# INLINE (+++) #-}
 
 instance CartCon con => CoproductCat (Choice con) where
   inl = exactly inl

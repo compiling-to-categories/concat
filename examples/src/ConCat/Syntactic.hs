@@ -155,11 +155,14 @@ instance Category Syn where
   INLINER(id)
   INLINER((.))
 
+instance MonoidalPCat Syn where
+  (***) = app2 "***"
+  INLINER((***))
+
 instance ProductCat Syn where
   exl     = app0 "exl"
   exr     = app0 "exr"
   (&&&)   = app2 "&&&"
-  (***)   = app2 "***"
   swapP   = app0 "swapP"
   first   = app1 "first"
   second  = app1 "second"
@@ -168,7 +171,6 @@ instance ProductCat Syn where
   INLINER(exl)
   INLINER(exr)
   INLINER((&&&))
-  INLINER((***))
   INLINER(swapP)
   INLINER(first)
   INLINER(second)
@@ -177,11 +179,14 @@ instance ProductCat Syn where
 
 instance TerminalCat Syn
 
+instance MonoidalSCat Syn where
+  (+++) = app2 "+++"
+  INLINER((+++))
+
 instance CoproductCat Syn where
   inl     = app0 "inl"
   inr     = app0 "inr"
   (|||)   = app2 "|||"
-  (+++)   = app2 "+++"
   jam     = app0 "jam"
   swapS   = app0 "swapS"
   left    = app1 "left"
@@ -191,7 +196,6 @@ instance CoproductCat Syn where
   INLINER(inl)
   INLINER(inr)
   INLINER((|||))
-  INLINER((+++))
   INLINER(swapS)
   INLINER(left)
   INLINER(right)
@@ -203,12 +207,10 @@ instance CoproductPCat Syn where
   inrP   = app0 "inrP"
   jamP   = app0 "jamP"
   swapPS = swapP
-  (++++) = (***)
   INLINER(inlP)
   INLINER(inrP)
   INLINER(jamP)
   INLINER(swapPS)
-  INLINER((++++))
   
 instance DistribCat Syn where
   distl = app0 "distl"

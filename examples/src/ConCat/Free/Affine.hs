@@ -71,21 +71,26 @@ instance Category (Affine s) where
 -- == \ a -> (q . p) a + (q u + v)
 -- == applyA (Affine (q . p) (q u + v))
 
+instance MonoidalPCat (Affine s) where
+  (***) = inAbst2 $ \ (p,u) (q,v) -> (p *** q, (u,v))
+  {-# INLINE (***) #-}
+
+--    applyA (Affine p u) *** applyA (Affine q v)
+-- == \ (a,b) -> (applyA (Affine p u) *** applyA (Affine q v)) a
+-- == \ (a,b) -> (applyA (Affine p u) a, applyA (Affine q v) b)
+-- == \ (a,b) -> (p a + u, q b + v)
+-- == \ (a,b) -> (p a,q b) + (u,v)
+-- == \ (a,b) -> (p *** q) (a,b) + (u,v)
+-- == applyA (Affine (p *** q) (u,v))
+
 instance ProductCat (Affine s) where
   exl = linearA exl
   exr = linearA exr
-  (&&&) = inAbst2 $ \ (p,u) (q,v) -> (p &&& q, (u,v))
+  dup = linearA dup
+  -- (&&&) = inAbst2 $ \ (p,u) (q,v) -> (p &&& q, (u,v))
   {-# INLINE exl #-}
   {-# INLINE exr #-}
-  {-# INLINE (&&&) #-}
-
---    applyA (Affine p u) &&& applyA (Affine q v)
--- == \ a -> (applyA (Affine p u) &&& applyA (Affine q v)) a
--- == \ a -> (applyA (Affine p u) a, applyA (Affine q v) a)
--- == \ a -> (p a + u, q a + v)
--- == \ a -> (p a,q a) + (u,v)
--- == \ a -> (p &&& q) a + (u,v)
--- == applyA (Affine (p &&& q) (u,v))
+  -- {-# INLINE (&&&) #-}
 
 {--------------------------------------------------------------------
     Move elsewhere
