@@ -397,8 +397,10 @@ CatifyC((>),greaterThan)
 CatifyC((<=),lessThanOrEqual)
 CatifyC((>=),greaterThanOrEqual)
 
-CatifyC(min,minC)
-CatifyC(max,maxC)
+-- -- Now that we have better conditional support (including differentiation),
+-- -- don't translate min & max. See journal notes 2018-02-10.
+-- CatifyC(min,minC)
+-- CatifyC(max,maxC)
 
 Catify(succ,succC)
 Catify(pred,predC)
