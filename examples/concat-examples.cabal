@@ -44,7 +44,7 @@ library
                      , mtl >= 2.2.1
                      , finite-typelits
                      -- -- For NatArr
-                     -- , ghc-typelits-knownnat
+                     , ghc-typelits-knownnat
                      -- For Incremental		
                      , transformers >= 0.5.2.0, mtl >= 2.2.1
                      -- For Gui
@@ -176,4 +176,5 @@ Test-Suite testHasFins
                   , vector-sized
                   , concat-examples
                   , concat-classes
+                  , ghc-typelits-knownnat
 

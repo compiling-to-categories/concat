@@ -12,6 +12,7 @@
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 
 -- | Domain-typed arrays
 
@@ -130,12 +131,12 @@ instance KnownNat n => HasFin (Finite n) where
 
   iso = id
 
-instance (HasFin a, HasFin b, KnownNat (Card a + Card b)) => HasFin (a :+ b) where
+instance (HasFin a, HasFin b) => HasFin (a :+ b) where
   type Card (a :+ b) = Card a + Card b
 
   iso = finSum . (iso +++ iso)
 
-instance (HasFin a, HasFin b, KnownNat (Card a * Card b)) => HasFin (a :* b) where
+instance (HasFin a, HasFin b) => HasFin (a :* b) where
   type Card (a :* b) = Card a * Card b
 
   iso = finProd . (iso *** iso)
