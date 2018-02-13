@@ -225,6 +225,12 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -> dtrace "top ruled var app" (text nm) $
           Nothing
 #endif
+  Trying("top Case of bottom")
+     e@(Case (collectArgs -> (Var v,_args)) _wild _rhsTy _alts)
+       |  v == bottomV
+       ,  FunTy dom cod <- exprType e
+       -> Doing("top Case of bottom")
+          mkBottomC cat dom cod
      -- See journal 2018-02-02.
      Trying("top Case of product")
      e@(Case scrut wild _rhsTy [(DataAlt dc, [b,c], rhs)])
