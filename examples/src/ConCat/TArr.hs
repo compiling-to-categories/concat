@@ -23,16 +23,16 @@ import GHC.TypeLits
 import GHC.Types (Nat)
 
 import Control.Arrow        (first, second)
+import qualified Control.Arrow as A
 import Control.Category
 import Data.Proxy
 import Data.Finite
 import Data.Finite.Internal (Finite(..))
--- import Data.Vector.Sized
 import qualified Data.Vector.Sized as V
 
 -- import ConCat.AltCat
 -- import ConCat.Category ((+++),(***))
-import ConCat.Misc     ((:*),(:+))
+import ConCat.Misc     ((:*), (:+), cond)
 
 {----------------------------------------------------------------------
    Some useful isomorphisms.
@@ -50,16 +50,10 @@ infixr 3 ***
 infixr 2 +++
 
 (***) :: (a <-> c) -> (b <-> d) -> ((a :* b) <-> (c :* d))
-(Iso g h) *** (Iso g' h') = Iso (first g . second g') (first h . second h')
+Iso g h *** Iso g' h' = Iso (g A.*** g') (h A.*** h')
 
 (+++) :: (a <-> c) -> (b <-> d) -> ((a :+ b) <-> (c :+ d))
-(Iso g h) +++ (Iso g' h') = Iso u v
-  where u = \case
-              Left  x -> Left  (g  x)
-              Right y -> Right (g' y)
-        v = \case
-              Left  n -> Left  (h  n)
-              Right m -> Right (h' m)
+Iso g h +++ Iso g' h' = Iso (g A.+++ g') (h A.+++ h')
 
 type KnownNat2 m n = (KnownNat m, KnownNat n)
 
@@ -127,16 +121,16 @@ instance HasFin () where
 instance HasFin Bool where
   type Card Bool = 2
 
-  toFin False = Finite 0
-  toFin True  = Finite 1
+  toFin = cond (Finite 1) (Finite 0)
 
-  unFin (Finite 0) = False
-  unFin _          = True
+  unFin = \case
+            Finite 0 -> False
+            _        -> True
 
 instance KnownNat n => HasFin (Finite n) where
   type Card (Finite n) = n
 
-  iso = Iso id id
+  iso = id
 
 instance (HasFin a, HasFin b, KnownNat (Card a + Card b)) => HasFin (a :+ b) where
   type Card (a :+ b) = Card a + Card b
