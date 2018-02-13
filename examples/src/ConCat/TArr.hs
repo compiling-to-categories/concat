@@ -60,22 +60,22 @@ type KnownNat2 m n = (KnownNat m, KnownNat n)
 finSum :: KnownNat2 m n => (Finite m :+ Finite n) <-> Finite (m + n)
 finSum = Iso h g
   where g :: forall m n. KnownNat2 m n => Finite (m + n) -> Finite m :+ Finite n
-        g (Finite l) = if l >= (natValAt @m)
-                          then Right $ Finite (l - (natValAt @m))
+        g (Finite l) = if l >= natValAt @m
+                          then Right $ Finite (l - natValAt @m)
                           else Left  $ Finite l
 
         h :: forall m n. KnownNat2 m n => Finite m :+ Finite n -> Finite (m + n)
         h (Left  (Finite l)) = Finite l  -- Need to do it this way, for type conversion.
-        h (Right (Finite k)) = Finite (k + (natValAt @m))
+        h (Right (Finite k)) = Finite (k + natValAt @m)
 
 finProd :: KnownNat2 m n => (Finite m :* Finite n) <-> Finite (m * n)
 finProd = Iso h g
   where g :: forall m n. KnownNat2 m n => Finite (m * n) -> Finite m :* Finite n
-        g (Finite l) = let (q,r) = l `divMod` (natValAt @n)
+        g (Finite l) = let (q,r) = l `divMod` natValAt @n
                         in (Finite q, Finite r)
 
         h :: forall m n. KnownNat2 m n => Finite m :* Finite n -> Finite (m * n)
-        h (Finite l, Finite k) = Finite $ l * (natValAt @n) + k
+        h (Finite l, Finite k) = Finite $ l * natValAt @n + k
 
 -- finExp :: KnownNat2 m n => Finite (m ^ n) <-> (Finite m :^ Finite n)
 -- finExp = undefined
@@ -121,11 +121,9 @@ instance HasFin () where
 instance HasFin Bool where
   type Card Bool = 2
 
-  toFin = cond (Finite 1) (Finite 0)
+  toFin = Finite . cond 1 0
 
-  unFin = \case
-            Finite 0 -> False
-            _        -> True
+  unFin (Finite n) = n > 0
 
 instance KnownNat n => HasFin (Finite n) where
   type Card (Finite n) = n
