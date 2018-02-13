@@ -11,6 +11,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-} -- TEMP
@@ -39,7 +40,7 @@ import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable)
 import qualified Data.Functor.Rep as R
 
-import ConCat.Misc ((:*),type (&+&),cond,result,unzip,sqr,bottom)
+import ConCat.Misc ((:*),type (&&),type (&+&),cond,result,unzip,sqr,bottom)
 import ConCat.Additive
 import ConCat.AltCat
 import ConCat.Rep
@@ -268,20 +269,41 @@ instance (ProductCat k, Ord a) => MinMaxCat (GD k) a where
 -- Experiment
 
 -- Differentiable discrete function, yielding 'bottom' derivative
-discreteD :: (a -> b) -> GD k a b
-discreteD f = D (\ a -> (f a, bottom))
+discreteD :: (ConstCat k b, Ok k a, Additive b) => (a -> b) -> GD k a b
+discreteD f = D (\ a -> (f a, const zero))
 {-# INLINE discreteD #-}
 
-#define Discrete(nm) nm = discreteD nm ; {-# INLINE nm #-}
+#define DiscreteEntail(nm,ent) nm = discreteD nm <+ (ent) ; {-# INLINE nm #-}
+#define Discrete(nm) DiscreteEntail(nm,id @(|-) @())
+#define DiscreteBB(nm) DiscreteEntail(nm,okTT @k @Bool)
+#define DiscreteAA(nm) DiscreteEntail(nm,okTT @k @a)
 
-instance (ProductCat k, Ok k Bool) => BoolCat (GD k) where
+instance (ProductCat k, ConstCat k Bool, Ok k Bool) => BoolCat (GD k) where
   Discrete(notC)
-  Discrete(andC)
-  Discrete(orC)
-  Discrete(xorC)
+  DiscreteBB(andC)
+  DiscreteBB(orC)
+  DiscreteBB(xorC)
 
-instance IfCat k a => IfCat (GD k) a where
-  Linear(ifC)
+instance (ProductCat k, ConstCat k Bool, Eq a, Ok2 k a Bool) => EqCat (GD k) a where
+  DiscreteAA(equal)
+  DiscreteAA(notEqual)
+
+instance (ProductCat k, ConstCat k Bool, Ord a, Ok2 k a Bool) => OrdCat (GD k) a where
+  DiscreteAA(greaterThan)
+  DiscreteAA(lessThan)
+  DiscreteAA(lessThanOrEqual)
+  DiscreteAA(greaterThanOrEqual)
+
+instance (ProductCat k, ConstCat k Bool, Ok2 k Bool a) => IfCat (GD k) a where
+  -- Linear(ifC)
+  -- ifC = D (ifC &&& \ (i,(t,e)) -> ifC (i,(der t, der e)))
+  ifC :: GD k (Bool :* (a :* a)) a
+  ifC = -- D (ifC &&& \ (i,_) -> ifC (i,(exl,exr)) . exr)
+        -- D (ifC &&& \ (i,_) -> ifC (i,(exl.exr,exr.exr)))
+        -- D (ifC &&& \ (i,_) -> cond exl exr i . exr)
+        D (ifC &&& \ (i,_) -> (if i then exl else exr) . exr)
+        <+ okProd @k @Bool @(a :* a)
+        <+ okProd @k @a @a
 
 {--------------------------------------------------------------------
     Functor-level operations

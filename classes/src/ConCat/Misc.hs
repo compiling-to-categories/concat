@@ -265,7 +265,8 @@ delay a = a
 {-# INLINE [0] delay #-}
 
 bottom :: a
-bottom = error "bottom evaluated"
+-- bottom = error "bottom evaluated"
+bottom = oops "bottom evaluated"
 {-# NOINLINE bottom #-}
 
 -- Convenient alternative to typeRep

@@ -135,8 +135,10 @@ instance Additive a => Additive (Maybe a) where
 
 -- Experiment
 instance Additive Bool where
-  zero = undefined
-  _ ^+^ _ = undefined
+  -- zero = undefined
+  -- _ ^+^ _ = undefined
+  zero = False
+  (^+^) = (||)
   {-# INLINE zero #-}
   {-# INLINE (^+^) #-}
 

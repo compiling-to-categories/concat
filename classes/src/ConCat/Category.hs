@@ -156,6 +156,11 @@ instance HasCon (Sat kon a) where
   toDict (Sat d) = d
   unDict = Sat Dict
 
+instance HasCon () where
+  type Con () = ()
+  toDict () = Dict
+  unDict = ()
+
 instance (HasCon a, HasCon b) => HasCon (a :* b) where
   type Con (a :* b) = (Con a,Con b)
   toDict (toDict -> Dict, toDict -> Dict) = Dict
@@ -535,12 +540,6 @@ inRassocP = lassocP <~ rassocP
                   inOpLR @(Prod k) @(Ok' k) @a' @b' @c')
 {-# INLINE inRassocP #-}
 
--- | Inverse to @uncurry '(&&&)'@
-unfork :: forall k a c d. (ProductCat k, Ok3 k a c d) 
-       => (a `k` Prod k c d) -> (a `k` c, a `k` d)
-unfork f = (exl . f, exr . f)  <+ okProd @k @c @d
-{-# INLINE unfork #-}
-
 instance Monad m => ProductCat (Kleisli m) where
   -- type Prod (Kleisli m) = (:*)
   exl   = arr exl
@@ -567,7 +566,9 @@ crossK :: Applicative m => (a -> m c) -> (b -> m d) -> (a :* b -> m (c :* d))
 
 type Coprod k = (:+)
 
-okCoprod :: forall k a b. OpCon (Coprod k) (Ok' k)
+type OkCoprod k = OpCon (Coprod k) (Ok' k)
+
+okCoprod :: forall k a b. OkCoprod k
          => Ok' k a && Ok' k b |- Ok' k (Coprod k a b)
 okCoprod = inOp
 {-# INLINE okCoprod #-}
@@ -720,11 +721,37 @@ transposeS = (inl.inl ||| inr.inl) ||| (inl.inr ||| inr.inr)
   <+ okCoprod @k @a @c
 {-# INLINE transposeS #-}
 
--- | Inverse to @uncurry '(|||)'@
-unjoin :: forall k a c d. (CoproductCat k, Oks k [a,c,d]) 
-       => (Coprod k c d `k` a) -> (c `k` a, d `k` a)
-unjoin f = (f . inl, f . inr)  <+ okCoprod @k @c @d
-{-# INLINE unjoin #-}
+{--------------------------------------------------------------------
+    Abelian categories
+--------------------------------------------------------------------}
+
+class AbelianCat k where
+  zeroC :: forall a b. (Ok2 k a b, Additive b) => a `k` b
+  plusC :: forall a b. (Ok2 k a b, Additive b) => Binop (a `k` b)
+  default plusC :: forall a b. (Ok2 k a b, Additive b, ProductCat k, CoproductPCat k)
+                => Binop (a `k` b)
+  -- Two reasonable defaults
+#if 1
+  f `plusC` g = (f |||| g) . dup <+ okProd @k @a @a
+#else
+  f `plusC` g = jamP . (f &&& g) <+ okProd @k @b @b
+#endif
+
+-- TODO: probably remove the Additive constraints here, but use OkAdd k in the
+-- plusC default.
+
+-- TODO: relate AbelianCat to ProductCat and CoproductPCat.
+-- Also to IxProductCat and IxCoproductPCat.
+
+instance AbelianCat U2 where
+  zeroC = U2
+  U2 `plusC` U2 = U2
+
+instance (AbelianCat k, AbelianCat k') => AbelianCat (k :**: k') where
+  zeroC = zeroC :**: zeroC
+  (f :**: f') `plusC` (g :**: g') = (f `plusC` g) :**: (f' `plusC` g')
+  PINLINER(zeroC)
+  PINLINER(plusC)
 
 {--------------------------------------------------------------------
     A dual to ProductCat. Temporary workaround.
@@ -780,17 +807,6 @@ class (OpCon (CoprodP k) (Ok' k), Category k) => CoproductPCat k where
 
 -- TODO: consider moving (++++) to a superclass.
 -- Its Additive constraints are only for the default.
-
--- | Inverse to @uncurry '(||||)'@
-unjoinP :: forall k a c d. (CoproductPCat k, C3 Additive a c d, Ok3 k a c d)
-        => ((c :* d) `k` a) -> (c `k` a) :* (d `k` a)
-unjoinP cda = (cda . inlP, cda . inrP)
-            <+ okProd @k @c @d
-{-# INLINE unjoinP #-}
-
--- Warning: unjoinP probably increases computation, as it turns one cda use into
--- two uses with sparser arguments. It seems very similar to sampling a linear
--- function on a basis.
 
 -- Don't bother with left, right, lassocS, rassocS, and misc helpers.
 

@@ -57,7 +57,7 @@ import Data.Finite (Finite)
 #endif
 
 import ConCat.Misc
-  ( (:*),(:+),(:^),unzip,PseudoFun(..),oops,type (&&),type (&+&)
+  ( (:*),(:+),(:^),Binop, unzip,PseudoFun(..),oops,type (&&),type (&+&)
   , result, C1,C2,C3,C4,C5,C6 )
 import ConCat.Rep hiding (Rep)
 import qualified ConCat.Rep as R
@@ -68,7 +68,8 @@ import ConCat.Satisfy
 import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5,Ok6, Ok'
   , ProductCat, Prod, twiceP, inLassocP, inRassocP --, unfork
-  , CoproductCat, Coprod, inLassocS, inRassocS, transposeS, unjoin
+  , CoproductCat, Coprod, inLassocS, inRassocS, transposeS
+  , AbelianCat
   , Additive1(..), OkAdd(..), CoproductPCat, CoprodP, ScalarCat, LinearCat
   , OkIxProd(..), IxProductCat
   , IxCoproductPCat
@@ -81,12 +82,12 @@ import ConCat.Category
   , BiCCC
   , BoolCat, BoolOf
   , NumCat, IntegralCat, FractionalCat, FloatingCat, RealFracCat, FromIntegralCat
-  , EqCat, OrdCat, MinMaxCat, EnumCat, IfCat, IfT, RepCat
+  , EqCat, okTT, OrdCat, MinMaxCat, EnumCat, IfCat, IfT, RepCat
   , CoerceCat, UnknownCat, BottomCat
   -- , Arr, ArrayCat
   , TransitiveCon(..)
   , U2(..), (:**:)(..)
-  , type (|-)(..), (<+), okProd, okExp
+  , type (|-)(..), (<+), OkProd,okProd, OkCoprod,okCoprod, okExp
   , OpCon(..),Sat(..) -- ,FunctorC(..)
   , yes1, forkCon, joinCon, inForkCon
   -- Functor-level. To be removed.
@@ -132,7 +133,7 @@ Op1(second,forall k a b bb. (ProductCat k, Ok3 k a b bb) => (b `k` bb) -> (Prod 
 Op1(lassocP,forall k a b c. (ProductCat k, Ok3 k a b c) => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c)
 Op1(rassocP,forall k a b c. (ProductCat k, Ok3 k a b c) => Prod k (Prod k a b) c `k` Prod k a (Prod k b c))
 
-Op1(unfork, forall k a c d. (ProductCat k, Ok3 k a c d) => (a `k` Prod k c d) -> (a `k` c, a `k` d))
+-- Op1(unfork, forall k a c d. (ProductCat k, Ok3 k a c d) => (a `k` Prod k c d) -> (a `k` c, a `k` d))
 
 infixr 2 +++, |||
 Op0(inl,(CoproductCat k, Ok2 k a b) => a `k` Coprod k a b)
@@ -145,6 +146,9 @@ Op1(left ,forall k a aa b. (CoproductCat k, Ok3 k a b aa) => (a `k` aa) -> (Copr
 Op1(right,forall k a b bb. (CoproductCat k, Ok3 k a b bb) => (b `k` bb) -> (Coprod k a b `k` Coprod k a bb))
 Op1(lassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c)
 Op1(rassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c))
+
+Op0(zeroC, forall k a b. (AbelianCat k, Ok2 k a b, Additive b) => a `k` b)
+Op0(plusC, forall k a b. (AbelianCat k, Ok2 k a b, Additive b) => Binop (a `k` b))
 
 -- Temporary workaround. See ConCat.Category comments.
 infixr 2 ++++, ||||
@@ -1088,3 +1092,45 @@ transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
   <+ okProd @k @b @d
   <+ okProd @k @a @c
 {-# INLINE transposeP #-}
+
+
+-- | Convenient alias for @uncurry '(&&&)'@
+fork :: forall k a c d. (ProductCat k, Ok3 k a c d) 
+     => (a `k` c) :* (a `k` d) -> (a `k` Prod k c d)
+fork = uncurry (&&&)
+{-# INLINE fork #-}
+
+-- | Inverse to @uncurry '(&&&)'@
+unfork :: forall k a c d. (ProductCat k, Ok3 k a c d) 
+       => (a `k` Prod k c d) -> (a `k` c) :* (a `k` d)
+unfork f = (exl . f, exr . f)  <+ okProd @k @c @d
+{-# INLINE unfork #-}
+
+-- | Convenient alias for @uncurry '(|||)'@
+join :: forall k a c d. (CoproductCat k, Ok3 k a c d) 
+     => (c `k` a) :* (d `k` a) -> (Coprod k c d `k` a)
+join = uncurry (|||)
+{-# INLINE join #-}
+
+-- | Inverse to @uncurry '(|||)'@
+unjoin :: forall k a c d. (CoproductCat k, Ok3 k a c d)
+       => (Coprod k c d `k` a) -> (c `k` a) :* (d `k` a)
+unjoin f = (f . inl, f . inr) <+ okCoprod @k @c @d
+{-# INLINE unjoin #-}
+
+-- | Convenient alias for @uncurry '(||||)'@
+joinP :: forall k a c d. (CoproductPCat k, Ok3 k a c d, Additive a)
+     => (c `k` a) :* (d `k` a) -> (Prod k c d `k` a)
+joinP = uncurry (||||)
+{-# INLINE joinP #-}
+
+-- | Inverse to @uncurry '(||||)'@
+unjoinP :: forall k a c d. (CoproductPCat k, C3 Additive a c d, Ok3 k a c d)
+        => ((c :* d) `k` a) -> (c `k` a) :* (d `k` a)
+unjoinP cda = (cda . inlP, cda . inrP)
+            <+ okProd @k @c @d
+{-# INLINE unjoinP #-}
+
+-- Warning: unjoinP probably increases computation, as it turns one cda use into
+-- two uses with sparser arguments. It seems very similar to sampling a linear
+-- function on a basis.
