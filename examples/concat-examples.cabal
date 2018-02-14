@@ -99,6 +99,7 @@ library
                        ConCat.Local
                        ConCat.Deep
                        ConCat.TArr
+                       -- ConCat.Isomorphism
   if flag(smt)
     exposed-modules: ConCat.SMT
   ghc-options:      -O2

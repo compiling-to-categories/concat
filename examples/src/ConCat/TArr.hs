@@ -22,7 +22,6 @@ import Prelude hiding (id, (.), const)  -- Coming from ConCat.AltCat.
 import GHC.TypeLits
 import GHC.Types (Nat)
 
-import qualified Control.Arrow as A
 import Data.Proxy
 import Data.Finite.Internal  (Finite(..))
 import qualified Data.Vector.Sized as V
@@ -44,10 +43,10 @@ instance Category (<->) where
   Iso g h . Iso g' h' = Iso (g . g') (h' . h)
 
 instance MonoidalPCat (<->) where
-  Iso g h *** Iso g' h' = Iso (g A.*** g') (h A.*** h')
+  Iso g h *** Iso g' h' = Iso (g *** g') (h *** h')
 
 instance MonoidalSCat (<->) where
-  Iso g h +++ Iso g' h' = Iso (g A.+++ g') (h A.+++ h')
+  Iso g h +++ Iso g' h' = Iso (g +++ g') (h +++ h')
 
 type KnownNat2 m n = (KnownNat m, KnownNat n)
 
@@ -91,7 +90,6 @@ class KnownNat (Card a) => HasFin a where
   type Card a :: Nat
 
   iso :: a <-> Finite (Card a)
-  iso = Iso toFin unFin
 
 instance HasFin () where
   type Card () = 1
