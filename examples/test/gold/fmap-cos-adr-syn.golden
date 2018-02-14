@@ -1,0 +1,15 @@
+(exl . id &&& repr . exr . id) .
+second repr .
+second
+(abst .
+ abst .
+ curry (fmap apply . apply . (curry zipC . exl &&& exr)) .
+ fmap (id . repr) . fmap repr) .
+unzipC .
+fmap
+(apply .
+ (curry
+  (exr &&&
+   abst .
+   abst . curry mulC . apply . (curry exl . negate . sin . exl &&& exr)) &&&
+  cos))

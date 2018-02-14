@@ -1,0 +1,1 @@
+addC . (mulC . (exl &&& exl) &&& mulC . (exr &&& exr))

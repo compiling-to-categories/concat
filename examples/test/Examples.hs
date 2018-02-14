@@ -164,7 +164,6 @@ import qualified GHC.Generics as G
 import qualified ConCat.Free.LinearRow
 import qualified Data.Monoid
 
-import qualified GoldTests as GT
 
 -- For FFT
 import GHC.Generics hiding (C,R,D)
@@ -174,6 +173,9 @@ import Control.Newtype (Newtype(..))
 -- Experiments
 import GHC.Exts (Coercible,coerce)
 
+import Test.Tasty (defaultMain)
+import GoldTests (basicTests)
+
 -- default (Int, Double)
 
 type C = Complex R
@@ -181,7 +183,8 @@ type C = Complex R
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
-  , GT.main
+
+  , defaultMain basicTests
 
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "jamPF" $ toCcc $ A.jamPF @(->) @(Finite 10) @R
@@ -1240,26 +1243,6 @@ fermatMaxUnder upper q = fermatMax q && snd q <= upper
 
 #endif
 
-{--------------------------------------------------------------------
-    Testing utilities
---------------------------------------------------------------------}
-
-type EC = Syn :**: (:>)
-
-runU2 :: U2 a b -> IO ()
-runU2 = print
-
-type GO a b = (GenBuses a, Ok2 (:>) a b)
-
-runSyn :: Syn a b -> IO ()
-runSyn syn = putStrLn ('\n' : render syn)
-
-runSynCirc :: GO a b => String -> EC a b -> IO ()
-runSynCirc nm (syn :**: circ) = runSyn syn >> runCirc nm circ
-
-runCirc :: GO a b => String -> (a :> b) -> IO ()
-runCirc nm circ = RC.run nm [] circ
-
 #ifdef CONCAT_SMT
 runSolve :: (GenBuses a, Show a, EvalE a) => (a :> Bool) -> IO ()
 runSolve = print . solve
@@ -1301,9 +1284,6 @@ runSolveAsc = mapM_ print . solveAscending
 
 #endif
 
-runPrint :: Show b => a -> (a -> b) -> IO ()
-runPrint a f = print (f a)
-
 #if 0
 
 runChase :: (HasV R a, Zip (V R a), Eq a, Show a)
@@ -1319,36 +1299,6 @@ runCircChase nm a0 (circ :**: f) = runCirc nm circ >> runChase a0 f
 -- gradient :: HasV R a => (a -> R) -> a -> a
 
 -- gradientD :: HasV R a => D R a R -> a -> a
-
-
-{--------------------------------------------------------------------
-    Misc definitions
---------------------------------------------------------------------}
-
-twice :: Num a => a -> a
-twice x = x + x
-
-cosSin :: Floating a => a -> a :* a
-cosSin a = (cos a, sin a)
-
-cosSinProd :: Floating a => a :* a -> a :* a
-cosSinProd (x,y) = cosSin (x * y)
-
-horner :: Num a => [a] -> a -> a
-horner []     _ = 0
-horner (c:cs) a = c + a * horner cs a
-
--- Non-inlining versions:
-
--- horner coeffs a = foldr (\ w z -> w + a * z) 0 coeffs
-
--- horner coeffs0 a = go coeffs0
---  where
---    go [] = a
---    go (c:cs) = c + a * go cs
-
--- foo1 :: R -> L R R R
--- foo1 = coerce
 
 #if 0
 
@@ -1462,16 +1412,6 @@ fac9 n0 = go (n0,1)
 
 -- bar :: Float
 -- bar = fromIntegral (3 :: Int)
-
-data Foo = Foo Double
-
-negateFoo :: Unop Foo
-negateFoo (Foo x) = Foo (negate x)
-
-instance HasRep Foo where
-  type Rep Foo = R
-  abst x = Foo x
-  repr (Foo x) = x
 
 -- foo1 :: Foo -> Foo :* (Foo -> Foo)
 -- foo1 = andDerF negateFoo

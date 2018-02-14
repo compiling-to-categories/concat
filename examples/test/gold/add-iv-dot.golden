@@ -1,0 +1,19 @@
+digraph add_iv {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  c0 [label="{In|{<Out0>|<Out1>|<Out2>|<Out3>}}"]
+  c11 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+  c12 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+  c13 [label="{{<In0>|<In1>}|Out}"]
+  c0:Out0 -> c11:In0 [label="Int"]
+  c0:Out2 -> c11:In1 [label="Int"]
+  c0:Out1 -> c12:In0 [label="Int"]
+  c0:Out3 -> c12:In1 [label="Int"]
+  c11:Out0 -> c13:In0 [label="Int"]
+  c12:Out0 -> c13:In1 [label="Int"]
+}

@@ -1,0 +1,20 @@
+digraph foo9_d {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  subgraph clusterc2 { label=""; color=white; margin=0; c2 [label="{0.0|{<Out0>}}"] }
+  subgraph cluster_5 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    c4 [label="{{<In0>}|Out}"]
+    c2:Out0 -> c4:In0 [label="Double"]
+  }
+  subgraph clusterc6 { label=""; color=white; margin=0; c6 [label="{{<In0>}|Out}"] }
+  c4 -> c6:In0 [ltail=cluster_5,label="Double ’ Double"]
+}

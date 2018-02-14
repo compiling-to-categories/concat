@@ -1,0 +1,15 @@
+digraph distribute_par {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  c0 [label="{In|{<Out0>}}"]
+  c1 [label="{{<In0>}|distribute|{<Out0>|<Out1>}}"]
+  c2 [label="{{<In0>|<In1>}|Out}"]
+  c0:Out0 -> c1:In0 [label="Vector 4 (Double × Double)"]
+  c1:Out0 -> c2:In0 [label="Vector 4 Double"]
+  c1:Out1 -> c2:In1 [label="Vector 4 Double"]
+}

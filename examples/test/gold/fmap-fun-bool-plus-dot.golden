@@ -1,0 +1,36 @@
+digraph fmap_fun_bool_plus {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>}}"] }
+  subgraph cluster_8 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    subgraph clusterc1 { label=""; color=white; margin=0; c1 [label="{In|{<Out0>}}"] }
+    subgraph clusterc7 { label=""; color=white; margin=0; c7 [label="{{<In0>}|Out}"] }
+    subgraph cluster_6 {
+      margin=8
+      fontsize=20
+      labeljust=r
+      color=DarkGreen
+      c4 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+      c3 [label="{In|{<Out0>}}"]
+      c5 [label="{{<In0>}|Out}"]
+      c2:Out0 -> c4:In0 [label="Int"]
+      c3:Out0 -> c4:In1 [label="Int"]
+      c4:Out0 -> c5:In0 [label="Int"]
+    }
+    subgraph clusterc2 { label=""; color=white; margin=0; c2 [label="{{<In0>|<In1>}|apply|{<Out0>}}"] }
+    c5 -> c7:In0 [ltail=cluster_6,label="Int ’ Int"]
+    c0:Out0 -> c2:In0 [label="Bool ’ Int"]
+    c1:Out0 -> c2:In1 [label="Bool"]
+  }
+  subgraph clusterc9 { label=""; color=white; margin=0; c9 [label="{{<In0>}|Out}"] }
+  c7 -> c9:In0 [ltail=cluster_8,label="Bool ’ Int ’ Int"]
+}

@@ -1,0 +1,17 @@
+digraph fst_gradr {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  c0 [label="{In|{<Out0>|<Out1>}}"]
+  c5 [label="{1.0|{<Out0>}}"]
+  c6 [label="{{<In0>}|inlP|{<Out0>|<Out1>}}"]
+  c7 [label="{{<In0>|<In1>|<In2>}|Out}"]
+  c5:Out0 -> c6:In0 [label="Double"]
+  c0:Out0 -> c7:In0 [label="Double"]
+  c6:Out0 -> c7:In1 [label="Double"]
+  c6:Out1 -> c7:In2 [label="Double"]
+}

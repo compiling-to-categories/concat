@@ -1,0 +1,2 @@
+(exl . id &&& repr . exr . id) .
+(zipC &&& repr . abst . abst . curry (unzipC . exr))

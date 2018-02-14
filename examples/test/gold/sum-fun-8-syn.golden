@@ -1,0 +1,19 @@
+coerce .
+coerce .
+addC .
+(addC .
+ (addC .
+  (apply . (id &&& const False) &&& apply . (id &&& const True)) .
+  apply . (id &&& const False) &&&
+  addC .
+  (apply . (id &&& const False) &&& apply . (id &&& const True)) .
+  apply . (id &&& const True)) .
+ curry (curry (apply . (exl . exl &&& (const False &&& exr . exl) &&& exr))) &&&
+ addC .
+ (addC .
+  (apply . (id &&& const False) &&& apply . (id &&& const True)) .
+  apply . (id &&& const False) &&&
+  addC .
+  (apply . (id &&& const False) &&& apply . (id &&& const True)) .
+  apply . (id &&& const True)) .
+ curry (curry (apply . (exl . exl &&& (const True &&& exr . exl) &&& exr))))
