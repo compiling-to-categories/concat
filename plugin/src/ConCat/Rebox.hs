@@ -73,7 +73,7 @@ ifEqInt# m n a b = if equal (boxI m, boxI n) then a else b
   "rebox2" [~0] uop = \ u# -> unbox (bop (box u#))
 
 #define Rebox2(box,unbox,uop,bop) \
-  "rebox2" [~0] uop = \ u# v# -> unbox (bop (box u#) (box v#))
+  "rebox2" [~0] uop = \ u# v# -> unbox (bop (box u#,box v#))
 
 #define ReboxB2(box,uop,bop) Rebox2(box,unboxIB,uop,bop)
 
@@ -91,31 +91,31 @@ ifEqInt# m n a b = if equal (boxI m, boxI n) then a else b
 
 {-# RULES
 
-ReboxB2I((==#),(curry equal))
-ReboxB2I((/=#),(curry notEqual))
-ReboxB2I(( >#),(curry greaterThan))
-ReboxB2I(( <#),(curry lessThan))
-ReboxB2I((>=#),(curry greaterThanOrEqual))
-ReboxB2I((<=#),(curry lessThanOrEqual))
+ReboxB2I((==#),equal)
+ReboxB2I((/=#),notEqual)
+ReboxB2I(( >#),greaterThan)
+ReboxB2I(( <#),lessThan)
+ReboxB2I((>=#),greaterThanOrEqual)
+ReboxB2I((<=#),lessThanOrEqual)
 
-ReboxB2F(eqFloat#,(curry equal))
-ReboxB2F(neFloat#,(curry notEqual))
-ReboxB2F(gtFloat#,(curry greaterThan))
-ReboxB2F(geFloat#,(curry greaterThanOrEqual))
-ReboxB2F(ltFloat#,(curry lessThan))
-ReboxB2F(leFloat#,(curry lessThanOrEqual))
+ReboxB2F(eqFloat#,equal)
+ReboxB2F(neFloat#,notEqual)
+ReboxB2F(gtFloat#,greaterThan)
+ReboxB2F(geFloat#,greaterThanOrEqual)
+ReboxB2F(ltFloat#,lessThan)
+ReboxB2F(leFloat#,lessThanOrEqual)
 
-ReboxB2D((==##),(curry equal))
-ReboxB2D((/=##),(curry notEqual))
-ReboxB2D(( >##),(curry greaterThan))
-ReboxB2D(( <##),(curry lessThan))
-ReboxB2D((>=##),(curry greaterThanOrEqual))
-ReboxB2D((<=##),(curry lessThanOrEqual))
+ReboxB2D((==##),equal)
+ReboxB2D((/=##),notEqual)
+ReboxB2D(( >##),greaterThan)
+ReboxB2D(( <##),lessThan)
+ReboxB2D((>=##),greaterThanOrEqual)
+ReboxB2D((<=##),lessThanOrEqual)
 
 Rebox1I(negateInt#,negateC)
-Rebox2I((+#),(curry addC))
-Rebox2I((-#),(curry subC))
-Rebox2I((*#),(curry mulC))
+Rebox2I((+#),addC)
+Rebox2I((-#),subC)
+Rebox2I((*#),mulC)
 -- Rebox1(boxD,unboxI,double2Int#,truncate)
 Rebox1(boxD,unboxI,double2Int#,truncateC)
 Rebox1(boxF,unboxI,float2Int#,truncateC)
@@ -128,10 +128,10 @@ Rebox1(boxF,unboxI,float2Int#,truncateC)
 -- truncate would get rewritten to their counterparts like truncateC anyway.
 
 Rebox1F(negateFloat#,negateC)
-Rebox2F(plusFloat#,(curry addC))
-Rebox2F(minusFloat#,(curry subC))
-Rebox2F(timesFloat#,(curry mulC))
-Rebox2F(divideFloat#,(curry divideC))
+Rebox2F(plusFloat#,addC)
+Rebox2F(minusFloat#,subC)
+Rebox2F(timesFloat#,mulC)
+Rebox2F(divideFloat#,divideC)
 Rebox1F(sinFloat#,sinC)
 Rebox1F(cosFloat#,cosC)
 Rebox1F(expFloat#,expC)
@@ -139,26 +139,26 @@ Rebox1F(logFloat#,logC)
 Rebox1(boxI,unboxF,int2Float#,fromIntegralC)
 
 Rebox1D(negateDouble#,negateC)
-Rebox2D((+##),(curry addC))
-Rebox2D((-##),(curry subC))
-Rebox2D((*##),(curry mulC))
-Rebox2D((/##),(curry divideC))
+Rebox2D((+##),addC)
+Rebox2D((-##),subC)
+Rebox2D((*##),mulC)
+Rebox2D((/##),divideC)
 Rebox1D(sinDouble#,sinC)
 Rebox1D(cosDouble#,cosC)
 Rebox1D(expDouble#,expC)
 Rebox1D(logDouble#,logC)
-Rebox2D((**##),pow)
+Rebox2D((**##),uncurry pow)
 Rebox1(boxI,unboxD,int2Double#,fromIntegralC)
 
 -- fromIntegralC to avoid looping with GHC's fromIntegral/Int->Float and
 -- fromIntegral/Int->Double
 
-Rebox2(id,unboxIB, eqInteger#,(curry equal))
-Rebox2(id,unboxIB,neqInteger#,(curry notEqual))
-Rebox2(id,unboxIB, geInteger#,(curry greaterThanOrEqual))
-Rebox2(id,unboxIB, ltInteger#,(curry lessThan))
-Rebox2(id,unboxIB, gtInteger#,(curry greaterThan))
-Rebox2(id,unboxIB, leInteger#,(curry lessThanOrEqual))
+Rebox2(id,unboxIB, eqInteger#,equal)
+Rebox2(id,unboxIB,neqInteger#,notEqual)
+Rebox2(id,unboxIB, geInteger#,greaterThanOrEqual)
+Rebox2(id,unboxIB, ltInteger#,lessThan)
+Rebox2(id,unboxIB, gtInteger#,greaterThan)
+Rebox2(id,unboxIB, leInteger#,lessThanOrEqual)
 
  #-}
 
@@ -425,7 +425,8 @@ Catify((**),pow)
 
 -- u ** v == exp (log (u ** v)) == exp (v * log u)  -- log is base in Haskell
 pow :: Floating a => a -> a -> a
-u `pow` v = exp (v * log u)
+-- u `pow` v = exp (v * log u)
+u `pow` v = expC (mulC (v,logC u))  -- needed for GHC >= 8.2?
 {-# INLINE pow #-}
 
 Catify(floor,floorC)
