@@ -11,22 +11,19 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 
 -- | Domain-typed arrays
 
 module ConCat.TArr where
 
-import Prelude hiding (id, (.), const)  -- Coming from Control.Category.
+import Prelude hiding (id, (.), const)  -- Coming from ConCat.AltCat.
 
 import GHC.TypeLits
 import GHC.Types (Nat)
 
-import Control.Arrow         (first, second)
 import qualified Control.Arrow as A
 import Data.Proxy
-import Data.Finite
 import Data.Finite.Internal  (Finite(..))
 import qualified Data.Vector.Sized as V
 
