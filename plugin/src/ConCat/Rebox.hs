@@ -73,7 +73,7 @@ ifEqInt# m n a b = if equal (boxI m, boxI n) then a else b
   "rebox2" [~0] uop = \ u# -> unbox (bop (box u#))
 
 #define Rebox2(box,unbox,uop,bop) \
-  "rebox2" [~0] uop = \ u# v# -> unbox (bop (box u#) (box v#))
+  "rebox2" [~0] uop = \ u# v# -> unbox (bop (box u#,box v#))
 
 #define ReboxB2(box,uop,bop) Rebox2(box,unboxIB,uop,bop)
 
@@ -91,31 +91,31 @@ ifEqInt# m n a b = if equal (boxI m, boxI n) then a else b
 
 {-# RULES
 
-ReboxB2I((==#),(==))
-ReboxB2I((/=#),(/=))
-ReboxB2I(( >#) ,(>))
-ReboxB2I(( <#) ,(<))
-ReboxB2I((>=#),(>=))
-ReboxB2I((<=#),(<=))
+ReboxB2I((==#),equal)
+ReboxB2I((/=#),notEqual)
+ReboxB2I(( >#),greaterThan)
+ReboxB2I(( <#),lessThan)
+ReboxB2I((>=#),greaterThanOrEqual)
+ReboxB2I((<=#),lessThanOrEqual)
 
-ReboxB2F(eqFloat#,(==))
-ReboxB2F(neFloat#,(/=))
-ReboxB2F(gtFloat#,( >))
-ReboxB2F(geFloat#,( <))
-ReboxB2F(ltFloat#,(>=))
-ReboxB2F(leFloat#,(<=))
+ReboxB2F(eqFloat#,equal)
+ReboxB2F(neFloat#,notEqual)
+ReboxB2F(gtFloat#,greaterThan)
+ReboxB2F(geFloat#,greaterThanOrEqual)
+ReboxB2F(ltFloat#,lessThan)
+ReboxB2F(leFloat#,lessThanOrEqual)
 
-ReboxB2D((==##),(==))
-ReboxB2D((/=##),(/=))
-ReboxB2D(( >##) ,(>))
-ReboxB2D(( <##) ,(<))
-ReboxB2D((>=##),(>=))
-ReboxB2D((<=##),(<=))
+ReboxB2D((==##),equal)
+ReboxB2D((/=##),notEqual)
+ReboxB2D(( >##),greaterThan)
+ReboxB2D(( <##),lessThan)
+ReboxB2D((>=##),greaterThanOrEqual)
+ReboxB2D((<=##),lessThanOrEqual)
 
-Rebox1I(negateInt#,negate)
-Rebox2I((+#),(+))
-Rebox2I((-#),(-))
-Rebox2I((*#),(*))
+Rebox1I(negateInt#,negateC)
+Rebox2I((+#),addC)
+Rebox2I((-#),subC)
+Rebox2I((*#),mulC)
 -- Rebox1(boxD,unboxI,double2Int#,truncate)
 Rebox1(boxD,unboxI,double2Int#,truncateC)
 Rebox1(boxF,unboxI,float2Int#,truncateC)
@@ -127,38 +127,38 @@ Rebox1(boxF,unboxI,float2Int#,truncateC)
 -- make rewriting a little more efficient as well, since operations like
 -- truncate would get rewritten to their counterparts like truncateC anyway.
 
-Rebox1F(negateFloat#,negate)
-Rebox2F(plusFloat#,(+))
-Rebox2F(minusFloat#,(-))
-Rebox2F(timesFloat#,(*))
-Rebox2F(divideFloat#,(/))
-Rebox1F(sinFloat#,sin)
-Rebox1F(cosFloat#,cos)
-Rebox1F(expFloat#,exp)
-Rebox1F(logFloat#,log)
+Rebox1F(negateFloat#,negateC)
+Rebox2F(plusFloat#,addC)
+Rebox2F(minusFloat#,subC)
+Rebox2F(timesFloat#,mulC)
+Rebox2F(divideFloat#,divideC)
+Rebox1F(sinFloat#,sinC)
+Rebox1F(cosFloat#,cosC)
+Rebox1F(expFloat#,expC)
+Rebox1F(logFloat#,logC)
 Rebox1(boxI,unboxF,int2Float#,fromIntegralC)
 
-Rebox1D(negateDouble#,negate)
-Rebox2D((+##),(+))
-Rebox2D((-##),(-))
-Rebox2D((*##),(*))
-Rebox2D((/##),(/))
-Rebox1D(sinDouble#,sin)
-Rebox1D(cosDouble#,cos)
-Rebox1D(expDouble#,exp)
-Rebox1D(logDouble#,log)
-Rebox2D((**##),(**))
+Rebox1D(negateDouble#,negateC)
+Rebox2D((+##),addC)
+Rebox2D((-##),subC)
+Rebox2D((*##),mulC)
+Rebox2D((/##),divideC)
+Rebox1D(sinDouble#,sinC)
+Rebox1D(cosDouble#,cosC)
+Rebox1D(expDouble#,expC)
+Rebox1D(logDouble#,logC)
+Rebox2D((**##),uncurry pow)
 Rebox1(boxI,unboxD,int2Double#,fromIntegralC)
 
 -- fromIntegralC to avoid looping with GHC's fromIntegral/Int->Float and
 -- fromIntegral/Int->Double
 
-Rebox2(id,unboxIB, eqInteger#,(==))
-Rebox2(id,unboxIB,neqInteger#,(/=))
-Rebox2(id,unboxIB, geInteger#,(> ))
-Rebox2(id,unboxIB, ltInteger#,(< ))
-Rebox2(id,unboxIB, gtInteger#,(>=))
-Rebox2(id,unboxIB, leInteger#,(<=))
+Rebox2(id,unboxIB, eqInteger#,equal)
+Rebox2(id,unboxIB,neqInteger#,notEqual)
+Rebox2(id,unboxIB, geInteger#,greaterThanOrEqual)
+Rebox2(id,unboxIB, ltInteger#,lessThan)
+Rebox2(id,unboxIB, gtInteger#,greaterThan)
+Rebox2(id,unboxIB, leInteger#,lessThanOrEqual)
 
  #-}
 
@@ -425,7 +425,8 @@ Catify((**),pow)
 
 -- u ** v == exp (log (u ** v)) == exp (v * log u)  -- log is base in Haskell
 pow :: Floating a => a -> a -> a
-u `pow` v = exp (v * log u)
+-- u `pow` v = exp (v * log u)
+u `pow` v = expC (mulC (v,logC u))  -- needed for GHC >= 8.2?
 {-# INLINE pow #-}
 
 Catify(floor,floorC)
@@ -461,17 +462,17 @@ CatifyC(plusDouble  , addC)
 CatifyC(minusDouble , subC)
 CatifyC(timesDouble , mulC)
 CatifyC(divideDouble, divideC)
-Catify(negateDouble , negate)
+Catify(negateDouble , negateC)
 
 CatifyC(gtDouble,greaterThan)
 CatifyC(geDouble,greaterThanOrEqual)
 CatifyC(ltDouble,lessThan)
 CatifyC(leDouble,lessThanOrEqual)
 
-Catify(expDouble,exp)
-Catify(logDouble,log)
-Catify(sinDouble,sin)
-Catify(cosDouble,cos)
+Catify(expDouble,expC)
+Catify(logDouble,logC)
+Catify(sinDouble,sinC)
+Catify(cosDouble,cosC)
 
 -- Maybe move elsewhere
 

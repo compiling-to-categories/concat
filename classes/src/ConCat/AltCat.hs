@@ -233,7 +233,7 @@ Op0(it,(TerminalCat k, Ok k a) => a `k` Unit k)
 Op0(ti,(CoterminalCat k, Ok k a) => Counit k `k` a)
 
 Op(const,(ConstCat k b, Ok k a) => b -> (a `k` ConstObj k b))
--- Op(unitArrow,ConstCat k b => b -> (Unit k `k` ConstObj k b))
+Op(unitArrow,(ConstCat k b, Ok k (Unit k)) => b -> (Unit k `k` ConstObj k b))
 
 Op(delay,(DelayCat k, Ok k a) => a -> (a `k` a))
 
