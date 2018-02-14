@@ -173,8 +173,7 @@ import Control.Newtype (Newtype(..))
 -- Experiments
 import GHC.Exts (Coercible,coerce)
 
-import Test.Tasty (defaultMain)
-import GoldTests (basicTests)
+import Miscellany
 
 -- default (Int, Double)
 
@@ -183,8 +182,6 @@ type C = Complex R
 main :: IO ()
 main = sequence_
   [ putChar '\n' -- return ()
-
-  , defaultMain basicTests
 
   -- -- !! 2018-02-10: compile failed
   -- , runSynCirc "jamPF" $ toCcc $ A.jamPF @(->) @(Finite 10) @R

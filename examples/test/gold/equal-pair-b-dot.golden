@@ -1,0 +1,30 @@
+digraph equal_pair_b {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>|<Out1>}}"] }
+  subgraph cluster_74 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    c72 [label="{{<In0>|<In1>}|\'|{<Out0>}}"]
+    c69 [label="{{<In0>|<In1>}|\a|{<Out0>}}"]
+    c70 [label="{{<In0>|<In1>}|\a|{<Out0>}}"]
+    c1 [label="{In|{<Out0>|<Out1>}}"]
+    c73 [label="{{<In0>}|Out}"]
+    c69:Out0 -> c72:In0 [label="Bool"]
+    c70:Out0 -> c72:In1 [label="Bool"]
+    c0:Out0 -> c69:In0 [label="Double"]
+    c1:Out0 -> c69:In1 [label="Double"]
+    c0:Out1 -> c70:In0 [label="Int"]
+    c1:Out1 -> c70:In1 [label="Int"]
+    c72:Out0 -> c73:In0 [label="Bool"]
+  }
+  subgraph clusterc75 { label=""; color=white; margin=0; c75 [label="{{<In0>}|Out}"] }
+  c73 -> c75:In0 [ltail=cluster_74,label="Double × Int ’ Bool"]
+}

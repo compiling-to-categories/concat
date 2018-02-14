@@ -128,9 +128,6 @@ Test-Suite misc-examples
                   , integer-gmp
                   , distributive, adjunctions
                   , constraints >= 0.8
-                  , bytestring
-                  , tasty
-                  , tasty-golden
                   -- Array/vector experiments
                   , finite-typelits, vector-sized
   ghc-options:      -O2
@@ -179,4 +176,35 @@ Test-Suite testHasFins
                   , vector-sized
                   , concat-examples
                   , concat-classes
+
+Test-Suite gold-tests
+  type:             exitcode-stdio-1.0
+  default-language: Haskell98
+  hs-Source-Dirs:   test
+  main-is:          GoldTests.hs
+  Build-Depends:    base<5
+                  , Cabal >= 1.24.0.0
+                  , ghc-prim
+                  , constraints >= 0.8
+                  , newtype-generics >= 0.5.0.1
+                  , pointed, keys
+                  , distributive, adjunctions
+                  , concat-inline
+                  , concat-classes
+                  , concat-plugin
+                  , concat-examples
+                  , ghc-prim
+                  , integer-gmp
+                  , distributive, adjunctions
+                  , constraints >= 0.8
+                  , bytestring
+                  , tasty
+                  , tasty-golden
+                  -- Array/vector experiments
+                  , finite-typelits, vector-sized
+  ghc-options:      -O2
+                    -fplugin=ConCat.Plugin
+  if flag(smt)
+    cpp-options:        -DCONCAT_SMT
+  cpp-options:      -DVectorSized
 

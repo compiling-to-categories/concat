@@ -1,0 +1,7 @@
+curry
+(mulC .
+ (id &&& id) .
+ subC .
+ (exr . exr &&&
+  addC . (mulC . (exl . exr . exl &&& exl . exr) &&& exr . exr . exl)) .
+ (id &&& exr . exl) . (id &&& exl))

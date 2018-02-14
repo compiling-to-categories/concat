@@ -1,0 +1,2 @@
+tabulate .
+curry (tabulate . curry (ifC . (equal &&& const 1.0 &&& const 0.0)) . exr)

@@ -1,0 +1,3 @@
+mulC .
+(id &&& id) .
+subC . (exr . exr &&& apply . (exl . exl &&& exl . exr)) . (id &&& exr)

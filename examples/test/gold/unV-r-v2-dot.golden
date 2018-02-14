@@ -1,0 +1,24 @@
+digraph unV_r_v2 {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>}}"] }
+  subgraph cluster_3 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    c1 [label="{In|{<Out0>}}"]
+    c2 [label="{{<In0>}|Out}"]
+    c1:Out0 -> c2:In0 [label="Double"]
+  }
+  subgraph clusterc4 { label=""; color=white; margin=0; c4 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
+  subgraph clusterc5 { label=""; color=white; margin=0; c5 [label="{{<In0>}|Out}"] }
+  c2 -> c4:In0 [ltail=cluster_3,label="Double ’ Double"]
+  c0:Out0 -> c4:In1 [label="Vector 2 Double"]
+  c4:Out0 -> c5:In0 [label="Vector 2 Double"]
+}
