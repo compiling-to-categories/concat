@@ -66,29 +66,47 @@ instance CartCon con => Category (Mealy con) where
   {-# INLINE id #-}
   {-# INLINE (.) #-}
 
+instance CartCon con => MonoidalPCat (Mealy con) where
+  (***) = op2 (***@)
+   where
+     (f ***@ g) ((a,b),(s,t)) = ((c,d),(s',t'))
+      where
+        (c,s') = f (a,s)
+        (d,t') = g (b,t)
+  {-# INLINE (***) #-}
+
 instance CartCon con => ProductCat (Mealy con) where
   exl = arr exl
   exr = arr exr
-  (&&&) = op2 (&&&@)
-   where
-     (f &&&@ g) (a,(s,t)) = ((c,d),(s',t'))
-      where
-        (c,s') = f (a,s)
-        (d,t') = g (a,t)
+  dup = arr dup
+  -- (&&&) = op2 (&&&@)
+  --  where
+  --    (f &&&@ g) (a,(s,t)) = ((c,d),(s',t'))
+  --     where
+  --       (c,s') = f (a,s)
+  --       (d,t') = g (a,t)
   {-# INLINE exl #-}
   {-# INLINE exr #-}
-  {-# INLINE (&&&) #-}
+  -- {-# INLINE (&&&) #-}
+
+instance CartCon con => MonoidalSCat (Mealy con) where
+  (+++) = op2 (+++@)
+   where
+     (f +++@ _) (Left  a,(s,t)) = (Left  c,(s',t)) where (c,s') = f (a,s)
+     (_ +++@ g) (Right b,(s,t)) = (Right d,(s,t')) where (d,t') = g (b,t)
+  {-# INLINE (+++) #-}
 
 instance CartCon con => CoproductCat (Mealy con) where
   inl = arr inl
   inr = arr inr
-  (|||) = op2 (|||@)
-   where
-     (f |||@ _) (Left  a,(s,t)) = (c,(s',t)) where (c,s') = f (a,s)
-     (_ |||@ g) (Right b,(s,t)) = (c,(s,t')) where (c,t') = g (b,t)
+  jam = arr jam
+  -- (|||) = op2 (|||@)
+  --  where
+  --    (f |||@ _) (Left  a,(s,t)) = (c,(s',t)) where (c,s') = f (a,s)
+  --    (_ |||@ g) (Right b,(s,t)) = (c,(s,t')) where (c,t') = g (b,t)
   {-# INLINE inl #-}
   {-# INLINE inr #-}
-  {-# INLINE (|||) #-}
+  -- {-# INLINE (|||) #-}
 
 instance CartCon con => ConstCat (Mealy con) b where const b = arr (const b)
 

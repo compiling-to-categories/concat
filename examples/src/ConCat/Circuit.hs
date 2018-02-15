@@ -11,7 +11,7 @@
 -- -- Improves hash consing, but can obscure equivalent circuits
 -- #define NoCommute
 
--- #define NoBusLabel
+#define NoBusLabel
 
 #define MealyToArrow
 
@@ -829,12 +829,14 @@ dupB a = pure (ProdB a a)
 
 instance OpCon (:*) (Sat GenBuses) where inOp = Entail (Sub Dict)
 
+instance MonoidalPCat (:>) where
+  (***) = inCK2 crossB  -- or default
+
 instance ProductCat (:>) where
   -- type Prod (:>) = (:*)
   exl   = C (arr exlB)
   exr   = C (arr exrB)
   dup   = mkCK dupB
-  (***) = inCK2 crossB  -- or default
   (&&&) = inCK2 forkB   -- or default
 
 -- instance OpCon (:+) (Sat GenBuses) where inOp = Entail (Sub Dict)
@@ -849,10 +851,6 @@ instance CoproductPCat (:>) where
   inrP   = namedC "inrP"
   jamP   = namedC "jamP"
   swapPS = swapP
-  (++++) = inCK2 crossB
-
--- TODO: indexed biproducts
-
 
 {--------------------------------------------------------------------
     Misc

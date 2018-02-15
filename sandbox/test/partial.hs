@@ -20,15 +20,16 @@ import Data.Reflection
 finite :: (KnownNat n, KnownNat m, (n <=? m) ~ 'False) => Proxy m -> Finite n
 finite p = Finite $ natVal p
 -- finite = Finite . natVal  -- I think I can't do this reduction, if I want the inlining to work; is that right?
-{-# INLINE finite #-}
+-- {-# INLINE finite #-}
 
 
 -- A safer form of `getFinite`.
 -- reifyNat :: forall r. Integer -> (forall n. KnownNat n => Proxy n -> r) -> r
-getFinite' :: KnownNat n => Finite n -> (forall m. (KnownNat m, (n <=? m) ~ 'False) => Proxy m -> r) -> r
+-- getFinite' :: KnownNat n => Finite n -> (forall m. (KnownNat m, (n <=? m) ~ 'False) => Proxy m -> r) -> r
+getFinite' :: KnownNat n => Finite n -> (forall m. (KnownNat m, n `CmpNat` m ~ 'GT) => Proxy m -> r) -> r | n -> m
 getFinite' x f = reifyNat (getFinite x) f
 -- getFinite' = reifyNat . getFinite  -- I think I can't do this reduction, if I want the inlining to work; is that right?
-{-# INLINE getFinite' #-}
+-- {-# INLINE getFinite' #-}
 
 
 main :: IO ()

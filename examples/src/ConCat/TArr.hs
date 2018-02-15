@@ -1,82 +1,126 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 
 -- | Domain-typed arrays
 
 module ConCat.TArr where
 
--- import GHC.TypeLits (KnownNat)
+import Prelude hiding (id, (.), const)  -- Coming from ConCat.AltCat.
+
 import GHC.TypeLits
 import GHC.Types (Nat)
 
 import Data.Proxy
-import Data.Finite
-import Data.Vector.Sized
+import Data.Finite.Internal  (Finite(..))
 import qualified Data.Vector.Sized as V
 
-import ConCat.Misc ((:*),(:+))
+import ConCat.AltCat
+import qualified ConCat.Category
+import ConCat.Misc           ((:*), (:+), cond)
+
+{----------------------------------------------------------------------
+   Some useful isomorphisms.
+----------------------------------------------------------------------}
+
+type a :^ b = b -> a
+
+data a <-> b = Iso (a -> b) (b -> a)
+
+instance Category (<->) where
+  id = Iso id id
+  Iso g h . Iso g' h' = Iso (g . g') (h' . h)
+
+instance MonoidalPCat (<->) where
+  Iso g h *** Iso g' h' = Iso (g *** g') (h *** h')
+
+instance MonoidalSCat (<->) where
+  Iso g h +++ Iso g' h' = Iso (g +++ g') (h +++ h')
+
+type KnownNat2 m n = (KnownNat m, KnownNat n)
+
+finSum :: KnownNat2 m n => (Finite m :+ Finite n) <-> Finite (m + n)
+finSum = Iso h g
+  where g :: forall m n. KnownNat2 m n => Finite (m + n) -> Finite m :+ Finite n
+        g (Finite l) = if l >= natValAt @m
+                          then Right $ Finite (l - natValAt @m)
+                          else Left  $ Finite l
+
+        h :: forall m n. KnownNat2 m n => Finite m :+ Finite n -> Finite (m + n)
+        h (Left  (Finite l)) = Finite l  -- Need to do it this way, for type conversion.
+        h (Right (Finite k)) = Finite (k + natValAt @m)
+
+finProd :: KnownNat2 m n => (Finite m :* Finite n) <-> Finite (m * n)
+finProd = Iso h g
+  where g :: forall m n. KnownNat2 m n => Finite (m * n) -> Finite m :* Finite n
+        g (Finite l) = let (q,r) = l `divMod` natValAt @n
+                        in (Finite q, Finite r)
+
+        h :: forall m n. KnownNat2 m n => Finite m :* Finite n -> Finite (m * n)
+        h (Finite l, Finite k) = Finite $ l * natValAt @n + k
+
+isoFwd :: a <-> b -> a -> b
+isoFwd (Iso g _) = g
+
+isoRev :: a <-> b -> b -> a
+isoRev (Iso _ h) = h
+
+toFin :: HasFin a => a -> Finite (Card a)
+toFin = isoFwd iso
+
+unFin :: HasFin a => Finite (Card a) -> a
+unFin = isoRev iso
+
+{----------------------------------------------------------------------
+   A class of types with known finite representations.
+----------------------------------------------------------------------}
 
 class KnownNat (Card a) => HasFin a where
   type Card a :: Nat
-  toFin :: a -> Finite (Card a)
-  unFin :: Finite (Card a) -> a
+  iso :: a <-> Finite (Card a)
 
 instance HasFin () where
   type Card () = 1
-  toFin _ = finite 0
-  unFin _ = ()
+  iso = Iso (const (Finite 0)) (const ())
 
 instance HasFin Bool where
   type Card Bool = 2
-
-  toFin False = finite 0
-  toFin True  = finite 1
-
-  unFin x = case (getFinite x) of
-              0 -> False
-              1 -> True
-              _ -> error "Yikes! We just got a numerical representation of Bool >1."
+  iso = Iso (Finite . cond 1 0) (\ (Finite n) -> n > 0)
 
 instance KnownNat n => HasFin (Finite n) where
   type Card (Finite n) = n
-  toFin = id
-  unFin = id
+  iso = id
 
-instance (HasFin a, HasFin b, KnownNat (Card a + Card b)) => HasFin (a :+ b) where
+instance (HasFin a, HasFin b) => HasFin (a :+ b) where
   type Card (a :+ b) = Card a + Card b
+  iso = finSum . (iso +++ iso)
 
-  toFin (Left  x) = (finite . getFinite . toFin) x
-  toFin (Right y) = finite $ natVal (Proxy @(Card a)) + (getFinite . toFin) y
-
-  unFin n = if getFinite n < natVal (Proxy @(Card a))
-               then Left  ((unFin . finite . getFinite) n)
-               else Right ((unFin . finite) $ getFinite n - natVal (Proxy @(Card a)))
-
-instance (HasFin a, HasFin b, KnownNat (Card a * Card b)) => HasFin (a :* b) where
+instance (HasFin a, HasFin b) => HasFin (a :* b) where
   type Card (a :* b) = Card a * Card b
+  iso = finProd . (iso *** iso)
 
-  toFin (x,y) = finite $ (getFinite . toFin) x * (natVal (Proxy @(Card b))) + (getFinite . toFin) y
+{----------------------------------------------------------------------
+  Domain-typed "arrays"
+----------------------------------------------------------------------}
 
-  unFin n = let (q,r) = (getFinite . toFin) n `divMod` (natVal (Proxy @(Card b)))
-             in ((unFin . finite) q, (unFin . finite) r)
-
--- Domain-typed "arrays"
-newtype Arr a b = Arr (Vector (Card a) b)
+newtype Arr a b = Arr (V.Vector (Card a) b)
 
 instance Functor (Arr a) where
-  fmap f (Arr v) = Arr $ V.map f v
+  fmap f (Arr v) = Arr $ fmap f v  -- fmap f . Arr == Arr . fmap f
 
 (!) :: HasFin a => Arr a b -> (a -> b)
-Arr v ! a = v `index` toFin a
+Arr v ! a = v `V.index` toFin a
 
 arrTrie :: (HasFin a, HasTrie a) => Arr a b -> Trie a b
 arrTrie = toTrie . (!)
@@ -93,3 +137,11 @@ class HasTrie a where
 
 -- instance (HasTrie a, HasTrie b) => HasTrie (a :+ b) where -- ...
 -- instance (HasTrie a, HasTrie b) => HasTrie (a :* b) where -- ...
+
+{----------------------------------------------------------------------
+  Utilities
+----------------------------------------------------------------------}
+
+natValAt :: forall n. KnownNat n => Integer
+natValAt = natVal (Proxy @n)
+

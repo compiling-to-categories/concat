@@ -44,7 +44,7 @@ library
                      , mtl >= 2.2.1
                      , finite-typelits
                      -- -- For NatArr
-                     -- , ghc-typelits-knownnat
+                     , ghc-typelits-knownnat
                      -- For Incremental
                      , transformers >= 0.5.2.0, mtl >= 2.2.1
                      -- For Gui
@@ -99,6 +99,7 @@ library
                        ConCat.Local
                        ConCat.Deep
                        ConCat.TArr
+                       -- ConCat.Isomorphism
   if flag(smt)
     exposed-modules: ConCat.SMT
   ghc-options:      -O2
@@ -176,6 +177,7 @@ Test-Suite testHasFins
                   , vector-sized
                   , concat-examples
                   , concat-classes
+                  , ghc-typelits-knownnat
 
 Test-Suite gold-tests
   type:             exitcode-stdio-1.0

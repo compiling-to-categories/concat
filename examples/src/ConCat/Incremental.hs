@@ -233,15 +233,17 @@ instance Category (-#>) where
   {-# INLINE id #-}
   {-# INLINE (.) #-}
 
+instance MonoidalPCat (-#>) where
+  (***) = inAbst2 ((result.result) inPairD (***))
+  {-# INLINE (***) #-}
+
 instance ProductCat (-#>) where
   exl   = abst (exl . unPairD)
   exr   = abst (exr . unPairD)
   (&&&) = inAbst2 ((result.result) (pairD .) (&&&))
-  (***) = inAbst2 ((result.result) inPairD (***))
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
-  {-# INLINE (***) #-}
 
   -- (&&&) = inAbst2 (\ f g -> pairD . (f &&& g))
   -- (***) = inAbst2 (\ f g -> pairD . (f *** g) . unPairD)
@@ -266,12 +268,10 @@ instance CoproductPCat (-#>) where
   inlP = abst (pairD . inlP)
   inrP = abst (pairD . inrP)
   (||||) = inAbst2 (\ f g -> (f |||| g) . unPairD)
-  (++++) = inAbst2 (\ f g -> pairD . (f ++++ g) . unPairD)
   swapPS = abst (inPairD swapPS)
   {-# INLINE inlP #-}
   {-# INLINE inrP #-}
   {-# INLINE (||||) #-}
-  {-# INLINE (++++) #-}
 
 #if 0
 -- Types for inlP:

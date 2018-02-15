@@ -81,32 +81,35 @@ instance Category (-+>) where
   (.) = inAbst2 (.)
   {-# OPINLINE (.) #-}
 
+instance MonoidalPCat (-+>) where
+  (***) = inAbst2 (***)
+  {-# OPINLINE (***) #-}
+
 instance ProductCat (-+>) where
   Abst(exl)
   Abst(exr)
   (&&&)  = inAbst2 (&&&)
-  (***)  = inAbst2 (***)
   Abst(dup)
   Abst(swapP)
   first  = inAbst first
   second = inAbst second
   {-# OPINLINE (&&&) #-}
-  {-# OPINLINE (***) #-}
   {-# OPINLINE first #-}
   {-# OPINLINE second #-}
 
 instance CoproductPCat (-+>) where
   Abst(inlP)
   Abst(inrP)
-  (||||) = inAbst2 (\ f g (x,y) -> f x ^+^ g y)
-  (++++) = inAbst2 (***)
-  jamP   = abst (uncurry (^+^))  -- 2018-02-04 notes
+  -- (||||) = inAbst2 (\ f g (x,y) -> f x ^+^ g y)
+  -- (++++) = inAbst2 (***)
+  -- jamP   = abst (uncurry (^+^))  -- 2018-02-04 notes
   -- jamP   = abst jamP  -- 2018-02-07 notes
+  Abst(jamP)
   Abst(swapPS)
   -- ...
-  {-# OPINLINE (||||) #-}
-  {-# OPINLINE (++++) #-}
-  {-# OPINLINE jamP #-}
+  -- {-# OPINLINE (||||) #-}
+  -- {-# OPINLINE (++++) #-}
+  -- {-# OPINLINE jamP #-}
 
 instance Num s => ScalarCat (-+>) s where
   scale s = abst (s *)
@@ -134,17 +137,6 @@ instance CoerceCat (->) a b => CoerceCat (-+>) a b where
 instance RepCat (->) a r => RepCat (-+>) a r where
   Abst(reprC)
   Abst(abstC)
-
-instance () => BoolCat (-+>) where
-  Abst(notC)
-  Abst(andC)
-  Abst(orC)
-  Abst(xorC)
-
-instance Additive a => IfCat (-+>) a where
-  Abst(ifC)
-
--- TODO: macros for method definitions
 
 {--------------------------------------------------------------------
     Indexed products and coproducts
@@ -188,6 +180,15 @@ instance (Num s, Additive s) => NumCat (-+>) s where
   Abst(powIC)
 
 -- I don't think I need NumCat etc.
+
+instance BoolCat (-+>) where
+  Abst(notC)
+  Abst(andC)
+  Abst(orC)
+  Abst(xorC)
+
+instance Additive a => IfCat (-+>) a where
+  Abst(ifC)
 
 #endif
 
