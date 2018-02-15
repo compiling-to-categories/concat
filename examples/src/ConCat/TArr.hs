@@ -23,6 +23,8 @@ import GHC.TypeLits
 import GHC.Types (Nat)
 
 import Data.Proxy
+import Data.Tuple            (swap)
+import Data.Finite           (getFinite)
 import Data.Finite.Internal  (Finite(..))
 import qualified Data.Vector.Sized as V
 
@@ -70,6 +72,19 @@ finProd = Iso h g
         h :: forall m n. KnownNat2 m n => Finite m :* Finite n -> Finite (m * n)
         h (Finite l, Finite k) = Finite $ l * natValAt @n + k
 
+-- Using Horner's rule and its inverse, as per Conal's suggestion.
+finExp :: KnownNat2 m n => (Finite m :^ Finite n) <-> Finite (m ^ n)
+finExp = Iso h g
+  where g :: forall m n. KnownNat2 m n => Finite (m ^ n) -> Finite m :^ Finite n
+        g (Finite l) = \ n -> v `V.index` n
+          where v :: V.Vector n (Finite m)
+                v = V.unfoldrN (first Finite . swap . flip divMod (natValAt @m)) l
+
+        h :: forall m n. KnownNat2 m n => Finite m :^ Finite n -> Finite (m ^ n)
+        h f = Finite $ V.foldl' (\accum m -> accum * (natValAt @m) + getFinite m)
+                              0
+                              $ V.reverse $ V.generate_ f
+
 isoFwd :: a <-> b -> a -> b
 isoFwd (Iso g _) = g
 
@@ -81,6 +96,12 @@ toFin = isoFwd iso
 
 unFin :: HasFin a => Finite (Card a) -> a
 unFin = isoRev iso
+
+inFin :: (HasFin a, HasFin b) => (Finite (Card a) -> Finite (Card b)) -> a -> b
+inFin f' = unFin . f' . toFin
+
+liftFin :: (HasFin a, HasFin b) => (a -> b) -> Finite (Card a) -> Finite (Card b)
+liftFin f = toFin . f . unFin
 
 {----------------------------------------------------------------------
    A class of types with known finite representations.
@@ -109,6 +130,10 @@ instance (HasFin a, HasFin b) => HasFin (a :+ b) where
 instance (HasFin a, HasFin b) => HasFin (a :* b) where
   type Card (a :* b) = Card a * Card b
   iso = finProd . (iso *** iso)
+
+instance (HasFin a, HasFin b) => HasFin (a :^ b) where
+  type Card (a :^ b) = Card a ^ Card b
+  iso = finExp . Iso liftFin inFin
 
 {----------------------------------------------------------------------
   Domain-typed "arrays"
