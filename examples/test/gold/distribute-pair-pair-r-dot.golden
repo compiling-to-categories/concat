@@ -1,0 +1,20 @@
+digraph distribute_pair_pair_r {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  c0 [label="{In|{<Out0>|<Out1>|<Out2>|<Out3>}}"]
+  c1 [label="{{<In0>|<In1>|<In2>|<In3>}|distribute|{<Out0>|<Out1>|<Out2>|<Out3>}}"]
+  c2 [label="{{<In0>|<In1>|<In2>|<In3>}|Out}"]
+  c0:Out0 -> c1:In0 []
+  c0:Out1 -> c1:In1 []
+  c0:Out2 -> c1:In2 []
+  c0:Out3 -> c1:In3 []
+  c1:Out0 -> c2:In0 []
+  c1:Out1 -> c2:In1 []
+  c1:Out2 -> c2:In2 []
+  c1:Out3 -> c2:In3 []
+}

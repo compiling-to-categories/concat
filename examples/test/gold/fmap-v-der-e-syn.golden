@@ -1,0 +1,5 @@
+second (id . repr) .
+second
+(abst .
+ curry (fmap apply . apply . (curry zipC . exl &&& exr)) . fmap (id . repr)) .
+(fmap negate &&& fmap (abst . curry mulC . const -1.0))

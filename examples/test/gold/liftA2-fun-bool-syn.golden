@@ -1,0 +1,5 @@
+curry
+(curry
+ (apply .
+  (apply . (curry (curry addC . apply) . exl . exl &&& exr) &&&
+   apply . (exr . exl &&& exr))))

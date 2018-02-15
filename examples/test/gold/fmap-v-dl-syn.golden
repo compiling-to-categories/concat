@@ -1,0 +1,42 @@
+coerce .
+apply .
+(curry (distribute . apply) .
+ curry
+ (fmap
+  (coerce .
+   fmap coerce . apply . (exl &&& fmap (coerce . coerce) . coerce . exr)) .
+  zipC . first point) &&&
+ tabulate .
+ curry
+ (tabulate .
+  curry
+  (ifC .
+   (apply .
+    (curry
+     (apply .
+      (apply .
+       (apply .
+        (curry
+         (curry
+          (curry
+           (ifC .
+            (equal .
+             (coerce . exl &&& coerce . exr) .
+             (exl . exl . exl &&& exr . exl) &&&
+             equal . (exr . exl . exl &&& exr) &&& const False)))) .
+         exl . exr . exl &&&
+         exr . exr . exl) &&&
+        exl . exr) &&&
+       exr . exr) .
+      (id &&& exr . exl) . (id &&& exl)) .
+     exr . (id &&& exl) &&&
+     exr . (id &&& exr)) .
+    (exr . exl &&& exr) &&&
+    const 1.0 &&& exl . exl))) .
+ const 0.0) .
+exr .
+second (id . repr) .
+second
+(abst .
+ curry (fmap apply . apply . (curry zipC . exl &&& exr)) . fmap (id . repr)) .
+(fmap negate &&& fmap (abst . curry mulC . const -1.0))

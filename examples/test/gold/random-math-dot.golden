@@ -1,0 +1,26 @@
+digraph random_math {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  c0 [label="{In|{<Out0>|<Out1>}}"]
+  c1 [label="{4.0|{<Out0>}}"]
+  c2 [label="{3.0|{<Out0>}}"]
+  c3 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+  c4 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+  c5 [label="{{<In0>|<In1>}|\|{<Out0>}}"]
+  c6 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+  c7 [label="{{<In0>}|Out}"]
+  c0:Out0 -> c3:In0 []
+  c2:Out0 -> c3:In1 []
+  c0:Out1 -> c4:In0 []
+  c3:Out0 -> c4:In1 []
+  c1:Out0 -> c5:In0 []
+  c4:Out0 -> c5:In1 []
+  c5:Out0 -> c6:In0 []
+  c5:Out0 -> c6:In1 []
+  c6:Out0 -> c7:In0 []
+}
