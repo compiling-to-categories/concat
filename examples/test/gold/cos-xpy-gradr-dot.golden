@@ -1,0 +1,23 @@
+digraph cos_xpy_gradr {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  c0 [label="{In|{<Out0>|<Out1>}}"]
+  c1 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+  c62 [label="{{<In0>}|cos|{<Out0>}}"]
+  c63 [label="{{<In0>}|sin|{<Out0>}}"]
+  c64 [label="{{<In0>}|negate|{<Out0>}}"]
+  c121 [label="{{<In0>|<In1>|<In2>}|Out}"]
+  c0:Out0 -> c1:In0 []
+  c0:Out1 -> c1:In1 []
+  c1:Out0 -> c62:In0 []
+  c1:Out0 -> c63:In0 []
+  c63:Out0 -> c64:In0 []
+  c62:Out0 -> c121:In0 []
+  c64:Out0 -> c121:In1 []
+  c64:Out0 -> c121:In2 []
+}

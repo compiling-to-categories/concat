@@ -1,0 +1,21 @@
+digraph equal_pair_uncurry_b {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  c0 [label="{In|{<Out0>|<Out1>|<Out2>|<Out3>}}"]
+  c142 [label="{{<In0>|<In1>}|\a|{<Out0>}}"]
+  c143 [label="{{<In0>|<In1>}|\a|{<Out0>}}"]
+  c145 [label="{{<In0>|<In1>}|\'|{<Out0>}}"]
+  c146 [label="{{<In0>}|Out}"]
+  c0:Out0 -> c142:In0 []
+  c0:Out2 -> c142:In1 []
+  c0:Out1 -> c143:In0 []
+  c0:Out3 -> c143:In1 []
+  c142:Out0 -> c145:In0 []
+  c143:Out0 -> c145:In1 []
+  c145:Out0 -> c146:In0 []
+}

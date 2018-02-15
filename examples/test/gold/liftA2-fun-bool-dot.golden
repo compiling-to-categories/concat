@@ -1,0 +1,39 @@
+digraph liftA2_fun_bool {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>}}"] }
+  subgraph cluster_21 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    subgraph clusterc1 { label=""; color=white; margin=0; c1 [label="{In|{<Out0>}}"] }
+    subgraph clusterc20 { label=""; color=white; margin=0; c20 [label="{{<In0>}|Out}"] }
+    subgraph cluster_19 {
+      margin=8
+      fontsize=20
+      labeljust=r
+      color=DarkGreen
+      c17 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+      c2 [label="{In|{<Out0>}}"]
+      c18 [label="{{<In0>}|Out}"]
+      c11 [label="{{<In0>|<In1>}|apply|{<Out0>}}"]
+      c16 [label="{{<In0>|<In1>}|apply|{<Out0>}}"]
+      c11:Out0 -> c17:In0 []
+      c16:Out0 -> c17:In1 []
+      c17:Out0 -> c18:In0 []
+      c0:Out0 -> c11:In0 []
+      c2:Out0 -> c11:In1 []
+      c1:Out0 -> c16:In0 []
+      c2:Out0 -> c16:In1 []
+    }
+    c18 -> c20:In0 [ltail=cluster_19]
+  }
+  subgraph clusterc22 { label=""; color=white; margin=0; c22 [label="{{<In0>}|Out}"] }
+  c20 -> c22:In0 [ltail=cluster_21]
+}

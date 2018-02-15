@@ -1,0 +1,8 @@
+(exl . id &&& repr . exr . id) .
+second repr .
+apply .
+(curry
+ (exr &&&
+  abst .
+  abst . curry mulC . apply . (curry exl . negate . sin . exl &&& exr)) &&&
+ cos)

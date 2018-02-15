@@ -88,7 +88,7 @@ module ConCat.Circuit
   , SourceToBuses(..), CompS(..), simpleComp
   , mkGraph
   , Attr
-  , writeDot, displayDot,Name,Report,Graph
+  , graphDot, writeDot, displayDot,Name,Report,Graph
   -- , simpleComp
   , tagged
   , systemSuccess
@@ -272,7 +272,7 @@ instance Show (Buses a) where
 
 -- TODO: use operations from Data.Functor.Classes, such as showsUnaryWith.
 -- Give a Show1 instance for Buses in the style below, and then use
--- 
+--
 --   showsPrec1 :: (Show1 f, Show a) => Int -> f a -> ShowS
 
 {- From Data.Functor.Classes:

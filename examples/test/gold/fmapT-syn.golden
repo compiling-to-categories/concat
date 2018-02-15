@@ -1,0 +1,1 @@
+curry (fmap (addC . (exr &&& exl)) . zipC . first point)
