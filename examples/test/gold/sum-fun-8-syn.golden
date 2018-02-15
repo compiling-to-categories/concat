@@ -1,0 +1,15 @@
+addC .
+(addC .
+ (addC .
+  (apply . (id &&& (const False &&& const False) &&& const False) &&&
+   apply . (id &&& (const False &&& const False) &&& const True)) &&&
+  addC .
+  (apply . (id &&& (const False &&& const True) &&& const False) &&&
+   apply . (id &&& (const False &&& const True) &&& const True))) &&&
+ addC .
+ (addC .
+  (apply . (id &&& (const True &&& const False) &&& const False) &&&
+   apply . (id &&& (const True &&& const False) &&& const True)) &&&
+  addC .
+  (apply . (id &&& (const True &&& const True) &&& const False) &&&
+   apply . (id &&& (const True &&& const True) &&& const True))))

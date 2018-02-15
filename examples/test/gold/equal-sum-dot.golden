@@ -1,0 +1,24 @@
+digraph equal_sum {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>}}"] }
+  subgraph cluster_4 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    c2 [label="{{<In0>|<In1>}|\a|{<Out0>}}"]
+    c1 [label="{In|{<Out0>}}"]
+    c3 [label="{{<In0>}|Out}"]
+    c0:Out0 -> c2:In0 []
+    c1:Out0 -> c2:In1 []
+    c2:Out0 -> c3:In0 []
+  }
+  subgraph clusterc5 { label=""; color=white; margin=0; c5 [label="{{<In0>}|Out}"] }
+  c3 -> c5:In0 [ltail=cluster_4]
+}

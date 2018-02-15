@@ -1,0 +1,34 @@
+digraph relu_ad {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>}}"] }
+  subgraph clusterc62 { label=""; color=white; margin=0; c62 [label="{0.0|{<Out0>}}"] }
+  subgraph clusterc63 { label=""; color=white; margin=0; c63 [label="{{<In0>|<In1>}|\d|{<Out0>}}"] }
+  subgraph clusterc64 { label=""; color=white; margin=0; c64 [label="{{<In0>|<In1>|<In2>}|if|{<Out0>}}"] }
+  subgraph cluster_120 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    c116 [label="{In|{<Out0>}}"]
+    c119 [label="{{<In0>}|Out}"]
+    c118 [label="{{<In0>|<In1>|<In2>}|if|{<Out0>}}"]
+    c118:Out0 -> c119:In0 []
+    c63:Out0 -> c118:In0 []
+    c116:Out0 -> c118:In1 []
+    c62:Out0 -> c118:In2 []
+  }
+  subgraph clusterc121 { label=""; color=white; margin=0; c121 [label="{{<In0>|<In1>}|Out}"] }
+  c62:Out0 -> c63:In0 []
+  c0:Out0 -> c63:In1 []
+  c63:Out0 -> c64:In0 []
+  c0:Out0 -> c64:In1 []
+  c62:Out0 -> c64:In2 []
+  c64:Out0 -> c121:In0 []
+  c119 -> c121:In1 [ltail=cluster_120]
+}

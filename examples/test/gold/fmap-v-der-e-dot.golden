@@ -1,0 +1,88 @@
+digraph fmap_v_der_e {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>}}"] }
+  subgraph cluster_4 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    c1 [label="{In|{<Out0>}}"]
+    c3 [label="{{<In0>}|Out}"]
+    c2 [label="{{<In0>}|negate|{<Out0>}}"]
+    c2:Out0 -> c3:In0 []
+    c1:Out0 -> c2:In0 []
+  }
+  subgraph clusterc5 { label=""; color=white; margin=0; c5 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
+  subgraph cluster_13 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    subgraph clusterc12 { label=""; color=white; margin=0; c12 [label="{{<In0>}|Out}"] }
+    subgraph cluster_11 {
+      margin=8
+      fontsize=20
+      labeljust=r
+      color=DarkGreen
+      c8 [label="{In|{<Out0>}}"]
+      c10 [label="{{<In0>}|Out}"]
+      c9 [label="{{<In0>}|negate|{<Out0>}}"]
+      c9:Out0 -> c10:In0 []
+      c8:Out0 -> c9:In0 []
+    }
+    c10 -> c12:In0 [ltail=cluster_11]
+  }
+  subgraph clusterc14 { label=""; color=white; margin=0; c14 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
+  subgraph cluster_17 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    c15 [label="{In|{<Out0>}}"]
+    c16 [label="{{<In0>}|Out}"]
+    c15:Out0 -> c16:In0 []
+  }
+  subgraph clusterc18 { label=""; color=white; margin=0; c18 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
+  subgraph cluster_31 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    subgraph clusterc19 { label=""; color=white; margin=0; c19 [label="{In|{<Out0>}}"] }
+    subgraph clusterc30 { label=""; color=white; margin=0; c30 [label="{{<In0>}|Out}"] }
+    subgraph cluster_28 {
+      margin=8
+      fontsize=20
+      labeljust=r
+      color=DarkGreen
+      c25 [label="{In|{<Out0>|<Out1>}}"]
+      c27 [label="{{<In0>}|Out}"]
+      c26 [label="{{<In0>|<In1>}|apply|{<Out0>}}"]
+      c26:Out0 -> c27:In0 []
+      c25:Out0 -> c26:In0 []
+      c25:Out1 -> c26:In1 []
+    }
+    subgraph clusterc29 { label=""; color=white; margin=0; c29 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
+    subgraph clusterc24 { label=""; color=white; margin=0; c24 [label="{{<In0>|<In1>}|zip|{<Out0>}}"] }
+    c29:Out0 -> c30:In0 []
+    c27 -> c29:In0 [ltail=cluster_28]
+    c24:Out0 -> c29:In1 []
+    c18:Out0 -> c24:In0 []
+    c19:Out0 -> c24:In1 []
+  }
+  subgraph clusterc32 { label=""; color=white; margin=0; c32 [label="{{<In0>|<In1>}|Out}"] }
+  c3 -> c5:In0 [ltail=cluster_4]
+  c0:Out0 -> c5:In1 []
+  c12 -> c14:In0 [ltail=cluster_13]
+  c0:Out0 -> c14:In1 []
+  c16 -> c18:In0 [ltail=cluster_17]
+  c14:Out0 -> c18:In1 []
+  c5:Out0 -> c32:In0 []
+  c30 -> c32:In1 [ltail=cluster_31]
+}
