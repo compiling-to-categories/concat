@@ -15,12 +15,12 @@ digraph fmap_b {
     c1 [label="{In|{<Out0>}}"]
     c3 [label="{{<In0>}|Out}"]
     c2 [label="{{<In0>}|negate|{<Out0>}}"]
-    c2:Out0 -> c3:In0 [label="Double"]
-    c1:Out0 -> c2:In0 [label="Double"]
+    c2:Out0 -> c3:In0 []
+    c1:Out0 -> c2:In0 []
   }
   subgraph clusterc5 { label=""; color=white; margin=0; c5 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
   subgraph clusterc6 { label=""; color=white; margin=0; c6 [label="{{<In0>}|Out}"] }
-  c3 -> c5:In0 [ltail=cluster_4,label="Double ’ Double"]
-  c0:Out0 -> c5:In1 [label="Vector 5 Double"]
-  c5:Out0 -> c6:In0 [label="Vector 5 Double"]
+  c3 -> c5:In0 [ltail=cluster_4]
+  c0:Out0 -> c5:In1 []
+  c5:Out0 -> c6:In0 []
 }

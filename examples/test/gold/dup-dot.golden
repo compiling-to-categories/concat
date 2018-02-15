@@ -8,6 +8,6 @@ digraph dup {
   nslimit=20
   c0 [label="{In|{<Out0>}}"]
   c1 [label="{{<In0>|<In1>}|Out}"]
-  c0:Out0 -> c1:In0 [label="Double"]
-  c0:Out0 -> c1:In1 [label="Double"]
+  c0:Out0 -> c1:In0 []
+  c0:Out0 -> c1:In1 []
 }

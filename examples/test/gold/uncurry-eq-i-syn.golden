@@ -1,0 +1,1 @@
+apply . (curry equal . exl &&& exr)

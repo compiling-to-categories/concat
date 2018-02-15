@@ -11,8 +11,8 @@ digraph sumA_gradr {
   c6 [label="{1.0|{<Out0>}}"]
   c7 [label="{{<In0>}|point|{<Out0>}}"]
   c8 [label="{{<In0>|<In1>}|Out}"]
-  c0:Out0 -> c1:In0 [label="Vector 5 Double"]
-  c6:Out0 -> c7:In0 [label="Double"]
-  c1:Out0 -> c8:In0 [label="Double"]
-  c7:Out0 -> c8:In1 [label="Vector 5 Double"]
+  c0:Out0 -> c1:In0 []
+  c6:Out0 -> c7:In0 []
+  c1:Out0 -> c8:In0 []
+  c7:Out0 -> c8:In1 []
 }

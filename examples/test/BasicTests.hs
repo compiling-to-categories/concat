@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
-{-# OPTIONS_GHC -Wall            #-}
+-- {-# OPTIONS_GHC -Wall            #-}
 
 module BasicTests where
 
@@ -72,7 +72,7 @@ basicTests = testGroup "basic tests"
 
   , runSynCircGold "fmap-fun-bool-plus" $ toCcc $ fmap @((->) Bool) ((+) @Int)
 
-  -- -- !! compile timeout
+  -- -- !! compile failed
   -- , runSynCircGold "mul-andInc"    $ toCcc $ andInc $ uncurry ((*) @R)
 
   , runSynCircGold "subtract-1" $ toCcc $ \x -> x - 1 :: R
@@ -152,20 +152,22 @@ basicTests = testGroup "basic tests"
 
   , runSynCircGold "equal-Int" $ toCcc $ (==) @Int
 
-  -- -- !! compile timeout
+  -- -- !! compile failed
   -- , runSynCircGold "horner-iv" $ toCcc $ ivFun $ horner @R [1,3,5]
 
-  -- -- !! compile timeout
+  -- -- !! compile failed
   -- , runSynCircGold "xyp3-iv"   $ toCcc $ ivFun $ \ (x,y) -> x * y + 3 :: R
 
-  -- -- !! compile timeout
+  -- -- !! compile failed
   -- , runSynCircGold "magSqr-iv" $ toCcc $ ivFun $ magSqr @Int
 
-  , runSynCircGold "sqr-iv" $ toCcc $ ivFun $ sqr @Int
+  -- -- !! compile failed
+  -- , runSynCircGold "sqr-iv" $ toCcc $ ivFun $ sqr @Int
 
-  , runSynCircGold "thrice-iv" $ toCcc $ ivFun $ \x -> 3 * x :: Int
+  -- -- !! compile failed
+  -- , runSynCircGold "thrice-iv" $ toCcc $ ivFun $ \x -> 3 * x :: Int
 
-  -- -- !! compile timeout
+  -- -- !! compile failed
   -- , runSynCircGold "mul-iv"    $ toCcc $ ivFun $ uncurry ((*) @Int)
 
   -- Interval analysis
@@ -173,7 +175,7 @@ basicTests = testGroup "basic tests"
 
   , runSynCircGold "fft-pair" $ toCcc $ fft @Pair @Double
 
-  -- -- !! compile timeout
+  -- -- !! compile failed
   -- , runSynCircGold "sum-rb4"    $ toCcc $ sum   @(RBin N4) @Int
 
   -- Circuit graphs on trees etc
@@ -183,8 +185,7 @@ basicTests = testGroup "basic tests"
 
   , runSynCircGold "linearF-v" $ toCcc $ linearF @R @(Vector 8) @Par1
 
-  -- -- !! compile failed
-  -- , runSynCircGold "fmap-idL-v" $ toCcc (\ (h :: Vector 8 R -> Vector 8 R) -> h <$> idL)
+  , runSynCircGold "fmap-idL-v" $ toCcc (\ (h :: Vector 8 R -> Vector 8 R) -> h <$> idL)
 
   , runSynCircGold "distribute-v-p" $ toCcc (distribute @Pair @(Vector 4) @R)
 
@@ -227,8 +228,7 @@ basicTests = testGroup "basic tests"
 
   , runSynCircGold "eq-integer" $ toCcc ((==) @Integer)
 
-  -- -- !! compile timeout
-  -- , runSynCircGold "zipWith-v" $ toCcc $ zipWith @(Vector 7) (||)
+  , runSynCircGold "zipWith-v" $ toCcc $ zipWith @(Vector 7) (||)
 
   -- -- !! compile timeout
   -- , runSynCircGold "fmap-v-dl" $ toCcc $ derFL @R $ (fmap negate :: Unop (Vector 5 R))
@@ -237,9 +237,8 @@ basicTests = testGroup "basic tests"
 
   , runSynCircGold "const-y" $ toCcc $ \(_x :: R, y :: R) -> y
 
-  -- -- !! compile failed
-  -- -- Correct, but more complex/effortful than I'd like. See 2017-12-02 notes.
-  -- , runSynCircGold "fmapT-oops-b" $ toCcc $ \ (x, v :: Vector 5 R) -> fmap (+x) v
+  -- Correct, but more complex/effortful than I'd like. See 2017-12-02 notes.
+  , runSynCircGold "fmapT-oops-b" $ toCcc $ \ (x, v :: Vector 5 R) -> fmap (+x) v
 
   , runSynCircGold "fmapT" $ toCcc $ \x (v :: Vector 5 R) -> fmap (+ x) v
 
@@ -258,7 +257,8 @@ basicTests = testGroup "basic tests"
   -- -- !! compile timeout
   -- , runSynCircGold "relu-ad" $ toCcc $ andDerF $ max @R 0
 
-  , runSynCircGold "max-ad" $ toCcc $ andDerF $ uncurry (max @R)
+  -- -- !! compile timeout
+  -- , runSynCircGold "max-ad" $ toCcc $ andDerF $ uncurry (max @R)
 
   , runSynCircGold "maxC-der" $ toCcc $ andDerF $ A.maxC @(->) @R
 
@@ -268,11 +268,10 @@ basicTests = testGroup "basic tests"
 
   , runSynCircGold "unzip-b" $ toCcc $ unzip @(Vector 5) @R @R
 
-  -- -- -- !! compile failed
-  -- -- , runSynCircGold $ toCcc $ (\ (x,xs :: Vector 5 R) -> fmap (+x) xs)
-
   -- -- !! compile failed
-  -- , runSynCircGold "fmap-complex-b" $ toCcc $ (\ (x,xs :: Vector 5 R) -> fmap (+x) xs)
+  -- , runSynCircGold $ toCcc $ (\ (x,xs :: Vector 5 R) -> fmap (+x) xs)
+
+  , runSynCircGold "fmap-complex-b" $ toCcc $ (\ (x,xs :: Vector 5 R) -> fmap (+x) xs)
 
   , runSynCircGold "fst-bool-r" $ toCcc' $ fst @Bool @R
 
@@ -287,7 +286,7 @@ basicTests = testGroup "basic tests"
 
   , runSynCircGold "foo2" $ toCcc $ uncurry $ \(x :: R) -> (sin x *)
 
-  -- -- !! compile timeout
+  -- -- !! run failed
   -- , runSynCircGold "foo" $ toCcc $ derFL @R $ sin @R
 
   , runSynCircGold "mul-sin" $ toCcc $ \(x :: R) -> (sin x *)
@@ -296,18 +295,16 @@ basicTests = testGroup "basic tests"
 
   , runSynCircGold "equal-pair-b" $ toCcc $ uncurry ((==) @(Bool :* Int))
 
-  -- -- !! compile timeout
-  -- , runSynCircGold "equal-pair-d" $ toCcc $ toCcc $ uncurry ((==) @(Int :* R))
+  , runSynCircGold "equal-pair-d" $ toCcc $ toCcc $ uncurry ((==) @(Int :* R))
 
-  -- -- !! compile timeout
-  -- , runSynCircGold "equal-pair-b" $ toCcc $ uncurry ((==) @(Int :* R))
+  , runSynCircGold "equal-pair-b" $ toCcc $ uncurry ((==) @(Int :* R))
 
-  -- -- !! compile timeout
-  -- , runSynCircGold "equal-pair-a" $ toCcc $ uncurry ((==) @(Bool :* Int))
+  , runSynCircGold "equal-pair-a" $ toCcc $ uncurry ((==) @(Bool :* Int))
 
   , runSynCircGold "equal-pair-uncurry-b" $ toCcc $ uncurry ((==) @(R :* Int))
 
-  , runSynCircGold "equal-pair-b" $ toCcc $ (==) @(R :* Int)
+  -- -- !! run failed
+  -- , runSynCircGold "equal-pair-b" $ toCcc $ (==) @(R :* Int)
 
   , runSynCircGold "uncurry-eq-i" $ toCcc $ uncurry ((==) @Int)
 

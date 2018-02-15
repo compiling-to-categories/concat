@@ -1,0 +1,18 @@
+second (id . repr) .
+apply .
+(curry
+ (ifC . (exr &&& exl &&& const 0.0) &&&
+  apply .
+  (curry (abst . apply . (exl &&& repr . exr)) .
+   curry (curry (apply . (exl . exl &&& apply . (exr . exl &&& exr)))) .
+   repr .
+   abst .
+   apply .
+   (curry (curry (apply . (exl . exl &&& apply . (exr . exl &&& exr)))) .
+    ifC . (exr &&& curry (exl . exr) &&& curry (exr . exr)) &&&
+    curry (exr . exr)) &&&
+   abst .
+   curry (const False &&& apply) .
+   repr .
+   abst . curry (exr &&& apply) . repr . abst . curry exl . const 0.0)) &&&
+ lessThanOrEqual . (const 0.0 &&& id))

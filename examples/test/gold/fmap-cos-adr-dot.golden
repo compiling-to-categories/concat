@@ -23,17 +23,17 @@ digraph fmap_cos_adr {
       c21 [label="{In|{<Out0>}}"]
       c24 [label="{{<In0>}|Out}"]
       c23 [label="{{<In0>}|negate|{<Out0>}}"]
-      c16:Out0 -> c22:In0 [label="Double"]
-      c21:Out0 -> c22:In1 [label="Double"]
-      c23:Out0 -> c24:In0 [label="Double"]
-      c22:Out0 -> c23:In0 [label="Double"]
+      c16:Out0 -> c22:In0 []
+      c21:Out0 -> c22:In1 []
+      c23:Out0 -> c24:In0 []
+      c22:Out0 -> c23:In0 []
     }
     subgraph clusterc15 { label=""; color=white; margin=0; c15 [label="{{<In0>}|cos|{<Out0>}}"] }
     subgraph clusterc16 { label=""; color=white; margin=0; c16 [label="{{<In0>}|sin|{<Out0>}}"] }
-    c15:Out0 -> c26:In0 [label="Double"]
-    c24 -> c26:In1 [ltail=cluster_25,label="Double ’ Double"]
-    c1:Out0 -> c15:In0 [label="Double"]
-    c1:Out0 -> c16:In0 [label="Double"]
+    c15:Out0 -> c26:In0 []
+    c24 -> c26:In1 [ltail=cluster_25]
+    c1:Out0 -> c15:In0 []
+    c1:Out0 -> c16:In0 []
   }
   subgraph clusterc28 { label=""; color=white; margin=0; c28 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
   subgraph clusterc29 { label=""; color=white; margin=0; c29 [label="{{<In0>}|unzip|{<Out0>|<Out1>}}"] }
@@ -44,7 +44,7 @@ digraph fmap_cos_adr {
     color=DarkGreen
     c30 [label="{In|{<Out0>}}"]
     c31 [label="{{<In0>}|Out}"]
-    c30:Out0 -> c31:In0 [label="Double ’ Double"]
+    c30:Out0 -> c31:In0 []
   }
   subgraph clusterc33 { label=""; color=white; margin=0; c33 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
   subgraph cluster_36 {
@@ -54,7 +54,7 @@ digraph fmap_cos_adr {
     color=DarkGreen
     c34 [label="{In|{<Out0>}}"]
     c35 [label="{{<In0>}|Out}"]
-    c34:Out0 -> c35:In0 [label="Double ’ Double"]
+    c34:Out0 -> c35:In0 []
   }
   subgraph clusterc37 { label=""; color=white; margin=0; c37 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
   subgraph cluster_50 {
@@ -72,26 +72,26 @@ digraph fmap_cos_adr {
       c44 [label="{In|{<Out0>|<Out1>}}"]
       c46 [label="{{<In0>}|Out}"]
       c45 [label="{{<In0>|<In1>}|apply|{<Out0>}}"]
-      c45:Out0 -> c46:In0 [label="Double"]
-      c44:Out0 -> c45:In0 [label="Double ’ Double"]
-      c44:Out1 -> c45:In1 [label="Double"]
+      c45:Out0 -> c46:In0 []
+      c44:Out0 -> c45:In0 []
+      c44:Out1 -> c45:In1 []
     }
     subgraph clusterc48 { label=""; color=white; margin=0; c48 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
     subgraph clusterc43 { label=""; color=white; margin=0; c43 [label="{{<In0>|<In1>}|zip|{<Out0>}}"] }
-    c48:Out0 -> c49:In0 [label="Vector 5 Double"]
-    c46 -> c48:In0 [ltail=cluster_47,label="(Double ’ Double) × Double ’ Double"]
-    c43:Out0 -> c48:In1 [label="Vector 5 ((Double ’ Double) × Double)"]
-    c37:Out0 -> c43:In0 [label="Vector 5 (Double ’ Double)"]
-    c38:Out0 -> c43:In1 [label="Vector 5 Double"]
+    c48:Out0 -> c49:In0 []
+    c46 -> c48:In0 [ltail=cluster_47]
+    c43:Out0 -> c48:In1 []
+    c37:Out0 -> c43:In0 []
+    c38:Out0 -> c43:In1 []
   }
   subgraph clusterc51 { label=""; color=white; margin=0; c51 [label="{{<In0>|<In1>}|Out}"] }
-  c26 -> c28:In0 [ltail=cluster_27,label="Double ’ Double × (Double ’ Double)"]
-  c0:Out0 -> c28:In1 [label="Vector 5 Double"]
-  c28:Out0 -> c29:In0 [label="Vector 5 (Double × (Double ’ Double))"]
-  c31 -> c33:In0 [ltail=cluster_32,label="(Double ’ Double) ’ Double ’ Double"]
-  c29:Out1 -> c33:In1 [label="Vector 5 (Double ’ Double)"]
-  c35 -> c37:In0 [ltail=cluster_36,label="(Double ’ Double) ’ Double ’ Double"]
-  c33:Out0 -> c37:In1 [label="Vector 5 (Double ’ Double)"]
-  c29:Out0 -> c51:In0 [label="Vector 5 Double"]
-  c49 -> c51:In1 [ltail=cluster_50,label="Vector 5 Double ’ Vector 5 Double"]
+  c26 -> c28:In0 [ltail=cluster_27]
+  c0:Out0 -> c28:In1 []
+  c28:Out0 -> c29:In0 []
+  c31 -> c33:In0 [ltail=cluster_32]
+  c29:Out1 -> c33:In1 []
+  c35 -> c37:In0 [ltail=cluster_36]
+  c33:Out0 -> c37:In1 []
+  c29:Out0 -> c51:In0 []
+  c49 -> c51:In1 [ltail=cluster_50]
 }

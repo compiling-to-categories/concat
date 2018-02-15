@@ -8,5 +8,5 @@ digraph const_y {
   nslimit=20
   c0 [label="{In|{<Out0>|<Out1>}}"]
   c1 [label="{{<In0>}|Out}"]
-  c0:Out1 -> c1:In0 [label="Double"]
+  c0:Out1 -> c1:In0 []
 }

@@ -22,15 +22,15 @@ digraph fmap_fun_bool_plus {
       c4 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
       c3 [label="{In|{<Out0>}}"]
       c5 [label="{{<In0>}|Out}"]
-      c2:Out0 -> c4:In0 [label="Int"]
-      c3:Out0 -> c4:In1 [label="Int"]
-      c4:Out0 -> c5:In0 [label="Int"]
+      c2:Out0 -> c4:In0 []
+      c3:Out0 -> c4:In1 []
+      c4:Out0 -> c5:In0 []
     }
     subgraph clusterc2 { label=""; color=white; margin=0; c2 [label="{{<In0>|<In1>}|apply|{<Out0>}}"] }
-    c5 -> c7:In0 [ltail=cluster_6,label="Int ’ Int"]
-    c0:Out0 -> c2:In0 [label="Bool ’ Int"]
-    c1:Out0 -> c2:In1 [label="Bool"]
+    c5 -> c7:In0 [ltail=cluster_6]
+    c0:Out0 -> c2:In0 []
+    c1:Out0 -> c2:In1 []
   }
   subgraph clusterc9 { label=""; color=white; margin=0; c9 [label="{{<In0>}|Out}"] }
-  c7 -> c9:In0 [ltail=cluster_8,label="Bool ’ Int ’ Int"]
+  c7 -> c9:In0 [ltail=cluster_8]
 }

@@ -17,9 +17,9 @@ digraph sin_adfl {
     c18 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
     c17 [label="{In|{<Out0>}}"]
     c19 [label="{{<In0>}|Out}"]
-    c13:Out0 -> c18:In0 [label="Double"]
-    c17:Out0 -> c18:In1 [label="Double"]
-    c18:Out0 -> c19:In0 [label="Double"]
+    c13:Out0 -> c18:In0 []
+    c17:Out0 -> c18:In1 []
+    c18:Out0 -> c19:In0 []
   }
   subgraph cluster_51 {
     margin=8
@@ -34,11 +34,11 @@ digraph sin_adfl {
       color=DarkGreen
       c46 [label="{1.0|{<Out0>}}"]
       c47 [label="{{<In0>}|Out}"]
-      c46:Out0 -> c47:In0 [label="Double"]
+      c46:Out0 -> c47:In0 []
     }
     subgraph clusterc49 { label=""; color=white; margin=0; c49 [label="{{<In0>}|tabulate|{<Out0>}}"] }
-    c49:Out0 -> c50:In0 [label="Double"]
-    c47 -> c49:In0 [ltail=cluster_48,label="() ’ Double"]
+    c49:Out0 -> c50:In0 []
+    c47 -> c49:In0 [ltail=cluster_48]
   }
   subgraph clusterc52 { label=""; color=white; margin=0; c52 [label="{{<In0>}|tabulate|{<Out0>}}"] }
   subgraph clusterc53 { label=""; color=white; margin=0; c53 [label="{{<In0>}|point|{<Out0>}}"] }
@@ -51,23 +51,23 @@ digraph sin_adfl {
     c55 [label="{In|{<Out0>|<Out1>}}"]
     c57 [label="{{<In0>}|Out}"]
     c56 [label="{{<In0>|<In1>}|apply|{<Out0>}}"]
-    c56:Out0 -> c57:In0 [label="Double"]
-    c55:Out0 -> c56:In0 [label="Double ’ Double"]
-    c55:Out1 -> c56:In1 [label="Double"]
+    c56:Out0 -> c57:In0 []
+    c55:Out0 -> c56:In0 []
+    c55:Out1 -> c56:In1 []
   }
   subgraph clusterc59 { label=""; color=white; margin=0; c59 [label="{{<In0>|<In1>|<In2>}|fmap|{<Out0>}}"] }
   subgraph clusterc60 { label=""; color=white; margin=0; c60 [label="{{<In0>}|distribute|{<Out0>}}"] }
   subgraph clusterc61 { label=""; color=white; margin=0; c61 [label="{{<In0>|<In1>}|Out}"] }
-  c0:Out0 -> c12:In0 [label="Double"]
-  c0:Out0 -> c13:In0 [label="Double"]
-  c50 -> c52:In0 [ltail=cluster_51,label="() ’ Double"]
-  c19 -> c53:In0 [ltail=cluster_20,label="Double ’ Double"]
-  c53:Out0 -> c54:In0 [label="Double ’ Double"]
-  c52:Out0 -> c54:In1 [label="Double"]
-  c57 -> c59:In0 [ltail=cluster_58,label="(Double ’ Double) × Double ’ Double"]
-  c54:Out0 -> c59:In1 [label="Double ’ Double"]
-  c54:Out1 -> c59:In2 [label="Double"]
-  c59:Out0 -> c60:In0 [label="Double"]
-  c12:Out0 -> c61:In0 [label="Double"]
-  c60:Out0 -> c61:In1 [label="Double"]
+  c0:Out0 -> c12:In0 []
+  c0:Out0 -> c13:In0 []
+  c50 -> c52:In0 [ltail=cluster_51]
+  c19 -> c53:In0 [ltail=cluster_20]
+  c53:Out0 -> c54:In0 []
+  c52:Out0 -> c54:In1 []
+  c57 -> c59:In0 [ltail=cluster_58]
+  c54:Out0 -> c59:In1 []
+  c54:Out1 -> c59:In2 []
+  c59:Out0 -> c60:In0 []
+  c12:Out0 -> c61:In0 []
+  c60:Out0 -> c61:In1 []
 }

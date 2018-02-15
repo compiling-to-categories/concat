@@ -9,6 +9,6 @@ digraph point_dual {
   c0 [label="{In|{<Out0>}}"]
   c1 [label="{{<In0>}|sumA|{<Out0>}}"]
   c2 [label="{{<In0>}|Out}"]
-  c0:Out0 -> c1:In0 [label="Vector 5 Double"]
-  c1:Out0 -> c2:In0 [label="Double"]
+  c0:Out0 -> c1:In0 []
+  c1:Out0 -> c2:In0 []
 }

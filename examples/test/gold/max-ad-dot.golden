@@ -7,26 +7,27 @@ digraph max_ad {
   bgcolor=transparent
   nslimit=20
   subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>|<Out1>}}"] }
-  subgraph clusterc1 { label=""; color=white; margin=0; c1 [label="{{<In0>|<In1>}|max|{<Out0>}}"] }
-  subgraph clusterc2 { label=""; color=white; margin=0; c2 [label="{{<In0>|<In1>}|\d|{<Out0>}}"] }
-  subgraph cluster_12 {
+  subgraph clusterc61 { label=""; color=white; margin=0; c61 [label="{{<In0>|<In1>}|\d|{<Out0>}}"] }
+  subgraph clusterc62 { label=""; color=white; margin=0; c62 [label="{{<In0>|<In1>|<In2>}|if|{<Out0>}}"] }
+  subgraph cluster_118 {
     margin=8
     fontsize=20
     labeljust=r
     color=DarkGreen
-    c9 [label="{In|{<Out0>|<Out1>}}"]
-    c11 [label="{{<In0>}|Out}"]
-    c10 [label="{{<In0>|<In1>|<In2>}|if|{<Out0>}}"]
-    c10:Out0 -> c11:In0 [label="Double"]
-    c2:Out0 -> c10:In0 [label="Bool"]
-    c9:Out1 -> c10:In1 [label="Double"]
-    c9:Out0 -> c10:In2 [label="Double"]
+    c114 [label="{In|{<Out0>|<Out1>}}"]
+    c117 [label="{{<In0>}|Out}"]
+    c116 [label="{{<In0>|<In1>|<In2>}|if|{<Out0>}}"]
+    c116:Out0 -> c117:In0 []
+    c61:Out0 -> c116:In0 []
+    c114:Out1 -> c116:In1 []
+    c114:Out0 -> c116:In2 []
   }
-  subgraph clusterc13 { label=""; color=white; margin=0; c13 [label="{{<In0>|<In1>}|Out}"] }
-  c0:Out0 -> c1:In0 [label="Double"]
-  c0:Out1 -> c1:In1 [label="Double"]
-  c0:Out0 -> c2:In0 [label="Double"]
-  c0:Out1 -> c2:In1 [label="Double"]
-  c1:Out0 -> c13:In0 [label="Double"]
-  c11 -> c13:In1 [ltail=cluster_12,label="Double × Double ’ Double"]
+  subgraph clusterc119 { label=""; color=white; margin=0; c119 [label="{{<In0>|<In1>}|Out}"] }
+  c0:Out0 -> c61:In0 []
+  c0:Out1 -> c61:In1 []
+  c61:Out0 -> c62:In0 []
+  c0:Out1 -> c62:In1 []
+  c0:Out0 -> c62:In2 []
+  c62:Out0 -> c119:In0 []
+  c117 -> c119:In1 [ltail=cluster_118]
 }

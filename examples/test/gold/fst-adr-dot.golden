@@ -15,11 +15,11 @@ digraph fst_adr {
     c1 [label="{In|{<Out0>}}"]
     c3 [label="{{<In0>|<In1>}|Out}"]
     c2 [label="{{<In0>}|inlP|{<Out0>|<Out1>}}"]
-    c2:Out0 -> c3:In0 [label="Double"]
-    c2:Out1 -> c3:In1 [label="Double"]
-    c1:Out0 -> c2:In0 [label="Double"]
+    c2:Out0 -> c3:In0 []
+    c2:Out1 -> c3:In1 []
+    c1:Out0 -> c2:In0 []
   }
   subgraph clusterc5 { label=""; color=white; margin=0; c5 [label="{{<In0>|<In1>}|Out}"] }
-  c0:Out0 -> c5:In0 [label="Double"]
-  c3 -> c5:In1 [ltail=cluster_4,label="Double ’ Double × Double"]
+  c0:Out0 -> c5:In0 []
+  c3 -> c5:In1 [ltail=cluster_4]
 }

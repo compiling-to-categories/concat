@@ -18,18 +18,18 @@ digraph linearF_v {
     c25 [label="{In|{<Out0>|<Out1>}}"]
     c27 [label="{{<In0>}|Out}"]
     c26 [label="{{<In0>|<In1>}|apply|{<Out0>}}"]
-    c26:Out0 -> c27:In0 [label="Double"]
-    c25:Out0 -> c26:In0 [label="Vector 8 Double ’ Double"]
-    c25:Out1 -> c26:In1 [label="Vector 8 Double"]
+    c26:Out0 -> c27:In0 []
+    c25:Out0 -> c26:In0 []
+    c25:Out1 -> c26:In1 []
   }
   subgraph clusterc29 { label=""; color=white; margin=0; c29 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
   subgraph clusterc30 { label=""; color=white; margin=0; c30 [label="{{<In0>}|distribute|{<Out0>}}"] }
   subgraph clusterc31 { label=""; color=white; margin=0; c31 [label="{{<In0>}|Out}"] }
-  c0:Out0 -> c23:In0 [label="Vector 8 Double ’ Double"]
-  c23:Out0 -> c24:In0 [label="Vector 8 (Vector 8 Double ’ Double)"]
-  c22:Out0 -> c24:In1 [label="Vector 8 (Vector 8 Double)"]
-  c27 -> c29:In0 [ltail=cluster_28,label="(Vector 8 Double ’ Double) × Vector 8 Double ’ Double"]
-  c24:Out0 -> c29:In1 [label="Vector 8 ((Vector 8 Double ’ Double) × Vector 8 Double)"]
-  c29:Out0 -> c30:In0 [label="Vector 8 Double"]
-  c30:Out0 -> c31:In0 [label="Vector 8 Double"]
+  c0:Out0 -> c23:In0 []
+  c23:Out0 -> c24:In0 []
+  c22:Out0 -> c24:In1 []
+  c27 -> c29:In0 [ltail=cluster_28]
+  c24:Out0 -> c29:In1 []
+  c29:Out0 -> c30:In0 []
+  c30:Out0 -> c31:In0 []
 }

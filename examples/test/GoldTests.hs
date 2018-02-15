@@ -1,4 +1,4 @@
-module GoldTests where
+module Main where
 
 import Test.Tasty (defaultMain)
 import BasicTests (basicTests)

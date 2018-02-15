@@ -16,15 +16,15 @@ digraph zipWith_vv {
     c11 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
     c6 [label="{In|{<Out0>|<Out1>}}"]
     c12 [label="{{<In0>}|Out}"]
-    c6:Out0 -> c11:In0 [label="Double"]
-    c6:Out1 -> c11:In1 [label="Double"]
-    c11:Out0 -> c12:In0 [label="Double"]
+    c6:Out0 -> c11:In0 []
+    c6:Out1 -> c11:In1 []
+    c11:Out0 -> c12:In0 []
   }
   subgraph clusterc14 { label=""; color=white; margin=0; c14 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
   subgraph clusterc15 { label=""; color=white; margin=0; c15 [label="{{<In0>}|Out}"] }
-  c0:Out0 -> c5:In0 [label="Vector 5 Double"]
-  c0:Out1 -> c5:In1 [label="Vector 5 Double"]
-  c12 -> c14:In0 [ltail=cluster_13,label="Double × Double ’ Double"]
-  c5:Out0 -> c14:In1 [label="Vector 5 (Double × Double)"]
-  c14:Out0 -> c15:In0 [label="Vector 5 Double"]
+  c0:Out0 -> c5:In0 []
+  c0:Out1 -> c5:In1 []
+  c12 -> c14:In0 [ltail=cluster_13]
+  c5:Out0 -> c14:In1 []
+  c14:Out0 -> c15:In0 []
 }

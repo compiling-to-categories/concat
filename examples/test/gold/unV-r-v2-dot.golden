@@ -14,11 +14,11 @@ digraph unV_r_v2 {
     color=DarkGreen
     c1 [label="{In|{<Out0>}}"]
     c2 [label="{{<In0>}|Out}"]
-    c1:Out0 -> c2:In0 [label="Double"]
+    c1:Out0 -> c2:In0 []
   }
   subgraph clusterc4 { label=""; color=white; margin=0; c4 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
   subgraph clusterc5 { label=""; color=white; margin=0; c5 [label="{{<In0>}|Out}"] }
-  c2 -> c4:In0 [ltail=cluster_3,label="Double ’ Double"]
-  c0:Out0 -> c4:In1 [label="Vector 2 Double"]
-  c4:Out0 -> c5:In0 [label="Vector 2 Double"]
+  c2 -> c4:In0 [ltail=cluster_3]
+  c0:Out0 -> c4:In1 []
+  c4:Out0 -> c5:In0 []
 }

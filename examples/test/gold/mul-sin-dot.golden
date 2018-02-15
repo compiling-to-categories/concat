@@ -16,11 +16,11 @@ digraph mul_sin {
     c3 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
     c2 [label="{In|{<Out0>}}"]
     c4 [label="{{<In0>}|Out}"]
-    c1:Out0 -> c3:In0 [label="Double"]
-    c2:Out0 -> c3:In1 [label="Double"]
-    c3:Out0 -> c4:In0 [label="Double"]
+    c1:Out0 -> c3:In0 []
+    c2:Out0 -> c3:In1 []
+    c3:Out0 -> c4:In0 []
   }
   subgraph clusterc6 { label=""; color=white; margin=0; c6 [label="{{<In0>}|Out}"] }
-  c0:Out0 -> c1:In0 [label="Double"]
-  c4 -> c6:In0 [ltail=cluster_5,label="Double ’ Double"]
+  c0:Out0 -> c1:In0 []
+  c4 -> c6:In0 [ltail=cluster_5]
 }

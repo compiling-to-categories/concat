@@ -24,16 +24,16 @@ digraph liftA2_fun_bool {
       c18 [label="{{<In0>}|Out}"]
       c11 [label="{{<In0>|<In1>}|apply|{<Out0>}}"]
       c16 [label="{{<In0>|<In1>}|apply|{<Out0>}}"]
-      c11:Out0 -> c17:In0 [label="Int"]
-      c16:Out0 -> c17:In1 [label="Int"]
-      c17:Out0 -> c18:In0 [label="Int"]
-      c0:Out0 -> c11:In0 [label="Bool ’ Int"]
-      c2:Out0 -> c11:In1 [label="Bool"]
-      c1:Out0 -> c16:In0 [label="Bool ’ Int"]
-      c2:Out0 -> c16:In1 [label="Bool"]
+      c11:Out0 -> c17:In0 []
+      c16:Out0 -> c17:In1 []
+      c17:Out0 -> c18:In0 []
+      c0:Out0 -> c11:In0 []
+      c2:Out0 -> c11:In1 []
+      c1:Out0 -> c16:In0 []
+      c2:Out0 -> c16:In1 []
     }
-    c18 -> c20:In0 [ltail=cluster_19,label="Bool ’ Int"]
+    c18 -> c20:In0 [ltail=cluster_19]
   }
   subgraph clusterc22 { label=""; color=white; margin=0; c22 [label="{{<In0>}|Out}"] }
-  c20 -> c22:In0 [ltail=cluster_21,label="(Bool ’ Int) ’ Bool ’ Int"]
+  c20 -> c22:In0 [ltail=cluster_21]
 }

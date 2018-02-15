@@ -9,7 +9,7 @@ digraph distribute_p_v {
   c0 [label="{In|{<Out0>|<Out1>}}"]
   c1 [label="{{<In0>|<In1>}|distribute|{<Out0>}}"]
   c2 [label="{{<In0>}|Out}"]
-  c0:Out0 -> c1:In0 [label="Vector 4 Double"]
-  c0:Out1 -> c1:In1 [label="Vector 4 Double"]
-  c1:Out0 -> c2:In0 [label="Vector 4 (Double × Double)"]
+  c0:Out0 -> c1:In0 []
+  c0:Out1 -> c1:In1 []
+  c1:Out0 -> c2:In0 []
 }

@@ -15,10 +15,10 @@ digraph add {
     c2 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
     c1 [label="{In|{<Out0>}}"]
     c3 [label="{{<In0>}|Out}"]
-    c0:Out0 -> c2:In0 [label="Integer"]
-    c1:Out0 -> c2:In1 [label="Integer"]
-    c2:Out0 -> c3:In0 [label="Integer"]
+    c0:Out0 -> c2:In0 []
+    c1:Out0 -> c2:In1 []
+    c2:Out0 -> c3:In0 []
   }
   subgraph clusterc5 { label=""; color=white; margin=0; c5 [label="{{<In0>}|Out}"] }
-  c3 -> c5:In0 [ltail=cluster_4,label="Integer ’ Integer"]
+  c3 -> c5:In0 [ltail=cluster_4]
 }

@@ -9,7 +9,7 @@ digraph sum_pair {
   c0 [label="{In|{<Out0>|<Out1>}}"]
   c1 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
   c2 [label="{{<In0>}|Out}"]
-  c0:Out0 -> c1:In0 [label="Int"]
-  c0:Out1 -> c1:In1 [label="Int"]
-  c1:Out0 -> c2:In0 [label="Int"]
+  c0:Out0 -> c1:In0 []
+  c0:Out1 -> c1:In1 []
+  c1:Out0 -> c2:In0 []
 }

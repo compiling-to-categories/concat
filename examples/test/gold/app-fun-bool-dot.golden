@@ -24,16 +24,16 @@ digraph app_fun_bool {
       c3 [label="{{<In0>|<In1>}|apply|{<Out0>}}"]
       c4 [label="{{<In0>|<In1>}|apply|{<Out0>}}"]
       c5 [label="{{<In0>|<In1>}|apply|{<Out0>}}"]
-      c5:Out0 -> c6:In0 [label="Int"]
-      c0:Out0 -> c3:In0 [label="Bool ’ Int ’ Int"]
-      c2:Out0 -> c3:In1 [label="Bool"]
-      c1:Out0 -> c4:In0 [label="Bool ’ Int"]
-      c2:Out0 -> c4:In1 [label="Bool"]
-      c3:Out0 -> c5:In0 [label="Int ’ Int"]
-      c4:Out0 -> c5:In1 [label="Int"]
+      c5:Out0 -> c6:In0 []
+      c0:Out0 -> c3:In0 []
+      c2:Out0 -> c3:In1 []
+      c1:Out0 -> c4:In0 []
+      c2:Out0 -> c4:In1 []
+      c3:Out0 -> c5:In0 []
+      c4:Out0 -> c5:In1 []
     }
-    c6 -> c8:In0 [ltail=cluster_7,label="Bool ’ Int"]
+    c6 -> c8:In0 [ltail=cluster_7]
   }
   subgraph clusterc10 { label=""; color=white; margin=0; c10 [label="{{<In0>}|Out}"] }
-  c8 -> c10:In0 [ltail=cluster_9,label="(Bool ’ Int) ’ Bool ’ Int"]
+  c8 -> c10:In0 [ltail=cluster_9]
 }

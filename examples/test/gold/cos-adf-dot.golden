@@ -18,14 +18,14 @@ digraph cos_adf {
     c20 [label="{In|{<Out0>}}"]
     c23 [label="{{<In0>}|Out}"]
     c22 [label="{{<In0>}|negate|{<Out0>}}"]
-    c15:Out0 -> c21:In0 [label="Double"]
-    c20:Out0 -> c21:In1 [label="Double"]
-    c22:Out0 -> c23:In0 [label="Double"]
-    c21:Out0 -> c22:In0 [label="Double"]
+    c15:Out0 -> c21:In0 []
+    c20:Out0 -> c21:In1 []
+    c22:Out0 -> c23:In0 []
+    c21:Out0 -> c22:In0 []
   }
   subgraph clusterc25 { label=""; color=white; margin=0; c25 [label="{{<In0>|<In1>}|Out}"] }
-  c0:Out0 -> c14:In0 [label="Double"]
-  c0:Out0 -> c15:In0 [label="Double"]
-  c14:Out0 -> c25:In0 [label="Double"]
-  c23 -> c25:In1 [ltail=cluster_24,label="Double ’ Double"]
+  c0:Out0 -> c14:In0 []
+  c0:Out0 -> c15:In0 []
+  c14:Out0 -> c25:In0 []
+  c23 -> c25:In1 [ltail=cluster_24]
 }

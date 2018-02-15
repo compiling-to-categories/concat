@@ -13,8 +13,8 @@ digraph const {
     labeljust=r
     color=DarkGreen
     c2 [label="{{<In0>}|Out}"]
-    c0:Out0 -> c2:In0 [label="Double"]
+    c0:Out0 -> c2:In0 []
   }
   subgraph clusterc4 { label=""; color=white; margin=0; c4 [label="{{<In0>}|Out}"] }
-  c2 -> c4:In0 [ltail=cluster_3,label="Double ’ Double"]
+  c2 -> c4:In0 [ltail=cluster_3]
 }

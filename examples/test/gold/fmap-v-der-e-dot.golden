@@ -15,8 +15,8 @@ digraph fmap_v_der_e {
     c1 [label="{In|{<Out0>}}"]
     c3 [label="{{<In0>}|Out}"]
     c2 [label="{{<In0>}|negate|{<Out0>}}"]
-    c2:Out0 -> c3:In0 [label="Double"]
-    c1:Out0 -> c2:In0 [label="Double"]
+    c2:Out0 -> c3:In0 []
+    c1:Out0 -> c2:In0 []
   }
   subgraph clusterc5 { label=""; color=white; margin=0; c5 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
   subgraph cluster_13 {
@@ -33,10 +33,10 @@ digraph fmap_v_der_e {
       c8 [label="{In|{<Out0>}}"]
       c10 [label="{{<In0>}|Out}"]
       c9 [label="{{<In0>}|negate|{<Out0>}}"]
-      c9:Out0 -> c10:In0 [label="Double"]
-      c8:Out0 -> c9:In0 [label="Double"]
+      c9:Out0 -> c10:In0 []
+      c8:Out0 -> c9:In0 []
     }
-    c10 -> c12:In0 [ltail=cluster_11,label="Double ’ Double"]
+    c10 -> c12:In0 [ltail=cluster_11]
   }
   subgraph clusterc14 { label=""; color=white; margin=0; c14 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
   subgraph cluster_17 {
@@ -46,7 +46,7 @@ digraph fmap_v_der_e {
     color=DarkGreen
     c15 [label="{In|{<Out0>}}"]
     c16 [label="{{<In0>}|Out}"]
-    c15:Out0 -> c16:In0 [label="Double ’ Double"]
+    c15:Out0 -> c16:In0 []
   }
   subgraph clusterc18 { label=""; color=white; margin=0; c18 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
   subgraph cluster_31 {
@@ -64,25 +64,25 @@ digraph fmap_v_der_e {
       c25 [label="{In|{<Out0>|<Out1>}}"]
       c27 [label="{{<In0>}|Out}"]
       c26 [label="{{<In0>|<In1>}|apply|{<Out0>}}"]
-      c26:Out0 -> c27:In0 [label="Double"]
-      c25:Out0 -> c26:In0 [label="Double ’ Double"]
-      c25:Out1 -> c26:In1 [label="Double"]
+      c26:Out0 -> c27:In0 []
+      c25:Out0 -> c26:In0 []
+      c25:Out1 -> c26:In1 []
     }
     subgraph clusterc29 { label=""; color=white; margin=0; c29 [label="{{<In0>|<In1>}|fmap|{<Out0>}}"] }
     subgraph clusterc24 { label=""; color=white; margin=0; c24 [label="{{<In0>|<In1>}|zip|{<Out0>}}"] }
-    c29:Out0 -> c30:In0 [label="Vector 5 Double"]
-    c27 -> c29:In0 [ltail=cluster_28,label="(Double ’ Double) × Double ’ Double"]
-    c24:Out0 -> c29:In1 [label="Vector 5 ((Double ’ Double) × Double)"]
-    c18:Out0 -> c24:In0 [label="Vector 5 (Double ’ Double)"]
-    c19:Out0 -> c24:In1 [label="Vector 5 Double"]
+    c29:Out0 -> c30:In0 []
+    c27 -> c29:In0 [ltail=cluster_28]
+    c24:Out0 -> c29:In1 []
+    c18:Out0 -> c24:In0 []
+    c19:Out0 -> c24:In1 []
   }
   subgraph clusterc32 { label=""; color=white; margin=0; c32 [label="{{<In0>|<In1>}|Out}"] }
-  c3 -> c5:In0 [ltail=cluster_4,label="Double ’ Double"]
-  c0:Out0 -> c5:In1 [label="Vector 5 Double"]
-  c12 -> c14:In0 [ltail=cluster_13,label="Double ’ Double ’ Double"]
-  c0:Out0 -> c14:In1 [label="Vector 5 Double"]
-  c16 -> c18:In0 [ltail=cluster_17,label="(Double ’ Double) ’ Double ’ Double"]
-  c14:Out0 -> c18:In1 [label="Vector 5 (Double ’ Double)"]
-  c5:Out0 -> c32:In0 [label="Vector 5 Double"]
-  c30 -> c32:In1 [ltail=cluster_31,label="Vector 5 Double ’ Vector 5 Double"]
+  c3 -> c5:In0 [ltail=cluster_4]
+  c0:Out0 -> c5:In1 []
+  c12 -> c14:In0 [ltail=cluster_13]
+  c0:Out0 -> c14:In1 []
+  c16 -> c18:In0 [ltail=cluster_17]
+  c14:Out0 -> c18:In1 []
+  c5:Out0 -> c32:In0 []
+  c30 -> c32:In1 [ltail=cluster_31]
 }

@@ -1,1 +1,1 @@
-apply . (curry maxC . exl &&& exr)
+ifC . (lessThanOrEqual &&& exr &&& exl)

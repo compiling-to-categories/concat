@@ -9,7 +9,7 @@ digraph add_uncurry {
   c0 [label="{In|{<Out0>|<Out1>}}"]
   c5 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
   c6 [label="{{<In0>}|Out}"]
-  c0:Out0 -> c5:In0 [label="Double"]
-  c0:Out1 -> c5:In1 [label="Double"]
-  c5:Out0 -> c6:In0 [label="Double"]
+  c0:Out0 -> c5:In0 []
+  c0:Out1 -> c5:In1 []
+  c5:Out0 -> c6:In0 []
 }

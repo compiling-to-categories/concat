@@ -7,9 +7,13 @@ digraph max {
   bgcolor=transparent
   nslimit=20
   c0 [label="{In|{<Out0>|<Out1>}}"]
-  c5 [label="{{<In0>|<In1>}|max|{<Out0>}}"]
-  c6 [label="{{<In0>}|Out}"]
-  c0:Out0 -> c5:In0 [label="Double"]
-  c0:Out1 -> c5:In1 [label="Double"]
-  c5:Out0 -> c6:In0 [label="Double"]
+  c1 [label="{{<In0>|<In1>}|\d|{<Out0>}}"]
+  c2 [label="{{<In0>|<In1>|<In2>}|if|{<Out0>}}"]
+  c3 [label="{{<In0>}|Out}"]
+  c0:Out0 -> c1:In0 []
+  c0:Out1 -> c1:In1 []
+  c1:Out0 -> c2:In0 []
+  c0:Out1 -> c2:In1 []
+  c0:Out0 -> c2:In2 []
+  c2:Out0 -> c3:In0 []
 }

@@ -1,0 +1,21 @@
+digraph equal_pair_d {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  c0 [label="{In|{<Out0>|<Out1>|<Out2>|<Out3>}}"]
+  c68 [label="{{<In0>|<In1>}|\a|{<Out0>}}"]
+  c69 [label="{{<In0>|<In1>}|\a|{<Out0>}}"]
+  c71 [label="{{<In0>|<In1>}|\'|{<Out0>}}"]
+  c72 [label="{{<In0>}|Out}"]
+  c0:Out0 -> c68:In0 []
+  c0:Out2 -> c68:In1 []
+  c0:Out1 -> c69:In0 []
+  c0:Out3 -> c69:In1 []
+  c68:Out0 -> c71:In0 []
+  c69:Out0 -> c71:In1 []
+  c71:Out0 -> c72:In0 []
+}
