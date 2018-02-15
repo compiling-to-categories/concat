@@ -16,7 +16,7 @@ module Main where
 
 import Data.Vector.Sized
 
-import ConCat.Misc
+import ConCat.Misc  ((:+), (:*))
 import ConCat.TArr
 
 v1 = singleton 2
@@ -47,6 +47,13 @@ main = do
      && fetched4 (False,False) == 5
      then putStrLn "PASS"
      else putStrLn "FAIL"
+  putStr "Testing (Bool :^ Bool): "
+  if fetched5 (const False) == 5
+     && fetched5 id == 3
+     && fetched5 not == 4
+     && fetched5 (const True) == 2
+     then putStrLn "PASS"
+     else putStrLn "FAIL"
 
 
 stored :: Arr () Int
@@ -72,4 +79,10 @@ stored4 = Arr v4
 
 fetched4 :: (Bool :* Bool) -> Int
 fetched4 p = stored4 ! p
+
+stored5 :: Arr (Bool :^ Bool) Int
+stored5 = Arr v4
+
+fetched5 :: (Bool :^ Bool) -> Int
+fetched5 f = stored5 ! f
 
