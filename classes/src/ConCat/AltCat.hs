@@ -69,7 +69,7 @@ import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5,Ok6, Ok'
   , MonoidalPCat, ProductCat, Prod, twiceP, inLassocP, inRassocP --, unfork
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS
-  , AbelianCat, Additive1(..), OkAdd(..)
+  , Additive1(..), OkAdd(..), AbelianCat
   , MonoidalSCat, CoproductPCat, CoprodP, ScalarCat, LinearCat
   , OkIxProd(..), IxProductCat
   , IxCoproductPCat
@@ -151,8 +151,8 @@ Op1(right,forall k a b bb. (CoproductCat k, Ok3 k a b bb) => (b `k` bb) -> (Copr
 Op1(lassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c)
 Op1(rassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c))
 
-Op0(zeroC, forall k a b. (AbelianCat k, Ok2 k a b, Additive b) => a `k` b)
-Op0(plusC, forall k a b. (AbelianCat k, Ok2 k a b, Additive b) => Binop (a `k` b))
+Op0(zeroC, forall k a b. (AbelianCat k, Ok2 k a b) => a `k` b)
+Op0(plusC, forall k a b. (AbelianCat k, Ok2 k a b) => Binop (a `k` b))
 
 -- Temporary workaround. See ConCat.Category comments.
 infixr 2 ++++, ||||

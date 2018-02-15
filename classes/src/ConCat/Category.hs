@@ -778,6 +778,22 @@ transposeS = (inl.inl ||| inr.inl) ||| (inl.inr ||| inr.inr)
     Abelian categories
 --------------------------------------------------------------------}
 
+#if 1
+
+type AbelianCat k =
+  (ProductCat k, CoproductPCat k, TerminalCat k, CoterminalCat k, OkAdd k)
+
+zeroC :: (AbelianCat k, Ok2 k a b) => a `k` b
+zeroC = ti . it
+
+plusC :: forall k a b. (AbelianCat k, Ok2 k a b) => Binop (a `k` b)
+f `plusC` g = jamP . (f *** g) . dup
+  <+ okProd @k @b @b
+  <+ okProd @k @a @a
+  <+ okAdd  @k @b
+
+#else
+
 class AbelianCat k where
   zeroC :: forall a b. (Ok2 k a b, Additive b) => a `k` b
   plusC :: forall a b. (Ok2 k a b, Additive b) => Binop (a `k` b)
@@ -793,9 +809,6 @@ class AbelianCat k where
 -- TODO: probably remove the Additive constraints here, but use OkAdd k in the
 -- plusC default.
 
--- TODO: relate AbelianCat to ProductCat and CoproductPCat.
--- Also to IxProductCat and IxCoproductPCat.
-
 instance AbelianCat U2 where
   zeroC = U2
   U2 `plusC` U2 = U2
@@ -805,6 +818,11 @@ instance (AbelianCat k, AbelianCat k') => AbelianCat (k :**: k') where
   (f :**: f') `plusC` (g :**: g') = (f `plusC` g) :**: (f' `plusC` g')
   PINLINER(zeroC)
   PINLINER(plusC)
+
+-- TODO: relate AbelianCat to ProductCat and CoproductPCat.
+-- Also to IxProductCat and IxCoproductPCat.
+
+#endif
 
 {--------------------------------------------------------------------
     A dual to ProductCat. Temporary workaround.
