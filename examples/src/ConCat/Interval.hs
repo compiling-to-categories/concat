@@ -20,8 +20,8 @@ import GHC.Exts (Coercible,coerce)
 import Control.Newtype
 
 import ConCat.Misc ((:*),(:+),inNew,inNew2)
-import ConCat.Category
-import ConCat.AltCat (toCcc)
+import qualified ConCat.Category
+import ConCat.AltCat
 
 -- For Iv instances:
 import GHC.Generics (U1(..),(:*:)(..),Par1(..),(:.:)(..))
