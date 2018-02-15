@@ -88,7 +88,6 @@ unFin = isoRev iso
 
 class KnownNat (Card a) => HasFin a where
   type Card a :: Nat
-
   iso :: a <-> Finite (Card a)
 
 instance HasFin () where
@@ -118,7 +117,7 @@ instance (HasFin a, HasFin b) => HasFin (a :* b) where
 newtype Arr a b = Arr (V.Vector (Card a) b)
 
 instance Functor (Arr a) where
-  fmap f (Arr v) = Arr $ V.map f v
+  fmap f (Arr v) = Arr $ fmap f v
 
 (!) :: HasFin a => Arr a b -> (a -> b)
 Arr v ! a = v `V.index` toFin a
