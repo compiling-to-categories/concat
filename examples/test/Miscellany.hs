@@ -11,10 +11,9 @@ module Miscellany where
 
 import           ConCat.AltCat ((:**:)(..),Ok2,U2)
 import           ConCat.Circuit (GenBuses,(:>))
-import           ConCat.Misc ((:*),R,Unop)
+import           ConCat.Misc ((:*))
 import           ConCat.Orphans ()
 import           ConCat.Rebox ()
-import           ConCat.Rep (HasRep(..))
 import qualified ConCat.RunCircuit as RC
 import           ConCat.Syntactic (Syn,render)
 import           GHC.TypeLits ()
@@ -73,20 +72,3 @@ horner (c:cs) a = c + a * horner cs a
 
 -- foo1 :: R -> L R R R
 -- foo1 = coerce
-
-
-data Foo = Foo Double
-
-negateFoo :: Unop Foo
-negateFoo (Foo x) = Foo (negate x)
-{-# INLINE negateFoo #-}
-
-instance HasRep Foo where
-  type Rep Foo = R
-  abst x = Foo x
-  repr (Foo x) = x
-
-  {-# INLINE abst #-}
-  {-# INLINE repr #-}
-
-
