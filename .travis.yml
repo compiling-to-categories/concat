@@ -1,5 +1,5 @@
 # Adapted from https://github.com/commercialhaskell/stack
-language: nix
+language: generic
 sudo: false
 
 cache:
