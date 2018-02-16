@@ -42,13 +42,13 @@ data a <-> b = Iso (a -> b) (b -> a)
 
 instance Category (<->) where
   id = Iso id id
-  Iso g h . Iso g' h' = Iso (g . g') (h' . h)
+  Iso g g' . Iso f f' = Iso (g . f) (f' . g')
 
 instance MonoidalPCat (<->) where
-  Iso g h *** Iso g' h' = Iso (g *** g') (h *** h')
+  Iso f f' *** Iso g g' = Iso (f *** g) (f' *** g')
 
 instance MonoidalSCat (<->) where
-  Iso g h +++ Iso g' h' = Iso (g +++ g') (h +++ h')
+  Iso f f' +++ Iso g g' = Iso (f +++ g) (f' +++ g')
 
 type KnownNat2 m n = (KnownNat m, KnownNat n)
 
