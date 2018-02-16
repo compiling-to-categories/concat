@@ -1,4 +1,5 @@
 .*
+!.travis*
 *.stackwork
 *out/
 *.tmp
