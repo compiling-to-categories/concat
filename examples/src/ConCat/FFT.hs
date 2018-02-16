@@ -60,9 +60,7 @@ import Test.QuickCheck.All (quickCheckAll)
 import ShapedTypes.ApproxEq
 #endif
 
-import ConCat.Misc (Unop,transpose)
-
-import ConCat.Misc
+import ConCat.Misc (Unop,transpose,C,inGeneric1,inComp)
 import ConCat.Sized
 import ConCat.Scan (LScan,lproducts)
 import ConCat.Pair
@@ -127,9 +125,6 @@ twiddle = (zipWith.zipWith) (*) omegas'
 twiddles :: forall g f a. (ASZ g, ASZ f, RealFloat a) => g (f (Complex a))
 twiddles = omegas (size @(g :.: f))
 {-# INLINE twiddles #-}
-
--- Handy for testing
-type C = Complex Double
 
 o8sq :: C
 o8sq = omega (8 :: Int) ^ (2 :: Int)
