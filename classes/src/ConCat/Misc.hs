@@ -29,6 +29,7 @@ import GHC.Types (Constraint)
 
 import Data.Typeable (Typeable,TypeRep,typeRep,Proxy(..))
 import Data.Data (Data)
+import Data.Complex (Complex)
 import GHC.Generics hiding (R)
 -- import Unsafe.Coerce (unsafeCoerce)  -- for oops
 import GHC.Stack (errorWithStackTrace)  -- for oops
@@ -274,6 +275,8 @@ typeR :: forall a. Typeable a => TypeRep
 typeR = typeRep (Proxy :: Proxy a)
 
 type R = Double -- Float
+
+type C = Complex R
 
 sqr :: Num a => a -> a
 sqr a = a * a
