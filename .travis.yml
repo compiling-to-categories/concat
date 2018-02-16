@@ -8,7 +8,6 @@ cache:
         - $HOME/.cabal
         - $HOME/.stack
         - .stack-work
-        - examples/test/gold
 
 matrix:
   fast_finish: true
