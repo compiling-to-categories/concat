@@ -343,7 +343,5 @@ basicTests = testGroup "basic tests"
 
   , runSynCirc "const" $ toCcc' $ A.const @(->) @R @R
 
-#endif
-
   ]
 
