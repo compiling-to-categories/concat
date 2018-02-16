@@ -21,7 +21,7 @@ import           ConCat.Free.LinearRow
 import           ConCat.Free.VectorSpace (HasV(..))
 import           ConCat.GAD
 import           ConCat.Interval
-import           ConCat.Misc ((:*), (:+), Binop, R, Unop, magSqr, sqr, unzip)
+import           ConCat.Misc ((:*), (:+), R, C, Unop, Binop, magSqr, sqr, unzip)
 import           ConCat.Orphans ()
 import           ConCat.RAD
 import           ConCat.Rebox ()
@@ -44,6 +44,20 @@ import           Utils
 basicTests :: TestTree
 basicTests = testGroup "basic tests"
   [ testGroup "" []
+
+  -- -- Circuit graphs
+  , runSynCircGold "add"         $ toCcc $ (+) @R
+  , runSynCircGold "add-uncurry" $ toCcc $ uncurry ((+) @R)
+  , runSynCircGold "dup"         $ toCcc $ A.dup @(->) @R
+  , runSynCircGold "fst"         $ toCcc $ fst @R @R
+  , runSynCircGold "twice"       $ toCcc $ twice @R
+  , runSynCircGold "sqr"         $ toCcc $ sqr @R
+  , runSynCircGold "complex-mul" $ toCcc $ uncurry ((*) @C)
+  , runSynCircGold "magSqr"      $ toCcc $ magSqr @R
+  , runSynCircGold "cosSinProd"  $ toCcc $ cosSinProd @R
+  , runSynCircGold "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCircGold "horner"      $ toCcc $ horner @R [1,3,5]
+  , runSynCircGold "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   , runSynCircGold "times-13" $ toCcc $ \(x :: Int) -> 13 * x == 130
 
@@ -291,8 +305,6 @@ basicTests = testGroup "basic tests"
 
   , runSynCircGold "mul-sin" $ toCcc $ \(x :: R) -> (sin x *)
 
-  , runSynCircGold "add" $ toCcc $ (+) @Integer
-
   , runSynCircGold "equal-pair-b" $ toCcc $ uncurry ((==) @(Bool :* Int))
 
   , runSynCircGold "equal-pair-d" $ toCcc $ toCcc $ uncurry ((==) @(Int :* R))
@@ -310,35 +322,6 @@ basicTests = testGroup "basic tests"
 
   -- Play with the "cat equal" trick.
   , runSynCircGold "eq-i" $ toCcc $ (==) @Int
-
-  , runSynCircGold "pow" $ toCcc $ uncurry ((**) @R)
-
-  , runSynCircGold "log" $ toCcc $ log @R
-
-  , runSynCircGold "truncate" $ toCcc $ truncate @R @Int
-
-  , runSynCircGold "cos-2xx" $ toCcc $ \x -> cos (2 * x * x) :: R
-
-  , runSynCircGold "horner" $ toCcc $ horner @R [1, 3, 5]
-
-  , runSynCircGold "xp3y" $ toCcc $ \(x, y) -> x + 3 * y :: R
-
-  , runSynCircGold "cosSinProd" $ toCcc $ cosSinProd @R
-
-  , runSynCircGold "magSqr" $ toCcc $ magSqr @R
-
-  -- -- !! compile failed
-  -- , runSynCircGold "complex-mul" $ toCcc $ uncurry ((*) @C)
-
-  , runSynCircGold "sqr" $ toCcc $ sqr @R
-
-  , runSynCircGold "twice" $ toCcc $ twice @R
-
-  , runSynCircGold "fst" $ toCcc $ fst @R @R
-
-  , runSynCircGold "dup" $ toCcc $ A.dup @(->) @R
-
-  , runSynCircGold "add-uncurry" $ toCcc $ uncurry ((+) @R)
 
   -- -- !! compile timeout
   -- , runSynCircGold "err1Grad-c" $ toCcc $ uncurry $ err1Grad (\ (p,q) z -> p * z + q)
