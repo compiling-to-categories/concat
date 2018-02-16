@@ -306,8 +306,7 @@ basicTests = testGroup "basic tests"
 
   , runSynCirc "foo2" $ toCcc $ uncurry $ \(x :: R) -> (sin x *)
 
-  -- -- !! run failed
-  -- , runSynCirc "foo" $ toCcc $ derFL @R $ sin @R
+  , runSynCirc "der-sin" $ toCcc $ derFL @R $ sin @R
 
   , runSynCirc "mul-sin" $ toCcc $ \(x :: R) -> (sin x *)
 
@@ -321,8 +320,7 @@ basicTests = testGroup "basic tests"
 
   , runSynCirc "equal-pair-uncurry-b" $ toCcc $ uncurry ((==) @(R :* Int))
 
-  -- -- !! run failed
-  -- , runSynCirc "equal-pair-b" $ toCcc $ (==) @(R :* Int)
+  , runSynCirc "equal-pair-curried-b" $ toCcc $ (==) @(R :* Int)
 
   , runSynCirc "uncurry-eq-i" $ toCcc $ uncurry ((==) @Int)
 

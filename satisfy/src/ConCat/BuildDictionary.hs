@@ -13,7 +13,7 @@
 --
 -- Maintainer  :  conal@conal.net
 -- Stability   :  experimental
--- 
+--
 -- Adaptation of HERMIT's buildDictionaryT
 ----------------------------------------------------------------------
 
@@ -76,7 +76,7 @@ traceTcS' str doc = pprTrace' str doc (return ())
 
 traceTc' :: String -> SDoc -> TcRn ()
 traceTc' str doc = pprTrace' str doc (return ())
-       
+
 runTcM :: HscEnv -> DynFlags -> ModGuts -> TcM a -> IO a
 runTcM env0 dflags guts m = do
     -- Remove hidden modules from dep_orphans
@@ -90,7 +90,7 @@ runTcM env0 dflags guts m = do
  where
    imports0 = ic_imports (hsc_IC env0)
    env :: [ModuleName] -> HscEnv
-   env extraModuleNames = 
+   env extraModuleNames =
      -- pprTrace' "runTcM extraModuleNames" (ppr extraModuleNames) $
      -- pprTrace' "runTcM dep_mods" (ppr (dep_mods (mg_deps guts))) $
      -- pprTrace' "runTcM dep_orphs" (ppr (dep_orphs (mg_deps guts))) $
@@ -99,7 +99,7 @@ runTcM env0 dflags guts m = do
      -- pprTrace' "runTcM fam_mg_insts" (ppr (mg_fam_insts guts)) $
      -- pprTrace' "runTcM imports0" (ppr imports0) $
      -- pprTrace' "runTcM mg_rdr_env guts" (ppr (mg_rdr_env guts)) $
-     -- pprTrace' "runTcM ic_rn_gbl_env" (ppr (ic_rn_gbl_env (hsc_IC env0))) $         
+     -- pprTrace' "runTcM ic_rn_gbl_env" (ppr (ic_rn_gbl_env (hsc_IC env0))) $
      env0 { hsc_IC = (hsc_IC env0)
              { ic_imports = map IIModule extraModuleNames ++ imports0
              , ic_rn_gbl_env = mg_rdr_env guts
@@ -119,7 +119,7 @@ buildDictionary' :: HscEnv -> DynFlags -> ModGuts -> VarSet -> Id
 buildDictionary' env dflags guts evIds evar =
   do (i, bs) <-
        runTcM env dflags guts $
-       do loc <- getCtLocM (GivenOrigin UnkSkol) Nothing          
+       do loc <- getCtLocM (GivenOrigin UnkSkol) Nothing
           let givens = mkGivens loc (uniqSetToList evIds)
               predTy = varType evar
               nonC = mkNonCanonical $
@@ -171,7 +171,7 @@ buildDictionary env dflags guts inScope goalTy =
      -- Occasionally I get "StgCmmEnv: variable not found", so don't keep any.
      -- See 2018-01-23 journal notes. For now, False
      -- TODO: Investigate!
-     -- False &&
+     False &&
      isEvVar v -- && not (isDeadBinder v)
      -- Keep evidence that relates to free type variables in the goal.
      -- && not (isEmptyVarSet (goalTyVars `intersectVarSet` tyCoVarsOfType (varType v))) -- see issue #20
