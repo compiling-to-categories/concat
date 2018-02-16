@@ -1,0 +1,6 @@
+addC . (id &&& id) &&&
+id .
+repr .
+abst .
+curry (jamP . apply) .
+repr . abst . curry (exr &&& apply) . repr . abst . curry exr
