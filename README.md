@@ -1,5 +1,7 @@
 ## Constrained categories
 
+[![Build Status](https://travis-ci.org/conal/concat.svg?branch=master)](https://travis-ci.org/conal/concat)
+
 Experimenting (again) with constrained categories, as well as Haskell to hardware, automatic differentiation, interval analysis, and other interpretations. See the paper [*Compiling to categories*](http://conal.net/papers/compiling-to-categories).
 
 To run miscellaneous examples:
