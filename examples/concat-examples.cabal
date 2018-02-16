@@ -114,6 +114,7 @@ Test-Suite misc-examples
   default-language: Haskell98
   hs-Source-Dirs:   test
   main-is:          Examples.hs
+  other-modules:    Miscellany
   Build-Depends:    base<5
                   , Cabal >= 1.24.0.0
                   , ghc-prim
@@ -184,6 +185,7 @@ Test-Suite gold-tests
   default-language: Haskell98
   hs-Source-Dirs:   test
   main-is:          GoldTests.hs
+  other-modules:    BasicTests, Miscellany, Utils
   Build-Depends:    base<5
                   , Cabal >= 1.24.0.0
                   , ghc-prim
