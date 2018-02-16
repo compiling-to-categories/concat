@@ -1,0 +1,42 @@
+digraph cos_2x_adf {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>}}"] }
+  subgraph clusterc1 { label=""; color=white; margin=0; c1 [label="{2.0|{<Out0>}}"] }
+  subgraph clusterc2 { label=""; color=white; margin=0; c2 [label="{{<In0>|<In1>}|\×|{<Out0>}}"] }
+  subgraph clusterc124 { label=""; color=white; margin=0; c124 [label="{{<In0>}|cos|{<Out0>}}"] }
+  subgraph clusterc125 { label=""; color=white; margin=0; c125 [label="{{<In0>}|sin|{<Out0>}}"] }
+  subgraph cluster_193 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    c188 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c190 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c187 [label="{0.0|{<Out0>}}"]
+    c186 [label="{In|{<Out0>}}"]
+    c192 [label="{{<In0>}|Out}"]
+    c189 [label="{{<In0>|<In1>}|jamP|{<Out0>}}"]
+    c191 [label="{{<In0>}|negate|{<Out0>}}"]
+    c1:Out0 -> c188:In0 []
+    c186:Out0 -> c188:In1 []
+    c125:Out0 -> c190:In0 []
+    c189:Out0 -> c190:In1 []
+    c191:Out0 -> c192:In0 []
+    c187:Out0 -> c189:In0 []
+    c188:Out0 -> c189:In1 []
+    c190:Out0 -> c191:In0 []
+  }
+  subgraph clusterc194 { label=""; color=white; margin=0; c194 [label="{{<In0>|<In1>}|Out}"] }
+  c0:Out0 -> c2:In0 []
+  c1:Out0 -> c2:In1 []
+  c2:Out0 -> c124:In0 []
+  c2:Out0 -> c125:In0 []
+  c124:Out0 -> c194:In0 []
+  c192 -> c194:In1 [ltail=cluster_193]
+}

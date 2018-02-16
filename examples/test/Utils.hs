@@ -14,8 +14,8 @@ import           Test.Tasty.Golden
 
 ------------------------------------------------------------------------------
 -- | Run gold tests for a CCC'd syntax and circuit graph dot.
-runSynCircGold :: GO a b => String -> EC a b -> TestTree
-runSynCircGold nm (syn A.:**: circ) =
+runSynCirc :: GO a b => String -> EC a b -> TestTree
+runSynCirc nm (syn A.:**: circ) =
   testGroup nm
     [ goldenVsString "syntax"
                      ("test/gold/" <> nm <> "-syn.golden")

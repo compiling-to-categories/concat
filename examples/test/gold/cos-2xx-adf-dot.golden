@@ -1,0 +1,54 @@
+digraph cos_2xx_adf {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>}}"] }
+  subgraph clusterc529 { label=""; color=white; margin=0; c529 [label="{2.0|{<Out0>}}"] }
+  subgraph clusterc530 { label=""; color=white; margin=0; c530 [label="{{<In0>|<In1>}|\×|{<Out0>}}"] }
+  subgraph clusterc831 { label=""; color=white; margin=0; c831 [label="{{<In0>|<In1>}|\×|{<Out0>}}"] }
+  subgraph clusterc1014 { label=""; color=white; margin=0; c1014 [label="{{<In0>}|cos|{<Out0>}}"] }
+  subgraph clusterc1015 { label=""; color=white; margin=0; c1015 [label="{{<In0>}|sin|{<Out0>}}"] }
+  subgraph cluster_1144 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    c1138 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c1136 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c1139 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c1141 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c1135 [label="{0.0|{<Out0>}}"]
+    c1134 [label="{In|{<Out0>}}"]
+    c1143 [label="{{<In0>}|Out}"]
+    c1137 [label="{{<In0>|<In1>}|jamP|{<Out0>}}"]
+    c1140 [label="{{<In0>|<In1>}|jamP|{<Out0>}}"]
+    c1142 [label="{{<In0>}|negate|{<Out0>}}"]
+    c0:Out0 -> c1138:In0 []
+    c1137:Out0 -> c1138:In1 []
+    c529:Out0 -> c1136:In0 []
+    c1134:Out0 -> c1136:In1 []
+    c530:Out0 -> c1139:In0 []
+    c1134:Out0 -> c1139:In1 []
+    c1015:Out0 -> c1141:In0 []
+    c1140:Out0 -> c1141:In1 []
+    c1142:Out0 -> c1143:In0 []
+    c1135:Out0 -> c1137:In0 []
+    c1136:Out0 -> c1137:In1 []
+    c1138:Out0 -> c1140:In0 []
+    c1139:Out0 -> c1140:In1 []
+    c1141:Out0 -> c1142:In0 []
+  }
+  subgraph clusterc1145 { label=""; color=white; margin=0; c1145 [label="{{<In0>|<In1>}|Out}"] }
+  c0:Out0 -> c530:In0 []
+  c529:Out0 -> c530:In1 []
+  c0:Out0 -> c831:In0 []
+  c530:Out0 -> c831:In1 []
+  c831:Out0 -> c1014:In0 []
+  c831:Out0 -> c1015:In0 []
+  c1014:Out0 -> c1145:In0 []
+  c1143 -> c1145:In1 [ltail=cluster_1144]
+}
