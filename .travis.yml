@@ -29,7 +29,7 @@ matrix:
       compiler: ": #stack 8.2.1"
       addons: {apt: {packages: [ghc-8.2.1], sources: [hvr-ghc]}}
 
-    - env: GHCVER=8.2.1 CACHE_NAME=8.4.1
+    - env: GHCVER=8.4.1 CACHE_NAME=8.4.1
       compiler: ": #stack 8.4.1"
       addons: {apt: {packages: [ghc-8.4.1], sources: [hvr-ghc]}}
 
@@ -50,7 +50,7 @@ script:
  - |
    set -ex
    # Run tests
-  stack --no-terminal test :gold-tests --ghc-options="$GHC_OPTIONS"
+   stack --no-terminal test :gold-tests --ghc-options="$GHC_OPTIONS"
    set +ex
 
 after_success:
