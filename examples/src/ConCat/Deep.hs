@@ -160,6 +160,9 @@ infixr 9 @.
 (g @. f) (q :*: p) = g q . f p
 {-# INLINE (@.) #-}
 
+-- Using q :*: p instead of p :*: q avoids the need for parens when combining
+-- several, while giving (@.) the same fixity as (.).
+
 {--------------------------------------------------------------------
     SGD interface
 --------------------------------------------------------------------}
