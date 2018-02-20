@@ -36,8 +36,8 @@ import ConCat.RAD (gradR)
 --------------------------------------------------------------------}
 
 -- | Generalized matrix
-infixr 1 :--*
-type p :--* q = q :.: p
+infixr 1 --*
+type p --* q = q :.: p
 
 infixl 7 *^, <.>, >.<
 
@@ -56,22 +56,6 @@ v ^/ s = recip s *^ v
 normalize :: (Summable a, Fractional s, Additive s) => a s -> a s
 normalize v = v ^/ sumA v
 {-# INLINE normalize #-}
-
--- From AltCat:
---
--- -- | Generalized matrix
--- infixr 1 :--*
--- type (p :--* q) u = q (p u)
-
--- | Linear map representation ("matrix")
-infixr 1 --*
-type a --* b = (a :--* b) R
-
-infixr 1 -->
-type a --> b = a R -> b R
-
--- dot' :: (h (s -> s)) -> (h s -> s)
--- dot' = joinPF
 
 -- | Inner product
 dotV,(<.>) :: (Summable a, Additive s, Num s) => a s -> a s -> s
@@ -92,14 +76,14 @@ outerV  = (>.<)
 -- (*^ b) <$> a :: a s -> a (b s)
 
 -- linear' :: (Summable a, Summable b, Additive v)
---         => (a :--* b) (u -> v) -> (a u -> b v)
+--         => (a --* b) (u -> v) -> (a u -> b v)
 -- linear' = linearApp'
 -- linear' = forkF . fmap joinPF
 -- {-# INLINE linear' #-}
 
 -- | Apply a linear map
 linear :: (Summable a, Summable b, Additive s, Num s)
-       => (a :--* b) s -> (a s -> b s)
+       => (a --* b) s -> (a s -> b s)
 linear (Comp1 ba) a = (<.> a) <$> ba
 {-# INLINE linear #-}
 
@@ -113,16 +97,16 @@ bump :: Num s => a s -> Bump a s
 bump a = a :*: Par1 1
 
 -- | Affine map representation
-infixr 1 :--+
-type a :--+ b = Bump a :--* b
+infixr 1 --+
+type a --+ b = Bump a --* b
 
 -- | Affine map over R
 infixr 1 --+
-type a --+ b = (a :--+ b) R
+type a --+ b = (a --+ b) R
                -- Bump a --* b
 -- | Affine application
 affine :: (Summable a, Summable b, Additive s, Num s)
-       => (a :--+ b) s -> (a s -> b s)
+       => (a --+ b) s -> (a s -> b s)
 affine m = linear m . bump
 {-# INLINE affine #-}
 
@@ -153,13 +137,11 @@ relus = fmap (max 0)
 
 -- | Affine followed by RELUs.
 affRelu :: (C2 Summable a b, Ord s, Additive s, Num s)
-        => (a :--+ b) s -> (a s -> b s)
+        => (a --+ b) s -> (a s -> b s)
 affRelu l = relus . affine l
 {-# INLINE affRelu #-}
 
 -- affRelu = (result.result) relus affine
-
--- affRelu :: forall a b. (C2 Summable a b) => (a --+ b) -> (a --> b)
 
 errSqr :: Summable b => a R :* b R -> (a --> b) -> R
 errSqr (a,b) h = distSqr b (h a)
@@ -214,15 +196,15 @@ err1Grad h sample = gradR (\ a -> err1 (h a) sample)
     Examples
 --------------------------------------------------------------------}
 
-lr1 :: C2 Summable a b => (a :--+ b) R  ->  (a --> b)
+lr1 :: C2 Summable a b => (a --+ b) R  ->  (a --> b)
 lr1 = affRelu
 {-# INLINE lr1 #-}
 
-lr2 :: C3 Summable a b c => ((b :--+ c) :*: (a :--+ b)) R  ->  (a --> c)
+lr2 :: C3 Summable a b c => ((b --+ c) :*: (a --+ b)) R  ->  (a --> c)
 lr2 = affRelu @. affRelu
 {-# INLINE lr2 #-}
 
-lr3 :: C4 Summable a b c d => ((c :--+ d) :*: (b :--+ c) :*: (a :--+ b)) R  ->  (a --> d)
+lr3 :: C4 Summable a b c d => ((c --+ d) :*: (b --+ c) :*: (a --+ b)) R  ->  (a --> d)
 lr3 = affRelu @. affRelu @. affRelu
 {-# INLINE lr3 #-}
 
