@@ -180,7 +180,7 @@ steps gamma m samples = compose (step gamma m <$> samples)
 {-# INLINE steps #-}
 
 --          step gamma m              :: a R :* b R -> Unop (p R)
---          step gamma m <$> samples  :: [Unop (p R)]
+--          step gamma m <$> samples  :: f (Unop (p R))
 -- compose (step gamma m <$> samples) :: Unop (p R)
 
 {--------------------------------------------------------------------
