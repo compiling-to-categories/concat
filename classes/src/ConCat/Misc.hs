@@ -29,6 +29,7 @@ import GHC.Types (Constraint)
 
 import Data.Typeable (Typeable,TypeRep,typeRep,Proxy(..))
 import Data.Data (Data)
+import Data.Monoid (Endo(..))
 import Data.Complex (Complex)
 import GHC.Generics hiding (R)
 -- import Unsafe.Coerce (unsafeCoerce)  -- for oops
@@ -144,8 +145,9 @@ class    Yes2 a b
 instance Yes2 a b
 
 -- | Compose list of unary transformations
-compose :: [Unop a] -> Unop a
-compose = foldr (.) id
+compose :: Foldable f => f (Unop a) -> Unop a
+compose = appEndo . foldMap Endo
+-- compose = foldr (.) id
 
 infixr 3 `xor`
 
