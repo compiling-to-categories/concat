@@ -43,18 +43,30 @@ type p --* q = q :.: p
 infixl 7 *^, <.>, >.<
 
 -- | Scale a vector
-scaleV, (*^) :: (Functor a, Num s) => s -> a s -> a s
+scaleV, (*^) :: (Functor a, Num s) => s -> Unop (a s)
 -- s *^ v = scale s <$> v
 s *^ v = (s *) <$> v
 scaleV = (*^)
 {-# INLINE (*^) #-}
+
+negateV :: (Functor a, Num s) => Unop (a s)
+negateV = ((-1) *^)
+{-# INLINE negateV #-}
+
+infixl 6 ^-^
+(^-^) :: (Zip a, Num s) => Binop (a s)
+(^-^) = zipWith (-)
+{-# INLINE (^-^) #-}
+
+-- (^-^) :: (Functor a, Num s, Additive1 (a s)) => Binop (a s)
+-- u ^-^ v = u ^+^ negateV v
 
 infixl 7 ^/
 (^/) :: (Functor a, Fractional s) => a s -> s -> a s
 v ^/ s = recip s *^ v
 {-# INLINE (^/) #-}
 
-normalize :: (Summable a, Fractional s, Additive s) => a s -> a s
+normalize :: (Summable a, Fractional s, Additive s) => Unop (a s)
 normalize v = v ^/ sumA v
 {-# INLINE normalize #-}
 
@@ -119,7 +131,7 @@ normSqr u  = u <.> u
 
 -- | Distance squared
 distSqr :: (Summable n, Additive s, Num s) => n s -> n s -> s
-distSqr u v = normSqr (zipWith (-) u v)
+distSqr u v = normSqr (u ^-^ v)
 {-# INLINE distSqr #-}
 
 -- The normSqr and distSqr definitions rely on Num instances on functions.
