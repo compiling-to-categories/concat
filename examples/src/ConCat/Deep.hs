@@ -198,14 +198,17 @@ err1Grad h sample = gradR (\ a -> err1 (h a) sample)
     Examples
 --------------------------------------------------------------------}
 
-lr1 :: C2 Summable a b => (a --+ b) R  ->  (a R -> b R)
+infixr 1 -->
+type (a --> b) s = a s -> b s
+
+lr1 :: C2 Summable a b => (a --+ b) R  ->  (a --> b) R
 lr1 = affRelu
 {-# INLINE lr1 #-}
 
-lr2 :: C3 Summable a b c => ((b --+ c) :*: (a --+ b)) R  ->  (a R -> c R)
+lr2 :: C3 Summable a b c => ((b --+ c) :*: (a --+ b)) R  ->  (a --> c) R
 lr2 = affRelu @. affRelu
 {-# INLINE lr2 #-}
 
-lr3 :: C4 Summable a b c d => ((c --+ d) :*: (b --+ c) :*: (a --+ b)) R  ->  (a R -> d R)
+lr3 :: C4 Summable a b c d => ((c --+ d) :*: (b --+ c) :*: (a --+ b)) R  ->  (a --> d) R
 lr3 = affRelu @. affRelu @. affRelu
 {-# INLINE lr3 #-}
