@@ -28,6 +28,7 @@ import Data.NumInstances.Function ()
 
 import ConCat.Misc
 import ConCat.Additive
+import ConCat.AltCat (Additive1(..),(<+))
 import ConCat.Orphans ()
 import ConCat.RAD (gradR)
 
@@ -167,13 +168,13 @@ infixr 9 @.
 --------------------------------------------------------------------}
 
 -- Single SGD step, from one parameter estimation to the next
-step :: (C3 Summable p a b, Additive (p s), Additive s, Num s)
+step :: forall s p a b. (C3 Summable p a b, Additive1 p, Additive s, Num s)
      => s -> (p s -> a s -> b s) -> a s :* b s -> Unop (p s)
-step gamma m sample p = p ^+^ gamma *^ errGrad m sample p
+step gamma m sample p = p ^+^ gamma *^ errGrad m sample p <+ additive1 @p @s
 {-# INLINE step #-}
 
 -- Multiple SGD steps, from one parameter estimation to another
-steps :: (C3 Summable p a b, Additive (p s), Functor f, Foldable f, Additive s, Num s)
+steps :: (C3 Summable p a b, Additive1 p, Functor f, Foldable f, Additive s, Num s)
       => s -> (p s -> a s -> b s) -> f (a s :* b s) -> Unop (p s)
 steps gamma m samples = compose (step gamma m <$> samples)
 {-# INLINE steps #-}
