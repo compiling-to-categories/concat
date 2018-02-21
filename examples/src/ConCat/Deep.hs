@@ -100,10 +100,6 @@ bump a = a :*: Par1 1
 infixr 1 --+
 type a --+ b = Bump a --* b
 
--- | Affine map over R
-infixr 1 --+
-type a --+ b = (a --+ b) R
-               -- Bump a --* b
 -- | Affine application
 affine :: (Summable a, Summable b, Additive s, Num s)
        => (a --+ b) s -> (a s -> b s)
@@ -143,15 +139,18 @@ affRelu l = relus . affine l
 
 -- affRelu = (result.result) relus affine
 
-errSqr :: Summable b => a R :* b R -> (a --> b) -> R
+errSqr :: (Summable b, Additive s, Num s)
+       => a s :* b s -> (a s -> b s) -> s
 errSqr (a,b) h = distSqr b (h a)
 {-# INLINE errSqr #-}
 
-errSqrSampled :: Summable b => (p R -> a R -> b R) -> a R :* b R -> p R -> R
+errSqrSampled :: (Summable b, Additive s, Num s)
+              => (p s -> a s -> b s) -> a s :* b s -> p s -> s
 errSqrSampled h sample = errSqr sample . h
 {-# INLINE errSqrSampled #-}
 
-errGrad :: Summable b => (p R -> a R -> b R) -> a R :* b R -> Unop (p R)
+errGrad :: (Summable b, Additive s, Num s)
+        => (p s -> a s -> b s) -> a s :* b s -> Unop (p s)
 errGrad = (result.result) gradR errSqrSampled
 {-# INLINE errGrad #-}
 
@@ -168,20 +167,20 @@ infixr 9 @.
 --------------------------------------------------------------------}
 
 -- Single SGD step, from one parameter estimation to the next
-step :: (C3 Summable p a b, Additive (p R))
-     => R -> (p R -> a R -> b R) -> a R :* b R -> Unop (p R)
+step :: (C3 Summable p a b, Additive (p s), Additive s, Num s)
+     => s -> (p s -> a s -> b s) -> a s :* b s -> Unop (p s)
 step gamma m sample p = p ^+^ gamma *^ errGrad m sample p
 {-# INLINE step #-}
 
 -- Multiple SGD steps, from one parameter estimation to another
-steps :: (C3 Summable p a b, Additive (p R), Functor f, Foldable f)
-      => R -> (p R -> a R -> b R) -> f (a R :* b R) -> Unop (p R)
+steps :: (C3 Summable p a b, Additive (p s), Functor f, Foldable f, Additive s, Num s)
+      => s -> (p s -> a s -> b s) -> f (a s :* b s) -> Unop (p s)
 steps gamma m samples = compose (step gamma m <$> samples)
 {-# INLINE steps #-}
 
---          step gamma m              :: a R :* b R -> Unop (p R)
---          step gamma m <$> samples  :: f (Unop (p R))
--- compose (step gamma m <$> samples) :: Unop (p R)
+--          step gamma m              :: a s :* b s -> Unop (p s)
+--          step gamma m <$> samples  :: f (Unop (p s))
+-- compose (step gamma m <$> samples) :: Unop (p s)
 
 {--------------------------------------------------------------------
     Temp
@@ -199,27 +198,14 @@ err1Grad h sample = gradR (\ a -> err1 (h a) sample)
     Examples
 --------------------------------------------------------------------}
 
-lr1 :: C2 Summable a b => (a --+ b) R  ->  (a --> b)
+lr1 :: C2 Summable a b => (a --+ b) R  ->  (a R -> b R)
 lr1 = affRelu
 {-# INLINE lr1 #-}
 
-lr2 :: C3 Summable a b c => ((b --+ c) :*: (a --+ b)) R  ->  (a --> c)
+lr2 :: C3 Summable a b c => ((b --+ c) :*: (a --+ b)) R  ->  (a R -> c R)
 lr2 = affRelu @. affRelu
 {-# INLINE lr2 #-}
 
-lr3 :: C4 Summable a b c d => ((c --+ d) :*: (b --+ c) :*: (a --+ b)) R  ->  (a --> d)
+lr3 :: C4 Summable a b c d => ((c --+ d) :*: (b --+ c) :*: (a --+ b)) R  ->  (a R -> d R)
 lr3 = affRelu @. affRelu @. affRelu
 {-# INLINE lr3 #-}
-
--- elr1 :: C2 Summable a b => a R :* b R -> Unop (a --+ b)
--- elr1 = errGrad lr1
--- {-# INLINE elr1 #-}
-
--- elr2 :: C3 Summable a b c => a R :* c R -> Unop ((a --+ b) :* (b --+ c))
--- elr2 = errGrad lr2
--- {-# INLINE elr2 #-}
-
--- elr3 :: C4 Summable a b c d
---      => a R :* d R -> Unop ((a --+ b) :* (b --+ c) :* (c --+ d))
--- elr3 = errGrad lr3
--- {-# INLINE elr3 #-}
