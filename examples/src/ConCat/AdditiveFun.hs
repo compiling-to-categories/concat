@@ -97,19 +97,31 @@ instance ProductCat (-+>) where
   {-# OPINLINE first #-}
   {-# OPINLINE second #-}
 
+
 instance CoproductPCat (-+>) where
+#if 1
+  inlP = abst (,zero)
+  inrP = abst (zero,)
+  jamP = abst (uncurry (^+^))
+  swapPS = swapP
+  {-# INLINE inlP #-}
+  {-# INLINE inrP #-}
+  {-# INLINE jamP #-}
+  {-# INLINE swapPS #-}
+#else
   Abst(inlP)
   Abst(inrP)
+  Abst(jamP)
+  Abst(swapPS)
   -- (||||) = inAbst2 (\ f g (x,y) -> f x ^+^ g y)
   -- (++++) = inAbst2 (***)
   -- jamP   = abst (uncurry (^+^))  -- 2018-02-04 notes
   -- jamP   = abst jamP  -- 2018-02-07 notes
-  Abst(jamP)
-  Abst(swapPS)
   -- ...
   -- {-# OPINLINE (||||) #-}
   -- {-# OPINLINE (++++) #-}
   -- {-# OPINLINE jamP #-}
+#endif
 
 instance Num s => ScalarCat (-+>) s where
   scale s = abst (s *)
@@ -157,10 +169,18 @@ instance (Representable h, Zip h, Pointed h, Additive1 h) => IxProductCat (-+>) 
   {-# OPINLINE crossF #-}
 
 instance (Summable h, Additive1 h) => IxCoproductPCat (-+>) h where
+#if 1
+  inPF   = abst <$> tabulate (\ i a -> tabulate (\ j -> if i == j then a else zero))
+  joinPF = inAbstF1 joinPF
+  plusPF = inAbstF1 plusPF
+  Abst(jamPF)
+  {-# OPINLINE jamPF   #-}
+#else
   inPF   = abst <$> inPF
   joinPF = inAbstF1 joinPF
   plusPF = inAbstF1 plusPF
   Abst(jamPF)
+#endif
   {-# OPINLINE inPF   #-}
   {-# OPINLINE joinPF #-}
   {-# OPINLINE plusPF #-}

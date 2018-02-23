@@ -134,9 +134,13 @@ instance OkAdd k => OkAdd (GD k) where
   okAdd :: forall a. Ok' (GD k) a |- Sat Additive a
   okAdd = Entail (Sub (Dict <+ okAdd @k @a))
 
+#if 0
+-- Unused, I think, and relies on CoproductPCat (->).
 instance CoproductPCat k => CoproductPCat (GD k) where
   Linear(inlP)
   Linear(inrP)
+  Linear(jamP)
+  Linear(swapPS)
   -- D f ++++ D g = D (second (uncurry (++++)) . transposeP . (f ++++ g))
   -- D f ++++ D g = D (\ (a,b) ->
   --   let (c,f') = f a
@@ -145,8 +149,6 @@ instance CoproductPCat k => CoproductPCat (GD k) where
   --     ((c,d), f' ++++ g'))
   -- D f ++++ D g =
   --   D (\ (a,b) -> let { (c,f') = f a ; (d,g') = g b } in ((c,d), f' ++++ g'))
-  Linear(jamP)
-  Linear(swapPS)
   -- {-# INLINE (++++) #-}
   -- D f |||| D g = D (\ (a,b) ->
   --   let (c ,f') = f a
@@ -154,6 +156,8 @@ instance CoproductPCat k => CoproductPCat (GD k) where
   --   in
   --     (c ^+^ c', f' |||| g')) -- or default
   -- {-# INLINE (||||) #-}
+
+#endif
 
 {--------------------------------------------------------------------
     Indexed products and coproducts
@@ -197,8 +201,8 @@ instance (IxProductCat (->) h, IxProductCat k h, Zip h) => IxProductCat (GD k) h
 instance (IxCoproductPCat (->) h, IxCoproductPCat k h, Zip h) => IxCoproductPCat (GD k) h where
   Linears(inPF)
   Linear(jamPF)
-  plusPF (fmap repr -> fs) = D (second plusPF . unzip . plusPF fs)
-  {-# INLINE plusPF #-}
+  -- plusPF (fmap repr -> fs) = D (second plusPF . unzip . plusPF fs)
+  -- {-# INLINE plusPF #-}
 
 {--------------------------------------------------------------------
     NumCat etc

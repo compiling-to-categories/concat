@@ -421,12 +421,12 @@ instance (OkIxProd Syn h, Representable h, Foldable h, Show (R.Rep h))
 
 instance (OkIxProd Syn h, Representable h, Zip h, Traversable h, Show (R.Rep h))
       => IxCoproductPCat Syn h where
-  inPF :: forall a. (Additive a, Ok Syn a) => h (a `Syn` h a)
+  inPF :: forall a. Ok Syn a => h (a `Syn` h a)
   inPF = tabulate $ \ i -> app0 ("inP " ++ showsPrec 10 i "")
-  jamPF :: forall a. (Additive a, Ok Syn a) => h a `Syn` a
+  jamPF :: forall a. Ok Syn a => h a `Syn` a
   jamPF = app0 "jamPF"
-  plusPF :: forall a b. Ok2 Syn a b => h (a `Syn` b) -> (h a `Syn` h b)
-  plusPF = crossF
+  -- plusPF :: forall a b. Ok2 Syn a b => h (a `Syn` b) -> (h a `Syn` h b)
+  -- plusPF = crossF
 
 instance OkFunctor Syn h where okFunctor = Entail (Sub Dict)
 

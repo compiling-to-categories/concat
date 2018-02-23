@@ -831,7 +831,7 @@ instance (AbelianCat k, AbelianCat k') => AbelianCat (k :**: k') where
 -- TODO: eliminate CoproductPCat in favor of when we have associated products,
 -- coproducts, etc.
 
-infixr 2 ++++, ||||
+infixr 2 ||||, ++++
 
 type CoprodP k = Prod k
 
@@ -842,17 +842,11 @@ okCoprodP :: forall k a b. OkCoprodP k
 okCoprodP = inOp
 {-# INLINE okCoprodP #-}
 
--- | Alias for '(***)'
-(++++) :: forall k a b c d. (MonoidalPCat k, Ok4 k a b c d)
-       => (c `k` a) -> (d `k` b) -> (CoprodP k c d `k` CoprodP k a b)
-(++++) = (***)
-{-# INLINE (++++) #-}
-
 -- | Category with coproduct as Cartesian product.
 class MonoidalPCat k => CoproductPCat k where
-  inlP :: (Additive b, Ok2 k a b) => a `k` CoprodP k a b
-  inrP :: (Additive a, Ok2 k a b) => b `k` CoprodP k a b
-  jamP :: (Additive a, Ok k a) => CoprodP k a a `k` a
+  inlP :: Ok2 k a b => a `k` CoprodP k a b
+  inrP :: Ok2 k a b => b `k` CoprodP k a b
+  jamP :: Ok k a => CoprodP k a a `k` a
   jamP = id |||| id
   {-# INLINE jamP #-}
   swapPS :: forall a b. Ok2 k a b
@@ -863,7 +857,7 @@ class MonoidalPCat k => CoproductPCat k where
            <+ okCoprodP @k @b @a
            <+ okAdd @k @a <+ okAdd @k @b
   {-# INLINE swapPS #-}
-  (||||) :: forall a c d. (Additive a, Ok3 k a c d)
+  (||||) :: forall a c d. Ok3 k a c d
          => (c `k` a) -> (d `k` a) -> (CoprodP k c d `k` a)
 #ifndef DefaultCat
   -- We canDt give two default definitions for (&&&).
@@ -874,17 +868,14 @@ class MonoidalPCat k => CoproductPCat k where
 #endif
   {-# MINIMAL inlP, inrP, ((||||) | jamP) #-}
 
--- TODO: consider moving (++++) to a superclass.
--- Its Additive constraints are only for the default.
-
 -- Don't bother with left, right, lassocS, rassocS, and misc helpers.
 
-instance CoproductPCat (->) where
-  inlP a = (a,zero)
-  inrP b = (zero,b)
-  (f |||| g) (a,b) = f a ^+^ g b
-  jamP (a,a') = a ^+^ a'
-  swapPS = swapP
+-- instance CoproductPCat (->) where
+--   inlP a = (a,zero)
+--   inrP b = (zero,b)
+--   (f |||| g) (a,b) = f a ^+^ g b
+--   jamP (a,a') = a ^+^ a'
+--   swapPS = swapP
 
 instance CoproductPCat U2 where
   inlP = U2
@@ -910,8 +901,6 @@ instance (CoproductPCat k, CoproductPCat k') => CoproductPCat (k :**: k') where
   -- PINLINER(rightD)
   -- PINLINER(lassocSD)
   -- PINLINER(rassocSD)
-
--- No (->) instance, but see Additive in examples
 
 -- Scalar multiplication
 
@@ -2469,27 +2458,28 @@ instance (AddF f, AddF g) => Additive1 (f :*: g)  where additive1 = Entail (Sub 
 instance (AddF f, AddF g) => Additive1 (g :.: f)  where additive1 = Entail (Sub Dict)
 instance KnownNat n       => Additive1 (Vector n) where additive1 = Entail (Sub Dict)
 
+-- TODO: move Additive1 elsewhere
+
 -- | Indexed coproducts as indexed products.
 -- Requires additivity for now. See 2018-01-14 notes.
 class (Category k, OkIxProd k h) => IxCoproductPCat k h where
-  inPF   :: forall a   . (Additive a, Ok  k a  ) => h (a `k` h a)
-  joinPF :: forall a b . (Additive a, Ok2 k a b) => h (b `k` a) -> (h b `k` a)
-  plusPF :: forall a b . (            Ok2 k a b) => h (b `k` a) -> (h b `k` h a)  -- same as crossPF
-  jamPF  :: forall a   . (Additive a, Ok  k a  ) => h a `k` a
+  inPF   :: forall a   . Ok  k a   => h (a `k` h a)
+  joinPF :: forall a b . Ok2 k a b => h (b `k` a) -> (h b `k` a)
+  -- plusPF :: forall a b . Ok2 k a b => h (b `k` a) -> (h b `k` h a)  -- same as crossPF
+  jamPF  :: forall a   . Ok  k a   => h a `k` a
   -- Defaults
-  default plusPF :: forall a b . (Zip h, Additive1 h, OkAdd k, Ok2 k a b)
-                 => h (b `k` a) -> (h b `k` h a)
-  plusPF fs = joinPF (zipWith (.) inPF fs)
-      <+ additive1 @h @a
-      <+ okIxProd @k @h @a
-      <+ okAdd @k @a
+  -- default plusPF :: forall a b . (Zip h, Ok2 k a b) => h (b `k` a) -> (h b `k` h a)
+  -- plusPF fs = joinPF (zipWith (.) inPF fs)
+  --     <+ okIxProd @k @h @a
+  default joinPF :: forall a b . (IxProductCat k h, Ok2 k a b) => h (b `k` a) -> (h b `k` a)
   joinPF fs = jamPF . plusPF fs <+ okIxProd @k @h @a <+ okIxProd @k @h @b
-  default jamPF :: forall a . (Pointed h, Additive a, Ok k a) => h a `k` a
+  default jamPF :: forall a . (Pointed h, Ok k a) => h a `k` a
   jamPF     = joinPF (point id)
   {-# INLINE joinPF #-}
-  {-# INLINE plusPF #-}
+  -- {-# INLINE plusPF #-}
   {-# INLINE jamPF #-}
-  {-# MINIMAL inPF, (joinPF | (plusPF, jamPF)) #-}
+  -- {-# MINIMAL inPF, (joinPF | (plusPF, jamPF)) #-}
+  {-# MINIMAL inPF, (joinPF | jamPF) #-}
 
 #if 0
 
@@ -2529,13 +2519,13 @@ joinPF inPF :: h b `k` h b
 
 #endif
 
-instance Summable h => IxCoproductPCat (->) h where
-  inPF      = tabulate (\ i a -> tabulate (\ j -> if i == j then a else zero))
-  plusPF    = crossF
-  jamPF     = sumA
-  {-# OPINLINE inPF #-}
-  {-# OPINLINE plusPF #-}
-  {-# OPINLINE jamPF #-}
+-- instance Summable h => IxCoproductPCat (->) h where
+--   inPF      = tabulate (\ i a -> tabulate (\ j -> if i == j then a else zero))
+--   plusPF    = crossF
+--   jamPF     = sumA
+--   {-# OPINLINE inPF #-}
+--   {-# OPINLINE plusPF #-}
+--   {-# OPINLINE jamPF #-}
 
   -- joinPF fs = jamPF . plusPF fs  -- default, so remove
   -- {-# OPINLINE joinPF #-}
@@ -2551,12 +2541,27 @@ instance Summable h => IxCoproductPCat (->) h where
 instance Pointed h => IxCoproductPCat U2 h where
   inPF   = point U2
   joinPF = const U2
-  plusPF = const U2
   jamPF  = U2
+  -- plusPF = const U2
 
 instance (IxCoproductPCat k h, IxCoproductPCat k' h, Zip h)
       => IxCoproductPCat (k :**: k') h where
   inPF   = zipWith (:**:) inPF inPF
   joinPF = prod . (joinPF *** joinPF) . unzip . fmap unProd
-  plusPF = prod . (plusPF *** plusPF) . unzip . fmap unProd
   jamPF  = jamPF :**: jamPF
+  -- plusPF = prod . (plusPF *** plusPF) . unzip . fmap unProd
+
+{--------------------------------------------------------------------
+    Obsolete
+--------------------------------------------------------------------}
+
+-- | Alias for '(***)'
+(++++) :: (MonoidalPCat k, Ok4 k a b c d) =>
+          (c `k` a) -> (d `k` b) -> (CoprodP k c d `k` CoprodP k a b)
+(++++) = (***)
+{-# INLINE (++++) #-}
+
+-- Alias for 'crossF'
+plusPF :: (IxProductCat k h, Ok2 k a b) => h (b `k` a) -> (h b `k` h a)
+plusPF = crossF
+{-# INLINE plusPF #-}
