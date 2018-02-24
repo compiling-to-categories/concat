@@ -186,11 +186,13 @@ instance OkIxProd k h => OkIxProd (GD k) h where
 
 #define Linears(nm) nm = zipWith linearD nm nm
 
+instance (IxMonoidalPCat (->) h, IxMonoidalPCat k h, Zip h) => IxMonoidalPCat (GD k) h where
+  crossF (fmap unD -> fs) = D (second crossF . unzip . crossF fs)
+  {-# INLINE crossF #-}
+
 instance (IxProductCat (->) h, IxProductCat k h, Zip h) => IxProductCat (GD k) h where
   Linears(exF)
   Linear(replF)
-  crossF (fmap repr -> fs) = D (second crossF . unzip . crossF fs)
-  {-# INLINE crossF #-}
 
 -- crossF types:
 -- 
@@ -198,11 +200,11 @@ instance (IxProductCat (->) h, IxProductCat k h, Zip h) => IxProductCat (GD k) h
 --   unzip         :: .. -> h b :* h (a `k` b)
 --   second crossF :: .. -> h b :* (h a `k` h b
 
-instance (IxCoproductPCat (->) h, IxCoproductPCat k h, Zip h) => IxCoproductPCat (GD k) h where
-  Linears(inPF)
-  Linear(jamPF)
-  -- plusPF (fmap repr -> fs) = D (second plusPF . unzip . plusPF fs)
-  -- {-# INLINE plusPF #-}
+-- instance (IxCoproductPCat (->) h, IxCoproductPCat k h, Zip h) => IxCoproductPCat (GD k) h where
+--   Linears(inPF)
+--   Linear(jamPF)
+--   -- plusPF (fmap repr -> fs) = D (second plusPF . unzip . plusPF fs)
+--   -- {-# INLINE plusPF #-}
 
 {--------------------------------------------------------------------
     NumCat etc

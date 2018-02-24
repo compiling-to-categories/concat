@@ -71,9 +71,8 @@ import ConCat.Category
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS
   , Additive1(..), OkAdd(..), AbelianCat
   , MonoidalSCat, CoproductPCat, CoprodP, ScalarCat, LinearCat
-  , OkIxProd(..), IxProductCat
-  , IxCoproductPCat
-  -- , OkIxCoprod(..), IxCoproductCat
+  , OkIxProd(..), IxMonoidalPCat, IxProductCat, IxCoproductPCat
+  -- , OkIxCoprod(..), IxMonoidalSCat, IxCoproductCat
   , DistribCat, undistl, undistr
   , ClosedCat, Exp
   , TerminalCat, Unit{-, lunit, runit, constFun-}, CoterminalCat, Counit, constFun2, unitFun, unUnitFun
@@ -169,9 +168,10 @@ Op0(swapPS,forall k a b. (CoproductPCat k, Ok2 k a b) => CoprodP k a b `k` Copro
 -- Op1(lassocSD,forall k a b c. (CoproductPCat k, Ok3 k a b c) => CoprodP k a (CoprodP k b c) `k` CoprodP k (CoprodP k a b) c)
 -- Op1(rassocSD,forall k a b c. (CoproductPCat k, Ok3 k a b c) => CoprodP k (CoprodP k a b) c `k` CoprodP k a (CoprodP k b c))
 
+Op1(crossF, (IxMonoidalPCat k h, Ok2 k a b) => h (a `k` b) -> (h a `k` h b))
+
 Op0(exF   , (IxProductCat k h, Ok  k a  ) => h (h a `k` a))
 Op1(forkF , (IxProductCat k h, Ok2 k a b) => h (a `k` b) -> (a `k` h b))
-Op1(crossF, (IxProductCat k h, Ok2 k a b) => h (a `k` b) -> (h a `k` h b))
 Op0(replF , (IxProductCat k h, Ok  k a  ) => a `k` h a)
 
 class    (IxProductCat k h, Functor h, Ok2 k a b) => OkFork h a b k
@@ -196,9 +196,10 @@ Op1(joinPF, (IxCoproductPCat k h, Ok2 k a b) => h (b `k` a) -> (h b `k` a))
 -- Op1(plusPF, (IxCoproductPCat k h, Ok2 k a b) => h (b `k` a) -> (h b `k` h a))
 Op0(jamPF , (IxCoproductPCat k h, Ok  k a  ) => h a `k` a)
 
+-- Op1(plusF, (IxMonoidalSCat k n, Ok2 k a b) => (h (b `k` a)) -> ((n , b) `k` (n , a)))
+
 -- Op0(inF  , (IxCoproductCat k n, Ok  k a  ) => h (a `k` (n , a)))
 -- Op1(joinF, (IxCoproductCat k n, Ok2 k a b) => (h (b `k` a)) -> ((n , b) `k` a))
--- Op1(plusF, (IxCoproductCat k n, Ok2 k a b) => (h (b `k` a)) -> ((n , b) `k` (n , a)))
 -- Op0(jamF , (IxCoproductCat k n, Ok  k a  ) => (n , a) `k` a)
 
 Op0(scale,(ScalarCat k a => a -> (a `k` a)))
