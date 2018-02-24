@@ -126,9 +126,9 @@ instance ProductCat k => ProductCat (GD k) where
   Linear(exl)
   Linear(exr)
   Linear(dup)
-  D f &&& D g =
-    D (\ a -> let { (c,f') = f a ; (d,g') = g a } in ((c,d), f' &&& g'))
-  {-# INLINE (&&&) #-}
+  -- D f &&& D g =
+  --   D (\ a -> let { (c,f') = f a ; (d,g') = g a } in ((c,d), f' &&& g'))
+  -- {-# INLINE (&&&) #-}
 
 instance OkAdd k => OkAdd (GD k) where
   okAdd :: forall a. Ok' (GD k) a |- Sat Additive a
