@@ -2554,7 +2554,6 @@ joinPF inPF :: h b `k` h b
 
 -- jamPF :: h a -> a
 
-
 instance Pointed h => IxCoproductPCat U2 h where
   inPF   = point U2
   joinPF = const U2
