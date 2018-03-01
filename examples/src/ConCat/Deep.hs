@@ -196,7 +196,10 @@ steps = \ m gamma samples -> compose (step m gamma <$> samples)
 {-# INLINE steps #-}
 
 -- Moving parameters to RHS lambdas allows even unsaturated applications of step
--- and steps to inline. See 2018-02-28 journal notes.
+-- and steps to inline. See 2018-02-28 journal notes. An alternative solution
+-- that seems to work is to leave the `step` and `steps` definitions as before
+-- but replace the call to `step` in `steps` by `inline step`, where `inline`
+-- comes from `GHC.Exts`.
 
 --          step m gamma              :: a s :* b s -> Unop (p s)
 --          step m gamma <$> samples  :: f (Unop (p s))
