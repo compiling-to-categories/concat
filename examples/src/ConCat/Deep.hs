@@ -109,6 +109,10 @@ type Bump h = h :*: Par1
 bump :: Num s => a s -> Bump a s
 bump a = a :*: Par1 1
 
+-- Use existing `fstF`, from ConCat.Orphans, instead.
+-- unBump :: Num s => Bump a s -> a s
+-- unBump (a :*: Par1 _) = a
+
 -- | Affine map representation
 infixr 1 --+
 type a --+ b = Bump a --* b

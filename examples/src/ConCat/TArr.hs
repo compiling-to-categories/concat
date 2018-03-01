@@ -17,14 +17,14 @@
 
 module ConCat.TArr where
 
-import Prelude hiding (id, (.), const)  -- Coming from ConCat.AltCat.
+import Prelude hiding (id, (.), const, curry)  -- Coming from ConCat.AltCat.
 
 import GHC.TypeLits
 import GHC.Types (Nat)
 
 import Data.Proxy
 import Data.Tuple            (swap)
-import Data.Finite           (getFinite)
+-- import Data.Finite           (getFinite)
 import Data.Finite.Internal  (Finite(..))
 import qualified Data.Vector.Sized as V
 
@@ -81,9 +81,13 @@ finExp = Iso h g
                 v = V.unfoldrN (first Finite . swap . flip divMod (natValAt @m)) l
 
         h :: forall m n. KnownNat2 m n => Finite m :^ Finite n -> Finite (m ^ n)
-        h f = Finite $ V.foldl' (\accum m -> accum * (natValAt @m) + getFinite m)
-                              0
-                              $ V.reverse $ V.generate_ f
+        -- h f = Finite $ V.foldl' (\accum m -> accum * (natValAt @m) + getFinite m)
+        --                       0
+        --                       $ V.reverse $ V.generate_ f
+        -- h f = V.foldl' (curry u) (Finite 0) ((V.reverse . V.generate_) f)
+        -- h = V.foldl' (curry u) (Finite 0) . (V.reverse . V.generate_)
+        h = (V.foldl' . curry) u (Finite 0) . (V.reverse . V.generate_)
+          where u (Finite acc, Finite m) = Finite $ acc * natValAt @m + m
 
 isoFwd :: a <-> b -> a -> b
 isoFwd (Iso g _) = g
