@@ -12,6 +12,8 @@
 {-# OPTIONS_GHC -Wall #-}
 -- {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
+-- {-# OPTIONS_GHC -fno-specialise #-}
+
 #include "ConCat/Ops.inc"
 
 -- | Simple feed-forward deep learning
@@ -181,19 +183,24 @@ infixr 9 @.
 
 -- Single SGD step, from one parameter estimation to the next
 step :: forall s p a b. (C3 Summable p a b, Additive1 p, Additive s, Num s)
-     => s -> (p s -> a s -> b s) -> a s :* b s -> Unop (p s)
-step gamma m sample p = p ^+^ gamma *^ errGrad m sample p <+ additive1 @p @s
+     => (p s -> a s -> b s) -> s -> a s :* b s -> Unop (p s)
+-- step m gamma sample p = p ^+^ gamma *^ errGrad m sample p <+ additive1 @p @s
+step = \ m gamma sample p -> p ^+^ gamma *^ errGrad m sample p <+ additive1 @p @s
 {-# INLINE step #-}
 
 -- Multiple SGD steps, from one parameter estimation to another
 steps :: (C3 Summable p a b, Additive1 p, Functor f, Foldable f, Additive s, Num s)
-      => s -> (p s -> a s -> b s) -> f (a s :* b s) -> Unop (p s)
-steps gamma m samples = compose (step gamma m <$> samples)
+      => (p s -> a s -> b s) -> s -> f (a s :* b s) -> Unop (p s)
+-- steps m gamma samples = compose (step m gamma <$> samples)
+steps = \ m gamma samples -> compose (step m gamma <$> samples)
 {-# INLINE steps #-}
 
---          step gamma m              :: a s :* b s -> Unop (p s)
---          step gamma m <$> samples  :: f (Unop (p s))
--- compose (step gamma m <$> samples) :: Unop (p s)
+-- Moving parameters to RHS lambdas allows even unsaturated applications of step
+-- and steps to inline. See 2018-02-28 journal notes.
+
+--          step m gamma              :: a s :* b s -> Unop (p s)
+--          step m gamma <$> samples  :: f (Unop (p s))
+-- compose (step m gamma <$> samples) :: Unop (p s)
 
 {--------------------------------------------------------------------
     Temp
