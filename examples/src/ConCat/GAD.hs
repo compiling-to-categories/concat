@@ -126,17 +126,21 @@ instance ProductCat k => ProductCat (GD k) where
   Linear(exl)
   Linear(exr)
   Linear(dup)
-  D f &&& D g =
-    D (\ a -> let { (c,f') = f a ; (d,g') = g a } in ((c,d), f' &&& g'))
-  {-# INLINE (&&&) #-}
+  -- D f &&& D g =
+  --   D (\ a -> let { (c,f') = f a ; (d,g') = g a } in ((c,d), f' &&& g'))
+  -- {-# INLINE (&&&) #-}
 
 instance OkAdd k => OkAdd (GD k) where
   okAdd :: forall a. Ok' (GD k) a |- Sat Additive a
   okAdd = Entail (Sub (Dict <+ okAdd @k @a))
 
+#if 0
+-- Unused, I think, and relies on CoproductPCat (->).
 instance CoproductPCat k => CoproductPCat (GD k) where
   Linear(inlP)
   Linear(inrP)
+  Linear(jamP)
+  Linear(swapPS)
   -- D f ++++ D g = D (second (uncurry (++++)) . transposeP . (f ++++ g))
   -- D f ++++ D g = D (\ (a,b) ->
   --   let (c,f') = f a
@@ -145,8 +149,6 @@ instance CoproductPCat k => CoproductPCat (GD k) where
   --     ((c,d), f' ++++ g'))
   -- D f ++++ D g =
   --   D (\ (a,b) -> let { (c,f') = f a ; (d,g') = g b } in ((c,d), f' ++++ g'))
-  Linear(jamP)
-  Linear(swapPS)
   -- {-# INLINE (++++) #-}
   -- D f |||| D g = D (\ (a,b) ->
   --   let (c ,f') = f a
@@ -154,6 +156,8 @@ instance CoproductPCat k => CoproductPCat (GD k) where
   --   in
   --     (c ^+^ c', f' |||| g')) -- or default
   -- {-# INLINE (||||) #-}
+
+#endif
 
 {--------------------------------------------------------------------
     Indexed products and coproducts
@@ -182,11 +186,13 @@ instance OkIxProd k h => OkIxProd (GD k) h where
 
 #define Linears(nm) nm = zipWith linearD nm nm
 
+instance (IxMonoidalPCat (->) h, IxMonoidalPCat k h, Zip h) => IxMonoidalPCat (GD k) h where
+  crossF (fmap unD -> fs) = D (second crossF . unzip . crossF fs)
+  {-# INLINE crossF #-}
+
 instance (IxProductCat (->) h, IxProductCat k h, Zip h) => IxProductCat (GD k) h where
   Linears(exF)
   Linear(replF)
-  crossF (fmap repr -> fs) = D (second crossF . unzip . crossF fs)
-  {-# INLINE crossF #-}
 
 -- crossF types:
 -- 
@@ -194,11 +200,11 @@ instance (IxProductCat (->) h, IxProductCat k h, Zip h) => IxProductCat (GD k) h
 --   unzip         :: .. -> h b :* h (a `k` b)
 --   second crossF :: .. -> h b :* (h a `k` h b
 
-instance (IxCoproductPCat (->) h, IxCoproductPCat k h, Zip h) => IxCoproductPCat (GD k) h where
-  Linears(inPF)
-  Linear(jamPF)
-  plusPF (fmap repr -> fs) = D (second plusPF . unzip . plusPF fs)
-  {-# INLINE plusPF #-}
+-- instance (IxCoproductPCat (->) h, IxCoproductPCat k h, Zip h) => IxCoproductPCat (GD k) h where
+--   Linears(inPF)
+--   Linear(jamPF)
+--   -- plusPF (fmap repr -> fs) = D (second plusPF . unzip . plusPF fs)
+--   -- {-# INLINE plusPF #-}
 
 {--------------------------------------------------------------------
     NumCat etc

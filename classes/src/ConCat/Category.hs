@@ -831,7 +831,7 @@ instance (AbelianCat k, AbelianCat k') => AbelianCat (k :**: k') where
 -- TODO: eliminate CoproductPCat in favor of when we have associated products,
 -- coproducts, etc.
 
-infixr 2 ++++, ||||
+infixr 2 ||||, ++++
 
 type CoprodP k = Prod k
 
@@ -842,17 +842,11 @@ okCoprodP :: forall k a b. OkCoprodP k
 okCoprodP = inOp
 {-# INLINE okCoprodP #-}
 
--- | Alias for '(***)'
-(++++) :: forall k a b c d. (MonoidalPCat k, Ok4 k a b c d)
-       => (c `k` a) -> (d `k` b) -> (CoprodP k c d `k` CoprodP k a b)
-(++++) = (***)
-{-# INLINE (++++) #-}
-
 -- | Category with coproduct as Cartesian product.
 class MonoidalPCat k => CoproductPCat k where
-  inlP :: (Additive b, Ok2 k a b) => a `k` CoprodP k a b
-  inrP :: (Additive a, Ok2 k a b) => b `k` CoprodP k a b
-  jamP :: (Additive a, Ok k a) => CoprodP k a a `k` a
+  inlP :: Ok2 k a b => a `k` CoprodP k a b
+  inrP :: Ok2 k a b => b `k` CoprodP k a b
+  jamP :: Ok k a => CoprodP k a a `k` a
   jamP = id |||| id
   {-# INLINE jamP #-}
   swapPS :: forall a b. Ok2 k a b
@@ -863,7 +857,7 @@ class MonoidalPCat k => CoproductPCat k where
            <+ okCoprodP @k @b @a
            <+ okAdd @k @a <+ okAdd @k @b
   {-# INLINE swapPS #-}
-  (||||) :: forall a c d. (Additive a, Ok3 k a c d)
+  (||||) :: forall a c d. Ok3 k a c d
          => (c `k` a) -> (d `k` a) -> (CoprodP k c d `k` a)
 #ifndef DefaultCat
   -- We canDt give two default definitions for (&&&).
@@ -874,17 +868,14 @@ class MonoidalPCat k => CoproductPCat k where
 #endif
   {-# MINIMAL inlP, inrP, ((||||) | jamP) #-}
 
--- TODO: consider moving (++++) to a superclass.
--- Its Additive constraints are only for the default.
-
 -- Don't bother with left, right, lassocS, rassocS, and misc helpers.
 
-instance CoproductPCat (->) where
-  inlP a = (a,zero)
-  inrP b = (zero,b)
-  (f |||| g) (a,b) = f a ^+^ g b
-  jamP (a,a') = a ^+^ a'
-  swapPS = swapP
+-- instance CoproductPCat (->) where
+--   inlP a = (a,zero)
+--   inrP b = (zero,b)
+--   (f |||| g) (a,b) = f a ^+^ g b
+--   jamP (a,a') = a ^+^ a'
+--   swapPS = swapP
 
 instance CoproductPCat U2 where
   inlP = U2
@@ -910,8 +901,6 @@ instance (CoproductPCat k, CoproductPCat k') => CoproductPCat (k :**: k') where
   -- PINLINER(rightD)
   -- PINLINER(lassocSD)
   -- PINLINER(rassocSD)
-
--- No (->) instance, but see Additive in examples
 
 -- Scalar multiplication
 
@@ -2264,21 +2253,24 @@ class OkIxProd k h where
   okIxProd :: Ok' k a |- Ok' k (h a)
 -- TODO: Now same as OkFunctor, so drop one.
 
-class (Category k, OkIxProd k h) => IxProductCat k h where
+class (Category k, OkIxProd k h) => IxMonoidalPCat k h where
+  crossF :: forall a b. Ok2 k a b => h (a `k` b) -> (h a `k` h b)
+
+class IxMonoidalPCat k h => IxProductCat k h where
   exF    :: forall a  . Ok  k a   => h (h a `k` a)
   forkF  :: forall a b. Ok2 k a b => h (a `k` b) -> (a `k` h b)
-  crossF :: forall a b. Ok2 k a b => h (a `k` b) -> (h a `k` h b)
   replF  :: forall a  . Ok  k a   => a `k` h a
   -- Defaults
-  forkF  fs = crossF fs . replF <+ okIxProd @k @h @a <+ okIxProd @k @h @b
-  default crossF :: forall a b. (Zip h, Ok2 k a b) => h (a `k` b) -> (h a `k` h b)
-  crossF fs = forkF (zipWith (.) fs exF) <+ okIxProd @k @h @a
+  forkF fs = crossF fs . replF <+ okIxProd @k @h @a <+ okIxProd @k @h @b
   default replF :: forall a . (Pointed h, Ok k a) => a `k` h a
   replF     = forkF (point id)
   {-# INLINE forkF #-}
-  {-# INLINE crossF #-}
   {-# INLINE replF #-}
-  {-# MINIMAL exF, (forkF | (crossF, replF)) #-}
+  {-# MINIMAL exF, (forkF | replF) #-}
+
+  -- default crossF :: forall a b. (Zip h, Ok2 k a b) => h (a `k` b) -> (h a `k` h b)
+  -- crossF fs = forkF (zipWith (.) fs exF) <+ okIxProd @k @h @a
+  -- {-# INLINE crossF #-}
 
 #if 0
 -- Types for forkF
@@ -2319,15 +2311,17 @@ forkF exF :: h b `k` h b
 
 instance OkIxProd (->) h where okIxProd = Entail (Sub Dict)
 
+instance Zip h => IxMonoidalPCat (->) h where
+  crossF = zipWith id -- 2018-02-07 notes
+  {-# OPINLINE crossF #-}
+
 instance (Representable h, Zip h, Pointed h) => IxProductCat (->) h where
   exF    = tabulate (flip index)
   replF  = point
-  crossF = zipWith id -- 2018-02-07 notes
            -- zap
   forkF = \ fs x -> ($ x) <$> fs
   {-# OPINLINE exF    #-}
   {-# OPINLINE replF  #-}
-  {-# OPINLINE crossF #-}
   {-# OPINLINE forkF #-}
 
 --           flip index :: Rep h -> h a -> a
@@ -2339,10 +2333,12 @@ instance (Representable h, Zip h, Pointed h) => IxProductCat (->) h where
 instance OkIxProd U2 h where
   okIxProd = Entail (Sub Dict)
 
+instance IxMonoidalPCat U2 h where
+  crossF = const U2
+
 instance Pointed h => IxProductCat U2 h where
   exF    = point U2
   forkF  = const U2
-  crossF = const U2
   replF  = U2
 
 instance (OkIxProd k h, OkIxProd k' h) => OkIxProd (k :**: k') h where
@@ -2350,10 +2346,12 @@ instance (OkIxProd k h, OkIxProd k' h) => OkIxProd (k :**: k') h where
   okIxProd = Entail (Sub (Dict <+ okIxProd @k  @h @a
                                <+ okIxProd @k' @h @a))
 
-instance (IxProductCat k h, IxProductCat k' h, Zip h) => IxProductCat (k :**: k) h where
+instance (IxMonoidalPCat k h, IxMonoidalPCat k' h, Zip h) => IxMonoidalPCat (k :**: k') h where
+  crossF = prod . (crossF *** crossF) . unzip . fmap unProd
+
+instance (IxProductCat k h, IxProductCat k' h, Zip h) => IxProductCat (k :**: k') h where
   exF    = zipWith (:**:) exF exF
   forkF  = prod . (forkF  *** forkF ) . unzip . fmap unProd
-  crossF = prod . (crossF *** crossF) . unzip . fmap unProd
   replF  = replF :**: replF
 
 #if 0
@@ -2372,20 +2370,24 @@ class OkIxCoprod k n where
 -- TODO: is there a functor-style equivalent/dual for (n , a), say some kind of
 -- co-representable thingy?
 
--- | Indexed coproducts
-class (Category k, OkIxCoprod k h) => IxCoproductCat k n where
+-- | Indexed monoidal coproducts
+class (Category k, OkIxCoprod k h) => IxMonoidalSCat k n where
+  plusF :: forall a b . Ok2 k a b => h (b `k` a) -> ((n , b) `k` (n , a))
+
+  -- -- Defaults
+  -- plusF fs = joinF (zipWith (.) inF fs) <+ okIxCoprod @k @n @a
+  -- {-# INLINE plusF #-}
+
+-- | Indexed cocartesian
+class IxMonoidalSCat k h => IxCoproductCat k n where
   inF   :: forall a   . Ok  k a   => h (a `k` (n , a))
   joinF :: forall a b . Ok2 k a b => h (b `k` a) -> ((n , b) `k` a)
-  plusF :: forall a b . Ok2 k a b => h (b `k` a) -> ((n , b) `k` (n , a))
   jamF  :: forall a   . Ok  k a   => (n , a) `k` a
-  -- Defaults
-  plusF fs = joinF (zipWith (.) inF fs) <+ okIxCoprod @k @n @a
   joinF fs = jamF . plusF fs <+ okIxCoprod @k @n @a <+ okIxCoprod @k @n @b
   jamF     = joinF (const id)  -- or exr if we assumed products.
-  {-# INLINE plusF #-}
   {-# INLINE joinF #-}
   {-# INLINE jamF #-}
-  {-# MINIMAL inF, (joinF | (plusF, jamF)) #-}
+  {-# MINIMAL inF, (joinF | jamF) #-}
 
 instance OkIxCoprod (->) n where okIxCoprod = Entail (Sub Dict)
 
@@ -2438,10 +2440,12 @@ joinF inF :: h b `k` h b
 instance OkIxCoprod U2 n where
   okIxCoprod = Entail (Sub Dict)
 
+instance IxMonoidalSCat U2 n where
+  plusF = const U2
+
 instance IxCoproductCat U2 n where
   inF   = pure U2
   joinF = const U2
-  plusF = const U2
   jamF  = U2
 
 instance (OkIxCoprod k n, OkIxCoprod k' n) => OkIxCoprod (k :**: k') n where
@@ -2449,10 +2453,12 @@ instance (OkIxCoprod k n, OkIxCoprod k' n) => OkIxCoprod (k :**: k') n where
   okIxCoprod = Entail (Sub (Dict <+ okIxCoprod @k  @n @a
                                  <+ okIxCoprod @k' @n @a))
 
+instance (IxMonoidalSCat k n, IxMonoidalSCat k' n) => IxMonoidalSCat (k :**: k) n where
+  plusF = prod . (plusF *** plusF) . unzip . fmap unProd
+
 instance (IxCoproductCat k n, IxCoproductCat k' n) => IxCoproductCat (k :**: k) n where
   inF   = zipWith (:**:) inF inF
   joinF = prod . (joinF *** joinF) . unzip . fmap unProd
-  plusF = prod . (plusF *** plusF) . unzip . fmap unProd
   jamF  = jamF :**: jamF
 
 #endif
@@ -2469,27 +2475,28 @@ instance (AddF f, AddF g) => Additive1 (f :*: g)  where additive1 = Entail (Sub 
 instance (AddF f, AddF g) => Additive1 (g :.: f)  where additive1 = Entail (Sub Dict)
 instance KnownNat n       => Additive1 (Vector n) where additive1 = Entail (Sub Dict)
 
+-- TODO: move Additive1 elsewhere
+
 -- | Indexed coproducts as indexed products.
 -- Requires additivity for now. See 2018-01-14 notes.
-class (Category k, OkIxProd k h) => IxCoproductPCat k h where
-  inPF   :: forall a   . (Additive a, Ok  k a  ) => h (a `k` h a)
-  joinPF :: forall a b . (Additive a, Ok2 k a b) => h (b `k` a) -> (h b `k` a)
-  plusPF :: forall a b . (            Ok2 k a b) => h (b `k` a) -> (h b `k` h a)  -- same as crossPF
-  jamPF  :: forall a   . (Additive a, Ok  k a  ) => h a `k` a
+class (IxMonoidalPCat k h, OkIxProd k h) => IxCoproductPCat k h where
+  inPF   :: forall a   . Ok  k a   => h (a `k` h a)
+  joinPF :: forall a b . Ok2 k a b => h (b `k` a) -> (h b `k` a)
+  -- plusPF :: forall a b . Ok2 k a b => h (b `k` a) -> (h b `k` h a)  -- same as crossPF
+  jamPF  :: forall a   . Ok  k a   => h a `k` a
   -- Defaults
-  default plusPF :: forall a b . (Zip h, Additive1 h, OkAdd k, Ok2 k a b)
-                 => h (b `k` a) -> (h b `k` h a)
-  plusPF fs = joinPF (zipWith (.) inPF fs)
-      <+ additive1 @h @a
-      <+ okIxProd @k @h @a
-      <+ okAdd @k @a
+  -- default plusPF :: forall a b . (Zip h, Ok2 k a b) => h (b `k` a) -> (h b `k` h a)
+  -- plusPF fs = joinPF (zipWith (.) inPF fs)
+  --     <+ okIxProd @k @h @a
+  default joinPF :: forall a b . (IxMonoidalPCat k h, Ok2 k a b) => h (b `k` a) -> (h b `k` a)
   joinPF fs = jamPF . plusPF fs <+ okIxProd @k @h @a <+ okIxProd @k @h @b
-  default jamPF :: forall a . (Pointed h, Additive a, Ok k a) => h a `k` a
+  default jamPF :: forall a . (Pointed h, Ok k a) => h a `k` a
   jamPF     = joinPF (point id)
   {-# INLINE joinPF #-}
-  {-# INLINE plusPF #-}
+  -- {-# INLINE plusPF #-}
   {-# INLINE jamPF #-}
-  {-# MINIMAL inPF, (joinPF | (plusPF, jamPF)) #-}
+  -- {-# MINIMAL inPF, (joinPF | (plusPF, jamPF)) #-}
+  {-# MINIMAL inPF, (joinPF | jamPF) #-}
 
 #if 0
 
@@ -2529,13 +2536,13 @@ joinPF inPF :: h b `k` h b
 
 #endif
 
-instance Summable h => IxCoproductPCat (->) h where
-  inPF      = tabulate (\ i a -> tabulate (\ j -> if i == j then a else zero))
-  plusPF    = crossF
-  jamPF     = sumA
-  {-# OPINLINE inPF #-}
-  {-# OPINLINE plusPF #-}
-  {-# OPINLINE jamPF #-}
+-- instance Summable h => IxCoproductPCat (->) h where
+--   inPF      = tabulate (\ i a -> tabulate (\ j -> if i == j then a else zero))
+--   plusPF    = crossF
+--   jamPF     = sumA
+--   {-# OPINLINE inPF #-}
+--   {-# OPINLINE plusPF #-}
+--   {-# OPINLINE jamPF #-}
 
   -- joinPF fs = jamPF . plusPF fs  -- default, so remove
   -- {-# OPINLINE joinPF #-}
@@ -2547,16 +2554,30 @@ instance Summable h => IxCoproductPCat (->) h where
 
 -- jamPF :: h a -> a
 
-
 instance Pointed h => IxCoproductPCat U2 h where
   inPF   = point U2
   joinPF = const U2
-  plusPF = const U2
   jamPF  = U2
+  -- plusPF = const U2
 
 instance (IxCoproductPCat k h, IxCoproductPCat k' h, Zip h)
       => IxCoproductPCat (k :**: k') h where
   inPF   = zipWith (:**:) inPF inPF
   joinPF = prod . (joinPF *** joinPF) . unzip . fmap unProd
-  plusPF = prod . (plusPF *** plusPF) . unzip . fmap unProd
   jamPF  = jamPF :**: jamPF
+  -- plusPF = prod . (plusPF *** plusPF) . unzip . fmap unProd
+
+{--------------------------------------------------------------------
+    Obsolete
+--------------------------------------------------------------------}
+
+-- | Alias for '(***)'
+(++++) :: (MonoidalPCat k, Ok4 k a b c d) =>
+          (c `k` a) -> (d `k` b) -> (CoprodP k c d `k` CoprodP k a b)
+(++++) = (***)
+{-# INLINE (++++) #-}
+
+-- Alias for 'crossF'
+plusPF :: (IxMonoidalPCat k h, Ok2 k a b) => h (b `k` a) -> (h b `k` h a)
+plusPF = crossF
+{-# INLINE plusPF #-}

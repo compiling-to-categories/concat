@@ -914,24 +914,27 @@ instance (OkIxProd (:>) f, OkIxProd (:>) g)
 instance KnownNat i => OkIxProd (:>) (Vector i) where
   okIxProd = Entail (Sub Dict)
 
-instance (OkIxProd (:>) h, Representable h, Show (R.Rep h), Zip h, Traversable h, Show1 h)
+instance (OkIxProd (:>) h, Functor h, Zip h, Traversable h, Show1 h)
+      => IxMonoidalPCat (:>) h where
+  crossF :: forall a b. Ok2 (:>) a b => h (a :> b) -> (h a :> h b)
+  crossF = inCKF1 crossFB
+
+instance (IxMonoidalPCat (:>) h, Representable h, Show (R.Rep h))
       => IxProductCat (:>) h where
   exF :: forall a . Ok (:>) a => h (h a :> a)
   exF = tabulate $ \ i -> namedC ("ex " ++ showsPrec 10 i "") <+ okIxProd @(:>) @h @a
   replF :: forall a . Ok (:>) a => a :> h a
   replF = namedC "replF" <+ okIxProd @(:>) @h @a
-  crossF :: forall a b. Ok2 (:>) a b => h (a :> b) -> (h a :> h b)
-  crossF = inCKF1 crossFB
 
 instance ( OkIxProd (:>) h, Representable h, Zip h, Traversable h
          , Show (R.Rep h), Show1 h )
       => IxCoproductPCat (:>) h where
-  inPF :: forall a. (Additive a, Ok  (:>) a  ) => h (a :> h a)
+  inPF :: forall a. Ok (:>) a => h (a :> h a)
   inPF = tabulate $ \ i -> namedC ("inP " ++ showsPrec 10 i "") <+ okIxProd @(:>) @h @a
-  jamPF :: forall a. (Additive a, Ok  (:>) a  ) => h a :> a
+  jamPF :: forall a. Ok (:>) a => h a :> a
   jamPF = namedC "jamPF" <+ okIxProd @(:>) @h @a
-  plusPF :: forall a b. Ok2 (:>) a b => h (a :> b) -> (h a :> h b)
-  plusPF = crossF
+  -- plusPF :: forall a b. Ok2 (:>) a b => h (a :> b) -> (h a :> h b)
+  -- plusPF = crossF
 
 unIxProdB :: Buses (h a) -> h (Buses a)
 unIxProdB (IxProdB bs) = bs
