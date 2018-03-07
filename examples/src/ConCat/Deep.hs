@@ -4,10 +4,12 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MonadComprehensions #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -Wall #-}
 -- {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
@@ -20,19 +22,20 @@
 
 module ConCat.Deep where
 
-import Prelude hiding (zipWith)
+import Prelude hiding (zipWith, toList)
 
 import GHC.TypeLits ()
 import GHC.Generics (Par1(..),(:*:)(..),(:.:)(..))
 
+import Data.Foldable
 import Data.Key
 import Data.NumInstances.Function ()
 
 import ConCat.Misc
 import ConCat.Additive
-import ConCat.AltCat (Additive1(..),(<+))
-import ConCat.Orphans ()
-import ConCat.RAD (gradR)
+import ConCat.AltCat  (Additive1(..),(<+))
+import ConCat.Orphans (fstF, sndF)
+import ConCat.RAD     (gradR)
 
 {--------------------------------------------------------------------
     Simple linear algebra
@@ -209,6 +212,18 @@ steps = \ m gamma samples -> compose (step m gamma <$> samples)
 --          step m gamma <$> samples  :: f (Unop (p s))
 -- compose (step m gamma <$> samples) :: Unop (p s)
 
+-- | Train a network on several epochs of the training data, keeping
+-- track of its parameters after each.
+trainNTimes :: (C3 Summable p a b, Additive1 p, Functor f, Foldable f, Additive s, Num s)
+            => Int                  -- ^ number of epochs
+            -> s                    -- ^ learning rate
+            -> (p s -> a s -> b s)  -- ^ The "network" just converts a set of parameters
+                                    -- into a function from input to output functors.
+            -> p s                  -- ^ initial guess for learnable parameters
+            -> f (a s :* b s)       -- ^ the training pairs
+            -> [p s]                -- ^ initial parameters + those after each training epoch
+trainNTimes n rate net ps prs = take (n+1) $ iterate (steps net rate prs) ps
+
 {--------------------------------------------------------------------
     Temp
 --------------------------------------------------------------------}
@@ -220,6 +235,38 @@ err1 h (a,b) = sqr (b - h a)
 err1Grad :: (p -> R -> R) -> R :* R -> Unop p
 err1Grad h sample = gradR (\ a -> err1 (h a) sample)
 {-# INLINE err1Grad #-}
+
+{--------------------------------------------------------------------
+    Network structure
+--------------------------------------------------------------------}
+
+-- | A class of parameter types that can be split into a sequence of
+-- layers of "weights" and "biases". The meaning of the two notions:
+-- "weight" and "bias", are type specific. The only unifyng feature
+-- of these, across types, is that they be fully resolved types.
+class HasLayers p where
+  getWeights :: p s -> [[s]]
+  getBiases  :: p s -> [[s]]
+
+instance (HasLayers f, HasLayers g) => HasLayers (g :*: f) where
+  getWeights (g :*: f) = [ (concat . getWeights) f, (concat . getWeights) g ]
+  getBiases  (g :*: f) = [ (concat . getBiases)  f, (concat . getBiases)  g ]
+
+instance (Foldable a, Foldable b) => HasLayers (a --+ b) where
+  getWeights (Comp1 gf) = (map (toList          . fstF) . toList) gf
+  getBiases  (Comp1 gf) = (map ((: []) . unPar1 . sndF) . toList) gf
+
+-- instance (HasLayers f, Foldable g) => HasLayers (g :.: f) where
+--   getWeights (Comp1 g) = reverse $ foldl' (\ws -> (: ws) . concat . getWeights) [] g
+--   getBiases  (Comp1 g) = reverse $ foldl' (\ws -> (: ws) . concat . getBiases)  [] g
+
+-- instance Foldable f => HasLayers (f :*: Par1) where
+--   getWeights (f :*: Par1 _) = [toList f]
+--   getBiases  (_ :*: Par1 x) = [[x]]
+
+-- instance Foldable f => HasLayers f where
+--   getWeights f = [toList f]
+--   getBiases  f = [[]]
 
 {--------------------------------------------------------------------
     Examples
