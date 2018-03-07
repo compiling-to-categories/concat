@@ -192,7 +192,7 @@ infixr 9 @.
 step :: forall s p a b. (C3 Summable p a b, Additive1 p, Additive s, Num s)
      => (p s -> a s -> b s) -> s -> a s :* b s -> Unop (p s)
 -- step m gamma sample p = p ^+^ gamma *^ errGrad m sample p <+ additive1 @p @s
-step = \ m gamma sample p -> p ^+^ gamma *^ errGrad m sample p <+ additive1 @p @s
+step = \ m gamma sample p -> p ^-^ gamma *^ errGrad m sample p <+ additive1 @p @s
 {-# INLINE step #-}
 
 -- Multiple SGD steps, from one parameter estimation to another
