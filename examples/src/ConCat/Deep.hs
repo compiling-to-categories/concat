@@ -222,7 +222,9 @@ trainNTimes :: (C3 Summable p a b, Additive1 p, Functor f, Foldable f, Additive 
             -> p s                  -- ^ initial guess for learnable parameters
             -> f (a s :* b s)       -- ^ the training pairs
             -> [p s]                -- ^ initial parameters + those after each training epoch
-trainNTimes n rate net ps prs = take (n+1) $ iterate (steps net rate prs) ps
+-- trainNTimes n rate net ps prs = take (n+1) $ iterate (steps net rate prs) ps
+trainNTimes = \ n rate net ps prs -> take (n+1) $ iterate (steps net rate prs) ps
+{-# INLINE trainNTimes #-}
 
 {--------------------------------------------------------------------
     Temp
