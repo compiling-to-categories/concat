@@ -27,14 +27,14 @@ import Prelude hiding (zipWith)
 import GHC.TypeLits ()
 import GHC.Generics (Par1(..),(:*:)(..),(:.:)(..))
 
-import Data.Foldable
+-- import Data.Foldable
 import Data.Key
 import Data.NumInstances.Function ()
 
 import ConCat.Misc
 import ConCat.Additive
 import ConCat.AltCat  (Additive1(..),(<+))
-import ConCat.Orphans (fstF, sndF)
+-- import ConCat.Orphans (fstF, sndF)
 import ConCat.RAD     (gradR)
 
 {--------------------------------------------------------------------
