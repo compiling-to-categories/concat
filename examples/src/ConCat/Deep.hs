@@ -22,7 +22,7 @@
 
 module ConCat.Deep where
 
-import Prelude hiding (zipWith, toList)
+import Prelude hiding (zipWith)
 
 import GHC.TypeLits ()
 import GHC.Generics (Par1(..),(:*:)(..),(:.:)(..))
