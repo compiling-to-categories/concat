@@ -161,6 +161,17 @@ affRelu l = relus . affine l
 
 -- affRelu = (result.result) relus affine
 
+logistics :: (Functor f, Floating a) => Unop (f a)
+logistics = fmap (\x -> 1 / (1 + exp (-x)))
+{-# INLINE logistics #-}
+
+-- | Affine followed by logistics.
+-- affLog :: (C2 Summable a b, Ord s, Additive s, Num s)
+affLog :: (C2 Summable a b, Floating s, Additive s)
+        => (a --+ b) s -> (a s -> b s)
+affLog l = logistics . affine l
+{-# INLINE affLog #-}
+
 errSqr :: (Summable b, Additive s, Num s)
        => a s :* b s -> (a s -> b s) -> s
 errSqr (a,b) h = distSqr b (h a)
@@ -256,3 +267,8 @@ lr2 = affRelu @. affRelu
 lr3 :: C4 Summable a b c d => ((c --+ d) :*: (b --+ c) :*: (a --+ b)) R  ->  (a --> d) R
 lr3 = affRelu @. affRelu @. affRelu
 {-# INLINE lr3 #-}
+
+lr3' :: C4 Summable a b c d => ((c --+ d) :*: (b --+ c) :*: (a --+ b)) R  ->  (a --> d) R
+lr3' = affLog @. affLog @. affLog
+{-# INLINE lr3' #-}
+
