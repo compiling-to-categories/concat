@@ -239,38 +239,6 @@ err1Grad h sample = gradR (\ a -> err1 (h a) sample)
 {-# INLINE err1Grad #-}
 
 {--------------------------------------------------------------------
-    Network structure
---------------------------------------------------------------------}
-
--- | A class of parameter types that can be split into a sequence of
--- layers of "weights" and "biases". The meaning of the two notions:
--- "weight" and "bias", are type specific. The only unifyng feature
--- of these, across types, is that they be fully resolved types.
-class HasLayers p where
-  getWeights :: p s -> [[s]]
-  getBiases  :: p s -> [[s]]
-
-instance (HasLayers f, HasLayers g) => HasLayers (g :*: f) where
-  getWeights (g :*: f) = [ (concat . getWeights) f, (concat . getWeights) g ]
-  getBiases  (g :*: f) = [ (concat . getBiases)  f, (concat . getBiases)  g ]
-
-instance (Foldable a, Foldable b) => HasLayers (a --+ b) where
-  getWeights (Comp1 gf) = (map (toList          . fstF) . toList) gf
-  getBiases  (Comp1 gf) = (map ((: []) . unPar1 . sndF) . toList) gf
-
--- instance (HasLayers f, Foldable g) => HasLayers (g :.: f) where
---   getWeights (Comp1 g) = reverse $ foldl' (\ws -> (: ws) . concat . getWeights) [] g
---   getBiases  (Comp1 g) = reverse $ foldl' (\ws -> (: ws) . concat . getBiases)  [] g
-
--- instance Foldable f => HasLayers (f :*: Par1) where
---   getWeights (f :*: Par1 _) = [toList f]
---   getBiases  (_ :*: Par1 x) = [[x]]
-
--- instance Foldable f => HasLayers f where
---   getWeights f = [toList f]
---   getBiases  f = [[]]
-
-{--------------------------------------------------------------------
     Examples
 --------------------------------------------------------------------}
 
