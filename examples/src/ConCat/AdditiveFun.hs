@@ -83,7 +83,11 @@ instance Category (-+>) where
 
 instance MonoidalPCat (-+>) where
   (***) = inAbst2 (***)
+  first  = inAbst first
+  second = inAbst second
   {-# OPINLINE (***) #-}
+  {-# OPINLINE first #-}
+  {-# OPINLINE second #-}
 
 instance ProductCat (-+>) where
   Abst(exl)
@@ -91,11 +95,7 @@ instance ProductCat (-+>) where
   (&&&)  = inAbst2 (&&&)
   Abst(dup)
   Abst(swapP)
-  first  = inAbst first
-  second = inAbst second
   {-# OPINLINE (&&&) #-}
-  {-# OPINLINE first #-}
-  {-# OPINLINE second #-}
 
 instance CoproductPCat (-+>) where
 #if 1

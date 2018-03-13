@@ -395,6 +395,14 @@ class (OkProd k, Category k) => MonoidalPCat k where
   f *** g = f . exl &&& g . exr
             <+ okProd @k @a @b
   {-# INLINE (***) #-}
+  first :: forall a a' b. Ok3 k a b a'
+        => (a `k` a') -> (Prod k a b `k` Prod k a' b)
+  first = (*** id)
+  {-# INLINE first #-}
+  second :: forall a b b'. Ok3 k a b b'
+         => (b `k` b') -> (Prod k a b `k` Prod k a b')
+  second = (id ***)
+  {-# INLINE second #-}
 
 -- | Category with product.
 class (OkProd k, MonoidalPCat k) => ProductCat k where
@@ -419,14 +427,6 @@ class (OkProd k, MonoidalPCat k) => ProductCat k where
     <+ okProd @k @c @d
   {-# INLINE (&&&) #-}
 #endif
-  first :: forall a a' b. Ok3 k a b a'
-        => (a `k` a') -> (Prod k a b `k` Prod k a' b)
-  first = (*** id)
-  {-# INLINE first #-}
-  second :: forall a b b'. Ok3 k a b b'
-         => (b `k` b') -> (Prod k a b `k` Prod k a b')
-  second = (id ***)
-  {-# INLINE second #-}
   lassocP :: forall a b c. Ok3 k a b c
           => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
   lassocP = second exl &&& (exr . exr)
@@ -485,6 +485,8 @@ inLassocP' :: forall k a b c a' b' c'.
 
 instance MonoidalPCat (->) where
   (***) = (A.***)
+  first   = A.first
+  second  = A.second
 
 instance ProductCat (->) where
 #ifndef DefaultCat
@@ -492,8 +494,6 @@ instance ProductCat (->) where
   exl     = fst
   exr     = snd
   (&&&)   = (A.&&&)
-  first   = A.first
-  second  = A.second
   lassocP = \ (a,(b,c)) -> ((a,b),c)
   rassocP = \ ((a,b),c) -> (a,(b,c))
 #endif
@@ -514,7 +514,11 @@ instance ProductCat U2 where
 
 instance (MonoidalPCat k, MonoidalPCat k') => MonoidalPCat (k :**: k') where
   (f :**: f') *** (g :**: g') = (f *** g) :**: (f' *** g')
+  first (f :**: f') = first f :**: first f'
+  second (f :**: f') = second f :**: second f'
   PINLINER((***))
+  PINLINER(first)
+  PINLINER(second)
 
 instance (ProductCat k, ProductCat k') => ProductCat (k :**: k') where
   exl = exl :**: exl
@@ -522,16 +526,12 @@ instance (ProductCat k, ProductCat k') => ProductCat (k :**: k') where
   (f :**: f') &&& (g :**: g') = (f &&& g) :**: (f' &&& g')
   dup   = dup   :**: dup
   swapP = swapP :**: swapP
-  first (f :**: f') = first f :**: first f'
-  second (f :**: f') = second f :**: second f'
   lassocP = lassocP :**: lassocP
   rassocP = rassocP :**: rassocP
   PINLINER(exl)
   PINLINER(exr)
   PINLINER((&&&))
   PINLINER(swapP)
-  PINLINER(first)
-  PINLINER(second)
   PINLINER(lassocP)
   PINLINER(rassocP)
 
@@ -2478,7 +2478,6 @@ instance KnownNat n       => Additive1 (Vector n) where additive1 = Entail (Sub 
 -- TODO: move Additive1 elsewhere
 
 -- | Indexed coproducts as indexed products.
--- Requires additivity for now. See 2018-01-14 notes.
 class (IxMonoidalPCat k h, OkIxProd k h) => IxCoproductPCat k h where
   inPF   :: forall a   . Ok  k a   => h (a `k` h a)
   joinPF :: forall a b . Ok2 k a b => h (b `k` a) -> (h b `k` a)

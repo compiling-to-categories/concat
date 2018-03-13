@@ -39,7 +39,8 @@ import Data.Functor.Rep (Representable(tabulate))
 import qualified Data.Functor.Rep as R
 import Data.Vector.Sized (Vector)
 
-import ConCat.Category
+import qualified ConCat.Category
+import ConCat.AltCat
 import ConCat.Misc (Unop)
 import ConCat.Additive (Additive)
 import ConCat.Rep
@@ -156,24 +157,24 @@ instance Category Syn where
   INLINER((.))
 
 instance MonoidalPCat Syn where
-  (***) = app2 "***"
+  (***)  = app2 "***"
+  first  = app1 "first"
+  second = app1 "second"
   INLINER((***))
+  INLINER(first)
+  INLINER(second)
 
 instance ProductCat Syn where
   exl     = app0 "exl"
   exr     = app0 "exr"
   (&&&)   = app2 "&&&"
   swapP   = app0 "swapP"
-  first   = app1 "first"
-  second  = app1 "second"
   lassocP = app0 "lassocP"
   rassocP = app0 "rassocP"
   INLINER(exl)
   INLINER(exr)
   INLINER((&&&))
   INLINER(swapP)
-  INLINER(first)
-  INLINER(second)
   INLINER(lassocP)
   INLINER(rassocP)
 
