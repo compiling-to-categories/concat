@@ -6,7 +6,7 @@
 
 module ConCat (module GHC.Generics) where
 
-import GHC.Generics  -- needed to avoid coercion holes (sorry)
+import GHC.Generics     -- needed to avoid coercion holes (sorry)
 
-import ConCat.Rebox  ()  -- rewrite rules
-import ConCat.AltCat ()  -- rewrite rules
+import ConCat.Rebox  () -- rewrite rules
+import ConCat.AltCat () -- rewrite rules
