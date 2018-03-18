@@ -174,6 +174,9 @@ Op0(exF   , (IxProductCat k h, Ok  k a  ) => h (h a `k` a))
 Op1(forkF , (IxProductCat k h, Ok2 k a b) => h (a `k` b) -> (a `k` h b))
 Op0(replF , (IxProductCat k h, Ok  k a  ) => a `k` h a)
 
+fmapC' :: (IxProductCat k h, Representable h, Zip h, Pointed h, Ok2 k a b) => (a `k` b) -> (h a `k` h b)
+fmapC' = crossF . replF
+
 class    (IxProductCat k h, Functor h, Ok2 k a b) => OkFork h a b k
 instance (IxProductCat k h, Functor h, Ok2 k a b) => OkFork h a b k
 
@@ -1143,3 +1146,15 @@ unjoinP cda = (cda . inlP, cda . inrP)
 -- Warning: unjoinP probably increases computation, as it turns one cda use into
 -- two uses with sparser arguments. It seems very similar to sampling a linear
 -- function on a basis.
+
+-- | Inverse to 'joinPF'
+unjoinPF :: forall k h a b. (IxCoproductPCat k h, Functor h, Ok2 k a b)
+         => (h b `k` a) -> h (b `k` a)
+unjoinPF hba = fmap (hba .) inPF  <+ okIxProd @k @h @b
+{-# INLINE unjoinPF #-}
+
+-- | Inverse to 'forkF'
+unforkF :: forall k h a b. (IxProductCat k h, Functor h, Ok2 k a b) 
+        => (a `k` h b) -> h (a `k` b)
+unforkF ahb = fmap (. ahb) exF  <+ okIxProd @k @h @b
+{-# INLINE unforkF #-}
