@@ -169,9 +169,12 @@ instance (Representable h, Zip h, Pointed h, Additive1 h) => IxProductCat (-+>) 
   {-# OPINLINE exF    #-}
   {-# OPINLINE forkF  #-}
 
+inFF :: (Additive a, Summable h) => h (a -> h a)
+inFF = tabulate (\ i a -> tabulate (\ j -> if i == j then a else zero))
+
 instance (Summable h, Additive1 h) => IxCoproductPCat (-+>) h where
 #if 1
-  inPF   = abst <$> tabulate (\ i a -> tabulate (\ j -> if i == j then a else zero))
+  inPF   = abst <$> inFF
   -- joinPF = inAbstF1 joinPF
   -- plusPF = inAbstF1 plusPF
   -- Abst(jamPF)
