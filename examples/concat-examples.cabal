@@ -76,6 +76,7 @@ library
                        ConCat.GAD
                        ConCat.AD
                        ConCat.ADFun
+                       ConCat.Continuation
                        ConCat.Dual
                        ConCat.RAD
                        ConCat.Incremental
@@ -143,6 +144,7 @@ Test-Suite misc-trace
   default-language: Haskell98
   hs-Source-Dirs:   test
   main-is:          Examples.hs
+  other-modules:    Miscellany
   Build-Depends:    base<5
                   , Cabal >= 1.24.0.0
                   , ghc-prim
