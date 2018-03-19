@@ -9,16 +9,17 @@
 -- definitions for 'toCCC'.
 module Miscellany where
 
-import           ConCat.AltCat ((:**:)(..),Ok2,U2)
-import           ConCat.Circuit (GenBuses,(:>))
-import           ConCat.Misc ((:*))
-import           ConCat.Orphans ()
-import           ConCat.Rebox ()
-import qualified ConCat.RunCircuit as RC
-import           ConCat.Syntactic (Syn,render)
-import           GHC.TypeLits ()
-import           Prelude hiding (unzip,zip,zipWith)
-
+import ConCat.AltCat ((:**:)(..),Ok2,U2,toCcc)
+import ConCat.Circuit (GenBuses,(:>))
+import ConCat.Misc ((:*))
+import ConCat.Orphans ()
+import ConCat.Rebox ()
+import ConCat.ADFun (andDerF)
+import ConCat.RAD (andDerR, andGradR)
+import ConCat.RunCircuit (run)
+import ConCat.Syntactic (Syn,render)
+import GHC.TypeLits ()
+import Prelude hiding (unzip,zip,zipWith)
 
 type EC = Syn :**: (:>)
 
@@ -37,8 +38,16 @@ runSynCirc nm (syn :**: circ) = runSyn syn >> runCirc nm circ
 {-# INLINE runSynCirc #-}
 
 runCirc :: GO a b => String -> (a :> b) -> IO ()
-runCirc nm circ = RC.run nm [] circ
+runCirc nm circ = run nm [] circ
 {-# INLINE runCirc #-}
+
+runSynCircDers :: (GO a b, Num b) => String -> (a -> b) -> IO ()
+runSynCircDers nm f =
+  do runSynCirc nm               $ toCcc $ id       $ f
+     runSynCirc (nm ++ "-adf")   $ toCcc $ andDerF  $ f
+     runSynCirc (nm ++ "-adr")   $ toCcc $ andDerR  $ f
+     runSynCirc (nm ++ "-gradr") $ toCcc $ andGradR $ f
+{-# INLINE runSynCircDers #-}
 
 runPrint :: Show b => a -> (a -> b) -> IO ()
 runPrint a f = print (f a)

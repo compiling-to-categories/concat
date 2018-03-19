@@ -32,6 +32,7 @@ library
                      , concat-classes
                      , concat-satisfy
   exposed-modules:     
+                       ConCat
                        ConCat.Translators
                        ConCat.Plugin
                        ConCat.Rebox

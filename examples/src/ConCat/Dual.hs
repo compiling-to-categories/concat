@@ -105,24 +105,28 @@ instance (OkIxProd k h, Additive1 h) => OkIxProd (Dual k) h where
   okIxProd :: forall a. Ok' (Dual k) a |- Ok' (Dual k) (h a)
   okIxProd = Entail (Sub (Dict <+ okIxProd @k @h @a <+ additive1 @h @a))
 
+instance (IxMonoidalPCat k h, Functor h, Additive1 h) => IxMonoidalPCat (Dual k) h where
+  crossF = inAbstF1 crossF -- plusPF
+  {-# INLINE crossF #-}
+
 instance (IxCoproductPCat k h, Functor h, Additive1 h) => IxProductCat (Dual k) h where
   exF    = abst <$> inPF
   forkF  = inAbstF1 joinPF
-  crossF = inAbstF1 plusPF
   replF  = abst jamPF
   {-# INLINE exF #-}
   {-# INLINE forkF #-}
-  {-# INLINE crossF #-}
   {-# INLINE replF #-}
+
+-- instance ({- IxProductCat k h, Functor h, Additive1 h -}) => IxMonoidalPCat (Dual k) h where
+--   plusPF = inAbstF1 crossF
+--   {-# INLINE plusPF #-}
 
 instance (IxProductCat k h, Functor h, Additive1 h) => IxCoproductPCat (Dual k) h where
   inPF   = abst <$> exF
   joinPF = inAbstF1 forkF
-  plusPF = inAbstF1 crossF
   jamPF  = abst replF
   {-# INLINE inPF #-}
   {-# INLINE joinPF #-}
-  {-# INLINE plusPF #-}
   {-# INLINE jamPF #-}
 
 #if 1

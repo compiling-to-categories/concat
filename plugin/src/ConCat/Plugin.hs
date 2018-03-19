@@ -1688,16 +1688,14 @@ install opts todos =
  where
    flagCcc :: CccEnv -> PluginPass
    flagCcc (CccEnv {..}) guts
-     --  | pprTrace "ccc residuals:" (ppr (toList remaining)) False = undefined
      | showCcc && pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
-     | Seq.null remaining = -- pprTrace "transformed program binds" (ppr (mg_binds guts)) $
-                            return guts
-     | otherwise = -- pprPanic "ccc residuals:" (ppr (toList remaining))
-                   pprTrace "ccc residuals:" (ppr (toList remaining)) $
-                   -- pprTrace "transformed program binds" (ppr (mg_binds guts)) $
-                   return guts
+     | not (Seq.null remaining) &&
+       showResiduals &&
+       pprTrace "ccc residuals:" (ppr (toList remaining)) False = undefined
+     | otherwise = return guts
     where
       showCcc = "showCcc" `elem` opts
+      showResiduals = "showResiduals" `elem` opts
       remaining :: Seq CoreExpr
       remaining = collectQ cccArgs (mg_binds guts)
       cccArgs :: CoreExpr -> Seq CoreExpr

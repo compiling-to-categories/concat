@@ -4,13 +4,17 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MonadComprehensions #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -Wall #-}
 -- {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
+
+-- {-# OPTIONS_GHC -fno-specialise #-}
 
 #include "ConCat/Ops.inc"
 
@@ -23,14 +27,15 @@ import Prelude hiding (zipWith)
 import GHC.TypeLits ()
 import GHC.Generics (Par1(..),(:*:)(..),(:.:)(..))
 
+-- import Data.Foldable
 import Data.Key
 import Data.NumInstances.Function ()
 
 import ConCat.Misc
 import ConCat.Additive
-import ConCat.AltCat (Additive1(..),(<+))
-import ConCat.Orphans ()
-import ConCat.RAD (gradR)
+import ConCat.AltCat  (Additive1(..),(<+))
+-- import ConCat.Orphans (fstF, sndF)
+import ConCat.RAD     (gradR)
 
 {--------------------------------------------------------------------
     Simple linear algebra
@@ -109,6 +114,10 @@ type Bump h = h :*: Par1
 bump :: Num s => a s -> Bump a s
 bump a = a :*: Par1 1
 
+-- Use existing `fstF`, from ConCat.Orphans, instead.
+-- unBump :: Num s => Bump a s -> a s
+-- unBump (a :*: Par1 _) = a
+
 -- | Affine map representation
 infixr 1 --+
 type a --+ b = Bump a --* b
@@ -152,6 +161,17 @@ affRelu l = relus . affine l
 
 -- affRelu = (result.result) relus affine
 
+logistics :: (Functor f, Floating a) => Unop (f a)
+logistics = fmap (\x -> 1 / (1 + exp (-x)))
+{-# INLINE logistics #-}
+
+-- | Affine followed by logistics.
+-- affLog :: (C2 Summable a b, Ord s, Additive s, Num s)
+affLog :: (C2 Summable a b, Floating s, Additive s)
+        => (a --+ b) s -> (a s -> b s)
+affLog l = logistics . affine l
+{-# INLINE affLog #-}
+
 errSqr :: (Summable b, Additive s, Num s)
        => a s :* b s -> (a s -> b s) -> s
 errSqr (a,b) h = distSqr b (h a)
@@ -181,19 +201,41 @@ infixr 9 @.
 
 -- Single SGD step, from one parameter estimation to the next
 step :: forall s p a b. (C3 Summable p a b, Additive1 p, Additive s, Num s)
-     => s -> (p s -> a s -> b s) -> a s :* b s -> Unop (p s)
-step gamma m sample p = p ^+^ gamma *^ errGrad m sample p <+ additive1 @p @s
+     => (p s -> a s -> b s) -> s -> a s :* b s -> Unop (p s)
+-- step m gamma sample p = p ^+^ gamma *^ errGrad m sample p <+ additive1 @p @s
+step = \ m gamma sample p -> p ^-^ gamma *^ errGrad m sample p <+ additive1 @p @s
 {-# INLINE step #-}
 
 -- Multiple SGD steps, from one parameter estimation to another
 steps :: (C3 Summable p a b, Additive1 p, Functor f, Foldable f, Additive s, Num s)
-      => s -> (p s -> a s -> b s) -> f (a s :* b s) -> Unop (p s)
-steps gamma m samples = compose (step gamma m <$> samples)
+      => (p s -> a s -> b s) -> s -> f (a s :* b s) -> Unop (p s)
+-- steps m gamma samples = compose (step m gamma <$> samples)
+steps = \ m gamma samples -> compose (step m gamma <$> samples)
 {-# INLINE steps #-}
 
---          step gamma m              :: a s :* b s -> Unop (p s)
---          step gamma m <$> samples  :: f (Unop (p s))
--- compose (step gamma m <$> samples) :: Unop (p s)
+-- Moving parameters to RHS lambdas allows even unsaturated applications of step
+-- and steps to inline. See 2018-02-28 journal notes. An alternative solution
+-- that seems to work is to leave the `step` and `steps` definitions as before
+-- but replace the call to `step` in `steps` by `inline step`, where `inline`
+-- comes from `GHC.Exts`.
+
+--          step m gamma              :: a s :* b s -> Unop (p s)
+--          step m gamma <$> samples  :: f (Unop (p s))
+-- compose (step m gamma <$> samples) :: Unop (p s)
+
+-- | Train a network on several epochs of the training data, keeping
+-- track of its parameters after each.
+trainNTimes :: (C3 Summable p a b, Additive1 p, Functor f, Foldable f, Additive s, Num s)
+            => Int                  -- ^ number of epochs
+            -> s                    -- ^ learning rate
+            -> (p s -> a s -> b s)  -- ^ The "network" just converts a set of parameters
+                                    -- into a function from input to output functors.
+            -> p s                  -- ^ initial guess for learnable parameters
+            -> f (a s :* b s)       -- ^ the training pairs
+            -> [p s]                -- ^ initial parameters + those after each training epoch
+-- trainNTimes n rate net ps prs = take (n+1) $ iterate (steps net rate prs) ps
+trainNTimes = \ n rate net ps prs -> take (n+1) $ iterate (steps net rate prs) ps
+{-# INLINE trainNTimes #-}
 
 {--------------------------------------------------------------------
     Temp
@@ -225,3 +267,8 @@ lr2 = affRelu @. affRelu
 lr3 :: C4 Summable a b c d => ((c --+ d) :*: (b --+ c) :*: (a --+ b)) R  ->  (a --> d) R
 lr3 = affRelu @. affRelu @. affRelu
 {-# INLINE lr3 #-}
+
+lr3' :: C4 Summable a b c d => ((c --+ d) :*: (b --+ c) :*: (a --+ b)) R  ->  (a --> d) R
+lr3' = affLog @. affLog @. affLog
+{-# INLINE lr3' #-}
+

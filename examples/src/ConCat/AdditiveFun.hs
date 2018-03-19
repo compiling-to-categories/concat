@@ -31,7 +31,7 @@ import Prelude hiding (id,(.),const,curry,uncurry,zipWith)
 import Data.Constraint (Dict(..),(:-)(..))
 import Data.Key (Zip)
 import Data.Pointed (Pointed)
-import Data.Functor.Rep (Representable)
+import Data.Functor.Rep (Representable(tabulate))
 
 import ConCat.Orphans ()
 import ConCat.AltCat
@@ -98,18 +98,29 @@ instance ProductCat (-+>) where
   {-# OPINLINE second #-}
 
 instance CoproductPCat (-+>) where
+#if 1
+  inlP = abst (,zero)
+  inrP = abst (zero,)
+  jamP = abst (uncurry (^+^))
+  swapPS = swapP
+  {-# INLINE inlP #-}
+  {-# INLINE inrP #-}
+  {-# INLINE jamP #-}
+  {-# INLINE swapPS #-}
+#else
   Abst(inlP)
   Abst(inrP)
+  Abst(jamP)
+  Abst(swapPS)
   -- (||||) = inAbst2 (\ f g (x,y) -> f x ^+^ g y)
   -- (++++) = inAbst2 (***)
   -- jamP   = abst (uncurry (^+^))  -- 2018-02-04 notes
   -- jamP   = abst jamP  -- 2018-02-07 notes
-  Abst(jamP)
-  Abst(swapPS)
   -- ...
   -- {-# OPINLINE (||||) #-}
   -- {-# OPINLINE (++++) #-}
   -- {-# OPINLINE jamP #-}
+#endif
 
 instance Num s => ScalarCat (-+>) s where
   scale s = abst (s *)
@@ -147,23 +158,34 @@ instance Additive1 h => OkIxProd (-+>) h where
   okIxProd = Entail (Sub (Dict <+ additive1 @h @a))
   {-# OPINLINE okIxProd #-}
 
+instance ({- Representable h, Pointed h, -} Zip h, Additive1 h) => IxMonoidalPCat (-+>) h where
+  crossF = inAbstF1 crossF
+  {-# OPINLINE crossF #-}
+
 instance (Representable h, Zip h, Pointed h, Additive1 h) => IxProductCat (-+>) h where
   exF    = abst <$> exF
   forkF  = inAbstF1 forkF
-  crossF = inAbstF1 crossF
   Abst(replF)
   {-# OPINLINE exF    #-}
   {-# OPINLINE forkF  #-}
-  {-# OPINLINE crossF #-}
 
 instance (Summable h, Additive1 h) => IxCoproductPCat (-+>) h where
+#if 1
+  inPF   = abst <$> tabulate (\ i a -> tabulate (\ j -> if i == j then a else zero))
+  -- joinPF = inAbstF1 joinPF
+  -- plusPF = inAbstF1 plusPF
+  -- Abst(jamPF)
+  jamPF = abst sumA
+  -- {-# OPINLINE jamPF   #-}
+#else
   inPF   = abst <$> inPF
-  joinPF = inAbstF1 joinPF
-  plusPF = inAbstF1 plusPF
+  -- joinPF = inAbstF1 joinPF
+  -- plusPF = inAbstF1 plusPF
   Abst(jamPF)
+#endif
   {-# OPINLINE inPF   #-}
-  {-# OPINLINE joinPF #-}
-  {-# OPINLINE plusPF #-}
+  -- {-# OPINLINE joinPF #-}
+  -- {-# OPINLINE plusPF #-}
 
 instance OkAdd (-+>) where okAdd = Entail (Sub Dict)
 

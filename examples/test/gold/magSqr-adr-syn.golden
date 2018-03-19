@@ -1,0 +1,125 @@
+(exl . id &&& repr . exr . id) .
+second repr .
+(addC . exl &&&
+ abst .
+ apply .
+ (curry (abst . apply . (exl &&& repr . exr)) .
+  curry (curry (apply . (exl . exl &&& apply . (exr . exl &&& exr)))) .
+  repr . repr &&&
+  abst . curry ((id &&& id) . exr)) .
+ apply .
+ (curry
+  (abst .
+   apply .
+   (curry (abst . apply . (exl &&& repr . exr)) .
+    curry (curry (apply . (exl . exl &&& apply . (exr . exl &&& exr)))) .
+    repr . repr . exr &&&
+    repr . exl)) .
+  exr &&&
+  abst .
+  abst .
+  curry
+  ((addC . (exl . exr . exl &&& exl . exr) &&&
+    addC . (exr . exr . exl &&& exr . exr)) .
+   (id &&& exr . exl) . (id &&& exl) . exr))) .
+apply .
+(curry
+ (apply .
+  (curry
+   (apply .
+    (curry
+     (apply .
+      (curry
+       ((exl . exr &&& exl . exr . exl . exl) &&&
+        apply .
+        (curry (abst . apply . (exl &&& repr . exr)) .
+         curry (abst . apply . (exl &&& repr . exr)) .
+         curry
+         (curry
+          (apply . (exl . exl &&& exl . exr) &&&
+           apply . (exr . exl &&& exr . exr))) .
+         (id . repr) .
+         repr .
+         apply .
+         (curry
+          (abst .
+           apply .
+           (curry (abst . apply . (exl &&& repr . exr)) .
+            curry
+            (curry (apply . (exl . exl &&& apply . (exr . exl &&& exr)))) .
+            repr . repr . exr &&&
+            repr . exl)) .
+          exr . exr &&&
+          apply .
+          (curry
+           (abst .
+            apply .
+            (curry (abst . apply . (exl &&& repr . exr)) .
+             curry
+             (curry (apply . (exl . exl &&& apply . (exr . exl &&& exr)))) .
+             repr . repr . exr &&&
+             repr . exl)) .
+           exr . exr . exl &&&
+           abst .
+           abst .
+           curry
+           ((addC . (exl . exr . exl &&& exl . exr) &&&
+             addC . (exr . exr . exl &&& exr . exr)) .
+            (id &&& exr . exl) . (id &&& exl) . exr))) &&&
+         apply .
+         (curry
+          (abst .
+           apply .
+           (curry (abst . apply . (exl &&& repr . exr)) .
+            curry
+            (curry (apply . (exl . exl &&& apply . (exr . exl &&& exr)))) .
+            repr . repr . exr &&&
+            repr . exl)) .
+          exr . exr . exl . exl &&&
+          apply .
+          (curry
+           (abst .
+            apply .
+            (curry (abst . apply . (exl &&& repr . exr)) .
+             curry
+             (curry (apply . (exl . exl &&& apply . (exr . exl &&& exr)))) .
+             repr . repr . exr &&&
+             repr . exl)) .
+           exr . exr . exl . exl . exl &&&
+           abst .
+           abst .
+           curry
+           ((addC . (exl . exr . exl &&& exl . exr) &&&
+             addC . (exr . exr . exl &&& exr . exr)) .
+            (id &&& exr . exl) . (id &&& exl) . exr))))) &&&
+       (mulC &&&
+        apply .
+        (curry (abst . apply . (exl &&& repr . exr)) .
+         curry (abst . apply . (exl &&& repr . exr)) .
+         curry
+         (curry (apply . (exl . exl &&& exr) &&& apply . (exr . exl &&& exr))) .
+         repr . repr . abst . abst . curry mulC . exr &&&
+         abst . abst . curry mulC . exl)) .
+       exl . exr)) &&&
+     ((exl . exl &&& exl . exr) &&&
+      abst .
+      abst .
+      curry ((id &&& const 0.0) . exl . exr &&& apply . (exl &&& exr . exr)) .
+      repr . repr . abst . abst . curry ((id &&& const 0.0) . exr)) .
+     (id &&& id) . exl . exl . exl)) &&&
+   (mulC &&&
+    apply .
+    (curry (abst . apply . (exl &&& repr . exr)) .
+     curry (abst . apply . (exl &&& repr . exr)) .
+     curry
+     (curry (apply . (exl . exl &&& exr) &&& apply . (exr . exl &&& exr))) .
+     repr . repr . abst . abst . curry mulC . exr &&&
+     abst . abst . curry mulC . exl)) .
+   exl . exr)) &&&
+ ((exr . exl &&& exr . exr) &&&
+  abst .
+  abst .
+  curry ((const 0.0 &&& id) . exl . exr &&& apply . (exl &&& exr . exr)) .
+  repr . repr . abst . abst . curry ((const 0.0 &&& id) . exr)) .
+ (id &&& id) . exr) .
+(id &&& id)

@@ -510,6 +510,6 @@ Catify(cosDouble,cosC)
 
  #-}
 
--- Notes 2018-01-04 and 2018-01-07
-CatifyC((^+^),jamP)
+-- -- Notes 2018-01-04, 2018-01-07, and 2018-02-23
+-- CatifyC((^+^),jamP)
 

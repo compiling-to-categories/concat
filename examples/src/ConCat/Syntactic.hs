@@ -410,23 +410,27 @@ instance (Typeable a, Typeable b) => CoerceCat Syn a b where
 
 instance OkIxProd Syn h where okIxProd = Entail (Sub Dict)
 
+instance (Functor h, Foldable h
+          {- OkIxProd Syn h, Representable h, Foldable h, Show (R.Rep h) -})
+      => IxMonoidalPCat Syn h where
+  crossF :: forall a b. Ok2 Syn a b => h (a `Syn` b) -> (h a `Syn` h b)
+  crossF = apps "crossF"
+
 instance (OkIxProd Syn h, Representable h, Foldable h, Show (R.Rep h))
       => IxProductCat Syn h where
   exF :: forall a . Ok Syn a => h (h a `Syn` a)
   exF = tabulate $ \ i -> app0 ("ex " ++ showsPrec 10 i "")
   replF :: forall a . Ok Syn a => a `Syn` h a
   replF = app0 "replF"
-  crossF :: forall a b. Ok2 Syn a b => h (a `Syn` b) -> (h a `Syn` h b)
-  crossF = apps "crossF"
 
 instance (OkIxProd Syn h, Representable h, Zip h, Traversable h, Show (R.Rep h))
       => IxCoproductPCat Syn h where
-  inPF :: forall a. (Additive a, Ok Syn a) => h (a `Syn` h a)
+  inPF :: forall a. Ok Syn a => h (a `Syn` h a)
   inPF = tabulate $ \ i -> app0 ("inP " ++ showsPrec 10 i "")
-  jamPF :: forall a. (Additive a, Ok Syn a) => h a `Syn` a
+  jamPF :: forall a. Ok Syn a => h a `Syn` a
   jamPF = app0 "jamPF"
-  plusPF :: forall a b. Ok2 Syn a b => h (a `Syn` b) -> (h a `Syn` h b)
-  plusPF = crossF
+  -- plusPF :: forall a b. Ok2 Syn a b => h (a `Syn` b) -> (h a `Syn` h b)
+  -- plusPF = crossF
 
 instance OkFunctor Syn h where okFunctor = Entail (Sub Dict)
 
