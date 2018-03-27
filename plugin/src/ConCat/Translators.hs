@@ -116,14 +116,9 @@ flipForkT f = forkF (\ a -> toCcc' (\ z -> f z a))
 
 forkUnforkT :: forall k h a b.
        (IxProductCat (->) h, Functor h, IxProductCat k h, Ok2 k a b)
-    => (a -> h  b) -> (a `k` h b)
+    => (a -> h b) -> (a `k` h b)
 forkUnforkT f = forkF (fmap' toCcc' (unforkF f))
 {-# INLINE forkUnforkT #-}
-
-unforkF :: forall k h a b. (IxProductCat k h, Functor h, Ok2 k a b)
-        => (a `k` h b) -> h (a `k` b)
-unforkF g = fmap' (. g) exF <+ okIxProd @k @h @b
-{-# INLINE unforkF #-}
 
 --                           f  :: a -> h b
 --                   unforkF f  :: h (a -> b)
