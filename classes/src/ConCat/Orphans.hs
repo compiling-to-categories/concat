@@ -331,6 +331,8 @@ instance (Representable g, Representable f) => Representable (g :.: f) where
 --        tabulate <$> tabulate (curry h)  :: g (f a)
 -- Comp1 (tabulate <$> tabulate (curry h)) :: (g :.: f) a
 
+#endif
+
 {--------------------------------------------------------------------
     Monoids
 --------------------------------------------------------------------}
