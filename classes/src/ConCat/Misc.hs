@@ -13,6 +13,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE LambdaCase    #-}
 {-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE TypeApplications #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -34,6 +35,7 @@ import Data.Complex (Complex)
 import GHC.Generics hiding (R)
 -- import Unsafe.Coerce (unsafeCoerce)  -- for oops
 import GHC.Stack (errorWithStackTrace)  -- for oops
+import GHC.TypeLits
 
 import Control.Newtype
 
@@ -300,6 +302,9 @@ inTranspose = transpose <~ transpose
 unzip :: Functor f => f (a :* b) -> f a :* f b
 unzip ps = (fst <$> ps, snd <$> ps)
 {-# INLINE unzip #-}
+
+natValAt :: forall n. KnownNat n => Integer
+natValAt = natVal (Proxy @n)
 
 {--------------------------------------------------------------------
     Newtype
