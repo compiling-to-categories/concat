@@ -31,7 +31,7 @@ import Data.Pointed
 -- import Control.Comonad.Cofree
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..),distributeRep)
-import qualified Data.Functor.Rep as Rep
+-- import qualified Data.Functor.Rep as Rep
 
 -- import Data.Stream (Stream(..))
 import Control.Newtype
