@@ -11,7 +11,7 @@
 -- -- Improves hash consing, but can obscure equivalent circuits
 -- #define NoCommute
 
-#define NoBusLabel
+-- #define NoBusLabel
 
 #define MealyToArrow
 
@@ -1061,7 +1061,7 @@ instance (GenBuses (R.Rep f), OkFunctor (:>) f) => RepresentableCat (:>) f where
   indexC :: forall a. Ok (:>) a => f a :> (R.Rep f -> a)
   indexC = namedC "index" <+ okFunctor' @(:>) @f @a
 
-#if 0
+#if 1
 
 instance GS b => ConstCat (:>) b where
   const b = -- trace ("circuit const " ++ show b) $
@@ -1069,7 +1069,7 @@ instance GS b => ConstCat (:>) b where
 
 #else
 
-#define LitConst(ty) instance ConstCat (:>) (ty) where const = constC
+#define LitConst(ty) instance GS (ty) => ConstCat (:>) (ty) where const = constC
 
 LitConst(())
 LitConst(Bool)
@@ -1077,9 +1077,7 @@ LitConst(Int)
 LitConst(Integer)
 LitConst(Float)
 LitConst(Double)
--- LitConst(Vector n a)
-
-instance (Ok (:>) a, Show a, KnownNat n) => ConstCat (:>) (Vector n a) where const = constC
+LitConst(Vector n a)
 
 -- -- This instance is problematic with Maybe / sums, since it leads to evaluating bottom.
 -- -- See notes from 2016-01-13.
