@@ -45,11 +45,26 @@ class Additive a where
   infixl 6 ^+^
   (^+^) :: a -> a -> a
   default zero :: (Pointed h, Additive b) => h b
-  zero = point zero
+  zero = default_zero
+         -- point zero
   default (^+^) :: (Zip h, Additive b) => Binop (h b)
-  (^+^) = zipWith (^+^)
-  {-# INLINE zero #-}
-  {-# INLINE (^+^) #-}
+  (^+^) = default_add
+          -- zipWith (^+^)
+  -- Experiment with delayed inlinings.
+  -- See 2018-02-26 journal notes.
+  {-# INLINE {-[0]-} zero #-}
+  {-# INLINE {-[0]-} (^+^) #-}
+
+default_zero :: (Pointed h, Additive b) => h b
+default_zero = point zero
+{-# INLINE [0] default_zero #-}
+
+default_add :: (Zip h, Additive b) => Binop (h b)
+default_add = zipWith (^+^)
+{-# INLINE [0] default_add #-}
+
+-- Without the default_zero and default_add definitions, Vector-specific code
+-- gets into the Additive (Vector n) instance, leading to fatal toCcc residuals.
 
 -- zipWith' :: Representable h
 --          => (a -> b -> c) -> (h a -> h b -> h c)
@@ -89,7 +104,7 @@ instance (RealFloat v, Additive v) => Additive (Complex v) where
 -- 'Complex' /type/, rather than in functions and instances as needed.
 
 instance (Additive u,Additive v) => Additive (u,v) where
-  zero             = (zero,zero)
+  zero              = (zero,zero)
   (u,v) ^+^ (u',v') = (u^+^u',v^+^v')
 
 instance (Additive u,Additive v,Additive w)
