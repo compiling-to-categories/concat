@@ -83,10 +83,10 @@ finExp = Iso h g
         h :: forall m n. KnownNat2 m n => Finite m :^ Finite n -> Finite (m ^ n)
         -- h f = Finite $ V.foldl' (\accum m -> accum * (natValAt @m) + getFinite m)
         --                       0
-        --                       $ V.reverse $ V.generate_ f
-        -- h f = V.foldl' (curry u) (Finite 0) ((V.reverse . V.generate_) f)
-        -- h = V.foldl' (curry u) (Finite 0) . (V.reverse . V.generate_)
-        h = (V.foldl' . curry) u (Finite 0) . (V.reverse . V.generate_)
+        --                       $ V.reverse $ V.generate f
+        -- h f = V.foldl' (curry u) (Finite 0) ((V.reverse . V.generate) f)
+        -- h = V.foldl' (curry u) (Finite 0) . (V.reverse . V.generate)
+        h = (V.foldl' . curry) u (Finite 0) . (V.reverse . V.generate)
           where u (Finite acc, Finite m) = Finite $ acc * natValAt @m + m
 
 isoFwd :: a <-> b -> a -> b

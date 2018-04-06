@@ -53,7 +53,7 @@ library
                      , ghc-prim
                      -- For simple machine learning
                      , vector
-                     , vector-sized
+                     , vector-sized >= 1.0.0.0
                      -- For Deep
                      , NumInstances
                      -- concat
@@ -132,7 +132,7 @@ Test-Suite misc-examples
                   , distributive, adjunctions
                   , constraints >= 0.8
                   -- Array/vector experiments
-                  , finite-typelits, vector-sized
+                  , finite-typelits, vector-sized >= 1.0.0.0
   ghc-options:      -O2
                     -fplugin=ConCat.Plugin
   if flag(smt)
@@ -177,7 +177,7 @@ Test-Suite testHasFins
   main-is:          testHasFins.hs
   Build-Depends:    base<5
                   , Cabal >= 1.24.0.0
-                  , vector-sized
+                  , vector-sized >= 1.0.0.0
                   , concat-examples
                   , concat-classes
                   , ghc-typelits-knownnat
@@ -207,7 +207,7 @@ Test-Suite gold-tests
                   , tasty
                   , tasty-golden
                   -- Array/vector experiments
-                  , finite-typelits, vector-sized
+                  , finite-typelits, vector-sized >= 1.0.0.0
   ghc-options:      -O2
                     -fplugin=ConCat.Plugin
   if flag(smt)

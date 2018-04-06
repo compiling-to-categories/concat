@@ -16,15 +16,11 @@ packages:
   - verilog
   - netlist-to-verilog
   extra-dep: true
-# While waiting for https://hackage.haskell.org/package/vector-sized post 0.6.1.0.
-# Then update the vector-sized lower bound in *.cabal
-- location:
-    git: https://github.com/expipiplus1/vector-sized
-    commit: 2e5ebd857af957fa5709f5ad17df1b5851664b70
-  extra-dep: true
 extra-deps:
   - pointed-5.0.1 ## instances for GHC.Generics
   - keys-3.12     ## instances for GHC.Generics
   - adjunctions-4.4     ## instances for GHC.Generics
   - ghc-typelits-natnormalise-0.5.8
+  - vector-sized-1.0.0.0
+  - indexed-list-literals-0.1.0.1
 resolver: lts-9.20

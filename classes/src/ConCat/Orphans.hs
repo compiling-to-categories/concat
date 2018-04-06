@@ -378,14 +378,23 @@ instance KnownNat n => Distributive (Vector n) where
 
 instance KnownNat n => Representable (Vector n) where
   type Rep (Vector n) = Finite n
-  tabulate = V.generate_
+  tabulate = V.generate
   index = V.index
   {-# INLINE tabulate #-}
   {-# INLINE index #-}
 
 instance KnownNat n => Pointed (Vector n) where
+#if 1
   point = V.replicate
+  {-# INLINE {-[0]-} point #-}
+#else
+  point = pointV
   {-# INLINE point #-}
+
+pointV :: KnownNat n => a -> Vector n a
+pointV = V.replicate
+{-# INLINE [0] pointV #-}
+#endif
 
 {--------------------------------------------------------------------
     Foldable for functions
@@ -396,11 +405,11 @@ instance Foldable ((->) Void) where
   {-# INLINE foldMap #-}
 
 instance Foldable ((->) ()) where
-  foldMap f as = f (as ())
+  foldMap h as = h (as ())
   {-# INLINE foldMap #-}
 
 instance Foldable ((->) Bool) where
-  foldMap f as = f (as False) <> f (as True)
+  foldMap h as = h (as False) <> h (as True)
   {-# INLINE foldMap #-}
 
 instance (Foldable ((->) m), Foldable ((->) n)) => Foldable ((->) (m :+ n)) where
@@ -422,4 +431,4 @@ maybeToSum :: Maybe a -> () :+ a
 maybeToSum = maybe (Left ()) Right
 
 instance Foldable ((->) a) => Foldable ((->) (Maybe a)) where
-  foldMap f = foldMap f . (. sumToMaybe)
+  foldMap h as = foldMap h (as . sumToMaybe)
