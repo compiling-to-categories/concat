@@ -30,7 +30,7 @@ import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import GHC.TypeLits (KnownNat)
 
 import Data.Key(Zip(..))
-import Data.Pointed(Pointed(..))
+import Data.Pointed
 import Data.Functor.Rep (Representable(..))
 import Data.Vector.Sized (Vector)
 
@@ -45,31 +45,21 @@ class Additive a where
   infixl 6 ^+^
   (^+^) :: a -> a -> a
   default zero :: (Pointed h, Additive b) => h b
-  zero = default_zero
-         -- point zero
+  zero = pointNI zero
   default (^+^) :: (Zip h, Additive b) => Binop (h b)
-  (^+^) = default_add
-          -- zipWith (^+^)
-  -- Experiment with delayed inlinings.
-  -- See 2018-02-26 journal notes.
-  {-# INLINE {-[0]-} zero #-}
-  {-# INLINE {-[0]-} (^+^) #-}
+  (^+^) = zipWithNI (^+^)
+  {-# INLINE zero #-}
+  {-# INLINE (^+^) #-}
 
-default_zero :: (Pointed h, Additive b) => h b
-default_zero = point zero
-{-# INLINE [0] default_zero #-}
+-- These definitions and the corresponding Catify rewrites in AltCat prevent the point and zipWith methods from getting inlined too soon.
+-- See 2018-04-09 notes.
+pointNI :: Pointed h => a -> h a
+pointNI = point
+{-# INLINE [0] pointNI #-}
 
-default_add :: (Zip h, Additive b) => Binop (h b)
-default_add = zipWith (^+^)
-{-# INLINE [0] default_add #-}
-
--- Without the default_zero and default_add definitions, Vector-specific code
--- gets into the Additive (Vector n) instance, leading to fatal toCcc residuals.
-
--- zipWith' :: Representable h
---          => (a -> b -> c) -> (h a -> h b -> h c)
--- zipWith' f as bs = fmap (uncurry f) (zip (as,bs))
--- {-# INLINER zipWith' #-}
+zipWithNI :: Zip h => (a -> b -> c) -> h a -> h b -> h c
+zipWithNI = zipWith
+{-# INLINE [0] zipWithNI #-}
 
 instance Additive () where
   zero = ()
@@ -117,16 +107,33 @@ instance (Additive u,Additive v,Additive w,Additive x)
   zero                        = (zero,zero,zero,zero)
   (u,v,w,x) ^+^ (u',v',w',x') = (u^+^u',v^+^v',w^+^w',x^+^x')
 
+type AddF f = (Pointed f, Zip f)
+
+#if 1
+
+#define AdditiveFunctor(f) instance (AddF (f), Additive v) => Additive ((f) v)
+
+AdditiveFunctor((->) a)
+AdditiveFunctor(Sum)
+AdditiveFunctor(Product)
+AdditiveFunctor(U1)
+AdditiveFunctor(Par1)
+AdditiveFunctor(f :*: g)
+AdditiveFunctor(g :.: f)
+
+#else
+
 instance Additive v => Additive (a -> v)
 instance Additive v => Additive (Sum     v)
 instance Additive v => Additive (Product v)
-
-type AddF f = (Pointed f, Zip f)
 
 instance Additive v => Additive (U1 v)
 instance Additive v => Additive (Par1 v)
 instance (Additive v, AddF f, AddF g) => Additive ((f :*: g) v)
 instance (Additive v, AddF f, AddF g) => Additive ((g :.: f) v)
+
+#endif
+
 
 -- instance (Eq i, Additive v) => Additive (Arr i v) where
 --   zero = point zero

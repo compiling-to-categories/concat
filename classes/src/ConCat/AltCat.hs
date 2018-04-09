@@ -43,7 +43,7 @@ import qualified Data.Tuple as P
 import GHC.Exts (Coercible,coerce,inline)
 import Data.Constraint ((\\))
 
-import Data.Pointed (Pointed(..))
+import Data.Pointed
 import Data.Key (Zip(..))
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..),distributeRep)
@@ -771,6 +771,10 @@ zipWithC f = P.curry (fmap (P.uncurry f) . P.uncurry zip)
 -- zipWithC f as bs = fmapC (uncurry f) (zipC (as,bs))
 
 Catify(zipWith, zipWithC)
+
+-- Experiment
+Catify(pointNI, pointC)
+Catify(zipWithNI, zipWithC)
 
 #if 0
 unzipC :: forall k h a b. (FunctorCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
