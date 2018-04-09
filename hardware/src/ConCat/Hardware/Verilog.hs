@@ -78,6 +78,7 @@ mkModule name cs = Module name
                           ( map (busToReg "")   modIns  ++
                             map (busToReg "_q") modOuts ++
                             map busToNet        modNets ++
+                            map busToNet        modOuts ++
                             [ProcessDecl (Event (ExprVar "clk") PosEdge) Nothing
                               (Seq (map ((\x -> Assign (ExprVar x) (ExprVar (x ++ "_d"))) . busName) modIns ++
                                     map ((\x -> Assign (ExprVar (x ++ "_q")) (ExprVar x)) . busName) modOuts
