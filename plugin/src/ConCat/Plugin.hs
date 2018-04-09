@@ -142,6 +142,9 @@ trying tr str a = tr ("Trying " ++ str) (a `seq` empty) False
 -- Category
 type Cat = Type
 
+polyBail :: Bool
+polyBail = True -- False
+
 ccc :: CccEnv -> Ops -> Type -> ReExpr
 ccc (CccEnv {..}) (Ops {..}) cat =
   traceRewrite "toCcc'" $
@@ -150,18 +153,18 @@ ccc (CccEnv {..}) (Ops {..}) cat =
  where
    go :: ReExpr
    go = \ case
+     -- Temporarily make `ccc` bail on polymorphic terms. Doing so will speed up
+     -- my experiments, since much time is spent optimizing rules, IIUC. It'll
+     -- be important to restore polymorphic transformation later for useful
+     -- separate compilation. Put first, to remove tracing clutter
+     -- Trying("top poly bail")
+     (exprType -> isMonoTy -> False) | polyBail ->
+       -- Doing("top poly bail")
+       Nothing
      e | dtrace ("go ccc "++pp cat++":") (pprWithType' e) False -> undefined
      -- Sanity check: ccc should only take functions.
      e@(exprType -> isFunTy -> False) ->
        pprPanic "ccc/go: not of function type" (pprWithType e)
-     -- Temporarily make `ccc` bail on polymorphic terms. Doing so will speed up
-     -- my experiments, since much time is spent optimizing rules, IIUC. It'll
-     -- be important to restore polymorphic transformation later for useful
-     -- separate compilation.
-     -- Trying("top poly bail")
-     -- (exprType -> isMonoTy -> False) ->
-     --   Doing("top poly bail")
-     --   Nothing
 #if 0
      Trying("top flipForkT")
      -- f | pprTrace "flipForkT tests"
@@ -312,6 +315,18 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           dtrace "mkCoerce 2" (pprWithType (varApps coerceId [dom,cod] [])) $
           dtrace "mkCoerce 3" (pprWithType (onDict (varApps coerceId [dom,cod] []))) $
           return $ onDict (varApps coerceId [dom,cod] []) `App` mkCcc e'
+#elif 1
+     -- This version fails gracefully when we can't make the coercions.
+     -- Then we can see further into the error.
+     e@(Cast e' (coercionRole -> Representational))
+       | FunTy a  b  <- exprType e
+       , FunTy a' b' <- exprType e'
+       , Just coA    <- mkCoerceC_maybe cat a a'
+       , Just coB    <- mkCoerceC_maybe cat b' b
+       ->
+          Doing("top representational cast")
+          -- Will I get unnecessary coerceCs due to nominal-able sub-coercions?
+          return $ mkCompose cat coB $ mkCompose cat (mkCcc e') $ coA
 #else
      e@(Cast e' (coercionRole -> Representational))
        | FunTy a  b  <- exprType e
@@ -324,10 +339,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
                    mkCoerceC cat a a'
 #endif
 #else
-     Trying("top cast unfold")
-     Cast (unfoldMaybe -> Just body') co ->
-       Doing("top cast unfoldMaybe")
-       return $ mkCcc $ mkCast body' co
      -- Helpful??
      Trying("top cast eta-reduce")
      Cast (etaReduce_maybe -> Just body') co ->
@@ -374,6 +385,10 @@ ccc (CccEnv {..}) (Ops {..}) cat =
             in
               mkCast (Lam x (a `App` (idr `App` (r `App` body)))) co
 #endif
+     Trying("top cast unfold")
+     Cast (unfoldMaybe -> Just body') co ->
+       Doing("top cast unfoldMaybe")
+       return $ mkCcc $ mkCast body' co
 #if 0
      Trying("top recast")
      Cast e co ->
@@ -977,6 +992,7 @@ data Ops = Ops
  , mkReprC'_maybe :: Cat -> Type -> Maybe CoreExpr
  , mkAbstC'_maybe :: Cat -> Type -> Maybe CoreExpr
  , mkCoerceC      :: Cat -> Type -> Type -> CoreExpr
+ , mkCoerceC_maybe :: Cat -> Type -> Type -> Maybe CoreExpr
  , traceRewrite   :: forall f a b. (Functor f, Outputable a, Outputable b) => String -> Unop (a -> f b)
  , tyArgs2_maybe  :: Type -> Maybe (Type,Type)
  , tyArgs2        :: Type -> (Type,Type)
@@ -1316,6 +1332,10 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    mkCoerceC k dom cod
      | dom `eqType` cod = mkId k dom
      | otherwise = catOp k coerceV [dom,cod]
+   mkCoerceC_maybe :: Cat -> Type -> Type -> Maybe CoreExpr
+   mkCoerceC_maybe k dom cod
+     | dom `eqType` cod = return $ mkId k dom
+     | otherwise = catOpMaybe k coerceV [dom,cod]
    tyArgs2_maybe :: Type -> Maybe (Type,Type)
    -- tyArgs2_maybe (splitAppTys -> (_,(a:b:_))) = Just (a,b)
    tyArgs2_maybe _ty@(splitAppTy_maybe -> Just (splitAppTy_maybe -> Just (_,a),b)) =
@@ -1701,7 +1721,9 @@ install opts todos =
       cccArgs :: CoreExpr -> Seq CoreExpr
       -- unVarApps :: CoreExpr -> Maybe (Id,[Type],[CoreExpr])
       -- ccc :: forall k a b. (a -> b) -> k a b
-      cccArgs c@(unVarApps -> Just (v,_tys,[_])) | v == cccV = Seq.singleton c
+      -- cccArgs c@(unVarApps -> Just (v,_tys,[_])) | v == cccV = Seq.singleton c
+      cccArgs c@(unVarApps -> Just (v,_tys,[arg]))
+        | v == cccV, not polyBail || isMonoTy (exprType arg) = Seq.singleton c
       cccArgs _                                              = mempty
       -- cccArgs = const mempty  -- for now
       collectQ :: (Data a, Monoid m) => (a -> m) -> GenericQ m
