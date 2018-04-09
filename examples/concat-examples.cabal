@@ -99,7 +99,7 @@ library
                        ConCat.LC
                        ConCat.Local
                        ConCat.Deep
-                       ConCat.TArr
+                       -- ConCat.TArr
                        -- ConCat.Isomorphism
   if flag(smt)
     exposed-modules: ConCat.SMT
