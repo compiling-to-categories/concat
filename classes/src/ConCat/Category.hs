@@ -74,7 +74,7 @@ import GHC.TypeLits (KnownNat)
 -- import GHC.Generics ((:*:)(..),(:.:)(..))
 -- import qualified Data.Vector.Sized as VS
 
-import Data.Pointed (Pointed(..))
+import Data.Pointed
 import Data.Key (Zip(..))
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..))
@@ -2580,3 +2580,5 @@ instance (IxCoproductPCat k h, IxCoproductPCat k' h, Zip h)
 plusPF :: (IxMonoidalPCat k h, Ok2 k a b) => h (b `k` a) -> (h b `k` h a)
 plusPF = crossF
 {-# INLINE plusPF #-}
+
+

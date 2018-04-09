@@ -25,7 +25,7 @@ import qualified Prelude as P
 import GHC.Generics (Par1)
 
 import Control.Newtype (Newtype(..))
-import Data.Pointed (Pointed(..))
+import Data.Pointed (Pointed)
 import Data.Key (Zip(..))
 import Data.Constraint hiding ((&&&),(***),(:=>))
 import Data.Distributive (Distributive(..))

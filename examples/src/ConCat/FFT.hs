@@ -51,7 +51,7 @@ import Data.Complex
 import GHC.Generics hiding (C,S)
 
 import Data.Key (Zip(..))
-import Data.Pointed (Pointed(..))
+import Data.Pointed
 
 #ifdef TESTING
 import Data.Foldable (toList)

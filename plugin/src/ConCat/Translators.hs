@@ -18,7 +18,7 @@ import Prelude hiding (id,(.),curry,uncurry,const,unzip,zip,zipWith)
 import qualified Prelude as P
 import GHC.Exts (Coercible,coerce) -- inline
 
-import Data.Pointed (Pointed(..))
+import Data.Pointed
 import Data.Key (Zip(..))
 
 import ConCat.Misc ((:*),result)

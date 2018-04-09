@@ -23,7 +23,7 @@ import GHC.Generics ((:.:)(..))
 #else
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 #endif
-import Data.Pointed (Pointed(..))
+import Data.Pointed
 import Data.Vector.Sized (Vector)
 
 import ConCat.AltCat (array)
