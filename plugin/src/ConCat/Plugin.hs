@@ -189,6 +189,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
          -- return (mkCcc (subst1 v rhs body))
        else if
           -- dtrace "top Let tests" (ppr (not catClosed, substFriendly catClosed rhs, idOccs False v body)) $
+          not (isMonoTy (varType v)) || 
           not catClosed ||  -- experiment
           substFriendly catClosed rhs || idOccs False v body <= 1 then
          Doing("top Let float")
@@ -2250,6 +2251,9 @@ isMonoTy (AppTy u v)           = isMonoTy u && isMonoTy v
 isMonoTy (ForAllTy (Anon u) v) = isMonoTy u && isMonoTy v
 isMonoTy (LitTy _)             = True
 isMonoTy _                     = False
+
+isMono :: CoreExpr -> Bool
+isMono = isMonoTy . exprType
 
 -- isMonoTy t | pprTrace "isMonoTy" (ppr t) False = undefined
 
