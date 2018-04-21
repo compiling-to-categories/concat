@@ -25,6 +25,7 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE RecursiveDo #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -65,6 +66,7 @@ import Data.Constraint hiding ((&&&),(***),(:=>))
 import Data.Monoid
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import GHC.TypeLits (KnownNat)
+import Control.Monad.Fix (MonadFix)
 
 -- import GHC.Types (type (*))  -- experiment with TypeInType
 -- import qualified Data.Constraint as K
@@ -1328,6 +1330,27 @@ class ProductCat k => LoopCat k where
 instance LoopCat (->) where
   loop = error "loop: not really defined for functions"
   -- Will I need to use oops instead?
+
+{--------------------------------------------------------------------
+    Traced monoidal categories
+--------------------------------------------------------------------}
+
+class ProductCat k => TracedCat k where
+  trace :: Ok3 k a b c => ((a :* c) `k` (b :* c)) -> (a `k` b)
+
+instance TracedCat (->) where
+  trace h a = b where (b,c) = h (a,c)
+
+instance TracedCat U2 where trace U2 = U2
+
+instance (TracedCat k, TracedCat k') => TracedCat (k :**: k') where
+  trace (f :**: g) = trace f :**: trace g
+  PINLINER(trace)
+
+instance MonadFix m => TracedCat (Kleisli m) where
+  trace (Kleisli h) = Kleisli (\ a -> do rec (b,c) <- h (a,c)
+                                         return b)
+  PINLINER(trace)
 
 {--------------------------------------------------------------------
     Class aggregates

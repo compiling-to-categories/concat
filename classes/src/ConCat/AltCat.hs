@@ -69,6 +69,7 @@ import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5,Ok6, Ok'
   , MonoidalPCat, ProductCat, Prod, twiceP, inLassocP, inRassocP --, unfork
   , CoproductCat, Coprod, inLassocS, inRassocS, transposeS
+  , TracedCat
   , Additive1(..), OkAdd(..), AbelianCat
   , MonoidalSCat, CoproductPCat, CoprodP, ScalarCat, LinearCat
   , OkIxProd(..), IxMonoidalPCat, IxProductCat, IxCoproductPCat
@@ -241,6 +242,8 @@ Op0(ti,(CoterminalCat k, Ok k a) => Counit k `k` a)
 
 Op(const,(ConstCat k b, Ok k a) => b -> (a `k` ConstObj k b))
 Op(unitArrow,(ConstCat k b, Ok k (Unit k)) => b -> (Unit k `k` ConstObj k b))
+
+Op(trace, (TracedCat k, Ok3 k a b c) => ((a :* c) `k` (b :* c)) -> (a `k` b))
 
 Op(delay,(DelayCat k, Ok k a) => a -> (a `k` a))
 
