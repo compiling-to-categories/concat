@@ -23,6 +23,37 @@ To enable some of those examples, install Z3, uncomment them in examples/test/Ex
 
     stack build :misc-examples --flag concat-examples:smt
 
+# Troubleshooting
+
+## I get an error along the lines of "`Oops: toCcc' called`"
+
+The plugin works via two kinds of rewrite rules: some specified via `RULES` pragmas, in the modules `ConCat.AltCat` and `ConCat.Rebox`, and a "builtin" rule, which is Haskell code that explicitly manipulates Core, in `ConCat.Plugin`. An run-time error of the form "`Oops: toCcc' called`" occurs if the plugin was not able to transform the pseudo-function `toCcc'` (which hasn't an implementation) via the rules.
+
+Therefore:
+
+*   Be sure to import the `ConCat.AltCat` and `ConCat.Rebox` modules, e.g.,
+
+``` haskell
+import ConCat.AltCat ()
+import ConCat.Rebox ()
+```
+
+*   Remember to tell ghc to use the plugin with the option `-fplugin=ConCat.Plugin`.
+
+*   Remember to turn on optimization, which enables the firing of the rules (e.g., `-O` or `-O2`).
+
+*   Sometimes you also need to import `GHC.Generics` with a few constructors exposed (e.g., `U1`, `Par1`, `(:*:)`, and `Comp1`) so that Core casts can be successfully translated to categorical form (via `Coercible`).
+    This requirement is especially unfortunate because the need to import has nothing to do with explicit use of those constructors in code that you write, and because following this advice leads to compiler warnings about unused imports.
+    I hope to find an alternative method of translating coercions.
+
+Example of ghc compilation:
+
+```
+ghc -O -fplugin=ConCat.Plugin YourModule.hs
+```
+
+Unfortunately, this library doesn't (yet) work when called from ghci.
+
 ## Some applications
 
 Working:
