@@ -27,7 +27,7 @@ To enable some of those examples, install Z3, uncomment them in examples/test/Ex
 
 ## I get an error along the lines of "`Oops: toCcc' called`"
 
-The plugin works via two kinds of rewrite rules: some specified via `RULES` pragmas, in the modules `ConCat.AltCat` and `ConCat.Rebox`, and a "builtin" rule, which is Haskell code that explicitly manipulates Core, in `ConCat.Plugin`. An run-time error of the form "`Oops: toCcc' called`" occurs if the plugin was not able to transform away all uses of the pseudo-function `toCcc'` (which hasn't an implementation) via the rules.
+The plugin works via two kinds of rewrite rules: some specified via `RULES` pragmas, in the modules `ConCat.AltCat` and `ConCat.Rebox`, and a "builtin" rule, which is Haskell code that explicitly manipulates Core, in `ConCat.Plugin`. An run-time error of the form "`Oops: toCcc' called`" occurs if the plugin was not able to transform away all uses of the pseudo-function `toCcc'` (which has no implementation) via the rules.
 
 Therefore:
 
