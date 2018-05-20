@@ -37,6 +37,7 @@ import GHC.TypeLits (KnownNat)
 
 import Data.Functor.Rep (Representable(tabulate))
 import qualified Data.Functor.Rep as R
+import Data.Finite (Finite)
 import Data.Vector.Sized (Vector)
 
 import qualified ConCat.Category
@@ -238,8 +239,10 @@ instance ConstCat Syn (ty) where { const = atomicConst ; INLINER(const) }
 LitConst(())
 LitConst(Bool)
 LitConst(Int)
+LitConst(Integer)
 LitConst(Float)
 LitConst(Double)
+LitConst(Finite n)
 
 instance (ConstCat Syn a, Show a, KnownNat n) => ConstCat Syn (Vector n a) where
   const = atomicConst

@@ -1171,6 +1171,8 @@ instance SourceToBuses Integer where toBuses = PrimB
 instance SourceToBuses Float   where toBuses = PrimB
 instance SourceToBuses Double  where toBuses = PrimB
 
+instance KnownNat n => SourceToBuses (Finite n) where toBuses = PrimB
+
 #ifdef VectorSized
 instance (KnownNat n, GenBuses b) => SourceToBuses (Vector n b) where
   toBuses = PrimB
@@ -1706,6 +1708,9 @@ instance IfCat (:>) Int     where ifC = primOpt "if" (ifOpt `orOpt` ifOptI)
 instance IfCat (:>) Integer where ifC = primOpt "if" ifOpt
 instance IfCat (:>) Float   where ifC = primOpt "if" ifOpt
 instance IfCat (:>) Double  where ifC = primOpt "if" ifOpt
+
+instance KnownNat n => IfCat (:>) (Finite n) where ifC = primOpt "if" ifOpt
+-- TODO: refactor
 
 -- TODO: Would we rather zip the conditional over the vector?
 instance (GenBuses b, KnownNat n) => IfCat (:>) (Vector n b) where
