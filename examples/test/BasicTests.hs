@@ -8,6 +8,9 @@
 {-# LANGUAGE TypeOperators       #-}
 -- {-# OPTIONS_GHC -Wall            #-}
 
+{-# OPTIONS_GHC -freduction-depth=0 #-}
+{-# OPTIONS_GHC -fsimpl-tick-factor=500 #-}
+
 module BasicTests where
 
 import           ConCat.ADFun hiding (D)
@@ -70,6 +73,17 @@ basicTests = testGroup "basic tests"
   , runSynCirc "cos-xpy-adf"    $ toCcc $ andDerF $ \ (x,y) -> cos (x + y) :: R
   , runSynCirc "cosSinProd-adf" $ toCcc $ andDerF $ cosSinProd @R
 
+  -- Automatic differentiation with dual functions:
+  , runSynCirc "sin-adr"        $ toCcc $ andDerR $ sin @R
+  , runSynCirc "cos-adr"        $ toCcc $ andDerR $ cos @R
+  , runSynCirc "twice-adr"      $ toCcc $ andDerR $ twice @R
+  , runSynCirc "sqr-adr"        $ toCcc $ andDerR $ sqr @R
+  , runSynCirc "magSqr-adr"     $ toCcc $ andDerR $ magSqr  @R
+  , runSynCirc "cos-2x-adr"     $ toCcc $ andDerR $ \ x -> cos (2 * x) :: R
+  , runSynCirc "cos-2xx-adr"    $ toCcc $ andDerR $ \ x -> cos (2 * x * x) :: R
+  , runSynCirc "cos-xpy-adr"    $ toCcc $ andDerR $ \ (x,y) -> cos (x + y) :: R
+  , runSynCirc "cosSinProd-adr" $ toCcc $ andDerR $ cosSinProd @R
+
   , runSynCirc "times-13" $ toCcc $ \(x :: Int) -> 13 * x == 130
 
   , runSynCirc "mul-int" $ toCcc $ (*) @Int
@@ -124,24 +138,6 @@ basicTests = testGroup "basic tests"
 
   , runSynCirc "cos-xpy-gradr" $
       toCcc $ andGradR $ \(x, y) -> cos (x + y) :: R
-
-  , runSynCirc "fst-gradr" $ toCcc $ andGradR (fst @R @R)
-
-  , runSynCirc "add-gradr" $ toCcc $ andGradR $ uncurry ((+) @R)
-
-  , runSynCirc "cos-gradr" $ toCcc $ andGradR $ cos @R
-
-  , runSynCirc "sin-gradr" $ toCcc $ andGradR $ sin @R
-
-  , runSynCirc "cos-xpy-adr" $ toCcc $ andDerR $ \(x, y) -> cos (x + y) :: R
-
-  , runSynCirc "fst-adr" $ toCcc $ andDerR (fst @R @R)
-
-  , runSynCirc "add-adr" $ toCcc $ andDerR $ uncurry ((+) @R)
-
-  , runSynCirc "cos-adr" $ toCcc $ andDerR $ cos @R
-
-  , runSynCirc "sin-adr" $ toCcc $ andDerR $ sin @R
 
   , runSynCirc "exl" $ toCcc $ A.exl @(->) @R @R
 
