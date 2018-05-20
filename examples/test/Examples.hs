@@ -37,9 +37,9 @@
 
 -- {-# OPTIONS_GHC -fno-specialise #-}
 
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showCcc #-}
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showResiduals #-}
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showCcc #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showResiduals #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
@@ -101,7 +101,7 @@ import GHC.Exts (inline)
 import GHC.Float (int2Double)
 import GHC.TypeLits ()
 
--- packFinite' experiment
+-- packFiniteM experiment
 import GHC.TypeLits
 import Data.Maybe (fromJust)
 
@@ -187,9 +187,9 @@ main :: IO ()
 main = sequence_ [
     putChar '\n' -- return ()
 
-  -- , runSynCirc "packFinite" $ toCcc $ packFinite @5 -- fail
+  -- , runSynCirc "packFinite" $ toCcc $ packFinite @5 -- fail (missing INLINE)
 
-  -- , runSynCirc "packFiniteP" $ toCcc $ packFinite' @5 -- okay
+  , runSynCirc "packFiniteM" $ toCcc $ packFiniteM @5 @Maybe -- okay
 
   , runSynCirc "vecIndexDef" $ toCcc $ vecIndexDef @5 @R -- okay
 
@@ -307,16 +307,12 @@ instance Additive P where
 
 -- | Convert an 'Integer' into a 'Finite', returning 'Nothing' if the input is out of bounds.
 -- This version has an INLINE pragma.
-packFinite' :: KnownNat n => Integer -> Maybe (Finite n)
-packFinite' x = res
-    where
-        res = if x < natVal (fromJust res) && x >= 0
-            then Just $ Finite x
-            else Nothing
-{-# INLINE packFinite' #-}
--- TODO: improve this definition using natValAt.
+packFiniteM :: forall n m. (KnownNat n, Monad m) => Integer -> m (Finite n)
+packFiniteM x | 0 <= x && x < natValAt @n = return (Finite x)
+              | otherwise                 = fail "packFiniteM: bad index"
+{-# INLINE packFiniteM #-}
 
 -- Index a sized vector with an integer, given a default
 vecIndexDef :: KnownNat n => a -> Vector n a -> Integer -> a
-vecIndexDef def v i = maybe def (FR.index v) (packFinite' i)
+vecIndexDef def v i = maybe def (FR.index v) (packFiniteM i)
 {-# INLINE vecIndexDef #-}
