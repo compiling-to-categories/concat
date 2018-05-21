@@ -1110,7 +1110,7 @@ constM' :: GS b => b -> CircuitM (Buses b)
 
 bottomG :: Ok2 (:>) z b => z :> b
 bottomG = -- trace "bottomG called" $
-          namedC "bottom"
+          namedC "⊥" -- "bottom"
           -- mkCK (constComp "undefined")
 
 #if 0
