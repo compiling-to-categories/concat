@@ -43,8 +43,8 @@ library
                      , process >= 1.4.2.0
                      , mtl >= 2.2.1
                      , finite-typelits
-                     -- -- For NatArr
-                     , ghc-typelits-knownnat
+                     -- For TArr and Fin
+                     , type-nat-solver, ghc-typelits-knownnat
                      -- For Incremental
                      , transformers >= 0.5.2.0, mtl >= 2.2.1
                      -- For Gui
@@ -99,6 +99,7 @@ library
                        ConCat.LC
                        ConCat.Local
                        ConCat.Deep
+                       ConCat.Fin
                        -- ConCat.TArr
                        -- ConCat.Isomorphism
   if flag(smt)

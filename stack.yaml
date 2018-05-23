@@ -16,11 +16,16 @@ packages:
   - verilog
   - netlist-to-verilog
   extra-dep: true
+- location:
+    git: git@github.com:yav/type-nat-solver.git
+    commit: 4218b52e1f70df152daa7fc62f7f1c2ef67b60a1
+  extra-dep: true
 extra-deps:
-  - pointed-5.0.1 ## instances for GHC.Generics
-  - keys-3.12     ## instances for GHC.Generics
-  - adjunctions-4.4     ## instances for GHC.Generics
-  - ghc-typelits-natnormalise-0.5.8
+  - pointed-5.0.1   ## instances for GHC.Generics
+  - keys-3.12       ## instances for GHC.Generics
+  - adjunctions-4.4 ## instances for GHC.Generics
   - vector-sized-1.0.0.0
   - indexed-list-literals-0.1.0.1
+  - simple-smt-0.8
+
 resolver: lts-9.20
