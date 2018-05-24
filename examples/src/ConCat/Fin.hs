@@ -4,6 +4,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -25,6 +26,7 @@ module ConCat.Fin where
 
 import Data.Proxy (Proxy(..))
 import GHC.TypeLits
+import Data.Type.Equality
 import Data.Type.Bool
 import Control.Arrow ((|||))
 import Unsafe.Coerce (unsafeCoerce)
@@ -34,11 +36,37 @@ import Data.Constraint
 
 import ConCat.Misc ((:*),(:+),natValAt)
 
+{--------------------------------------------------------------------
+    Misc
+--------------------------------------------------------------------}
+
+-- infix 4 <=
+-- type a <= b = CmpNat a b ~ LE
+
+-- infix 4 <, >
+-- type a < b = CmpNat a b ~ LT
+-- type a > b = b < a
+
+infix 4 <?
+-- type x <? y = (y <=? x)
+type a <? b = a + 1 <=? b
+
 -- Missing from GHC.TypeLits
 infix 4 <, >=, >
 type a <  b = a + 1 <= b
 type a >= b = b <= a
 type a >  b = b < a
+
+unsafeEqual :: forall a b. a :~: b
+unsafeEqual = unsafeCoerce Refl
+
+unsafeWithEqual :: forall a b r. (a ~ b => r) -> r
+unsafeWithEqual r | Refl <- unsafeEqual @a @b = r
+
+unsafeWithTrue :: forall a r. (a ~ 'True => r) -> r
+unsafeWithTrue r | Refl <- unsafeEqual @a @True = r
+
+-- unsafeWithTrue r = unsafeWithEqual @a @'True @r  -- doesn't type-check
 
 {--------------------------------------------------------------------
     Comparisons with evidence
@@ -60,9 +88,9 @@ unsafeSatisfy z | Dict <- unsafeDict @c = z
 -- 'compare' plus evidence
 compareEv :: forall u v. KnownNat2 u v => CompareEv u v
 compareEv = case natValAt @u `compare` natValAt @v of
-              LT -> unsafeSatisfy @(u < v) CompareLT
-              EQ -> unsafeSatisfy @(u ~ v) CompareEQ
-              GT -> unsafeSatisfy @(u > v) CompareGT
+              LT -> unsafeWithTrue  @(u <? v) CompareLT
+              EQ -> unsafeWithEqual @u @v     CompareEQ
+              GT -> unsafeWithTrue  @(v <? u) CompareGT
 
 -- Alternative interface
 compareEv' :: forall u v z. KnownNat2 u v =>
