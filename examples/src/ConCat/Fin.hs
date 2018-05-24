@@ -87,8 +87,7 @@ data CompareEv u v
   | (u > v) => CompareGT
 
 compareEv :: forall u v. KnownNat2 u v => CompareEv u v
-
--- compareEv = error "compareEv: not defined"
+compareEv = error "compareEv: not defined"
 
 -- compareEv = case natValAt @u `compare` natValAt @v of
 --               LT -> CompareLT
