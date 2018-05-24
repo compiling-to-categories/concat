@@ -104,17 +104,17 @@ finite = Finite (Proxy @a)
 -- pattern Fi = Finite (Proxy :: Proxy a)
 
 weakenL :: forall m n. Finite m -> Finite (m + n)
-weakenL (Finite (Proxy :: Proxy a)) = Finite (Proxy @a)
+weakenL (Finite (Proxy :: Proxy a)) = finite @a
 
 -- Variation
 weaken' :: forall u v. u <= v => Finite u -> Finite v
-weaken' (Finite (Proxy :: Proxy a)) = Finite (Proxy @a)
+weaken' (Finite (Proxy :: Proxy a)) = finite @a
 
 weakenR :: forall m n. Finite n -> Finite (m + n)
-weakenR (Finite (Proxy :: Proxy b)) = Finite (Proxy @b)
+weakenR (Finite (Proxy :: Proxy b)) = finite @b
 
 bumpR :: forall m n. KnownNat m => Finite n -> Finite (m + n)
-bumpR (Finite (Proxy :: Proxy b)) = Finite (Proxy @(m + b))
+bumpR (Finite (Proxy :: Proxy b)) = finite @(m + b)
 
 type KnownNat2 m n = (KnownNat m, KnownNat n)
 
@@ -122,15 +122,15 @@ sumToFin :: KnownNat m => Finite m :+ Finite n -> Finite (m + n)
 sumToFin = weakenL ||| bumpR
 
 finToSum :: forall m n. KnownNat2 m n => Finite (m + n) -> Finite m :+ Finite n
-finToSum (Finite (Proxy :: Proxy a)) =
-  case ltEv @a @m of
-    LtT -> Left  (finite @a)
-    LtF -> Right (finite @(a - m))
+finToSum (Finite (Proxy :: Proxy c)) =
+  case ltEv @c @m of
+    LtT -> Left  (finite @c)
+    LtF -> Right (finite @(c - m))
 
 -- Alternative definition using leEv
 
 finToSum' :: forall m n. KnownNat2 m n => Finite (m + n) -> Finite m :+ Finite n
-finToSum' (Finite (Proxy :: Proxy a)) =
-  case leEv @m @a of
-    LeF -> Left  (finite @a)
-    LeT -> Right (finite @(a - m))
+finToSum' (Finite (Proxy :: Proxy c)) =
+  case leEv @m @c of
+    LeF -> Left  (finite @c)
+    LeT -> Right (finite @(c - m))
