@@ -27,6 +27,7 @@ import Data.Proxy (Proxy(..))
 import GHC.TypeLits
 import Data.Type.Bool
 import Control.Arrow ((|||))
+import Unsafe.Coerce (unsafeCoerce)
 
 -- Experimental
 import Data.Constraint
@@ -49,21 +50,50 @@ data CompareEv u v
   | (u ~ v) => CompareEQ
   | (u > v) => CompareGT
 
+unsafeDict :: Dict c
+unsafeDict = unsafeCoerce (Dict @())
+
+unsafeSatisfy :: forall c a. (c => a) -> a
+unsafeSatisfy z | Dict <- unsafeDict @ c = z
+
+-- unsafeSatisfy = unsafeCoerce  -- "Could not deduce: c"
+
+-- "Illegal qualified type: c => a. GHC doesn't yet support impredicative polymorphism"
+-- unsafeSatisfy = unsafeCoerce @(c => a) @a
+
+-- 'compare' plus evidence
 compareEv :: forall u v. KnownNat2 u v => CompareEv u v
-compareEv = error "compareEv: not defined"
+compareEv = case natValAt @u `compare` natValAt @v of
+              LT -> unsafeSatisfy @ (u < v) CompareLT
+              EQ -> unsafeSatisfy @ (u ~ v) CompareEQ
+              GT -> unsafeSatisfy @ (u > v) CompareGT
+
+-- compareEv = error "compareEv: not defined"
 
 -- compareEv = case natValAt @u `compare` natValAt @v of
 --               LT -> CompareLT
 --               EQ -> CompareEQ
 --               GT -> CompareGT
-
--- Doesn't type-check, since compare doesn't produce *evidence*.
+-- -- Doesn't type-check, since compare produces no *evidence*.
 
 -- Alternative interface
 
-compareEv' :: KnownNat2 u v =>
+compareEv' :: forall u v z. KnownNat2 u v =>
   ((u < v) => z) -> ((u ~ v) => z) -> ((u > v) => z) -> z
-compareEv' = error "compareEv': not defined"
+
+compareEv' lt eq gt =
+  case compareEv @u @v of
+    CompareLT -> lt
+    CompareEQ -> eq
+    CompareGT -> gt
+
+-- compareEv' lt eq gt =
+--   case natValAt @u `compare` natValAt @v of
+--     LT -> unsafeSatisfy @ (u < v) lt
+--     EQ -> unsafeSatisfy @ (u ~ v) eq
+--     GT -> unsafeSatisfy @ (u > v) gt
+
+-- compareEv' = error "compareEv': not defined"
 
 -- (<=) with evidence
 data LeEv u v = (u <= v) => LeT | (u > v) => LeF
@@ -134,3 +164,21 @@ finToSum' (Finite (Proxy :: Proxy c)) =
   case leEv @m @c of
     LeF -> Left  (finite @c)
     LeT -> Right (finite @(c - m))
+
+-- With some inlining
+sumToFin' :: forall m n. KnownNat m => Finite m :+ Finite n -> Finite (m + n)
+sumToFin' =
+  (\ (Finite (Proxy :: Proxy a)) -> Finite (Proxy :: Proxy    a   )) |||
+  (\ (Finite (Proxy :: Proxy b)) -> Finite (Proxy :: Proxy (m + b)))
+
+finToSum'' :: forall m n. KnownNat2 m n => Finite (m + n) -> Finite m :+ Finite n
+finToSum'' (Finite (Proxy :: Proxy c)) =
+  case ltEv @c @m of
+    LtT -> Left  (Finite (Proxy :: Proxy    c   ))
+    LtF -> Right (Finite (Proxy :: Proxy (c - m)))
+
+-- finToProd :: Finite m :* Finite n -> Finite (m * n)
+-- finToProd (Finite (Proxy :: Proxy a), Finite (Proxy :: Proxy b)) =
+--   Finite (Proxy :: Proxy (a * n + b))
+
+-- "SMT solver: ... logic does not support nonlinear arithmetic."
