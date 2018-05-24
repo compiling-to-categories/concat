@@ -55,6 +55,8 @@ unsafeDict = unsafeCoerce (Dict @())
 unsafeSatisfy :: forall c a. (c => a) -> a
 unsafeSatisfy z | Dict <- unsafeDict @c = z
 
+-- unsafeSatisfy z | Dict <- unsafeCoerce (Dict @()) :: Dict c = z
+
 -- 'compare' plus evidence
 compareEv :: forall u v. KnownNat2 u v => CompareEv u v
 compareEv = case natValAt @u `compare` natValAt @v of
@@ -65,11 +67,10 @@ compareEv = case natValAt @u `compare` natValAt @v of
 -- Alternative interface
 compareEv' :: forall u v z. KnownNat2 u v =>
   ((u < v) => z) -> ((u ~ v) => z) -> ((u > v) => z) -> z
-compareEv' lt eq gt =
-  case compareEv @u @v of
-    CompareLT -> lt
-    CompareEQ -> eq
-    CompareGT -> gt
+compareEv' lt eq gt = case compareEv @u @v of
+                        CompareLT -> lt
+                        CompareEQ -> eq
+                        CompareGT -> gt
 
 -- (<=) with evidence
 data LeEv u v = (u <= v) => LeT | (u > v) => LeF
