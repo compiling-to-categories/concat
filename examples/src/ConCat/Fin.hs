@@ -17,6 +17,7 @@
 
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin TypeNatSolver #-}
+-- {-# OPTIONS_GHC -fconstraint-solver-iterations=100 #-}
 
 -- | An alternative to Data.Finite from finite-typelits.
 -- This version relies on GHC to verify all type arithmetic.
@@ -30,7 +31,7 @@ import Control.Arrow ((|||))
 -- Experimental
 import Data.Constraint
 
-import ConCat.Misc ((:*),(:+))
+import ConCat.Misc ((:*),(:+),natValAt)
 
 -- Missing from GHC.TypeLits
 infix 4 <, >=, >
@@ -79,11 +80,57 @@ type KnownNat2 m n = (KnownNat m, KnownNat n)
 sumToFin :: KnownNat m => Finite m :+ Finite n -> Finite (m + n)
 sumToFin = weakenL ||| bumpR
 
-finToSum :: KnownNat2 m n => Finite (m + n) -> Finite m :+ Finite n
-finToSum = undefined
+-- | Result of 'compare' with evidence
+data CompareEv u v
+  = (u < v) => CompareLT
+  | (u ~ v) => CompareEQ
+  | (u > v) => CompareGT
 
--- Safe subtraction
-data Diff u v = (u >= v) => Diff (Proxy (u - v))
+compareEv :: forall u v. KnownNat2 u v => CompareEv u v
 
-sub :: forall u v. KnownNat2 u v => Diff u v :+ Diff v u
-sub = undefined
+-- compareEv = error "compareEv: not defined"
+
+-- compareEv = case natValAt @u `compare` natValAt @v of
+--               LT -> CompareLT
+--               EQ -> CompareEQ
+--               GT -> CompareGT
+
+-- Doesn't type-check, since compare doesn't produce *evidence*.
+
+-- Alternative interface
+
+compareEv' :: KnownNat2 u v =>
+  ((u < v) => z) -> ((u ~ v) => z) -> ((u > v) => z) -> z
+compareEv' = error "compareEv': not defined"
+
+-- (<=) with evidence
+data LeEv u v = (u <= v) => LeT | (u > v) => LeF
+
+leEv :: forall u v. KnownNat2 u v => LeEv u v
+leEv = case compareEv @u @v of
+         CompareLT -> LeT
+         CompareEQ -> LeT
+         CompareGT -> LeF
+
+-- (<) with evidence
+data LtEv u v = (u < v) => LtT | (u >= v) => LtF
+
+ltEv :: forall u v. KnownNat2 u v => LtEv u v
+ltEv = case compareEv @u @v of
+         CompareLT -> LtT
+         CompareEQ -> LtF
+         CompareGT -> LtF
+
+finToSum :: forall m n. KnownNat2 m n => Finite (m + n) -> Finite m :+ Finite n
+finToSum (Finite (Proxy :: Proxy a)) =
+  case ltEv @a @m of
+    LtT -> Left  (finite @a)
+    LtF -> Right (finite @(a - m))
+
+-- Alternative definition using leEv
+
+finToSum' :: forall m n. KnownNat2 m n => Finite (m + n) -> Finite m :+ Finite n
+finToSum' (Finite (Proxy :: Proxy a)) =
+  case leEv @m @a of
+    LeF -> Left  (finite @a)
+    LeT -> Right (finite @(a - m))
