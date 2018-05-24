@@ -48,12 +48,15 @@ import ConCat.Misc ((:*),(:+),natValAt)
 -- type a > b = b < a
 
 infix 4 <?
--- type x <? y = (y <=? x)
+-- type x <? y = Not (y <=? x)  -- Compilation wedges
 type a <? b = a + 1 <=? b
 
 -- Missing from GHC.TypeLits
 infix 4 <, >=, >
-type a <  b = a + 1 <= b
+-- Both of the following definitions appear to work.
+type a <  b = (a <? b) ~ 'True
+-- type a <  b = (b <=? a) ~ 'False
+
 type a >= b = b <= a
 type a >  b = b < a
 
@@ -64,7 +67,7 @@ unsafeWithEqual :: forall a b r. (a ~ b => r) -> r
 unsafeWithEqual r | Refl <- unsafeEqual @a @b = r
 
 unsafeWithTrue :: forall a r. (a ~ 'True => r) -> r
-unsafeWithTrue r | Refl <- unsafeEqual @a @True = r
+unsafeWithTrue r | Refl <- unsafeEqual @a @'True = r
 
 -- unsafeWithTrue r = unsafeWithEqual @a @'True @r  -- doesn't type-check
 
