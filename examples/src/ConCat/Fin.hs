@@ -98,9 +98,6 @@ data Finite n = forall a. (KnownNat a, a < n) => Finite (Proxy a)
 finite :: forall a n. (KnownNat a, a < n) => Finite n
 finite = Finite (Proxy @a)
 
-zero :: (KnownNat n, 0 < n) => Finite n
-zero = finite @0
-
 -- Blows the constraint reduction stack
 -- 
 -- pattern Fi :: forall a n. (KnownNat a, a < n) => Finite n
