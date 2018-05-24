@@ -45,55 +45,31 @@ type a >  b = b < a
 --------------------------------------------------------------------}
 
 -- | Result of 'compare' with evidence
-data CompareEv u v
-  = (u < v) => CompareLT
-  | (u ~ v) => CompareEQ
-  | (u > v) => CompareGT
+data CompareEv u v = (u < v) => CompareLT
+                   | (u ~ v) => CompareEQ
+                   | (u > v) => CompareGT
 
 unsafeDict :: Dict c
 unsafeDict = unsafeCoerce (Dict @())
 
 unsafeSatisfy :: forall c a. (c => a) -> a
-unsafeSatisfy z | Dict <- unsafeDict @ c = z
-
--- unsafeSatisfy = unsafeCoerce  -- "Could not deduce: c"
-
--- "Illegal qualified type: c => a. GHC doesn't yet support impredicative polymorphism"
--- unsafeSatisfy = unsafeCoerce @(c => a) @a
+unsafeSatisfy z | Dict <- unsafeDict @c = z
 
 -- 'compare' plus evidence
 compareEv :: forall u v. KnownNat2 u v => CompareEv u v
 compareEv = case natValAt @u `compare` natValAt @v of
-              LT -> unsafeSatisfy @ (u < v) CompareLT
-              EQ -> unsafeSatisfy @ (u ~ v) CompareEQ
-              GT -> unsafeSatisfy @ (u > v) CompareGT
-
--- compareEv = error "compareEv: not defined"
-
--- compareEv = case natValAt @u `compare` natValAt @v of
---               LT -> CompareLT
---               EQ -> CompareEQ
---               GT -> CompareGT
--- -- Doesn't type-check, since compare produces no *evidence*.
+              LT -> unsafeSatisfy @(u < v) CompareLT
+              EQ -> unsafeSatisfy @(u ~ v) CompareEQ
+              GT -> unsafeSatisfy @(u > v) CompareGT
 
 -- Alternative interface
-
 compareEv' :: forall u v z. KnownNat2 u v =>
   ((u < v) => z) -> ((u ~ v) => z) -> ((u > v) => z) -> z
-
 compareEv' lt eq gt =
   case compareEv @u @v of
     CompareLT -> lt
     CompareEQ -> eq
     CompareGT -> gt
-
--- compareEv' lt eq gt =
---   case natValAt @u `compare` natValAt @v of
---     LT -> unsafeSatisfy @ (u < v) lt
---     EQ -> unsafeSatisfy @ (u ~ v) eq
---     GT -> unsafeSatisfy @ (u > v) gt
-
--- compareEv' = error "compareEv': not defined"
 
 -- (<=) with evidence
 data LeEv u v = (u <= v) => LeT | (u > v) => LeF
