@@ -40,36 +40,29 @@ import ConCat.Misc ((:*),(:+),natValAt)
     Misc
 --------------------------------------------------------------------}
 
--- infix 4 <=
--- type a <= b = CmpNat a b ~ LE
-
--- infix 4 <, >
--- type a < b = CmpNat a b ~ LT
--- type a > b = b < a
-
-infix 4 <?
--- type x <? y = Not (y <=? x)  -- Compilation wedges
+infix 4 <?, >?, <, >=, >
 type a <? b = a + 1 <=? b
-
--- Missing from GHC.TypeLits
-infix 4 <, >=, >
--- Both of the following definitions appear to work.
+type a >? b = b <? a
 type a <  b = (a <? b) ~ 'True
--- type a <  b = (b <=? a) ~ 'False
-
 type a >= b = b <= a
 type a >  b = b < a
 
 unsafeEqual :: forall a b. a :~: b
 unsafeEqual = unsafeCoerce Refl
 
-unsafeWithEqual :: forall a b r. (a ~ b => r) -> r
-unsafeWithEqual r | Refl <- unsafeEqual @a @b = r
+unsafeWithEQ :: forall a b r. (a ~ b => r) -> r
+unsafeWithEQ r | Refl <- unsafeEqual @a @b = r
 
 unsafeWithTrue :: forall a r. (a ~ 'True => r) -> r
 unsafeWithTrue r | Refl <- unsafeEqual @a @'True = r
 
 -- unsafeWithTrue r = unsafeWithEqual @a @'True @r  -- doesn't type-check
+
+unsafeWithLT :: forall a b r. (a < b => r) -> r
+unsafeWithLT = unsafeWithTrue @(a <? b)
+
+unsafeWithGT :: forall a b r. (a > b => r) -> r
+unsafeWithGT = unsafeWithLT @b @a
 
 {--------------------------------------------------------------------
     Comparisons with evidence
@@ -80,20 +73,12 @@ data CompareEv u v = (u < v) => CompareLT
                    | (u ~ v) => CompareEQ
                    | (u > v) => CompareGT
 
-unsafeDict :: Dict c
-unsafeDict = unsafeCoerce (Dict @())
-
-unsafeSatisfy :: forall c a. (c => a) -> a
-unsafeSatisfy z | Dict <- unsafeDict @c = z
-
--- unsafeSatisfy z | Dict <- unsafeCoerce (Dict @()) :: Dict c = z
-
 -- 'compare' plus evidence
 compareEv :: forall u v. KnownNat2 u v => CompareEv u v
 compareEv = case natValAt @u `compare` natValAt @v of
-              LT -> unsafeWithTrue  @(u <? v) CompareLT
-              EQ -> unsafeWithEqual @u @v     CompareEQ
-              GT -> unsafeWithTrue  @(v <? u) CompareGT
+              LT -> unsafeWithLT @u @v CompareLT
+              EQ -> unsafeWithEQ @u @v CompareEQ
+              GT -> unsafeWithGT @u @v CompareGT
 
 -- Alternative interface
 compareEv' :: forall u v z. KnownNat2 u v =>
@@ -185,8 +170,14 @@ finToSum'' (Finite (Proxy :: Proxy c)) =
     LtT -> Left  (Finite (Proxy :: Proxy    c   ))
     LtF -> Right (Finite (Proxy :: Proxy (c - m)))
 
--- finToProd :: Finite m :* Finite n -> Finite (m * n)
+-- finToProd :: forall m n. KnownNat n => Finite m :* Finite n -> Finite (m * n)
 -- finToProd (Finite (Proxy :: Proxy a), Finite (Proxy :: Proxy b)) =
---   Finite (Proxy :: Proxy (a * n + b))
+--   Finite (Proxy :: Proxy (a * n + b)) \\ prodBound @a @b @m @n
 
 -- "SMT solver: ... logic does not support nonlinear arithmetic."
+
+sumBoundR :: (a < m, b < n) :- (m + b < m + n)
+sumBoundR = Sub Dict  -- Thanks to TypeNatSolver, I presume.
+
+-- prodBound :: forall a b m n. (a < m, b < n) :- (a * n + b < m * n)
+-- prodBound = Sub (unsafeWithLT @(a * n + b) @(m * n) Dict)
