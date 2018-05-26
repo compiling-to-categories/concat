@@ -28,28 +28,15 @@ import Data.Tuple            (swap)
 import Data.Finite.Internal  (Finite(..))
 import qualified Data.Vector.Sized as V
 
-import ConCat.AltCat
-import qualified ConCat.Category
 import ConCat.Misc           ((:*), (:+), cond)
+import ConCat.AltCat
+import ConCat.Isomorphism
 
 {----------------------------------------------------------------------
    Some useful isomorphisms.
 ----------------------------------------------------------------------}
 
 type a :^ b = b -> a
-
-infix 0 <->
-data a <-> b = Iso (a -> b) (b -> a)
-
-instance Category (<->) where
-  id = Iso id id
-  Iso g g' . Iso f f' = Iso (g . f) (f' . g')
-
-instance MonoidalPCat (<->) where
-  Iso f f' *** Iso g g' = Iso (f *** g) (f' *** g')
-
-instance MonoidalSCat (<->) where
-  Iso f f' +++ Iso g g' = Iso (f +++ g) (f' +++ g')
 
 type KnownNat2 m n = (KnownNat m, KnownNat n)
 
@@ -89,12 +76,6 @@ finExp = Iso h g
         -- h = V.foldl' (curry u) (Finite 0) . (V.reverse . V.generate)
         h = (V.foldl' . curry) u (Finite 0) . (V.reverse . V.generate)
           where u (Finite acc, Finite m) = Finite $ acc * natValAt @m + m
-
-isoFwd :: a <-> b -> a -> b
-isoFwd (Iso g _) = g
-
-isoRev :: a <-> b -> b -> a
-isoRev (Iso _ h) = h
 
 toFin :: HasFin a => a -> Finite (Card a)
 toFin = isoFwd iso
