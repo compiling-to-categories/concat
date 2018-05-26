@@ -38,6 +38,7 @@ import ConCat.Misc           ((:*), (:+), cond)
 
 type a :^ b = b -> a
 
+infix 0 <->
 data a <-> b = Iso (a -> b) (b -> a)
 
 instance Category (<->) where
@@ -52,35 +53,35 @@ instance MonoidalSCat (<->) where
 
 type KnownNat2 m n = (KnownNat m, KnownNat n)
 
-finSum :: KnownNat2 m n => (Finite m :+ Finite n) <-> Finite (m + n)
+finSum :: forall m n. KnownNat2 m n => Finite m :+ Finite n <-> Finite (m + n)
 finSum = Iso h g
-  where g :: forall m n. KnownNat2 m n => Finite (m + n) -> Finite m :+ Finite n
+  where -- g :: forall m n. KnownNat2 m n => Finite (m + n) -> Finite m :+ Finite n
         g (Finite l) = if l >= natValAt @m
                           then Right $ Finite (l - natValAt @m)
                           else Left  $ Finite l
 
-        h :: forall m n. KnownNat2 m n => Finite m :+ Finite n -> Finite (m + n)
+        -- h :: forall m n. KnownNat2 m n => Finite m :+ Finite n -> Finite (m + n)
         h (Left  (Finite l)) = Finite l  -- Need to do it this way, for type conversion.
         h (Right (Finite k)) = Finite (k + natValAt @m)
 
-finProd :: KnownNat2 m n => (Finite m :* Finite n) <-> Finite (m * n)
+finProd :: forall m n. KnownNat2 m n => Finite m :* Finite n <-> Finite (m * n)
 finProd = Iso h g
-  where g :: forall m n. KnownNat2 m n => Finite (m * n) -> Finite m :* Finite n
+  where -- g :: forall m n. KnownNat2 m n => Finite (m * n) -> Finite m :* Finite n
         g (Finite l) = let (q,r) = l `divMod` natValAt @n
                         in (Finite q, Finite r)
 
-        h :: forall m n. KnownNat2 m n => Finite m :* Finite n -> Finite (m * n)
+        -- h :: forall m n. KnownNat2 m n => Finite m :* Finite n -> Finite (m * n)
         h (Finite l, Finite k) = Finite $ l * natValAt @n + k
 
 -- Using Horner's rule and its inverse, as per Conal's suggestion.
-finExp :: KnownNat2 m n => (Finite m :^ Finite n) <-> Finite (m ^ n)
+finExp :: forall m n. KnownNat2 m n => Finite m :^ Finite n <-> Finite (m ^ n)
 finExp = Iso h g
-  where g :: forall m n. KnownNat2 m n => Finite (m ^ n) -> Finite m :^ Finite n
+  where -- g :: forall m n. KnownNat2 m n => Finite (m ^ n) -> Finite m :^ Finite n
         g (Finite l) = \ n -> v `V.index` n
           where v :: V.Vector n (Finite m)
                 v = V.unfoldrN (first Finite . swap . flip divMod (natValAt @m)) l
 
-        h :: forall m n. KnownNat2 m n => Finite m :^ Finite n -> Finite (m ^ n)
+        -- h :: forall m n. KnownNat2 m n => Finite m :^ Finite n -> Finite (m ^ n)
         -- h f = Finite $ V.foldl' (\accum m -> accum * (natValAt @m) + getFinite m)
         --                       0
         --                       $ V.reverse $ V.generate f
