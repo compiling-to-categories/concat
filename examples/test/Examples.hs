@@ -189,9 +189,9 @@ main = sequence_ [
 
   -- , runSynCirc "packFinite" $ toCcc $ packFinite @5 -- fail (missing INLINE)
 
-  , runSynCirc "packFiniteM" $ toCcc $ packFiniteM @5 @Maybe -- okay
+  , runSynCirc "packFiniteM" $ toCcc $ packFiniteM @5 @Maybe -- okay 
 
-  , runSynCirc "vecIndexDef" $ toCcc $ vecIndexDef @5 @R -- okay
+  -- , runSynCirc "vecIndexDef" $ toCcc $ vecIndexDef @5 @R -- okay
 
   -- , runSynCirc "finite" $ toCcc $ Finite @5 -- okay
 
