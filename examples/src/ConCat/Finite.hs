@@ -44,7 +44,7 @@ import qualified Data.Vector.Sized as V
 import Data.Functor.Rep (index)
 import Control.Newtype
 
-import ConCat.Misc ((:*),(:+),natValAt,cond,inNew)
+import ConCat.Misc ((:*),(:+),natValAt,cond,inNew,inNew2)
 import ConCat.KnownNatOps (Div, Mod)
 import ConCat.Isomorphism
 import ConCat.AltCat (id,(.),(***),(+++))
@@ -225,12 +225,17 @@ instance Newtype (Arr a b) where
 instance Functor (Arr a) where
   fmap = inNew . fmap
 
+instance HasFin a => Applicative (Arr a) where
+  pure = pack . pure
+  (<*>) = inNew2 (<*>)
+
 -- (!) :: HasFin a => Arr a b -> (a -> b)
 -- Arr v ! a = v `index` isoFwd finI a
 
 -- Oops. The Representable (Vector n) instance in Orphans currently uses Finite
--- from finite-typelits. To fix, I'll have to move the Finite type to
--- concat/classes and import in Orphans. At some point, the vector-sized library
+-- from finite-typelits. To fix, move the Finite type from this module to
+-- concat/classes and import in Orphans. Make a separate module in
+-- concat/examples for HasFin and Arr. At some point, the vector-sized library
 -- may add a conflicting instance (I would), and we'll probably have to make our
 -- own vector-sized variant. The CPU implementation could still be built on
 -- unsized vectors.
