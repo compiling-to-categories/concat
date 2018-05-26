@@ -18,7 +18,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-} -- for temporary "axioms"
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
+-- {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 
@@ -33,10 +33,7 @@ import Prelude hiding (id,(.))
 
 import Data.Proxy (Proxy(..))
 import GHC.TypeLits
--- import GHC.Natural (Natural)
 import Data.Type.Equality
-import Data.Type.Bool
-import Control.Arrow ((|||))
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Constraint (Dict(..),(:-)(..),(\\))
@@ -135,9 +132,6 @@ data Finite n = forall a. (KnownNat a, a < n) => Finite (Proxy a)
 -- -- In GADT notation
 -- data Finite n where Finite :: (KnownNat a, a < n) => Proxy a -> Finite n
 
--- TODO: Do we really need 'KnownNat a' here? I think we will, in order to
--- extract a dynamic natural number for comparisons and arithmetic.
-
 finite :: forall a n. (KnownNat a, a < n) => Finite n
 finite = Finite (Proxy @a)
 
@@ -157,50 +151,18 @@ assumeFinite' = unsafeWithTrue @(a <? m) (finite @a)
 -- when @p |- a < m@. The type arguments @p@ and @a@ must be given explicitly,
 -- but usually @m@ can be inferred from context.
 assumeFinite :: forall p a m. (KnownNat a, p) => Finite m
--- assumeFinite = assumeFinite' @a @m
 assumeFinite = finite @a \\ axiom @p @(a <? m)
+-- assumeFinite = assumeFinite' @a @m
 
-weakenL :: forall m n. Finite m -> Finite (m + n)
-weakenL (Finite (Proxy :: Proxy a)) = -- finite @a \\ axiom @(a < m) @(a <? m + n)
-                                      assumeFinite @(a < m) @a
-
--- Variation
-weaken' :: forall u v. u <= v => Finite u -> Finite v
-weaken' (Finite (Proxy :: Proxy a)) = -- finite @a \\ axiom @(a < u) @(a <? v)
-                                      assumeFinite @(a < u) @a
-
-weakenR :: forall m n. Finite n -> Finite (m + n)
-weakenR (Finite (Proxy :: Proxy b)) = assumeFinite @(b < n) @b
-
-bumpR :: forall m n. KnownNat m => Finite n -> Finite (m + n)
-bumpR (Finite (Proxy :: Proxy b)) = assumeFinite @(b < n) @(m + b)
-
-sumToFin :: KnownNat m => Finite m :+ Finite n -> Finite (m + n)
-sumToFin = weakenL ||| bumpR
+sumToFin :: forall m n. KnownNat m => Finite m :+ Finite n -> Finite (m + n)
+sumToFin (Left  (Finite (Proxy :: Proxy a))) = assumeFinite @(a < m) @a
+sumToFin (Right (Finite (Proxy :: Proxy b))) = assumeFinite @(b < n) @(m + b)
 
 finToSum :: forall m n. KnownNat2 m n => Finite (m + n) -> Finite m :+ Finite n
 finToSum (Finite (Proxy :: Proxy c)) =
   case ltEv @c @m of
-    LtT -> Left  (finite @c)
-    LtF -> Right (assumeFinite @(c < m + n) @(c - m))
-
-#if 0
-
--- Look for duality between sumToFin and finToSum.
-
--- With some inlining
-sumToFin' :: forall m n. KnownNat m => Finite m :+ Finite n -> Finite (m + n)
-sumToFin' =
-  (\ (Finite (Proxy :: Proxy a)) -> Finite (Proxy :: Proxy    a   )) |||
-  (\ (Finite (Proxy :: Proxy b)) -> Finite (Proxy :: Proxy (m + b)))
-
-finToSum'' :: forall m n. KnownNat2 m n => Finite (m + n) -> Finite m :+ Finite n
-finToSum'' (Finite (Proxy :: Proxy c)) =
-  case ltEv @c @m of
-    LtT -> Left  (Finite (Proxy :: Proxy    c   ))
-    LtF -> Right (Finite (Proxy :: Proxy (c - m)))
-
-#endif
+    LtT -> Left  (finite @c @m)
+    LtF -> Right (assumeFinite @(m <= c, c < m + n) @(c - m) @n)
 
 prodToFin :: forall m n. KnownNat n => Finite m :* Finite n -> Finite (m * n)
 prodToFin (Finite (Proxy :: Proxy a), Finite (Proxy :: Proxy b)) =
@@ -283,7 +245,7 @@ toFinite :: KnownNat n => TF.Finite n -> Finite n
 toFinite _ = error "toFinite: not yet defined"
 
 -- Is it possible to define toFinite? How to synthesize (KnownNat a, a < n)?
--- Maybe via magicDict as in withSNat in GHC.TypeNat.
+-- Maybe via magicDict as in withSNat in GHC.TypeNats.
 
 vindex :: KnownNat n => Vector n a -> (Finite n -> a)
 vindex v = index v . toTFinite
