@@ -103,6 +103,7 @@ library
                        -- ConCat.TArr
                        -- ConCat.Isomorphism
                        ConCat.KnownNatOps
+                       ConCat.Isomorphism
                        ConCat.Finite
   if flag(smt)
     exposed-modules: ConCat.SMT
