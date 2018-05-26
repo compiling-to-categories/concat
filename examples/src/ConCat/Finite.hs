@@ -23,7 +23,7 @@
 
 -- | An alternative to Data.Finite from finite-typelits.
 -- This version relies on GHC to verify type arithmetic where possible.
-module ConCat.Fin where
+module ConCat.Finite where
 
 import Data.Proxy (Proxy(..))
 import GHC.TypeLits
@@ -63,6 +63,9 @@ unsafeWithEQ r | Refl <- unsafeEqual @a @b = r
 
 unsafeWithTrue :: forall a r. (a ~ 'True => r) -> r
 unsafeWithTrue r | Refl <- unsafeEqual @a @'True = r
+
+axiom :: forall p q. p ~ 'True |- q ~ 'True
+axiom | Refl <- unsafeEqual @q @'True = Sub Dict
 
 type KnownNat2 m n = (KnownNat m, KnownNat n)
 
@@ -139,7 +142,8 @@ assumeFinite :: forall p a m. (KnownNat a, p) => Finite m
 assumeFinite = assumeFinite' @a @m
 
 weakenL :: forall m n. Finite m -> Finite (m + n)
-weakenL (Finite (Proxy :: Proxy a)) = assumeFinite @(a < m) @a
+weakenL (Finite (Proxy :: Proxy a)) = finite @a \\ axiom @(a <? m) @(a <? m + n)
+                                      -- assumeFinite @(a < m) @a
 
 -- Variation
 weaken' :: forall u v. u <= v => Finite u -> Finite v
