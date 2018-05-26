@@ -44,7 +44,8 @@ library
                      , mtl >= 2.2.1
                      , finite-typelits
                      -- For TArr and Fin
-                     , type-nat-solver, ghc-typelits-knownnat
+                     , ghc-typelits-knownnat
+                     , ghc-typelits-natnormalise
                      -- For Incremental
                      , transformers >= 0.5.2.0, mtl >= 2.2.1
                      -- For Gui
@@ -99,9 +100,10 @@ library
                        ConCat.LC
                        ConCat.Local
                        ConCat.Deep
-                       ConCat.Fin
                        -- ConCat.TArr
                        -- ConCat.Isomorphism
+                       ConCat.KnownNatOps
+                       ConCat.Finite
   if flag(smt)
     exposed-modules: ConCat.SMT
   ghc-options:      -O2
