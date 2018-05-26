@@ -174,10 +174,10 @@ finToProd (Finite (Proxy :: Proxy c)) =
   , assumeFinite @(c < m * n) @(c `Mod` n) @n )
 
 finSum :: KnownNat2 m n => Finite m :+ Finite n <-> Finite (m + n)
-finSum = Iso sumToFin finToSum
+finSum = sumToFin :<-> finToSum
 
 finProd :: KnownNat2 m n => Finite m :* Finite n <-> Finite (m * n)
-finProd = Iso prodToFin finToProd
+finProd = prodToFin :<-> finToProd
 
 {----------------------------------------------------------------------
    A class of types with known finite representations.
@@ -193,11 +193,11 @@ instance KnownNat n => HasFin (Finite n) where
 
 instance HasFin () where
   type Card () = 1
-  finI = Iso (const (finite @0)) (const ())
+  finI = const (finite @0) :<-> const ()
 
 instance HasFin Bool where
   type Card Bool = 2
-  finI = Iso (cond (finite @0) (finite @1)) ((> 0) . finVal)
+  finI = cond (finite @0) (finite @1) :<-> (> 0) . finVal
 
 instance (HasFin a, HasFin b) => HasFin (a :+ b) where
   type Card (a :+ b) = Card a + Card b
@@ -209,7 +209,7 @@ instance (HasFin a, HasFin b) => HasFin (a :* b) where
 
 -- instance (HasFin a, HasFin b) => HasFin (a :^ b) where
 --   type Card (a :^ b) = Card a ^ Card b
---   finI = finExp . Iso liftFin inFin
+--   finI = finExp . (liftFin :<-> inFin)
 
 {----------------------------------------------------------------------
   Domain-typed "arrays"
