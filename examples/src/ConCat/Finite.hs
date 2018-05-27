@@ -14,6 +14,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 {-# LANGUAGE AllowAmbiguousTypes #-} -- for temporary "axioms"
 
@@ -42,9 +44,9 @@ import qualified Data.Finite.Internal as TF
 import Data.Vector.Sized (Vector)
 import qualified Data.Vector.Sized as V
 import Data.Functor.Rep (index)
-import Control.Newtype
+-- import Control.Newtype
 
-import ConCat.Misc ((:*),(:+),natValAt,cond,inNew,inNew2)
+import ConCat.Misc ((:*),(:+),natValAt,cond)  -- ,inNew,inNew2
 import ConCat.KnownNatOps (Div, Mod)
 import ConCat.Isomorphism
 import ConCat.AltCat (id,(.),(***),(+++))
@@ -217,6 +219,13 @@ instance (HasFin a, HasFin b) => HasFin (a :* b) where
 
 newtype Arr a b = Arr (Vector (Card a) b)
 
+#if 1
+
+deriving instance Functor (Arr a)
+deriving instance HasFin a => Applicative (Arr a)
+
+#else
+
 instance Newtype (Arr a b) where
   type O (Arr a b) = Vector (Card a) b
   pack v = Arr v
@@ -228,6 +237,8 @@ instance Functor (Arr a) where
 instance HasFin a => Applicative (Arr a) where
   pure = pack . pure
   (<*>) = inNew2 (<*>)
+
+#endif
 
 -- (!) :: HasFin a => Arr a b -> (a -> b)
 -- Arr v ! a = v `index` isoFwd finI a
