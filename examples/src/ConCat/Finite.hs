@@ -1,8 +1,11 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE CPP #-}
@@ -20,7 +23,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-} -- for temporary "axioms"
 
 {-# OPTIONS_GHC -Wall #-}
--- {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 
@@ -31,22 +34,26 @@
 -- This version relies on GHC to verify type arithmetic where possible.
 module ConCat.Finite where
 
-import Prelude hiding (id,(.))
+import Prelude hiding (id,(.),splitAt)
 
+import Data.Monoid ((<>))
+import Data.Foldable
 import Data.Proxy (Proxy(..))
 import GHC.TypeLits
 import Data.Type.Equality
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Constraint (Dict(..),(:-)(..),(\\))
-import qualified Data.Finite as TF
-import qualified Data.Finite.Internal as TF
-import Data.Vector.Sized (Vector)
-import qualified Data.Vector.Sized as V
-import Data.Functor.Rep (index)
--- import Control.Newtype
+-- import qualified Data.Finite as TF
+-- import qualified Data.Finite.Internal as TF
+-- import Data.Vector.Sized (Vector)
+-- import qualified Data.Vector.Sized as V
+import qualified Data.Vector as UV
+import Data.Distributive (Distributive(..))
+import Data.Functor.Rep (Representable(..),distributeRep)
+import Control.Newtype
 
-import ConCat.Misc ((:*),(:+),natValAt,cond)  -- ,inNew,inNew2
+import ConCat.Misc ((:*),(:+),natValAt,intValAt,cond)  -- ,inNew,inNew2
 import ConCat.KnownNatOps (Div, Mod)
 import ConCat.Isomorphism
 import ConCat.AltCat (id,(.),(***),(+++))
@@ -140,14 +147,21 @@ finite = Finite (Proxy @a)
 finVal :: Finite n -> Integer  -- Natural?
 finVal (Finite p) = natVal p
 
--- Blows the constraint reduction stack
--- 
+finInt :: Finite n -> Int
+finInt = fromIntegral . finVal
+
 -- pattern Fi :: forall a n. (KnownNat a, a < n) => Finite n
 -- pattern Fi = Finite (Proxy :: Proxy a)
 
--- Assume correctly bounded
-assumeFinite' :: forall a m. KnownNat a => Finite m
-assumeFinite' = unsafeWithTrue @(a <? m) (finite @a)
+-- This pattern definition doesn't type-check. GHC bug?
+--
+-- • Could not deduce: ((a0 + 1) <=? n) ~ 'True
+--     arising from a use of ‘Finite’
+--   from the context: (KnownNat a, a < n)
+
+-- -- Assume correctly bounded
+-- assumeFinite' :: forall a m. KnownNat a => Finite m
+-- assumeFinite' = unsafeWithTrue @(a <? m) (finite @a)
 
 -- | Assume correctly bounded but with an explicit, checked premise. Use only
 -- when @p |- a < m@. The type arguments @p@ and @a@ must be given explicitly,
@@ -170,6 +184,19 @@ prodToFin :: forall m n. KnownNat n => Finite m :* Finite n -> Finite (m * n)
 prodToFin (Finite (Proxy :: Proxy a), Finite (Proxy :: Proxy b)) =
   assumeFinite @(a < m, b < n) @(a * n + b)
 
+#if 0
+
+#define Fi(a) Finite (Proxy :: Proxy a)
+
+sumToFin2 :: forall m n. KnownNat m => Finite m :+ Finite n -> Finite (m + n)
+sumToFin2 (Left  (Fi(a))) = assumeFinite @(a < m) @a
+sumToFin2 (Right (Fi(b))) = assumeFinite @(b < n) @(m + b)
+
+prodToFin2 :: forall m n. KnownNat n => Finite m :* Finite n -> Finite (m * n)
+prodToFin2 (Fi(a), Fi(b)) = assumeFinite @(a < m, b < n) @(a * n + b)
+
+#endif
+
 finToProd :: forall m n. KnownNat n => Finite (m * n) -> Finite m :* Finite n
 finToProd (Finite (Proxy :: Proxy c)) =
   ( assumeFinite @(c < m * n) @(c `Div` n) @m
@@ -185,39 +212,98 @@ finProd = prodToFin :<-> finToProd
    A class of types with known finite representations.
 ----------------------------------------------------------------------}
 
-class KnownNat (Card a) => HasFin a where
+type KnownCard a = KnownNat (Card a)
+
+class KnownCard a => HasFin a where
   type Card a :: Nat
   finI :: a <-> Finite (Card a)
+
+toFin :: HasFin a => a -> Finite (Card a)
+toFin = isoFwd finI
+
+unFin :: HasFin a => Finite (Card a) -> a
+unFin = isoRev finI
 
 instance KnownNat n => HasFin (Finite n) where
   type Card (Finite n) = n
   finI = id
+  {-# INLINE finI #-}
 
 instance HasFin () where
   type Card () = 1
   finI = const (finite @0) :<-> const ()
+  {-# INLINE finI #-}
 
 instance HasFin Bool where
   type Card Bool = 2
   finI = cond (finite @0) (finite @1) :<-> (> 0) . finVal
+  {-# INLINE finI #-}
 
 instance (HasFin a, HasFin b) => HasFin (a :+ b) where
   type Card (a :+ b) = Card a + Card b
   finI = finSum . (finI +++ finI)
+  {-# INLINE finI #-}
 
 instance (HasFin a, HasFin b) => HasFin (a :* b) where
   type Card (a :* b) = Card a * Card b
   finI = finProd . (finI *** finI)
+  {-# INLINE finI #-}
 
 -- instance (HasFin a, HasFin b) => HasFin (a :^ b) where
 --   type Card (a :^ b) = Card a ^ Card b
 --   finI = finExp . (liftFin :<-> inFin)
+
+{--------------------------------------------------------------------
+    Sized vectors
+--------------------------------------------------------------------}
+
+newtype Vector (n :: Nat) a = Vector (UV.Vector a)
+  deriving (Functor, Applicative)
+
+instance Newtype (Vector n a) where
+  type O (Vector n a) = UV.Vector a
+  pack v = Vector v
+  unpack (Vector v) = v
+
+instance KnownNat n => Distributive (Vector n) where
+  distribute :: Functor f => f (Vector n a) -> Vector n (f a)
+  distribute = distributeRep
+  {-# INLINE distribute #-}
+
+instance KnownNat n => Representable (Vector n) where
+  type Rep (Vector n) = Finite n
+  -- Can we convert a (Finite n -> a) into (Int -> a)?
+  -- tabulate f = pack (UV.generate (fromIntegral (natValAt @n)) f')
+  -- Implement later. (But how?)
+  tabulate = error "tabulate @Vector not defined"
+  index (Vector v) i = v UV.! finInt i
+  {-# INLINE tabulate #-}
+  {-# INLINE index #-}
+ 
+-- (!) :: KnownNat n => Vector n a -> Finite n -> a
+-- (!) = index
+
+vecAppend :: forall m n a. Vector m a -> Vector n a -> Vector (m + n) a
+Vector u `vecAppend` Vector v = Vector (u <> v)
+
+vecSplitSum :: forall m n a. KnownNat m => Vector (m + n) a -> Vector m a :* Vector n a
+vecSplitSum = (pack *** pack) . UV.splitAt (intValAt @m) . unpack
+
+vecSplitProd :: forall m n a. KnownNat m => Vector (m * n) a -> Vector n (Vector m a)
+vecSplitProd = error "vecSplitProd: not yet defined"
+
+-- TODO: lots of INLINE pragmas
 
 {----------------------------------------------------------------------
   Domain-typed "arrays"
 ----------------------------------------------------------------------}
 
 newtype Arr a b = Arr (Vector (Card a) b)
+
+instance Newtype (Arr a b) where
+  type O (Arr a b) = Vector (Card a) b
+  pack v = Arr v
+  unpack (Arr v) = v
 
 #if 1
 
@@ -226,22 +312,35 @@ deriving instance HasFin a => Applicative (Arr a)
 
 #else
 
-instance Newtype (Arr a b) where
-  type O (Arr a b) = Vector (Card a) b
-  pack v = Arr v
-  unpack (Arr v) = v
-
 instance Functor (Arr a) where
   fmap = inNew . fmap
+  {-# INLINE fmap #-}
 
 instance HasFin a => Applicative (Arr a) where
   pure = pack . pure
   (<*>) = inNew2 (<*>)
+  {-# INLINE pure #-}
+  {-# INLINE (<*>) #-}
 
 #endif
 
--- (!) :: HasFin a => Arr a b -> (a -> b)
--- Arr v ! a = v `index` isoFwd finI a
+-- TODO: Distributive and Representable instances.
+
+instance HasFin a => Distributive (Arr a) where
+  distribute :: Functor f => f (Arr a b) -> Arr a (f b)
+  distribute = distributeRep
+  {-# INLINE distribute #-}
+
+instance HasFin a => Representable (Arr a) where
+  type Rep (Arr a) = a
+  tabulate :: (a -> b) -> Arr a b
+  tabulate f = Arr (tabulate (f . unFin))
+  Arr v `index` a = v `index` toFin a
+  {-# INLINE tabulate #-}
+  {-# INLINE index #-}
+
+(!) :: HasFin a => Arr a b -> (a -> b)
+(!) = index
 
 -- Oops. The Representable (Vector n) instance in Orphans currently uses Finite
 -- from finite-typelits. To fix, move the Finite type from this module to
@@ -251,22 +350,25 @@ instance HasFin a => Applicative (Arr a) where
 -- own vector-sized variant. The CPU implementation could still be built on
 -- unsized vectors.
 
-(!) :: HasFin a => Arr a b -> (a -> b)
-Arr v ! a = v `vindex` isoFwd finI a
+arrSplitSum :: forall a b c. KnownCard a => Arr (a :+ b) c -> Arr a c :* Arr b c
+arrSplitSum = (pack *** pack) . vecSplitSum . unpack
 
-toTFinite :: KnownNat n => Finite n -> TF.Finite n
-toTFinite = TF.Finite . finVal
+arrSplitProd :: forall a b c. KnownCard a => Arr (a :* b) c -> Arr b (Arr a c)
+arrSplitProd = pack . fmap pack . vecSplitProd . unpack
 
-toFinite :: KnownNat n => TF.Finite n -> Finite n
-toFinite _ = error "toFinite: not yet defined"
+-- Folds
 
--- Is it possible to define toFinite? How to synthesize (KnownNat a, a < n)?
--- Maybe via magicDict as in withSNat in GHC.TypeNats.
+instance Foldable (Arr ()) where
+  foldMap f xs = f (xs ! ())
 
-vindex :: KnownNat n => Vector n a -> (Finite n -> a)
-vindex v = index v . toTFinite
--- v `vindex` i = v `index` toTFinite i
+instance Foldable (Arr Bool) where
+  foldMap f xs = f (xs ! False) <> f (xs ! True)
 
-vtabulate :: KnownNat n => (Finite n -> a) -> Vector n a
-vtabulate f = V.generate (f . toFinite)
--- vtabulate = V.generate . (. toFinite)
+instance (Foldable (Arr a), Foldable (Arr b), KnownCard a)
+      => Foldable (Arr (a :+ b)) where
+  -- foldMap f u = foldMap f v <> foldMap f w where (v,w) = arrSplitSum u
+  foldMap f = uncurry (<>) . (foldMap f *** foldMap f) . arrSplitSum
+
+instance (Foldable (Arr a), Foldable (Arr b), KnownCard a)
+      => Foldable (Arr (a :* b)) where
+  foldMap f = (foldMap.foldMap) f . arrSplitProd
