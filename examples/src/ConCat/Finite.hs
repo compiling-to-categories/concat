@@ -58,6 +58,8 @@ import ConCat.KnownNatOps (Div, Mod)
 import ConCat.Isomorphism
 import ConCat.AltCat (id,(.),(***),(+++))
 
+-- TODO: lots of INLINE pragmas
+
 {--------------------------------------------------------------------
     Misc
 --------------------------------------------------------------------}
@@ -265,6 +267,9 @@ instance Newtype (Vector n a) where
   pack v = Vector v
   unpack (Vector v) = v
 
+instance Foldable (Vector n) where
+  foldMap f = foldMap f . unpack
+
 instance KnownNat n => Distributive (Vector n) where
   distribute :: Functor f => f (Vector n a) -> Vector n (f a)
   distribute = distributeRep
@@ -289,10 +294,13 @@ Vector u `vecAppend` Vector v = Vector (u <> v)
 vecSplitSum :: forall m n a. KnownNat m => Vector (m + n) a -> Vector m a :* Vector n a
 vecSplitSum = (pack *** pack) . UV.splitAt (intValAt @m) . unpack
 
-vecSplitProd :: forall m n a. KnownNat m => Vector (m * n) a -> Vector n (Vector m a)
-vecSplitProd = error "vecSplitProd: not yet defined"
+slice :: forall m n a. KnownNat n => Finite (m - n) -> Vector m a -> Vector n a
+slice w (Vector src) = Vector (UV.slice (finInt w) (intValAt @n) src)
 
--- TODO: lots of INLINE pragmas
+vecSplitProd :: forall m n a. KnownNat m => Vector (m * n) a -> Vector n (Vector m a)
+vecSplitProd src = undefined -- tabulate $ \ j -> 
+
+-- TODO: settle on m-major vs n-major, consistently with finProd.
 
 {----------------------------------------------------------------------
   Domain-typed "arrays"
