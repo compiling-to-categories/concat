@@ -306,6 +306,9 @@ unzip ps = (fst <$> ps, snd <$> ps)
 natValAt :: forall n. KnownNat n => Integer
 natValAt = natVal (Proxy @n)
 
+intValAt :: forall n. KnownNat n => Int
+intValAt = fromIntegral (natValAt @n)
+
 {--------------------------------------------------------------------
     Newtype
 --------------------------------------------------------------------}
