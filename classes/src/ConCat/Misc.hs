@@ -304,10 +304,14 @@ unzip ps = (fst <$> ps, snd <$> ps)
 {-# INLINE unzip #-}
 
 natValAt :: forall n. KnownNat n => Integer
-natValAt = natVal (Proxy @n)
+natValAt = nat @n
 
-intValAt :: forall n. KnownNat n => Int
-intValAt = fromIntegral (natValAt @n)
+-- Shorter name
+nat :: forall n. KnownNat n => Integer
+nat = natVal (Proxy @n)
+
+int :: forall n. KnownNat n => Int
+int = fromIntegral (natValAt @n)
 
 {--------------------------------------------------------------------
     Newtype
