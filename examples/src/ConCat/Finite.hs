@@ -53,7 +53,7 @@ import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..),distributeRep)
 import Control.Newtype
 
-import ConCat.Misc ((:*),(:+),natValAt,intValAt,cond)  -- ,inNew,inNew2
+import ConCat.Misc ((:*),(:+),nat,int,cond)  -- ,inNew,inNew2
 import ConCat.KnownNatOps (Div, Mod)
 import ConCat.Isomorphism
 import ConCat.AltCat (id,(.),(***),(+++))
@@ -103,7 +103,7 @@ data CompareEv u v = (u < v) => CompareLT
 
 -- 'compare' plus evidence
 compareEv :: forall u v. KnownNat2 u v => CompareEv u v
-compareEv = case natValAt @u `compare` natValAt @v of
+compareEv = case nat @u `compare` nat @v of
               LT -> unsafeWithTrue @(u <? v) CompareLT
               EQ -> unsafeWithEQ    @u   @v  CompareEQ
               GT -> unsafeWithTrue @(u >? v) CompareGT
@@ -278,7 +278,7 @@ instance KnownNat n => Distributive (Vector n) where
 instance KnownNat n => Representable (Vector n) where
   type Rep (Vector n) = Finite n
   -- Can we convert a (Finite n -> a) into (Int -> a)?
-  -- tabulate f = pack (UV.generate (fromIntegral (natValAt @n)) f')
+  -- tabulate f = pack (UV.generate (fromIntegral (nat @n)) f')
   -- Implement later. (But how?)
   tabulate = error "tabulate @Vector not defined"
   index (Vector v) i = v UV.! finInt i
@@ -292,10 +292,10 @@ vecAppend :: forall m n a. Vector m a -> Vector n a -> Vector (m + n) a
 Vector u `vecAppend` Vector v = Vector (u <> v)
 
 vecSplitSum :: forall m n a. KnownNat m => Vector (m + n) a -> Vector m a :* Vector n a
-vecSplitSum = (pack *** pack) . UV.splitAt (intValAt @m) . unpack
+vecSplitSum = (pack *** pack) . UV.splitAt (int @m) . unpack
 
 slice :: forall m n a. KnownNat n => Finite (m - n) -> Vector m a -> Vector n a
-slice w (Vector src) = Vector (UV.slice (finInt w) (intValAt @n) src)
+slice w (Vector src) = Vector (UV.slice (finInt w) (int @n) src)
 
 vecSplitProd :: forall m n a. KnownNat m => Vector (m * n) a -> Vector n (Vector m a)
 vecSplitProd src = undefined -- tabulate $ \ j -> 
