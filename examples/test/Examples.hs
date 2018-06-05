@@ -30,16 +30,17 @@
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showResiduals #-}
+
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showCcc #-}
+
 -- Now in concat-examples.cabal
 -- {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
 
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:maxSteps=100 #-}
 
 -- {-# OPTIONS_GHC -fno-specialise #-}
-
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showCcc #-}
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showResiduals #-}
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 
 -- {-# OPTIONS_GHC -ddump-simpl #-}
 -- {-# OPTIONS_GHC -dverbose-core2core #-}
@@ -104,6 +105,7 @@ import GHC.TypeLits ()
 -- packFiniteM experiment
 import GHC.TypeLits
 import Data.Maybe (fromJust)
+import GHC.Integer
 
 import Data.Constraint (Dict(..),(:-)(..))
 import Data.Pointed
@@ -111,10 +113,8 @@ import Data.Key
 import Data.Distributive
 import Data.Functor.Rep
 import qualified Data.Functor.Rep as FR
-import Data.Finite
-import Data.Finite.Internal (Finite(..)) -- experiment
+import Data.Finite (Finite)
 import Data.Vector.Sized (Vector)
-import qualified Data.Vector.Sized as VS
 
 import ConCat.Misc
 import ConCat.Rep (HasRep(..))
@@ -149,6 +149,8 @@ import ConCat.Free.LinearRow -- (L,OkLM,linearL)
 import ConCat.LC
 import ConCat.Deep
 import qualified ConCat.Deep as D
+-- import ConCat.Finite
+import ConCat.TArr
 
 -- Experimental
 import qualified ConCat.Inline.SampleMethods as I
@@ -187,9 +189,52 @@ main :: IO ()
 main = sequence_ [
     putChar '\n' -- return ()
 
+  -- , runSynCirc "sum-fun-B" $ toCcc $ sum @((->) Bool) @Int
+  -- , runSynCirc "sum-fun-BxB" $ toCcc $ sum @((->) (Bool :* Bool)) @Int
+
+  -- , runSynCirc "sum-arr-B"   $ toCcc $ sum @(Arr Bool) @Int
+  -- , runSynCirc "sum-arr-BxB" $ toCcc $ sum @(Arr (Bool :* Bool)) @Int
+
+  -- , runSynCirc "foo" $ toCcc $ sum @((->) (Bool :* (Bool :* ()))) @Int -- fine
+  -- , runSynCirc "foo" $ toCcc $ sum @(Arr (Bool :* ())) @Int -- fine
+  -- , runSynCirc "foo" $ toCcc $ sum @(Arr (Bool :* (Bool :* ()))) @Int -- fine
+
+  -- , runSynCirc "sum-flat-rbin-4-d" $ toCcc $ sum @(Flat (RBin N4)) @Int -- 
+  -- , runSynCirc "sum-flat-lbin-4-d" $ toCcc $ sum @(Flat (LBin N4)) @Int -- 
+
+  -- , runSynCirc "fmap-rbin-4" $ toCcc $ fmap @(Flat (LBin N4)) not -- 
+
+  -- , runSynCirc "add-int" $ toCcc $ (+) @Int -- fine
+
+  -- , runSynCirc "add-int" $ toCcc $ (+) @Integer -- 
+
+  -- , runSynCirc "foo" $ toCcc $ toFin @Bool -- works
+
+  -- , runSyn $ toCcc $ unFin @Bool -- breaks
+
+  -- , runSyn $ toCcc $ finVal @2 -- 
+
+  -- , runSyn $ toCcc $ unFin @() -- works
+
+  -- , runSyn{-Circ "foo"-} $ toCcc $ sum @((->) (Finite 5)) @Int -- breaks
+
+  -- , runSynCirc "foo" $ toCcc $ sum @((->) (Bool :* (Bool :* ()))) @Int -- works
+
+  -- , runCirc "foo" $ toCcc $ fmap @(Arr (Bool :* (Bool :* ()))) not -- works
+
+  -- , runCirc "foo" $ toCcc $ fmap @(Flat (RBin N6)) not -- works
+
+  -- , runCirc "foo" $ toCcc $ sum @(Arr (Bool :* (Bool :* ()))) @Int -- nope
+
+  -- , runCirc "foo" $ toCcc $ fmap @(Arr (Bool :* (Bool :* ()))) not -- works with Syn but not Circ
+
+  -- , runSynCirc "sum-rbin-3" $ toCcc $ sum @(RBin N3) @Int
+
+  -- , runSyn{-Circ "sum-flat-rbin-1"-} $ toCcc $ sum @(Flat (RBin N1)) @Int -- ?
+
   -- , runSynCirc "packFinite" $ toCcc $ packFinite @5 -- fail (missing INLINE)
 
-  , runSynCirc "packFiniteM" $ toCcc $ packFiniteM @5 @Maybe -- okay 
+  -- , runSynCirc "packFiniteM" $ toCcc $ packFiniteM @5 @Maybe -- okay 
 
   -- , runSynCirc "vecIndexDef" $ toCcc $ vecIndexDef @5 @R -- okay
 
@@ -244,19 +289,19 @@ main = sequence_ [
 
     -- , runSynCirc "addR" $ toCcc $ (^+^) @R
 
-  -- -- Circuit graphs
-  -- , runSynCirc "add"         $ toCcc $ (+) @R
-  -- , runSynCirc "add-uncurry" $ toCcc $ uncurry ((+) @R)
-  -- , runSynCirc "dup"         $ toCcc $ A.dup @(->) @R
-  -- , runSynCirc "fst"         $ toCcc $ fst @R @R
-  -- , runSynCirc "twice"       $ toCcc $ twice @R
-  -- , runSynCirc "sqr"         $ toCcc $ sqr @R
-  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  -- , runSynCirc "cosSinProd"  $ toCcc $ cosSinProd @R
-  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  -- Circuit graphs
+  , runSynCirc "add"         $ toCcc $ (+) @R
+  , runSynCirc "add-uncurry" $ toCcc $ uncurry ((+) @R)
+  , runSynCirc "dup"         $ toCcc $ A.dup @(->) @R
+  , runSynCirc "fst"         $ toCcc $ fst @R @R
+  , runSynCirc "twice"       $ toCcc $ twice @R
+  , runSynCirc "sqr"         $ toCcc $ sqr @R
+  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  , runSynCirc "cosSinProd"  $ toCcc $ cosSinProd @R
+  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- -- Automatic differentiation with ADFun:
 
@@ -305,6 +350,8 @@ instance Additive P where
   zero = P zero zero
   P a b ^+^ P c d = P (a+c) (b+d)
 
+#if 0
+
 -- | Convert an 'Integer' into a 'Finite', returning 'Nothing' if the input is out of bounds.
 -- This version has an INLINE pragma.
 packFiniteM :: forall n m. (KnownNat n, Monad m) => Integer -> m (Finite n)
@@ -316,3 +363,5 @@ packFiniteM x | 0 <= x && x < natValAt @n = return (Finite x)
 vecIndexDef :: KnownNat n => a -> Vector n a -> Integer -> a
 vecIndexDef def v i = maybe def (FR.index v) (packFiniteM i)
 {-# INLINE vecIndexDef #-}
+
+#endif
