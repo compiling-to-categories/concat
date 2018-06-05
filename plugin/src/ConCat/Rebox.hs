@@ -248,32 +248,6 @@ Rebox2(id,unboxIB, leInteger#,lessThanOrEqual)
 --             boxIB wild_00
 --             }
 
--- Integer numeric operations. Move elsewhere?
-
-"eqInteger     cat" [~0] eqInteger     = curry equal
-"neqInteger    cat" [~0] neqInteger    = curry notEqual
-"leInteger     cat" [~0] leInteger     = curry lessThanOrEqual
-"ltInteger     cat" [~0] ltInteger     = curry lessThan
-"gtInteger     cat" [~0] gtInteger     = curry greaterThan
-"geInteger     cat" [~0] geInteger     = curry greaterThanOrEqual
-
-"negateInteger cat" [~0] negateInteger = negateC
-"plusInteger   cat" [~0] plusInteger   = curry addC
-"minusInteger  cat" [~0] minusInteger  = curry subC
-"timesInteger  cat" [~0] timesInteger  = curry mulC
-
--- We don't yet have categorical versions of the following, but we will.
-
--- "absInteger    cat" [~0] absInteger    = 
--- "signumInteger cat" [~0] signumInteger = 
-
--- "quotInteger   cat" [~0] quotInteger   = 
--- "remInteger    cat" [~0] remInteger    = 
--- "divInteger    cat" [~0] divInteger    = 
--- "modInteger    cat" [~0] modInteger    = 
--- "gcdInteger    cat" [~0] gcdInteger    = 
--- "lcmInteger    cat" [~0] lcmInteger    = 
-
 -- We also see the # versions in some optimized code.
 
 "boxZ ==" [~0] forall u v . eqInteger#  u v  = unboxIB (equal              (u,v))
@@ -336,6 +310,36 @@ ghc: panic! (the 'impossible' happened)
 
 
 #endif
+
+-- Integer numeric operations. Move elsewhere?
+
+{-# RULES
+
+"eqInteger     cat" [~0] eqInteger     = curry equal
+"neqInteger    cat" [~0] neqInteger    = curry notEqual
+"leInteger     cat" [~0] leInteger     = curry lessThanOrEqual
+"ltInteger     cat" [~0] ltInteger     = curry lessThan
+"gtInteger     cat" [~0] gtInteger     = curry greaterThan
+"geInteger     cat" [~0] geInteger     = curry greaterThanOrEqual
+
+"negateInteger cat" [~0] negateInteger = negateC
+"plusInteger   cat" [~0] plusInteger   = curry addC
+"minusInteger  cat" [~0] minusInteger  = curry subC
+"timesInteger  cat" [~0] timesInteger  = curry mulC
+
+-- We don't yet have categorical versions of the following, but we will.
+
+-- "absInteger    cat" [~0] absInteger    = 
+-- "signumInteger cat" [~0] signumInteger = 
+
+-- "quotInteger   cat" [~0] quotInteger   = 
+-- "remInteger    cat" [~0] remInteger    = 
+-- "divInteger    cat" [~0] divInteger    = 
+-- "modInteger    cat" [~0] modInteger    = 
+-- "gcdInteger    cat" [~0] gcdInteger    = 
+-- "lcmInteger    cat" [~0] lcmInteger    = 
+
+#-}
 
 {--------------------------------------------------------------------
     Capture class ops
