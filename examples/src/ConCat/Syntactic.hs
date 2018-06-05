@@ -45,6 +45,7 @@ import ConCat.AltCat
 import ConCat.Misc (Unop)
 import ConCat.Additive (Additive)
 import ConCat.Rep
+-- import ConCat.Finite
 
 #ifdef ShowTypes
 import ConCat.Misc (typeR)
@@ -242,11 +243,22 @@ LitConst(Int)
 LitConst(Integer)
 LitConst(Float)
 LitConst(Double)
+
+#if 0
 LitConst(Finite n)
 
 instance (ConstCat Syn a, Show a, KnownNat n) => ConstCat Syn (Vector n a) where
   const = atomicConst
   INLINER(const)
+#else
+instance KnownNat n => ConstCat Syn (Finite n) where
+  const = atomicConst
+  INLINER(const)
+
+instance (ConstCat Syn a, Show a, KnownNat n) => ConstCat Syn (Vector n a) where
+  const = atomicConst
+  INLINER(const)
+#endif
 
 -- instance Show a => ConstCat Syn (Vector n a) where ...
 
