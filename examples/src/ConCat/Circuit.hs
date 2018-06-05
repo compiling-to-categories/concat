@@ -140,7 +140,6 @@ import Data.Distributive (Distributive)
 import Data.Distributive (distribute)
 import Data.Functor.Rep (Representable(tabulate,index))
 import qualified Data.Functor.Rep as R
-import Data.Vector.Sized (Vector)
 
 import qualified System.Info as SI
 import System.Process (system) -- ,readProcess
@@ -149,7 +148,10 @@ import System.Exit (ExitCode(ExitSuccess))
 
 #ifdef VectorSized
 import GHC.TypeLits (Nat,KnownNat)
+import Data.Vector.Sized (Vector)
 import Data.Finite (Finite)
+import ConCat.TArr
+-- import ConCat.Finite (Finite,Vector,HasFin,Arr)
 #endif
 
 -- mtl
@@ -844,7 +846,7 @@ instance ProductCat (:>) where
 -- instance CoproductCat (:>) where
 --   inl = namedC "inl"
 --   inr = namedC "inr"
---   f ||| g = namedC "|||" . (f &&& g) -- not quite
+--   f ||| g = namedC "|||"
 
 instance CoproductPCat (:>) where
   inlP   = namedC "inlP"
@@ -975,6 +977,9 @@ instance (OkFunctor (:>) f, OkFunctor (:>) g)
                              <+ okFunctor' @(:>) @f @a))
 
 instance KnownNat i => OkFunctor (:>) (Vector i) where
+  okFunctor = Entail (Sub Dict)
+
+instance HasFin a => OkFunctor (:>) (Arr a) where
   okFunctor = Entail (Sub Dict)
 
 -- Use *uncurried* fmap and zipWith primitives.
@@ -2263,5 +2268,7 @@ AbsTy(M.WriterT w m a)
 AbsTy(M.StateT s m a)
 
 AbsTy(Add a)
+
+AbsTy(Arr a b)
 
 #endif
