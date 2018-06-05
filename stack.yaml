@@ -29,4 +29,6 @@ extra-deps:
   - ghc-typelits-natnormalise-0.6.1
   - ghc-tcplugins-extra-0.3
 
-resolver: lts-9.20
+resolver: lts-9.20 # ghc-8.0.2
+# resolver: lts-11.12 # ghc-8.2.2
+# resolver: nightly-2018-06-05 # ghc-8.4.3
