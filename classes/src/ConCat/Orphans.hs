@@ -417,7 +417,8 @@ instance (Foldable ((->) m), Foldable ((->) n)) => Foldable ((->) (m :+ n)) wher
   {-# INLINE foldMap #-}
 
 instance (Foldable ((->) m), Foldable ((->) n)) => Foldable ((->) (m :* n)) where
-  foldMap h as = (foldMap.foldMap) h (curry as)
+  -- foldMap h as = (foldMap.foldMap) h (curry as)
+  foldMap h = foldMap h . Comp1 . curry
   {-# INLINE foldMap #-}
 
 instance KnownNat n => Foldable ((->) (Finite n)) where
