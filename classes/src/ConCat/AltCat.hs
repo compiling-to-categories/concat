@@ -95,7 +95,7 @@ import ConCat.Category
   -- Functor-level. To be removed.
   , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat
   , DistributiveCat,RepresentableCat 
-  , VSliceCat
+  , VectorCat
   , fmap', liftA2' 
   )
 
