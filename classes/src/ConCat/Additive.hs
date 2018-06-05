@@ -44,9 +44,9 @@ class Additive a where
   zero  :: a
   infixl 6 ^+^
   (^+^) :: a -> a -> a
-  default zero :: (Pointed h, Additive b) => h b
+  default zero :: (Pointed h, Additive b, a ~ h b) => a
   zero = pointNI zero
-  default (^+^) :: (Zip h, Additive b) => Binop (h b)
+  default (^+^) :: (Zip h, Additive b, a ~ h b) => Binop a
   (^+^) = zipWithNI (^+^)
   {-# INLINE zero #-}
   {-# INLINE (^+^) #-}
