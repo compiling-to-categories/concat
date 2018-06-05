@@ -50,13 +50,16 @@ import Data.Constraint (Dict(..),(:-)(..),(\\))
 -- import qualified Data.Vector.Sized as V
 import qualified Data.Vector as UV
 import Data.Distributive (Distributive(..))
-import Data.Functor.Rep (Representable(..),distributeRep)
+-- import Data.Functor.Rep (Representable(..),distributeRep)
+import Data.Functor.Rep (Representable,index,tabulate,distributeRep)
+import qualified Data.Functor.Rep as R
 import Control.Newtype
 
 import ConCat.Misc ((:*),(:+),nat,int,cond)  -- ,inNew,inNew2
+import ConCat.Rep
 import ConCat.KnownNatOps (Div, Mod)
 import ConCat.Isomorphism
-import ConCat.AltCat (id,(.),(***),(+++))
+import ConCat.AltCat (id,(.),(***),(+++),OkFunctor(..))
 
 -- TODO: lots of INLINE pragmas
 
@@ -80,15 +83,19 @@ type a >  b = b < a
 
 unsafeEqual :: forall a b. a :~: b
 unsafeEqual = unsafeCoerce Refl
+{-# INLINE unsafeEqual #-}
 
 unsafeWithEQ :: forall a b r. (a ~ b => r) -> r
 unsafeWithEQ r | Refl <- unsafeEqual @a @b = r
+{-# INLINE unsafeWithEQ #-}
 
 unsafeWithTrue :: forall a r. (a ~ 'True => r) -> r
 unsafeWithTrue r | Refl <- unsafeEqual @a @'True = r
+{-# INLINE unsafeWithTrue #-}
 
 axiom :: forall p q. p |- q ~ 'True
 axiom | Refl <- unsafeEqual @q @'True = Sub Dict
+{-# INLINE axiom #-}
 
 type KnownNat2 m n = (KnownNat m, KnownNat n)
 
@@ -107,6 +114,7 @@ compareEv = case nat @u `compare` nat @v of
               LT -> unsafeWithTrue @(u <? v) CompareLT
               EQ -> unsafeWithEQ    @u   @v  CompareEQ
               GT -> unsafeWithTrue @(u >? v) CompareGT
+{-# INLINE compareEv #-}
 
 -- Alternative interface
 compareEv' :: forall u v z. KnownNat2 u v =>
@@ -115,6 +123,16 @@ compareEv' lt eq gt = case compareEv @u @v of
                         CompareLT -> lt
                         CompareEQ -> eq
                         CompareGT -> gt
+{-# INLINE compareEv' #-}
+
+-- Alternative implementation of the alternative interface
+compareEv'' :: forall u v z. KnownNat2 u v =>
+  ((u < v) => z) -> ((u ~ v) => z) -> ((u > v) => z) -> z
+compareEv'' lt eq gt = case nat @u `compare` nat @v of
+                         LT -> unsafeWithTrue @(u <? v) lt
+                         EQ -> unsafeWithEQ    @u   @v  eq
+                         GT -> unsafeWithTrue @(u >? v) gt
+{-# INLINE compareEv'' #-}
 
 -- (<) with evidence
 data LtEv u v = (u < v) => LtT | (u >= v) => LtF
@@ -124,6 +142,7 @@ ltEv = case compareEv @u @v of
          CompareLT -> LtT
          CompareEQ -> LtF
          CompareGT -> unsafeWithTrue @(u >=? v) LtF
+{-# INLINE ltEv #-}
 
 -- (<=) with evidence
 data LeEv u v = (u <= v) => LeT | (u > v) => LeF
@@ -133,6 +152,7 @@ leEv = case compareEv @u @v of
          CompareLT -> unsafeWithTrue @(u <=? v) LeT
          CompareEQ -> LeT
          CompareGT -> LeF
+{-# INLINE leEv #-}
 
 {--------------------------------------------------------------------
     Finite
@@ -143,14 +163,20 @@ data Finite n = forall a. (KnownNat a, a < n) => Finite (Proxy a)
 -- -- In GADT notation
 -- data Finite n where Finite :: (KnownNat a, a < n) => Proxy a -> Finite n
 
+instance KnownNat n => Show (Finite n) where
+  show = show . finVal @n
+
 finite :: forall a n. (KnownNat a, a < n) => Finite n
 finite = Finite (Proxy @a)
+{-# INLINE finite #-}
 
 finVal :: Finite n -> Integer  -- Natural?
 finVal (Finite p) = natVal p
+{-# INLINE finVal #-}
 
 finInt :: Finite n -> Int
 finInt = fromIntegral . finVal
+{-# INLINE finInt #-}
 
 -- pattern Fi :: forall a n. (KnownNat a, a < n) => Finite n
 -- pattern Fi = Finite (Proxy :: Proxy a)
@@ -171,20 +197,24 @@ finInt = fromIntegral . finVal
 assumeFinite :: forall p a m. (KnownNat a, p) => Finite m
 assumeFinite = finite @a \\ axiom @p @(a <? m)
 -- assumeFinite = assumeFinite' @a @m
+{-# INLINE assumeFinite #-}
 
 sumToFin :: forall m n. KnownNat m => Finite m :+ Finite n -> Finite (m + n)
 sumToFin (Left  (Finite (Proxy :: Proxy a))) = assumeFinite @(a < m) @a
 sumToFin (Right (Finite (Proxy :: Proxy b))) = assumeFinite @(b < n) @(m + b)
+{-# INLINE sumToFin #-}
 
 finToSum :: forall m n. KnownNat2 m n => Finite (m + n) -> Finite m :+ Finite n
 finToSum (Finite (Proxy :: Proxy c)) =
   case ltEv @c @m of
     LtT -> Left  (finite @c @m)
     LtF -> Right (assumeFinite @(m <= c, c < m + n) @(c - m) @n)
+{-# INLINE finToSum #-}
 
 prodToFin :: forall m n. KnownNat n => Finite m :* Finite n -> Finite (m * n)
 prodToFin (Finite (Proxy :: Proxy a), Finite (Proxy :: Proxy b)) =
   assumeFinite @(a < m, b < n) @(a * n + b)
+{-# INLINE prodToFin #-}
 
 #if 0
 
@@ -203,12 +233,21 @@ finToProd :: forall m n. KnownNat n => Finite (m * n) -> Finite m :* Finite n
 finToProd (Finite (Proxy :: Proxy c)) =
   ( assumeFinite @(c < m * n) @(c `Div` n) @m
   , assumeFinite @(c < m * n) @(c `Mod` n) @n )
+{-# INLINE finToProd #-}
 
 finSum :: KnownNat2 m n => Finite m :+ Finite n <-> Finite (m + n)
 finSum = sumToFin :<-> finToSum
+{-# INLINE finSum #-}
 
 finProd :: KnownNat2 m n => Finite m :* Finite n <-> Finite (m * n)
 finProd = prodToFin :<-> finToProd
+{-# INLINE finProd #-}
+
+-- instance Foldable ((->) (Finite n)) where
+--   foldMap :: Monoid m => (a -> m) -> (Finite n -> a) -> m
+--   foldMap f h = ...
+
+-- TODO: define foldMap
 
 {----------------------------------------------------------------------
    A class of types with known finite representations.
@@ -219,6 +258,8 @@ type KnownCard a = KnownNat (Card a)
 class KnownCard a => HasFin a where
   type Card a :: Nat
   finI :: a <-> Finite (Card a)
+  fooHasFin :: a -> ()
+  fooHasFin = const ()
 
 toFin :: HasFin a => a -> Finite (Card a)
 toFin = isoFwd finI
@@ -260,7 +301,7 @@ instance (HasFin a, HasFin b) => HasFin (a :* b) where
 --------------------------------------------------------------------}
 
 newtype Vector (n :: Nat) a = Vector (UV.Vector a)
-  deriving (Functor, Applicative)
+  deriving (Functor, Applicative, Show)
 
 instance Newtype (Vector n a) where
   type O (Vector n a) = UV.Vector a
@@ -288,8 +329,9 @@ instance KnownNat n => Representable (Vector n) where
 -- (!) :: KnownNat n => Vector n a -> Finite n -> a
 -- (!) = index
 
-vecAppend :: forall m n a. Vector m a -> Vector n a -> Vector (m + n) a
-Vector u `vecAppend` Vector v = Vector (u <> v)
+-- vecAppend :: forall m n a. Vector m a -> Vector n a -> Vector (m + n) a
+-- Vector u `vecAppend` Vector v = Vector (u <> v)
+-- {-# INLINE vecAppend #-}
 
 vecSplitSum :: forall m n a. KnownNat m => Vector (m + n) a -> Vector m a :* Vector n a
 vecSplitSum = (pack *** pack) . UV.splitAt (int @m) . unpack
@@ -297,10 +339,8 @@ vecSplitSum = (pack *** pack) . UV.splitAt (int @m) . unpack
 slice :: forall m n a. KnownNat n => Finite (m - n) -> Vector m a -> Vector n a
 slice w (Vector src) = Vector (UV.slice (finInt w) (int @n) src)
 
-vecSplitProd :: forall m n a. KnownNat m => Vector (m * n) a -> Vector n (Vector m a)
-vecSplitProd src = undefined -- tabulate $ \ j -> 
-
--- TODO: settle on m-major vs n-major, consistently with finProd.
+vecSplitProd :: forall m n a. KnownNat n => Vector (m * n) a -> Vector m (Vector n a)
+vecSplitProd _src = undefined -- tabulate $ \ j -> 
 
 {----------------------------------------------------------------------
   Domain-typed "arrays"
@@ -312,6 +352,16 @@ instance Newtype (Arr a b) where
   type O (Arr a b) = Vector (Card a) b
   pack v = Arr v
   unpack (Arr v) = v
+
+instance HasRep (Arr a b) where
+  -- type Rep (Arr a b) = Vector (Card a) b
+  -- abst v = Arr v
+  -- repr (Arr v) = v
+  type Rep (Arr a b) = O (Arr a b)
+  abst = pack
+  repr = unpack
+
+-- TODO: maybe a macro for HasRep instances that mirror Newtype instances.
 
 #if 1
 
@@ -349,6 +399,7 @@ instance HasFin a => Representable (Arr a) where
 
 (!) :: HasFin a => Arr a b -> (a -> b)
 (!) = index
+{-# INLINE (!) #-}
 
 -- Oops. The Representable (Vector n) instance in Orphans currently uses Finite
 -- from finite-typelits. To fix, move the Finite type from this module to
@@ -360,11 +411,20 @@ instance HasFin a => Representable (Arr a) where
 
 arrSplitSum :: forall a b c. KnownCard a => Arr (a :+ b) c -> Arr a c :* Arr b c
 arrSplitSum = (pack *** pack) . vecSplitSum . unpack
+{-# INLINE arrSplitSum #-}
 
-arrSplitProd :: forall a b c. KnownCard a => Arr (a :* b) c -> Arr b (Arr a c)
+arrSplitProd :: forall a b c. KnownCard b => Arr (a :* b) c -> Arr a (Arr b c)
 arrSplitProd = pack . fmap pack . vecSplitProd . unpack
+{-# INLINE arrSplitProd #-}
 
 -- Folds
+
+#if 1
+
+instance (HasFin a, Foldable ((->) a)) => Foldable (Arr a) where
+  foldMap f = foldMap f . index
+
+#else
 
 instance Foldable (Arr ()) where
   foldMap f xs = f (xs ! ())
@@ -380,3 +440,7 @@ instance (Foldable (Arr a), Foldable (Arr b), KnownCard a)
 instance (Foldable (Arr a), Foldable (Arr b), KnownCard a)
       => Foldable (Arr (a :* b)) where
   foldMap f = (foldMap.foldMap) f . arrSplitProd
+
+#endif
+
+type Flat f = Arr (R.Rep f)
