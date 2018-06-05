@@ -60,6 +60,7 @@ import qualified Data.Type.Equality as Eq
 import Data.Type.Coercion (Coercion(..))
 import qualified Data.Type.Coercion as Co
 import GHC.Types (Constraint)
+import GHC.TypeLits
 -- import qualified Data.Constraint as Con
 import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import Debug.Trace
@@ -83,6 +84,9 @@ import Data.Functor.Rep (Representable(..))
 -- import qualified Data.Functor.Rep as DFR
 import Control.Newtype (Newtype(..))
 import Data.Vector.Sized (Vector)
+-- import qualified Data.Vector.Generic.Sized.Internal as IV
+-- import qualified Data.Vector.Generic as VG
+
 #ifdef VectorSized
 -- import Data.Finite (Finite)
 -- import Data.Vector.Sized (Vector)
@@ -2588,6 +2592,22 @@ instance (IxCoproductPCat k h, IxCoproductPCat k' h, Zip h)
   joinPF = prod . (joinPF *** joinPF) . unzip . fmap unProd
   jamPF  = jamPF :**: jamPF
   -- plusPF = prod . (plusPF *** plusPF) . unzip . fmap unProd
+
+{--------------------------------------------------------------------
+    Vector operations
+--------------------------------------------------------------------}
+
+class VectorCat k where
+  -- sliceC :: forall m n a. (KnownNat m, KnownNat n, Ok k a) => (Int :* Vector m a) `k` Vector n a
+  vecSplitProd :: KnownNat n => Vector (m * n) a `k` Vector m (Vector n a)
+
+instance VectorCat (->) where
+  -- sliceC :: forall m n a. (KnownNat m, KnownNat n) => Int :* Vector m a -> Vector n a
+  -- sliceC (start, IV.Vector uv) = IV.Vector (VG.unsafeSlice start (int @n) uv)
+  -- There's a slice in Data.Vector.Sized, but I couldn't get my call to type-check.
+  -- {-# OPINLINE sliceC #-}
+  vecSplitProd = error "vecSplitProd @(->): not yet defined"
+  {-# OPINLINE vecSplitProd #-}
 
 {--------------------------------------------------------------------
     Obsolete

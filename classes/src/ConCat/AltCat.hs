@@ -39,6 +39,7 @@ import Prelude hiding (id,(.),curry,uncurry,const,unzip,zip,zipWith)
 import qualified Prelude as P
 import Control.Arrow (runKleisli)
 import qualified Data.Tuple as P
+import GHC.TypeLits
 -- import qualified GHC.Exts
 import GHC.Exts (Coercible,coerce,inline)
 import Data.Constraint ((\\))
@@ -55,6 +56,7 @@ import Data.Proxy (Proxy(..))
 import GHC.TypeLits (KnownNat,natVal)
 import Data.Finite (Finite)
 #endif
+import Data.Vector.Sized (Vector)
 
 import ConCat.Misc
   ( (:*),(:+),(:^),Binop, unzip,PseudoFun(..),oops,type (&&),type (&+&)
@@ -93,6 +95,7 @@ import ConCat.Category
   -- Functor-level. To be removed.
   , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat
   , DistributiveCat,RepresentableCat 
+  , VSliceCat
   , fmap', liftA2' 
   )
 
@@ -948,6 +951,34 @@ collectC f = distribute . fmap f
 
 Catify(collect, collectC)
 
+#if 1
+
+-- Op1(vecSplitProd, (VectorCat k, KnownNat n, Ok k a) => Vector (m * n) a `k` Vector m (Vector n a))
+
+-- (GHC version 8.0.2 for x86_64-apple-darwin):
+--       opt_univ fell into a hole {a1jIp}
+
+#else
+
+-- Op1(sliceC, (VectorCat k, KnownNat m, KnownNat n, Ok k a) => (Int :* Vector m a) `k` Vector n a)
+
+-- (GHC version 8.0.2 for x86_64-apple-darwin):
+--   opt_univ fell into a hole {alwS}
+
+sliceC :: (VectorCat k, KnownNat m, KnownNat n, Ok k a) => (Int :* Vector m a) `k` Vector n a
+sliceC = REVEAL(sliceC) ;\
+{-# OPINLINE sliceC #-}
+-- OpRule1(sliceC)  -- GHC 8.0.2: opt_univ fell into a hole {alwS}
+
+-- {-# RULES "reveal op1" forall a1. reveal (sliceC a1) = REVEAL(sliceC) (reveal a1) #-}
+-- {-# RULES "reveal op1" forall a1. reveal (sliceC a1) = C.sliceC (reveal a1) #-}
+
+slice :: forall m n a. (KnownNat m, KnownNat n) => Int -> Vector m a -> Vector n a
+slice = curry sliceC
+{-# INLINE slice #-}
+
+#endif
+
 {-# RULES
 
 "fmap id" uncurry fmapC . (curry exr &&& id) = id
@@ -1165,3 +1196,4 @@ unforkF :: forall k h a b. (IxProductCat k h, Functor h, Ok2 k a b)
         => (a `k` h b) -> h (a `k` b)
 unforkF ahb = fmap (. ahb) exF  <+ okIxProd @k @h @b
 {-# INLINE unforkF #-}
+
