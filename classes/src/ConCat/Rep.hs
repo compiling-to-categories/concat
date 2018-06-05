@@ -32,13 +32,14 @@ import Data.Monoid
 import Control.Applicative (WrappedMonad(..))
 import qualified GHC.Generics as G
 import Data.Complex (Complex(..))
-import GHC.TypeLits (KnownNat)
+-- import GHC.TypeLits (KnownNat)
 
 import Data.Functor.Identity (Identity(..))
 import Control.Monad.Trans.Reader (ReaderT(..))
 import Control.Monad.Trans.Writer (WriterT(..))
 import Control.Monad.Trans.State (StateT(..))
-import Data.Finite (Finite,finite,getFinite)
+-- import Data.Finite (Finite,finite,getFinite)
+-- import Data.Finite.Internal (Finite(..))
 
 -- import Data.Void (Void)
 -- TODO: more
@@ -133,10 +134,19 @@ WrapRep(StateT s m a, s -> m (a,s), StateT)
 
 WrapRep(Parity,Bool,Parity)
 
-instance KnownNat n => HasRep (Finite n) where
-  type Rep (Finite n) = Integer
-  abst = finite
-  repr = getFinite
+-- instance KnownNat n => HasRep (Finite n) where
+--   type Rep (Finite n) = Integer
+--   -- abst = finite
+--   -- repr = getFinite
+--   abst n = Finite n
+--   repr (Finite n) = n
+
+-- instance KnownNat n => HasRep (Finite n) where
+--   type Rep (Finite n) = Int
+--   abst n = Finite (fromIntegral n)
+--   repr (Finite n) = fromInteger n
+
+-- Since Finite is a newtype, the HasRep instance doesn't come into play.
 
 #endif
 
