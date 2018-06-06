@@ -146,12 +146,16 @@ import System.Process (system) -- ,readProcess
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (ExitCode(ExitSuccess))
 
+-- #define WithArr
+
 #ifdef VectorSized
 import GHC.TypeLits (Nat,KnownNat)
 import Data.Vector.Sized (Vector)
 import Data.Finite (Finite)
-import ConCat.TArr
 -- import ConCat.Finite (Finite,Vector,HasFin,Arr)
+#endif
+#ifdef WithArr
+import ConCat.TArr (TArr)
 #endif
 
 -- mtl
@@ -979,8 +983,10 @@ instance (OkFunctor (:>) f, OkFunctor (:>) g)
 instance KnownNat i => OkFunctor (:>) (Vector i) where
   okFunctor = Entail (Sub Dict)
 
+#ifdef WithArr
 instance HasFin a => OkFunctor (:>) (Arr a) where
   okFunctor = Entail (Sub Dict)
+#endif
 
 -- Use *uncurried* fmap and zipWith primitives.
 
@@ -2269,6 +2275,8 @@ AbsTy(M.StateT s m a)
 
 AbsTy(Add a)
 
+#ifdef WithArr
 AbsTy(Arr a b)
+#endif
 
 #endif
