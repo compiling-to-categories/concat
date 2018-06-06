@@ -59,12 +59,14 @@ finSum = Iso to un
                  | otherwise = Right (Finite (l - m))
     where
       m = nat @m
+{-# INLINE finSum #-}
 
 finProd :: forall m n. KnownNat2 m n => Finite m :* Finite n <-> Finite (m * n)
 finProd = Iso to un
  where
    to (Finite l, Finite k) = Finite (l * nat @n + k)
    un (Finite l) = (Finite q, Finite r) where (q,r) = l `divMod` nat @n
+{-# INLINE finProd #-}
 
 #if 0
 
@@ -105,7 +107,11 @@ unFin = isoRev iso
    A class of types with known finite representations.
 ----------------------------------------------------------------------}
 
-class KnownNat (Card a) => HasFin a where
+type KnownCard a = KnownNat (Card a)
+
+type KnownCard2 a b = (KnownCard a, KnownCard b)
+
+class KnownCard a => HasFin a where
   type Card a :: Nat
   iso :: a <-> Finite (Card a)
 
@@ -164,7 +170,8 @@ instance HasFin a => Distributive (Arr a) where
 instance HasFin a => Representable (Arr a) where
   type Rep (Arr a) = a
   tabulate :: (a -> b) -> Arr a b
-  tabulate f = Arr (tabulate (f . unFin))
+  tabulate f = pack (tabulate (f . unFin))
+  index :: Arr a b -> (a -> b)
   Arr v `index` a = v `index` toFin a
   {-# INLINE tabulate #-}
   {-# INLINE index #-}
@@ -183,5 +190,27 @@ type Flat f = Arr (R.Rep f)
     Splitting
 --------------------------------------------------------------------}
 
--- vecSplitSum :: forall m n a. KnownNat m => Vector (m + n) a -> Vector m a :* Vector n a
--- vecSplitSum = (slice )
+chunk :: KnownNat2 m n => Vector (m * n) a -> Finite m -> Vector n a
+chunk mn i = tabulate (index mn . curry toFin i)
+
+#if 0
+
+                mn                  :: Vector (m * n) a
+                                 i  :: Finite m
+                           toFin    :: Finite m :* Finite n -> Finite (m :* n)
+                     curry toFin    :: Finite m -> Finite n -> Finite (m :* n)
+                     curry toFin i  :: Finite n -> Finite (m :* n)
+          index mn                  :: Finite (m :* n) -> a
+          index mn . curry toFin i  :: Finite n -> a
+tabulate (index mn . curry toFin i) :: Vector n a
+
+#endif
+
+vecSplitProd :: KnownNat2 m n => Vector (m * n) a -> Vector m (Vector n a)
+vecSplitProd = tabulate . chunk
+
+-- vecSplitProd mn = tabulate (chunk mn)
+-- vecSplitProd mn = tabulate (\ i -> chunk mn i)
+
+arrSplitProd :: KnownCard2 a b => Arr (a :* b) c -> Arr a (Arr b c)
+arrSplitProd = pack . fmap pack . vecSplitProd . unpack
