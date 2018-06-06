@@ -7,25 +7,25 @@ digraph sqr_adr {
   bgcolor=transparent
   nslimit=20
   subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>}}"] }
-  subgraph clusterc1 { label=""; color=white; margin=0; c1 [label="{{<In0>|<In1>}|\×|{<Out0>}}"] }
-  subgraph cluster_92 {
+  subgraph clusterc102 { label=""; color=white; margin=0; c102 [label="{{<In0>|<In1>}|\×|{<Out0>}}"] }
+  subgraph cluster_230 {
     margin=8
     fontsize=20
     labeljust=r
     color=DarkGreen
-    c89 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
-    c88 [label="{In|{<Out0>}}"]
-    c91 [label="{{<In0>}|Out}"]
-    c90 [label="{{<In0>|<In1>}|jamP|{<Out0>}}"]
-    c0:Out0 -> c89:In0 []
-    c88:Out0 -> c89:In1 []
-    c90:Out0 -> c91:In0 []
-    c89:Out0 -> c90:In0 []
-    c89:Out0 -> c90:In1 []
+    c227 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c228 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+    c226 [label="{In|{<Out0>}}"]
+    c229 [label="{{<In0>}|Out}"]
+    c0:Out0 -> c227:In0 [label="Double"]
+    c226:Out0 -> c227:In1 [label="Double"]
+    c227:Out0 -> c228:In0 [label="Double"]
+    c227:Out0 -> c228:In1 [label="Double"]
+    c228:Out0 -> c229:In0 [label="Double"]
   }
-  subgraph clusterc93 { label=""; color=white; margin=0; c93 [label="{{<In0>|<In1>}|Out}"] }
-  c0:Out0 -> c1:In0 []
-  c0:Out0 -> c1:In1 []
-  c1:Out0 -> c93:In0 []
-  c91 -> c93:In1 [ltail=cluster_92]
+  subgraph clusterc231 { label=""; color=white; margin=0; c231 [label="{{<In0>|<In1>}|Out}"] }
+  c0:Out0 -> c102:In0 [label="Double"]
+  c0:Out0 -> c102:In1 [label="Double"]
+  c102:Out0 -> c231:In0 [label="Double"]
+  c229 -> c231:In1 [ltail=cluster_230,label="Double ’ Double"]
 }

@@ -1,1 +1,0 @@
-sumA &&& curry (sumA . exr)

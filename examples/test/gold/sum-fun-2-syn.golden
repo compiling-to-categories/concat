@@ -1,1 +1,0 @@
-addC . (apply . (id &&& const False) &&& apply . (id &&& const True))

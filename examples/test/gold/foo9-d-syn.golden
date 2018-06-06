@@ -1,1 +1,0 @@
-exr . (const 1.0 &&& id . repr . abst . curry exl . const 0.0)

@@ -17,13 +17,13 @@ digraph sin_adr {
     c18 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
     c17 [label="{In|{<Out0>}}"]
     c19 [label="{{<In0>}|Out}"]
-    c13:Out0 -> c18:In0 []
-    c17:Out0 -> c18:In1 []
-    c18:Out0 -> c19:In0 []
+    c13:Out0 -> c18:In0 [label="Double"]
+    c17:Out0 -> c18:In1 [label="Double"]
+    c18:Out0 -> c19:In0 [label="Double"]
   }
   subgraph clusterc21 { label=""; color=white; margin=0; c21 [label="{{<In0>|<In1>}|Out}"] }
-  c0:Out0 -> c12:In0 []
-  c0:Out0 -> c13:In0 []
-  c12:Out0 -> c21:In0 []
-  c19 -> c21:In1 [ltail=cluster_20]
+  c0:Out0 -> c12:In0 [label="Double"]
+  c0:Out0 -> c13:In0 [label="Double"]
+  c12:Out0 -> c21:In0 [label="Double"]
+  c19 -> c21:In1 [ltail=cluster_20,label="Double ’ Double"]
 }

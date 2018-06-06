@@ -1,5 +1,0 @@
-maxC &&&
-id .
-repr .
-ifC .
-(id &&& abst . curry (exr . exr) &&& abst . curry (exl . exr)) . lessThanOrEqual

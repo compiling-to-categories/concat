@@ -1,2 +1,0 @@
-mulC .
-(id &&& id) . subC . (exr &&& addC . (mulC . (const 3.0 &&& exl) &&& const 2.0))

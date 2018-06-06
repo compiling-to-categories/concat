@@ -1,1 +1,0 @@
-equal . (mulC . (const 13 &&& id) &&& const 130)

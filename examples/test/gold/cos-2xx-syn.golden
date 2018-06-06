@@ -1,1 +1,0 @@
-cos . mulC . (mulC . (const 2.0 &&& id) &&& id)

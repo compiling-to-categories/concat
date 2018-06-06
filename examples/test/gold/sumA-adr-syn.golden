@@ -1,2 +1,0 @@
-(exl . id &&& repr . exr . id) .
-(sumA &&& repr . abst . abst . curry (point . exr))

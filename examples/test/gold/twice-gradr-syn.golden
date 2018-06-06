@@ -1,4 +1,4 @@
-(exl . id &&& repr . exr . id) .
+(exl . id &&& apply . (id &&& const 1.0) . repr . exr . id) .
 second repr .
 (addC . exl &&&
  abst .

@@ -1,0 +1,17 @@
+digraph twice_gradr {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  c0 [label="{In|{<Out0>}}"]
+  c7 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+  c79 [label="{2.0|{<Out0>}}"]
+  c80 [label="{{<In0>|<In1>}|Out}"]
+  c0:Out0 -> c7:In0 [label="Double"]
+  c0:Out0 -> c7:In1 [label="Double"]
+  c7:Out0 -> c80:In0 [label="Double"]
+  c79:Out0 -> c80:In1 [label="Double"]
+}

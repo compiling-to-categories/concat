@@ -1,1 +1,0 @@
-equal . (id &&& const 3)

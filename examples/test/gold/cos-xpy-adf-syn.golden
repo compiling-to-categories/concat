@@ -7,6 +7,6 @@ apply .
    curry (curry (apply . (exl . exl &&& apply . (exr . exl &&& exr)))) .
    repr .
    abst . curry mulC . apply . (curry exl . negate . sin . exl &&& exr) &&&
-   abst . curry (jamP . exr))) &&&
+   abst . curry (addC . exr))) &&&
  cos) .
 addC

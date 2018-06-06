@@ -1,7 +1,0 @@
-addC .
-(const 1.0 &&&
- mulC .
- (id &&&
-  addC .
-  (const 3.0 &&&
-   mulC . (id &&& addC . (const 5.0 &&& mulC . (id &&& const 0.0))))))

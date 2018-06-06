@@ -1,7 +1,0 @@
-apply .
-(curry
- ((addC . (exl . exr . exl &&& exl . exr) &&&
-   addC . (exr . exr . exl &&& exr . exr)) .
-  (id &&& exr . exl) . (id &&& exl)) .
- exl &&&
- exr)

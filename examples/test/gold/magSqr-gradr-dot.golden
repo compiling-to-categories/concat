@@ -1,0 +1,29 @@
+digraph magSqr_gradr {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  c0 [label="{In|{<Out0>|<Out1>}}"]
+  c3316 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+  c4146 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+  c4421 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+  c4518 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+  c4519 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+  c4520 [label="{{<In0>|<In1>|<In2>}|Out}"]
+  c0:Out1 -> c3316:In0 [label="Double"]
+  c0:Out1 -> c3316:In1 [label="Double"]
+  c0:Out0 -> c4146:In0 [label="Double"]
+  c0:Out0 -> c4146:In1 [label="Double"]
+  c3316:Out0 -> c4421:In0 [label="Double"]
+  c4146:Out0 -> c4421:In1 [label="Double"]
+  c0:Out0 -> c4518:In0 [label="Double"]
+  c0:Out0 -> c4518:In1 [label="Double"]
+  c0:Out1 -> c4519:In0 [label="Double"]
+  c0:Out1 -> c4519:In1 [label="Double"]
+  c4421:Out0 -> c4520:In0 [label="Double"]
+  c4518:Out0 -> c4520:In1 [label="Double"]
+  c4519:Out0 -> c4520:In2 [label="Double"]
+}

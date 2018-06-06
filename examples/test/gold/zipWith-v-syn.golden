@@ -1,2 +1,0 @@
-curry
-(fmap (apply . (curry orC . exl &&& exr)) . apply . (curry zipC . exl &&& exr))

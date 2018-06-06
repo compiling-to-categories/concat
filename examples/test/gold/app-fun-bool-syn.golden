@@ -1,2 +1,0 @@
-curry
-(curry (apply . (apply . (exl . exl &&& exr) &&& apply . (exr . exl &&& exr))))
