@@ -38,7 +38,7 @@ import           Data.Pointed
 import           Data.Vector.Sized (Vector)
 import           GHC.Generics hiding (C, D, R)
 import           GHC.TypeLits ()
-import           Miscellany hiding (runSynCirc)
+import           Miscellany hiding (runSynCirc,runSynCircDers)
 import           Prelude hiding (unzip, zip, zipWith)
 import           Test.Tasty (TestTree, testGroup)
 import           Utils
@@ -62,27 +62,20 @@ basicTests = testGroup "basic tests"
   , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
   , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
-  -- Automatic differentiation with ADFun:
-  , runSynCirc "sin-adf"        $ toCcc $ andDerF $ sin @R
-  , runSynCirc "cos-adf"        $ toCcc $ andDerF $ cos @R
-  , runSynCirc "twice-adf"      $ toCcc $ andDerF $ twice @R
-  , runSynCirc "sqr-adf"        $ toCcc $ andDerF $ sqr @R
-  , runSynCirc "magSqr-adf"     $ toCcc $ andDerF $ magSqr  @R
-  , runSynCirc "cos-2x-adf"     $ toCcc $ andDerF $ \ x -> cos (2 * x) :: R
-  , runSynCirc "cos-2xx-adf"    $ toCcc $ andDerF $ \ x -> cos (2 * x * x) :: R
-  , runSynCirc "cos-xpy-adf"    $ toCcc $ andDerF $ \ (x,y) -> cos (x + y) :: R
-  , runSynCirc "cosSinProd-adf" $ toCcc $ andDerF $ cosSinProd @R
+  -- Automatic differentiation variants
+  , runSynCircDers "add"     $ uncurry ((+) @R)
+  , runSynCircDers "sin"     $ sin @R
+  , runSynCircDers "cos"     $ cos @R
+  , runSynCircDers "twice"   $ twice @R
+  , runSynCircDers "sqr"     $ sqr @R
+  , runSynCircDers "magSqr"  $ magSqr  @R
+  , runSynCircDers "cos-2x"  $ \ x -> cos (2 * x) :: R
+  , runSynCircDers "cos-2xx" $ \ x -> cos (2 * x * x) :: R
+  , runSynCircDers "cos-xpy" $ \ (x,y) -> cos (x + y) :: R
 
-  -- Automatic differentiation with dual functions:
-  , runSynCirc "sin-adr"        $ toCcc $ andDerR $ sin @R
-  , runSynCirc "cos-adr"        $ toCcc $ andDerR $ cos @R
-  , runSynCirc "twice-adr"      $ toCcc $ andDerR $ twice @R
-  , runSynCirc "sqr-adr"        $ toCcc $ andDerR $ sqr @R
-  , runSynCirc "magSqr-adr"     $ toCcc $ andDerR $ magSqr  @R
-  , runSynCirc "cos-2x-adr"     $ toCcc $ andDerR $ \ x -> cos (2 * x) :: R
-  , runSynCirc "cos-2xx-adr"    $ toCcc $ andDerR $ \ x -> cos (2 * x * x) :: R
-  , runSynCirc "cos-xpy-adr"    $ toCcc $ andDerR $ \ (x,y) -> cos (x + y) :: R
-  , runSynCirc "cosSinProd-adr" $ toCcc $ andDerR $ cosSinProd @R
+  -- , runSynCirc "cosSinProd" $ toCcc $ andDerR $ cosSinProd @R
+
+#if 0
 
   , runSynCirc "times-13" $ toCcc $ \(x :: Int) -> 13 * x == 130
 
@@ -337,5 +330,17 @@ basicTests = testGroup "basic tests"
 
   , runSynCirc "const" $ toCcc' $ A.const @(->) @R @R
 
+#endif
+
   ]
 
+
+runSynCircDers :: (GO a b, Num b) => String -> (a -> b) -> TestTree
+runSynCircDers nm f =
+  testGroup (nm ++ "-ders")
+  [ {- runSynCirc nm               $ toCcc $ id       $ f
+  , -} runSynCirc (nm ++ "-adf")   $ toCcc $ andDerF  $ f
+  , runSynCirc (nm ++ "-adr")   $ toCcc $ andDerR  $ f
+  , runSynCirc (nm ++ "-gradr") $ toCcc $ andGradR $ f
+  ]
+{-# INLINE runSynCircDers #-}
