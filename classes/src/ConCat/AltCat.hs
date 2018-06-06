@@ -95,7 +95,6 @@ import ConCat.Category
   -- Functor-level. To be removed.
   , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat
   , DistributiveCat,RepresentableCat 
-  , VectorCat
   , fmap', liftA2' 
   )
 
@@ -950,34 +949,6 @@ collectC f = distribute . fmap f
 {-# INLINE collectC #-}
 
 Catify(collect, collectC)
-
-#if 1
-
--- Op1(vecSplitProd, (VectorCat k, KnownNat n, Ok k a) => Vector (m * n) a `k` Vector m (Vector n a))
-
--- (GHC version 8.0.2 for x86_64-apple-darwin):
---       opt_univ fell into a hole {a1jIp}
-
-#else
-
--- Op1(sliceC, (VectorCat k, KnownNat m, KnownNat n, Ok k a) => (Int :* Vector m a) `k` Vector n a)
-
--- (GHC version 8.0.2 for x86_64-apple-darwin):
---   opt_univ fell into a hole {alwS}
-
-sliceC :: (VectorCat k, KnownNat m, KnownNat n, Ok k a) => (Int :* Vector m a) `k` Vector n a
-sliceC = REVEAL(sliceC) ;\
-{-# OPINLINE sliceC #-}
--- OpRule1(sliceC)  -- GHC 8.0.2: opt_univ fell into a hole {alwS}
-
--- {-# RULES "reveal op1" forall a1. reveal (sliceC a1) = REVEAL(sliceC) (reveal a1) #-}
--- {-# RULES "reveal op1" forall a1. reveal (sliceC a1) = C.sliceC (reveal a1) #-}
-
-slice :: forall m n a. (KnownNat m, KnownNat n) => Int -> Vector m a -> Vector n a
-slice = curry sliceC
-{-# INLINE slice #-}
-
-#endif
 
 {-# RULES
 
