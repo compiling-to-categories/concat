@@ -59,6 +59,22 @@ ghc -O -fplugin=ConCat.Plugin YourModule.hs
 
 Unfortunately, this library doesn't (yet) work when called from ghci.
 
+## Plugin flags
+
+You can get more info about plugin failures by providing some flags in the module being compiled with the plugin.
+The current options:
+
+``` haskell
+{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showResiduals #-}
+{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showCcc #-}
+```
+
+*   `trace`: Generate *lots* of output as (small) transformations happen.
+*   `showResiduals`: A `residual` `toCcc'` call is one that the plugin did not manage to eliminate.
+    Since the `toCcc'` pseudo-function has no implementation, residuals often result in a run-time error message.
+*   `showCcc`: Show the Core for the whole module being compiled, at the end of the `toCcc` phase and before the final GHC passes.
+
 ## Some applications
 
 Working:
