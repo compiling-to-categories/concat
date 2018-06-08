@@ -14,10 +14,6 @@ module ConCat.KnownNatOps where
 import GHC.TypeLits
 import GHC.TypeLits.KnownNat
 import Data.Proxy
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-#else
-import ConCat.Misc (natValAt)
-#endif
 
 -- When the plugin works with GHC 8.4 (base 4.11.0.0), get Div and Mod from
 -- GHC.TypeNat instead of declaring here.
