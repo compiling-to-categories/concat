@@ -55,10 +55,10 @@ import Type (coreView)
 import TcType (isIntTy,isIntegerTy,tcSplitTyConApp_maybe)
 import TysPrim (intPrimTyCon)
 import FamInstEnv (normaliseType)
-import TyCoRep  hiding (FunTy,FunCo)                        -- TODO: explicit imports
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
 import CoreOpt (simpleOptExpr)
 #endif
+import TyCoRep
 import GHC.Classes
 import Unique (mkBuiltinUnique)
 -- For normaliseType etc
@@ -2124,6 +2124,8 @@ stringExpr = Lit . mkMachString
 varNameExpr :: Id -> CoreExpr
 varNameExpr = stringExpr . uniqVarName
 
+#if ! MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+
 pattern FunTy :: Type -> Type -> Type
 pattern FunTy dom ran <- (splitFunTy_maybe -> Just (dom,ran))
  where FunTy = mkFunTy
@@ -2135,6 +2137,8 @@ pattern FunTy dom ran <- (splitFunTy_maybe -> Just (dom,ran))
 pattern FunCo :: Role -> Coercion -> Coercion -> Coercion
 pattern FunCo r dom ran <- TyConAppCo r (isFunTyCon -> True) [dom,ran]
  where FunCo = mkFunCo
+
+#endif
 
 onCaseRhs :: Type -> Unop (Unop CoreExpr)
 onCaseRhs altsTy' f (Case scrut v _ alts) =
