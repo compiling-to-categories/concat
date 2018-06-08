@@ -32,7 +32,6 @@
 
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showResiduals #-}
-
 -- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showCcc #-}
 
 -- Now in concat-examples.cabal
@@ -151,6 +150,7 @@ import ConCat.Deep
 import qualified ConCat.Deep as D
 -- import ConCat.Finite
 import ConCat.TArr
+import qualified ConCat.TArr as TA
 
 -- Experimental
 import qualified ConCat.Inline.SampleMethods as I
@@ -192,15 +192,37 @@ main = sequence_ [
   -- , runSynCirc "sum-fun-B" $ toCcc $ sum @((->) Bool) @Int
   -- , runSynCirc "sum-fun-BxB" $ toCcc $ sum @((->) (Bool :* Bool)) @Int
 
-  -- , runSynCirc "sum-arr-B"   $ toCcc $ sum @(Arr Bool) @Int
-  -- , runSynCirc "sum-arr-BxB" $ toCcc $ sum @(Arr (Bool :* Bool)) @Int
+  -- , runSynCirc "foo" $ toCcc $ \ (arr :: Arr Bool Int) -> arr `FR.index` False -- okay
 
-  -- , runSynCirc "foo" $ toCcc $ sum @((->) (Bool :* (Bool :* ()))) @Int -- fine
-  -- , runSynCirc "foo" $ toCcc $ sum @(Arr (Bool :* ())) @Int -- fine
-  -- , runSynCirc "foo" $ toCcc $ sum @(Arr (Bool :* (Bool :* ()))) @Int -- fine
+  -- , runSynCirc "sum-arr-B"   $ toCcc $ sum @(Arr Bool) @Int -- okay
 
-  -- , runSynCirc "sum-flat-rbin-4-d" $ toCcc $ sum @(Flat (RBin N4)) @Int -- 
-  -- , runSynCirc "sum-flat-lbin-4-d" $ toCcc $ sum @(Flat (LBin N4)) @Int -- 
+  -- , runSynCirc "arrSplitProd-B-B" $ toCcc $ arrSplitProd @Bool @Bool @Int -- okay
+
+  -- , runSynCirc "foo" $ toCcc $ arrSplitProd @Bool @Bool @(Sum Int) -- okay
+
+  -- , runSynCirc "foo" $ toCcc $ fmap fold . arrSplitProd @Bool @Bool @(Sum Int) -- fail
+
+  -- , runSynCirc "foo" $ toCcc $ fmap @(Vector 2) not -- okay
+
+  -- , runSynCirc "foo" $ toCcc $ fmap @(Arr Bool) not -- okay
+
+  -- , runSynCirc "foo" $ toCcc $ fmap @(Arr Bool) @(Arr Bool (Sum Int)) fold 
+
+  -- , runSynCirc "foo" $ toCcc $ fold @(Arr Bool) @(Sum Int) --
+
+  -- , runSynCirc "foo" $ toCcc $ (TA.!) @Bool @(Sum Int)
+
+  -- , runSynCirc "sum-arr-BxB" $ toCcc $ sum @(Arr (Bool :* Bool)) @Int -- okay
+
+  -- , runSynCirc "sum-arr-BxBxB-r" $ toCcc $ sum @(Arr (Bool :* (Bool :* Bool))) @Int -- okay
+  -- , runSynCirc "sum-arr-BxBxB-l" $ toCcc $ sum @(Arr ((Bool :* Bool) :* Bool)) @Int -- okay
+
+  -- , runSynCirc "foo" $ toCcc $ sum @((->) (Bool :* (Bool :* ()))) @Int -- okay
+  -- , runSynCirc "foo" $ toCcc $ sum @(Arr (Bool :* ())) @Int -- okay
+  -- , runSynCirc "foo" $ toCcc $ sum @(Arr (Bool :* (Bool :* ()))) @Int -- okay
+
+  , runSynCirc "sum-flat-rbin-3" $ toCcc $ sum @(Flat (RBin N3)) @Int -- okay
+  , runSynCirc "sum-flat-lbin-3" $ toCcc $ sum @(Flat (LBin N3)) @Int -- okay
 
   -- , runSynCirc "fmap-rbin-4" $ toCcc $ fmap @(Flat (LBin N4)) not -- 
 
@@ -289,19 +311,19 @@ main = sequence_ [
 
     -- , runSynCirc "addR" $ toCcc $ (^+^) @R
 
-  -- Circuit graphs
-  , runSynCirc "add"         $ toCcc $ (+) @R
-  , runSynCirc "add-uncurry" $ toCcc $ uncurry ((+) @R)
-  , runSynCirc "dup"         $ toCcc $ A.dup @(->) @R
-  , runSynCirc "fst"         $ toCcc $ fst @R @R
-  , runSynCirc "twice"       $ toCcc $ twice @R
-  , runSynCirc "sqr"         $ toCcc $ sqr @R
-  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  , runSynCirc "cosSinProd"  $ toCcc $ cosSinProd @R
-  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  -- -- Circuit graphs
+  -- , runSynCirc "add"         $ toCcc $ (+) @R
+  -- , runSynCirc "add-uncurry" $ toCcc $ uncurry ((+) @R)
+  -- , runSynCirc "dup"         $ toCcc $ A.dup @(->) @R
+  -- , runSynCirc "fst"         $ toCcc $ fst @R @R
+  -- , runSynCirc "twice"       $ toCcc $ twice @R
+  -- , runSynCirc "sqr"         $ toCcc $ sqr @R
+  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  -- , runSynCirc "cosSinProd"  $ toCcc $ cosSinProd @R
+  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- -- Automatic differentiation with ADFun:
 
