@@ -1,4 +1,3 @@
-{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE CPP #-}
 
 -- #define NoOptimizeCircuit
@@ -28,11 +27,13 @@
 {-# LANGUAGE Rank2Types, ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-} -- see below
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE DataKinds #-} -- for LU & BU
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE DeriveFunctor, DeriveDataTypeable #-}
 {-# LANGUAGE TypeApplications, AllowAmbiguousTypes #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE UndecidableSuperClasses #-}  -- GenBuses
 
 -- TODO: trim language extensions
@@ -115,8 +116,8 @@ import Data.Maybe (fromMaybe,isJust,maybeToList)
 import Data.List (intercalate,group,sort,stripPrefix)
 import Data.Char (isAscii)
 import Data.Complex (Complex)
-import Data.Proxy (Proxy(..))
-import GHC.TypeLits (natVal)
+import Data.Proxy
+import GHC.TypeLits -- (natVal)
 #ifndef MealyToArrow
 import Data.List (partition)
 #endif
@@ -133,7 +134,7 @@ import Unsafe.Coerce
 import Data.Typeable (TypeRep,Typeable,eqT,cast) -- ,Proxy(..),typeOf
 import Data.Type.Equality ((:~:)(..))
 
-import Data.Constraint (Dict(..),(:-)(..))
+import Data.Constraint (Dict(..),(:-)(..),(\\))
 import Data.Pointed (Pointed)
 import Data.Key (Zip(..))
 import Data.Distributive (Distributive)
@@ -146,7 +147,7 @@ import System.Process (system) -- ,readProcess
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (ExitCode(ExitSuccess))
 
--- #define WithArr
+#define WithArr
 
 #ifdef VectorSized
 import GHC.TypeLits (Nat,KnownNat)
@@ -155,8 +156,9 @@ import Data.Finite (Finite)
 -- import ConCat.Finite (Finite,Vector,HasFin,Arr)
 #endif
 #ifdef WithArr
-import ConCat.TArr (TArr)
+import ConCat.TArr
 #endif
+import ConCat.Known
 
 -- mtl
 import Control.Monad.State (State,execState,StateT)
@@ -1732,6 +1734,22 @@ instance IfCat (:>) () where ifC = unitIf
 instance (IfCat (:>) a, IfCat (:>) b) => IfCat (:>) (a :* b) where
   ifC = prodIf
 
+instance FiniteCat (:>) where
+  finite = namedC "finite"
+  combineSum :: forall m n. KnownNat2 m n => (Finite m :+ Finite n) :> Finite (m + n)
+  combineSum = namedC "combineSum" \\ knowAdd @m @n
+  separateSum :: forall m n. KnownNat2 m n => Finite (m + n) :> (Finite m :+ Finite n)
+  separateSum = namedC "separateSum" \\ knowAdd @m @n
+  combineProd :: forall m n. KnownNat2 m n => (Finite m :* Finite n) :> Finite (m * n)
+  combineProd = namedC "combineProd" \\ knowMul @m @n
+  separateProd :: forall m n. KnownNat2 m n => Finite (m * n) :> (Finite m :* Finite n)
+  separateProd = namedC "separateProd" \\ knowMul @m @n
+
+-- Without these entailments, we get "Could not deduce KnownNat (m + n)." Needs
+-- -fplugin GHC.TypeLits.KnownNat.Solver, but then this module will always
+-- recompile, (just as ConCat.TArr does now) until
+-- https://github.com/ghc-proposals/ghc-proposals/pull/108#issuecomment-361932782.
+
 {--------------------------------------------------------------------
     Running
 --------------------------------------------------------------------}
@@ -2227,6 +2245,13 @@ genUnflattenB' = abstB <$> unflattenB'
 #if 1
 
 #include "ConCat/AbsTy.inc"
+
+instance GenBuses (Proxy a) where
+  genBuses' = genBusesRep'
+  ty = tyRep @(Proxy a)
+  unflattenB' = genUnflattenB'
+
+-- AbsTy(Proxy a)
 
 AbsTy((a,b,c))
 AbsTy((a,b,c,d))
