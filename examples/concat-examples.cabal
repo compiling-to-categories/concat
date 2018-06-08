@@ -59,6 +59,7 @@ library
                      , NumInstances
                      -- concat
                      , concat-inline
+                     , concat-known
                      , concat-classes
                      , concat-plugin
   if flag(smt)
@@ -174,17 +175,17 @@ Test-Suite misc-trace
     cpp-options:        -DCONCAT_SMT
   cpp-options:      -DVectorSized
 
-Test-Suite testHasFins
-  type:             exitcode-stdio-1.0
-  default-language: Haskell98
-  hs-Source-Dirs:   test
-  main-is:          testHasFins.hs
-  Build-Depends:    base<5
-                  , Cabal >= 1.24.0.0
-                  , vector-sized >= 1.0.0.0
-                  , concat-examples
-                  , concat-classes
-                  , ghc-typelits-knownnat
+-- Test-Suite testHasFins
+--   type:             exitcode-stdio-1.0
+--   default-language: Haskell98
+--   hs-Source-Dirs:   test
+--   main-is:          testHasFins.hs
+--   Build-Depends:    base<5
+--                   , Cabal >= 1.24.0.0
+--                   , vector-sized >= 1.0.0.0
+--                   , concat-examples
+--                   , concat-classes
+--                   , ghc-typelits-knownnat
 
 Test-Suite gold-tests
   type:             exitcode-stdio-1.0
