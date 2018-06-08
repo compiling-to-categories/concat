@@ -30,7 +30,7 @@ install _opts todos =
       else
        do
 #if !MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-         reinitializeGlobals
+          reinitializeGlobals
 #endif
           -- pprTrace "Install inlineClassOpRule" empty (return ())
           let addRule :: ModGuts -> CoreM ModGuts
