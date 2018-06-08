@@ -1837,7 +1837,11 @@ mkCccEnv opts = do
 #endif
   ruleBase <- eps_rule_base <$> (liftIO $ hscEPS hsc_env)
   -- pprTrace "ruleBase" (ppr ruleBase) (return ())
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0)
   let boxers = DFMap.listToUDFM [(intTyCon,boxIV),(doubleTyCon,boxDV),(floatTyCon,boxFV)]
+#else
+  let boxers = OrdMap.fromList [(intTyCon,boxIV),(doubleTyCon,boxDV),(floatTyCon,boxFV)]
+#endif
 #if 0
   let idAt t = Var idV `App` Type t     -- varApps idV [t] []
       [hasRepDc] = tyConDataCons hasRepTc
