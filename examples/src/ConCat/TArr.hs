@@ -38,7 +38,7 @@ import Data.Proxy
 import Data.Finite.Internal  (Finite(..))
 import Data.Vector.Sized (Vector)
 import qualified Data.Vector.Sized as V
-import Control.Newtype
+import Control.Newtype.Generics
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable,index,tabulate,distributeRep)
 import qualified Data.Functor.Rep as R

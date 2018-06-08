@@ -25,6 +25,11 @@ To enable some of those examples, install Z3, uncomment them in examples/test/Ex
 
 # Troubleshooting
 
+## I can't install netlist-to-verilog with cabal new-build or cabal install
+https://github.com/ku-fpg/netlist is the repo that includes the offending package.
+To get things started do
+`git clone https://github.com/ku-fpg/netlist.git ../netlist-kit-kufp/`
+
 ## I get an error along the lines of "`Oops: toCcc' called`"
 
 The plugin works via two kinds of rewrite rules: some specified via `RULES` pragmas, in the modules `ConCat.AltCat` and `ConCat.Rebox`, and a "builtin" rule, which is Haskell code that explicitly manipulates Core, in `ConCat.Plugin`. An run-time error of the form "`Oops: toCcc' called`" occurs if the plugin was not able to transform away all uses of the pseudo-function `toCcc'` (which has no implementation) via the rules.

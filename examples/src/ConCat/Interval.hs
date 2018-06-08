@@ -17,8 +17,7 @@ module ConCat.Interval where
 import Prelude hiding (id,(.),curry,uncurry,const)
 import GHC.Exts (Coercible,coerce)
 
-import Control.Newtype
-
+import Control.Newtype.Generics
 import ConCat.Misc ((:*),(:+),inNew,inNew2)
 import qualified ConCat.Category
 import ConCat.AltCat

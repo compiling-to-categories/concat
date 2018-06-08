@@ -33,8 +33,7 @@ import Data.Functor.Rep (Representable)
 import qualified Data.Functor.Rep as R
 import Data.Key (Zip(..))
 import Text.PrettyPrint.HughesPJClass hiding (render)
-import Control.Newtype
-
+import Control.Newtype.Generics
 import ConCat.Misc ((:*),PseudoFun(..),oops,R)
 import ConCat.Rep
 import ConCat.Orphans ()

@@ -45,7 +45,7 @@ import qualified Data.Array as Arr
 import Data.Proxy (Proxy(..))
 import GHC.Generics ((:*:)(..),(:.:)(..))
 
-import Control.Newtype (Newtype(..))
+import Control.Newtype.Generics (Newtype(..))
 
 import ConCat.Misc ((:*),(:+))
 import ConCat.AltCat (Arr,array,arrAt,at,natV,divModC)

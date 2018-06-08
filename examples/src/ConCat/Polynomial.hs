@@ -20,8 +20,7 @@ import Data.Pointed
 import Data.Key
 import Control.Comonad.Cofree
 
-import Control.Newtype
-
+import Control.Newtype.Generics
 import ConCat.Category
 import ConCat.Free.VectorSpace
 -- import ConCat.Orphans
