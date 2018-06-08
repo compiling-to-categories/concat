@@ -45,7 +45,7 @@ import Data.Traversable (mapAccumL)
 import Data.Tuple (swap)
 import GHC.Generics
 
-import Control.Newtype (Newtype(..))
+import Control.Newtype.Generics (Newtype(..))
 
 import Data.Key
 import Data.Pointed

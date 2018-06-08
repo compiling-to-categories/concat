@@ -39,7 +39,7 @@ import Data.Distributive (collect)
 import Data.Functor.Rep (Representable)
 -- import qualified Data.Functor.Rep as R
 import Text.PrettyPrint.HughesPJClass hiding (render)
-import Control.Newtype
+import Control.Newtype.Generics
 -- import Data.Vector.Sized (Vector)
 
 import ConCat.Misc ((:*),PseudoFun(..),oops,R,Binop,inNew2)

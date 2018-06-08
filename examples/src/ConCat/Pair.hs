@@ -44,7 +44,7 @@ import Data.Pointed
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(tabulate,index))
 import qualified Data.Functor.Rep as R
-import Control.Newtype (Newtype(..))
+import Control.Newtype.Generics (Newtype(..))
 import Data.Constraint (Dict(..),(:-)(..))
 
 import ConCat.Misc ((:*))

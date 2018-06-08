@@ -27,7 +27,7 @@ import Data.IORef
 import GHC.Exts (Coercible,coerce)
 
 import Data.Default
-import Control.Newtype
+import Control.Newtype.Generics
 import Data.Constraint ((:-)(..),Dict(..))
 
 import ConCat.Misc ((:*),(:+),inNew,inNew2)

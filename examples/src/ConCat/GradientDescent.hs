@@ -17,7 +17,7 @@ import Control.Arrow (first)
 
 import GHC.Generics (Par1(..))
 
-import Control.Newtype (unpack)
+import Control.Newtype.Generics (unpack)
 import Data.Key (Zip)
 
 import ConCat.Misc (Unop,Binop,R)

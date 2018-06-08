@@ -178,7 +178,7 @@ import qualified Data.Monoid
 -- For FFT
 import GHC.Generics hiding (C,R,D)
 
-import Control.Newtype (Newtype(..))
+import Control.Newtype.Generics (Newtype(..))
 
 -- Experiments
 import GHC.Exts (Coercible,coerce)

@@ -37,11 +37,12 @@ import GHC.Generics hiding (R)
 import GHC.Stack (errorWithStackTrace)  -- for oops
 import GHC.TypeLits
 
-import Control.Newtype
+import Control.Newtype.Generics
 
 {--------------------------------------------------------------------
     Type abbreviations
---------------------------------------------------------------------}
+-------------------------------------------------------------------
+-}
 
 infixr 8 :^
 infixl 7 :*

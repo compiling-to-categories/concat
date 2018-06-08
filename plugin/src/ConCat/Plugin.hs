@@ -32,10 +32,13 @@ import Data.Data (Data)
 import Data.Generics (GenericQ,GenericM,gmapM,mkQ,mkT,mkM,everything,everywhere',everywhereM)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
-import Data.Set (Set)
-import qualified Data.Set as Set
-import Data.Map (Map)
-import qualified Data.Map as Map
+--import qualified Data.Set (Set) as OrdSet
+import qualified Data.Set as OrdSet
+--import qualified Data.Map (Map) as OrdMap
+import qualified Data.Map as OrdMap
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+import qualified UniqDFM as DFMap
+#endif
 import Text.Printf (printf)
 import System.IO.Unsafe (unsafePerformIO)
 import Data.IORef
@@ -52,7 +55,11 @@ import Type (coreView)
 import TcType (isIntTy,isIntegerTy,tcSplitTyConApp_maybe)
 import TysPrim (intPrimTyCon)
 import FamInstEnv (normaliseType)
-import TyCoRep                          -- TODO: explicit imports
+import TyCoRep  hiding (FunTy,FunCo)                        -- TODO: explicit imports
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+import CoreOpt (simpleOptExpr)
+#endif
+import GHC.Classes
 import Unique (mkBuiltinUnique)
 -- For normaliseType etc
 import FamInstEnv
@@ -96,7 +103,11 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      -- , hasRepFromAbstCo :: Coercion   -> CoreExpr
                      , prePostV         :: Id
                   -- , lazyV            :: Id
-                     , boxers           :: Map TyCon Id  -- to remove
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+                     , boxers           :: DFMap.UniqDFM {- TyCo-} Id  -- to remove
+#else
+                     , boxers           :: OrdMap.Map TyCon Id
+#endif
                      , tagToEnumV       :: Id
                      , bottomV          :: Id
                      , boxIBV           :: Id
@@ -619,14 +630,21 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam Case of boxer")
      e@(Case scrut wild _ty [(_dc,[unboxedV],rhs)])
        | Just (tc,[]) <- splitTyConApp_maybe (varType wild)
-       , Just boxV <- Map.lookup tc boxers
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+       , Just boxV <-  flip DFMap.lookupUDFM tc boxers
+#else
+       , Just boxV <- OrdMap.lookup tc boxers
+#endif
        -> Doing("lam Case of boxer")
-          let wild' = setIdOccInfo wild NoOccInfo
+          let wild' = setIdOccInfo wild compatNoOccInfo
               tweak :: Unop CoreExpr
               tweak (Var v) | v == unboxedV =
                 pprPanic ("lam Case of boxer: bare unboxed var") (ppr e)
               tweak (App (Var f) (Var v)) | f == boxV, v == unboxedV = Var wild'
               tweak e' = e'
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+              compatNoOccInfo = noOccInfo
+#endif
           in
             -- Note top-down (everywhere') instead of bottom-up (everywhere)
             -- so that we can find 'boxI v' before v.
@@ -1025,7 +1043,11 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
       tweak e@(App (Var con) e')
         | isDataConWorkId con
         , Just (tc,[]) <- splitTyConApp_maybe (exprType e)
-        , Just boxV <- Map.lookup tc boxers
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+        , Just  boxV <- flip DFMap.lookupUDFM  tc boxers
+#else
+        , Just  boxV <- OrdMap.lookupUDFM  tc boxers
+#endif
         = success $ Var boxV `App` e'
       tweak ((Var v `App` Type ty) `App` e')
         | v == tagToEnumV && ty `eqType` boolTy
@@ -1369,7 +1391,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                  oops "type change"
                   (ppr beforeTy <+> "vs" $$ ppr afterTy <+> "in"))
               (oops "Lint")
-          (lintExpr dflags (varSetElems (exprFreeVars after)) after)
+          (lintExpr dflags (uniqSetToList (exprFreeVars after)) after)
 #if 0
    catFun :: ReExpr
    -- catFun e | dtrace "catFun" (pprWithType e) False = undefined
@@ -1815,7 +1837,7 @@ mkCccEnv opts = do
 #endif
   ruleBase <- eps_rule_base <$> (liftIO $ hscEPS hsc_env)
   -- pprTrace "ruleBase" (ppr ruleBase) (return ())
-  let boxers = Map.fromList [(intTyCon,boxIV),(doubleTyCon,boxDV),(floatTyCon,boxFV)]
+  let boxers = DFMap.listToUDFM [(intTyCon,boxIV),(doubleTyCon,boxDV),(floatTyCon,boxFV)]
 #if 0
   let idAt t = Var idV `App` Type t     -- varApps idV [t] []
       [hasRepDc] = tyConDataCons hasRepTc
@@ -1906,8 +1928,8 @@ polyInfo = [(hmod++"."++hop,(catModule,cop)) | (hmod,ops) <- info, (hop,cop) <- 
 
 -- Variables that have associated ccc rewrite rules in AltCat. If we have
 -- sufficient arity for the rule, including types, give it a chance to kick in.
-cccRuledArities :: Map String Int
-cccRuledArities = Map.fromList
+cccRuledArities :: OrdMap.Map String Int
+cccRuledArities = OrdMap.fromList
   [("Data.Tuple.curry",4),("Data.Tuple.uncurry",4)]
 
 
@@ -2248,7 +2270,11 @@ isPairVar = (== "GHC.Tuple.(,)") . fqVarName
 isMonoTy :: Type -> Bool
 isMonoTy (TyConApp _ tys)      = all isMonoTy tys
 isMonoTy (AppTy u v)           = isMonoTy u && isMonoTy v
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+
+#else
 isMonoTy (ForAllTy (Anon u) v) = isMonoTy u && isMonoTy v
+#endif
 isMonoTy (LitTy _)             = True
 isMonoTy _                     = False
 

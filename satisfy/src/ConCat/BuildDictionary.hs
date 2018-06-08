@@ -18,7 +18,14 @@
 ----------------------------------------------------------------------
 
 module ConCat.BuildDictionary
-  (buildDictionary,WithType(..), withType,varWithType) where
+  (buildDictionary
+  ,WithType(..)
+  , withType
+  ,varWithType
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+  ,uniqSetToList
+#endif
+  ) where
 
 import Data.Monoid (Any(..))
 import Data.Char (isSpace)
@@ -49,6 +56,9 @@ import Unique (mkUniqueGrimily)
 import Finder (findExposedPackageModule)
 
 import TcRnDriver
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+import qualified UniqSet as NonDetSet
+#endif
 -- Temp
 -- import HERMIT.GHC.Typechecker (initTcFromModGuts)
 -- import ConCat.GHC
@@ -62,6 +72,10 @@ isFound _           = False
 moduleIsOkay :: HscEnv -> ModuleName -> IO Bool
 moduleIsOkay env mname = isFound <$> findExposedPackageModule env mname Nothing
 
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+uniqSetToList ::  UniqSet a -> [a]
+uniqSetToList = NonDetSet.nonDetEltsUniqSet
+#endif
 -- #define TRACING
 
 pprTrace' :: String -> SDoc -> a -> a

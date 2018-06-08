@@ -44,7 +44,7 @@ import Data.Void
 
 import GHC.Exts (inline)        -- experiment
 
-import Control.Newtype (Newtype(..))
+import Control.Newtype.Generics (Newtype(..))
 
 import ConCat.Misc ((:*),(:+), (<~), Unop, inNew, inNew2)
 import ConCat.Rep

@@ -29,12 +29,12 @@ import Data.Key
 import Data.Pointed
 -- import Data.Copointed
 -- import Control.Comonad.Cofree
-import Data.Distributive (Distributive(..))
-import Data.Functor.Rep (Representable(..),distributeRep)
+--import Data.Distributive (Distributive(..))
+--import Data.Functor.Rep (Representable(..),distributeRep)
 -- import qualified Data.Functor.Rep as Rep
 
 -- import Data.Stream (Stream(..))
-import Control.Newtype
+import Control.Newtype.Generics
 import Text.PrettyPrint.HughesPJClass hiding ((<>))
 import GHC.TypeLits (KnownNat)
 import Data.Finite (Finite,finite,finites)

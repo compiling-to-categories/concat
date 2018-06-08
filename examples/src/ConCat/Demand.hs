@@ -25,7 +25,7 @@ import qualified Prelude as P
 
 import Control.Applicative (liftA2)
 
-import Control.Newtype (Newtype(..))
+import Control.Newtype.Generics (Newtype(..))
 
 import ConCat.Misc ((:*),(:+),Unop,inNew,inNew2)
 import ConCat.Category

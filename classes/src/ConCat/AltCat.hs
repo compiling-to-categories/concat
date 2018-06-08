@@ -51,7 +51,7 @@ import Data.Key (Zip(..))
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..),distributeRep)
 -- import qualified Data.Functor.Rep as R
-import Control.Newtype (Newtype(..))
+import Control.Newtype.Generics (Newtype(..))
 -- import Debug.Trace
 #ifdef VectorSized
 import Data.Proxy (Proxy(..))

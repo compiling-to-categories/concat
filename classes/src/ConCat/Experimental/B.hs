@@ -68,7 +68,7 @@ import qualified Data.Array as Arr
 import Data.Proxy (Proxy(..))
 import GHC.Generics ((:*:)(..),(:.:)(..))
 
-import Control.Newtype (Newtype(..))
+import Control.Newtype.Generics (Newtype(..))
 #ifdef VectorSized
 import Data.Finite (Finite)
 import Data.Vector.Sized (Vector)
