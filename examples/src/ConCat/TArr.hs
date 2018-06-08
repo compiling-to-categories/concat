@@ -19,7 +19,8 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+-- When spurious recompilation is fixed, use this plugin, and drop ConCat.Known.
+-- {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 
 -- | Domain-typed arrays
 
@@ -41,11 +42,13 @@ import Control.Newtype
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable,index,tabulate,distributeRep)
 import qualified Data.Functor.Rep as R
+import Data.Constraint ((\\))
 
 import ConCat.Misc           ((:*), (:+), cond,nat,int)
 import ConCat.Rep
 import ConCat.AltCat
 import ConCat.Isomorphism
+import ConCat.Known
 
 {----------------------------------------------------------------------
    Some useful isomorphisms.
@@ -122,9 +125,12 @@ type KnownCard a = KnownNat (Card a)
 
 type KnownCard2 a b = (KnownCard a, KnownCard b)
 
-class KnownCard a => HasFin a where
+class {- KnownCard a => -} HasFin a where
   type Card a :: Nat
   iso :: a <-> Finite (Card a)
+
+-- See below.
+type HasFin' a = (KnownCard a, HasFin a)
 
 instance HasFin () where
   type Card () = 1
@@ -138,11 +144,16 @@ instance KnownNat n => HasFin (Finite n) where
   type Card (Finite n) = n
   iso = id
 
-instance (HasFin a, HasFin b) => HasFin (a :+ b) where
+-- Moving KnownCard from HasFin to HasFin' solves the puzzle of persuading GHC
+-- that KnownCard (a :+ b), a superclass constraint for HasFin (a :+ b). When
+-- the spurious recompilation problem is fixed, and we drop the explicit
+-- KnownNat entailments, move KnownCard back to HasFin.
+
+instance (HasFin' a, HasFin' b) => HasFin (a :+ b) where
   type Card (a :+ b) = Card a + Card b
   iso = finSum . (iso +++ iso)
 
-instance (HasFin a, HasFin b) => HasFin (a :* b) where
+instance (HasFin' a, HasFin' b) => HasFin (a :* b) where
   type Card (a :* b) = Card a * Card b
   iso = finProd . (iso *** iso)
 
@@ -169,16 +180,16 @@ instance HasRep (Arr a b) where
 -- TODO: maybe a macro for HasRep instances that mirror Newtype instances.
 
 deriving instance Functor (Arr a)
-deriving instance HasFin a => Applicative (Arr a)
+deriving instance HasFin' a => Applicative (Arr a)
 
 -- TODO: Distributive and Representable instances.
 
-instance HasFin a => Distributive (Arr a) where
+instance HasFin' a => Distributive (Arr a) where
   distribute :: Functor f => f (Arr a b) -> Arr a (f b)
   distribute = distributeRep
   {-# INLINE distribute #-}
 
-instance HasFin a => Representable (Arr a) where
+instance HasFin' a => Representable (Arr a) where
   type Rep (Arr a) = a
   tabulate :: (a -> b) -> Arr a b
   tabulate f = pack (tabulate (f . unFin))
@@ -187,7 +198,7 @@ instance HasFin a => Representable (Arr a) where
   {-# INLINE tabulate #-}
   {-# INLINE index #-}
 
-(!) :: HasFin a => Arr a b -> (a -> b)
+(!) :: HasFin' a => Arr a b -> (a -> b)
 (!) = index
 {-# INLINE (!) #-}
 
@@ -197,8 +208,8 @@ type Flat f = Arr (R.Rep f)
     Splitting
 --------------------------------------------------------------------}
 
-chunk :: KnownNat2 m n => Vector (m * n) a -> Finite m -> Vector n a
-chunk mn i = tabulate (index mn . curry toFin i)
+chunk :: forall m n a. KnownNat2 m n => Vector (m * n) a -> Finite m -> Vector n a
+chunk mn i = tabulate (index mn . curry toFin i) \\ knownMul @m @n
 {-# INLINE chunk #-}
 
 #if 0
@@ -214,8 +225,8 @@ tabulate (index as . curry toFin i) :: Vector n a
 
 #endif
 
-vecSplitSum :: KnownNat2 m n => Vector (m + n) a -> Vector m a :* Vector n a
-vecSplitSum as = (tabulate *** tabulate) (unjoin (index as . toFin))
+vecSplitSum :: forall m n a. KnownNat2 m n => Vector (m + n) a -> Vector m a :* Vector n a
+vecSplitSum as = (tabulate *** tabulate) (unjoin (index as . toFin)) \\ knownAdd @m @n
 {-# INLINE vecSplitSum #-}
 
 #if 0
