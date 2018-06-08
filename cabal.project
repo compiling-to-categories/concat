@@ -1,0 +1,13 @@
+packages:
+          ./inline/concat-inline.cabal
+          ./plugin/concat-plugin.cabal
+          ./classes/concat-classes.cabal
+          ./satisfy/concat-satisfy.cabal
+          ./known/concat-known.cabal
+
+          ./hardware/concat-hardware.cabal
+          ./graphics/concat-graphics.cabal
+          ./examples/concat-examples.cabal
+          ./../netlist-kit-kufp/*/*.cabal
+          --- cloned from git@github.com:ku-fpg/netlist.git
+documentation: False

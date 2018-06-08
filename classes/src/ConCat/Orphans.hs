@@ -371,6 +371,8 @@ instance KnownNat n => Zip (Vector n) where
   {-# INLINE zip #-}
   {-# INLINE zipWith #-}
 
+
+#if !MIN_VERSION_vector_sized(1,0,1)
 instance KnownNat n => Distributive (Vector n) where
   distribute :: Functor f => f (Vector n a) -> Vector n (f a)
   distribute = distributeRep
@@ -382,6 +384,7 @@ instance KnownNat n => Representable (Vector n) where
   index = V.index
   {-# INLINE tabulate #-}
   {-# INLINE index #-}
+#endif
 
 instance KnownNat n => Pointed (Vector n) where
 #if 1
