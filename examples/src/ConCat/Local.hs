@@ -21,7 +21,7 @@ module ConCat.Local where
 import Prelude hiding (id,(.),curry,uncurry,const)
 import Control.Applicative (pure,liftA2)
 
-import Control.Newtype
+import Control.Newtype.Generics
 import Data.Copointed
 import Data.Constraint (Dict(..),(:-)(..))
 

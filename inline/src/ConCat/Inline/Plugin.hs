@@ -1,4 +1,4 @@
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ViewPatterns, CPP  #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
@@ -28,7 +28,10 @@ install _opts todos =
      if hscTarget dflags == HscInterpreted then
         return todos
       else
-       do reinitializeGlobals
+       do
+#if !MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+          reinitializeGlobals
+#endif
           -- pprTrace "Install inlineClassOpRule" empty (return ())
           let addRule :: ModGuts -> CoreM ModGuts
               addRule guts =

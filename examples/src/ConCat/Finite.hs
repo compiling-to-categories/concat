@@ -53,8 +53,7 @@ import Data.Distributive (Distributive(..))
 -- import Data.Functor.Rep (Representable(..),distributeRep)
 import Data.Functor.Rep (Representable,index,tabulate,distributeRep)
 import qualified Data.Functor.Rep as R
-import Control.Newtype
-
+import Control.Newtype.Generics
 import ConCat.Misc ((:*),(:+),nat,int,cond)  -- ,inNew,inNew2
 import ConCat.Rep
 import ConCat.KnownNatOps (Div, Mod)

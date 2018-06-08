@@ -33,7 +33,7 @@ import GHC.TypeLits (KnownNat)
 #endif
 
 import Data.Constraint (Dict(..),(:-)(..))  -- temp
-import Control.Newtype (Newtype(..))
+import Control.Newtype.Generics (Newtype(..))
 import Data.Key (Zip)
 import Data.Pointed (Pointed)
 import Data.Distributive (Distributive)

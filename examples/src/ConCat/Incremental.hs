@@ -37,7 +37,7 @@ import Control.Monad ((>=>))
 import GHC.Exts (Coercible,coerce)
 
 import Data.Void (Void,absurd)
-import Control.Newtype
+import Control.Newtype.Generics
 import Data.Constraint ((:-)(..),Dict(..))
 
 import ConCat.Misc ((:*),(:+),Unop,Binop, inNew2,Parity,R,Yes1,result, C4)

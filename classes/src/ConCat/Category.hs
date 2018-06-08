@@ -82,7 +82,7 @@ import Data.Key (Zip(..))
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..))
 -- import qualified Data.Functor.Rep as DFR
-import Control.Newtype (Newtype(..))
+import Control.Newtype.Generics (Newtype(..))
 import Data.Vector.Sized (Vector)
 -- import qualified Data.Vector.Generic.Sized.Internal as IV
 -- import qualified Data.Vector.Generic as VG

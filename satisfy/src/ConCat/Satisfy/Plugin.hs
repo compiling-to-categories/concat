@@ -1,4 +1,4 @@
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ViewPatterns, CPP #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
@@ -28,8 +28,10 @@ install _opts todos =
      -- disable under GHCi, so we can at least type-check conveniently.
      if hscTarget dflags == HscInterpreted then
         return todos
-      else
-       do reinitializeGlobals
+      else do
+#if !MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+          reinitializeGlobals
+#endif
           hscEnv <- getHscEnv
           -- pprTrace "Install satisfyRule" empty (return ())
           let addRule :: ModGuts -> CoreM ModGuts

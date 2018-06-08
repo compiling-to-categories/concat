@@ -51,7 +51,7 @@ import Data.Kind (Type,Constraint)
 -- import Control.Monad.State (State,modify,put,get,execState,StateT,evalStateT)
 
 import Data.Constraint (Dict(..),(:-)(..),refl,trans,(\\))
--- import Control.Newtype
+-- import Control.Newtype.Generics
 -- import Data.Pointed
 -- import Data.Key
 -- import Data.IntMap ()
