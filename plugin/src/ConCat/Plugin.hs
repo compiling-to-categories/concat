@@ -1046,7 +1046,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
         , Just  boxV <- flip DFMap.lookupUDFM  tc boxers
 #else
-        , Just  boxV <- OrdMap.lookupUDFM  tc boxers
+        , Just  boxV <- OrdMap.lookup  tc boxers
 #endif
         = success $ Var boxV `App` e'
       tweak ((Var v `App` Type ty) `App` e')
