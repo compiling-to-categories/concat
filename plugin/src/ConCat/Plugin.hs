@@ -1837,7 +1837,7 @@ mkCccEnv opts = do
 #endif
   ruleBase <- eps_rule_base <$> (liftIO $ hscEPS hsc_env)
   -- pprTrace "ruleBase" (ppr ruleBase) (return ())
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0)
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
   let boxers = DFMap.listToUDFM [(intTyCon,boxIV),(doubleTyCon,boxDV),(floatTyCon,boxFV)]
 #else
   let boxers = OrdMap.fromList [(intTyCon,boxIV),(doubleTyCon,boxDV),(floatTyCon,boxFV)]

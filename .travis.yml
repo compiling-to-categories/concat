@@ -97,7 +97,7 @@ script:
 
   # build & run tests, build benchmarks
   - cabal new-build -w ${HC} ${TEST} ${BENCH} all
-  - cabal new-test all
+  - cabal new-test  concat-hardware concat-graphics concat-examples
   # - if [ "x$TEST" = "x--enable-tests" ]; then cabal new-test -w ${HC} ${TEST} ${BENCH} all; fi
 
   # cabal check
