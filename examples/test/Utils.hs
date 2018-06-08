@@ -17,16 +17,10 @@ import           Test.Tasty.Golden
 runSynCirc :: GO a b => String -> EC a b -> TestTree
 runSynCirc nm (syn A.:**: circ) =
   testGroup nm
-    [ goldenVsString "syntax"
-                     ("test/gold/" <> nm <> "-syn.golden")
-        . pure
-        . BS.pack
-        $ render syn
-
-    , goldenVsString ("circuit dot")
-                     ("test/gold/" <> nm <> "-dot.golden")
-        . pure
-        . BS.pack
-        $ graphDot nm [] (mkGraph circ)
+    [ gold "syn" (render syn)
+    , gold "dot" (graphDot nm [] (mkGraph circ))
     ]
-
+ where
+   gold str = goldenVsString "syntax"
+                     ("test/gold/" <> nm <> "-" <> str <> ".golden")
+            . pure . BS.pack
