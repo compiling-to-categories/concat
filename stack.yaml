@@ -30,6 +30,7 @@ extra-deps:
   - ghc-typelits-natnormalise-0.6.1
   - ghc-tcplugins-extra-0.3
   - newtype-generics-0.5.3
+  - language-glsl-0.2.1
 
 resolver: lts-9.20 # ghc-8.0.2
 resolver: lts-11.12 # ghc-8.2.2
