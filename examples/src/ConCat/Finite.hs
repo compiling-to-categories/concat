@@ -409,11 +409,11 @@ instance HasFin a => Representable (Arr a) where
 -- own vector-sized variant. The CPU implementation could still be built on
 -- unsized vectors.
 
-arrSplitSum :: forall a b c. KnownCard a => Arr (a :+ b) c -> Arr a c :* Arr b c
+arrSplitSum :: KnownCard a => Arr (a :+ b) c -> Arr a c :* Arr b c
 arrSplitSum = (pack *** pack) . vecSplitSum . unpack
 {-# INLINE arrSplitSum #-}
 
-arrSplitProd :: forall a b c. KnownCard b => Arr (a :* b) c -> Arr a (Arr b c)
+arrSplitProd :: KnownCard b => Arr (a :* b) c -> Arr a (Arr b c)
 arrSplitProd = pack . fmap pack . vecSplitProd . unpack
 {-# INLINE arrSplitProd #-}
 
