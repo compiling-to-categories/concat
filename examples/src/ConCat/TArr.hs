@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE CPP #-}
@@ -24,8 +25,10 @@
 
 module ConCat.TArr where
 
-import Prelude hiding (id, (.), const, curry)  -- Coming from ConCat.AltCat.
+import Prelude hiding (id, (.), const, curry, uncurry)  -- Coming from ConCat.AltCat.
 
+import Data.Monoid
+import Data.Foldable
 import GHC.TypeLits
 import GHC.Types (Nat)
 import Data.Proxy
@@ -48,25 +51,33 @@ import ConCat.Isomorphism
    Some useful isomorphisms.
 ----------------------------------------------------------------------}
 
-type KnownNat2 m n = (KnownNat m, KnownNat n)
-
-finSum :: forall m n. KnownNat2 m n => Finite m :+ Finite n <-> Finite (m + n)
-finSum = Iso to un
- where 
-   to (Left  (Finite l)) = Finite l
-   to (Right (Finite k)) = Finite (k + nat @m)
-   un (Finite l) | l < m     = Left  (Finite l)
-                 | otherwise = Right (Finite (l - m))
-    where
-      m = nat @m
+finSum :: forall k m n. (FiniteCat k, KnownNat2 m n) => Iso k (Finite m :+ Finite n) (Finite (m + n))
+finSum = Iso combineSum separateSum
 {-# INLINE finSum #-}
 
-finProd :: forall m n. KnownNat2 m n => Finite m :* Finite n <-> Finite (m * n)
-finProd = Iso to un
- where
-   to (Finite l, Finite k) = Finite (l * nat @n + k)
-   un (Finite l) = (Finite q, Finite r) where (q,r) = l `divMod` nat @n
+finProd :: forall k m n. (FiniteCat k, KnownNat2 m n) => Iso k (Finite m :* Finite n) (Finite (m * n))
+finProd = Iso combineProd separateProd
 {-# INLINE finProd #-}
+
+-- finSum :: forall m n. KnownNat m => Finite m :+ Finite n <-> Finite (m + n)
+-- finSum = Iso combineSum separateSum
+
+-- finSum = Iso to un
+--  where 
+--    to (Left  (Finite l)) = Finite l
+--    to (Right (Finite k)) = Finite (nat @m + k)
+--    un (Finite l) | l < m     = Left  (Finite l)
+--                  | otherwise = Right (Finite (l - m))
+--     where
+--       m = nat @m
+
+-- finProd :: forall m n. KnownNat n => Finite m :* Finite n <-> Finite (m * n)
+-- finProd = Iso combineProd separateProd
+
+-- finProd = Iso to un
+--  where
+--    to (Finite l, Finite k) = Finite (nat @n * l + k)
+--    un (Finite l) = (Finite q, Finite r) where (q,r) = l `divMod` nat @n
 
 #if 0
 
@@ -180,10 +191,6 @@ instance HasFin a => Representable (Arr a) where
 (!) = index
 {-# INLINE (!) #-}
 
-instance (HasFin a, Foldable ((->) a)) => Foldable (Arr a) where
-  foldMap f = foldMap f . index  -- fold homomorphism
-  {-# INLINE foldMap #-}
-
 type Flat f = Arr (R.Rep f)
 
 {--------------------------------------------------------------------
@@ -192,25 +199,102 @@ type Flat f = Arr (R.Rep f)
 
 chunk :: KnownNat2 m n => Vector (m * n) a -> Finite m -> Vector n a
 chunk mn i = tabulate (index mn . curry toFin i)
+{-# INLINE chunk #-}
 
 #if 0
 
-                mn                  :: Vector (m * n) a
+                as                  :: Vector (m * n) a
                                  i  :: Finite m
                            toFin    :: Finite m :* Finite n -> Finite (m :* n)
                      curry toFin    :: Finite m -> Finite n -> Finite (m :* n)
                      curry toFin i  :: Finite n -> Finite (m :* n)
-          index mn                  :: Finite (m :* n) -> a
-          index mn . curry toFin i  :: Finite n -> a
-tabulate (index mn . curry toFin i) :: Vector n a
+          index as                  :: Finite (m :* n) -> a
+          index as . curry toFin i  :: Finite n -> a
+tabulate (index as . curry toFin i) :: Vector n a
 
 #endif
 
+vecSplitSum :: KnownNat2 m n => Vector (m + n) a -> Vector m a :* Vector n a
+vecSplitSum as = (tabulate *** tabulate) (unjoin (index as . toFin))
+{-# INLINE vecSplitSum #-}
+
+#if 0
+
+                             as           :: Vector (m + n) a
+                       index as           :: Finite (m + n) -> a
+                       index as . toFin   :: Finite m :+ Finite n -> a
+               unjoin (index as . toFin)  :: (Finite m -> a) :* (Finite n -> a)
+(tab *** tab) (unjoin (index as . toFin)) :: Vector m a :* Vector n a
+
+#endif
+
+arrSplitSum :: KnownCard2 a b => Arr (a :+ b) c -> Arr a c :* Arr b c
+arrSplitSum = (pack *** pack) . vecSplitSum . unpack
+{-# INLINE arrSplitSum #-}
+
 vecSplitProd :: KnownNat2 m n => Vector (m * n) a -> Vector m (Vector n a)
 vecSplitProd = tabulate . chunk
+{-# INLINE vecSplitProd #-}
 
--- vecSplitProd mn = tabulate (chunk mn)
--- vecSplitProd mn = tabulate (\ i -> chunk mn i)
+-- vecSplitProd as = tabulate (chunk as)
+-- vecSplitProd as = tabulate (\ i -> chunk as i)
 
 arrSplitProd :: KnownCard2 a b => Arr (a :* b) c -> Arr a (Arr b c)
 arrSplitProd = pack . fmap pack . vecSplitProd . unpack
+{-# INLINE arrSplitProd #-}
+
+{--------------------------------------------------------------------
+    Folds
+--------------------------------------------------------------------}
+
+#if 0
+
+instance (HasFin a, Foldable ((->) a)) => Foldable (Arr a) where
+  foldMap f = foldMap f . index
+  {-# INLINE foldMap #-}
+
+#else
+
+-- The explicit repetition of the fold and sum defaults below prevent premature
+-- optimization that leads to exposing the representation of unsized vectors.
+-- See 2018-06-07 journal notes.
+
+#define DEFAULTS \
+fold = foldMap id ; \
+{-# INLINE fold #-} ; \
+sum = getSum . foldMap Sum ; \
+{-# INLINE sum #-}
+
+instance Foldable (Arr ()) where
+  -- foldMap f xs = f (xs ! ())
+  foldMap f xs = f (xs ! ())
+  {-# INLINE foldMap #-}
+  DEFAULTS
+  -- fold = foldMap id ; {-# INLINE fold #-}
+  -- sum = getSum . foldMap Sum ; {-# INLINE sum #-}
+
+instance Foldable (Arr Bool) where
+  foldMap f xs = f (xs ! False) <> f (xs ! True)
+  {-# INLINE foldMap #-}
+  DEFAULTS
+  -- sum = getSum . foldMap Sum ; {-# INLINE sum #-}
+  -- fold = foldMap id; {-# INLINE fold #-}
+
+instance (Foldable (Arr a), Foldable (Arr b), KnownCard2 a b)
+      => Foldable (Arr (a :+ b)) where
+  -- foldMap f u = foldMap f v <> foldMap f w where (v,w) = arrSplitSum u
+  foldMap f = uncurry (<>) . (foldMap f *** foldMap f) . arrSplitSum
+  {-# INLINE foldMap #-}
+  -- sum = getSum . foldMap Sum ; {-# INLINE sum #-}
+  -- fold = foldMap id; {-# INLINE fold #-}
+
+instance (Foldable (Arr a), Foldable (Arr b), KnownCard2 a b)
+      => Foldable (Arr (a :* b)) where
+  -- foldMap f = (foldMap.foldMap) f . arrSplitProd
+  foldMap f = fold . fmap f
+  {-# INLINE foldMap #-}
+  fold = fold . fmap fold . arrSplitProd
+  {-# INLINE fold #-}
+  sum = getSum . foldMap Sum ; {-# INLINE sum #-}
+
+#endif
