@@ -65,8 +65,9 @@ import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import Debug.Trace
 import Data.Monoid
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
-import GHC.TypeLits (KnownNat)
+import GHC.TypeLits
 import Control.Monad.Fix (MonadFix)
+import Data.Proxy (Proxy)
 
 -- import GHC.Types (type (*))  -- experiment with TypeInType
 -- import qualified Data.Constraint as K
@@ -85,6 +86,7 @@ import Control.Newtype (Newtype(..))
 import Data.Vector.Sized (Vector)
 -- import qualified Data.Vector.Generic.Sized.Internal as IV
 -- import qualified Data.Vector.Generic as VG
+import Data.Finite.Internal (Finite(..))
 
 #ifdef VectorSized
 -- import Data.Finite (Finite)
@@ -2591,6 +2593,40 @@ instance (IxCoproductPCat k h, IxCoproductPCat k' h, Zip h)
   joinPF = prod . (joinPF *** joinPF) . unzip . fmap unProd
   jamPF  = jamPF :**: jamPF
   -- plusPF = prod . (plusPF *** plusPF) . unzip . fmap unProd
+
+{--------------------------------------------------------------------
+    Finite
+--------------------------------------------------------------------}
+
+type KnownNat2 m n = (KnownNat m, KnownNat n)
+
+class FiniteCat k where
+  finite       :: (KnownNat2 a m, a + 1 <= m) => Proxy a `k` Finite m
+  combineSum   :: KnownNat2 m n => (Finite m :+ Finite n) `k` Finite (m + n)
+  separateSum  :: KnownNat2 m n => Finite (m + n) `k` (Finite m :+ Finite n)
+  combineProd  :: KnownNat2 m n => (Finite m :* Finite n) `k` Finite (m * n)
+  separateProd :: KnownNat2 m n => Finite (m * n) `k` (Finite m :* Finite n)
+
+instance FiniteCat (->) where
+  finite :: forall a m. (KnownNat2 a m, a + 1 <= m) => Proxy a -> Finite m
+  finite p = Finite (natVal p)
+  combineSum :: forall m n. KnownNat2 m n => (Finite m :+ Finite n) -> Finite (m + n)
+  combineSum (Left  (Finite l)) = Finite l
+  combineSum (Right (Finite k)) = Finite (nat @m + k)
+  separateSum :: forall m n. KnownNat2 m n => Finite (m + n) -> (Finite m :+ Finite n)
+  separateSum (Finite l) | l < m     = Left  (Finite l)
+                         | otherwise = Right (Finite (l - m))
+    where
+      m = nat @m
+  combineProd :: forall m n. KnownNat2 m n => (Finite m :* Finite n) -> Finite (m * n)
+  combineProd (Finite l, Finite k) = Finite (nat @n * l + k)
+  separateProd :: forall m n. KnownNat2 m n => Finite (m * n) -> (Finite m :* Finite n)
+  separateProd (Finite l) = (Finite q, Finite r) where (q,r) = l `divMod` nat @n
+  {-# OPINLINE finite #-}
+  {-# OPINLINE combineSum #-}
+  {-# OPINLINE separateSum #-}
+  {-# OPINLINE combineProd #-}
+  {-# OPINLINE separateProd #-}
 
 {--------------------------------------------------------------------
     Obsolete

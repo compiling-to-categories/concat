@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE InstanceSigs #-}
@@ -43,6 +44,7 @@ import GHC.TypeLits
 -- import qualified GHC.Exts
 import GHC.Exts (Coercible,coerce,inline)
 import Data.Constraint ((\\))
+import Data.Proxy (Proxy)
 
 import Data.Pointed
 import Data.Key (Zip(..))
@@ -54,8 +56,8 @@ import Control.Newtype (Newtype(..))
 #ifdef VectorSized
 import Data.Proxy (Proxy(..))
 import GHC.TypeLits (KnownNat,natVal)
-import Data.Finite (Finite)
 #endif
+import Data.Finite (Finite)
 import Data.Vector.Sized (Vector)
 
 import ConCat.Misc
@@ -95,6 +97,7 @@ import ConCat.Category
   -- Functor-level. To be removed.
   , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat
   , DistributiveCat,RepresentableCat 
+  , KnownNat2, FiniteCat
   , fmap', liftA2' 
   )
 
@@ -949,6 +952,12 @@ collectC f = distribute . fmap f
 {-# INLINE collectC #-}
 
 Catify(collect, collectC)
+
+Op0(finite       , (FiniteCat k, KnownNat2 a m, a + 1 <= m) => Proxy a `k` Finite m)
+Op0(combineSum   , (FiniteCat k, KnownNat2 m n) => (Finite m :+ Finite n) `k` Finite (m + n))
+Op0(separateSum  , (FiniteCat k, KnownNat2 m n) => Finite (m + n) `k` (Finite m :+ Finite n))
+Op0(combineProd  , (FiniteCat k, KnownNat2 m n) => (Finite m :* Finite n) `k` Finite (m * n))
+Op0(separateProd , (FiniteCat k, KnownNat2 m n) => Finite (m * n) `k` (Finite m :* Finite n))
 
 {-# RULES
 
