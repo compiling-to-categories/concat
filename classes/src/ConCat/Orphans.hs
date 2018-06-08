@@ -29,8 +29,10 @@ import Data.Key
 import Data.Pointed
 -- import Data.Copointed
 -- import Control.Comonad.Cofree
---import Data.Distributive (Distributive(..))
---import Data.Functor.Rep (Representable(..),distributeRep)
+#if  !MIN_VERSION_vector_sized(1,0,1)
+import Data.Distributive (Distributive(..))
+import Data.Functor.Rep (Representable(..),distributeRep)
+#endif
 -- import qualified Data.Functor.Rep as Rep
 
 -- import Data.Stream (Stream(..))
@@ -48,7 +50,8 @@ import ConCat.Misc ((:*),(:+),inNew2) -- ,inNew
 
 {--------------------------------------------------------------------
     GHC.Generics and keys
---------------------------------------------------------------------}
+-------------------------------------------------------------------
+-}
 
 -- Key
 
@@ -182,7 +185,8 @@ instance (Adjustable g, Adjustable f) => Adjustable (g :.: f) where
 
 {--------------------------------------------------------------------
     GHC.Generics and pointed
---------------------------------------------------------------------}
+-------------------------------------------------------------------
+-}
 
 instance Pointed U1 where
   point = const U1
@@ -221,7 +225,8 @@ instance Copointed (Cofree f) where
 
 {--------------------------------------------------------------------
     Control.Newtype and keys
---------------------------------------------------------------------}
+-------------------------------------------------------------------
+-}
 
 instance Newtype (Par1 t) where
   type O (Par1 t) = t
@@ -256,7 +261,8 @@ eitherF _ g (R1 b) = g b
 #if 0
 {--------------------------------------------------------------------
     Data.Stream
---------------------------------------------------------------------}
+-------------------------------------------------------------------
+-}
 
 instance Pointed Stream where point   = pure
 instance Zip     Stream where zipWith = liftA2
@@ -268,7 +274,8 @@ instance Foldable Stream where
 
 {--------------------------------------------------------------------
     Pretty
---------------------------------------------------------------------}
+-------------------------------------------------------------------
+-}
 
 instance Pretty (U1 a) where
   pPrintPrec _ _ U1 = text "U1"
@@ -294,7 +301,8 @@ appPrec = 10
 
 {--------------------------------------------------------------------
     Distributive
---------------------------------------------------------------------}
+-------------------------------------------------------------------
+-}
 
 #if 0
 
@@ -302,7 +310,8 @@ appPrec = 10
 
 {--------------------------------------------------------------------
     Representable
---------------------------------------------------------------------}
+-------------------------------------------------------------------
+-}
 
 instance Representable U1 where
   type Rep U1 = Void
@@ -335,18 +344,20 @@ instance (Representable g, Representable f) => Representable (g :.: f) where
 
 {--------------------------------------------------------------------
     Monoids
---------------------------------------------------------------------}
+-------------------------------------------------------------------
+-}
 
 -- instance Zip Sum where zipWith f (Sum a) (Sum b) = Sum (f a b)
 -- instance Zip Product where zipWith f (Product a) (Product b) = Product (f a b)
 
 instance Zip Sum     where zipWith = inNew2
 instance Zip Product where zipWith = inNew2
-  
+
 
 {--------------------------------------------------------------------
     Vector (Sized)
---------------------------------------------------------------------}
+-------------------------------------------------------------------
+-}
 
 type instance Key (Vector n) = Finite n
 
@@ -401,7 +412,8 @@ pointV = V.replicate
 
 {--------------------------------------------------------------------
     Foldable for functions
---------------------------------------------------------------------}
+-------------------------------------------------------------------
+-}
 
 instance Foldable ((->) Void) where
   foldMap _ _ = mempty
