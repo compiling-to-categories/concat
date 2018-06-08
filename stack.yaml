@@ -1,6 +1,7 @@
 flags: {}
 packages:
 - inline
+- known
 - satisfy
 - classes
 - plugin
