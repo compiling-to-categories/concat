@@ -1,6 +1,6 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies, TypeOperators #-}
 {-# LANGUAGE FlexibleInstances, EmptyCase, LambdaCase #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE ScopedTypeVariables #-} -- experiment
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE TypeInType #-}
@@ -33,6 +33,7 @@ import Control.Applicative (WrappedMonad(..))
 import qualified GHC.Generics as G
 import Data.Complex (Complex(..))
 -- import GHC.TypeLits (KnownNat)
+import Data.Proxy
 
 import Data.Functor.Identity (Identity(..))
 import Control.Monad.Trans.Reader (ReaderT(..))
@@ -74,6 +75,12 @@ class HasRep a where
 -- abstRepr = abst . repr
 
 #define INLINES {-# INLINE repr #-};{-# INLINE abst #-}
+
+instance HasRep (Proxy a) where
+  type Rep (Proxy a) = ()
+  repr Proxy = ()
+  abst () = Proxy
+  INLINES
 
 instance HasRep (a,b,c) where
   type Rep (a,b,c) = ((a,b),c)
