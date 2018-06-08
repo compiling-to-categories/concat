@@ -70,9 +70,9 @@ install:
   - grep -Ev -- '^\s*--' ${HOME}/.cabal/config | grep -Ev '^\s*$'
   # - "printf 'packages: \"graphics\"\\n' > cabal.project"
   - cat cabal.project
-  - if [ -f "graphics/configure.ac" ]; then
-      (cd "graphics" && autoreconf -i);
-    fi
+  # - if [ -f "graphics/configure.ac" ]; then
+      # (cd "graphics" && autoreconf -i);
+    # fi
   - rm -f cabal.project.freeze
   - cabal new-build -w ${HC} ${TEST} ${BENCH} --project-file="cabal.project" --dep -j2 all
   - cabal new-build -w ${HC} --disable-tests --disable-benchmarks --project-file="cabal.project" --dep -j2 all
@@ -85,9 +85,9 @@ script:
   # test that source-distributions can be generated
   # - (cd "graphics" && cabal sdist)
   # - mv "graphics"/dist/concat-graphics-*.tar.gz ${DISTDIR}/
-  - cd ${DISTDIR} || false
-  - find . -maxdepth 1 -name '*.tar.gz' -exec tar -xvf '{}' \;
-  - "printf 'packages: concat-graphics-*/*.cabal\\n' > cabal.project"
+  # - cd ${DISTDIR} || false
+  # - find . -maxdepth 1 -name '*.tar.gz' -exec tar -xvf '{}' \;
+  # - "printf 'packages: concat-graphics-*/*.cabal\\n' > cabal.project"
   - cat cabal.project
   # this builds all libraries and executables (without tests/benchmarks)
   - cabal new-build -w ${HC} --disable-tests --disable-benchmarks all
@@ -97,7 +97,8 @@ script:
 
   # build & run tests, build benchmarks
   - cabal new-build -w ${HC} ${TEST} ${BENCH} all
-  - if [ "x$TEST" = "x--enable-tests" ]; then cabal new-test -w ${HC} ${TEST} ${BENCH} all; fi
+  - cabal new-test
+  # - if [ "x$TEST" = "x--enable-tests" ]; then cabal new-test -w ${HC} ${TEST} ${BENCH} all; fi
 
   # cabal check
   # - (cd concat-graphics-* && cabal check)
