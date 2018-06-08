@@ -986,7 +986,7 @@ instance KnownNat i => OkFunctor (:>) (Vector i) where
   okFunctor = Entail (Sub Dict)
 
 #ifdef WithArr
-instance HasFin a => OkFunctor (:>) (Arr a) where
+instance HasFin' a => OkFunctor (:>) (Arr a) where
   okFunctor = Entail (Sub Dict)
 #endif
 
@@ -1737,13 +1737,13 @@ instance (IfCat (:>) a, IfCat (:>) b) => IfCat (:>) (a :* b) where
 instance FiniteCat (:>) where
   finite = namedC "finite"
   combineSum :: forall m n. KnownNat2 m n => (Finite m :+ Finite n) :> Finite (m + n)
-  combineSum = namedC "combineSum" \\ knowAdd @m @n
+  combineSum = namedC "combineSum" \\ knownAdd @m @n
   separateSum :: forall m n. KnownNat2 m n => Finite (m + n) :> (Finite m :+ Finite n)
-  separateSum = namedC "separateSum" \\ knowAdd @m @n
+  separateSum = namedC "separateSum" \\ knownAdd @m @n
   combineProd :: forall m n. KnownNat2 m n => (Finite m :* Finite n) :> Finite (m * n)
-  combineProd = namedC "combineProd" \\ knowMul @m @n
+  combineProd = namedC "combineProd" \\ knownMul @m @n
   separateProd :: forall m n. KnownNat2 m n => Finite (m * n) :> (Finite m :* Finite n)
-  separateProd = namedC "separateProd" \\ knowMul @m @n
+  separateProd = namedC "separateProd" \\ knownMul @m @n
 
 -- Without these entailments, we get "Could not deduce KnownNat (m + n)." Needs
 -- -fplugin GHC.TypeLits.KnownNat.Solver, but then this module will always
