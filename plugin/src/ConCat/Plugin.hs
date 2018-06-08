@@ -644,6 +644,8 @@ ccc (CccEnv {..}) (Ops {..}) cat =
               tweak e' = e'
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
               compatNoOccInfo = noOccInfo
+#else
+              compatNoOccInfo = NoOccInfo
 #endif
           in
             -- Note top-down (everywhere') instead of bottom-up (everywhere)
@@ -1696,7 +1698,10 @@ install opts todos =
      if hscTarget dflags == HscInterpreted then
         return todos
       else
-       do reinitializeGlobals
+       do
+#if !MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+          reinitializeGlobals
+#endif
           hsc_env <- getHscEnv
           pkgFamEnv <- getPackageFamInstEnv
           env <- mkCccEnv opts
