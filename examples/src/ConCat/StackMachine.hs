@@ -1,4 +1,5 @@
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE RankNTypes #-}
@@ -24,26 +25,47 @@ import ConCat.Misc ((:*))
 import qualified ConCat.Category as C
 import ConCat.AltCat
 
-newtype SM a b = SM (forall z. a :* z -> b :* z)
+newtype SM k a b = SM (forall z. Ok k z => (a :* z) `k` (b :* z))
 
-pureSM :: (a -> b) -> SM a b
+pureSM :: (MonoidalPCat k, Ok2 k a b) => (a `k` b) -> SM k a b
 pureSM f = SM (first f)
 
-evalSM :: SM a b -> (a -> b)
+evalSM :: SM (->) a b -> (a -> b)
 evalSM (SM f) a = b where (b,()) = f (a,())
+
+-- TODO: generalize evalSM via categorical language.
 
 -- TODO: Generalize SM to take a category parameter, generalizing (->).
 
 -- TODO: Specify and derive the following instances by saying that pureSM or
 -- evalSM is a homomorphism for the classes involved.
 
-instance Category SM where
+instance MonoidalPCat k => Category (SM k) where
+  type Ok (SM k) = Ok k
   id = pureSM id
-  SM g . SM f = SM (g . f)
+  (.) :: forall a b c. Ok3 k a b c => SM k b c -> SM k a b -> SM k a c
+  SM (g :: forall z. Ok k z => (b :* z) `k` (c :* z))
+   . SM (f :: forall z. Ok k z => (a :* z) `k` (b :* z)) = SM h
+   where
+     h :: forall z. Ok k z => (a :* z) `k` (c :* z)
+     h = g . f
+         <+ okProd @k @a @z
+         <+ okProd @k @b @z
+         <+ okProd @k @c @z
 
-instance MonoidalPCat SM where
-  SM f *** SM g = SM (inRassocP' g . inRassocP' f)
-  -- (***) :: forall a b c d. SM a c -> SM b d -> SM (a :* b) (c :* d)
+instance ProductCat k => MonoidalPCat (SM k) where
+  first :: forall a b c. Ok3 k a b c => SM k a c -> SM k (a :* b) (c :* b)
+  first (SM f) = SM (first f)
+                 <+ okProd @k @a @b
+                 <+ okProd @k @c @b
+  second :: forall a b d. Ok3 k a b d => SM k b d -> SM k (a :* b) (a :* d)
+  second g = swapP . first g . swapP
+  (***) :: forall a b c d. Ok4 k a b c d => SM k a c -> SM k b d -> SM k (a :* b) (c :* d)
+  f *** g = second g . first f
+            <+ okProd @k @a @b
+            <+ okProd @k @c @b
+            <+ okProd @k @c @d
+
   -- SM f *** SM g = SM h
   --  where
   --    h :: forall z. (a :* b) :* z -> (c :* d) :* z
@@ -52,8 +74,24 @@ instance MonoidalPCat SM where
   --       (c,(b' ,z' )) = f (a ,(b,z ))
   --       (d,(c'',z'')) = g (b',(c,z'))
 
-inRassocP' :: (a :* (b :* z) -> c :* (b :* z)) -> ((a :* b) :* z -> (b :* c) :* z)
-inRassocP' f = first swapP . lassocP . f . rassocP
+-- TODO: Add BraidedCat with swapP, and weaken the precondition in the
+-- MonoidalPCat (SM k) instance above from ProductCat to BraidedCat.
+
+-- instance MonoidalPCat k => MonoidalPCat (SM k) where
+--   (***) :: forall a b c d. Ok4 k a b c d => SM k a c -> SM k b d -> SM k (a :* b) (c :* d)
+--   SM (f :: forall z. Ok k z => (a :* z) `k` (c :* z))
+--    *** SM (g :: forall z. Ok k z => (b :* z) `k` (d :* z))
+--    = SM (inRassocP' g . inRassocP' f)
+--   -- SM f *** SM g = SM h
+--   --  where
+--   --    h :: forall z. (a :* b) :* z -> (c :* d) :* z
+--   --    h ((a,b),z) = ((c'',d),z'')
+--   --     where
+--   --       (c,(b' ,z' )) = f (a ,(b,z ))
+--   --       (d,(c'',z'')) = g (b',(c,z'))
+
+-- inRassocP' :: ((a :* (b :* z)) `k` (c :* (b :* z))) -> (((a :* b) :* z) `k` ((b :* c) :* z))
+-- inRassocP' f = first swapP . lassocP . f . rassocP
 
 -- inRassocP' f = first swapP . inRassocP f
 
@@ -61,17 +99,23 @@ inRassocP' f = first swapP . lassocP . f . rassocP
 -- f       :: a :* (b :* z) -> c :* (b :* z)
 -- lassocP :: c :* (b :* z) -> (c :* b) :* z
 
-instance ProductCat SM where
-  exl = pureSM exl
-  exr = pureSM exr
-  dup = pureSM dup
+instance ProductCat k => ProductCat (SM k) where
+  exl :: forall a b. Ok2 k a b => SM k (a :* b) a
+  exl = pureSM exl <+ okProd @k @a @b
+  exr :: forall a b. Ok2 k a b => SM k (a :* b) b
+  exr = pureSM exr <+ okProd @k @a @b
+  dup :: forall a. Ok k a => SM k a (a :* a)
+  dup = pureSM dup <+ okProd @k @a @a
 
-instance Num a => NumCat SM a where
+instance (MonoidalPCat k, NumCat k a) => NumCat (SM k) a where
+  negateC :: Ok k a => SM k a a
+  addC,subC,mulC :: Ok k a => SM k (a :* a) a
+  powIC :: Ok2 k a Int => SM k (a :* Int) a
   negateC = pureSM negateC
-  addC    = pureSM addC
-  subC    = pureSM subC
-  mulC    = pureSM mulC
-  powIC   = pureSM powIC
+  addC    = pureSM addC  <+ okProd @k @a @a
+  subC    = pureSM subC  <+ okProd @k @a @a
+  mulC    = pureSM mulC  <+ okProd @k @a @a
+  powIC   = pureSM powIC <+ okProd @k @a @Int
 
 #if 0
 
