@@ -10,6 +10,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE MonoLocalBinds #-} -- see below
 
 {-# OPTIONS_GHC -Wall #-}
 -- {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
@@ -74,6 +75,11 @@ v ^/ s = recip s *^ v
 normalize :: (Summable a, Fractional s, Additive s) => Unop (a s)
 normalize v = v ^/ sumA v
 {-# INLINE normalize #-}
+
+-- The constraint ‘Summable a’ matches an instance declaration
+-- instance SummableF h => Summable h -- Defined in ‘ConCat.Additive’
+-- This makes type inference for inner bindings fragile;
+--   either use MonoLocalBinds, or simplify it using the instance
 
 -- | Inner product
 dotV,(<.>) :: (Summable a, Additive s, Num s) => a s -> a s -> s
