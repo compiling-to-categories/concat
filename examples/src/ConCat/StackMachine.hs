@@ -42,21 +42,15 @@ instance Category SM where
   SM g . SM f = SM (g . f)
 
 instance MonoidalPCat SM where
-  -- SM f *** SM g = SM (inRassocP' g . inRassocP' f)
-  (***) :: forall a b c d. SM a c -> SM b d -> SM (a :* b) (c :* d)
-  SM f *** SM g = SM h
-   where
-     h :: forall z. (a :* b) :* z -> (c :* d) :* z
-
-     -- h ((a,b),z) = ((c,d),z'')
-     --  where
-     --    (c,z' ) = f (a,z)
-     --    (d,z'') = g (b,z')
-
-     h ((a,b),z) = ((c'',d),z'')
-      where
-        (c,(b' ,z' )) = f (a ,(b,z ))
-        (d,(c'',z'')) = g (b',(c,z'))
+  SM f *** SM g = SM (inRassocP' g . inRassocP' f)
+  -- (***) :: forall a b c d. SM a c -> SM b d -> SM (a :* b) (c :* d)
+  -- SM f *** SM g = SM h
+  --  where
+  --    h :: forall z. (a :* b) :* z -> (c :* d) :* z
+  --    h ((a,b),z) = ((c'',d),z'')
+  --     where
+  --       (c,(b' ,z' )) = f (a ,(b,z ))
+  --       (d,(c'',z'')) = g (b',(c,z'))
 
 inRassocP' :: (a :* (b :* z) -> c :* (b :* z)) -> ((a :* b) :* z -> (b :* c) :* z)
 inRassocP' f = first swapP . lassocP . f . rassocP
