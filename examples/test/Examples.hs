@@ -221,8 +221,8 @@ main = sequence_ [
   -- , runSynCirc "foo" $ toCcc $ sum @(Arr (Bool :* ())) @Int -- okay
   -- , runSynCirc "foo" $ toCcc $ sum @(Arr (Bool :* (Bool :* ()))) @Int -- okay
 
-  , runSynCirc "sum-flat-rbin-3" $ toCcc $ sum @(Flat (RBin N3)) @Int -- okay
-  , runSynCirc "sum-flat-lbin-3" $ toCcc $ sum @(Flat (LBin N3)) @Int -- okay
+  -- , runSynCirc "sum-flat-rbin-3" $ toCcc $ sum @(Flat (RBin N3)) @Int -- okay
+  -- , runSynCirc "sum-flat-lbin-3" $ toCcc $ sum @(Flat (LBin N3)) @Int -- okay
 
   -- , runSynCirc "fmap-rbin-4" $ toCcc $ fmap @(Flat (LBin N4)) not -- 
 
@@ -312,18 +312,18 @@ main = sequence_ [
     -- , runSynCirc "addR" $ toCcc $ (^+^) @R
 
   -- -- Circuit graphs
-  -- , runSynCirc "add"         $ toCcc $ (+) @R
-  -- , runSynCirc "add-uncurry" $ toCcc $ uncurry ((+) @R)
-  -- , runSynCirc "dup"         $ toCcc $ A.dup @(->) @R
-  -- , runSynCirc "fst"         $ toCcc $ fst @R @R
-  -- , runSynCirc "twice"       $ toCcc $ twice @R
-  -- , runSynCirc "sqr"         $ toCcc $ sqr @R
-  -- , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  -- , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  -- , runSynCirc "cosSinProd"  $ toCcc $ cosSinProd @R
-  -- , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  -- , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  , runSynCirc "add"         $ toCcc $ (+) @R -- 
+  , runSynCirc "add-uncurry" $ toCcc $ uncurry ((+) @R)
+  , runSynCirc "dup"         $ toCcc $ A.dup @(->) @R
+  , runSynCirc "fst"         $ toCcc $ fst @R @R
+  , runSynCirc "twice"       $ toCcc $ twice @R
+  , runSynCirc "sqr"         $ toCcc $ sqr @R
+  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
+  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
+  , runSynCirc "cosSinProd"  $ toCcc $ cosSinProd @R
+  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
+  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
   -- -- Automatic differentiation with ADFun:
 
