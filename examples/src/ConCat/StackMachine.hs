@@ -26,85 +26,58 @@ import ConCat.AltCat
 
 newtype SM a b = SM (forall z. a :* z -> b :* z)
 
-pureM :: (a -> b) -> SM a b
-pureM f = SM (first f)
+pureSM :: (a -> b) -> SM a b
+pureSM f = SM (first f)
 
 evalSM :: SM a b -> (a -> b)
 evalSM (SM f) a = b where (b,()) = f (a,())
 
 -- TODO: Generalize SM to take a category parameter, generalizing (->).
 
--- instance Newtype (SM a b) where
---   type O (SM a b) = forall z. a :* z -> b :* z  -- "illegal polymorphic type"
---   pack f = SM f
---   unpack (SM f) = f
-
-unSM :: SM a b -> (forall z. a :* z -> b :* z)
-unSM (SM f) = f
-
-inSM :: ((forall z. a :* z -> b :* z) -> (forall z. c :* z -> d :* z))
-     -> SM a b -> SM c d
-inSM q (SM f) = SM (q f)
-
-inSM2 :: ((forall z. a :* z -> b :* z) -> (forall z. c :* z -> d :* z) -> (forall z. e :* z -> f :* z))
-      -> SM a b -> SM c d -> SM e f
-inSM2 q (SM f) (SM g) = SM (q f g)
-
--- TODO: Specify and derive the following instances by saying that pureM or
+-- TODO: Specify and derive the following instances by saying that pureSM or
 -- evalSM is a homomorphism for the classes involved.
 
 instance Category SM where
-  id = pureM id
-  -- SM g . SM f = SM (g . f)
-  (.) = inSM2 (.)
+  id = pureSM id
+  SM g . SM f = SM (g . f)
 
 instance MonoidalPCat SM where
+  -- SM f *** SM g = SM (inRassocP' g . inRassocP' f)
   (***) :: forall a b c d. SM a c -> SM b d -> SM (a :* b) (c :* d)
+  SM f *** SM g = SM h
+   where
+     h :: forall z. (a :* b) :* z -> (c :* d) :* z
 
-  -- SM f *** SM g = SM h
-  --  where
-  --    h :: forall z. (a :* b) :* z -> (c :* d) :* z
-  --    h ((a,b),z) = ((c'',d),z'')
-  --     where
-  --       (c,(b' ,z' )) = f (a ,(b,z ))
-  --       (d,(c'',z'')) = g (b',(c,z'))
+     -- h ((a,b),z) = ((c,d),z'')
+     --  where
+     --    (c,z' ) = f (a,z)
+     --    (d,z'') = g (b,z')
 
-  -- SM f *** SM g = SM (first swapP . lassocP . g . swapP' . f . rassocP)
-
-  -- SM f *** SM g = SM (first swapP . lassocP . g . rassocP . first swapP . lassocP . f . rassocP)
-
-  -- SM f *** SM g = SM (first swapP . inRassocP g . first swapP . inRassocP f)
-
-  SM f *** SM g = SM (inRassocP' g . inRassocP' f)
-
-  -- (***) = inSM2 $ \ f g -> inRassocP' g . inRassocP' f
-
-  -- (***) = inSM2 $ \ f g -> \ ((a,b),z) ->
-  --           let (c,(b' ,z' )) = f (a ,(b,z ))
-  --               (d,(c'',z'')) = g (b',(c,z'))
-  --           in
-  --             ((c'',d),z'')
+     h ((a,b),z) = ((c'',d),z'')
+      where
+        (c,(b' ,z' )) = f (a ,(b,z ))
+        (d,(c'',z'')) = g (b',(c,z'))
 
 inRassocP' :: (a :* (b :* z) -> c :* (b :* z)) -> ((a :* b) :* z -> (b :* c) :* z)
 inRassocP' f = first swapP . lassocP . f . rassocP
+
 -- inRassocP' f = first swapP . inRassocP f
 
 -- rassocP :: (a :* b) :* z -> a :* (b :* z)
 -- f       :: a :* (b :* z) -> c :* (b :* z)
 -- lassocP :: c :* (b :* z) -> (c :* b) :* z
-           
 
 instance ProductCat SM where
-  exl = pureM exl
-  exr = pureM exr
-  dup = pureM dup
+  exl = pureSM exl
+  exr = pureSM exr
+  dup = pureSM dup
 
 instance Num a => NumCat SM a where
-  negateC = pureM negateC
-  addC    = pureM addC
-  subC    = pureM subC
-  mulC    = pureM mulC
-  powIC   = pureM powIC
+  negateC = pureSM negateC
+  addC    = pureSM addC
+  subC    = pureSM subC
+  mulC    = pureSM mulC
+  powIC   = pureSM powIC
 
 #if 0
 
