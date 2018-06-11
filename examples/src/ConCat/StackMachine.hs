@@ -21,7 +21,7 @@ import Prelude hiding (id,(.),curry,uncurry)
 
 import Control.Newtype.Generics
 
-import ConCat.Misc ((:*))
+import ConCat.Misc ((:*),(:+))
 import qualified ConCat.Category as C
 import ConCat.AltCat
 
@@ -30,12 +30,11 @@ newtype SM k a b = SM (forall z. Ok k z => (a :* z) `k` (b :* z))
 pureSM :: (MonoidalPCat k, Ok2 k a b) => (a `k` b) -> SM k a b
 pureSM f = SM (first f)
 
-evalSM :: SM (->) a b -> (a -> b)
-evalSM (SM f) a = b where (b,()) = f (a,())
-
--- TODO: generalize evalSM via categorical language.
-
--- TODO: Generalize SM to take a category parameter, generalizing (->).
+evalSM :: forall k a b. (ProductCat k, TerminalCat k, Ok2 k a b)
+       => SM k a b -> (a `k` b)
+evalSM (SM f) = exl . f . runit
+                <+ okProd @k @a @()
+                <+ okProd @k @b @()
 
 -- TODO: Specify and derive the following instances by saying that pureSM or
 -- evalSM is a homomorphism for the classes involved.
@@ -43,9 +42,9 @@ evalSM (SM f) a = b where (b,()) = f (a,())
 instance MonoidalPCat k => Category (SM k) where
   type Ok (SM k) = Ok k
   id = pureSM id
+  -- SM g . SM f = SM (g . f)
   (.) :: forall a b c. Ok3 k a b c => SM k b c -> SM k a b -> SM k a c
-  SM (g :: forall z. Ok k z => (b :* z) `k` (c :* z))
-   . SM (f :: forall z. Ok k z => (a :* z) `k` (b :* z)) = SM h
+  SM g . SM f = SM h
    where
      h :: forall z. Ok k z => (a :* z) `k` (c :* z)
      h = g . f
@@ -58,53 +57,15 @@ instance ProductCat k => MonoidalPCat (SM k) where
   first (SM f) = SM (first f)
                  <+ okProd @k @a @b
                  <+ okProd @k @c @b
-  second :: forall a b d. Ok3 k a b d => SM k b d -> SM k (a :* b) (a :* d)
-  second g = swapP . first g . swapP
-  (***) :: forall a b c d. Ok4 k a b c d => SM k a c -> SM k b d -> SM k (a :* b) (c :* d)
-  f *** g = second g . first f
-            <+ okProd @k @a @b
-            <+ okProd @k @c @b
-            <+ okProd @k @c @d
-
-  -- SM f *** SM g = SM h
-  --  where
-  --    h :: forall z. (a :* b) :* z -> (c :* d) :* z
-  --    h ((a,b),z) = ((c'',d),z'')
-  --     where
-  --       (c,(b' ,z' )) = f (a ,(b,z ))
-  --       (d,(c'',z'')) = g (b',(c,z'))
-
--- TODO: Add BraidedCat with swapP, and weaken the precondition in the
--- MonoidalPCat (SM k) instance above from ProductCat to BraidedCat.
-
--- instance MonoidalPCat k => MonoidalPCat (SM k) where
---   (***) :: forall a b c d. Ok4 k a b c d => SM k a c -> SM k b d -> SM k (a :* b) (c :* d)
---   SM (f :: forall z. Ok k z => (a :* z) `k` (c :* z))
---    *** SM (g :: forall z. Ok k z => (b :* z) `k` (d :* z))
---    = SM (inRassocP' g . inRassocP' f)
---   -- SM f *** SM g = SM h
---   --  where
---   --    h :: forall z. (a :* b) :* z -> (c :* d) :* z
---   --    h ((a,b),z) = ((c'',d),z'')
---   --     where
---   --       (c,(b' ,z' )) = f (a ,(b,z ))
---   --       (d,(c'',z'')) = g (b',(c,z'))
-
--- inRassocP' :: ((a :* (b :* z)) `k` (c :* (b :* z))) -> (((a :* b) :* z) `k` ((b :* c) :* z))
--- inRassocP' f = first swapP . lassocP . f . rassocP
-
--- inRassocP' f = first swapP . inRassocP f
-
--- rassocP :: (a :* b) :* z -> a :* (b :* z)
--- f       :: a :* (b :* z) -> c :* (b :* z)
--- lassocP :: c :* (b :* z) -> (c :* b) :* z
+  second = secondFirst
+  (***) = crossSecondFirst
 
 instance ProductCat k => ProductCat (SM k) where
   exl :: forall a b. Ok2 k a b => SM k (a :* b) a
-  exl = pureSM exl <+ okProd @k @a @b
   exr :: forall a b. Ok2 k a b => SM k (a :* b) b
-  exr = pureSM exr <+ okProd @k @a @b
   dup :: forall a. Ok k a => SM k a (a :* a)
+  exl = pureSM exl <+ okProd @k @a @b
+  exr = pureSM exr <+ okProd @k @a @b
   dup = pureSM dup <+ okProd @k @a @a
 
 instance (MonoidalPCat k, NumCat k a) => NumCat (SM k) a where
@@ -116,6 +77,44 @@ instance (MonoidalPCat k, NumCat k a) => NumCat (SM k) a where
   subC    = pureSM subC  <+ okProd @k @a @a
   mulC    = pureSM mulC  <+ okProd @k @a @a
   powIC   = pureSM powIC <+ okProd @k @a @Int
+
+-- To do: write a GHC type-checker plugin that automatically applies `okProd`
+-- and `okCoprod` entailments. Probably wait until the spurious recompilation
+-- issue is fixed and I'm on a current GHC.
+
+instance DistribCat k => MonoidalSCat (SM k) where
+  -- SM f +++ SM g = SM (indistr (f +++ g))
+  (+++) :: forall a b c d. Ok4 k a b c d => SM k a c -> SM k b d -> SM k (a :+ b) (c :+ d)
+  SM f +++ SM g = SM h
+   where
+     h :: forall z. Ok k z => ((a :+ b) :* z) `k` ((c :+ d) :* z)
+     h = indistr (f +++ g)
+         <+ okProd @k @a @z <+ okProd @k @b @z
+         <+ okProd @k @c @z <+ okProd @k @d @z
+
+  -- left :: forall a b c. Ok3 k a b c => SM k a c -> SM k (a :+ b) (c :+ b)
+  -- left (SM f) = SM h
+  --  where
+  --    h :: forall z. Ok k z => ((a :+ b) :* z) `k` ((c :+ b) :* z)
+  --    h = indistr (left f)
+  --        <+ okProd @k @a @z <+ okProd @k @b @z <+ okProd @k @c @z
+
+  -- (+++) = plusRightLeft
+  -- right = rightLeft
+
+-- The validity of this (+++) definition (as a homomorphism) relies on the following:
+-- 
+--   first (f +++ g) = indistr (first f +++ first g)
+-- 
+-- See proof in 2018-06-11 notes.
+
+instance DistribCat k => CoproductCat (SM k) where
+  inl :: forall a b. Ok2 k a b => SM k a (a :+ b)
+  inr :: forall a b. Ok2 k a b => SM k b (a :+ b)
+  jam :: forall a. Ok k a => SM k (a :+ a) a
+  inl = pureSM inl <+ okCoprod @k @a @b
+  inr = pureSM inr <+ okCoprod @k @a @b
+  jam = pureSM jam <+ okCoprod @k @a @a
 
 #if 0
 
