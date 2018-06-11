@@ -624,6 +624,14 @@ class (OkCoprod k, Category k) => MonoidalSCat k where
   f +++ g = inl . f ||| inr . g
             <+ okCoprod @k @a @b
   {-# INLINE (+++) #-}
+  left  :: forall a a' b. Oks k [a,b,a']
+        => (a `k` a') -> (Coprod k a b `k` Coprod k a' b)
+  left  = (+++ id)
+  {-# INLINE left #-}
+  right :: forall a b b'. Oks k [a,b,b']
+        => (b `k` b') -> (Coprod k a b `k` Coprod k a b')
+  right = (id +++)
+  {-# INLINE right #-}
 
 -- | Category with coproduct.
 class MonoidalSCat k => CoproductCat k where
@@ -647,14 +655,6 @@ class MonoidalSCat k => CoproductCat k where
           <+ okCoprod @k @c @d
   {-# INLINE (|||) #-}
 #endif
-  left  :: forall a a' b. Oks k [a,b,a']
-        => (a `k` a') -> (Coprod k a b `k` Coprod k a' b)
-  left  = (+++ id)
-  {-# INLINE left #-}
-  right :: forall a b b'. Oks k [a,b,b']
-        => (b `k` b') -> (Coprod k a b `k` Coprod k a b')
-  right = (id +++)
-  {-# INLINE right #-}
   lassocS :: forall a b c. Oks k [a,b,c]
           => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c
   lassocS = inl.inl ||| (inl.inr ||| inr)
@@ -681,6 +681,8 @@ class MonoidalSCat k => CoproductCat k where
 
 instance MonoidalSCat (->) where
   (+++) = (A.+++)
+  left  = A.left
+  right = A.right
 
 instance CoproductCat (->) where
 #ifndef DefaultCat
@@ -688,8 +690,6 @@ instance CoproductCat (->) where
   inl   = Left
   inr   = Right
   (|||) = (A.|||)
-  left  = A.left
-  right = A.right
 #endif
 
 -- TODO: do we want inline for (|||), (+++), left, and right?
@@ -724,6 +724,10 @@ instance CoproductCat U2 where
 instance (MonoidalSCat k, MonoidalSCat k') => MonoidalSCat (k :**: k') where
   (f :**: f') +++ (g :**: g') = (f +++ g) :**: (f' +++ g')
   PINLINER((+++))
+  left (f :**: f') = left f :**: left f'
+  right (f :**: f') = right f :**: right f'
+  PINLINER(left)
+  PINLINER(right)
 
 instance (CoproductCat k, CoproductCat k') => CoproductCat (k :**: k') where
   inl = inl :**: inl
@@ -731,16 +735,12 @@ instance (CoproductCat k, CoproductCat k') => CoproductCat (k :**: k') where
   (f :**: f') ||| (g :**: g') = (f ||| g) :**: (f' ||| g')
   jam = jam :**: jam
   swapS = swapS :**: swapS
-  left (f :**: f') = left f :**: left f'
-  right (f :**: f') = right f :**: right f'
   lassocS = lassocS :**: lassocS
   rassocS = rassocS :**: rassocS
   PINLINER(inl)
   PINLINER(inr)
   PINLINER((|||))
   PINLINER(swapS)
-  PINLINER(left)
-  PINLINER(right)
   PINLINER(lassocS)
   PINLINER(rassocS)
 
@@ -979,26 +979,6 @@ instance (DistribCat k, DistribCat k') => DistribCat (k :**: k') where
   distr = distr :**: distr
   PINLINER(distl)
   PINLINER(distr)
-
--- | Inverse to 'distl': @(a * u) + (a * v) --> a * (u + v)@
-undistl :: forall k a u v. (ProductCat k, CoproductCat k, Oks k [a,u,v])
-        => Coprod k (Prod k a u) (Prod k a v) `k` Prod k a (Coprod k u v)
-undistl = (exl ||| exl) &&& (exr +++ exr)
-  <+ okCoprod @k @(Prod k a u) @(Prod k a v)
-  <+ okProd   @k @a @u
-  <+ okProd   @k @a @v
-  <+ okCoprod @k @u @v
-{-# INLINE undistl #-}
-
--- | Inverse to 'distr': @(u * b) + (v * b) --> (u + v) * b@
-undistr :: forall k u v b. (ProductCat k, CoproductCat k, Oks k [u,v,b])
-        => Coprod k (Prod k u b) (Prod k v b) `k` Prod k (Coprod k u v) b
-undistr = (exl +++ exl) &&& (exr ||| exr)
-  <+ okCoprod @k @(Prod k u b) @(Prod k v b)
-  <+ okCoprod @k @u @v
-  <+ okProd   @k @u @b
-  <+ okProd   @k @v @b
-{-# INLINE undistr #-}
 
 {--------------------------------------------------------------------
     Exponentials
@@ -1613,7 +1593,7 @@ instance (EnumCat k a, EnumCat k' a) => EnumCat (k :**: k') a where
 class Ok k a => NumCat k a where
   negateC :: a `k` a
   addC, subC, mulC :: Prod k a a `k` a
-  powIC :: Prod k a Int `k` a
+  powIC :: Ok k Int => Prod k a Int `k` a
   default subC :: ProductCat k => Prod k a a `k` a
   subC = addC . second negateC <+ okProd @k @a @a
   {-# INLINE subC #-}

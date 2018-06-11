@@ -78,7 +78,7 @@ import ConCat.Category
   , MonoidalSCat, CoproductPCat, CoprodP, ScalarCat, LinearCat
   , OkIxProd(..), IxMonoidalPCat, IxProductCat, IxCoproductPCat
   -- , OkIxCoprod(..), IxMonoidalSCat, IxCoproductCat
-  , DistribCat, undistl, undistr
+  , DistribCat
   , ClosedCat, Exp
   , TerminalCat, Unit{-, lunit, runit, constFun-}, CoterminalCat, Counit, constFun2, unitFun, unUnitFun
   , ConstCat, ConstObj, lconst, rconst
@@ -132,6 +132,23 @@ Ip2(***,forall k a b c d. (MonoidalPCat k, Ok4 k a b c d) => (a `k` c) -> (b `k`
 Op1(first,forall k a aa b. (MonoidalPCat k, Ok3 k a b aa) => (a `k` aa) -> (Prod k a b `k` Prod k aa b))
 Op1(second,forall k a b bb. (MonoidalPCat k, Ok3 k a b bb) => (b `k` bb) -> (Prod k a b `k` Prod k a bb))
 
+secondFirst :: forall k a b d. (ProductCat k, Ok3 k a b d) => b `k` d -> (a :* b) `k` (a :* d)
+secondFirst g = swapP . first g . swapP
+                <+ okProd @k @a @b
+                <+ okProd @k @b @a
+                <+ okProd @k @a @d
+                <+ okProd @k @d @a
+
+-- TODO: Add BraidedCat with swapP, and weaken the precondition in the
+-- in secondFirst from ProductCat to BraidedCat.
+
+crossSecondFirst :: forall k a b c d. (MonoidalPCat k, Ok4 k a b c d)
+                 => a `k` c -> b `k` d -> (a :* b) `k` (c :* d)
+f `crossSecondFirst` g = second g . first f
+                         <+ okProd @k @a @b
+                         <+ okProd @k @c @b
+                         <+ okProd @k @c @d
+
 Op0(exl,(ProductCat k, Ok2 k a b) => Prod k a b `k` a)
 Op0(exr,(ProductCat k, Ok2 k a b) => Prod k a b `k` b)
 Ip2(&&&,forall k a c d. (ProductCat k, Ok3 k a c d) => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d))
@@ -155,6 +172,21 @@ Op1(left ,forall k a aa b. (CoproductCat k, Ok3 k a b aa) => (a `k` aa) -> (Copr
 Op1(right,forall k a b bb. (CoproductCat k, Ok3 k a b bb) => (b `k` bb) -> (Coprod k a b `k` Coprod k a bb))
 Op1(lassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c)
 Op1(rassocS,forall k a b c. (CoproductCat k, Ok3 k a b c) => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c))
+
+rightLeft :: forall k a b d. (CoproductCat k, Ok3 k a b d) => b `k` d -> (a :+ b) `k` (a :+ d)
+rightLeft g = swapS . left g . swapS
+              <+ okCoprod @k @a @b
+              <+ okCoprod @k @b @a
+              <+ okCoprod @k @a @d
+              <+ okCoprod @k @d @a
+
+plusRightLeft :: forall k a b c d. (CoproductCat k, Ok4 k a b c d)
+                 => a `k` c -> b `k` d -> (a :+ b) `k` (c :+ d)
+f `plusRightLeft` g = right g . left f
+                      <+ okCoprod @k @a @b
+                      <+ okCoprod @k @c @b
+                      <+ okCoprod @k @c @d
+
 
 Op0(zeroC, forall k a b. (AbelianCat k, Ok2 k a b) => a `k` b)
 Op0(plusC, forall k a b. (AbelianCat k, Ok2 k a b) => Binop (a `k` b))
@@ -297,7 +329,7 @@ Op0(negateC,NumCat k a => a `k` a)
 Op0(addC,NumCat k a => Prod k a a `k` a)
 Op0(subC,NumCat k a => Prod k a a `k` a)
 Op0(mulC,NumCat k a => Prod k a a `k` a)
-Op0(powIC,NumCat k a => Prod k a Int `k` a)
+Op0(powIC,(NumCat k a, Ok k Int) => Prod k a Int `k` a)
 
 Op0(divC,IntegralCat k a => Prod k a a `k` a)
 Op0(modC,IntegralCat k a => Prod k a a `k` a)
@@ -1177,3 +1209,50 @@ unforkF :: forall k h a b. (IxProductCat k h, Functor h, Ok2 k a b)
 unforkF ahb = fmap (. ahb) exF  <+ okIxProd @k @h @b
 {-# INLINE unforkF #-}
 
+-- | Inverse to 'distl': @(a * u) + (a * v) --> a * (u + v)@
+undistl :: forall k a u v. (ProductCat k, CoproductCat k, Ok3 k a u v)
+        => Coprod k (Prod k a u) (Prod k a v) `k` Prod k a (Coprod k u v)
+undistl = (exl ||| exl) &&& (exr +++ exr)
+  <+ okCoprod @k @(Prod k a u) @(Prod k a v)
+  <+ okProd   @k @a @u
+  <+ okProd   @k @a @v
+  <+ okCoprod @k @u @v
+{-# INLINE undistl #-}
+
+-- | Inverse to 'distr': @(u * b) + (v * b) --> (u + v) * b@
+undistr :: forall k u v b. (ProductCat k, CoproductCat k, Ok3 k u v b)
+        => Coprod k (Prod k u b) (Prod k v b) `k` Prod k (Coprod k u v) b
+undistr = (exl +++ exl) &&& (exr ||| exr)
+  <+ okCoprod @k @(Prod k u b) @(Prod k v b)
+  <+ okCoprod @k @u @v
+  <+ okProd   @k @u @b
+  <+ okProd   @k @v @b
+{-# INLINE undistr #-}
+
+undistl' :: forall k a u v. (ProductCat k, CoproductCat k, Ok3 k a u v)
+         => ((a :* u) :+ (a :* v)) `k` (a :* (u :+ v))
+undistl' = second inl ||| second inr
+  <+ okProd @k @a @(u :+ v)
+  <+ okCoprod @k @u @v
+  <+ okProd @k @a @u <+ okProd @k @a @v
+{-# INLINE undistl' #-}
+
+undistr' :: forall k u v b. (ProductCat k, CoproductCat k, Ok3 k u v b)
+         => ((u :* b) :+ (v :* b)) `k` ((u :+ v) :* b)
+undistr' = first inl ||| first inr
+  <+ okProd @k @(u :+ v) @b
+  <+ okCoprod @k @u @v
+  <+ okProd @k @u @b <+ okProd @k @v @b
+{-# INLINE undistr' #-}
+
+indistr :: forall k a b c d w z. (DistribCat k, Ok6 k a b c d w z)
+        => (((a :* w) :+ (b :* w)) `k` ((c :* z) :+ (d :* z)))
+        -> (((a :+ b) :* w) `k` ((c :+ d) :* z))
+indistr f = undistr . f . distr
+  <+ okCoprod @k @(c :* z) @(d :* z)
+  <+ okProd @k @c @z <+ okProd @k @d @z
+  <+ okProd @k @(a :+ b) @w <+ okProd @k @(c :+ d) @z
+  <+ okCoprod @k @a @b <+ okCoprod @k @c @d
+  <+ okCoprod @k @(a :* w) @(b :* w)
+  <+ okProd @k @a @w <+ okProd @k @b @w
+{-# INLINE indistr #-}
