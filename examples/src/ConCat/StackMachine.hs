@@ -48,25 +48,49 @@ instance MonoidalPCat k => Category (SM k) where
    where
      h :: forall z. Ok k z => (a :* z) `k` (c :* z)
      h = g . f
-         <+ okProd @k @a @z
-         <+ okProd @k @b @z
-         <+ okProd @k @c @z
+       <+ okProd @k @a @z
+       <+ okProd @k @b @z
+       <+ okProd @k @c @z
 
 instance ProductCat k => MonoidalPCat (SM k) where
   first :: forall a b c. Ok3 k a b c => SM k a c -> SM k (a :* b) (c :* b)
   first (SM f) = SM (first f)
-                 <+ okProd @k @a @b
-                 <+ okProd @k @c @b
+    <+ okProd @k @a @b
+    <+ okProd @k @c @b
   second = secondFirst
   (***) = crossSecondFirst
 
 instance ProductCat k => ProductCat (SM k) where
   exl :: forall a b. Ok2 k a b => SM k (a :* b) a
   exr :: forall a b. Ok2 k a b => SM k (a :* b) b
-  dup :: forall a. Ok k a => SM k a (a :* a)
+  dup :: forall a  . Ok  k a   => SM k a (a :* a)
   exl = pureSM exl <+ okProd @k @a @b
   exr = pureSM exr <+ okProd @k @a @b
   dup = pureSM dup <+ okProd @k @a @a
+
+instance DistribCat k => MonoidalSCat (SM k) where
+  -- SM f +++ SM g = SM (indistr (f +++ g))
+  (+++) :: forall a b c d. Ok4 k a b c d => SM k a c -> SM k b d -> SM k (a :+ b) (c :+ d)
+  SM f +++ SM g = SM h
+   where
+     h :: forall z. Ok k z => ((a :+ b) :* z) `k` ((c :+ d) :* z)
+     h = indistr (f +++ g)
+         <+ okProd @k @a @z <+ okProd @k @b @z
+         <+ okProd @k @c @z <+ okProd @k @d @z
+
+-- The validity of this (+++) definition relies on the following fact:
+-- 
+--   first (f +++ g) = indistr (first f +++ first g)
+-- 
+-- See proof in 2018-06-11 notes.
+
+instance DistribCat k => CoproductCat (SM k) where
+  inl :: forall a b. Ok2 k a b => SM k a (a :+ b)
+  inr :: forall a b. Ok2 k a b => SM k b (a :+ b)
+  jam :: forall a. Ok k a => SM k (a :+ a) a
+  inl = pureSM inl <+ okCoprod @k @a @b
+  inr = pureSM inr <+ okCoprod @k @a @b
+  jam = pureSM jam <+ okCoprod @k @a @a
 
 instance (MonoidalPCat k, NumCat k a) => NumCat (SM k) a where
   negateC :: Ok k a => SM k a a
@@ -82,66 +106,38 @@ instance (MonoidalPCat k, NumCat k a) => NumCat (SM k) a where
 -- and `okCoprod` entailments. Probably wait until the spurious recompilation
 -- issue is fixed and I'm on a current GHC.
 
-instance DistribCat k => MonoidalSCat (SM k) where
-  -- SM f +++ SM g = SM (indistr (f +++ g))
-  (+++) :: forall a b c d. Ok4 k a b c d => SM k a c -> SM k b d -> SM k (a :+ b) (c :+ d)
-  SM f +++ SM g = SM h
-   where
-     h :: forall z. Ok k z => ((a :+ b) :* z) `k` ((c :+ d) :* z)
-     h = indistr (f +++ g)
-         <+ okProd @k @a @z <+ okProd @k @b @z
-         <+ okProd @k @c @z <+ okProd @k @d @z
-
-  -- left :: forall a b c. Ok3 k a b c => SM k a c -> SM k (a :+ b) (c :+ b)
-  -- left (SM f) = SM h
-  --  where
-  --    h :: forall z. Ok k z => ((a :+ b) :* z) `k` ((c :+ b) :* z)
-  --    h = indistr (left f)
-  --        <+ okProd @k @a @z <+ okProd @k @b @z <+ okProd @k @c @z
-
-  -- (+++) = plusRightLeft
-  -- right = rightLeft
-
--- The validity of this (+++) definition (as a homomorphism) relies on the following:
--- 
---   first (f +++ g) = indistr (first f +++ first g)
--- 
--- See proof in 2018-06-11 notes.
-
-instance DistribCat k => CoproductCat (SM k) where
-  inl :: forall a b. Ok2 k a b => SM k a (a :+ b)
-  inr :: forall a b. Ok2 k a b => SM k b (a :+ b)
-  jam :: forall a. Ok k a => SM k (a :+ a) a
-  inl = pureSM inl <+ okCoprod @k @a @b
-  inr = pureSM inr <+ okCoprod @k @a @b
-  jam = pureSM jam <+ okCoprod @k @a @a
-
-#if 0
-
 -- | Stack machine
-data Code :: * -> * -> * where
-  Nil  :: Code a a
-  (:<) :: Op a b -> Code b c -> Code a c
+data Code :: (* -> * -> *) -> (* -> * -> *) where
+  Nil  :: Ok  k a => Code k a a
+  (:<) :: Ok3 k a b c => Op k a b -> Code k b c -> Code k a c
 
-(++*) :: Code a b -> Code b c -> Code a c
+(++*) :: Ok3 k a b c => Code k a b -> Code k b c -> Code k a c
 (++*) Nil ops = ops
 (++*) (op :< ops) ops' = op :< (ops ++* ops')
 
-data Op :: * -> * -> * where
-  Add :: Num a => Op (a :* a) a
-  Negate :: Num a => Op a a
+data Op :: (* -> * -> *) -> (* -> * -> *) where
+  Add    :: NumCat k a => Op k (a :* a) a
+  Negate :: NumCat k a => Op k a a
+  -- ...
 
-evalCode :: Code a b -> a -> b
+evalCode :: Category k => Code k a b -> (a `k` b)
 evalCode Nil = id
 evalCode (op :< rest) = evalCode rest . evalOp op
 
-evalOp :: Op a b -> a -> b
-evalOp Add = uncurry (+)
-evalOp Negate = negate
+evalOp :: Op k a b -> (a `k` b)
+evalOp Add    = addC
+evalOp Negate = negateC
 
-instance Category Code where
-  id = Nil
+instance Category (Code k) where
+  type Ok (Code k) = Ok k
+  id  = Nil
   (.) = flip (++*)
+
+-- instance MonoidalPCat (Code k) where
+--   (+++) = ...
+
+
+#if 0
 
 {--------------------------------------------------------------------
     ...
