@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -110,6 +112,44 @@ instance (MonoidalPCat k, NumCat k a) => NumCat (SM k) a where
 -- and `okCoprod` entailments. Probably wait until the spurious recompilation
 -- issue is fixed and I'm on a current GHC.
 
+
+data Chain :: (* -> * -> *) -> (* -> * -> *) where
+  Nil  :: Ok  k a => Chain k a a
+  (:<) :: Ok3 k a b c => (a `k` b) -> Chain k b c -> Chain k a c
+
+evalChain :: Category k => Chain k a b -> (a `k` b)
+evalChain Nil = id
+evalChain (op :< rest) = evalChain rest . op
+
+(++*) :: Ok3 k a b c => Chain k a b -> Chain k b c -> Chain k a c
+(++*) Nil ops = ops
+(++*) (op :< ops) ops' = op :< (ops ++* ops')
+
+instance Category (Chain k) where
+  type Ok (Chain k) = Ok k
+  id  = Nil
+  (.) = flip (++*)
+
+-- Stack operation
+data Op :: (* -> * -> *) -> (* -> * -> *) where
+  First  :: Ok3 k a b z => (a `k` b) -> Op k (a :* z) (b `k` z)
+  Rassoc :: Ok3 k a b z => Op k ((a :* b) :* z) (a :* (b :* z))
+  Lassoc :: Ok3 k a b z => Op k (a :* (b :* z)) ((a :* b) :* z)
+
+-- Hm. Op k cannot be a category, because there's no id.
+
+newtype SM' k a b = SM' (forall z. Ok k z => Chain (Op k) (a :* z) (b :* z))
+  
+-- instance OkProd k => Category (SM' k) where
+--   type Ok (SM' k) = Ok k
+--   id :: forall a. Ok k a => SM' k a a 
+--   id = SM' id'
+--    where
+--      id' :: forall z. Ok k z => Chain (Op k) (a :* z) (a :* z)
+--      id' = id <+ okProd @k @a @z
+
+#if 0
+
 -- | Stack machine
 data Code :: (* -> * -> *) -> (* -> * -> *) where
   Nil  :: Ok  k a => Code k a a
@@ -140,8 +180,6 @@ instance Category (Code k) where
 -- instance MonoidalPCat (Code k) where
 --   (+++) = ...
 
-
-#if 0
 
 {--------------------------------------------------------------------
     ...
