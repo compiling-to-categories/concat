@@ -185,6 +185,10 @@ instance TerminalCat Syn
 instance MonoidalSCat Syn where
   (+++) = app2 "+++"
   INLINER((+++))
+  left    = app1 "left"
+  right   = app1 "right"
+  INLINER(left)
+  INLINER(right)
 
 instance CoproductCat Syn where
   inl     = app0 "inl"
@@ -192,16 +196,12 @@ instance CoproductCat Syn where
   (|||)   = app2 "|||"
   jam     = app0 "jam"
   swapS   = app0 "swapS"
-  left    = app1 "left"
-  right   = app1 "right"
   lassocS = app0 "lassocS"
   rassocS = app0 "rassocS"
   INLINER(inl)
   INLINER(inr)
   INLINER((|||))
   INLINER(swapS)
-  INLINER(left)
-  INLINER(right)
   INLINER(lassocS)
   INLINER(rassocS)
 
