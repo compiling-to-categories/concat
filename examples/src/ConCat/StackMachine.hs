@@ -112,6 +112,9 @@ instance (MonoidalPCat k, NumCat k a) => NumCat (SM k) a where
 -- and `okCoprod` entailments. Probably wait until the spurious recompilation
 -- issue is fixed and I'm on a current GHC.
 
+{--------------------------------------------------------------------
+    Stack machine with symbolic operations
+--------------------------------------------------------------------}
 
 -- Stack operation
 data Op :: (* -> * -> *) -> (* -> * -> *) where
@@ -189,6 +192,8 @@ instance ProductCat k => MonoidalPCat (SM' k) where
   second = secondFirst
   (***) = crossSecondFirst
 
+-- TODO: h = lassocP . ops . rassocP = inRassocP ops
+
 instance ProductCat k => ProductCat (SM' k) where
   exl :: forall a b. Ok2 k a b => SM' k (a :* b) a
   exr :: forall a b. Ok2 k a b => SM' k (a :* b) b
@@ -198,6 +203,13 @@ instance ProductCat k => ProductCat (SM' k) where
   dup = pureSM' dup <+ okProd @k @a @a
 
 -- TODO: refactor to eliminate the repetitive nature of SM vs SM'.
+-- Can I simply use SM (Ops k)?
+
+-- TODO: move swap and lassocP/rassocP into new classes with defaults.
+-- Then loosen some ProductCat constraints.
+
+-- TODO: Try making the product and coproduct type operations into *parameters*
+-- of MonoidalCat and then maybe of ProductCat and CoproductCat.
 
 #if 0
 
@@ -211,7 +223,6 @@ h :: forall z. Ok k z => Ops k ((a :* b) :* z) ((c :* b) :* z)
 
 
 first ops :: Ops k ((a :* z) :* b) ((c :* z) :* b)
-
 
 rassocP . ops . lassocP :: Ops k (a :* (w :* z)) (b :* (w :* z))
 
