@@ -165,55 +165,59 @@ instance MonoidalPCat Syn where
   INLINER((***))
   INLINER(first)
   INLINER(second)
+  lassocP = app0 "lassocP"
+  rassocP = app0 "rassocP"
+  INLINER(lassocP)
+  INLINER(rassocP)
+
+instance BraidedPCat Syn where
+  swapP   = app0 "swapP"
+  INLINER(swapP)
 
 instance ProductCat Syn where
   exl     = app0 "exl"
   exr     = app0 "exr"
   (&&&)   = app2 "&&&"
-  swapP   = app0 "swapP"
-  lassocP = app0 "lassocP"
-  rassocP = app0 "rassocP"
   INLINER(exl)
   INLINER(exr)
   INLINER((&&&))
-  INLINER(swapP)
-  INLINER(lassocP)
-  INLINER(rassocP)
 
 instance TerminalCat Syn
 
 instance MonoidalSCat Syn where
   (+++) = app2 "+++"
-  INLINER((+++))
   left    = app1 "left"
   right   = app1 "right"
+  lassocS = app0 "lassocS"
+  rassocS = app0 "rassocS"
+  INLINER((+++))
   INLINER(left)
   INLINER(right)
+  INLINER(lassocS)
+  INLINER(rassocS)
+
+instance BraidedSCat Syn where
+  swapS   = app0 "swapS"
+  INLINER(swapS)
 
 instance CoproductCat Syn where
   inl     = app0 "inl"
   inr     = app0 "inr"
   (|||)   = app2 "|||"
   jam     = app0 "jam"
-  swapS   = app0 "swapS"
-  lassocS = app0 "lassocS"
-  rassocS = app0 "rassocS"
   INLINER(inl)
   INLINER(inr)
   INLINER((|||))
-  INLINER(swapS)
-  INLINER(lassocS)
-  INLINER(rassocS)
 
 instance CoproductPCat Syn where
   inlP   = app0 "inlP"
   inrP   = app0 "inrP"
   jamP   = app0 "jamP"
-  swapPS = swapP
+  -- swapPS = swapP
   INLINER(inlP)
   INLINER(inrP)
   INLINER(jamP)
-  INLINER(swapPS)
+  -- INLINER(swapPS)
   
 instance DistribCat Syn where
   distl = app0 "distl"

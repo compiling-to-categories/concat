@@ -120,7 +120,12 @@ instance MonoidalPCat k => MonoidalPCat (GD k) where
   --     ((c,d), f' *** g'))
   D f *** D g =
     D (\ (a,b) -> let { (c,f') = f a ; (d,g') = g b } in ((c,d), f' *** g'))
+  Linear(lassocP)
+  Linear(rassocP)
   {-# INLINE (***) #-}
+
+instance BraidedPCat k => BraidedPCat (GD k) where
+  Linear(swapP)
 
 instance ProductCat k => ProductCat (GD k) where
   Linear(exl)
@@ -140,7 +145,7 @@ instance CoproductPCat k => CoproductPCat (GD k) where
   Linear(inlP)
   Linear(inrP)
   Linear(jamP)
-  Linear(swapPS)
+  -- Linear(swapPS)
   -- D f ++++ D g = D (second (uncurry (++++)) . transposeP . (f ++++ g))
   -- D f ++++ D g = D (\ (a,b) ->
   --   let (c,f') = f a

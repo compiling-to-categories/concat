@@ -192,6 +192,11 @@ instance OpCon (:*) (Sat HasCon) where
 
 instance MonoidalPCat (|-) where
   (***) = inNew2 $ \ f g -> Sub $ Dict \\ f \\ g
+  lassocP = pack (Sub Dict)
+  rassocP = pack (Sub Dict)
+
+instance BraidedPCat (|-) where
+  swapP = pack (Sub Dict)
 
 instance ProductCat (|-) where
   -- type Prod (|-) = (:*)
@@ -410,16 +415,38 @@ class (OkProd k, Category k) => MonoidalPCat k where
          => (b `k` b') -> (Prod k a b `k` Prod k a b')
   second = (id ***)
   {-# INLINE second #-}
+  lassocP :: forall a b c. Ok3 k a b c
+          => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
+  default lassocP :: forall a b c. (ProductCat k, Ok3 k a b c)
+                  => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
+  lassocP = second exl &&& (exr . exr)
+            <+ okProd @k @a @b
+            <+ inOpR' @(Prod k) @(Ok' k) @a @b @c
+  {-# INLINE lassocP #-}
+  rassocP :: forall a b c. Ok3 k a b c
+          => Prod k (Prod k a b) c `k` Prod k a (Prod k b c)
+  default rassocP :: forall a b c. (ProductCat k, Ok3 k a b c)
+                  => Prod k (Prod k a b) c `k` Prod k a (Prod k b c)
+  rassocP = (exl . exl) &&& first  exr
+            <+ okProd @k    @b @c
+            <+ inOpL' @(Prod k) @(Ok' k) @a @b @c
+  {-# INLINE rassocP #-}
+
+-- | Braided monoidal category
+class MonoidalPCat k => BraidedPCat k where
+  swapP :: forall a b. Ok2 k a b => Prod k a b `k` Prod k b a
+  default swapP :: forall a b. (ProductCat k, Ok2 k a b)
+                => Prod k a b `k` Prod k b a
+  swapP = exr &&& exl
+          <+ okProd @k @a @b
+  {-# INLINE swapP #-}
 
 -- | Category with product.
-class (OkProd k, MonoidalPCat k) => ProductCat k where
+class (OkProd k, BraidedPCat k) => ProductCat k where
   exl :: Ok2 k a b => Prod k a b `k` a
   exr :: Ok2 k a b => Prod k a b `k` b
   dup :: Ok  k a => a `k` Prod k a a
   dup = id &&& id
-  swapP :: forall a b. Ok2 k a b => Prod k a b `k` Prod k b a
-  swapP = exr &&& exl
-          <+ okProd @k @a @b
   -- (***) :: forall a b c d. Ok4 k a b c d
   --       => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d)
   -- f *** g = f . exl &&& g . exr
@@ -434,18 +461,6 @@ class (OkProd k, MonoidalPCat k) => ProductCat k where
     <+ okProd @k @c @d
   {-# INLINE (&&&) #-}
 #endif
-  lassocP :: forall a b c. Ok3 k a b c
-          => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
-  lassocP = second exl &&& (exr . exr)
-            <+ okProd @k @a @b
-            <+ inOpR' @(Prod k) @(Ok' k) @a @b @c
-  {-# INLINE lassocP #-}
-  rassocP :: forall a b c. Ok3 k a b c
-          => Prod k (Prod k a b) c `k` Prod k a (Prod k b c)
-  rassocP = (exl . exl) &&& first  exr
-            <+ okProd @k    @b @c
-            <+ inOpL' @(Prod k) @(Ok' k) @a @b @c
-  {-# INLINE rassocP #-}
 #ifdef DefaultCat
   -- These defaults are not kicking in for (->). Why not?
   -- default exl :: A.Arrow k => Prod k a b `k` a
@@ -458,42 +473,15 @@ class (OkProd k, MonoidalPCat k) => ProductCat k where
 #endif
   {-# MINIMAL exl, exr, ((&&&) | dup) #-}
 
-#if 0
-
--- -- TEMP
--- fork :: forall k a b c d. (ProductCat k, Ok4 k a b c d)
---      => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d)
--- f `fork` g = f . exl &&& g . exr
---             -- <+ okProd @k @a @b
-
-lassocP' :: forall k a b c. (ProductCat k, Ok3 k a b c, Ok3 k (Prod k b c) (Prod k a (Prod k b c)) (Prod k a b))
-         => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c
-lassocP' = second exl &&& (exr . exr)
---            <+ okProd @k @a @b
---            <+ inOpR' @(Prod k) @(Ok' k) @a @b @c
-{-# INLINE lassocP' #-}
-
-rassocP' :: forall k a b c. (ProductCat k, Oks k [a,b,c], Oks k [Prod k a b, Prod k b c, Prod k (Prod k a b) c])
-        => Prod k (Prod k a b) c `k` Prod k a (Prod k b c)
-rassocP' = (exl . exl) &&& first  exr
-{-# INLINE lassocP' #-}
-
-inLassocP' :: forall k a b c a' b' c'.
-             -- (ProductCat k, Ok6 k a b c a' b' c')
-             -- Needs :set -fconstraint-solver-iterations=5 or greater:
-             (ProductCat k, Oks k [a,b,c,a',b',c'])
-          => Prod k (Prod k a b) c `k` Prod k (Prod k a' b') c'
-          -> Prod k a (Prod k b c) `k` (Prod k a' (Prod k b' c'))
-
---               <+ (inOpLR @(Prod k) @(Ok' k) @a  @b  @c ***
---                   inOpLR @(Prod k) @(Ok' k) @a' @b' @c')
-
-#endif
-
 instance MonoidalPCat (->) where
   (***) = (A.***)
   first   = A.first
   second  = A.second
+  lassocP = \ (a,(b,c)) -> ((a,b),c)
+  rassocP = \ ((a,b),c) -> (a,(b,c))
+
+instance BraidedPCat (->) where
+  swapP = \ (a,b) -> (b,a)
 
 instance ProductCat (->) where
 #ifndef DefaultCat
@@ -501,8 +489,6 @@ instance ProductCat (->) where
   exl     = fst
   exr     = snd
   (&&&)   = (A.&&&)
-  lassocP = \ (a,(b,c)) -> ((a,b),c)
-  rassocP = \ ((a,b),c) -> (a,(b,c))
 #endif
 
 -- TODO: do we want inline for (&&&), (***), first, and second?
@@ -510,6 +496,10 @@ instance ProductCat (->) where
 instance MonoidalPCat U2 where
   U2 *** U2 = U2
   PINLINER((***))
+
+instance BraidedPCat U2 where
+  swapP = U2
+  PINLINER(swapP)
 
 instance ProductCat U2 where
   exl = U2
@@ -523,60 +513,34 @@ instance (MonoidalPCat k, MonoidalPCat k') => MonoidalPCat (k :**: k') where
   (f :**: f') *** (g :**: g') = (f *** g) :**: (f' *** g')
   first (f :**: f') = first f :**: first f'
   second (f :**: f') = second f :**: second f'
+  lassocP = lassocP :**: lassocP
+  rassocP = rassocP :**: rassocP
   PINLINER((***))
   PINLINER(first)
   PINLINER(second)
+  PINLINER(lassocP)
+  PINLINER(rassocP)
+
+instance (BraidedPCat k, BraidedPCat k') => BraidedPCat (k :**: k') where
+  swapP = swapP :**: swapP
+  PINLINER(swapP)
 
 instance (ProductCat k, ProductCat k') => ProductCat (k :**: k') where
   exl = exl :**: exl
   exr = exr :**: exr
   (f :**: f') &&& (g :**: g') = (f &&& g) :**: (f' &&& g')
   dup   = dup   :**: dup
-  swapP = swapP :**: swapP
-  lassocP = lassocP :**: lassocP
-  rassocP = rassocP :**: rassocP
   PINLINER(exl)
   PINLINER(exr)
   PINLINER((&&&))
-  PINLINER(swapP)
-  PINLINER(lassocP)
-  PINLINER(rassocP)
-
--- | Apply to both parts of a product
-twiceP :: (ProductCat k, Oks k [a,c])
-       => (a `k` c) -> Prod k a a `k` (Prod k c c)
-twiceP f = f *** f
-{-# INLINE twiceP #-}
-
--- | Operate on left-associated form
-inLassocP :: forall k a b c a' b' c'.
-             -- (ProductCat k, Ok6 k a b c a' b' c')
-             -- Needs :set -fconstraint-solver-iterations=5 or greater:
-             (ProductCat k, Oks k [a,b,c,a',b',c'])
-          => Prod k (Prod k a b) c `k` Prod k (Prod k a' b') c'
-          -> Prod k a (Prod k b c) `k` (Prod k a' (Prod k b' c'))
-inLassocP = rassocP <~ lassocP
-              <+ (inOpLR @(Prod k) @(Ok' k) @a  @b  @c ***
-                  inOpLR @(Prod k) @(Ok' k) @a' @b' @c')
-{-# INLINE inLassocP #-}
-
--- | Operate on right-associated form
-inRassocP :: forall a b c a' b' c' k.
---              (ProductCat k, Ok6 k a b c a' b' c')
-             (ProductCat k, Oks k [a,b,c,a',b',c'])
-          => Prod k a (Prod k b c) `k` (Prod k a' (Prod k b' c'))
-          -> Prod k (Prod k a b) c `k` Prod k (Prod k a' b') c'
-inRassocP = lassocP <~ rassocP
-              <+ (inOpLR @(Prod k) @(Ok' k) @a  @b  @c ***
-                  inOpLR @(Prod k) @(Ok' k) @a' @b' @c')
-{-# INLINE inRassocP #-}
-
--- TODO: move twiceP, inLassocP, inRassocP to AltCat
 
 instance Monad m => MonoidalPCat (Kleisli m) where
   (***) = (A.***)
           -- inNew2 crossK
   PINLINER((***))
+
+instance Monad m => BraidedPCat (Kleisli m) where
+  swapP = arr swapP
 
 instance Monad m => ProductCat (Kleisli m) where
   -- type Prod (Kleisli m) = (:*)
@@ -632,9 +596,31 @@ class (OkCoprod k, Category k) => MonoidalSCat k where
         => (b `k` b') -> (Coprod k a b `k` Coprod k a b')
   right = (id +++)
   {-# INLINE right #-}
+  lassocS :: forall a b c. Oks k [a,b,c]
+          => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c
+  default lassocS :: forall a b c. (CoproductCat k, Oks k [a,b,c])
+                  => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c
+  lassocS = inl.inl ||| (inl.inr ||| inr)
+            <+ inOpL' @(Coprod k) @(Ok' k) @a @b @c
+            <+ okCoprod @k    @b @c
+  {-# INLINE lassocS #-}
+  rassocS :: forall a b c. Oks k [a,b,c]
+          => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c)
+  default rassocS :: forall a b c. (CoproductCat k, Oks k [a,b,c])
+                  => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c)
+  rassocS = (inl ||| inr.inl) ||| inr.inr
+            <+ inOpR' @(Coprod k) @(Ok' k) @a @b @c
+            <+ okCoprod @k @a @b
+  {-# INLINE rassocS #-}
+
+class MonoidalSCat k => BraidedSCat k where
+  swapS :: forall a b. Ok2 k a b => Coprod k a b `k` Coprod k b a
+  default swapS :: forall a b. (CoproductCat k, Ok2 k a b) => Coprod k a b `k` Coprod k b a
+  swapS = inr ||| inl <+ okCoprod @k @b @a
+  {-# INLINE swapS #-}
 
 -- | Category with coproduct.
-class MonoidalSCat k => CoproductCat k where
+class BraidedSCat k => CoproductCat k where
   -- type Coprod k :: u -> u -> u
   -- type Coprod k = (:+)
   inl :: Ok2 k a b => a `k` Coprod k a b
@@ -642,10 +628,6 @@ class MonoidalSCat k => CoproductCat k where
   jam :: Oks k '[a] => Coprod k a a `k` a
   jam = id ||| id
   {-# INLINE jam #-}
-  swapS :: forall a b. Ok2 k a b => Coprod k a b `k` Coprod k b a
-  swapS = inr ||| inl
-          <+ okCoprod @k @b @a
-  {-# INLINE swapS #-}
   (|||) :: forall a c d. Oks k [a,c,d]
         => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a)
 #ifndef DefaultCat
@@ -655,18 +637,6 @@ class MonoidalSCat k => CoproductCat k where
           <+ okCoprod @k @c @d
   {-# INLINE (|||) #-}
 #endif
-  lassocS :: forall a b c. Oks k [a,b,c]
-          => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c
-  lassocS = inl.inl ||| (inl.inr ||| inr)
-            <+ inOpL' @(Coprod k) @(Ok' k) @a @b @c
-            <+ okCoprod @k    @b @c
-  {-# INLINE lassocS #-}
-  rassocS :: forall a b c. Oks k [a,b,c]
-          => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c)
-  rassocS = (inl ||| inr.inl) ||| inr.inr
-            <+ inOpR' @(Coprod k) @(Ok' k) @a @b @c
-            <+ okCoprod @k @a @b
-  {-# INLINE rassocS #-}
 #ifdef DefaultCat
   default inl :: A.ArrowChoice k => a `k` Coprod k a b
   inl = arr inl
@@ -683,6 +653,9 @@ instance MonoidalSCat (->) where
   (+++) = (A.+++)
   left  = A.left
   right = A.right
+
+instance BraidedSCat (->) where
+  swapS = Right ||| Left
 
 instance CoproductCat (->) where
 #ifndef DefaultCat
@@ -702,6 +675,9 @@ instance Monad m => MonoidalSCat (Kleisli m) where
 -- f +++ g :: a :+ b -> m c :+ m d
 -- fmap Left ||| fmap Right :: m c :+ m d -> m (c :+ d)
 
+instance Monad m => BraidedSCat (Kleisli m) where
+  swapS = arr swapS
+
 instance Monad m => CoproductCat (Kleisli m) where
   inl = arr inl
   inr = arr inr
@@ -716,6 +692,12 @@ instance Monad m => CoproductCat (Kleisli m) where
 instance MonoidalSCat U2 where
   U2 +++ U2 = U2
 
+instance BraidedSCat U2 where swapS = U2
+
+instance (BraidedSCat k, BraidedSCat k') => BraidedSCat (k :**: k') where
+  swapS = swapS :**: swapS
+  PINLINER(swapS)
+
 instance CoproductCat U2 where
   inl = U2
   inr = U2
@@ -723,63 +705,24 @@ instance CoproductCat U2 where
 
 instance (MonoidalSCat k, MonoidalSCat k') => MonoidalSCat (k :**: k') where
   (f :**: f') +++ (g :**: g') = (f +++ g) :**: (f' +++ g')
-  PINLINER((+++))
   left (f :**: f') = left f :**: left f'
   right (f :**: f') = right f :**: right f'
+  lassocS = lassocS :**: lassocS
+  rassocS = rassocS :**: rassocS
+  PINLINER((+++))
   PINLINER(left)
   PINLINER(right)
+  PINLINER(lassocS)
+  PINLINER(rassocS)
 
 instance (CoproductCat k, CoproductCat k') => CoproductCat (k :**: k') where
   inl = inl :**: inl
   inr = inr :**: inr
   (f :**: f') ||| (g :**: g') = (f ||| g) :**: (f' ||| g')
   jam = jam :**: jam
-  swapS = swapS :**: swapS
-  lassocS = lassocS :**: lassocS
-  rassocS = rassocS :**: rassocS
   PINLINER(inl)
   PINLINER(inr)
   PINLINER((|||))
-  PINLINER(swapS)
-  PINLINER(lassocS)
-  PINLINER(rassocS)
-
--- | Apply to both parts of a coproduct
-twiceS :: (CoproductCat k, Oks k [a,c])
-       => (a `k` c) -> Coprod k a a `k` (Coprod k c c)
-twiceS f = f +++ f
-
--- | Operate on left-associated form
-inLassocS :: forall k a b c a' b' c'.
-             -- (CoproductCat k, Ok6 k a b c a' b' c')
-             (CoproductCat k, Oks k [a,b,c,a',b',c'])
-          => Coprod k (Coprod k a b) c `k` Coprod k (Coprod k a' b') c'
-          -> Coprod k a (Coprod k b c) `k` (Coprod k a' (Coprod k b' c'))
-inLassocS = rassocS <~ lassocS
-            <+ (inOpLR @(Coprod k) @(Ok' k) @a  @b  @c ***
-                inOpLR @(Coprod k) @(Ok' k) @a' @b' @c')
-{-# INLINE inLassocS #-}
-
--- | Operate on right-associated form
-inRassocS :: forall a b c a' b' c' k.
-             -- (CoproductCat k, Ok6 k a b c a' b' c')
-             (CoproductCat k, Oks k [a,b,c,a',b',c'])
-          => Coprod k a (Coprod k b c) `k` (Coprod k a' (Coprod k b' c'))
-          -> Coprod k (Coprod k a b) c `k` Coprod k (Coprod k a' b') c'
-inRassocS = lassocS <~ rassocS
-            <+ (inOpLR @(Coprod k) @(Ok' k) @a  @b  @c ***
-                inOpLR @(Coprod k) @(Ok' k) @a' @b' @c')
-{-# INLINE inRassocS #-}
-
-transposeS :: forall k a b c d. (CoproductCat k, Ok4 k a b c d)
-           => Coprod k (Coprod k a b) (Coprod k c d) `k` Coprod k (Coprod k a c) (Coprod k b d)
-transposeS = (inl.inl ||| inr.inl) ||| (inl.inr ||| inr.inr)
-  <+ okCoprod @k @(Coprod k a c) @(Coprod k b d)
-  <+ okCoprod @k @c @d
-  <+ okCoprod @k @a @b
-  <+ okCoprod @k @b @d
-  <+ okCoprod @k @a @c
-{-# INLINE transposeS #-}
 
 {--------------------------------------------------------------------
     Abelian categories
@@ -838,7 +781,7 @@ instance (AbelianCat k, AbelianCat k') => AbelianCat (k :**: k') where
 -- TODO: eliminate CoproductPCat in favor of when we have associated products,
 -- coproducts, etc.
 
-infixr 2 ||||, ++++
+infixr 2 ||||
 
 type CoprodP k = Prod k
 
@@ -850,25 +793,25 @@ okCoprodP = inOp
 {-# INLINE okCoprodP #-}
 
 -- | Category with coproduct as Cartesian product.
-class MonoidalPCat k => CoproductPCat k where
+class BraidedPCat k => CoproductPCat k where
   inlP :: Ok2 k a b => a `k` CoprodP k a b
   inrP :: Ok2 k a b => b `k` CoprodP k a b
   jamP :: Ok k a => CoprodP k a a `k` a
   jamP = id |||| id
   {-# INLINE jamP #-}
-  swapPS :: forall a b. Ok2 k a b
-         => CoprodP k a b `k` CoprodP k b a
-  default swapPS :: forall a b. (OkAdd k, Ok2 k a b)
-                 => CoprodP k a b `k` CoprodP k b a
-  swapPS = inrP |||| inlP
-           <+ okCoprodP @k @b @a
-           <+ okAdd @k @a <+ okAdd @k @b
-  {-# INLINE swapPS #-}
+  -- swapPS :: forall a b. Ok2 k a b
+  --        => CoprodP k a b `k` CoprodP k b a
+  -- default swapPS :: forall a b. (OkAdd k, Ok2 k a b)
+  --                => CoprodP k a b `k` CoprodP k b a
+  -- swapPS = inrP |||| inlP
+  --          <+ okCoprodP @k @b @a
+  --          <+ okAdd @k @a <+ okAdd @k @b
+  -- {-# INLINE swapPS #-}
   (||||) :: forall a c d. Ok3 k a c d
          => (c `k` a) -> (d `k` a) -> (CoprodP k c d `k` a)
 #ifndef DefaultCat
   -- We canDt give two default definitions for (&&&).
-  f |||| g = jamP . (f ++++ g)
+  f |||| g = jamP . (f *** g)
            <+ okCoprodP @k @a @a
            <+ okCoprodP @k @c @d
   {-# INLINE (||||) #-}
@@ -888,14 +831,14 @@ instance CoproductPCat U2 where
   inlP = U2
   inrP = U2
   U2 |||| U2 = U2
-  swapPS = U2
+  -- swapPS = U2
 
 instance (CoproductPCat k, CoproductPCat k') => CoproductPCat (k :**: k') where
   inlP = inlP :**: inlP
   inrP = inrP :**: inrP
   (f :**: f') |||| (g :**: g') = (f |||| g) :**: (f' |||| g')
   jamP = jamP :**: jamP
-  swapPS = swapPS :**: swapPS
+  -- swapPS = swapPS :**: swapPS
   -- leftD (f :**: f') = leftD f :**: leftD f'
   -- rightD (f :**: f') = rightD f :**: rightD f'
   -- lassocSD = lassocSD :**: lassocSD
@@ -903,7 +846,7 @@ instance (CoproductPCat k, CoproductPCat k') => CoproductPCat (k :**: k') where
   PINLINER(inlP)
   PINLINER(inrP)
   PINLINER((||||))
-  PINLINER(swapPS)
+  -- PINLINER(swapPS)
   -- PINLINER(leftD)
   -- PINLINER(rightD)
   -- PINLINER(lassocSD)
@@ -1378,6 +1321,11 @@ instance Category k => Category (Constrained con k) where
 instance (MonoidalPCat k, OpSat (Prod k) con)
       => MonoidalPCat (Constrained con k) where
   Constrained f *** Constrained g = Constrained (f *** g)
+  lassocP = Constrained lassocP
+  rassocP = Constrained rassocP
+
+instance (BraidedPCat k, OpSat (Prod k) con) => BraidedPCat (Constrained con k) where
+  swapP = Constrained swapP
 
 instance (ProductCat k, OpSat (Prod k) con) => ProductCat (Constrained con k) where
   -- type Prod (Constrained con k) = Prod k
@@ -1388,6 +1336,12 @@ instance (ProductCat k, OpSat (Prod k) con) => ProductCat (Constrained con k) wh
 instance (MonoidalSCat k, OpSat (Coprod k) con)
       => MonoidalSCat (Constrained con k) where
   Constrained f +++ Constrained g = Constrained (f +++ g)
+  lassocS = Constrained lassocS
+  rassocS = Constrained rassocS
+
+instance (BraidedSCat k, OpSat (Coprod k) con)
+      => BraidedSCat (Constrained con k) where
+  swapS = Constrained swapS
 
 instance (CoproductCat k, OpSat (Coprod k) con)
       => CoproductCat (Constrained con k) where
@@ -2496,7 +2450,7 @@ class (IxMonoidalPCat k h, OkIxProd k h) => IxCoproductPCat k h where
   -- plusPF fs = joinPF (zipWith (.) inPF fs)
   --     <+ okIxProd @k @h @a
   default joinPF :: forall a b . (IxMonoidalPCat k h, Ok2 k a b) => h (b `k` a) -> (h b `k` a)
-  joinPF fs = jamPF . plusPF fs <+ okIxProd @k @h @a <+ okIxProd @k @h @b
+  joinPF fs = jamPF . crossF fs <+ okIxProd @k @h @a <+ okIxProd @k @h @b
   default jamPF :: forall a . (Pointed h, Ok k a) => h a `k` a
   jamPF     = joinPF (point id)
   {-# INLINE joinPF #-}
@@ -2608,6 +2562,7 @@ instance FiniteCat (->) where
   {-# OPINLINE combineProd #-}
   {-# OPINLINE separateProd #-}
 
+#if 0
 {--------------------------------------------------------------------
     Obsolete
 --------------------------------------------------------------------}
@@ -2622,5 +2577,4 @@ instance FiniteCat (->) where
 plusPF :: (IxMonoidalPCat k h, Ok2 k a b) => h (b `k` a) -> (h b `k` h a)
 plusPF = crossF
 {-# INLINE plusPF #-}
-
-
+#endif

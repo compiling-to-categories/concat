@@ -78,6 +78,10 @@ instance MonoidalPCat IF where
   (***) = inNew2 (***)
   {-# INLINE (***) #-}
 
+instance BraidedPCat IF where
+  swapP = pack swapP
+  {-# INLINE swapP #-}
+
 instance ProductCat IF where
   exl = pack exl
   exr = pack exr
@@ -92,6 +96,10 @@ type instance Iv (a :+ b) = Iv a :+ Iv b
 instance MonoidalSCat IF where
   (+++) = inNew2 (+++)
   {-# INLINE (+++) #-}
+
+instance BraidedSCat IF where
+  swapS = pack swapS
+  {-# INLINE swapS #-}
 
 instance CoproductCat IF where
   inl = pack inl

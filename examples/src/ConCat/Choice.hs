@@ -186,6 +186,10 @@ instance CartCon con => MonoidalPCat (Choice con) where
   (***) = op2C (***)
   {-# INLINE (***) #-}
 
+instance CartCon con => BraidedPCat (Choice con) where
+  swapP = exactly swapP
+  {-# INLINE swapP #-}
+
 instance CartCon con => ProductCat (Choice con) where
   exl = exactly exl
   exr = exactly exr
@@ -197,6 +201,10 @@ instance CartCon con => ProductCat (Choice con) where
 instance CartCon con => MonoidalSCat (Choice con) where
   (+++) = op2C (+++)
   {-# INLINE (+++) #-}
+
+instance CartCon con => BraidedSCat (Choice con) where
+  swapS = exactly swapS
+  {-# INLINE swapS #-}
 
 instance CartCon con => CoproductCat (Choice con) where
   inl = exactly inl

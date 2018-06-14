@@ -37,11 +37,19 @@ instance Category k => Category (Iso k) where
 
 instance MonoidalPCat k => MonoidalPCat (Iso k) where
   (f :<-> f') *** (g :<-> g') = (f *** g) :<-> (f' *** g')
+  lassocP = lassocP :<-> rassocP
+  rassocP = rassocP :<-> lassocP
   {- INLINE (***) #-}
+  {- INLINE lassocP #-}
+  {- INLINE rassocP #-}
 
 instance MonoidalSCat k => MonoidalSCat (Iso k) where
   (f :<-> f') +++ (g :<-> g') = (f +++ g) :<-> (f' +++ g')
+  lassocS = lassocS :<-> rassocS
+  rassocS = rassocS :<-> lassocS
   {- INLINE (+++) #-}
+  {- INLINE lassocS #-}
+  {- INLINE rassocS #-}
 
 isoFwd :: Iso k a b -> (a `k` b)
 isoFwd (f :<-> _) = f

@@ -83,6 +83,10 @@ instance MonoidalPCat (Affine s) where
 -- == \ (a,b) -> (p *** q) (a,b) + (u,v)
 -- == applyA (Affine (p *** q) (u,v))
 
+instance BraidedPCat (Affine s) where
+  swapP = linearA swapP
+  {-# INLINE swapP #-}
+
 instance ProductCat (Affine s) where
   exl = linearA exl
   exr = linearA exr

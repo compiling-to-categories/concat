@@ -43,7 +43,8 @@ instance Category (Cont k r) where
   id = Cont id
   (.) = inAbst2 (flip (.))
 
-instance (MonoidalPCat k, CoproductPCat k, OkAdd k, Ok k r) => MonoidalPCat (Cont k r) where
+instance (ProductCat k, TerminalCat k, CoterminalCat k, CoproductPCat k, OkAdd k, Ok k r)
+      => MonoidalPCat (Cont k r) where
   (***) :: forall a b c d. Ok4 k a b c d
         => Cont k r a c -> Cont k r b d -> Cont k r (Prod k a b) (Prod k c d)
   -- (***) = undefined
@@ -51,6 +52,14 @@ instance (MonoidalPCat k, CoproductPCat k, OkAdd k, Ok k r) => MonoidalPCat (Con
     <+ okAdd @k @c
     <+ okAdd @k @d
     <+ okAdd @k @r
+
+-- TODO: Give non-default definitions for lassocP and rassocP, and relax
+-- ProductCat k back to MonoidalPCat and drop TerminalCat k and CoterminalCat if
+-- possible.
+
+instance (ProductCat k, TerminalCat k, CoproductPCat k, CoterminalCat k, OkAdd k, Ok k r)
+      => BraidedPCat (Cont k r)
+-- TODO: non-default swapP with simpler preconditions.
 
 instance (ProductCat k, CoproductPCat k, AbelianCat k, OkAdd k, Ok k r)
       => ProductCat (Cont k r) where

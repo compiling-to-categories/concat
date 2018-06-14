@@ -233,6 +233,7 @@ instance OpCon (:*) (Sat (OkLM s)) where inOp = Entail (Sub Dict)
 -- instance OpCon (->) (Sat (OkLM s)) where inOp = Entail (Sub Dict)
 
 instance MonoidalPCat (L s)
+instance BraidedPCat  (L s)
 
 instance ProductCat (L s) where
   -- type Prod (L s) = (,)

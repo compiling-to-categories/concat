@@ -75,6 +75,9 @@ instance CartCon con => MonoidalPCat (Mealy con) where
         (d,t') = g (b,t)
   {-# INLINE (***) #-}
 
+instance CartCon con => BraidedPCat (Mealy con) where
+  swapP = arr swapP
+
 instance CartCon con => ProductCat (Mealy con) where
   exl = arr exl
   exr = arr exr
@@ -95,6 +98,9 @@ instance CartCon con => MonoidalSCat (Mealy con) where
      (f +++@ _) (Left  a,(s,t)) = (Left  c,(s',t)) where (c,s') = f (a,s)
      (_ +++@ g) (Right b,(s,t)) = (Right d,(s,t')) where (d,t') = g (b,t)
   {-# INLINE (+++) #-}
+
+instance CartCon con => BraidedSCat (Mealy con) where
+  swapS = arr swapS
 
 instance CartCon con => CoproductCat (Mealy con) where
   inl = arr inl

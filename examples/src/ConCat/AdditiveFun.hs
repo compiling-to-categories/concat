@@ -89,12 +89,14 @@ instance MonoidalPCat (-+>) where
   {-# OPINLINE first #-}
   {-# OPINLINE second #-}
 
+instance BraidedPCat (-+>) where
+  Abst(swapP)
+
 instance ProductCat (-+>) where
   Abst(exl)
   Abst(exr)
   (&&&)  = inAbst2 (&&&)
   Abst(dup)
-  Abst(swapP)
   {-# OPINLINE (&&&) #-}
 
 instance CoproductPCat (-+>) where
@@ -102,16 +104,16 @@ instance CoproductPCat (-+>) where
   inlP = abst (,zero)
   inrP = abst (zero,)
   jamP = abst (uncurry (^+^))
-  swapPS = swapP
+  -- swapPS = swapP
   {-# INLINE inlP #-}
   {-# INLINE inrP #-}
   {-# INLINE jamP #-}
-  {-# INLINE swapPS #-}
+  -- {-# INLINE swapPS #-}
 #else
   Abst(inlP)
   Abst(inrP)
   Abst(jamP)
-  Abst(swapPS)
+  -- Abst(swapPS)
   -- (||||) = inAbst2 (\ f g (x,y) -> f x ^+^ g y)
   -- (++++) = inAbst2 (***)
   -- jamP   = abst (uncurry (^+^))  -- 2018-02-04 notes

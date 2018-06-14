@@ -18,6 +18,8 @@
 -- Demand algebra
 ----------------------------------------------------------------------
 
+-- TODO: Use Dual?
+
 module ConCat.Demand {- (Demand(..),demand,(:-?)(..)) -} where
 
 import Prelude hiding (id,(.),curry,uncurry,const)
@@ -205,6 +207,9 @@ instance MonoidalPCat (:-?) where
   (***) = inNew2 $ \ f g -> inUnpairD (f *** g)
   {-# INLINE (***) #-}
 
+instance BraidedPCat (:-?) where
+  
+
 instance ProductCat (:-?) where
   exl = pack (*: NoneD)
   exr = pack (NoneD *:)
@@ -218,6 +223,7 @@ instance TerminalCat (:-?)
 -- need :: Demand () `k` Demand a
 
 instance MonoidalSCat (:-?)
+instance BraidedSCat  (:-?)
 
 instance CoproductCat (:-?) where
   inl = pack (exl . unplusD)

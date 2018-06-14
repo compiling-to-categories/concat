@@ -840,6 +840,8 @@ instance OpCon (:*) (Sat GenBuses) where inOp = Entail (Sub Dict)
 instance MonoidalPCat (:>) where
   (***) = inCK2 crossB  -- or default
 
+instance BraidedPCat (:>)
+
 instance ProductCat (:>) where
   -- type Prod (:>) = (:*)
   exl   = C (arr exlB)
@@ -858,7 +860,7 @@ instance CoproductPCat (:>) where
   inlP   = namedC "inlP"
   inrP   = namedC "inrP"
   jamP   = namedC "jamP"
-  swapPS = swapP
+  -- swapPS = swapP
 
 {--------------------------------------------------------------------
     Misc

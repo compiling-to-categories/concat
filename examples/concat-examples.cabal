@@ -102,10 +102,10 @@ library
                        ConCat.Local
                        ConCat.Deep
                        ConCat.TArr
-                       -- ConCat.Isomorphism
                        ConCat.KnownNatOps
                        ConCat.Isomorphism
                        -- ConCat.Finite
+                       ConCat.StackMachine
   if flag(smt)
     exposed-modules: ConCat.SMT
   ghc-options:      -O2

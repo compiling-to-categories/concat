@@ -54,7 +54,7 @@ instance MonoidalPCat k => Category (SM k) where
        <+ okProd @k @b @z
        <+ okProd @k @c @z
 
-instance ProductCat k => MonoidalPCat (SM k) where
+instance BraidedPCat k => MonoidalPCat (SM k) where
   first :: forall a b c. Ok3 k a b c => SM k a c -> SM k (a :* b) (c :* b)
   -- first (SM f) = SM (first f)
   --   <+ okProd @k @a @b
@@ -65,6 +65,20 @@ instance ProductCat k => MonoidalPCat (SM k) where
      h = inRassocP f <+ okProd @k @b @z
   second = secondFirst
   (***) = crossSecondFirst
+  lassocP :: forall a b c. Ok3 k a b c => SM k (a :* (b :* c)) ((a :* b) :* c)
+  lassocP = pureSM lassocP
+            <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
+            <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
+  rassocP :: forall a b c. Ok3 k a b c => SM k ((a :* b) :* c) (a :* (b :* c))
+  rassocP = pureSM rassocP
+            <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
+            <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
+
+instance BraidedPCat k => BraidedPCat (SM k) where
+  swapP :: forall a b. Ok2 k a b => SM k (a :* b) (b :* a)
+  swapP = pureSM swapP
+        <+ okProd @k @a @b
+        <+ okProd @k @b @a
 
 instance ProductCat k => ProductCat (SM k) where
   exl :: forall a b. Ok2 k a b => SM k (a :* b) a
@@ -89,6 +103,12 @@ instance DistribCat k => MonoidalSCat (SM k) where
 --   first (f +++ g) = indistr (first f +++ first g)
 -- 
 -- See proof in 2018-06-11 notes.
+
+instance (BraidedSCat k, DistribCat k) => BraidedSCat (SM k) where
+  swapS :: forall a b. Ok2 k a b => SM k (a :+ b) (b :+ a)
+  swapS = pureSM swapS
+        <+ okCoprod @k @a @b
+        <+ okCoprod @k @b @a
 
 instance DistribCat k => CoproductCat (SM k) where
   inl :: forall a b. Ok2 k a b => SM k a (a :+ b)
@@ -147,6 +167,25 @@ infixr 5 ++*
 (++*) Nil ops          = ops
 (++*) (op :< ops) ops' = op :< (ops ++* ops')
 
+-- instance OkProd k => MonoidalPCat (Ops k) where
+--   lassocP :: forall a b c. Ok3 k a b c => Ops k (a :* (b :* c)) ((a :* b) :* c)
+--   lassocP = Lassoc :< Nil
+--           <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
+--           <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
+--   rassocP :: forall a b c. Ok3 k a b c => Ops k ((a :* b) :* c) (a :* (b :* c))
+--   rassocP = Rassoc :< Nil
+--           <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
+--           <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
+--   second = secondFirst
+--   (***) = crossSecondFirst
+
+-- foo :: SM (Ops k) a b -> a `k` b
+-- foo = evalOps . evalSM
+
+{--------------------------------------------------------------------
+    
+--------------------------------------------------------------------}
+
 newtype SM' k a b = SM' (forall z. Ok k z => Ops k (a :* z) (b :* z))
   
 evalSM' :: forall k a b. (ProductCat k, TerminalCat k, Ok2 k a b)
@@ -191,8 +230,22 @@ instance ProductCat k => MonoidalPCat (SM' k) where
        <+ okProd @k @a @(b :* z) <+ okProd @k @b @z
   second = secondFirst
   (***) = crossSecondFirst
+  lassocP :: forall a b c. Ok3 k a b c => SM' k (a :* (b :* c)) ((a :* b) :* c)
+  lassocP = pureSM' lassocP
+            <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
+            <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
+  rassocP :: forall a b c. Ok3 k a b c => SM' k ((a :* b) :* c) (a :* (b :* c))
+  rassocP = pureSM' rassocP
+            <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
+            <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
 
 -- TODO: h = lassocP . ops . rassocP = inRassocP ops
+
+instance ProductCat k => BraidedPCat (SM' k) where
+  swapP :: forall a b. Ok2 k a b => SM' k (a :* b) (b :* a)
+  swapP = pureSM' swapP
+        <+ okProd @k @a @b
+        <+ okProd @k @b @a
 
 instance ProductCat k => ProductCat (SM' k) where
   exl :: forall a b. Ok2 k a b => SM' k (a :* b) a

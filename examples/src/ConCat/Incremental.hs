@@ -237,6 +237,9 @@ instance MonoidalPCat (-#>) where
   (***) = inAbst2 ((result.result) inPairD (***))
   {-# INLINE (***) #-}
 
+instance BraidedPCat (-#>) where
+  swapP = abst (pairD . swapP . unPairD)
+
 instance ProductCat (-#>) where
   exl   = abst (exl . unPairD)
   exr   = abst (exr . unPairD)
@@ -268,7 +271,7 @@ instance CoproductPCat (-#>) where
   inlP = abst (pairD . inlP)
   inrP = abst (pairD . inrP)
   (||||) = inAbst2 (\ f g -> (f |||| g) . unPairD)
-  swapPS = abst (inPairD swapPS)
+  -- swapPS = abst (inPairD swapPS)
   {-# INLINE inlP #-}
   {-# INLINE inrP #-}
   {-# INLINE (||||) #-}

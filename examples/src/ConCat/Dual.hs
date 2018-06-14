@@ -69,20 +69,26 @@ instance Category k => Category (Dual k) where
 -- but doing do requires a lot of entailments and explicit signatures.
 
 instance MonoidalPCat k => MonoidalPCat (Dual k) where
-  (***) = inAbst2 (++++)
+  (***) = inAbst2 (***)
+  lassocP = abst rassocP
+  rassocP = abst lassocP
   {-# INLINE (***) #-}
+  {-# INLINE lassocP #-}
+  {-# INLINE rassocP #-}
+
+instance BraidedPCat k => BraidedPCat (Dual k) where
+  swapP = abst swapP
+  {-# INLINE swapP #-}
 
 instance CoproductPCat k => ProductCat (Dual k) where
   exl   = abst inlP
   exr   = abst inrP
   (&&&) = inAbst2 (||||)
   dup   = abst jamP
-  swapP = abst swapPS
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
   {-# INLINE dup #-}
-  {-# INLINE swapP #-}
 
 instance ProductCat k => CoproductPCat (Dual k) where
   inlP   = abst exl
@@ -90,13 +96,13 @@ instance ProductCat k => CoproductPCat (Dual k) where
   (||||) = inAbst2 (&&&)
   -- (++++) = inAbst2 (***)
   jamP   = abst dup
-  swapPS = abst swapP
+  -- swapPS = abst swapP
   {-# INLINE inlP #-}
   {-# INLINE inrP #-}
   {-# INLINE (||||) #-}
   -- {-# INLINE (++++) #-}
   {-# INLINE jamP #-}
-  {-# INLINE swapPS #-}
+  -- {-# INLINE swapPS #-}
 
 instance ScalarCat k s => ScalarCat (Dual k) s where
   scale s = abst (scale s)
