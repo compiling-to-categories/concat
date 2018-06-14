@@ -113,40 +113,112 @@ instance (MonoidalPCat k, NumCat k a) => NumCat (SM k) a where
 -- issue is fixed and I'm on a current GHC.
 
 
-data Chain :: (* -> * -> *) -> (* -> * -> *) where
-  Nil  :: Ok  k a => Chain k a a
-  (:<) :: Ok3 k a b c => (a `k` b) -> Chain k b c -> Chain k a c
-
-evalChain :: Category k => Chain k a b -> (a `k` b)
-evalChain Nil = id
-evalChain (op :< rest) = evalChain rest . op
-
-(++*) :: Ok3 k a b c => Chain k a b -> Chain k b c -> Chain k a c
-(++*) Nil ops = ops
-(++*) (op :< ops) ops' = op :< (ops ++* ops')
-
-instance Category (Chain k) where
-  type Ok (Chain k) = Ok k
-  id  = Nil
-  (.) = flip (++*)
-
 -- Stack operation
 data Op :: (* -> * -> *) -> (* -> * -> *) where
-  First  :: Ok3 k a b z => (a `k` b) -> Op k (a :* z) (b `k` z)
+  First  :: Ok3 k a b z => (a `k` b) -> Op k (a :* z) (b :* z)
   Rassoc :: Ok3 k a b z => Op k ((a :* b) :* z) (a :* (b :* z))
   Lassoc :: Ok3 k a b z => Op k (a :* (b :* z)) ((a :* b) :* z)
 
--- Hm. Op k cannot be a category, because there's no id.
+-- evalOp :: ProductCat k => Op k (a :* w) (b :* z) -> (a :* w) `k` (b :* z)
+evalOp :: ProductCat k => Op k u v -> (u `k` v)
+evalOp (First f) = first f
+evalOp Rassoc    = rassocP
+evalOp Lassoc    = lassocP
 
-newtype SM' k a b = SM' (forall z. Ok k z => Chain (Op k) (a :* z) (b :* z))
+infixr 5 :<
+data Ops :: (* -> * -> *) -> (* -> * -> *) where
+  Nil  :: Ok  k a => Ops k a a
+  (:<) :: Ok3 k a b c => Op k a b -> Ops k b c -> Ops k a c
+
+evalOps :: ProductCat k => Ops k a b -> a `k` b
+evalOps Nil          = id
+evalOps (op :< rest) = evalOps rest . evalOp op
+
+instance Category (Ops k) where
+  type Ok (Ops k) = Ok k
+  id  = Nil
+  (.) = flip (++*)
+
+infixr 5 ++*
+(++*) :: Ok3 k a b c => Ops k a b -> Ops k b c -> Ops k a c
+(++*) Nil ops          = ops
+(++*) (op :< ops) ops' = op :< (ops ++* ops')
+
+newtype SM' k a b = SM' (forall z. Ok k z => Ops k (a :* z) (b :* z))
   
--- instance OkProd k => Category (SM' k) where
---   type Ok (SM' k) = Ok k
---   id :: forall a. Ok k a => SM' k a a 
---   id = SM' id'
---    where
---      id' :: forall z. Ok k z => Chain (Op k) (a :* z) (a :* z)
---      id' = id <+ okProd @k @a @z
+evalSM' :: forall k a b. (ProductCat k, TerminalCat k, Ok2 k a b)
+        => SM' k a b -> (a `k` b)
+evalSM' (SM' f) = exl . evalOps f . runit
+                  <+ okProd @k @a @()
+                  <+ okProd @k @b @()
+
+instance OkProd k => Category (SM' k) where
+  type Ok (SM' k) = Ok k
+  id :: forall a. Ok k a => SM' k a a 
+  id = SM' id'
+   where
+     id' :: forall z. Ok k z => Ops k (a :* z) (a :* z)
+     id' = id <+ okProd @k @a @z
+  (.) :: forall a b c. Ok3 k a b c => SM' k b c -> SM' k a b -> SM' k a c
+  SM' g . SM' f = SM' h
+   where
+     h :: forall z. Ok k z => Ops k (a :* z) (c :* z)
+     h = g . f
+       <+ okProd @k @a @z
+       <+ okProd @k @b @z
+       <+ okProd @k @c @z
+
+pureSM' :: forall k a b. (OkProd k, Ok2 k a b) => (a `k` b) -> SM' k a b
+pureSM' f = SM' ops
+ where
+   ops :: forall z. Ok k z => Ops k (a :* z) (b :* z)
+   ops = First f :< Nil
+         <+ okProd @k @a @z
+         <+ okProd @k @b @z
+
+instance ProductCat k => MonoidalPCat (SM' k) where
+  first :: forall a b c. Ok3 k a b c => SM' k a c -> SM' k (a :* b) (c :* b)
+  first (SM' ops) = SM' h
+   where
+     h :: forall z. Ok k z => Ops k ((a :* b) :* z) ((c :* b) :* z)
+     h = Rassoc :< ops ++* Lassoc :< Nil
+       <+ okProd @k @(c :* b) @z <+ okProd @k @c @b
+       <+ okProd @k @c @(b :* z)
+       <+ okProd @k @(a :* b) @z <+ okProd @k @a @b
+       <+ okProd @k @a @(b :* z) <+ okProd @k @b @z
+  second = secondFirst
+  (***) = crossSecondFirst
+
+instance ProductCat k => ProductCat (SM' k) where
+  exl :: forall a b. Ok2 k a b => SM' k (a :* b) a
+  exr :: forall a b. Ok2 k a b => SM' k (a :* b) b
+  dup :: forall a  . Ok  k a   => SM' k a (a :* a)
+  exl = pureSM' exl <+ okProd @k @a @b
+  exr = pureSM' exr <+ okProd @k @a @b
+  dup = pureSM' dup <+ okProd @k @a @a
+
+-- TODO: refactor to eliminate the repetitive nature of SM vs SM'.
+
+#if 0
+
+SM' ops :: SM' k a c
+ops :: forall z. Ok k z => Ops k (a :* z) (c :* z)
+
+first (SM' ops) :: SM' k (a :* b) (c :* b)
+SM' h           :: SM' k (a :* b) (c :* b)
+
+h :: forall z. Ok k z => Ops k ((a :* b) :* z) ((c :* b) :* z)
+
+
+first ops :: Ops k ((a :* z) :* b) ((c :* z) :* b)
+
+
+rassocP . ops . lassocP :: Ops k (a :* (w :* z)) (b :* (w :* z))
+
+first (SM' ops) :: SM' k (a :* w) (b :* w)
+
+#endif
+
 
 #if 0
 
