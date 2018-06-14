@@ -19,7 +19,7 @@ module ConCat.StackMachine where
 
 import Prelude hiding (id,(.),curry,uncurry)
 
-import Control.Newtype.Generics
+import Control.Newtype.Generics (Newtype(..))
 
 import ConCat.Misc ((:*),(:+))
 import qualified ConCat.Category as C
@@ -54,9 +54,13 @@ instance MonoidalPCat k => Category (SM k) where
 
 instance ProductCat k => MonoidalPCat (SM k) where
   first :: forall a b c. Ok3 k a b c => SM k a c -> SM k (a :* b) (c :* b)
-  first (SM f) = SM (first f)
-    <+ okProd @k @a @b
-    <+ okProd @k @c @b
+  -- first (SM f) = SM (first f)
+  --   <+ okProd @k @a @b
+  --   <+ okProd @k @c @b
+  first (SM f) = SM h
+   where
+     h :: forall z. Ok k z => ((a :* b) :* z) `k` ((c :* b) :* z)
+     h = inRassocP f <+ okProd @k @b @z
   second = secondFirst
   (***) = crossSecondFirst
 
