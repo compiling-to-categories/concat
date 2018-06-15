@@ -27,14 +27,14 @@ import ConCat.Misc ((:*),(:+))
 import qualified ConCat.Category as C
 import ConCat.AltCat
 
-newtype SM k a b = SM (forall z. Ok k z => (a :* z) `k` (b :* z))
+newtype SM k a b = SM { unSM :: forall z. Ok k z => (a :* z) `k` (b :* z) }
 
 pureSM :: (MonoidalPCat k, Ok2 k a b) => (a `k` b) -> SM k a b
 pureSM f = SM (first f)
 
-evalSM :: forall k a b. (ProductCat k, TerminalCat k, Ok2 k a b)
+evalSM :: forall k a b. (Category k, UnitCat k, OkProd k, Ok2 k a b)
        => SM k a b -> (a `k` b)
-evalSM (SM f) = exl . f . runit
+evalSM (SM f) = rcounit . f . runit
                 <+ okProd @k @a @()
                 <+ okProd @k @b @()
 
@@ -56,9 +56,6 @@ instance MonoidalPCat k => Category (SM k) where
 
 instance BraidedPCat k => MonoidalPCat (SM k) where
   first :: forall a b c. Ok3 k a b c => SM k a c -> SM k (a :* b) (c :* b)
-  -- first (SM f) = SM (first f)
-  --   <+ okProd @k @a @b
-  --   <+ okProd @k @c @b
   first (SM f) = SM h
    where
      h :: forall z. Ok k z => ((a :* b) :* z) `k` ((c :* b) :* z)
@@ -87,6 +84,21 @@ instance ProductCat k => ProductCat (SM k) where
   exl = pureSM exl <+ okProd @k @a @b
   exr = pureSM exr <+ okProd @k @a @b
   dup = pureSM dup <+ okProd @k @a @a
+
+instance (MonoidalPCat k, TerminalCat k) => TerminalCat (SM k) where
+  it = pureSM it
+
+instance (ProductCat k, TerminalCat k, OkUnit k) => UnitCat (SM k)
+
+-- instance (MonoidalPCat k, UnitCat k) => UnitCat (SM k) where
+--   lunit :: forall a. Ok k a => SM k a (() :* a)
+--   lunit = pureSM lunit <+ okProd @k @() @a
+--   runit :: forall a. Ok k a => SM k a (a :* ())
+--   runit = pureSM runit <+ okProd @k @a @()
+--   lcounit :: forall a. Ok k a => SM k (() :* a) a
+--   lcounit = pureSM lcounit <+ okProd @k @() @a
+--   rcounit :: forall a. Ok k a => SM k (a :* ()) a
+--   rcounit = pureSM rcounit <+ okProd @k @a @()
 
 instance DistribCat k => MonoidalSCat (SM k) where
   -- SM f +++ SM g = SM (indistr (f +++ g))
@@ -142,8 +154,7 @@ data Op :: (* -> * -> *) -> (* -> * -> *) where
   Rassoc :: Ok3 k a b z => Op k ((a :* b) :* z) (a :* (b :* z))
   Lassoc :: Ok3 k a b z => Op k (a :* (b :* z)) ((a :* b) :* z)
 
--- evalOp :: ProductCat k => Op k (a :* w) (b :* z) -> (a :* w) `k` (b :* z)
-evalOp :: ProductCat k => Op k u v -> (u `k` v)
+evalOp :: MonoidalPCat k => Op k u v -> (u `k` v)
 evalOp (First f) = first f
 evalOp Rassoc    = rassocP
 evalOp Lassoc    = lassocP
@@ -153,7 +164,7 @@ data Ops :: (* -> * -> *) -> (* -> * -> *) where
   Nil  :: Ok  k a => Ops k a a
   (:<) :: Ok3 k a b c => Op k a b -> Ops k b c -> Ops k a c
 
-evalOps :: ProductCat k => Ops k a b -> a `k` b
+evalOps :: MonoidalPCat k => Ops k a b -> a `k` b
 evalOps Nil          = id
 evalOps (op :< rest) = evalOps rest . evalOp op
 
@@ -179,18 +190,35 @@ infixr 5 ++*
 --   second = secondFirst
 --   (***) = crossSecondFirst
 
--- foo :: SM (Ops k) a b -> a `k` b
--- foo = evalOps . evalSM
+foo0 :: (MonoidalPCat k, OkUnit k, Ok2 k a b) => SM (Ops k) a b -> Ops k (a :* ()) (b :* ())
+foo0 = unSM
+
+foo1 :: (MonoidalPCat k, OkUnit k, Ok2 k a b) => SM (Ops k) a b -> (a :* ()) `k` (b :* ())
+foo1 = evalOps . unSM
+
+foo2 :: forall k a b. (MonoidalPCat k, UnitCat k, Ok2 k a b) => SM (Ops k) a b -> a `k` b
+foo2 m = rcounit . evalOps (unSM m) . runit
+       <+ okProd @k @a @()
+       <+ okProd @k @b @()
+
+
+
+-- unSM :: SM (Ops k) a b -> Ops k (a :* ()) (b :* ())
+-- evalSM :: Ops k (a :* ()) (b :* ()) -> (a :* ()) `k` (b :* ())
+
+-- Could not deduce (UnitCat (Ops k)) arising from a use of ‘evalSM’
+-- 
+-- Makes sense. I think we'll need another evalSM without UnitCat.
 
 {--------------------------------------------------------------------
-    
+    Stack machine with symbolic operations
 --------------------------------------------------------------------}
 
 newtype SM' k a b = SM' (forall z. Ok k z => Ops k (a :* z) (b :* z))
   
-evalSM' :: forall k a b. (ProductCat k, TerminalCat k, Ok2 k a b)
+evalSM' :: forall k a b. (MonoidalPCat k, UnitCat k, Ok2 k a b)
         => SM' k a b -> (a `k` b)
-evalSM' (SM' f) = exl . evalOps f . runit
+evalSM' (SM' f) = rcounit . evalOps f . runit
                   <+ okProd @k @a @()
                   <+ okProd @k @b @()
 
@@ -255,14 +283,16 @@ instance ProductCat k => ProductCat (SM' k) where
   exr = pureSM' exr <+ okProd @k @a @b
   dup = pureSM' dup <+ okProd @k @a @a
 
+-- instance (ProductCat k, OkUnit k) => UnitCat (SM' k)
+
 -- TODO: refactor to eliminate the repetitive nature of SM vs SM'.
 -- Can I simply use SM (Ops k)?
 
--- TODO: move swap and lassocP/rassocP into new classes with defaults.
--- Then loosen some ProductCat constraints.
-
 -- TODO: Try making the product and coproduct type operations into *parameters*
 -- of MonoidalCat and then maybe of ProductCat and CoproductCat.
+
+
+
 
 #if 0
 
