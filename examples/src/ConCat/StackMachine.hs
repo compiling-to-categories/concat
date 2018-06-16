@@ -11,7 +11,8 @@
 {-# LANGUAGE TypeApplications #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
+
+-- #define EXAMPLES
 
 -- | Stack machine category / compiler 
 
@@ -19,15 +20,14 @@ module ConCat.StackMachine where
 
 import Prelude hiding (id,(.),curry,uncurry)
 
-import Data.List (intercalate)
-
-import Control.Newtype.Generics (Newtype(..))
-
 import ConCat.Misc ((:*),(:+))
 import qualified ConCat.Category as C
 import ConCat.AltCat
+
+#ifdef EXAMPLES
 import ConCat.Syntactic (Syn)
 import ConCat.Ops (Ops)
+#endif
 
 {--------------------------------------------------------------------
     Stack machines
@@ -171,7 +171,7 @@ instance (MonoidalPCat k, NumCat k a) => NumCat (Stack k) a where
     Examples
 --------------------------------------------------------------------}
 
-#if 1
+#ifdef EXAMPLES
 
 t1 :: forall k. (ProductCat k, NumCat k Int) => Int `k` Int
 t1 = addC . dup <+ okProd @k @Int @Int
