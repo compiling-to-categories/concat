@@ -332,10 +332,10 @@ instance EnumCat Syn a where
 
 instance NumCat Syn a where
   negateC = app0 "negate"
-  addC    = app0 "addC"
-  subC    = app0 "subC"
-  mulC    = app0 "mulC"
-  powIC   = app0 "powIC"
+  addC    = app0 "add"
+  subC    = app0 "sub"
+  mulC    = app0 "mul"
+  powIC   = app0 "powI"
   INLINER(negateC)
   INLINER(addC)
   INLINER(subC)
@@ -350,7 +350,7 @@ instance IntegralCat Syn a where
 
 instance FractionalCat Syn a where
   recipC  = app0 "recip"
-  divideC = app0 "divideC"
+  divideC = app0 "divide"
   INLINER(recipC)
   INLINER(divideC)
 
