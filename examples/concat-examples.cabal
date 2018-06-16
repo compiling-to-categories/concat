@@ -105,6 +105,7 @@ library
                        ConCat.KnownNatOps
                        ConCat.Isomorphism
                        -- ConCat.Finite
+                       ConCat.Ops
                        ConCat.StackMachine
   if flag(smt)
     exposed-modules: ConCat.SMT
