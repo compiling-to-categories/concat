@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies    #-}
 {-# LANGUAGE TypeOperators   #-}
+
 {-# OPTIONS_GHC -Wall        #-}
 
 ------------------------------------------------------------------------------
@@ -9,17 +10,21 @@
 -- definitions for 'toCCC'.
 module Miscellany where
 
-import ConCat.AltCat ((:**:)(..),Ok2,U2,toCcc)
-import ConCat.Circuit (GenBuses,(:>))
+import Prelude
+
+import GHC.TypeLits ()
+
 import ConCat.Misc ((:*))
+import ConCat.AltCat ((:**:)(..),Ok2,U2,toCcc)
 import ConCat.Orphans ()
 import ConCat.Rebox ()
 import ConCat.ADFun (andDerF)
 import ConCat.RAD (andDerR, andGradR)
-import ConCat.RunCircuit (run)
+import ConCat.Circuit (GenBuses,(:>))
 import ConCat.Syntactic (Syn,render)
-import GHC.TypeLits ()
-import Prelude hiding (unzip,zip,zipWith)
+import ConCat.RunCircuit (run)
+import ConCat.Ops (Ops)
+import ConCat.StackMachine (SM)
 
 type EC = Syn :**: (:>)
 
