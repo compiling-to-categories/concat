@@ -88,6 +88,9 @@ appt = Node . const . text
 
 newtype Syn a b = Syn DocTree
 
+instance Show2 Syn where
+  show2 = show
+
 #if 1
 -- instance Newtype (Syn a b) where
 --   type O (Syn a b) = DocTree
@@ -136,7 +139,7 @@ apps s (fmap unSyn -> ts) = Syn (appt s (toList ts))
 
 #endif
 
--- instance Show (Syn a b) where show = render
+instance Show (Syn a b) where show = render
 
 render :: Syn a b -> String
 render (Syn synu) = renderStyle (Style PageMode 80 1) (prettyTree synu 0)
@@ -177,12 +180,22 @@ instance BraidedPCat Syn where
 instance ProductCat Syn where
   exl     = app0 "exl"
   exr     = app0 "exr"
+  dup     = app0 "dup"
   (&&&)   = app2 "&&&"
   INLINER(exl)
   INLINER(exr)
+  INLINER(dup)
   INLINER((&&&))
 
-instance TerminalCat Syn
+instance UnitCat Syn where
+  lunit   = app0 "lunit"
+  runit   = app0 "runit"
+  lcounit = app0 "lcounit"
+  rcounit = app0 "rcounit"
+
+instance TerminalCat Syn where
+  it = app0 "it"
+  INLINER(it)
 
 instance MonoidalSCat Syn where
   (+++) = app2 "+++"

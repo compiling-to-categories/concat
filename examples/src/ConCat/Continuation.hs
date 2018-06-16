@@ -112,6 +112,7 @@ instance (ProductCat k, CoproductPCat k, AbelianCat k, OkAdd k, Ok k r)
 
 -- TODO: Fix the ProductCat and CoproductPCat instances to match the paper.
 
+instance UnitCat (Cont k r)
 
 -- class (Category k, OkIxProd k h) => IxMonoidalPCat k h where
 --   crossF :: forall a b. Ok2 k a b => h (a `k` b) -> (h a `k` h b)

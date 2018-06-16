@@ -99,6 +99,12 @@ instance ProductCat (-+>) where
   Abst(dup)
   {-# OPINLINE (&&&) #-}
 
+instance UnitCat (-+>) where
+  Abst(lunit)
+  Abst(runit)
+  Abst(lcounit)
+  Abst(rcounit)
+
 instance CoproductPCat (-+>) where
 #if 1
   inlP = abst (,zero)

@@ -92,6 +92,11 @@ instance CartCon con => ProductCat (Mealy con) where
   {-# INLINE exr #-}
   -- {-# INLINE (&&&) #-}
 
+instance CartCon con => TerminalCat (Mealy con) where
+  it = arr it
+
+instance CartCon con => UnitCat (Mealy con)
+
 instance CartCon con => MonoidalSCat (Mealy con) where
   (+++) = op2 (+++@)
    where

@@ -72,7 +72,7 @@ import qualified ConCat.Category as C
 import ConCat.Satisfy
 
 import ConCat.Category
-  ( Category, Ok,Ok2,Ok3,Ok4,Ok5,Ok6, Ok', (<~), (~>)
+  ( Category, Ok,Ok2,Ok3,Ok4,Ok5,Ok6, Ok', (<~), (~>), Show2(..)
   , MonoidalPCat, BraidedPCat, ProductCat, Prod
   , BraidedSCat, CoproductCat, Coprod
   , MonoidalSCat, CoproductPCat, CoprodP, TracedCat
@@ -81,7 +81,8 @@ import ConCat.Category
   -- , OkIxCoprod(..), IxMonoidalSCat, IxCoproductCat
   , DistribCat
   , ClosedCat, Exp
-  , TerminalCat, Unit{-, lunit, runit, constFun-}, CoterminalCat, Counit, constFun2, unitFun, unUnitFun
+  , TerminalCat, Unit{-, lunit, runit, constFun-}, OkUnit, CoterminalCat, Counit, constFun2, unitFun, unUnitFun
+  , UnitCat
   , ConstCat, ConstObj, lconst, rconst
   , DelayCat, LoopCat
   , BiCCC
@@ -187,6 +188,10 @@ f `plusRightLeft` g = right g . left f
                       <+ okCoprod @k @c @b
                       <+ okCoprod @k @c @d
 
+Op0(lunit, (UnitCat k, Ok k a) => a `k` Prod k (Unit k) a)
+Op0(lcounit, (UnitCat k, Ok k a) => Prod k (Unit k) a `k` a)
+Op0(runit, (UnitCat k, Ok k a) => a `k` Prod k a (Unit k))
+Op0(rcounit, (UnitCat k, Ok k a) => Prod k a (Unit k) `k` a)
 
 Op0(zeroC, forall k a b. (AbelianCat k, Ok2 k a b) => a `k` b)
 Op0(plusC, forall k a b. (AbelianCat k, Ok2 k a b) => Binop (a `k` b))
@@ -355,11 +360,11 @@ bottomRep :: forall k a b r.
   (Category k, RepCat k b r, BottomCat k a r, Ok3 k a b r) => a `k` b
 bottomRep = abstC @k @b @r . bottomC
 
-lunit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k (Unit k) a
-lunit = it &&& id
+-- lunit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k (Unit k) a
+-- lunit = it &&& id
 
-runit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k a (Unit k)
-runit = id &&& it
+-- runit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k a (Unit k)
+-- runit = id &&& it
 
 constFun :: forall k p a b. (ClosedCat k, Ok3 k p a b)
          => (a `k` b) -> (p `k` Exp k a b)
@@ -368,7 +373,7 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 -- {-# OPINLINE constFun #-}
 -- OpRule1(constFun)
 
-funConst :: forall k a b. (ClosedCat k, TerminalCat k, Ok2 k a b)
+funConst :: forall k a b. (ClosedCat k, TerminalCat k, UnitCat k, Ok2 k a b)
          => (() `k` (a -> b)) -> (a `k` b)
 funConst f = uncurry f . lunit <+ okProd @k @(Unit k) @a
 

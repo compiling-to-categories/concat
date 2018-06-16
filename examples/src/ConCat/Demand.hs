@@ -208,7 +208,6 @@ instance MonoidalPCat (:-?) where
   {-# INLINE (***) #-}
 
 instance BraidedPCat (:-?) where
-  
 
 instance ProductCat (:-?) where
   exl = pack (*: NoneD)
@@ -217,6 +216,8 @@ instance ProductCat (:-?) where
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE dup #-}
+
+instance UnitCat (:-?) where
 
 instance TerminalCat (:-?)
 

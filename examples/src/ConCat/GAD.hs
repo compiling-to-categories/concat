@@ -135,6 +135,12 @@ instance ProductCat k => ProductCat (GD k) where
   --   D (\ a -> let { (c,f') = f a ; (d,g') = g a } in ((c,d), f' &&& g'))
   -- {-# INLINE (&&&) #-}
 
+instance UnitPCat k => UnitPCat (GD k) where
+  Linear(lunit)
+  Linear(runit)
+  Linear(lcounit)
+  Linear(rcounit)
+
 instance OkAdd k => OkAdd (GD k) where
   okAdd :: forall a. Ok' (GD k) a |- Sat Additive a
   okAdd = Entail (Sub (Dict <+ okAdd @k @a))

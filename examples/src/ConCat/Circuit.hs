@@ -849,6 +849,8 @@ instance ProductCat (:>) where
   dup   = mkCK dupB
   (&&&) = inCK2 forkB   -- or default
 
+instance UnitCat (:>)
+
 -- instance OpCon (:+) (Sat GenBuses) where inOp = Entail (Sub Dict)
 
 -- instance CoproductCat (:>) where

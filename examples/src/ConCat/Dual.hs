@@ -90,6 +90,16 @@ instance CoproductPCat k => ProductCat (Dual k) where
   {-# INLINE (&&&) #-}
   {-# INLINE dup #-}
 
+instance UnitPCat k => UnitPCat (Dual k) where
+  lunitP = abst lcounit
+  runitP = abst rcounit
+  lcounitP = abst lunit
+  rcounitP = abst runit
+  {-# INLINE lunitP #-}
+  {-# INLINE runitP #-}
+  {-# INLINE lcounitP #-}
+  {-# INLINE rcounitP #-}
+
 instance ProductCat k => CoproductPCat (Dual k) where
   inlP   = abst exl
   inrP   = abst exr

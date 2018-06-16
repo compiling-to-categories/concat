@@ -51,6 +51,12 @@ instance MonoidalSCat k => MonoidalSCat (Iso k) where
   {- INLINE lassocS #-}
   {- INLINE rassocS #-}
 
+instance UnitCat k => UnitCat (Iso k) where
+  lunit = lunit :<-> lcounit
+  runit = runit :<-> rcounit
+  lcounit = lcounit :<-> lunit
+  rcounit = rcounit :<-> runit
+
 isoFwd :: Iso k a b -> (a `k` b)
 isoFwd (f :<-> _) = f
 

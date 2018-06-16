@@ -198,6 +198,16 @@ instance CartCon con => ProductCat (Choice con) where
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
 
+instance CartCon con => UnitCat (Choice con) where
+  lunit = exactly lunit
+  runit = exactly runit
+  lcounit = exactly lcounit
+  rcounit = exactly rcounit
+  {-# INLINE lunit #-}
+  {-# INLINE runit #-}
+  {-# INLINE lcounit #-}
+  {-# INLINE rcounit #-}
+
 instance CartCon con => MonoidalSCat (Choice con) where
   (+++) = op2C (+++)
   {-# INLINE (+++) #-}

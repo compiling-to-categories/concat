@@ -318,6 +318,8 @@ type Oks k as = AllC (Ok k) as
 -- I like the elegance of Oks, but it leads to complex dictionary expressions.
 -- For now, use Okn for the operations introduced by lambda-to-ccc conversion.
 
+class Show2 k where show2 :: a `k` b -> String
+
 {--------------------------------------------------------------------
     Categories
 --------------------------------------------------------------------}
@@ -1071,11 +1073,35 @@ instance (TerminalCat k, TerminalCat k') => TerminalCat (k :**: k') where
   it = it :**: it
   PINLINER(it)
 
-lunit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k (Unit k) a
-lunit = it &&& id
+class OkUnit k => UnitCat k where
+  lunit :: Ok k a => a `k` Prod k (Unit k) a
+  default lunit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k (Unit k) a
+  lunit = it &&& id
+  lcounit :: Ok k a => Prod k (Unit k) a `k` a
+  default lcounit :: (ProductCat k, Ok k a) => Prod k (Unit k) a `k` a
+  lcounit = exr
+  runit :: Ok k a => a `k` Prod k a (Unit k)
+  default runit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k a (Unit k)
+  runit = id &&& it
+  rcounit :: Ok k a => Prod k a (Unit k) `k` a
+  default rcounit :: (ProductCat k, TerminalCat k, Ok k a) => Prod k a (Unit k) `k` a
+  rcounit = exl
 
-runit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k a (Unit k)
-runit = id &&& it
+instance UnitCat (->)
+instance Monad m => UnitCat (Kleisli m)
+instance UnitCat U2
+
+instance (UnitCat k, UnitCat k') => UnitCat (k :**: k') where
+ lunit   = lunit   :**: lunit
+ runit   = runit   :**: runit
+ lcounit = lcounit :**: lcounit
+ rcounit = rcounit :**: rcounit
+
+-- lunit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k (Unit k) a
+-- lunit = it &&& id
+
+-- runit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k a (Unit k)
+-- runit = id &&& it
 
 type Counit k = ()  -- for now
 
