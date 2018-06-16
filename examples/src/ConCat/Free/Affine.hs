@@ -96,7 +96,7 @@ instance ProductCat (Affine s) where
   {-# INLINE exr #-}
   -- {-# INLINE (&&&) #-}
 
-instance UnitCat (Affine s)
+-- instance Num s => UnitCat (Affine s)
 
 {--------------------------------------------------------------------
     Move elsewhere

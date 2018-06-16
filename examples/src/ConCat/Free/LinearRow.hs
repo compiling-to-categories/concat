@@ -244,7 +244,7 @@ instance ProductCat (L s) where
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
 
-instance UnitCat  (L s)
+-- instance Num s => UnitCat (L s)
 
 instance OkAdd (L s) where okAdd = Entail (Sub Dict)
 

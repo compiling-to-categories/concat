@@ -267,7 +267,7 @@ abst (exl . unPairD) :: a :* b -#> a
 abst (pairD . (f &&& g)) :: a -#> c :* d
 #endif
 
-instance UnitCat (-#>)
+-- instance UnitCat (-#>)
 
 instance CoproductPCat (-#>) where
   inlP = abst (pairD . inlP)

@@ -112,7 +112,9 @@ instance (ProductCat k, CoproductPCat k, AbelianCat k, OkAdd k, Ok k r)
 
 -- TODO: Fix the ProductCat and CoproductPCat instances to match the paper.
 
-instance UnitCat (Cont k r)
+-- instance (ProductCat k, TerminalCat k, CoproductPCat k, CoterminalCat k, OkUnit k, OkAdd k, Ok k r) => UnitCat (Cont k r)
+
+-- TODO: fix this instance either via necessary superclasses or by not using defaults.
 
 -- class (Category k, OkIxProd k h) => IxMonoidalPCat k h where
 --   crossF :: forall a b. Ok2 k a b => h (a `k` b) -> (h a `k` h b)

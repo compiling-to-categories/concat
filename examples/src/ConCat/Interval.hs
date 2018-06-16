@@ -91,7 +91,7 @@ instance ProductCat IF where
   {-# INLINE exr #-}
   {-# INLINE (&&&) #-}
 
-instance UnitCat IF
+-- instance UnitCat IF
 
 type instance Iv (a :+ b) = Iv a :+ Iv b
 
