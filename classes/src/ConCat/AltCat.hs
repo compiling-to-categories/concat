@@ -1248,17 +1248,17 @@ undistr' = first inl ||| first inr
   <+ okProd @k @u @b <+ okProd @k @v @b
 {-# INLINE undistr' #-}
 
-indistr :: forall k a b c d w z. (DistribCat k, Ok6 k a b c d w z)
+inDistr :: forall k a b c d w z. (DistribCat k, Ok6 k a b c d w z)
         => (((a :* w) :+ (b :* w)) `k` ((c :* z) :+ (d :* z)))
         -> (((a :+ b) :* w) `k` ((c :+ d) :* z))
-indistr f = undistr . f . distr
+inDistr f = undistr . f . distr
   <+ okCoprod @k @(c :* z) @(d :* z)
   <+ okProd @k @c @z <+ okProd @k @d @z
   <+ okProd @k @(a :+ b) @w <+ okProd @k @(c :+ d) @z
   <+ okCoprod @k @a @b <+ okCoprod @k @c @d
   <+ okCoprod @k @(a :* w) @(b :* w)
   <+ okProd @k @a @w <+ okProd @k @b @w
-{-# INLINE indistr #-}
+{-# INLINE inDistr #-}
 
 -- | Apply to both parts of a product
 twiceP :: (MonoidalPCat k, Ok2 k a c)
