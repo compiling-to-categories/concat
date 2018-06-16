@@ -21,14 +21,22 @@ module ConCat.StackMachine where
 
 import Prelude hiding (id,(.),curry,uncurry)
 
+import Data.List (intercalate)
+
 import Control.Newtype.Generics (Newtype(..))
 
 import ConCat.Misc ((:*),(:+))
 import qualified ConCat.Category as C
 import ConCat.AltCat
+import ConCat.Syntactic (Syn)
+
+{--------------------------------------------------------------------
+    Stack machines
+--------------------------------------------------------------------}
 
 newtype SM k a b = SM { unSM :: forall z. Ok k z => (a :* z) `k` (b :* z) }
 
+-- | The semantic functor that specifies 'SM'.
 pureSM :: (MonoidalPCat k, Ok2 k a b) => (a `k` b) -> SM k a b
 pureSM f = SM (first f)
 
@@ -38,8 +46,8 @@ evalSM (SM f) = rcounit . f . runit
                 <+ okProd @k @a @()
                 <+ okProd @k @b @()
 
--- TODO: Specify and derive the following instances by saying that pureSM or
--- evalSM is a homomorphism for the classes involved.
+-- TODO: Specify and derive the following instances by saying that pureSM is a
+-- homomorphism for the classes involved.
 
 instance MonoidalPCat k => Category (SM k) where
   type Ok (SM k) = Ok k
@@ -59,9 +67,9 @@ instance BraidedPCat k => MonoidalPCat (SM k) where
   first (SM f) = SM h
    where
      h :: forall z. Ok k z => ((a :* b) :* z) `k` ((c :* b) :* z)
-     h = inRassocP f <+ okProd @k @b @z
-  second = secondFirst
-  (***) = crossSecondFirst
+     h = inRassocP f <+ okProd @k @b @z   -- h = lassocP . f . rassocP
+  second = secondFirst  -- relies on BraidedPCat
+  (***) = crossSecondFirst  -- f *** g = swap . first g . swap . first f
   lassocP :: forall a b c. Ok3 k a b c => SM k (a :* (b :* c)) ((a :* b) :* c)
   lassocP = pureSM lassocP
             <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
@@ -70,6 +78,21 @@ instance BraidedPCat k => MonoidalPCat (SM k) where
   rassocP = pureSM rassocP
             <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
             <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
+
+#if 0
+
+f :: a -> b
+g :: c -> d
+
+rassocP    :: ((a :* b) :* z) -> (a :* (b :* z))
+first f    :: (a :* (b :* z)) -> (c :* (b :* z))
+lassocP    :: (c :* (b :* z)) -> ((c :* b) :* z)
+first swap :: ((c :* b) :* z) -> (b :* (c :* z))
+first g    :: (b :* (c :* z)) -> (d :* (c :* z))
+rassocP    :: (d :* (c :* z)) -> ((d :* c) :* z)
+first swap :: ((d :* c) :* z) -> ((c :* d) :* z)
+
+#endif
 
 instance BraidedPCat k => BraidedPCat (SM k) where
   swapP :: forall a b. Ok2 k a b => SM k (a :* b) (b :* a)
@@ -149,24 +172,46 @@ instance (MonoidalPCat k, NumCat k a) => NumCat (SM k) a where
 --------------------------------------------------------------------}
 
 -- Stack operation
-data Op :: (* -> * -> *) -> (* -> * -> *) where
-  First  :: Ok3 k a b z => (a `k` b) -> Op k (a :* z) (b :* z)
-  Rassoc :: Ok3 k a b z => Op k ((a :* b) :* z) (a :* (b :* z))
-  Lassoc :: Ok3 k a b z => Op k (a :* (b :* z)) ((a :* b) :* z)
+data SOp :: (* -> * -> *) -> (* -> * -> *) where
+  First  :: Ok3 k a b z => (a `k` b) -> SOp k (a :* z) (b :* z)
+  Rassoc :: Ok3 k a b z => SOp k ((a :* b) :* z) (a :* (b :* z))
+  Lassoc :: Ok3 k a b z => SOp k (a :* (b :* z)) ((a :* b) :* z)
 
-evalOp :: MonoidalPCat k => Op k u v -> (u `k` v)
-evalOp (First f) = first f
-evalOp Rassoc    = rassocP
-evalOp Lassoc    = lassocP
+evalSOp :: MonoidalPCat k => SOp k u v -> (u `k` v)
+evalSOp (First f) = first f
+evalSOp Rassoc    = rassocP
+evalSOp Lassoc    = lassocP
+
+instance Show2 k => Show2 (SOp k) where
+  show2 (First f) = "first " ++ show2 f  -- TODO: fancy up later
+  show2 Lassoc = "lassocP"
+  show2 Rassoc = "rassocP"
 
 infixr 5 :<
 data Ops :: (* -> * -> *) -> (* -> * -> *) where
   Nil  :: Ok  k a => Ops k a a
-  (:<) :: Ok3 k a b c => Op k a b -> Ops k b c -> Ops k a c
+  (:<) :: Ok3 k a b c => a `k` b -> Ops k b c -> Ops k a c
 
 evalOps :: MonoidalPCat k => Ops k a b -> a `k` b
 evalOps Nil          = id
-evalOps (op :< rest) = evalOps rest . evalOp op
+evalOps (op :< rest) = evalOps rest . op
+
+pureOps :: Ok2 k a b => a `k` b -> Ops k a b
+pureOps f = f :< Nil
+
+instance Show2 k => Show (Ops k a b) where
+  show = show . exops
+
+exops :: Ops k a b -> [Exists2 k]
+exops Nil = []
+exops (op :< ops) = Exists2 op : exops ops
+
+-- showOps :: forall k a b. Show2 k => Ops k a b -> String
+-- showOps ops = "[" ++ intercalate "," (sh ops) ++ "]"
+--  where
+--    sh :: forall u v. Ops k u v -> [String]
+--    sh Nil = []
+--    sh (op :< ops) = show2 op : sh ops
 
 instance Category (Ops k) where
   type Ok (Ops k) = Ok k
@@ -178,30 +223,88 @@ infixr 5 ++*
 (++*) Nil ops          = ops
 (++*) (op :< ops) ops' = op :< (ops ++* ops')
 
--- instance OkProd k => MonoidalPCat (Ops k) where
---   lassocP :: forall a b c. Ok3 k a b c => Ops k (a :* (b :* c)) ((a :* b) :* c)
---   lassocP = Lassoc :< Nil
---           <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
---           <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
---   rassocP :: forall a b c. Ok3 k a b c => Ops k ((a :* b) :* c) (a :* (b :* c))
---   rassocP = Rassoc :< Nil
---           <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
---           <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
---   second = secondFirst
---   (***) = crossSecondFirst
+instance BraidedPCat k => MonoidalPCat (Ops k) where
+  first :: forall a b c. Ok3 k a b c => Ops k a c -> Ops k (a :* b) (c :* b)
+  first Nil = Nil <+ okProd @k @a @b
+  first (op :< ops) = firstCons op ops
+   where
+     firstCons :: forall x. Ok k x => (a `k` x) -> Ops k x c -> Ops k (a :* b) (c :* b)
+     firstCons f fs = first f :< first fs
+       <+ okProd @k @a @b <+ okProd @k @c @b <+ okProd @k @x @b
+  lassocP :: forall a b c. Ok3 k a b c => Ops k (a :* (b :* c)) ((a :* b) :* c)
+  lassocP = pureOps lassocP
+          <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
+          <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
+  rassocP :: forall a b c. Ok3 k a b c => Ops k ((a :* b) :* c) (a :* (b :* c))
+  rassocP = pureOps rassocP
+          <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
+          <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
+  second = secondFirst
+  (***) = crossSecondFirst
 
-foo0 :: (MonoidalPCat k, OkUnit k, Ok2 k a b) => SM (Ops k) a b -> Ops k (a :* ()) (b :* ())
-foo0 = unSM
+instance BraidedPCat k => BraidedPCat (Ops k) where
+  swapP :: forall a b. Ok2 k a b => Ops k (a :* b) (b :* a)
+  swapP = swapP :< Nil
+    <+ okProd @k @a @b <+ okProd @k @b @a
 
-foo1 :: (MonoidalPCat k, OkUnit k, Ok2 k a b) => SM (Ops k) a b -> (a :* ()) `k` (b :* ())
-foo1 = evalOps . unSM
+instance ProductCat k => ProductCat (Ops k) where
+  exl :: forall a b. Ok2 k a b => Ops k (a :* b) a
+  exr :: forall a b. Ok2 k a b => Ops k (a :* b) b
+  dup :: forall a  . Ok  k a   => Ops k a (a :* a)
+  exl = pureOps exl <+ okProd @k @a @b
+  exr = pureOps exr <+ okProd @k @a @b
+  dup = pureOps dup <+ okProd @k @a @a
+  
+instance (OkProd k, NumCat k a) => NumCat (Ops k) a where
+  negateC = pureOps negateC
+  addC  = pureOps addC  <+ okProd @k @a @a
+  subC  = pureOps subC  <+ okProd @k @a @a
+  mulC  = pureOps mulC  <+ okProd @k @a @a
+  powIC = pureOps powIC <+ okProd @k @a @Int
 
-foo2 :: forall k a b. (MonoidalPCat k, UnitCat k, Ok2 k a b) => SM (Ops k) a b -> a `k` b
-foo2 m = rcounit . evalOps (unSM m) . runit
-       <+ okProd @k @a @()
-       <+ okProd @k @b @()
+instance TerminalCat k => TerminalCat (Ops k) where
+  it = pureOps it
 
+instance (ProductCat k, TerminalCat k) => UnitCat (Ops k)
 
+data Op :: (* -> * -> *) where
+  SwapP :: Op (a :* b) (b :* a)
+  Exl :: Op (a :* b) a
+  Exr :: Op (a :* b) b
+  Dup :: Op a (a :* a)
+  It  :: Op a ()
+  Negate :: Num a => Op a a
+  Add, Sub, Mul :: Num a => Op (a :* a) a
+  PowIC :: Num a => Op (a :* Int) a
+  -- ...
+
+instance BraidedPCat Op where swapP = SwapP
+instance ProductCat  Op where { exl = Exl; exr = Exr; dup = Dup }
+instance TerminalCat Op where it = It
+
+-- I don't want the following, but I currently need them for superclass requirements.
+-- TODO: try removing those superclass constraints.
+instance Category     Op
+instance MonoidalPCat Op
+
+instance Num a => NumCat Op a where
+  negateC = Negate
+  addC    = Add
+  mulC    = Mul
+  subC    = Sub
+  powIC   = PowIC
+
+instance Show2 Op where
+  show2 SwapP  = "swapP"
+  show2 Exl    = "exl"
+  show2 Exr    = "exr"
+  show2 Dup    = "dup"
+  show2 It     = "it"
+  show2 Negate = "negate"
+  show2 Add    = "add"
+  show2 Sub    = "sub"
+  show2 Mul    = "mul"
+  show2 PowIC  = "powIC"
 
 -- unSM :: SM (Ops k) a b -> Ops k (a :* ()) (b :* ())
 -- evalSM :: Ops k (a :* ()) (b :* ()) -> (a :* ()) `k` (b :* ())
@@ -209,6 +312,39 @@ foo2 m = rcounit . evalOps (unSM m) . runit
 -- Could not deduce (UnitCat (Ops k)) arising from a use of ‘evalSM’
 -- 
 -- Makes sense. I think we'll need another evalSM without UnitCat.
+
+t1 :: forall k a. (ProductCat k, NumCat k a) => SM k a a
+t1 = addC . dup
+  <+ okProd @k @a @a
+
+t2 :: forall k a. (ProductCat k, UnitCat k, NumCat k a) => a `k` a
+t2 = evalSM t1
+
+t3 :: Num a => a -> a
+t3 = t2
+
+t4 :: Int
+t4 = t3 17
+
+t5 :: (ProductCat k, NumCat k a, TerminalCat k) => Ops k a a
+t5 = t2
+
+t6 :: Int -> Int
+t6 = evalOps t2
+
+t7 :: Ops Op Int Int
+t7 = t5
+
+t8 :: Ops Syn Int Int
+t8 = t5
+
+t9 :: Syn Int Int
+t9 = t2
+
+t10 :: Syn (Int,z) (Int,z)
+t10 = unSM t1
+
+#if 0
 
 {--------------------------------------------------------------------
     Stack machine with symbolic operations
@@ -291,7 +427,7 @@ instance ProductCat k => ProductCat (SM' k) where
 -- TODO: Try making the product and coproduct type operations into *parameters*
 -- of MonoidalCat and then maybe of ProductCat and CoproductCat.
 
-
+#endif
 
 
 #if 0
@@ -373,3 +509,11 @@ h ((a,b),z) = ...
    ...
 
 #endif
+
+{--------------------------------------------------------------------
+    Miscellany
+--------------------------------------------------------------------}
+
+data Exists2 k = forall a b. Exists2 (a `k` b)
+
+instance Show2 k => Show (Exists2 k) where show (Exists2 f) = show2 f
