@@ -1,14 +1,11 @@
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -29,6 +26,7 @@ import ConCat.Misc ((:*),(:+))
 import qualified ConCat.Category as C
 import ConCat.AltCat
 import ConCat.Syntactic (Syn)
+import ConCat.Ops (Ops)
 
 {--------------------------------------------------------------------
     Stack machines
@@ -167,7 +165,11 @@ instance (MonoidalPCat k, NumCat k a) => NumCat (SM k) a where
 -- and `okCoprod` entailments. Probably wait until the spurious recompilation
 -- issue is fixed and I'm on a current GHC.
 
-#if 0
+{--------------------------------------------------------------------
+    Examples
+--------------------------------------------------------------------}
+
+#if 1
 
 t1 :: forall k a. (ProductCat k, NumCat k a) => a `k` a
 t1 = addC . dup
@@ -206,12 +208,9 @@ t11 = unSM (addC . (negateC *** negateC) . dup)
 t12 :: Syn (Int :* z) (Int :* z)
 t12 = unSM (addC . (negateC &&& negateC))
 
+-- unSM @Syn (addC . (negateC &&& negateC))
+
+t13 :: Ops Syn (Int :* z) (Int :* z)
+t13 = unSM (addC . (negateC &&& negateC))
+
 #endif
-
-{--------------------------------------------------------------------
-    Miscellany
---------------------------------------------------------------------}
-
-data Exists2 k = forall a b. Exists2 (a `k` b)
-
-instance Show2 k => Show (Exists2 k) where show (Exists2 f) = show2 f
