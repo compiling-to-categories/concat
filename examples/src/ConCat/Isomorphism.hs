@@ -43,6 +43,10 @@ instance MonoidalPCat k => MonoidalPCat (Iso k) where
   {- INLINE lassocP #-}
   {- INLINE rassocP #-}
 
+instance BraidedPCat k => BraidedPCat (Iso k) where
+  swapP = swapP :<-> swapP
+  {-# INLINE swapP #-}
+
 instance MonoidalSCat k => MonoidalSCat (Iso k) where
   (f :<-> f') +++ (g :<-> g') = (f +++ g) :<-> (f' +++ g')
   lassocS = lassocS :<-> rassocS
@@ -50,6 +54,10 @@ instance MonoidalSCat k => MonoidalSCat (Iso k) where
   {- INLINE (+++) #-}
   {- INLINE lassocS #-}
   {- INLINE rassocS #-}
+
+instance BraidedSCat k => BraidedSCat (Iso k) where
+  swapS = swapS :<-> swapS
+  {-# INLINE swapS #-}
 
 instance UnitCat k => UnitCat (Iso k) where
   lunit = lunit :<-> lcounit
