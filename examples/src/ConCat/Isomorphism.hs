@@ -60,10 +60,14 @@ instance BraidedSCat k => BraidedSCat (Iso k) where
   {-# INLINE swapS #-}
 
 instance UnitCat k => UnitCat (Iso k) where
-  lunit = lunit :<-> lcounit
-  runit = runit :<-> rcounit
+  lunit   = lunit   :<-> lcounit
+  runit   = runit   :<-> rcounit
   lcounit = lcounit :<-> lunit
   rcounit = rcounit :<-> runit
+  {-# INLINE lunit #-}
+  {-# INLINE runit #-}
+  {-# INLINE lcounit #-}
+  {-# INLINE rcounit #-}
 
 isoFwd :: Iso k a b -> (a `k` b)
 isoFwd (f :<-> _) = f
