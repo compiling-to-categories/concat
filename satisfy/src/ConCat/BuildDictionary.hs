@@ -139,6 +139,9 @@ buildDictionary' env dflags guts evIds evar =
               nonC = mkNonCanonical $
                        CtWanted { ctev_pred = predTy
                                 , ctev_dest = EvVarDest evar
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+                                , ctev_nosh = WOnly
+#endif
                                 , ctev_loc = loc }
               wCs = mkSimpleWC [cc_ev nonC]
           -- TODO: Make sure solveWanteds is the right function to call.
