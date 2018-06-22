@@ -2,5 +2,5 @@ second (id . repr) .
 apply .
 (curry
  (exr &&&
-  abst . curry mulC . apply . (curry exl . negate . sin . exl &&& exr)) &&&
- cos)
+  abst . curry mulC . apply . (curry exl . negateC . sinC . exl &&& exr)) &&&
+ cosC)

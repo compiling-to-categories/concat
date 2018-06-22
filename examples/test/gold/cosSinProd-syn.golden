@@ -1,1 +1,1 @@
-(cos &&& sin) . mulC
+(cosC &&& sinC) . mulC

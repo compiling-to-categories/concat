@@ -10,7 +10,7 @@ apply .
      repr .
      abst .
      curry mulC .
-     apply . (curry exl . negate . sin . exl . exr . exl &&& exr) &&&
+     apply . (curry exl . negateC . sinC . exl . exr . exl &&& exr) &&&
      apply .
      (curry (abst . apply . (exl &&& repr . exr)) .
       curry (curry (apply . (exl . exl &&& apply . (exr . exl &&& exr)))) .
@@ -20,7 +20,7 @@ apply .
        curry (curry (apply . (exl . exl &&& apply . (exr . exl &&& exr)))) .
        repr . exr . exl . exl &&&
        abst . curry (dup . exr))))) &&&
-   cos . exl . exr)) &&&
+   cosC . exl . exr)) &&&
  (mulC &&&
   apply .
   (curry

@@ -4,5 +4,5 @@ apply .
 (curry
  (exr &&&
   abst .
-  abst . curry mulC . apply . (curry exl . negate . sin . exl &&& exr)) &&&
- cos)
+  abst . curry mulC . apply . (curry exl . negateC . sinC . exl &&& exr)) &&&
+ cosC)

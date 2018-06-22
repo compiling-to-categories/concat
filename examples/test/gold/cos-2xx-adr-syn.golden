@@ -16,7 +16,7 @@ apply .
      abst .
      abst .
      curry mulC .
-     apply . (curry exl . negate . sin . exl . exr . exl &&& exr) &&&
+     apply . (curry exl . negateC . sinC . exl . exr . exl &&& exr) &&&
      apply .
      (curry
       (abst .
@@ -36,7 +36,7 @@ apply .
          repr . exl)) .
        exr . exl . exl &&&
        abst . abst . curry (addC . exr))))) &&&
-   cos . exl . exr)) &&&
+   cosC . exl . exr)) &&&
  (mulC &&&
   apply .
   (curry (abst . apply . (exl &&& repr . exr)) .

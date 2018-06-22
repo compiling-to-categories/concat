@@ -1,1 +1,1 @@
-cos . mulC . (mulC . (const 2.0 &&& id) &&& id)
+cosC . mulC . (mulC . (const 2.0 &&& id) &&& id)
