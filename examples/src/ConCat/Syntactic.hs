@@ -299,7 +299,7 @@ instance Pretty b => ConstCat Syn b where
 -- Some or all of the methods below are failing to inline
 
 instance BoolCat Syn where
-  notC = app0 "not"
+  notC = app0 "notC"
   andC = app0 "andC"
   orC  = app0 "orC"
   xorC = app0 "xorC"
@@ -329,17 +329,17 @@ instance MinMaxCat Syn a where
   maxC = app0 "maxC"
 
 instance EnumCat Syn a where
-  succC = app0 "succ"
-  predC = app0 "pred"
+  succC = app0 "succC"
+  predC = app0 "predC"
   INLINER(succC)
   INLINER(predC)
 
 instance NumCat Syn a where
-  negateC = app0 "negate"
-  addC    = app0 "add"
-  subC    = app0 "sub"
-  mulC    = app0 "mul"
-  powIC   = app0 "powI"
+  negateC = app0 "negateC"
+  addC    = app0 "addC"
+  subC    = app0 "subC"
+  mulC    = app0 "mulC"
+  powIC   = app0 "powIC"
   INLINER(negateC)
   INLINER(addC)
   INLINER(subC)
@@ -353,31 +353,31 @@ instance IntegralCat Syn a where
   INLINER(modC)
 
 instance FractionalCat Syn a where
-  recipC  = app0 "recip"
-  divideC = app0 "divide"
+  recipC  = app0 "recipC"
+  divideC = app0 "divideC"
   INLINER(recipC)
   INLINER(divideC)
 
 instance RealFracCat Syn a b where
-  floorC    = app0 "floor"
-  ceilingC  = app0 "ceiling"
-  truncateC = app0 "truncate"
+  floorC    = app0 "floorC"
+  ceilingC  = app0 "ceilingC"
+  truncateC = app0 "truncateC"
   INLINER(floorC)
   INLINER(ceilingC)
   INLINER(truncateC)
 
 instance FloatingCat Syn a where
-  expC = app0 "exp"
-  cosC = app0 "cos"
-  sinC = app0 "sin"
-  logC = app0 "log"
+  expC = app0 "expC"
+  cosC = app0 "cosC"
+  sinC = app0 "sinC"
+  logC = app0 "logC"
   INLINER(expC)
   INLINER(cosC)
   INLINER(sinC)
   INLINER(logC)
 
 instance FromIntegralCat Syn a b where
-  fromIntegralC = app0 "fromIntegral"
+  fromIntegralC = app0 "fromIntegralC"
   INLINER(fromIntegralC)
 
 instance BottomCat Syn a b where
@@ -417,7 +417,7 @@ AbstIf((a,b,c))
 #endif
 
 instance UnknownCat Syn a b where
-  unknownC = app0 "unknown"
+  unknownC = app0 "unknownC"
   INLINER(unknownC)
 
 #ifdef ShowTypes
@@ -480,7 +480,7 @@ instance Functor h => FunctorCat Syn h where
 instance Zip h => ZipCat Syn h where
   zipC = app0 "zipC"
   INLINER(zipC)
-  -- zipWithC = app0 "zipWith"
+  -- zipWithC = app0 "zipWithC"
   -- INLINER(zipWithC)
 
 -- class OkFunctor k h => ZapCat k h where
@@ -490,11 +490,11 @@ instance Zip h => ZipCat Syn h where
 --   zapC = app0 "zapC"
 
 instance {- Pointed h => -} PointedCat Syn h a where
-  pointC = app0 "point"
+  pointC = app0 "pointC"
   INLINER(pointC)
 
 instance (Foldable h, Additive a) => AddCat Syn h a where
-  sumAC = app0 "sumA"
+  sumAC = app0 "sumAC"
   INLINER(sumAC)
 
 -- instance Functor h => Strong Syn h where
@@ -502,12 +502,12 @@ instance (Foldable h, Additive a) => AddCat Syn h a where
 --   INLINER(strength)
 
 instance DistributiveCat Syn g f where
-  distributeC = app0 "distribute"
+  distributeC = app0 "distributeC"
   INLINER(distributeC)
 
 instance RepresentableCat Syn g where
-  indexC    = app0 "index"
-  tabulateC = app0 "tabulate"
+  indexC    = app0 "indexC"
+  tabulateC = app0 "tabulateC"
   INLINER(indexC)
   INLINER(tabulateC)
 
