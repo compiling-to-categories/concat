@@ -35,4 +35,4 @@ apply .
  abst .
  curry (exl . exr &&& apply . (exl &&& exr . exr)) .
  repr . repr . abst . abst . curry exr) .
-(id &&& id)
+dup

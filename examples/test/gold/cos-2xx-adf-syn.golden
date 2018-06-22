@@ -19,7 +19,7 @@ apply .
       (curry (abst . apply . (exl &&& repr . exr)) .
        curry (curry (apply . (exl . exl &&& apply . (exr . exl &&& exr)))) .
        repr . exr . exl . exl &&&
-       abst . curry ((id &&& id) . exr))))) &&&
+       abst . curry (dup . exr))))) &&&
    cos . exl . exr)) &&&
  (mulC &&&
   apply .
@@ -56,7 +56,7 @@ apply .
       (curry (abst . apply . (exl &&& repr . exr)) .
        curry (curry (apply . (exl . exl &&& apply . (exr . exl &&& exr)))) .
        repr . exr . exr . exl &&&
-       abst . curry ((id &&& id) . exr))) &&&
+       abst . curry (dup . exr))) &&&
      abst . curry exr)) &&&
    (mulC &&&
     apply .
@@ -76,5 +76,5 @@ apply .
  ((const 2.0 &&& exr) &&&
   abst .
   curry (const 0.0 &&& apply . (exl &&& exr . exr)) . repr . abst . curry exr) .
- (id &&& id) . exl) .
-(id &&& id)
+ dup . exl) .
+dup

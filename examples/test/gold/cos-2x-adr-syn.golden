@@ -50,4 +50,4 @@ apply .
  abst .
  curry (const 0.0 &&& apply . (exl &&& exr . exr)) .
  repr . repr . abst . abst . curry exr) .
-(id &&& id)
+dup

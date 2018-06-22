@@ -10,7 +10,7 @@ apply .
    (curry (abst . apply . (exl &&& repr . exr)) .
     curry (curry (apply . (exl . exl &&& apply . (exr . exl &&& exr)))) .
     repr . exr . exl &&&
-    abst . curry ((id &&& id) . exr)))) &&&
+    abst . curry (dup . exr)))) &&&
  (mulC &&&
   apply .
   (curry
@@ -29,4 +29,4 @@ apply .
 (id &&&
  abst .
  curry (exl . exr &&& apply . (exl &&& exr . exr)) . repr . abst . curry exr) .
-(id &&& id)
+dup
