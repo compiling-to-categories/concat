@@ -165,11 +165,11 @@ instance MonoidalPCat Syn where
   (***)  = app2 "***"
   first  = app1 "first"
   second = app1 "second"
+  lassocP = app0 "lassocP"
+  rassocP = app0 "rassocP"
   INLINER((***))
   INLINER(first)
   INLINER(second)
-  lassocP = app0 "lassocP"
-  rassocP = app0 "rassocP"
   INLINER(lassocP)
   INLINER(rassocP)
 
@@ -192,6 +192,10 @@ instance UnitCat Syn where
   runit   = app0 "runit"
   lcounit = app0 "lcounit"
   rcounit = app0 "rcounit"
+  INLINER(lunit)
+  INLINER(runit)
+  INLINER(lcounit)
+  INLINER(rcounit)
 
 instance TerminalCat Syn where
   it = app0 "it"
