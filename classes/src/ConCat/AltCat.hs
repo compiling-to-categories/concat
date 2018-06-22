@@ -36,7 +36,7 @@
 
 #include "ConCat/Ops.inc"
 
-module ConCat.AltCat (module ConCat.AltCat, module C) where
+module ConCat.AltCat (module ConCat.AltCat, module C, oops) where
 
 import Prelude hiding (id,(.),curry,uncurry,const,unzip,zip,zipWith)
 import qualified Prelude as P
@@ -101,6 +101,8 @@ import ConCat.Category
   , DistributiveCat,RepresentableCat 
   , KnownNat2, FiniteCat
   , fmap', liftA2' 
+  -- 
+  -- , crossSecondFirst
   )
 
 -- | Dummy identity function to trigger rewriting of non-inlining operations to
@@ -144,6 +146,7 @@ secondFirst g = swapP . first g . swapP
                 <+ okProd @k @b @a
                 <+ okProd @k @a @d
                 <+ okProd @k @d @a
+{-# INLINE secondFirst #-}
 
 crossSecondFirst :: forall k a b c d. (MonoidalPCat k, Ok4 k a b c d)
                  => a `k` c -> b `k` d -> (a :* b) `k` (c :* d)
@@ -151,6 +154,7 @@ f `crossSecondFirst` g = second g . first f
                          <+ okProd @k @a @b
                          <+ okProd @k @c @b
                          <+ okProd @k @c @d
+{-# INLINE crossSecondFirst #-}
 
 Op0(exl,(ProductCat k, Ok2 k a b) => Prod k a b `k` a)
 Op0(exr,(ProductCat k, Ok2 k a b) => Prod k a b `k` b)
@@ -702,6 +706,28 @@ unCcc f = unCcc' (conceal f)
  #-}
 #endif
 
+idProd :: forall k a b. (Category k, OkProd k, Ok2 k a b) => (a :* b) `k` (a :* b)
+idProd = id <+ okProd @k @a @b
+{-# INLINE idProd #-}
+
+{-# RULES  
+
+"first id" first id = idProd
+"second id" second id = idProd
+-- With just id on the RHS: Could not deduce: Ok k (Prod k c b) arising from a use of ‘id’.
+
+"lassocP . rassocP" lassocP . rassocP = id
+"lassocP . rassocP . f" forall f. lassocP . rassocP . f = f
+
+"rassocP . lassocP" rassocP . lassocP = id
+"rassocP . lassocP . f" forall f. rassocP . lassocP . f = f
+
+"swapP . swapP" swapP . swapP = id
+
+-- TODO: xyzS versions. Or unify MonoidalPCat and MonoidalSCat.
+
+ #-}
+
 #if 0
 
 {-# RULES
@@ -718,7 +744,6 @@ unCcc f = unCcc' (conceal f)
 -- "arr . at" array . at = id
 
  #-}
-
 
 -- I may have stumbled onto a hack for writing GHC rewrite rules whose RHSs
 -- impose stronger constraints than their LHSs. In the RHS: add an inlining
