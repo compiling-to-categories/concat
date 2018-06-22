@@ -78,7 +78,7 @@ instance BraidedPCat k => MonoidalPCat (Stack k) where
   (***) :: forall a b c d. Ok4 k a b c d  -- probably unnecessary & unhelpful
         => Stack k a c -> Stack k b d -> Stack k (a :* b) (c :* d)
   -- (***) = cross  -- f *** g = swap . first g . swap . first f
-  (***) = C.crossSecondFirst  -- f *** g = swap . first g . swap . first f
+  (***) = crossSecondFirst  -- f *** g = swap . first g . swap . first f
   -- f *** g = second g . first f
   --           <+ okProd @k @a @b
   --           <+ okProd @k @c @b
