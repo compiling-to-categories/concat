@@ -157,6 +157,7 @@ polyBail :: Bool
 polyBail = True -- False
 
 ccc :: CccEnv -> Ops -> Type -> ReExpr
+-- ccc _ _ _ | pprTrace "ccc" empty False = undefined
 ccc (CccEnv {..}) (Ops {..}) cat =
   traceRewrite "toCcc'" $
   (if lintSteps then lintReExpr else id) $
@@ -169,7 +170,8 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      -- be important to restore polymorphic transformation later for useful
      -- separate compilation. Put first, to remove tracing clutter
      -- Trying("top poly bail")
-     (exprType -> isMonoTy -> False) | polyBail ->
+     -- Trying("top poly bail")
+     (isMono -> False) | polyBail ->
        -- Doing("top poly bail")
        Nothing
      e | dtrace ("go ccc "++pp cat++":") (pprWithType' e) False -> undefined
@@ -1751,8 +1753,8 @@ install opts todos =
       -- ccc :: forall k a b. (a -> b) -> k a b
       -- cccArgs c@(unVarApps -> Just (v,_tys,[_])) | v == cccV = Seq.singleton c
       cccArgs c@(unVarApps -> Just (v,_tys,[arg]))
-        | v == cccV, not polyBail || isMonoTy (exprType arg) = Seq.singleton c
-      cccArgs _                                              = mempty
+        | v == cccV, not polyBail || isMono arg = Seq.singleton c
+      cccArgs _                                 = mempty
       -- cccArgs = const mempty  -- for now
       collectQ :: (Data a, Monoid m) => (a -> m) -> GenericQ m
       collectQ f = everything mappend (mkQ mempty f)
@@ -2281,15 +2283,11 @@ isPairVar :: Var -> Bool
 isPairVar = (== "GHC.Tuple.(,)") . fqVarName
 
 isMonoTy :: Type -> Bool
-isMonoTy (TyConApp _ tys)      = all isMonoTy tys
-isMonoTy (AppTy u v)           = isMonoTy u && isMonoTy v
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-
-#else
-isMonoTy (ForAllTy (Anon u) v) = isMonoTy u && isMonoTy v
-#endif
-isMonoTy (LitTy _)             = True
-isMonoTy _                     = False
+isMonoTy (TyConApp _ tys) = all isMonoTy tys
+isMonoTy (AppTy u v)      = isMonoTy u && isMonoTy v
+isMonoTy (FunTy u v)      = isMonoTy u && isMonoTy v
+isMonoTy (LitTy _)        = True
+isMonoTy _                = False
 
 isMono :: CoreExpr -> Bool
 isMono = isMonoTy . exprType
