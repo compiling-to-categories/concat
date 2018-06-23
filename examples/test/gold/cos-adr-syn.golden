@@ -1,8 +1,11 @@
-(exl . id &&& repr . exr . id) .
+((exl . id *** repr . exr . id) . dup) .
 second repr .
 apply .
 (curry
- (exr &&&
-  abst .
-  abst . curry mulC . apply . (curry exl . negateC . sinC . exl &&& exr)) &&&
- cosC)
+ ((exr ***
+   abst .
+   abst .
+   curry mulC . apply . (curry exl . negateC . sinC . exl *** exr) . dup) .
+  dup) ***
+ cosC) .
+dup

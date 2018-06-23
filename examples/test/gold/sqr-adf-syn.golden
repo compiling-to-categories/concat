@@ -1,32 +1,45 @@
 second (id . repr) .
 apply .
-(curry
- (exl . exr &&&
-  apply .
-  (curry (abst . apply . (exl &&& repr . exr)) .
-   curry (curry (apply . (exl . exl &&& apply . (exr . exl &&& exr)))) .
-   repr . exr . exr &&&
-   apply .
-   (curry (abst . apply . (exl &&& repr . exr)) .
-    curry (curry (apply . (exl . exl &&& apply . (exr . exl &&& exr)))) .
-    repr . exr . exl &&&
-    abst . curry (dup . exr)))) &&&
- (mulC &&&
-  apply .
-  (curry
-   (abst .
-    curry (addC . apply) .
+((curry
+  ((exl . exr ***
+    apply .
+    (curry (abst . apply . (exl *** repr . exr) . dup) .
+     curry
+     (curry (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
+     repr . exr . exr ***
+     apply .
+     (curry (abst . apply . (exl *** repr . exr) . dup) .
+      curry
+      (curry
+       (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
+      repr . exr . exl ***
+      abst . curry (dup . exr)) .
+     dup) .
+    dup) .
+   dup) ***
+  ((mulC ***
     apply .
     (curry
-     (curry
-      (apply . (exl . exl &&& exl . exr) &&&
-       apply . (exr . exl &&& exr . exr))) .
-     repr . exl &&&
-     repr . exr)) .
-   abst . curry mulC . exr &&&
-   abst . curry mulC . exl)) .
- exl) .
-(id &&&
- abst .
- curry (exl . exr &&& apply . (exl &&& exr . exr)) . repr . abst . curry exr) .
+     (abst .
+      curry (addC . apply) .
+      apply .
+      (curry
+       (curry
+        ((apply . (exl . exl *** exl . exr) . dup ***
+          apply . (exr . exl *** exr . exr) . dup) .
+         dup)) .
+       repr . exl ***
+       repr . exr) .
+      dup) .
+     abst . curry mulC . exr ***
+     abst . curry mulC . exl) .
+    dup) .
+   dup) .
+  exl) .
+ dup) .
+((id ***
+  abst .
+  curry ((exl . exr *** apply . (exl *** exr . exr) . dup) . dup) .
+  repr . abst . curry exr) .
+ dup) .
 dup

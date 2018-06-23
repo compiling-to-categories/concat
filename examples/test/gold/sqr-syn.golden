@@ -1,1 +1,1 @@
-mulC . (id &&& id)
+mulC . (id *** id) . dup

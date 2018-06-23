@@ -1,2 +1,2 @@
-(exl . id &&& repr . exr . id) .
-(addC &&& repr . abst . abst . curry (dup . exr))
+((exl . id *** repr . exr . id) . dup) .
+(addC *** repr . abst . abst . curry (dup . exr)) . dup

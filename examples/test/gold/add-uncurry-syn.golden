@@ -1,1 +1,1 @@
-apply . (curry addC . exl &&& exr)
+apply . (curry addC . exl *** exr) . dup

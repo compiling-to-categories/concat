@@ -1,1 +1,1 @@
-(cosC &&& sinC) . mulC
+((cosC *** sinC) . dup) . mulC

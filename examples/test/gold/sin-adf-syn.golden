@@ -1,5 +1,7 @@
 second (id . repr) .
 apply .
 (curry
- (exr &&& abst . curry mulC . apply . (curry exl . cosC . exl &&& exr)) &&&
- sinC)
+ ((exr *** abst . curry mulC . apply . (curry exl . cosC . exl *** exr) . dup) .
+  dup) ***
+ sinC) .
+dup

@@ -9,30 +9,30 @@ digraph cos_2x_adr {
   subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>}}"] }
   subgraph clusterc1 { label=""; color=white; margin=0; c1 [label="{2.0|{<Out0>}}"] }
   subgraph clusterc322 { label=""; color=white; margin=0; c322 [label="{{<In0>|<In1>}|\×|{<Out0>}}"] }
-  subgraph clusterc523 { label=""; color=white; margin=0; c523 [label="{{<In0>}|cos|{<Out0>}}"] }
-  subgraph clusterc524 { label=""; color=white; margin=0; c524 [label="{{<In0>}|sin|{<Out0>}}"] }
-  subgraph cluster_683 {
+  subgraph clusterc591 { label=""; color=white; margin=0; c591 [label="{{<In0>}|cos|{<Out0>}}"] }
+  subgraph clusterc592 { label=""; color=white; margin=0; c592 [label="{{<In0>}|sin|{<Out0>}}"] }
+  subgraph cluster_751 {
     margin=8
     fontsize=20
     labeljust=r
     color=DarkGreen
-    c679 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
-    c675 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
-    c674 [label="{In|{<Out0>}}"]
-    c682 [label="{{<In0>}|Out}"]
-    c680 [label="{{<In0>}|negate|{<Out0>}}"]
-    c1:Out0 -> c679:In0 [label="Double"]
-    c675:Out0 -> c679:In1 [label="Double"]
-    c524:Out0 -> c675:In0 [label="Double"]
-    c674:Out0 -> c675:In1 [label="Double"]
-    c680:Out0 -> c682:In0 [label="Double"]
-    c679:Out0 -> c680:In0 [label="Double"]
+    c747 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c743 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c742 [label="{In|{<Out0>}}"]
+    c750 [label="{{<In0>}|Out}"]
+    c748 [label="{{<In0>}|negate|{<Out0>}}"]
+    c1:Out0 -> c747:In0 [label="Double"]
+    c743:Out0 -> c747:In1 [label="Double"]
+    c592:Out0 -> c743:In0 [label="Double"]
+    c742:Out0 -> c743:In1 [label="Double"]
+    c748:Out0 -> c750:In0 [label="Double"]
+    c747:Out0 -> c748:In0 [label="Double"]
   }
-  subgraph clusterc684 { label=""; color=white; margin=0; c684 [label="{{<In0>|<In1>}|Out}"] }
+  subgraph clusterc752 { label=""; color=white; margin=0; c752 [label="{{<In0>|<In1>}|Out}"] }
   c0:Out0 -> c322:In0 [label="Double"]
   c1:Out0 -> c322:In1 [label="Double"]
-  c322:Out0 -> c523:In0 [label="Double"]
-  c322:Out0 -> c524:In0 [label="Double"]
-  c523:Out0 -> c684:In0 [label="Double"]
-  c682 -> c684:In1 [ltail=cluster_683,label="Double ’ Double"]
+  c322:Out0 -> c591:In0 [label="Double"]
+  c322:Out0 -> c592:In0 [label="Double"]
+  c591:Out0 -> c752:In0 [label="Double"]
+  c750 -> c752:In1 [ltail=cluster_751,label="Double ’ Double"]
 }

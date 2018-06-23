@@ -8,12 +8,12 @@ digraph sqr_gradr {
   nslimit=20
   c0 [label="{In|{<Out0>}}"]
   c102 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
-  c232 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
-  c233 [label="{{<In0>|<In1>}|Out}"]
+  c300 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+  c301 [label="{{<In0>|<In1>}|Out}"]
   c0:Out0 -> c102:In0 [label="Double"]
   c0:Out0 -> c102:In1 [label="Double"]
-  c0:Out0 -> c232:In0 [label="Double"]
-  c0:Out0 -> c232:In1 [label="Double"]
-  c102:Out0 -> c233:In0 [label="Double"]
-  c232:Out0 -> c233:In1 [label="Double"]
+  c0:Out0 -> c300:In0 [label="Double"]
+  c0:Out0 -> c300:In1 [label="Double"]
+  c102:Out0 -> c301:In0 [label="Double"]
+  c300:Out0 -> c301:In1 [label="Double"]
 }
