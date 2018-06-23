@@ -126,7 +126,14 @@ exrL :: (Zeroable b, Diagonal b, Zeroable a, Num s)
 exrL = (zeroV :*:) <$> idL
 {-# INLINE exrL #-}
 
-forkL :: (a :-* b) s -> (a :-* c) s -> (a :-* b :*: c) s
+-- crossL :: (a :-* c) s -> (b :-* d) s -> (a :*: b :-* c :*: d) s
+-- f `crossL` g = (f `compL` exlL) `forkL` (g `compL` exrL)
+
+crossL :: (Zeroable a, Zeroable b, Zeroable c, Zeroable d, Num s, Zip c, Zip d)
+       => (a :-* c) s -> (b :-* d) s -> (a :*: b :-* c :*: d) s
+f `crossL` g = (f `forkL` zeroL) `joinL` (zeroL `forkL` g)
+
+forkL :: (a :-* c) s -> (a :-* d) s -> (a :-* c :*: d) s
 forkL = (:*:)
 
 dupL :: (Diagonal a, Num s) => (a :-* (a :*: a)) s
@@ -238,7 +245,9 @@ instance Category (L s) where
 instance OpCon (:*) (Sat (OkLM s)) where inOp = Entail (Sub Dict)
 -- instance OpCon (->) (Sat (OkLM s)) where inOp = Entail (Sub Dict)
 
-instance MonoidalPCat (L s)
+instance MonoidalPCat (L s) where
+  (***) = inAbst2 crossL
+  
 instance BraidedPCat  (L s)
 
 instance ProductCat (L s) where
