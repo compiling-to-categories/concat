@@ -1,3 +1,7 @@
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showResiduals #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showCcc #-}
+
 -- To run:
 --
 --   stack build :misc-examples
@@ -30,10 +34,6 @@
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showResiduals #-}
--- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:showCcc #-}
-
 -- Now in concat-examples.cabal
 -- {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
 
@@ -59,7 +59,7 @@
 
 -- {-# OPTIONS_GHC -dsuppress-uniques #-}
 {-# OPTIONS_GHC -dsuppress-idinfo #-}
-{-# OPTIONS_GHC -dsuppress-module-prefixes #-}
+-- {-# OPTIONS_GHC -dsuppress-module-prefixes #-}
 
 -- {-# OPTIONS_GHC -ddump-tc-trace #-}
 
@@ -151,6 +151,8 @@ import qualified ConCat.Deep as D
 -- import ConCat.Finite
 import ConCat.TArr
 import qualified ConCat.TArr as TA
+import ConCat.StackMachine (Stack)
+import qualified ConCat.StackMachine as S
 
 -- Experimental
 import qualified ConCat.Inline.SampleMethods as I
@@ -188,6 +190,45 @@ import Miscellany
 main :: IO ()
 main = sequence_ [
     putChar '\n' -- return ()
+
+    -- , runSyn S.t14'
+
+  -- , runSyn $ toCcc $ A.addC . A.dup
+  -- , runSyn $ toCcc $ A.addC . (A.id A.&&& A.id)
+
+  -- -- first add . first dup
+
+  -- , runSynStack $ toCcc $ id @ Int
+
+  -- , runSynStack $ toCcc $ negate . negate @ Int
+
+  -- , runSynStack $ toCcc $ \ (x :: Int) -> x  -- fine
+  -- , runSyn $ toCcc $ \ (x :: Int) -> (x,x) -- fine
+  -- , runSyn $ toCcc $ A.id A.&&& A.id -- fine
+  -- , runSyn $ toCcc $ A.addC . (A.id A.&&& A.id) -- okay
+
+  -- , runSynStack $ toCcc $ \ x -> x + x -- Doesn't simplify
+
+  -- , runSynStack $ toCcc $ A.addC . A.dup
+
+
+  -- -- first add . ((first swapP . (lassocP . id . rassocP) . first swapP) . lassocP . id . rassocP) . first dup
+  -- , runSynStack $ toCcc $ A.addC . (A.id A.&&& A.id)
+
+  -- -- [first dup,first add]
+  -- , runOpsStack $ toCcc $ A.addC . A.dup
+  -- -- [first dup,rassocP,lassocP,first swapP,rassocP,lassocP,first swapP,first add]
+  -- , runOpsStack $ toCcc $ A.addC . (A.id A.&&& A.id)
+
+  -- -- Same as addC . (id &&& id)
+  -- , runSyn      $ toCcc $ \ x -> x + x
+  -- , runSynStack $ toCcc $ \ x -> x + x
+  -- , runOpsStack $ toCcc' $ \ x -> x + x
+
+  -- , runSyn $ toCcc' $ A.lassocP A.. A.rassocP                  -- id
+  -- , runSyn $ toCcc' $ A.lassocP A.. A.id A.. A.rassocP         -- id
+  -- , runSyn $ toCcc' $ A.first A.id                             -- id
+  -- , runSyn $ toCcc' $ A.lassocP A.. A.first A.id A.. A.rassocP -- id
 
   -- , runSynCirc "sum-fun-B" $ toCcc $ sum @((->) Bool) @Int
   -- , runSynCirc "sum-fun-BxB" $ toCcc $ sum @((->) (Bool :* Bool)) @Int
@@ -311,8 +352,8 @@ main = sequence_ [
 
     -- , runSynCirc "addR" $ toCcc $ (^+^) @R
 
-  -- -- Circuit graphs
-  , runSynCirc "add"         $ toCcc $ (+) @R -- 
+  -- Circuit graphs
+  , runSynCirc "add"         $ toCcc $ (+) @R
   , runSynCirc "add-uncurry" $ toCcc $ uncurry ((+) @R)
   , runSynCirc "dup"         $ toCcc $ A.dup @(->) @R
   , runSynCirc "fst"         $ toCcc $ fst @R @R
@@ -325,8 +366,7 @@ main = sequence_ [
   , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
   , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
 
-  -- -- Automatic differentiation with ADFun:
-
+  -- -- Automatic differentiation
   -- , runSynCircDers "add"     $ uncurry ((+) @R)
   -- , runSynCircDers "fst"     $ fst @R @R
   -- , runSynCircDers "twice"   $ twice @R
@@ -387,3 +427,81 @@ vecIndexDef def v i = maybe def (FR.index v) (packFiniteM i)
 {-# INLINE vecIndexDef #-}
 
 #endif
+
+-- foo :: Stack Syn Int Int
+-- foo = toCcc $ A.addC . (A.id A.&&& A.id) --
+
+-- foo = toCcc $ A.addC . (A.id A.&&& A.id) --
+-- foo = reveal $ toCcc $ A.addC . (A.id A.&&& A.id) -- 
+-- foo = toCcc $ \ x -> x + x
+-- foo = toCcc $ A.reveal (A.addC . (A.id A.&&& A.id))
+
+-- z2 :: Syn ((Int :* Bool) :* z) ((Int :* Bool) :* z)
+-- z2 = S.z2
+
+-- z1 :: Int -> Int
+-- z1 = A.addC A.. (A.id A.&&& A.id)
+
+-- z2 :: Stack Syn Int Int
+-- z2 = A.addC A.. (A.id A.&&& A.id)
+
+-- z2' :: Stack Syn Int Int
+-- z2' = A.reveal (A.addC A.. (A.id A.&&& A.id))
+
+-- z3 :: Stack Syn Int Int
+-- z3 = toCcc (\ x -> x + x)
+
+-- z4 :: Stack Syn Int Int
+-- z4 = toCcc' (\ x -> x + x)
+
+-- z5 :: Syn (Int :* ()) (Int :* ())
+-- z5 = S.unStack (toCcc' (\ x -> x + x))
+
+-- z5 :: Syn (Int :* ()) (Int :* ())
+-- z5 = S.unStack (toCcc (\ x -> x + x))
+
+-- z2' :: Syn (Int :* ()) (Int :* ())
+-- z2' = unStack z2
+
+-- z3 :: Syn (Int :* ()) (Int :* ())
+-- z3 = toCcc $ \ x -> x + x
+
+-- z3' :: Syn (Int :* ()) (Int :* ())
+-- z3' = unStack z3
+
+
+-- z5 :: Stack Syn Int Int
+-- z5 = A.negateC A.. A.negateC
+
+-- z5' :: Stack Syn Int Int
+-- z5' = A.reveal (A.negateC A.. A.negateC)
+
+-- z6 :: Stack Syn (Int :* Int) (Int :* Int)
+-- z6 = A.negateC A.*** A.negateC
+
+-- z6' :: Stack Syn (Int :* Int) (Int :* Int)
+-- z6' = A.reveal (A.negateC A.*** A.negateC)
+
+-- z6'' :: Stack Syn (Int :* Int) (Int :* Int)
+-- z6'' = C.negateC C.*** C.negateC
+
+-- z7 :: Stack Syn (Int :* Int) (Int :* Int)
+-- z7 = C.negateC `C.crossSecondFirst` C.negateC
+
+-- z7' :: Stack Syn (Int :* Int) (Int :* Int)
+-- z7' = C.negateC `A.crossSecondFirst` C.negateC
+
+-- z8 :: Stack Syn (Int :* Int) (Int :* Int)
+-- z8 = C.negateC C.*** C.negateC
+
+-- z8' :: Stack Syn (Int :* Int) (Int :* Int)
+-- z8' = C.negateC `S.cross` C.negateC
+
+-- z8'' :: Stack Syn (Int :* Int) (Int :* Int)
+-- z8'' = C.negateC `C.crossSecondFirst` C.negateC
+
+-- z8' :: Stack Syn (Int :* Int) (Int :* Int)
+-- z8' = C.negateC A.*** C.negateC
+
+-- z9 :: Stack Syn (Int :* Int) (Int :* Int)
+-- z9 = C.negateC `S.cross` C.negateC
