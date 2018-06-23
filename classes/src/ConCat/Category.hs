@@ -3,7 +3,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TupleSections #-}
--- {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -39,18 +38,12 @@
 
 -- | Another go at constrained categories. This time without Prod, Coprod, Exp.
 
--- #define DefaultCat
-
 module ConCat.Category where
 
 import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip,zipWith)
 import qualified Prelude as P
-#ifdef DefaultCat
-import qualified Control.Category as C
-#endif
 import Control.Arrow (Kleisli(..),arr)
 import qualified Control.Arrow as A
--- import Control.Applicative (liftA2)
 import Control.Monad ((<=<))
 import Data.Typeable (Typeable)
 import GHC.Exts (Coercible,coerce)
@@ -60,7 +53,6 @@ import qualified Data.Type.Equality as Eq
 import Data.Type.Coercion (Coercion(..))
 import qualified Data.Type.Coercion as Co
 import GHC.Types (Constraint)
--- import qualified Data.Constraint as Con
 import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import Debug.Trace
 import Data.Monoid
@@ -69,23 +61,12 @@ import GHC.TypeLits
 import Control.Monad.Fix (MonadFix)
 import Data.Proxy (Proxy)
 
--- import GHC.Types (type (*))  -- experiment with TypeInType
--- import qualified Data.Constraint as K
--- import GHC.TypeLits
--- import Data.Array (Array,(!),bounds,Ix)
--- import qualified Data.Array as Arr
--- import GHC.Generics ((:*:)(..),(:.:)(..))
--- import qualified Data.Vector.Sized as VS
-
 import Data.Pointed
 import Data.Key (Zip(..))
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..))
--- import qualified Data.Functor.Rep as DFR
 import Control.Newtype.Generics (Newtype(..))
 import Data.Vector.Sized (Vector)
--- import qualified Data.Vector.Generic.Sized.Internal as IV
--- import qualified Data.Vector.Generic as VG
 import Data.Finite.Internal (Finite(..))
 
 #ifdef VectorSized
@@ -97,11 +78,9 @@ import Data.Finite.Internal (Finite(..))
 -- import Data.MemoTrie
 
 import ConCat.Misc hiding ((<~),(~>),type (&&))
--- import ConCat.Free.Diagonal (Diagonal(..),diag)
 import ConCat.Rep hiding (Rep)
 import qualified ConCat.Rep as R
 import ConCat.Additive
--- import ConCat.Orphans ()
 import qualified ConCat.Inline.ClassOp as IC
 
 #define PINLINER(nm) {-# INLINE nm #-}
@@ -332,13 +311,6 @@ class Category k where
   id  :: Ok k a => a `k` a
   infixr 9 .
   (.) :: forall b c a. Ok3 k a b c => (b `k` c) -> (a `k` b) -> (a `k` c)
-#ifdef DefaultCat
-  -- Defaults experiment
-  default id :: C.Category k => a `k` a
-  id = C.id
-  default (.) :: C.Category k => b `k` c -> a `k` b -> a `k` c
-  (.) = (C..)
-#endif
 
 infixl 1 <~
 infixr 1 ~>
@@ -353,16 +325,12 @@ infixr 1 ~>
 f ~> h = h <~ f
 
 instance Category (->) where
-#ifndef DefaultCat
   id  = P.id
   (.) = (P..)
-#endif
 
 instance Monad m => Category (Kleisli m) where
-#ifndef DefaultCat
   id  = pack return
   (.) = inNew2 (<=<)
-#endif
 
 instance Category (:~:) where
   id  = Refl
@@ -424,11 +392,6 @@ class (Category k, OkProd k) => AssociativePCat k where
 class (Category k, OkProd k) => MonoidalPCat k where
   (***) :: forall a b c d. Ok4 k a b c d
         => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d)
-  default (***) :: forall a b c d. (ProductCat k, Ok4 k a b c d)
-                => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d)
-  f *** g = f . exl &&& g . exr
-            <+ okProd @k @a @b
-  {-# INLINE (***) #-}
   first :: forall a a' b. Ok3 k a b a'
         => (a `k` a') -> (Prod k a b `k` Prod k a' b)
   first = (*** id)
@@ -454,46 +417,13 @@ class (OkProd k, Category k {- , BraidedPCat k -}) => ProductCat k where
   exl :: Ok2 k a b => Prod k a b `k` a
   exr :: Ok2 k a b => Prod k a b `k` b
   dup :: Ok  k a => a `k` Prod k a a
-  -- default dup :: (MonoidalPCat k, Ok k a) => a `k` Prod k a a
-  -- dup = id &&& id
-  -- (***) :: forall a b c d. Ok4 k a b c d
-  --       => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d)
-  -- f *** g = f . exl &&& g . exr
-  --           <+ okProd @k @a @b
-  -- {-# INLINE (***) #-}
-  -- (&&&) :: forall a c d. Ok3 k a c d
-  --       => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d)
 
-#if 1
 (&&&) :: forall k a c d. (MProductCat k, Ok3 k a c d)
       => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d)
 f &&& g = (f *** g) . dup
   <+ okProd @k @a @a
   <+ okProd @k @c @d
 {-# INLINE (&&&) #-}
-
-#else
-#ifndef DefaultCat
-  -- We can't give two default definitions for (&&&).
-  default (&&&) :: forall a c d. (MonoidalPCat k, Ok3 k a c d)
-                => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d)
-  f &&& g = (f *** g) . dup
-    <+ okProd @k @a @a
-    <+ okProd @k @c @d
-  {-# INLINE (&&&) #-}
-#endif
-#ifdef DefaultCat
-  -- These defaults are not kicking in for (->). Why not?
-  -- default exl :: A.Arrow k => Prod k a b `k` a
-  default exl :: (A.Arrow k, Ok k ~ Yes1, Ok2 k a b) => (a :* b) `k` a
-  exl = arr exl
-  default exr :: A.Arrow k => Prod k a b `k` b
-  exr = arr exr
-  default (&&&) :: A.Arrow k => a `k` c -> a `k` d -> a `k` (c :* d)
-  (&&&) = (A.&&&)
-#endif
-  {-# MINIMAL exl, exr, ((&&&) | dup) #-}
-#endif
 
 type MProductCat k = (ProductCat k, MonoidalPCat k)
 
@@ -510,13 +440,10 @@ instance BraidedPCat (->) where
   swapP = \ (a,b) -> (b,a)
 
 instance ProductCat (->) where
-#ifndef DefaultCat
   -- type Prod (->) = (:*)
-  exl     = fst
-  exr     = snd
-  dup     = \ a -> (a,a)
-  -- (&&&)   = (A.&&&)
-#endif
+  exl = fst
+  exr = snd
+  dup = \ a -> (a,a)
 
 -- TODO: do we want inline for (&&&), (***), first, and second?
 
@@ -560,15 +487,12 @@ instance (ProductCat k, ProductCat k') => ProductCat (k :**: k') where
   exl = exl :**: exl
   exr = exr :**: exr
   dup = dup :**: dup
-  -- (f :**: f') &&& (g :**: g') = (f &&& g) :**: (f' &&& g')
   PINLINER(exl)
   PINLINER(exr)
   PINLINER(dup)
-  -- PINLINER((&&&))
 
 instance Monad m => MonoidalPCat (Kleisli m) where
   (***) = (A.***)
-          -- inNew2 crossK
   PINLINER((***))
 
 instance Monad m => BraidedPCat (Kleisli m) where
@@ -579,22 +503,9 @@ instance Monad m => ProductCat (Kleisli m) where
   exl   = arr exl
   exr   = arr exr
   dup   = arr dup
-  -- (&&&) = (A.&&&)
-          -- inNew2 forkK
   PINLINER(exl)
   PINLINER(exr)
   PINLINER(dup)
-  -- PINLINER((&&&))
-
-#if 0
--- Underlies '(&&&)' on Kleisli arrows
-forkK :: Applicative m => (a -> m c) -> (a -> m d) -> (a -> m (c :* d))
-(f `forkK` g) a = liftA2 (,) (f a) (g a)
-
--- Underlies '(***)' on Kleisli arrows
-crossK :: Applicative m => (a -> m c) -> (b -> m d) -> (a :* b -> m (c :* d))
-(f `crossK` g) (a,b) = liftA2 (,) (f a) (g b)
-#endif
 
 {--------------------------------------------------------------------
     Coproducts
@@ -639,11 +550,6 @@ class (Category k, OkCoprod k) => BraidedSCat k where
 class (OkCoprod k, Category k) => MonoidalSCat k where
   (+++) :: forall a b c d. Ok4 k a b c d
         => (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b)
-  default (+++) :: forall a b c d. (CoproductCat k, Ok4 k a b c d)
-                => (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b)
-  f +++ g = inl . f ||| inr . g
-            <+ okCoprod @k @a @b
-  {-# INLINE (+++) #-}
   left  :: forall a a' b. Oks k [a,b,a']
         => (a `k` a') -> (Coprod k a b `k` Coprod k a' b)
   left  = (+++ id)
@@ -660,9 +566,6 @@ class BraidedSCat k => CoproductCat k where
   inl :: Ok2 k a b => a `k` Coprod k a b
   inr :: Ok2 k a b => b `k` Coprod k a b
   jam :: Ok k a => Coprod k a a `k` a
-  -- jam = id ||| id
-  -- {-# INLINE jam #-}
-#if 1
 
 type MCoproductCat k = (CoproductCat k, MonoidalSCat k)
 
@@ -673,29 +576,6 @@ f ||| g = jam . (f +++ g)
         <+ okCoprod @k @c @d
 {-# INLINE (|||) #-}
 
-#else
-#ifndef DefaultCat
-  (|||) :: forall a c d. Ok3 k a c d
-        => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a)
-  -- We can't give two default definitions for (&&&).
-  f ||| g = jam . (f +++ g)
-          <+ okCoprod @k @a @a
-          <+ okCoprod @k @c @d
-  {-# INLINE (|||) #-}
-#endif
-#ifdef DefaultCat
-  default inl :: A.ArrowChoice k => a `k` Coprod k a b
-  inl = arr inl
-  default inr :: A.ArrowChoice k => b `k` Coprod k a b
-  inr = arr inr
-  default (|||) :: A.ArrowChoice k => (a `k` c) -> (b `k` c) -> (Coprod k a b `k` c)
-  (|||) = (A.|||)
-#endif
-  {-# MINIMAL inl, inr, ((|||) | jam) #-}
-#endif
-
--- type CoprodOk' k ok = (CoproductCat k, ok ~ Ok' k)
-
 instance MonoidalSCat (->) where
   (+++) = (A.+++)
   left  = A.left
@@ -705,18 +585,15 @@ instance BraidedSCat (->) where
   swapS = Right ||| Left
 
 instance CoproductCat (->) where
-#ifndef DefaultCat
   -- type Coprod (->) = (:+)
   inl = Left
   inr = Right
   jam = id `either` id
-  -- (|||) = (A.|||)
-#endif
 
 -- TODO: do we want inline for (|||), (+++), left, and right?
 
 instance Monad m => MonoidalSCat (Kleisli m) where
-  -- (+++) = inNew2 (\ f g -> (fmap Left ||| fmap Right) . (f +++ g))
+  (+++) = inNew2 (\ f g -> (fmap Left ||| fmap Right) . (f +++ g))
 
 -- f :: a -> m c
 -- g :: b -> m d
@@ -730,7 +607,6 @@ instance Monad m => CoproductCat (Kleisli m) where
   inl = arr inl
   inr = arr inr
   jam = arr jam
-  -- (|||) = inNew2 (|||)
 
 -- f :: a -> m c
 -- g :: b -> m c
@@ -751,7 +627,6 @@ instance CoproductCat U2 where
   inl = U2
   inr = U2
   jam = U2
-  -- U2 ||| U2 = U2
 
 instance (AssociativeSCat k, AssociativeSCat k') => AssociativeSCat (k :**: k') where
   lassocS = lassocS :**: lassocS
@@ -774,8 +649,6 @@ instance (CoproductCat k, CoproductCat k') => CoproductCat (k :**: k') where
   PINLINER(inl)
   PINLINER(inr)
   PINLINER(jam)
-  -- (f :**: f') ||| (g :**: g') = (f ||| g) :**: (f' ||| g')
-  -- PINLINER((|||))
 
 {--------------------------------------------------------------------
     Abelian categories
@@ -848,28 +721,6 @@ class BraidedPCat k => CoproductPCat k where
   inlP :: Ok2 k a b => a `k` CoprodP k a b
   inrP :: Ok2 k a b => b `k` CoprodP k a b
   jamP :: Ok k a => CoprodP k a a `k` a
-  -- jamP = id |||| id
-  -- {-# INLINE jamP #-}
-  -- swapPS :: forall a b. Ok2 k a b
-  --        => CoprodP k a b `k` CoprodP k b a
-  -- default swapPS :: forall a b. (OkAdd k, Ok2 k a b)
-  --                => CoprodP k a b `k` CoprodP k b a
-  -- swapPS = inrP |||| inlP
-  --          <+ okCoprodP @k @b @a
-  --          <+ okAdd @k @a <+ okAdd @k @b
-  -- {-# INLINE swapPS #-}
---   (||||) :: forall a c d. Ok3 k a c d
---          => (c `k` a) -> (d `k` a) -> (CoprodP k c d `k` a)
--- #ifndef DefaultCat
---   -- We canDt give two default definitions for (&&&).
---   default (||||) :: forall a c d. (MonoidalPCat k, Ok3 k a c d)
---                  => (c `k` a) -> (d `k` a) -> (CoprodP k c d `k` a)
---   f |||| g = jamP . (f *** g)
---            <+ okCoprodP @k @a @a
---            <+ okCoprodP @k @c @d
---   {-# INLINE (||||) #-}
--- #endif
---   {-# MINIMAL inlP, inrP, ((||||) | jamP) #-}
 
 type MCoproductPCat k = (CoproductPCat k, MonoidalPCat k)
 
@@ -885,39 +736,18 @@ f |||| g = jamP . (f *** g)
 
 -- Don't bother with left, right, lassocS, rassocS, and misc helpers.
 
--- instance CoproductPCat (->) where
---   inlP a = (a,zero)
---   inrP b = (zero,b)
---   (f |||| g) (a,b) = f a ^+^ g b
---   jamP (a,a') = a ^+^ a'
---   swapPS = swapP
-
 instance CoproductPCat U2 where
   inlP = U2
   inrP = U2
   jamP = U2
-  -- U2 |||| U2 = U2
-  -- swapPS = U2
 
 instance (CoproductPCat k, CoproductPCat k') => CoproductPCat (k :**: k') where
   inlP = inlP :**: inlP
   inrP = inrP :**: inrP
   jamP = jamP :**: jamP
-  -- swapPS = swapPS :**: swapPS
-  -- leftD (f :**: f') = leftD f :**: leftD f'
-  -- rightD (f :**: f') = rightD f :**: rightD f'
-  -- lassocSD = lassocSD :**: lassocSD
-  -- rassocSD = rassocSD :**: rassocSD
   PINLINER(inlP)
   PINLINER(inrP)
   PINLINER(jamP)
-  -- (f :**: f') |||| (g :**: g') = (f |||| g) :**: (f' |||| g')
-  -- PINLINER((||||))
-  -- PINLINER(swapPS)
-  -- PINLINER(leftD)
-  -- PINLINER(rightD)
-  -- PINLINER(lassocSD)
-  -- PINLINER(rassocSD)
 
 -- Scalar multiplication
 
@@ -1255,8 +1085,8 @@ class (TerminalCat k, Ok k (ConstObj k b)) => ConstCat k b where
 
 -- TODO: If I keep this version, remove TerminalCat parent
 class (Category k, Ok k (ConstObj k b)) => ConstCat k b where
---   type ConstObj k b
---   type ConstObj k b = b
+  -- type ConstObj k b
+  -- type ConstObj k b = b
   const :: Ok k a => b -> (a `k` ConstObj k b)
   -- default const :: (HasRep (ConstObj k b), ConstCat k (Rep b), RepCat k, Ok k a)
   --               => b -> (a `k` ConstObj k b)
@@ -2004,7 +1834,6 @@ arrAtFun = uncurry VS.index
 
 instance {- KnownNat n => -} ArrayCat U2 n b where
   array = U2
-  -- array _ = U2
   arrAt = U2
 
 instance (ArrayCat k n b, ArrayCat k' n b) => ArrayCat (k :**: k') n b where
@@ -2012,8 +1841,6 @@ instance (ArrayCat k n b, ArrayCat k' n b) => ArrayCat (k :**: k') n b where
   arrAt = arrAt :**: arrAt
   PINLINER(array)
   PINLINER(arrAt)
-  -- at = at :**: at
-  -- PINLINER(at)
 
 -- #ifdef KleisliInstances
 -- instance (Monad m, Enum n) => ArrayCat (Kleisli m) n b where

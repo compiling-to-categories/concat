@@ -91,9 +91,6 @@ instance ProductCat IF where
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE dup #-}
-  -- -- IF f &&& IF g = IF (f &&& g)
-  -- (&&&) = inNew2 (&&&)
-  -- {-# INLINE (&&&) #-}
 
 -- instance UnitCat IF
 
@@ -114,8 +111,6 @@ instance CoproductCat IF where
   {-# INLINE inl #-}
   {-# INLINE inr #-}
   {-# INLINE jam #-}
-  -- (|||) = inNew2 (|||)
-  -- {-# INLINE (|||) #-}
 
 instance DistribCat IF where
   distl = pack distl

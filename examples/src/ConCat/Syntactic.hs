@@ -183,11 +183,9 @@ instance ProductCat Syn where
   exl = app0 "exl"
   exr = app0 "exr"
   dup = app0 "dup"
-  -- (&&&)   = app2 "&&&"
   INLINER(exl)
   INLINER(exr)
   INLINER(dup)
-  -- INLINER((&&&))
 
 instance UnitCat Syn where
   lunit   = app0 "lunit"
@@ -227,18 +225,14 @@ instance CoproductCat Syn where
   jam = app0 "jam"
   INLINER(inl)
   INLINER(inr)
-  -- (|||)   = app2 "|||"
-  -- INLINER((|||))
 
 instance CoproductPCat Syn where
   inlP   = app0 "inlP"
   inrP   = app0 "inrP"
   jamP   = app0 "jamP"
-  -- swapPS = swapP
   INLINER(inlP)
   INLINER(inrP)
   INLINER(jamP)
-  -- INLINER(swapPS)
   
 instance DistribCat Syn where
   distl = app0 "distl"

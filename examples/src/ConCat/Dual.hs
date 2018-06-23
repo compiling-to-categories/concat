@@ -89,8 +89,6 @@ instance CoproductPCat k => ProductCat (Dual k) where
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE dup #-}
-  -- (&&&) = inAbst2 (||||)
-  -- {-# INLINE (&&&) #-}
 
 instance UnitCat k => UnitCat (Dual k) where
   lunit = abst lcounit
@@ -110,12 +108,6 @@ instance (BraidedPCat k, ProductCat k) => CoproductPCat (Dual k) where
   {-# INLINE inlP #-}
   {-# INLINE inrP #-}
   {-# INLINE jamP #-}
-  -- (||||) = inAbst2 (&&&)
-  -- (++++) = inAbst2 (***)
-  -- swapPS = abst swapP
-  -- {-# INLINE (||||) #-}
-  -- {-# INLINE (++++) #-}
-  -- {-# INLINE swapPS #-}
 
 instance ScalarCat k s => ScalarCat (Dual k) s where
   scale s = abst (scale s)

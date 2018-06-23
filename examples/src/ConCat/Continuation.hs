@@ -47,7 +47,6 @@ instance (MProductCat k, TerminalCat k, CoterminalCat k, CoproductPCat k, OkAdd 
       => MonoidalPCat (Cont k r) where
   (***) :: forall a b c d. Ok4 k a b c d
         => Cont k r a c -> Cont k r b d -> Cont k r (Prod k a b) (Prod k c d)
-  -- (***) = undefined
   Cont f *** Cont g = Cont (joinP . (f *** g) . unjoinP) 
     <+ okAdd @k @c
     <+ okAdd @k @d
@@ -56,10 +55,6 @@ instance (MProductCat k, TerminalCat k, CoterminalCat k, CoproductPCat k, OkAdd 
 -- TODO: Give non-default definitions for lassocP and rassocP, and relax
 -- ProductCat k back to MonoidalPCat and drop TerminalCat k and CoterminalCat if
 -- possible.
-
--- instance (MProductCat k, TerminalCat k, CoproductPCat k, CoterminalCat k, OkAdd k, Ok k r)
---       => BraidedPCat (Cont k r)
--- -- TODO: non-default swapP with simpler preconditions.
 
 instance (MonoidalPCat k, CoproductPCat k, Ok k r, OkAdd k, Additive r)
       => BraidedPCat (Cont k r) where
@@ -72,37 +67,12 @@ instance (ProductCat k, CoproductPCat k, AbelianCat k, OkAdd k, Ok k r)
       => ProductCat (Cont k r) where
   exl :: forall a b. Ok2 k a b => Cont k r (a :* b) a
   exl = Cont (|||| zeroC) <+ okAdd @k @r
-  -- exl = cont exl <+ okProd @k @a @b
   exr :: forall a b. Ok2 k a b => Cont k r (a :* b) b
-  -- exr = cont exr <+ okProd @k @a @b
   exr = Cont (zeroC ||||) <+ okAdd @k @r
   dup :: forall a. Ok k a => Cont k r a (a :* a)
   dup = Cont (uncurry plusC . unjoinP)
     <+ okAdd @k @a
     <+ okAdd @k @r
-  -- (&&&) :: forall a c d. Ok3 k a c d
-  --       => Cont k r a c -> Cont k r a d -> Cont k r a (Prod k c d)
-  -- (&&&) = undefined
-  -- (&&&) = inAbst2 (\ f g -> (f |||| g) . unjoinP) 
-  -- (&&&) = inAbst2 (\ f g -> uncurry plusC . (f *** g) . unjoinP) 
-  --   <+ okAdd @k @c
-  --   <+ okAdd @k @d
-  --   <+ okAdd @k @r
-
--- h            :: a `k` r
---        zeroC :: b `k` r
--- h |||| zeroC :: (a :* b) `k` r
-
--- Could not deduce (CoproductPCat (->))
---   arising from a use of ‘||||’
-
--- The constraint ‘Ok k r’ is no smaller than the instance head
--- (Use UndecidableInstances to permit this)
-
---            f         :: (c `k` r) -> (a `k` r)
---                   g  :: (d `k` r) -> (a `k` r)
---            f |||| g  :: (c `k` r) :* (d `k` r) -> (a `k` r)
--- (f |||| g) . unjoinP :: ((c :* d) `k` r) -> (a `k` r)
 
 -- instance (CoproductPCat k, Ok k r) => CoproductPCat (Cont k r) where
 --   inlP :: forall a b. Ok2 k a b => Cont k r a (a :* b)
@@ -137,7 +107,6 @@ instance (Zip h, IxCoproductPCat k h, Additive1 h, OkAdd k, Ok k r)
 
 -- instance ({- Zip h, IxCoproductPCat k h, Additive1 h, OkAdd k, Ok k r-})
 --       => IxProductCat (Cont k r) h where
-
 
 instance (IxCoproductPCat k h, Zip h, Additive1 h, OkAdd k, Ok k r)
       => IxProductCat (Cont k r) h where

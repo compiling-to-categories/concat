@@ -247,13 +247,6 @@ instance ProductCat (-#>) where
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE dup #-}
-  -- (&&&) = inAbst2 ((result.result) (pairD .) (&&&))
-  -- {-# INLINE (&&&) #-}
-
-  -- (&&&) = inAbst2 (\ f g -> pairD . (f &&& g))
-  -- (***) = inAbst2 (\ f g -> pairD . (f *** g) . unPairD)
-  -- (***) = inAbst2 (\ f g -> inPairD (f *** g))
-  -- (***) = (inAbst2 . (result.result) inPairD) (***)
 
 #if 0
 -- Types for exl:
@@ -278,9 +271,6 @@ instance CoproductPCat (-#>) where
   {-# INLINE inlP #-}
   {-# INLINE inrP #-}
   {-# INLINE jamP #-}
-  -- swapPS = abst (inPairD swapPS)
-  -- (||||) = inAbst2 (\ f g -> (f |||| g) . unPairD)
-  -- {-# INLINE (||||) #-}
 
 #if 0
 -- Types for inlP:

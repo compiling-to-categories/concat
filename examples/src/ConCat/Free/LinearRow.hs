@@ -249,8 +249,6 @@ instance ProductCat (L s) where
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE dup #-}
-  -- (&&&) = inAbst2 forkL
-  -- {-# INLINE (&&&) #-}
 
 -- instance Num s => UnitCat (L s)
 
@@ -263,8 +261,6 @@ instance CoproductPCat (L s) where
   {-# INLINE inlP #-}
   {-# INLINE inrP #-}
   {-# INLINE jamP #-}
-  -- (||||) = inAbst2 joinL
-  -- {-# INLINE (||||) #-}
 
 instance (r ~ Rep a, V s r ~ V s a, Ok (L s) a) => RepCat (L s) a r where
   reprC = L idL
@@ -293,6 +289,7 @@ instance ( -- Ok2 (L s) a b
 -- foo :: L Float (L Float Float Float) (Par1 (V Float Float Float))
 -- foo = coerceC
 -- -- foo = L (coerce (idL :: Rep (L Float Float Float)))
+
 
 -- -- -- Fail
 -- foo :: L Float (L Float Float (Float, Float)) ((Par1 :*: Par1) (V Float Float Float))

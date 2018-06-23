@@ -128,9 +128,6 @@ instance ProductCat k => ProductCat (GD k) where
   Linear(exl)
   Linear(exr)
   Linear(dup)
-  -- D f &&& D g =
-  --   D (\ a -> let { (c,f') = f a ; (d,g') = g a } in ((c,d), f' &&& g'))
-  -- {-# INLINE (&&&) #-}
 
 instance UnitCat k => UnitCat (GD k) where
   Linear(lunit)

@@ -845,10 +845,9 @@ instance BraidedPCat     (:>)
 
 instance ProductCat (:>) where
   -- type Prod (:>) = (:*)
-  exl   = C (arr exlB)
-  exr   = C (arr exrB)
-  dup   = mkCK dupB
-  -- (&&&) = inCK2 forkB   -- or default
+  exl = C (arr exlB)
+  exr = C (arr exrB)
+  dup = mkCK dupB
 
 instance UnitCat (:>)
 

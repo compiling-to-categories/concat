@@ -149,19 +149,12 @@ instance MProductCat k => ProductCat (Stack k) where
   exl :: forall a b. Ok2 k a b => Stack k (a :* b) a
   exr :: forall a b. Ok2 k a b => Stack k (a :* b) b
   dup :: forall a  . Ok  k a   => Stack k a (a :* a)
-  -- (&&&) :: forall a c d. Ok3 k a c d =>
-  --   Stack k a c -> Stack k a d -> Stack k a (c :* d)
   exl = stack exl <+ okProd @k @a @b
   exr = stack exr <+ okProd @k @a @b
   dup = stack dup <+ okProd @k @a @a
-  -- -- Remove this definition once I fix the inlining problem for (&&&).
-  -- f &&& g = (f *** g) . dup
-  --   <+ okProd @k @a @a
-  --   <+ okProd @k @c @d
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE dup #-}
-  -- INLINER((&&&))
 
 instance (MonoidalPCat k, TerminalCat k) => TerminalCat (Stack k) where
   it = stack it
@@ -193,10 +186,6 @@ instance (MonoidalPCat k, MonoidalSCat k, DistribCat k) => MonoidalSCat (Stack k
          <+ okProd @k @a @z <+ okProd @k @b @z
          <+ okProd @k @c @z <+ okProd @k @d @z
   {-# INLINE (+++) #-}
-  -- {-# INLINE left #-}
-  -- {-# INLINE right #-}
-  -- {-# INLINE lassocS #-}
-  -- {-# INLINE rassocS #-}
 
 -- The validity of this (+++) definition relies on the following fact:
 -- 

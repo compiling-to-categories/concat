@@ -194,11 +194,9 @@ instance CartCon con => ProductCat (Choice con) where
   exl = exactly exl
   exr = exactly exr
   dup = exactly dup
-  -- (&&&) = op2C (&&&)
   {-# INLINE exl #-}
   {-# INLINE exr #-}
   {-# INLINE dup #-}
-  -- {-# INLINE (&&&) #-}
 
 instance CartCon con => UnitCat (Choice con) where
   lunit = exactly lunit
@@ -222,8 +220,6 @@ instance CartCon con => CoproductCat (Choice con) where
   inl = exactly inl
   inr = exactly inr
   jam = exactly jam
-  -- (|||) = op2C (|||)
-  -- {-# INLINE (|||) #-}
 
 instance CartCon con => DistribCat (Choice con) where
   distl = exactly distl

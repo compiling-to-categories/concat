@@ -133,6 +133,10 @@ unplusD NoneD        = (NoneD, NoneD)
 unplusD (ra :+++ rb) = (ra   , rb   )
 unplusD AllD         = (AllD , AllD )
 
+inUnplusD :: (Demand a' :* Demand b' -> Demand a :* Demand b)
+          -> Demand (a' :+ b') -> Demand (a :+ b)
+inUnplusD = unplusD ~> plusD
+
 funD :: (Demand a, Demand b) -> Demand (a -> b)
 funD = uncurry (>:)
 
@@ -223,7 +227,10 @@ instance TerminalCat (:-?)
 
 -- need :: Demand () `k` Demand a
 
-instance MonoidalSCat (:-?)
+instance MonoidalSCat (:-?) where
+  (+++) = inNew2 $ \ f g -> inUnplusD (f *** g)
+  {-# INLINE (+++) #-}
+
 instance BraidedSCat  (:-?)
 
 instance CoproductCat (:-?) where
