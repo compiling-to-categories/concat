@@ -94,6 +94,7 @@ instance ProductCat (Affine s) where
   -- (&&&) = inAbst2 $ \ (p,u) (q,v) -> (p &&& q, (u,v))
   {-# INLINE exl #-}
   {-# INLINE exr #-}
+  {-# INLINE dup #-}
   -- {-# INLINE (&&&) #-}
 
 -- instance Num s => UnitCat (Affine s)

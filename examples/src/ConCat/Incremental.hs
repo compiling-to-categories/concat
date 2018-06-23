@@ -241,12 +241,14 @@ instance BraidedPCat (-#>) where
   swapP = abst (pairD . swapP . unPairD)
 
 instance ProductCat (-#>) where
-  exl   = abst (exl . unPairD)
-  exr   = abst (exr . unPairD)
-  (&&&) = inAbst2 ((result.result) (pairD .) (&&&))
+  exl = abst (exl . unPairD)
+  exr = abst (exr . unPairD)
+  dup = abst (pairD . dup)
   {-# INLINE exl #-}
   {-# INLINE exr #-}
-  {-# INLINE (&&&) #-}
+  {-# INLINE dup #-}
+  -- (&&&) = inAbst2 ((result.result) (pairD .) (&&&))
+  -- {-# INLINE (&&&) #-}
 
   -- (&&&) = inAbst2 (\ f g -> pairD . (f &&& g))
   -- (***) = inAbst2 (\ f g -> pairD . (f *** g) . unPairD)
@@ -272,11 +274,13 @@ abst (pairD . (f &&& g)) :: a -#> c :* d
 instance CoproductPCat (-#>) where
   inlP = abst (pairD . inlP)
   inrP = abst (pairD . inrP)
-  (||||) = inAbst2 (\ f g -> (f |||| g) . unPairD)
-  -- swapPS = abst (inPairD swapPS)
+  jamP = abst (jamP . unPairD)
   {-# INLINE inlP #-}
   {-# INLINE inrP #-}
-  {-# INLINE (||||) #-}
+  {-# INLINE jamP #-}
+  -- swapPS = abst (inPairD swapPS)
+  -- (||||) = inAbst2 (\ f g -> (f |||| g) . unPairD)
+  -- {-# INLINE (||||) #-}
 
 #if 0
 -- Types for inlP:

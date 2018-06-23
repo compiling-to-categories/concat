@@ -78,6 +78,8 @@ instance MonoidalPCat IF where
   (***) = inNew2 (***)
   {-# INLINE (***) #-}
 
+instance AssociativePCat IF
+
 instance BraidedPCat IF where
   swapP = pack swapP
   {-# INLINE swapP #-}
@@ -85,11 +87,13 @@ instance BraidedPCat IF where
 instance ProductCat IF where
   exl = pack exl
   exr = pack exr
-  -- IF f &&& IF g = IF (f &&& g)
-  (&&&) = inNew2 (&&&)
+  dup = pack dup
   {-# INLINE exl #-}
   {-# INLINE exr #-}
-  {-# INLINE (&&&) #-}
+  {-# INLINE dup #-}
+  -- -- IF f &&& IF g = IF (f &&& g)
+  -- (&&&) = inNew2 (&&&)
+  -- {-# INLINE (&&&) #-}
 
 -- instance UnitCat IF
 
@@ -106,10 +110,12 @@ instance BraidedSCat IF where
 instance CoproductCat IF where
   inl = pack inl
   inr = pack inr
-  (|||) = inNew2 (|||)
+  jam = pack jam
   {-# INLINE inl #-}
   {-# INLINE inr #-}
-  {-# INLINE (|||) #-}
+  {-# INLINE jam #-}
+  -- (|||) = inNew2 (|||)
+  -- {-# INLINE (|||) #-}
 
 instance DistribCat IF where
   distl = pack distl

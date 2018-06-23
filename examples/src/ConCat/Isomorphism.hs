@@ -35,25 +35,29 @@ instance Category k => Category (Iso k) where
   {- INLINE id #-}
   {- INLINE (.) #-}
 
-instance MonoidalPCat k => MonoidalPCat (Iso k) where
-  (f :<-> f') *** (g :<-> g') = (f *** g) :<-> (f' *** g')
+instance AssociativePCat k => AssociativePCat (Iso k) where
   lassocP = lassocP :<-> rassocP
   rassocP = rassocP :<-> lassocP
-  {- INLINE (***) #-}
   {- INLINE lassocP #-}
   {- INLINE rassocP #-}
+
+instance MonoidalPCat k => MonoidalPCat (Iso k) where
+  (f :<-> f') *** (g :<-> g') = (f *** g) :<-> (f' *** g')
+  {- INLINE (***) #-}
 
 instance BraidedPCat k => BraidedPCat (Iso k) where
   swapP = swapP :<-> swapP
   {-# INLINE swapP #-}
 
-instance MonoidalSCat k => MonoidalSCat (Iso k) where
-  (f :<-> f') +++ (g :<-> g') = (f +++ g) :<-> (f' +++ g')
+instance AssociativeSCat k => AssociativeSCat (Iso k) where
   lassocS = lassocS :<-> rassocS
   rassocS = rassocS :<-> lassocS
-  {- INLINE (+++) #-}
   {- INLINE lassocS #-}
   {- INLINE rassocS #-}
+
+instance MonoidalSCat k => MonoidalSCat (Iso k) where
+  (f :<-> f') +++ (g :<-> g') = (f +++ g) :<-> (f' +++ g')
+  {- INLINE (+++) #-}
 
 instance BraidedSCat k => BraidedSCat (Iso k) where
   swapS = swapS :<-> swapS

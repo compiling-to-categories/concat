@@ -95,9 +95,9 @@ instance BraidedPCat (-+>) where
 instance ProductCat (-+>) where
   Abst(exl)
   Abst(exr)
-  (&&&)  = inAbst2 (&&&)
   Abst(dup)
-  {-# OPINLINE (&&&) #-}
+  -- (&&&)  = inAbst2 (&&&)
+  -- {-# OPINLINE (&&&) #-}
 
 instance UnitCat (-+>) where
   Abst(lunit)

@@ -28,7 +28,7 @@ data Ops :: (* -> * -> *) -> (* -> * -> *) where
   Nil  :: Ok  k a => Ops k a a
   (:<) :: Ok3 k a b c => a `k` b -> Ops k b c -> Ops k a c
 
-evalOps :: MonoidalPCat k => Ops k a b -> a `k` b
+evalOps :: Category k => Ops k a b -> a `k` b
 evalOps Nil          = id
 evalOps (op :< rest) = evalOps rest . op
 
@@ -59,14 +59,7 @@ infixr 5 ++*
 (++*) Nil ops          = ops
 (++*) (op :< ops) ops' = op :< (ops ++* ops')
 
-instance BraidedPCat k => MonoidalPCat (Ops k) where
-  first :: forall a b c. Ok3 k a b c => Ops k a c -> Ops k (a :* b) (c :* b)
-  first Nil = Nil <+ okProd @k @a @b
-  first (op :< ops) = firstCons op ops
-   where
-     firstCons :: forall x. Ok k x => (a `k` x) -> Ops k x c -> Ops k (a :* b) (c :* b)
-     firstCons f fs = first f :< first fs
-       <+ okProd @k @a @b <+ okProd @k @c @b <+ okProd @k @x @b
+instance AssociativePCat k => AssociativePCat (Ops k) where
   lassocP :: forall a b c. Ok3 k a b c => Ops k (a :* (b :* c)) ((a :* b) :* c)
   lassocP = pureOps lassocP
           <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
@@ -75,6 +68,15 @@ instance BraidedPCat k => MonoidalPCat (Ops k) where
   rassocP = pureOps rassocP
           <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
           <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
+
+instance MBraidedPCat k => MonoidalPCat (Ops k) where
+  first :: forall a b c. Ok3 k a b c => Ops k a c -> Ops k (a :* b) (c :* b)
+  first Nil = Nil <+ okProd @k @a @b
+  first (op :< ops) = firstCons op ops
+   where
+     firstCons :: forall x. Ok k x => (a `k` x) -> Ops k x c -> Ops k (a :* b) (c :* b)
+     firstCons f fs = first f :< first fs
+       <+ okProd @k @a @b <+ okProd @k @c @b <+ okProd @k @x @b
   second = secondFirst
   (***) = crossSecondFirst
 
@@ -94,7 +96,7 @@ instance ProductCat k => ProductCat (Ops k) where
 instance TerminalCat k => TerminalCat (Ops k) where
   it = pureOps it
 
-instance (ProductCat k, TerminalCat k) => UnitCat (Ops k)
+instance (BraidedPCat k, MProductCat k, TerminalCat k) => UnitCat (Ops k)
   
 instance (OkProd k, NumCat k a) => NumCat (Ops k) a where
   negateC = pureOps negateC

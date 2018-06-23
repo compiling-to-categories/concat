@@ -840,14 +840,15 @@ instance OpCon (:*) (Sat GenBuses) where inOp = Entail (Sub Dict)
 instance MonoidalPCat (:>) where
   (***) = inCK2 crossB  -- or default
 
-instance BraidedPCat (:>)
+instance AssociativePCat (:>)
+instance BraidedPCat     (:>)
 
 instance ProductCat (:>) where
   -- type Prod (:>) = (:*)
   exl   = C (arr exlB)
   exr   = C (arr exrB)
   dup   = mkCK dupB
-  (&&&) = inCK2 forkB   -- or default
+  -- (&&&) = inCK2 forkB   -- or default
 
 instance UnitCat (:>)
 

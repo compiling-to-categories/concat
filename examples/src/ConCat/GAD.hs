@@ -111,21 +111,18 @@ instance Category k => Category (GD k) where
 
   {-# INLINE (.) #-}
 
-instance MonoidalPCat k => MonoidalPCat (GD k) where
-  -- D f *** D g = D (second (uncurry (***)) . transposeP . (f *** g))
-  -- D f *** D g = D (\ (a,b) ->
-  --   let (c,f') = f a
-  --       (d,g') = g b
-  --   in
-  --     ((c,d), f' *** g'))
-  D f *** D g =
-    D (\ (a,b) -> let { (c,f') = f a ; (d,g') = g b } in ((c,d), f' *** g'))
+instance AssociativePCat k => AssociativePCat (GD k) where
   Linear(lassocP)
   Linear(rassocP)
-  {-# INLINE (***) #-}
 
 instance BraidedPCat k => BraidedPCat (GD k) where
   Linear(swapP)
+
+instance MonoidalPCat k => MonoidalPCat (GD k) where
+  -- D f *** D g = D (second (uncurry (***)) . transposeP . (f *** g))
+  D f *** D g =
+    D (\ (a,b) -> let { (c,f') = f a ; (d,g') = g b } in ((c,d), f' *** g'))
+  {-# INLINE (***) #-}
 
 instance ProductCat k => ProductCat (GD k) where
   Linear(exl)

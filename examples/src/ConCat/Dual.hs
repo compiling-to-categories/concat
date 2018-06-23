@@ -68,11 +68,9 @@ instance Category k => Category (Dual k) where
 -- I could define Ok (Dual k) = Ok k, and rely on Ok k and OkAdd k for Additive,
 -- but doing do requires a lot of entailments and explicit signatures.
 
-instance MonoidalPCat k => MonoidalPCat (Dual k) where
-  (***) = inAbst2 (***)
+instance AssociativePCat k => AssociativePCat (Dual k) where
   lassocP = abst rassocP
   rassocP = abst lassocP
-  {-# INLINE (***) #-}
   {-# INLINE lassocP #-}
   {-# INLINE rassocP #-}
 
@@ -80,15 +78,19 @@ instance BraidedPCat k => BraidedPCat (Dual k) where
   swapP = abst swapP
   {-# INLINE swapP #-}
 
+instance MonoidalPCat k => MonoidalPCat (Dual k) where
+  (***) = inAbst2 (***)
+  {-# INLINE (***) #-}
+
 instance CoproductPCat k => ProductCat (Dual k) where
   exl   = abst inlP
   exr   = abst inrP
-  (&&&) = inAbst2 (||||)
   dup   = abst jamP
   {-# INLINE exl #-}
   {-# INLINE exr #-}
-  {-# INLINE (&&&) #-}
   {-# INLINE dup #-}
+  -- (&&&) = inAbst2 (||||)
+  -- {-# INLINE (&&&) #-}
 
 instance UnitCat k => UnitCat (Dual k) where
   lunit = abst lcounit
@@ -100,18 +102,19 @@ instance UnitCat k => UnitCat (Dual k) where
   {-# INLINE lcounit #-}
   {-# INLINE rcounit #-}
 
-instance ProductCat k => CoproductPCat (Dual k) where
-  inlP   = abst exl
-  inrP   = abst exr
-  (||||) = inAbst2 (&&&)
-  -- (++++) = inAbst2 (***)
-  jamP   = abst dup
-  -- swapPS = abst swapP
+-- TODO: drop the M in MProductCat when I move (||||) out of CoproductPCat
+instance (BraidedPCat k, ProductCat k) => CoproductPCat (Dual k) where
+  inlP = abst exl
+  inrP = abst exr
+  jamP = abst dup
   {-# INLINE inlP #-}
   {-# INLINE inrP #-}
-  {-# INLINE (||||) #-}
-  -- {-# INLINE (++++) #-}
   {-# INLINE jamP #-}
+  -- (||||) = inAbst2 (&&&)
+  -- (++++) = inAbst2 (***)
+  -- swapPS = abst swapP
+  -- {-# INLINE (||||) #-}
+  -- {-# INLINE (++++) #-}
   -- {-# INLINE swapPS #-}
 
 instance ScalarCat k s => ScalarCat (Dual k) s where

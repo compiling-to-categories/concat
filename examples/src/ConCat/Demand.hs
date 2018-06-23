@@ -229,8 +229,8 @@ instance BraidedSCat  (:-?)
 instance CoproductCat (:-?) where
   inl = pack (exl . unplusD)
   inr = pack (exr . unplusD)
-  -- jam = pack (plusD . dup)
-  (|||) = (inNew2.liftA2) (+:)
+  jam = pack (plusD . dup)
+  -- (|||) = (inNew2.liftA2) (+:)
 
 instance ConstCat (:-?) a where
   const _ = pack (const NoneD)

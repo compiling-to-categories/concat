@@ -129,6 +129,9 @@ exrL = (zeroV :*:) <$> idL
 forkL :: (a :-* b) s -> (a :-* c) s -> (a :-* b :*: c) s
 forkL = (:*:)
 
+dupL :: (Diagonal a, Num s) => (a :-* (a :*: a)) s
+dupL = idL `forkL` idL
+
 itL :: (a :-* U1) s
 itL = U1
 
@@ -147,6 +150,9 @@ inrL = zeroL :*: idL
 joinL :: Zip c => (a :-* c) s -> (b :-* c) s -> (a :*: b :-* c) s
 joinL = zipWith (:*:)
 {-# INLINE joinL #-}
+
+jamL :: (Diagonal a, Zip a, Num s) => ((a :*: a) :-* a) s
+jamL = idL `joinL` idL
 
 {--------------------------------------------------------------------
     Category
@@ -239,10 +245,12 @@ instance ProductCat (L s) where
   -- type Prod (L s) = (,)
   exl = abst exlL
   exr = abst exrL
-  (&&&) = inAbst2 forkL
+  dup = abst dupL
   {-# INLINE exl #-}
   {-# INLINE exr #-}
-  {-# INLINE (&&&) #-}
+  {-# INLINE dup #-}
+  -- (&&&) = inAbst2 forkL
+  -- {-# INLINE (&&&) #-}
 
 -- instance Num s => UnitCat (L s)
 
@@ -251,10 +259,12 @@ instance OkAdd (L s) where okAdd = Entail (Sub Dict)
 instance CoproductPCat (L s) where
   inlP = abst inlL
   inrP = abst inrL
-  (||||) = inAbst2 joinL
+  jamP = abst jamL
   {-# INLINE inlP #-}
   {-# INLINE inrP #-}
-  {-# INLINE (||||) #-}
+  {-# INLINE jamP #-}
+  -- (||||) = inAbst2 joinL
+  -- {-# INLINE (||||) #-}
 
 instance (r ~ Rep a, V s r ~ V s a, Ok (L s) a) => RepCat (L s) a r where
   reprC = L idL

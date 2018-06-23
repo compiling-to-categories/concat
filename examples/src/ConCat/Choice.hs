@@ -193,10 +193,12 @@ instance CartCon con => BraidedPCat (Choice con) where
 instance CartCon con => ProductCat (Choice con) where
   exl = exactly exl
   exr = exactly exr
-  (&&&) = op2C (&&&)
+  dup = exactly dup
+  -- (&&&) = op2C (&&&)
   {-# INLINE exl #-}
   {-# INLINE exr #-}
-  {-# INLINE (&&&) #-}
+  {-# INLINE dup #-}
+  -- {-# INLINE (&&&) #-}
 
 instance CartCon con => UnitCat (Choice con) where
   lunit = exactly lunit
@@ -219,8 +221,9 @@ instance CartCon con => BraidedSCat (Choice con) where
 instance CartCon con => CoproductCat (Choice con) where
   inl = exactly inl
   inr = exactly inr
-  (|||) = op2C (|||)
-  {-# INLINE (|||) #-}
+  jam = exactly jam
+  -- (|||) = op2C (|||)
+  -- {-# INLINE (|||) #-}
 
 instance CartCon con => DistribCat (Choice con) where
   distl = exactly distl

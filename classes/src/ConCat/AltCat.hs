@@ -73,9 +73,9 @@ import ConCat.Satisfy
 
 import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5,Ok6, Ok', (<~), (~>), Show2(..)
-  , MonoidalPCat, BraidedPCat, ProductCat, Prod
-  , BraidedSCat, CoproductCat, Coprod
-  , MonoidalSCat, CoproductPCat, CoprodP, TracedCat
+  , AssociativePCat, BraidedPCat, MBraidedPCat, ProductCat, Prod, MonoidalPCat, MProductCat
+  , AssociativeSCat, BraidedSCat, CoproductCat, Coprod, MCoproductCat
+  , MonoidalSCat, CoproductPCat, CoprodP, MCoproductPCat, TracedCat
   , Additive1(..), OkAdd(..), AbelianCat, ScalarCat, LinearCat
   , OkIxProd(..), IxMonoidalPCat, IxProductCat, IxCoproductPCat
   -- , OkIxCoprod(..), IxMonoidalSCat, IxCoproductCat
@@ -130,17 +130,18 @@ infixr 9 .
 Op0(id,(Category k, Ok k a) => a `k` a)
 Ip2(.,forall k b c a. (Category k, Ok3 k a b c) => (b `k` c) -> (a `k` b) -> (a `k` c))
 
+Op1(lassocP,forall k a b c  . (AssociativePCat k, Ok3 k a b c) => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c)
+Op1(rassocP,forall k a b c  . (AssociativePCat k, Ok3 k a b c) => Prod k (Prod k a b) c `k` Prod k a (Prod k b c))
+
+Op0(swapP,forall k a b. (BraidedPCat k, Ok2 k a b) => Prod k a b `k` Prod k b a)
+
 infixr 3 ***, &&&
 
 Ip2(***    ,forall k a b c d. (MonoidalPCat k, Ok4 k a b c d) => (a `k` c) -> (b `k` d) -> (Prod k a b `k` Prod k c d))
 Op1(first  ,forall k a c b  . (MonoidalPCat k, Ok3 k a b c) => (a `k` c) -> (Prod k a b `k` Prod k c b))
 Op1(second ,forall k a b d  . (MonoidalPCat k, Ok3 k a b d) => (b `k` d) -> (Prod k a b `k` Prod k a d))
-Op1(lassocP,forall k a b c  . (MonoidalPCat k, Ok3 k a b c) => Prod k a (Prod k b c) `k` Prod k (Prod k a b) c)
-Op1(rassocP,forall k a b c  . (MonoidalPCat k, Ok3 k a b c) => Prod k (Prod k a b) c `k` Prod k a (Prod k b c))
 
-Op0(swapP,forall k a b. (BraidedPCat k, Ok2 k a b) => Prod k a b `k` Prod k b a)
-
-secondFirst :: forall k a b d. (BraidedPCat k, Ok3 k a b d) => b `k` d -> (a :* b) `k` (a :* d)
+secondFirst :: forall k a b d. (MonoidalPCat k, BraidedPCat k, Ok3 k a b d) => b `k` d -> (a :* b) `k` (a :* d)
 secondFirst g = swapP . first g . swapP
                 <+ okProd @k @a @b
                 <+ okProd @k @b @a
@@ -158,34 +159,43 @@ f `crossSecondFirst` g = second g . first f
 
 Op0(exl,(ProductCat k, Ok2 k a b) => Prod k a b `k` a)
 Op0(exr,(ProductCat k, Ok2 k a b) => Prod k a b `k` b)
-Ip2(&&&,forall k a c d. (ProductCat k, Ok3 k a c d) => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d))
 Op0(dup,forall k a. (ProductCat k, Ok k a) => a `k` Prod k a a)
+-- Ip2(&&&,forall k a c d. (ProductCat k, Ok3 k a c d) => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d))
+
+(&&&) :: forall k a c d. (MProductCat k, Ok3 k a c d)
+      => (a `k` c) -> (a `k` d) -> (a `k` Prod k c d)
+f &&& g = (f *** g) . dup
+  <+ okProd @k @a @a
+  <+ okProd @k @c @d
+{-# INLINE (&&&) #-}
 
 -- Op1(unfork, forall k a c d. (ProductCat k, Ok3 k a c d) => (a `k` Prod k c d) -> (a `k` c, a `k` d))
+
+Op1(lassocS,forall k a b c. (AssociativeSCat k, Ok3 k a b c) => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c)
+Op1(rassocS,forall k a b c. (AssociativeSCat k, Ok3 k a b c) => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c))
+
+Op0(swapS,forall k a b. (BraidedSCat k, Ok2 k a b) => Coprod k a b `k` Coprod k b a)
 
 infixr 2 +++, |||
 
 Ip2(+++    ,forall k a b c d. (MonoidalSCat k, Ok4 k a b c d) => (c `k` a) -> (d `k` b) -> (Coprod k c d `k` Coprod k a b))
 Op1(left   ,forall k a c b  . (MonoidalSCat k, Ok3 k a b c) => (a `k` c) -> (Coprod k a b `k` Coprod k c b))
 Op1(right  ,forall k a b d  . (MonoidalSCat k, Ok3 k a b d) => (b `k` d) -> (Coprod k a b `k` Coprod k a d))
-Op1(lassocS,forall k a b c  . (MonoidalSCat k, Ok3 k a b c) => Coprod k a (Coprod k b c) `k` Coprod k (Coprod k a b) c)
-Op1(rassocS,forall k a b c  . (MonoidalSCat k, Ok3 k a b c) => Coprod k (Coprod k a b) c `k` Coprod k a (Coprod k b c))
-
-Op0(swapS,forall k a b. (BraidedSCat k, Ok2 k a b) => Coprod k a b `k` Coprod k b a)
 
 Op0(inl,(CoproductCat k, Ok2 k a b) => a `k` Coprod k a b)
 Op0(inr,(CoproductCat k, Ok2 k a b) => b `k` Coprod k a b)
-Ip2(|||,forall k a c d. (CoproductCat k, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a))
 Op0(jam,(CoproductCat k, Ok k a) => Coprod k a a `k` a)
 
-rightLeft :: forall k a b d. (CoproductCat k, Ok3 k a b d) => b `k` d -> (a :+ b) `k` (a :+ d)
+Ip2(|||,forall k a c d. (MCoproductCat k, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a))
+
+rightLeft :: forall k a b d. (MCoproductCat k, Ok3 k a b d) => b `k` d -> (a :+ b) `k` (a :+ d)
 rightLeft g = swapS . left g . swapS
               <+ okCoprod @k @a @b
               <+ okCoprod @k @b @a
               <+ okCoprod @k @a @d
               <+ okCoprod @k @d @a
 
-plusRightLeft :: forall k a b c d. (CoproductCat k, Ok4 k a b c d)
+plusRightLeft :: forall k a b c d. (MCoproductCat k, Ok4 k a b c d)
                  => a `k` c -> b `k` d -> (a :+ b) `k` (c :+ d)
 f `plusRightLeft` g = right g . left f
                       <+ okCoprod @k @a @b
@@ -200,12 +210,14 @@ Op0(rcounit, (UnitCat k, Ok k a) => Prod k a (Unit k) `k` a)
 Op0(zeroC, forall k a b. (AbelianCat k, Ok2 k a b) => a `k` b)
 Op0(plusC, forall k a b. (AbelianCat k, Ok2 k a b) => Binop (a `k` b))
 
--- Temporary workaround. See ConCat.Category comments.
-infixr 2 ||||
 Op0(inlP,(CoproductPCat k, Ok2 k a b) => a `k` CoprodP k a b)
 Op0(inrP,(CoproductPCat k, Ok2 k a b) => b `k` CoprodP k a b)
-Ip2(||||,forall k a c d. (CoproductPCat k, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (CoprodP k c d `k` a))
 Op0(jamP,(CoproductPCat k, Ok k a) => CoprodP k a a `k` a)
+
+-- Temporary workaround. See ConCat.Category comments.
+infixr 2 ||||
+Ip2(||||,forall k a c d. (MCoproductPCat k, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (CoprodP k c d `k` a))
+
 -- Op0(swapPS,forall k a b. (CoproductPCat k, Ok2 k a b) => CoprodP k a b `k` CoprodP k b a)
 
 -- Op1(leftD ,forall k a aa b. (CoproductPCat k, Ok3 k a b aa) => (a `k` aa) -> (CoprodP k a b `k` CoprodP k aa b))
@@ -340,7 +352,7 @@ Op0(powIC,(NumCat k a, Ok k Int) => Prod k a Int `k` a)
 
 Op0(divC,IntegralCat k a => Prod k a a `k` a)
 Op0(modC,IntegralCat k a => Prod k a a `k` a)
-Op0(divModC, (ProductCat k, IntegralCat k a, Ok k a) => Prod k a a `k` Prod k a a)
+Op0(divModC, (MProductCat k, IntegralCat k a, Ok k a) => Prod k a a `k` Prod k a a)
 
 Op0(recipC,FractionalCat k a => a `k` a)
 Op0(divideC,FractionalCat k a => Prod k a a `k` a)
@@ -547,7 +559,7 @@ unCcc f = unCcc' (conceal f)
 "f . h &&& g . h" forall (f :: a `k` c) (g :: a `k` d) h.
   f . h &&& g . h = (f &&& g) . h <+ okProd @k @c @d
 
--- -- Careful with this one, since dup eventually inlines to id &&& id
+-- -- Careful with this one, since dup eventually inlines to id &&& id. No longer?
 -- "id &&& id" [~2] id &&& id = dup
 
 -- -- Specializations with f == id and/or g == id
@@ -893,7 +905,7 @@ fmapId = id <+ okFunctor @k @h @a
  #-}
 
 unzipFmapFork :: forall k h a b c.
-                 (ProductCat k, Ok3 k a b c, FunctorCat k h)
+                 (MProductCat k, Ok3 k a b c, FunctorCat k h)
               => (a `k` b) -> (a `k` c) -> (h a `k` (h b :* h c))
 unzipFmapFork f g = fmapC f &&& fmapC g
   <+ okFunctor @k @h @a
@@ -1102,7 +1114,7 @@ unitIf = it
 -- okIf :: forall k a. BoolCat k => Ok' k a |- Ok' k (Bool :* (a :* a)) && Ok' k (a :* a)
 -- okIf = inOpR' @(Prod k) @(Ok' k) @(BoolOf k) @a @a . Entail (Sub Dict)
 
-prodIf :: forall k a b. (IfCat k a, IfCat k b) => IfT k (a :* b)
+prodIf :: forall k a b. (MonoidalPCat k, IfCat k a, IfCat k b) => IfT k (a :* b)
 prodIf = (ifC . second (twiceP exl)) &&& (ifC . second (twiceP exr))
   <+ okProd @k @Bool @((a :* b) :* (a :* b))
   <+ okProd @k @(a :* b) @(a :* b)
@@ -1123,7 +1135,7 @@ prodIf = (ifC . second (twiceP exl)) &&& (ifC . second (twiceP exr))
 
 #endif
 
-funIf :: forall k a b. (ClosedCat k, Ok k a, IfCat k b) => IfT k (a -> b)
+funIf :: forall k a b. (MonoidalPCat k, ClosedCat k, Ok k a, IfCat k b) => IfT k (a -> b)
 funIf = curry (ifC . (exl . exl &&& (apply . first (exl . exr) &&& apply . first (exr . exr))))
   <+ okProd @k @(Bool :* ((a -> b) :* (a -> b))) @a
   <+ okProd @k @Bool @((a -> b) :* (a -> b))
@@ -1151,7 +1163,7 @@ funIf = curry (ifC . (exl . exl &&& (apply . first (exl . exr) &&& apply . first
 
 #endif
 
-repIf :: forall k a r. (RepCat k a r, ProductCat k, Ok k a, IfCat k r)
+repIf :: forall k a r. (RepCat k a r, MProductCat k, Ok k a, IfCat k r)
       => IfT k a
 repIf = abstC @k @a @r . ifC . second (twiceP reprC)
         <+ okProd @k @(BoolOf k) @(Prod k r r)
@@ -1173,7 +1185,7 @@ repIf = abstC @k @a @r . ifC . second (twiceP reprC)
 
 -- TODO: Finish moving utilities from Category to here
 
-transposeP :: forall k a b c d. (ProductCat k, Ok4 k a b c d)
+transposeP :: forall k a b c d. (MProductCat k, Ok4 k a b c d)
            => Prod k (Prod k a b) (Prod k c d) `k` Prod k (Prod k a c) (Prod k b d)
 transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
   <+ okProd @k @(Prod k a b) @(Prod k c d)
@@ -1183,9 +1195,19 @@ transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
   <+ okProd @k @a @c
 {-# INLINE transposeP #-}
 
+-- TODO: define transposeP without MonoidalPCat.
+
+-- (a :* b) :* (c :* d) -> (a :* c) -> (b :* d)
+
+-- (a :* b) :* (c :* d)
+-- ((a :* b) :* c) :* d
+-- (a :* (b :* c)) :* d
+-- (a :* (c :* b)) :* d
+-- ((a :* c) :* b) :* d
+-- (a :* c) :* (b :* d)
 
 -- | Convenient alias for @uncurry '(&&&)'@
-fork :: forall k a c d. (ProductCat k, Ok3 k a c d) 
+fork :: forall k a c d. (MProductCat k, Ok3 k a c d) 
      => (a `k` c) :* (a `k` d) -> (a `k` Prod k c d)
 fork = uncurry (&&&)
 {-# INLINE fork #-}
@@ -1197,7 +1219,7 @@ unfork f = (exl . f, exr . f)  <+ okProd @k @c @d
 {-# INLINE unfork #-}
 
 -- | Convenient alias for @uncurry '(|||)'@
-join :: forall k a c d. (CoproductCat k, Ok3 k a c d) 
+join :: forall k a c d. (MCoproductCat k, Ok3 k a c d) 
      => (c `k` a) :* (d `k` a) -> (Coprod k c d `k` a)
 join = uncurry (|||)
 {-# INLINE join #-}
@@ -1209,13 +1231,13 @@ unjoin f = (f . inl, f . inr) <+ okCoprod @k @c @d
 {-# INLINE unjoin #-}
 
 -- | Convenient alias for @uncurry '(||||)'@
-joinP :: forall k a c d. (CoproductPCat k, Ok3 k a c d, Additive a)
+joinP :: forall k a c d. (MCoproductPCat k, Ok3 k a c d, Additive a)
      => (c `k` a) :* (d `k` a) -> (Prod k c d `k` a)
 joinP = uncurry (||||)
 {-# INLINE joinP #-}
 
 -- | Inverse to @uncurry '(||||)'@
-unjoinP :: forall k a c d. (CoproductPCat k, C3 Additive a c d, Ok3 k a c d)
+unjoinP :: forall k a c d. (MCoproductPCat k, C3 Additive a c d, Ok3 k a c d)
         => ((c :* d) `k` a) -> (c `k` a) :* (d `k` a)
 unjoinP cda = (cda . inlP, cda . inrP)
             <+ okProd @k @c @d
@@ -1238,7 +1260,7 @@ unforkF ahb = fmap (. ahb) exF  <+ okIxProd @k @h @b
 {-# INLINE unforkF #-}
 
 -- | Inverse to 'distl': @(a * u) + (a * v) --> a * (u + v)@
-undistl :: forall k a u v. (ProductCat k, CoproductCat k, Ok3 k a u v)
+undistl :: forall k a u v. (MProductCat k, MCoproductCat k, Ok3 k a u v)
         => Coprod k (Prod k a u) (Prod k a v) `k` Prod k a (Coprod k u v)
 undistl = (exl ||| exl) &&& (exr +++ exr)
   <+ okCoprod @k @(Prod k a u) @(Prod k a v)
@@ -1248,7 +1270,7 @@ undistl = (exl ||| exl) &&& (exr +++ exr)
 {-# INLINE undistl #-}
 
 -- | Inverse to 'distr': @(u * b) + (v * b) --> (u + v) * b@
-undistr :: forall k u v b. (ProductCat k, CoproductCat k, Ok3 k u v b)
+undistr :: forall k u v b. (MProductCat k, MCoproductCat k, Ok3 k u v b)
         => Coprod k (Prod k u b) (Prod k v b) `k` Prod k (Coprod k u v) b
 undistr = (exl +++ exl) &&& (exr ||| exr)
   <+ okCoprod @k @(Prod k u b) @(Prod k v b)
@@ -1257,7 +1279,7 @@ undistr = (exl +++ exl) &&& (exr ||| exr)
   <+ okProd   @k @v @b
 {-# INLINE undistr #-}
 
-undistl' :: forall k a u v. (ProductCat k, CoproductCat k, Ok3 k a u v)
+undistl' :: forall k a u v. (MonoidalPCat k, MCoproductCat k, Ok3 k a u v)
          => ((a :* u) :+ (a :* v)) `k` (a :* (u :+ v))
 undistl' = second inl ||| second inr
   <+ okProd @k @a @(u :+ v)
@@ -1265,7 +1287,7 @@ undistl' = second inl ||| second inr
   <+ okProd @k @a @u <+ okProd @k @a @v
 {-# INLINE undistl' #-}
 
-undistr' :: forall k u v b. (ProductCat k, CoproductCat k, Ok3 k u v b)
+undistr' :: forall k u v b. (MonoidalPCat k, MCoproductCat k, Ok3 k u v b)
          => ((u :* b) :+ (v :* b)) `k` ((u :+ v) :* b)
 undistr' = first inl ||| first inr
   <+ okProd @k @(u :+ v) @b
@@ -1273,7 +1295,7 @@ undistr' = first inl ||| first inr
   <+ okProd @k @u @b <+ okProd @k @v @b
 {-# INLINE undistr' #-}
 
-inDistr :: forall k a b c d w z. (DistribCat k, Ok6 k a b c d w z)
+inDistr :: forall k a b c d w z. (MonoidalPCat k, MonoidalSCat k, DistribCat k, Ok6 k a b c d w z)
         => (((a :* w) :+ (b :* w)) `k` ((c :* z) :+ (d :* z)))
         -> (((a :+ b) :* w) `k` ((c :+ d) :* z))
 inDistr f = undistr . f . distr
@@ -1294,7 +1316,7 @@ twiceP f = f *** f
 -- | Operate on left-associated form
 inLassocP :: forall k a b c a' b' c'.
              -- Needs :set -fconstraint-solver-iterations=5 or greater:
-             (MonoidalPCat k, Ok6 k a b c a' b' c')
+             (AssociativePCat k, Ok6 k a b c a' b' c')
           => Prod k (Prod k a b) c `k` Prod k (Prod k a' b') c'
           -> Prod k a (Prod k b c) `k` (Prod k a' (Prod k b' c'))
 inLassocP = rassocP <~ lassocP
@@ -1306,7 +1328,7 @@ inLassocP = rassocP <~ lassocP
 
 -- | Operate on right-associated form
 inRassocP :: forall a b c a' b' c' k.
-             (MonoidalPCat k, Ok6 k a b c a' b' c')
+             (AssociativePCat k, Ok6 k a b c a' b' c')
           => Prod k a (Prod k b c) `k` (Prod k a' (Prod k b' c'))
           -> Prod k (Prod k a b) c `k` Prod k (Prod k a' b') c'
 inRassocP = lassocP <~ rassocP
@@ -1325,7 +1347,7 @@ twiceS f = f +++ f
 
 -- | Operate on left-associated form
 inLassocS :: forall k a b c a' b' c'.
-             (MonoidalSCat k, Ok6 k a b c a' b' c')
+             (AssociativeSCat k, Ok6 k a b c a' b' c')
           => Coprod k (Coprod k a b) c `k` Coprod k (Coprod k a' b') c'
           -> Coprod k a (Coprod k b c) `k` (Coprod k a' (Coprod k b' c'))
 inLassocS = rassocS <~ lassocS
@@ -1337,7 +1359,7 @@ inLassocS = rassocS <~ lassocS
 
 -- | Operate on right-associated form
 inRassocS :: forall a b c a' b' c' k.
-             (MonoidalSCat k, Ok6 k a b c a' b' c')
+             (AssociativeSCat k, Ok6 k a b c a' b' c')
           => Coprod k a (Coprod k b c) `k` (Coprod k a' (Coprod k b' c'))
           -> Coprod k (Coprod k a b) c `k` Coprod k (Coprod k a' b') c'
 inRassocS = lassocS <~ rassocS
@@ -1347,7 +1369,7 @@ inRassocS = lassocS <~ rassocS
           <+ okCoprod @k @(a' :+ b') @c' <+ okCoprod @k @a' @b'
 {-# INLINE inRassocS #-}
 
-transposeS :: forall k a b c d. (CoproductCat k, Ok4 k a b c d)
+transposeS :: forall k a b c d. (MCoproductCat k, Ok4 k a b c d)
            => Coprod k (Coprod k a b) (Coprod k c d) `k` Coprod k (Coprod k a c) (Coprod k b d)
 transposeS = (inl.inl ||| inr.inl) ||| (inl.inr ||| inr.inr)
   <+ okCoprod @k @(Coprod k a c) @(Coprod k b d)
@@ -1356,3 +1378,5 @@ transposeS = (inl.inl ||| inr.inl) ||| (inl.inr ||| inr.inr)
   <+ okCoprod @k @b @d
   <+ okCoprod @k @a @c
 {-# INLINE transposeS #-}
+
+-- TODO: define transposeS without MonoidalSCat.
