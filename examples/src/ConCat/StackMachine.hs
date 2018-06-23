@@ -39,7 +39,7 @@ data Stack k a b =
 -- unStack' :: Ok k () => Stack k a b -> ((a :* ()) `k` (b :* ()))
 -- unStack' = unStack
 
--- | The semantic functor that specifies 'SM'.
+-- | The semantic functor that specifies 'Stack'.
 stack :: (MonoidalPCat k, Ok2 k a b) => (a `k` b) -> Stack k a b
 stack f = Stack (first f)
 {-# INLINE stack #-}
@@ -75,12 +75,12 @@ instance (Category k, OkProd k) => Category (Stack k) where
 instance (AssociativePCat k, MonoidalPCat k) => AssociativePCat (Stack k) where
   lassocP :: forall a b c. Ok3 k a b c => Stack k (a :* (b :* c)) ((a :* b) :* c)
   lassocP = stack lassocP
-            <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
-            <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
+          <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
+          <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
   rassocP :: forall a b c. Ok3 k a b c => Stack k ((a :* b) :* c) (a :* (b :* c))
   rassocP = stack rassocP
-            <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
-            <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
+          <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
+          <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
   {-# INLINE lassocP #-}
   {-# INLINE rassocP #-}
 
@@ -104,6 +104,8 @@ instance (AssociativePCat k, MBraidedPCat k) => MonoidalPCat (Stack k) where
   {-# INLINE second #-}
   {-# INLINE (***) #-}
 
+#if 0
+
 -- TEMP
 cross :: forall k a b c d. (MBraidedPCat k, Ok4 k a b c d)
       => k a c -> k b d -> k (a :* b) (c :* d)
@@ -122,6 +124,8 @@ f `cross'` g = second g . first f
           <+ okProd @k @c @b
           <+ okProd @k @c @d
 {-# INLINE cross' #-}
+
+#endif
 
 #if 0
 
@@ -193,14 +197,14 @@ instance (MonoidalPCat k, MonoidalSCat k, DistribCat k) => MonoidalSCat (Stack k
 -- 
 -- See proof in 2018-06-11 notes.
 
-instance (MonoidalPCat k, BraidedSCat k, DistribCat k) => BraidedSCat (Stack k) where
+instance (MonoidalPCat k, BraidedSCat k) => BraidedSCat (Stack k) where
   swapS :: forall a b. Ok2 k a b => Stack k (a :+ b) (b :+ a)
   swapS = stack swapS
         <+ okCoprod @k @a @b
         <+ okCoprod @k @b @a
   {-# INLINE swapS #-}
 
-instance (MonoidalPCat k, DistribCat k) => CoproductCat (Stack k) where
+instance (MonoidalPCat k, CoproductCat k) => CoproductCat (Stack k) where
   inl :: forall a b. Ok2 k a b => Stack k a (a :+ b)
   inr :: forall a b. Ok2 k a b => Stack k b (a :+ b)
   jam :: forall a. Ok k a => Stack k (a :+ a) a
