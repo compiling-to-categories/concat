@@ -188,7 +188,8 @@ Op0(jam,(CoproductCat k, Ok k a) => Coprod k a a `k` a)
 
 Ip2(|||,forall k a c d. (MCoproductCat k, Ok3 k a c d) => (c `k` a) -> (d `k` a) -> (Coprod k c d `k` a))
 
-rightLeft :: forall k a b d. (MCoproductCat k, Ok3 k a b d) => b `k` d -> (a :+ b) `k` (a :+ d)
+rightLeft :: forall k a b d. (MCoproductCat k, BraidedSCat k, Ok3 k a b d)
+          => b `k` d -> (a :+ b) `k` (a :+ d)
 rightLeft g = swapS . left g . swapS
               <+ okCoprod @k @a @b
               <+ okCoprod @k @b @a
@@ -196,11 +197,11 @@ rightLeft g = swapS . left g . swapS
               <+ okCoprod @k @d @a
 
 plusRightLeft :: forall k a b c d. (MCoproductCat k, Ok4 k a b c d)
-                 => a `k` c -> b `k` d -> (a :+ b) `k` (c :+ d)
+              => a `k` c -> b `k` d -> (a :+ b) `k` (c :+ d)
 f `plusRightLeft` g = right g . left f
-                      <+ okCoprod @k @a @b
-                      <+ okCoprod @k @c @b
-                      <+ okCoprod @k @c @d
+                   <+ okCoprod @k @a @b
+                   <+ okCoprod @k @c @b
+                   <+ okCoprod @k @c @d
 
 Op0(lunit, (UnitCat k, Ok k a) => a `k` Prod k (Unit k) a)
 Op0(lcounit, (UnitCat k, Ok k a) => Prod k (Unit k) a `k` a)
