@@ -1,8 +1,9 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeFamilies    #-}
-{-# LANGUAGE TypeOperators   #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
-{-# OPTIONS_GHC -Wall        #-}
+{-# OPTIONS_GHC -Wall #-}
 
 ------------------------------------------------------------------------------
 -- | This module requires all of its exports to be INLINEd so that we can
@@ -15,7 +16,7 @@ import Prelude
 import GHC.TypeLits ()
 
 import ConCat.Misc ((:*))
-import ConCat.AltCat ((:**:)(..),Ok2,U2,toCcc)
+import ConCat.AltCat ((:**:)(..),Ok2,U2,toCcc,reveal)
 import ConCat.Orphans ()
 import ConCat.Rebox ()
 import ConCat.ADFun (andDerF)
@@ -24,7 +25,7 @@ import ConCat.Circuit (GenBuses,(:>))
 import ConCat.Syntactic (Syn,render)
 import ConCat.RunCircuit (run)
 import ConCat.Ops (Ops)
-import ConCat.StackMachine (SM)
+import ConCat.StackMachine (Stack(..))
 
 type EC = Syn :**: (:>)
 
@@ -57,6 +58,18 @@ runSynCircDers nm f =
 runPrint :: Show b => a -> (a -> b) -> IO ()
 runPrint a f = print (f a)
 {-# INLINE runPrint #-}
+
+-- Ambiguous type variable ‘z0’ arising from a use of ‘print’
+-- prevents the constraint ‘(Show (k (a :* z0) (b :* z0)))’ from being solved.
+--
+-- runStack :: Stack k a b -> IO ()
+-- runStack = print . unStack'
+
+runSynStack :: Stack Syn a b -> IO ()
+runSynStack = print . unStack . reveal
+
+runOpsStack :: Stack (Ops Syn) a b -> IO ()
+runOpsStack = print . unStack . reveal
 
 twice :: Num a => a -> a
 twice x = x + x
