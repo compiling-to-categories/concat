@@ -413,7 +413,7 @@ class (Category k, OkProd k {- , MonoidalPCat k -}) => BraidedPCat k where
 type MBraidedPCat k = (BraidedPCat k, MonoidalPCat k)
 
 -- | Category with product.
-class (OkProd k, Category k {- , BraidedPCat k -}) => ProductCat k where
+class (Category k, OkProd k) => ProductCat k where
   exl :: Ok2 k a b => Prod k a b `k` a
   exr :: Ok2 k a b => Prod k a b `k` b
   dup :: Ok  k a => a `k` Prod k a a
@@ -560,7 +560,7 @@ class (OkCoprod k, Category k) => MonoidalSCat k where
   {-# INLINE right #-}
 
 -- | Category with coproduct.
-class BraidedSCat k => CoproductCat k where
+class (Category k, OkCoprod k) => CoproductCat k where
   -- type Coprod k :: u -> u -> u
   -- type Coprod k = (:+)
   inl :: Ok2 k a b => a `k` Coprod k a b
