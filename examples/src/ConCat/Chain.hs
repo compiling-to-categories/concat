@@ -56,6 +56,8 @@ infixr 5 ++*
 (++*) Nil ops          = ops
 (++*) (op :< ops) ops' = op :< (ops ++* ops')
 
+-- We could reverse in show instead of in (.)
+
 instance AssociativePCat k => AssociativePCat (Chain k) where
   lassocP :: forall a b c. Ok3 k a b c => Chain k (a :* (b :* c)) ((a :* b) :* c)
   lassocP = pureChain lassocP
