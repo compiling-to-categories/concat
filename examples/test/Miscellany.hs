@@ -24,7 +24,7 @@ import ConCat.RAD (andDerR, andGradR)
 import ConCat.Circuit (GenBuses,(:>))
 import ConCat.Syntactic (Syn,render)
 import ConCat.RunCircuit (run)
-import ConCat.Ops (Ops)
+import ConCat.Chain (Chain)
 import ConCat.StackMachine (Stack(..))
 
 type EC = Syn :**: (:>)
@@ -68,8 +68,8 @@ runPrint a f = print (f a)
 runSynStack :: Stack Syn a b -> IO ()
 runSynStack = print . unStack . reveal
 
-runOpsStack :: Stack (Ops Syn) a b -> IO ()
-runOpsStack = print . unStack . reveal
+runChainStack :: Stack (Chain Syn) a b -> IO ()
+runChainStack = print . unStack . reveal
 
 twice :: Num a => a -> a
 twice x = x + x
