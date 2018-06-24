@@ -15,7 +15,7 @@
 
 -- | Category of linear operation sequences
 
-module ConCat.Ops where
+module ConCat.Chain where
 
 import Prelude hiding (id,(.),curry,uncurry)
 
@@ -41,13 +41,6 @@ instance Show2 k => Show (Ops k a b) where
 exops :: Ops k a b -> [Exists2 k]
 exops Nil = []
 exops (op :< ops) = Exists2 op : exops ops
-
--- showOps :: forall k a b. Show2 k => Ops k a b -> String
--- showOps ops = "[" ++ intercalate "," (sh ops) ++ "]"
---  where
---    sh :: forall u v. Ops k u v -> [String]
---    sh Nil = []
---    sh (op :< ops) = show2 op : sh ops
 
 instance Category (Ops k) where
   type Ok (Ops k) = Ok k

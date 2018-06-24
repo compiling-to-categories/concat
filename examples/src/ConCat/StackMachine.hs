@@ -26,7 +26,7 @@ import ConCat.AltCat
 
 #ifdef EXAMPLES
 import ConCat.Syntactic (Syn)
-import ConCat.Ops (Ops)
+import ConCat.Chain (Ops)
 #endif
 
 {--------------------------------------------------------------------
