@@ -26,7 +26,7 @@ import ConCat.AltCat
 
 #ifdef EXAMPLES
 import ConCat.Syntactic (Syn)
-import ConCat.Chain (Ops)
+import ConCat.Chain (Chain)
 #endif
 
 {--------------------------------------------------------------------
@@ -279,20 +279,20 @@ t12 = unStack (addC . (negateC &&& negateC))
 
 -- unStack @Syn (addC . (negateC &&& negateC))
 
-t13 :: Ops Syn (Int :* z) (Int :* z)
+t13 :: Chain Syn (Int :* z) (Int :* z)
 t13 = unStack (addC . (negateC &&& negateC))
 
 t14 :: Syn (Int :* z) (Int :* z)
 t14 = unStack (addC . dup)
 
-t15 :: Ops Syn (Int :* z) (Int :* z)
+t15 :: Chain Syn (Int :* z) (Int :* z)
 t15 = unStack (addC . dup)
 
 t14' :: Syn (Int :* z) (Int :* z)
 t14' = unStack (addC . (id &&& id))
 {-# INLINE t14' #-}
 
-t15' :: Ops Syn (Int :* z) (Int :* z)
+t15' :: Chain Syn (Int :* z) (Int :* z)
 t15' = unStack (addC . (id &&& id))
 
 z1 :: Syn ((Int :* Bool) :* z) ((Int :* Bool) :* z)
