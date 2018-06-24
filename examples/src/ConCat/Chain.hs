@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -35,12 +36,15 @@ evalChain (op :< rest) = evalChain rest . op
 pureChain :: Ok2 k a b => a `k` b -> Chain k a b
 pureChain f = f :< Nil
 
-instance Show2 k => Show (Chain k a b) where
-  show = show . exops
+toList :: forall k z a b. (forall u v. (u `k` v) -> z) -> Chain k a b -> [z]
+toList f = go
+ where
+   go :: Chain k p q -> [z]
+   go Nil         = []
+   go (op :< ops) = f op : go ops
 
-exops :: Chain k a b -> [Exists2 k]
-exops Nil = []
-exops (op :< ops) = Exists2 op : exops ops
+instance Show2 k => Show (Chain k a b) where
+  show = show . toList Exists2
 
 instance Category (Chain k) where
   type Ok (Chain k) = Ok k
