@@ -148,19 +148,19 @@ instance ProductCat Op where
   dup = Dup
 
 data StackOp :: * -> * -> * where
-  Op   :: Op a b -> StackOp (a :* z) (b :* z)
+  Pure :: Op a b -> StackOp (a :* z) (b :* z)
   Push :: StackOp ((a :* b) :* z) (a :* (b :* z))
   Pop  :: StackOp (a :* (b :* z)) ((a :* b) :* z)
 
 instance Show (StackOp a b) where
-  show (Op op) = show op
-  show Push    = "Push"
-  show Pop     = "Pop"
+  show (Pure op) = show op
+  show Push      = "Push"
+  show Pop       = "Pop"
 
 evalStackOp :: StackOp u v -> (u -> v)
-evalStackOp (Op f) = first (evalOp f)
-evalStackOp Push   = rassocP
-evalStackOp Pop    = lassocP
+evalStackOp (Pure f) = first (evalOp f)
+evalStackOp Push     = rassocP
+evalStackOp Pop      = lassocP
 
 {--------------------------------------------------------------------
     Function sequences
