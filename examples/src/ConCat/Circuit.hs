@@ -1078,7 +1078,7 @@ instance (GenBuses (R.Rep f), OkFunctor (:>) f) => RepresentableCat (:>) f where
   indexC :: forall a. Ok (:>) a => f a :> (R.Rep f -> a)
   indexC = namedC "index" <+ okFunctor' @(:>) @f @a
 
-#if 1
+#if 0
 
 instance GS b => ConstCat (:>) b where
   const b = -- trace ("circuit const " ++ show b) $
@@ -1094,6 +1094,7 @@ LitConst(Int)
 LitConst(Integer)
 LitConst(Float)
 LitConst(Double)
+LitConst(Finite n)
 LitConst(Vector n a)
 
 -- -- This instance is problematic with Maybe / sums, since it leads to evaluating bottom.
