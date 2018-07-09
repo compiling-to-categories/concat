@@ -29,6 +29,15 @@ data Chain :: (* -> * -> *) -> (* -> * -> *) where
   Nil  :: Ok  k a => Chain k a a
   (:<) :: Ok3 k a b c => a `k` b -> Chain k b c -> Chain k a c
 
+-- mapChain :: forall j k.
+--             (forall a b.       j a b ->       k a b)
+--          -> (forall a b. Chain j a b -> Chain k a b)
+-- mapChain f = go
+--  where
+--    go :: forall a b. Chain j a b -> Chain k a b
+--    go Nil         = Nil
+--    go (op :< ops) = f op :< go ops
+
 evalChain :: Category k => Chain k a b -> a `k` b
 evalChain Nil          = id
 evalChain (op :< rest) = evalChain rest . op
@@ -56,7 +65,7 @@ infixr 5 ++*
 (++*) Nil ops          = ops
 (++*) (op :< ops) ops' = op :< (ops ++* ops')
 
--- We could reverse in show instead of in (.)
+-- We could reverse in toList or show instead of in (.)
 
 instance AssociativePCat k => AssociativePCat (Chain k) where
   lassocP :: forall a b c. Ok3 k a b c => Chain k (a :* (b :* c)) ((a :* b) :* c)
@@ -67,17 +76,6 @@ instance AssociativePCat k => AssociativePCat (Chain k) where
   rassocP = pureChain rassocP
           <+ okProd @k @a @(b :* c) <+ okProd @k @b @c
           <+ okProd @k @(a :* b) @c <+ okProd @k @a @b
-
-instance MBraidedPCat k => MonoidalPCat (Chain k) where
-  first :: forall a b c. Ok3 k a b c => Chain k a c -> Chain k (a :* b) (c :* b)
-  first Nil = Nil <+ okProd @k @a @b
-  first (op :< ops) = firstCons op ops
-   where
-     firstCons :: forall x. Ok k x => (a `k` x) -> Chain k x c -> Chain k (a :* b) (c :* b)
-     firstCons f fs = first f :< first fs
-       <+ okProd @k @a @b <+ okProd @k @c @b <+ okProd @k @x @b
-  second = secondFirst
-  (***) = crossSecondFirst
 
 instance BraidedPCat k => BraidedPCat (Chain k) where
   swapP :: forall a b. Ok2 k a b => Chain k (a :* b) (b :* a)
@@ -91,6 +89,17 @@ instance ProductCat k => ProductCat (Chain k) where
   exl = pureChain exl <+ okProd @k @a @b
   exr = pureChain exr <+ okProd @k @a @b
   dup = pureChain dup <+ okProd @k @a @a
+
+instance (MonoidalPCat k, BraidedPCat k) => MonoidalPCat (Chain k) where
+  first :: forall a b c. Ok3 k a b c => Chain k a c -> Chain k (a :* b) (c :* b)
+  first Nil = Nil <+ okProd @k @a @b
+  first (op :< ops) = firstCons op ops
+   where
+     firstCons :: forall x. Ok k x => (a `k` x) -> Chain k x c -> Chain k (a :* b) (c :* b)
+     firstCons f fs = first f :< first fs
+       <+ okProd @k @a @b <+ okProd @k @c @b <+ okProd @k @x @b
+  second = secondFirst
+  (***) = crossSecondFirst
 
 instance TerminalCat k => TerminalCat (Chain k) where
   it = pureChain it
