@@ -26,7 +26,7 @@ import ConCat.Syntactic (Syn,render)
 import ConCat.RunCircuit (run)
 -- import ConCat.Chain (Chain)
 -- import ConCat.StackMachine (Stack(..))
-import ConCat.StackVM (Prog(..))
+import ConCat.StackVM (StackProg(..))
 
 type EC = Syn :**: (:>)
 
@@ -72,10 +72,10 @@ runPrint a f = print (f a)
 -- runChainStack :: Stack (Chain Syn) a b -> IO ()
 -- runChainStack = print . unStack
 
-runStack :: Prog a b -> IO ()
+runStack :: StackProg a b -> IO ()
 runStack = print
 
-runSynStack :: (Syn :**: Prog) a b -> IO ()
+runSynStack :: (Syn :**: StackProg) a b -> IO ()
 runSynStack (syn :**: prog) = runSyn syn >> runStack prog
 
 twice :: Num a => a -> a
