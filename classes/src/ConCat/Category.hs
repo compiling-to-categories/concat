@@ -771,10 +771,10 @@ type LinearCat k a = (MProductCat k, CoproductPCat k, ScalarCat k a, Ok k a)
     Distributive
 --------------------------------------------------------------------}
 
-class (ProductCat k, CoproductCat k) => DistribCat k where
-  distl :: forall a u v. Oks k [a,u,v]
+class DistribCat k where
+  distl :: forall a u v. Ok3 k a u v
         => Prod k a (Coprod k u v) `k` Coprod k (Prod k a u) (Prod k a v)
-  distr :: forall u v b. Oks k [u,v,b]
+  distr :: forall u v b. Ok3 k u v b
         => Prod k (Coprod k u v) b `k` Coprod k (Prod k u b) (Prod k v b)
   default distl :: forall a u v. (MonoidalSCat k, BraidedPCat k, Ok3 k a u v)
                 => Prod k a (Coprod k u v) `k` Coprod k (Prod k a u) (Prod k a v)
