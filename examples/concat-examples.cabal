@@ -106,7 +106,8 @@ library
                        ConCat.Isomorphism
                        -- ConCat.Finite
                        ConCat.Chain
-                       ConCat.StackMachine
+                       -- ConCat.StackMachine
+                       ConCat.StackVM
   if flag(smt)
     exposed-modules: ConCat.SMT
   ghc-options:      -O2
