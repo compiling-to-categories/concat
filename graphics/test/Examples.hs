@@ -170,7 +170,7 @@ exampleC2 = A.curry (A.addC A.. (A.exr A.&&& A.sinC A.. A.exl))
 exampleC3 :: EC R (R -> R)
 exampleC3 = A.curry (A.addC A.. (A.exr A.&&& A.exl)) A.. A.sinC
 
-exampleC3' :: ( A.ClosedCat k, A.FloatingCat k R, A.NumCat k R
+exampleC3' :: ( A.ClosedCat k, A.MonoidalPCat k, A.FloatingCat k R, A.NumCat k R
               , A.Ok k (R :* R), A.Ok k (R -> R) )
            => R `k` (R -> R)
 exampleC3' = A.curry (A.addC A.. (A.exr A.&&& A.exl)) A.. A.sinC
