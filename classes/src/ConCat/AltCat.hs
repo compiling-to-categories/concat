@@ -534,6 +534,9 @@ unCcc f = unCcc' (conceal f)
     Rewrite rules
 --------------------------------------------------------------------}
 
+id2 :: (MonoidalPCat k, Ok2 k a b) => (a :* b) `k` (a :* b)
+id2 = id *** id
+
 #if 1
 {-# RULES
 
@@ -543,6 +546,9 @@ unCcc f = unCcc' (conceal f)
 -- Experiment: systematically right-associate
 -- We could go either way, but this choice reduces parentheses.
 "(.) assoc right" forall f g h. (h . g) . f = h . (g . f)
+
+"exl . dup" exl . dup = id
+"exr . dup" exr . dup = id
 
 "exl/&&&" forall f g. exl . (f &&& g) = f
 "exr/&&&" forall f g. exr . (f &&& g) = g
@@ -560,8 +566,8 @@ unCcc f = unCcc' (conceal f)
 "f . h &&& g . h" forall (f :: a `k` c) (g :: a `k` d) h.
   f . h &&& g . h = (f &&& g) . h <+ okProd @k @c @d
 
--- -- Careful with this one, since dup eventually inlines to id &&& id. No longer?
--- "id &&& id" [~2] id &&& id = dup
+"id &&& id" id &&& id = dup
+"id *** id" id *** id = id2
 
 -- -- Specializations with f == id and/or g == id
 -- "h &&& h    " forall (h :: a `k` b)               . h &&& h     = (id &&& id) . h <+ okProd @k @b @b
@@ -1261,42 +1267,24 @@ unforkF ahb = fmap (. ahb) exF  <+ okIxProd @k @h @b
 {-# INLINE unforkF #-}
 
 -- | Inverse to 'distl': @(a * u) + (a * v) --> a * (u + v)@
-undistl :: forall k a u v. (MProductCat k, MCoproductCat k, Ok3 k a u v)
-        => Coprod k (Prod k a u) (Prod k a v) `k` Prod k a (Coprod k u v)
-undistl = (exl ||| exl) &&& (exr +++ exr)
-  <+ okCoprod @k @(Prod k a u) @(Prod k a v)
-  <+ okProd   @k @a @u
-  <+ okProd   @k @a @v
-  <+ okCoprod @k @u @v
-{-# INLINE undistl #-}
-
--- | Inverse to 'distr': @(u * b) + (v * b) --> (u + v) * b@
-undistr :: forall k u v b. (MProductCat k, MCoproductCat k, Ok3 k u v b)
-        => Coprod k (Prod k u b) (Prod k v b) `k` Prod k (Coprod k u v) b
-undistr = (exl +++ exl) &&& (exr ||| exr)
-  <+ okCoprod @k @(Prod k u b) @(Prod k v b)
-  <+ okCoprod @k @u @v
-  <+ okProd   @k @u @b
-  <+ okProd   @k @v @b
-{-# INLINE undistr #-}
-
-undistl' :: forall k a u v. (MonoidalPCat k, MCoproductCat k, Ok3 k a u v)
-         => ((a :* u) :+ (a :* v)) `k` (a :* (u :+ v))
-undistl' = second inl ||| second inr
+undistl :: forall k a u v. (MonoidalPCat k, MCoproductCat k, Ok3 k a u v)
+        => ((a :* u) :+ (a :* v)) `k` (a :* (u :+ v))
+undistl = second inl ||| second inr
   <+ okProd @k @a @(u :+ v)
   <+ okCoprod @k @u @v
   <+ okProd @k @a @u <+ okProd @k @a @v
-{-# INLINE undistl' #-}
+{-# INLINE undistl #-}
 
-undistr' :: forall k u v b. (MonoidalPCat k, MCoproductCat k, Ok3 k u v b)
-         => ((u :* b) :+ (v :* b)) `k` ((u :+ v) :* b)
-undistr' = first inl ||| first inr
+-- | Inverse to 'distr': @(u * b) + (v * b) --> (u + v) * b@
+undistr :: forall k u v b. (MonoidalPCat k, MCoproductCat k, Ok3 k u v b)
+        => ((u :* b) :+ (v :* b)) `k` ((u :+ v) :* b)
+undistr = first inl ||| first inr
   <+ okProd @k @(u :+ v) @b
   <+ okCoprod @k @u @v
   <+ okProd @k @u @b <+ okProd @k @v @b
-{-# INLINE undistr' #-}
+{-# INLINE undistr #-}
 
-inDistr :: forall k a b c d w z. (MonoidalPCat k, MonoidalSCat k, DistribCat k, Ok6 k a b c d w z)
+inDistr :: forall k a b c d w z. (MonoidalPCat k, MCoproductCat k, DistribCat k, Ok6 k a b c d w z)
         => (((a :* w) :+ (b :* w)) `k` ((c :* z) :+ (d :* z)))
         -> (((a :+ b) :* w) `k` ((c :+ d) :* z))
 inDistr f = undistr . f . distr
