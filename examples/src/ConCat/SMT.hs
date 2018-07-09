@@ -203,7 +203,7 @@ solveAscendingFrom r q =
     Just (a,r') -> (a,r') : solveAscendingFrom r' q
 
 -- andAbove f lower = \ (a,r) -> f (a,r) && r > lower
-andAbove :: forall k a r. (ConstCat k r, OrdCat k r, Ok k a)
+andAbove :: forall k a r. (MonoidalPCat k, ConstCat k r, OrdCat k r, Ok k a)
          => ((a :* r) `k` Bool) -> r -> ((a :* r) `k` Bool)
 andAbove f lower = andC . (greaterThan . (exr &&& const lower) &&& f)
   <+ okProd @k @a    @r
