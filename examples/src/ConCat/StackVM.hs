@@ -123,9 +123,9 @@ instance DistribCat StackFun where
   {-# INLINE distl #-}
   {-# INLINE distr #-}
 
-instance ClosedCat StackFun where
-  apply = stackFun apply
-  curry f = undefined
+-- instance ClosedCat StackFun where
+--   apply = stackFun apply
+--   curry f = undefined
 
 {--------------------------------------------------------------------
     Stack programs
