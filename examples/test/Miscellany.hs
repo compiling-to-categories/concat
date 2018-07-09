@@ -16,7 +16,7 @@ import Prelude
 import GHC.TypeLits ()
 
 import ConCat.Misc ((:*))
-import ConCat.AltCat ((:**:)(..),Ok2,U2,toCcc,reveal)
+import ConCat.AltCat ((:**:)(..),Ok2,U2,toCcc)
 import ConCat.Orphans ()
 import ConCat.Rebox ()
 import ConCat.ADFun (andDerF)
@@ -24,8 +24,9 @@ import ConCat.RAD (andDerR, andGradR)
 import ConCat.Circuit (GenBuses,(:>))
 import ConCat.Syntactic (Syn,render)
 import ConCat.RunCircuit (run)
-import ConCat.Chain (Chain)
-import ConCat.StackMachine (Stack(..))
+-- import ConCat.Chain (Chain)
+-- import ConCat.StackMachine (Stack(..))
+import ConCat.StackVM (Prog(..))
 
 type EC = Syn :**: (:>)
 
@@ -65,11 +66,17 @@ runPrint a f = print (f a)
 -- runStack :: Stack k a b -> IO ()
 -- runStack = print . unStack'
 
-runSynStack :: Stack Syn a b -> IO ()
-runSynStack = print . unStack . reveal
+-- runSynStack :: Stack Syn a b -> IO ()
+-- runSynStack = print . unStack
 
-runChainStack :: Stack (Chain Syn) a b -> IO ()
-runChainStack = print . unStack . reveal
+-- runChainStack :: Stack (Chain Syn) a b -> IO ()
+-- runChainStack = print . unStack
+
+runStack :: Prog a b -> IO ()
+runStack = print
+
+runSynStack :: (Syn :**: Prog) a b -> IO ()
+runSynStack (syn :**: prog) = runSyn syn >> runStack prog
 
 twice :: Num a => a -> a
 twice x = x + x
