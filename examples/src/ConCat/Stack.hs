@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
@@ -17,6 +18,7 @@ import Prelude hiding (id,(.),curry,uncurry)
 import ConCat.Misc ((:*),(:+))
 import qualified ConCat.Category as C
 import ConCat.AltCat
+import ConCat.Chain
 
 newtype Stack a b = Stack (forall z. a :* z -> b :* z)
 
@@ -162,6 +164,16 @@ evalStackOp (Pure f) = first (evalOp f)
 evalStackOp Push     = rassocP
 evalStackOp Pop      = lassocP
 
+#if 1
+
+type Prog = Chain StackOp
+
+evalProg :: Prog a b -> (a -> b)
+evalProg Nil          = id
+evalProg (op :< rest) = evalProg rest . evalStackOp op
+
+#else
+
 {--------------------------------------------------------------------
     Function sequences
 --------------------------------------------------------------------}
@@ -243,3 +255,5 @@ instance Num a => NumCat Funs a where
 data Exists2 k = forall a b. Exists2 (a `k` b)
 
 instance Show2 k => Show (Exists2 k) where show (Exists2 f) = show2 f
+
+#endif
