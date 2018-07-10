@@ -136,7 +136,7 @@ import qualified ConCat.RunCircuit as RC
 import qualified ConCat.AltCat as A
 -- import ConCat.AltCat
 import ConCat.AltCat
-  (toCcc,toCcc',unCcc,unCcc',reveal,conceal,(:**:)(..),Ok,Ok2,U2,equal)
+  (toCcc,toCcc',unCcc,unCcc',conceal,(:**:)(..),Ok,Ok2,U2,equal)
 import qualified ConCat.Rep
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Orphans ()
@@ -151,8 +151,8 @@ import qualified ConCat.Deep as D
 -- import ConCat.Finite
 import ConCat.TArr
 import qualified ConCat.TArr as TA
-import ConCat.StackMachine (Stack)
-import qualified ConCat.StackMachine as S
+-- import ConCat.StackMachine (Stack)
+-- import qualified ConCat.StackMachine as S
 
 -- Experimental
 import qualified ConCat.Inline.SampleMethods as I
@@ -207,23 +207,33 @@ main = sequence_ [
   -- , runSyn $ toCcc $ A.id A.&&& A.id -- fine
   -- , runSyn $ toCcc $ A.addC . (A.id A.&&& A.id) -- okay
 
-  -- , runSynStack $ toCcc $ \ x -> x + x -- Doesn't simplify
-
   -- , runSynStack $ toCcc $ A.addC . A.dup
 
 
   -- -- first add . ((first swapP . (lassocP . id . rassocP) . first swapP) . lassocP . id . rassocP) . first dup
   -- , runSynStack $ toCcc $ A.addC . (A.id A.&&& A.id)
 
-  -- -- [first dup,first add]
-  -- , runOpsStack $ toCcc $ A.addC . A.dup
-  -- -- [first dup,rassocP,lassocP,first swapP,rassocP,lassocP,first swapP,first add]
-  -- , runOpsStack $ toCcc $ A.addC . (A.id A.&&& A.id)
+  -- -- [first dup,first addC]
+  -- , runChainStack $ toCcc $ A.addC . A.dup
 
-  -- -- Same as addC . (id &&& id)
-  -- , runSyn      $ toCcc $ \ x -> x + x
-  -- , runSynStack $ toCcc $ \ x -> x + x
-  -- , runOpsStack $ toCcc' $ \ x -> x + x
+  -- -- [first dup,rassocP,lassocP,first swapP,rassocP,lassocP,first swapP,first addC]
+  -- -- [first dup,first addC]  -- with AltCat rule (id &&& id) = dup
+  -- , runChainStack $ toCcc $ A.addC . (A.id A.&&& A.id)
+
+  -- -- twice x = x + x
+  -- , runSyn        $ toCcc twice  -- addC . dup
+  -- , runSynStack   $ toCcc twice  -- first addC . first dup
+  -- , runChainStack $ toCcc twice  -- [first dup,first addC]
+
+  -- , runSynStack $ toCcc $ \ x     -> x + x  -- addC . dup, [Dup,Add]
+  -- , runSynStack $ toCcc $ \ (x,y) -> x * y  -- mulC, [Mul]
+
+  -- -- addC . (exl *** mulC . (const 3 *** exr) . dup) . dup
+  -- -- [Dup,Push,Exl,Pop,Swap,Push,Dup,Push,Const 3,Pop,Swap,Push,Exr,Pop,Swap,Mul,Pop,Swap,Add]
+  -- -- TODO: better categorical optimization
+  -- , runSynStack $ toCcc $ \ (x,y) -> x + 3 * y
+
+  -- , runSynStack $ toCcc $ \ y -> 3 * y
 
   -- , runSyn $ toCcc' $ A.lassocP A.. A.rassocP                  -- id
   -- , runSyn $ toCcc' $ A.lassocP A.. A.id A.. A.rassocP         -- id
