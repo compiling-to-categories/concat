@@ -68,7 +68,7 @@ apply .
          ((apply . (exl . exl *** exl . exr) . dup ***
            apply . (exr . exl *** exr . exr) . dup) .
           dup)) .
-        (id . repr) . repr . exl ***
+        repr . repr . exl ***
         repr . exr) .
        dup ***
        abst . curry (dup . exr)) .

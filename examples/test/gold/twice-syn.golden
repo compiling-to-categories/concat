@@ -1,1 +1,1 @@
-addC . (id *** id) . dup
+addC . dup

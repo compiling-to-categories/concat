@@ -1,32 +1,13 @@
 ((exl . id *** apply . ((id *** const 1.0) . dup) . repr . exr . id) . dup) .
-second repr .
-((addC . exl ***
-  abst .
-  apply .
-  ((curry (abst . apply . (exl *** repr . exr) . dup) .
-    curry
-    (curry (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
-    repr . repr ***
-    abst . curry (dup . exr)) .
-   dup) .
-  apply .
-  (curry
-   (abst .
-    apply .
-    (curry (abst . apply . (exl *** repr . exr) . dup) .
-     curry
-     (curry (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
-     repr . repr . exr ***
-     repr . exl) .
-    dup) .
-   exr ***
-   abst . abst . curry (addC . exr)) .
+(addC . dup ***
+ repr .
+ abst .
+ apply .
+ ((curry (abst . apply . (exl *** repr . exr) . dup) .
+   curry
+   (curry (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
+   repr . repr ***
+   abst . curry (dup . exr)) .
   dup) .
- dup) .
-((id ***
-  abst .
-  abst .
-  curry ((exl . exr *** apply . (exl *** exr . exr) . dup) . dup) .
-  repr . repr . abst . abst . curry exr) .
- dup) .
+ abst . abst . curry (addC . exr)) .
 dup
