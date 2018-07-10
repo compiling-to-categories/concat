@@ -534,8 +534,8 @@ unCcc f = unCcc' (conceal f)
     Rewrite rules
 --------------------------------------------------------------------}
 
-id2 :: (MonoidalPCat k, Ok2 k a b) => (a :* b) `k` (a :* b)
-id2 = id *** id
+id2 :: forall k a b. (MonoidalPCat k, Ok2 k a b) => (a :* b) `k` (a :* b)
+id2 = id <+ okProd @k @a @b
 
 #if 1
 {-# RULES
