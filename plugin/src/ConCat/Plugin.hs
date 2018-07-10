@@ -2465,7 +2465,6 @@ mkCoercible :: Kind -> Type -> Type -> Coercion -> CoreExpr
 mkCoercible k a b co =
   Var (dataConWrapId coercibleDataCon) `mkTyApps` [k,a,b] `App` Coercion co
 
-
 isFunCat :: Type -> Bool
-isFunCat (TyConApp tc []) = isFunTyCon tc
-isFunCat _                = False
+isFunCat (TyConApp tc _) = isFunTyCon tc
+isFunCat _               = False
