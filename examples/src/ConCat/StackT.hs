@@ -16,7 +16,7 @@
 
 -- | Stack machine category / compiler 
 
-module ConCat.StackMachine where
+module ConCat.StackT where
 
 import Prelude hiding (id,(.),curry,uncurry)
 
