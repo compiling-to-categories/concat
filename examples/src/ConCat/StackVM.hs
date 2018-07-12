@@ -45,10 +45,10 @@ stackFun :: (a -> b) -> StackFun a b
 stackFun f = SF (first f)
 {-# INLINE stackFun #-}
 
-evalSF :: StackFun a b -> (a -> b)
-evalSF (SF f) = rcounit . f . runit
--- evalSF (SF f) a = fst (f (a,()))
--- evalSF (SF f) a = b
+evalStackFun :: StackFun a b -> (a -> b)
+evalStackFun (SF f) = rcounit . f . runit
+-- evalStackFun (SF f) a = fst (f (a,()))
+-- evalStackFun (SF f) a = b
 --  where
 --    (b,()) = f (a,())
 
@@ -131,48 +131,48 @@ instance DistribCat StackFun where
     Stack programs
 --------------------------------------------------------------------}
 
-data Op :: * -> * -> * where
-  Negate :: Num a => Op a a
-  Add, Sub, Mul :: Num a => Op (a :* a) a
-  PowI :: Num a => Op (a :* Int) a
-  Swap :: Op (a :* b) (b :* a)
-  Exl :: Op (a :* b) a
-  Exr :: Op (a :* b) b
-  Dup :: Op a (a :* a)
-  Const :: Show b => b -> Op a b
+data Prim :: * -> * -> * where
+  Swap :: Prim (a :* b) (b :* a)
+  Exl :: Prim (a :* b) a
+  Exr :: Prim (a :* b) b
+  Dup :: Prim a (a :* a)
+  Const :: Show b => b -> Prim a b
+  Negate :: Num a => Prim a a
+  Add, Sub, Mul :: Num a => Prim (a :* a) a
+  PowI :: Num a => Prim (a :* Int) a
 
-deriving instance Show (Op a b)
+deriving instance Show (Prim a b)
 
--- instance Show (Op a b) where
---   show Negate    = "negateC"
---   show Add       = "addC"
---   show Sub       = "subC"
---   show Mul       = "mulC"
---   show PowI      = "powIC"
+-- instance Show (Prim a b) where
 --   show Swap      = "swapP"
 --   show Exl       = "exl"
 --   show Exr       = "exr"
 --   show Dup       = "dup"
 --   show (Const b) = show b
+--   show Negate    = "negateC"
+--   show Add       = "addC"
+--   show Sub       = "subC"
+--   show Mul       = "mulC"
+--   show PowI      = "powIC"
 
 -- TODO: showsPrec for Const
 
 -- Alternatively use Syn
 
-evalOp :: Op a b -> (a -> b)
-evalOp Negate    = negateC
-evalOp Add       = addC
-evalOp Sub       = subC
-evalOp Mul       = mulC
-evalOp PowI      = powIC
-evalOp Swap      = swapP
-evalOp Exl       = exl
-evalOp Exr       = exr
-evalOp Dup       = dup
-evalOp (Const b) = const b
+evalPrim :: Prim a b -> (a -> b)
+evalPrim Exl       = exl
+evalPrim Exr       = exr
+evalPrim Dup       = dup
+evalPrim (Const b) = const b
+evalPrim Negate    = negateC
+evalPrim Add       = addC
+evalPrim Sub       = subC
+evalPrim Mul       = mulC
+evalPrim PowI      = powIC
+evalPrim Swap      = swapP
 
 data StackOp :: * -> * -> * where
-  Pure :: Op a b -> StackOp (a :* z) (b :* z)
+  Pure :: Prim a b -> StackOp (a :* z) (b :* z)
   Push :: StackOp ((a :* b) :* z) (a :* (b :* z))
   Pop  :: StackOp (a :* (b :* z)) ((a :* b) :* z)
 
@@ -184,7 +184,7 @@ instance Show (StackOp a b) where
 instance Show2 StackOp where show2 = show
 
 evalStackOp :: StackOp u v -> (u -> v)
-evalStackOp (Pure f) = first (evalOp f)
+evalStackOp (Pure f) = first (evalPrim f)
 evalStackOp Push     = rassocP
 evalStackOp Pop      = lassocP
 
@@ -212,7 +212,7 @@ infixr 5 ++*
 Nil ++* ops'         = ops'
 (op :< ops) ++* ops' = op :< (ops ++* ops')
 
-data StackProg a b = SP (forall z. StackOps (a :* z) (b :* z))
+data StackProg a b = SP { unSP :: forall z. StackOps (a :* z) (b :* z) }
 
 instance Show (StackProg a b) where
   show (SP ops) = show ops
@@ -224,8 +224,8 @@ instance Category StackProg where
 -- stackOp :: StackOp a b -> StackProg a b
 -- stackOp op = SP (op :< Nil)
 
-opP :: Op a b -> StackProg a b
-opP op = SP (Pure op :< Nil)
+primProg :: Prim a b -> StackProg a b
+primProg p = SP (Pure p :< Nil)
 
 -- firstP :: StackProg a c -> StackProg (a :* b) (c :* b)
 -- firstP (SP ops) = SP (Push :< ops ++* Pop :< Nil)
@@ -233,9 +233,9 @@ opP op = SP (Pure op :< Nil)
 -- TODO: tweak StackOps so we can postpone flattening.
 
 instance ProductCat StackProg where
-  exl = opP Exl
-  exr = opP Exr
-  dup = opP Dup
+  exl = primProg Exl
+  exr = primProg Exr
+  dup = primProg Dup
 
 instance MonoidalPCat StackProg where
   -- first  = firstP
@@ -244,22 +244,22 @@ instance MonoidalPCat StackProg where
   (***)  = crossSecondFirst
 
 instance Show b => ConstCat StackProg b where
-  const b = opP (Const b)
+  const b = primProg (Const b)
 
 instance TerminalCat     StackProg
 instance UnitCat         StackProg
 instance AssociativePCat StackProg
-instance BraidedPCat     StackProg where swapP = opP Swap
+instance BraidedPCat     StackProg where swapP = primProg Swap
   
 -- Alternatively, remove Swap and use default in BraidedPCat, though Swap makes
 -- for shorter programs.
 
 instance Num a => NumCat StackProg a where
-  negateC = opP Negate
-  addC    = opP Add
-  subC    = opP Sub
-  mulC    = opP Mul
-  powIC   = opP PowI
+  negateC = primProg Negate
+  addC    = primProg Add
+  subC    = primProg Sub
+  mulC    = primProg Mul
+  powIC   = primProg PowI
 
 {--------------------------------------------------------------------
     Relate StackProg to StackFun
@@ -270,9 +270,10 @@ progFun :: StackProg a b -> StackFun a b
 progFun (SP ops) = SF (evalStackOps ops)
 
 evalProg :: StackProg a b -> (a -> b)
+evalProg = evalStackFun . progFun
+
 -- evalProg (SP ops) = rcounit . evalStackOps ops . runit
 -- evalProg (SP ops) a = fst (evalStackOps ops (a,()))
-evalProg = evalSF . progFun
 
 {--------------------------------------------------------------------
     Miscellany
