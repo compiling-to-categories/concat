@@ -1,6 +1,10 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeApplications #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -41,13 +45,13 @@ instance AssociativePCat k => AssociativePCat (Iso k) where
   {- INLINE lassocP #-}
   {- INLINE rassocP #-}
 
-instance MonoidalPCat k => MonoidalPCat (Iso k) where
-  (f :<-> f') *** (g :<-> g') = (f *** g) :<-> (f' *** g')
-  {- INLINE (***) #-}
-
 instance BraidedPCat k => BraidedPCat (Iso k) where
   swapP = swapP :<-> swapP
   {-# INLINE swapP #-}
+
+instance MonoidalPCat k => MonoidalPCat (Iso k) where
+  (f :<-> f') *** (g :<-> g') = (f *** g) :<-> (f' *** g')
+  {- INLINE (***) #-}
 
 instance AssociativeSCat k => AssociativeSCat (Iso k) where
   lassocS = lassocS :<-> rassocS
@@ -85,3 +89,49 @@ type (<->) = Iso (->)
 -- Old notation
 pattern Iso :: (a `k` b) -> (b `k` a) -> Iso k a b
 pattern Iso f f' = f :<-> f'
+
+{--------------------------------------------------------------------
+    Experiment
+--------------------------------------------------------------------}
+
+infixr 8 ^^^
+class (Category k, OkExp k) => MonoidalECat k where
+  (^^^) :: Ok4 k a b a' b' => (a' `k` a) -> (b `k` b') -> ((a -> b) `k` (a' -> b'))
+
+dom :: (MonoidalECat k, Ok3 k a b a') => (a' `k` a) -> ((a -> b) `k` (a' -> b))
+dom f = f ^^^ id
+
+cod :: (MonoidalECat k, Ok3 k a b b') => (b `k` b') -> ((a -> b) `k` (a -> b'))
+cod g = id ^^^ g
+
+foo1, foo2 :: forall k a a' a'' b b' b''. (MonoidalECat k, Ok6 k a a' a'' b b' b'')
+           => (a'' `k` a') -> (a' `k` a) -> (b `k` b') -> (b' `k` b'')
+           -> (a -> b) `k` (a'' -> b'')
+foo1 f g h k = (f ^^^ k) . (g ^^^ h)
+             <+ okExp @k @a   @b
+             <+ okExp @k @a'  @b'
+             <+ okExp @k @a'' @b''
+foo2 f g h k = (g . f) ^^^ (k . h)
+
+-- {-# RULES
+-- "(^^^)/(.)" forall f g h k. (f ^^^ k) . (g ^^^ h) = (g . f) ^^^ (k . h)
+-- #-}
+
+instance MonoidalECat (->) where
+  (p ^^^ q) f = q . f . p
+
+instance MonoidalECat k => MonoidalECat (Iso k) where
+  (p :<-> p') ^^^ (q :<-> q') = (p ^^^ q) :<-> (p' ^^^ q')
+
+#if 0
+
+p  :: a' `k` a
+p' :: a `k` a'
+
+q  :: b `k` b'
+q' :: b' `k` b
+
+p  ^^^ q  :: (a  -> b) `k` (a' -> b')
+p' ^^^ q' :: (a' -> b') `k` (a -> b)
+
+#endif
