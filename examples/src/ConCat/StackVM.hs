@@ -96,7 +96,8 @@ instance UnitCat StackFun
 
 instance MonoidalSCat StackFun where
   -- SF f +++ SF g = SF (inDistr (f +++ g))
-  (+++) = inSF2 (\ f g -> inDistr (f +++ g))
+  SF f +++ SF g = SF (undistr . (f +++ g) . distr)
+  -- (+++) = inSF2 (\ f g -> inDistr (f +++ g))
   {-# INLINE (+++) #-}
 
 -- The validity of this (+++) definition relies on the following fact:
@@ -140,6 +141,9 @@ data Prim :: * -> * -> * where
   Negate :: Num a => Prim a a
   Add, Sub, Mul :: Num a => Prim (a :* a) a
   PowI :: Num a => Prim (a :* Int) a
+  -- Experiment
+  -- (:+++) :: StackProg a c -> StackProg b d -> Prim (a :+ b) (c :+ d)
+  (:+++) :: StackOps a c -> StackOps b d -> Prim (a :+ b) (c :+ d)
 
 deriving instance Show (Prim a b)
 
@@ -170,6 +174,8 @@ evalPrim Sub       = subC
 evalPrim Mul       = mulC
 evalPrim PowI      = powIC
 evalPrim Swap      = swapP
+-- evalPrim (f :+++ g) = evalProg f +++ evalProg g
+evalPrim (f :+++ g) = evalStackOps f +++ evalStackOps g
 
 data StackOp :: * -> * -> * where
   Pure :: Prim a b -> StackOp (a :* z) (b :* z)
@@ -242,6 +248,18 @@ instance MonoidalPCat StackProg where
   first (SP ops) = SP (Push :< ops ++* Pop :< Nil)
   second = secondFirst
   (***)  = crossSecondFirst
+
+-- instance MonoidalSCat StackProg where
+--   -- SP f +++ SP g = SP (inDistr (f +++ g))
+--   SP f +++ SP g = SP (undistr . (f +++ g) . distr)
+--   -- (+++) = inSP2 (\ f g -> inDistr (f +++ g))
+--   {-# INLINE (+++) #-}
+
+-- SP f :: StackProg a c
+-- SP g :: StackProg b d
+
+-- f :: StackOps (a :* z) (c :* z)
+-- g :: StackOps (b :* z) (d :* z)
 
 instance Show b => ConstCat StackProg b where
   const b = primProg (Const b)
