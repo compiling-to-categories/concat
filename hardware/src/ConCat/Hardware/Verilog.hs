@@ -109,7 +109,7 @@ busId' (Bus cId ix ty) = ('n' : show cId ++ ('_' : show ix), width)
                   C.Float      -> 32
                   C.Double     -> 64
                   C.Finite n   -> ceiling (log (fromInteger n) :: Double)
-                  C.Vector _ _ -> err "Arr"
+                  C.Vector _ _ -> err "Vector"
                   C.Prod   _ _ -> err "Prod"
                   C.Sum    _ _ -> err "Sum"
                   C.Fun    _ _ -> err "Fun"
