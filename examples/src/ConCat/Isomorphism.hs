@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -14,23 +15,29 @@ module ConCat.Isomorphism where
 
 import Prelude hiding (id, (.), const)  -- Coming from ConCat.AltCat.
 
-import ConCat.Misc ((:*))
+-- import Control.Applicative (liftA2)
+import Data.Coerce (Coercible,coerce)
+
+import Data.Functor.Rep (Representable(..))
+import Control.Newtype.Generics
+
+import ConCat.Misc ((:*),(:=>))
 import ConCat.AltCat
 import qualified ConCat.Category
-import ConCat.Rep
+import qualified ConCat.Rep as R
 
 infix 0 :<->
 data Iso k a b = (a `k` b) :<-> (b `k` a)
 
 -- Helpful?
-instance HasRep (Iso k a b) where
+instance R.HasRep (Iso k a b) where
   type Rep (Iso k a b) = (a `k` b) :* (b `k` a)
   abst (f,f') = f :<-> f'
   repr (f :<-> f') = (f,f')
 
-inverse :: Iso k a b -> Iso k b a
-inverse (f :<-> f') = f' :<-> f
-{-# INLINE inverse #-}
+inv :: Iso k a b -> Iso k b a
+inv (f :<-> f') = f' :<-> f
+{-# INLINE inv #-}
 
 instance Category k => Category (Iso k) where
   type Ok (Iso k) = Ok k
@@ -90,48 +97,90 @@ type (<->) = Iso (->)
 pattern Iso :: (a `k` b) -> (b `k` a) -> Iso k a b
 pattern Iso f f' = f :<-> f'
 
+newtypeIso :: Newtype a => a <-> O a
+newtypeIso = unpack :<-> pack
+
+hasrepIso :: R.HasRep a => a <-> R.Rep a
+hasrepIso = R.repr :<-> R.abst
+
+representableIso :: Representable f => f a <-> (Rep f -> a)
+representableIso = index :<-> tabulate
+
+coerceIso :: Coercible a b => a <-> b
+coerceIso = coerce :<-> coerce
+
 {--------------------------------------------------------------------
     Experiment
 --------------------------------------------------------------------}
 
 infixr 8 ^^^
-class (Category k, OkExp k) => MonoidalECat k where
-  (^^^) :: Ok4 k a b a' b' => (a' `k` a) -> (b `k` b') -> ((a -> b) `k` (a' -> b'))
+class (Category k, OkExp k) => Closed k where
+  (^^^) :: Ok4 k a b c d => (d `k` c) -> (a `k` b) -> ((c :=> a) `k` (d :=> b))
 
-dom :: (MonoidalECat k, Ok3 k a b a') => (a' `k` a) -> ((a -> b) `k` (a' -> b))
+dom :: (Closed k, Ok3 k c a d) => (d `k` c) -> ((c :=> a) `k` (d :=> a))
 dom f = f ^^^ id
 
-cod :: (MonoidalECat k, Ok3 k a b b') => (b `k` b') -> ((a -> b) `k` (a -> b'))
+cod :: (Closed k, Ok3 k c a b) => (a `k` b) -> ((c :=> a) `k` (c :=> b))
 cod g = id ^^^ g
 
-foo1, foo2 :: forall k a a' a'' b b' b''. (MonoidalECat k, Ok6 k a a' a'' b b' b'')
-           => (a'' `k` a') -> (a' `k` a) -> (b `k` b') -> (b' `k` b'')
-           -> (a -> b) `k` (a'' -> b'')
+foo1, foo2 :: forall k a b c d a' c'.
+              (Closed k, Ok k c, Ok k a, Ok k d, Ok k c', Ok k b, Ok k a')
+           => (d `k` c') -> (c' `k` c) -> (a `k` a') -> (a' `k` b)
+           -> ((c :=> a) `k` (d :=> b))
 foo1 f g h k = (f ^^^ k) . (g ^^^ h)
-             <+ okExp @k @a   @b
-             <+ okExp @k @a'  @b'
-             <+ okExp @k @a'' @b''
+             <+ okExp @k @c  @a
+             <+ okExp @k @c' @a'
+             <+ okExp @k @d  @b
 foo2 f g h k = (g . f) ^^^ (k . h)
 
 -- {-# RULES
 -- "(^^^)/(.)" forall f g h k. (f ^^^ k) . (g ^^^ h) = (g . f) ^^^ (k . h)
 -- #-}
 
-instance MonoidalECat (->) where
-  (p ^^^ q) f = q . f . p
+instance Closed (->) where
+  (f ^^^ h) g = h . g . f
 
-instance MonoidalECat k => MonoidalECat (Iso k) where
-  (p :<-> p') ^^^ (q :<-> q') = (p ^^^ q) :<-> (p' ^^^ q')
+instance Closed k => Closed (Iso k) where
+  (f :<-> f') ^^^ (h :<-> h') = (f ^^^ h) :<-> (f' ^^^ h')
 
 #if 0
 
-p  :: a' `k` a
-p' :: a `k` a'
+p  :: d `k` c
+p' :: c `k` d
 
-q  :: b `k` b'
-q' :: b' `k` b
+q  :: a `k` b
+q' :: b `k` a
 
-p  ^^^ q  :: (a  -> b) `k` (a' -> b')
-p' ^^^ q' :: (a' -> b') `k` (a -> b)
+p  ^^^ q  :: (c :=> a) `k` (d :=> b)
+p' ^^^ q' :: (d :=> b) `k` (c :=> a)
 
 #endif
+
+{--------------------------------------------------------------------
+    Generic isomorphism-based homomorphisms
+--------------------------------------------------------------------}
+
+-- Natural isomorphism
+type NatIso f g = forall a. f a <-> g a
+
+fmapIso :: Functor f => NatIso f g -> (a -> b) -> (g a -> g b)
+fmapIso fg h = isoFwd fg . fmap h . isoRev fg
+
+-- Don't pattern match fg, since we need two type instantiations.
+-- For instance, the following doesn't type-check:
+-- 
+--   fmapIso (fg :<-> gf) h = fg . fmap h . gf
+
+pureIso :: Applicative f => NatIso f g -> a -> g a
+pureIso fg a = isoFwd fg (pure a)
+
+appIso :: Applicative f => NatIso f g -> g (a -> b) -> g a -> g b
+appIso fg hs xs = isoFwd fg (isoRev fg hs <*> isoRev fg xs)
+
+memptyIso :: Monoid a => (a <-> b) -> b
+memptyIso (ab :<-> _) = ab mempty
+
+mappendIso :: Monoid a => (a <-> b) -> (b -> b -> b)
+mappendIso (ab :<-> ba) b b' = ab (ba b `mappend` ba b')
+
+-- mappendIso (ab :<-> ba) (ab a) (ab a') = ab (a `mappend` a')
