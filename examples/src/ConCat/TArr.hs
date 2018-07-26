@@ -17,14 +17,17 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
+-- {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
 -- When spurious recompilation is fixed, use this plugin, and drop ConCat.Known.
 -- {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 
 -- | Domain-typed arrays
 
-module ConCat.TArr where
+module ConCat.TArr
+  ( HasFin(..),HasFin',toFin,unFin
+  , Arr(..),toArr,unArr,Flat,flat,toFlat
+  ) where
 
 import Prelude hiding (id, (.), const, curry, uncurry)  -- Coming from ConCat.AltCat.
 
@@ -32,20 +35,19 @@ import Data.Monoid
 import Data.Foldable
 import GHC.TypeLits
 import GHC.Types (Nat)
-import Data.Proxy
+-- import Data.Proxy
 -- import Data.Tuple            (swap)
 
 import Data.Finite.Internal  (Finite(..))
 import Data.Vector.Sized (Vector)
-import qualified Data.Vector.Sized as V
+-- import qualified Data.Vector.Sized as V
 import Control.Newtype.Generics
 import Data.Distributive (Distributive(..))
-import Data.Functor.Rep (Representable,index,tabulate,distributeRep)
-import qualified Data.Functor.Rep as R
+import Data.Functor.Rep (Representable(..),distributeRep)
 import Data.Constraint ((\\))
 
-import ConCat.Misc           ((:*), (:+), cond,nat,int)
-import ConCat.Rep
+import ConCat.Misc ((:*), (:+), cond)  -- ,nat,int
+import qualified ConCat.Rep as R
 import ConCat.AltCat
 import ConCat.Isomorphism
 import ConCat.Known
@@ -54,12 +56,14 @@ import ConCat.Known
    Some useful isomorphisms.
 ----------------------------------------------------------------------}
 
-finSum :: forall k m n. (FiniteCat k, KnownNat2 m n) => Iso k (Finite m :+ Finite n) (Finite (m + n))
-finSum = Iso combineSum separateSum
+finSum  :: forall k m n. (FiniteCat k, KnownNat2 m n)
+        => Iso k (Finite m :+ Finite n) (Finite (m + n))
+finSum  = combineSum :<-> separateSum
 {-# INLINE finSum #-}
 
-finProd :: forall k m n. (FiniteCat k, KnownNat2 m n) => Iso k (Finite m :* Finite n) (Finite (m * n))
-finProd = Iso combineProd separateProd
+finProd  :: forall k m n. (FiniteCat k, KnownNat2 m n)
+         => Iso k (Finite m :* Finite n) (Finite (m * n))
+finProd  = combineProd :<-> separateProd
 {-# INLINE finProd #-}
 
 -- finSum :: forall m n. KnownNat m => Finite m :+ Finite n <-> Finite (m + n)
@@ -111,14 +115,24 @@ liftFin f = toFin . f . unFin
 
 #endif
 
+#if 1
 toFin :: HasFin a => a -> Finite (Card a)
-toFin = isoFwd iso
+toFin = isoFwd fin
 
 unFin :: HasFin a => Finite (Card a) -> a
-unFin = isoRev iso
+unFin = isoRev fin
+#else
+
+toFin :: HasFin a => a -> Finite (Card a)
+toFin = f where f :<-> _ = fin
+
+unFin :: forall a. HasFin a => Finite (Card a) -> a
+unFin = f' where _ :<-> f' = fin
+
+#endif
 
 {----------------------------------------------------------------------
-   A class of types with known finite representations.
+   A class of types with known finite cardinalities.
 ----------------------------------------------------------------------}
 
 type KnownCard a = KnownNat (Card a)
@@ -127,39 +141,45 @@ type KnownCard2 a b = (KnownCard a, KnownCard b)
 
 class {- KnownCard a => -} HasFin a where
   type Card a :: Nat
-  iso :: a <-> Finite (Card a)
+  fin :: a <-> Finite (Card a)
 
 -- See below.
 type HasFin' a = (KnownCard a, HasFin a)
 
 instance HasFin () where
   type Card () = 1
-  iso = Iso (const (Finite 0)) (const ())
+  fin = const (Finite 0) :<-> (const ())
 
 instance HasFin Bool where
   type Card Bool = 2
-  iso = Iso (Finite . cond 1 0) (\ (Finite n) -> n > 0)
+  fin = (Finite . cond 1 0) :<-> (\ (Finite n) -> n > 0)
 
 instance KnownNat n => HasFin (Finite n) where
   type Card (Finite n) = n
-  iso = id
+  fin = id
 
 -- Moving KnownCard from HasFin to HasFin' solves the puzzle of persuading GHC
 -- that KnownCard (a :+ b), a superclass constraint for HasFin (a :+ b). When
--- the spurious recompilation problem is fixed, and we drop the explicit
+-- the spurious recompilation problem is fixed (GHC 8.6), and we drop the explicit
 -- KnownNat entailments, move KnownCard back to HasFin.
 
 instance (HasFin' a, HasFin' b) => HasFin (a :+ b) where
   type Card (a :+ b) = Card a + Card b
-  iso = finSum . (iso +++ iso)
+  fin = finSum . (fin +++ fin)
+  -- fin = (combineSum :<-> separateSum) . (fin +++ fin)
 
 instance (HasFin' a, HasFin' b) => HasFin (a :* b) where
   type Card (a :* b) = Card a * Card b
-  iso = finProd . (iso *** iso)
+  fin = finProd . (fin *** fin)
+  -- fin = (combineProd :<-> separateProd) . (fin *** fin)
+
+-- instance (HasFin' a, HasFin' b) => HasFin (a :* b) where
+--   type Card (a :* b) = Card a * Card b
+--   fin = finProd . (fin *** fin)
 
 -- instance (HasFin a, HasFin b) => HasFin (a :^ b) where
 --   type Card (a :^ b) = Card a ^ Card b
---   iso = finExp . Iso liftFin inFin
+--   fin = finExp . Iso liftFin inFin
 
 {----------------------------------------------------------------------
   Domain-typed "arrays"
@@ -172,17 +192,28 @@ instance Newtype (Arr a b) where
   pack v = Arr v
   unpack (Arr v) = v
 
-instance HasRep (Arr a b) where
+instance R.HasRep (Arr a b) where
   type Rep (Arr a b) = O (Arr a b)
   abst = pack
   repr = unpack
 
 -- TODO: maybe a macro for HasRep instances that mirror Newtype instances.
 
-deriving instance Functor (Arr a)
-deriving instance HasFin' a => Applicative (Arr a)
+#if 1
 
--- TODO: Distributive and Representable instances.
+deriving instance Functor (Arr a)
+deriving instance KnownCard a => Applicative (Arr a)
+
+#else
+
+instance Functor (Arr a) where
+  fmap h (Arr bs) = Arr (fmap h bs)
+
+instance KnownCard a => Applicative (Arr a) where
+  pure a = Arr (pure a)
+  Arr fs <*> Arr xs = Arr (fs <*> xs)
+
+#endif
 
 instance HasFin' a => Distributive (Arr a) where
   distribute :: Functor f => f (Arr a b) -> Arr a (f b)
@@ -192,17 +223,22 @@ instance HasFin' a => Distributive (Arr a) where
 instance HasFin' a => Representable (Arr a) where
   type Rep (Arr a) = a
   tabulate :: (a -> b) -> Arr a b
-  tabulate f = pack (tabulate (f . unFin))
   index :: Arr a b -> (a -> b)
-  Arr v `index` a = v `index` toFin a
+  -- tabulate f = pack (tabulate (f . unFin))
+  -- xs `index` a = unpack xs `index` toFin a
+  tabulate = isoFwd arr
+  index    = isoRev arr
   {-# INLINE tabulate #-}
   {-# INLINE index #-}
+
+-- i.e. tabulate :<-> index = arr
+
+-- TODO: combine tabulate and index into a single Iso
+-- Did it as arr below. Reconcile the redundant definitions.
 
 (!) :: HasFin' a => Arr a b -> (a -> b)
 (!) = index
 {-# INLINE (!) #-}
-
-type Flat f = Arr (R.Rep f)
 
 {--------------------------------------------------------------------
     Splitting
@@ -307,5 +343,167 @@ instance (Foldable (Arr a), Foldable (Arr b), KnownCard2 a b)
   fold = fold . fmap fold . arrSplitProd
   {-# INLINE fold #-}
   sum = getSum . foldMap Sum ; {-# INLINE sum #-}
+
+#endif
+
+arr :: HasFin' a => (a -> b) <-> Arr a b
+-- arr = inv newtypeIso . inv representableIso . dom (inv fin)
+arr = inv (dom fin . representableIso . newtypeIso)
+
+-- arr' :: HasFin' a => Arr a b <-> (a -> b)
+-- arr' = dom fin . representableIso . newtypeIso
+
+toArr :: HasFin' a => (a -> b) -> Arr a b
+-- toArr = isoFwd arr
+-- toArr = isoRev arr'
+toArr = pack . tabulate . dom unFin
+-- toArr f = Arr (tabulate (f . unFin))
+
+unArr :: HasFin' a => Arr a b -> (a -> b)
+-- unArr = isoRev arr
+-- unArr = isoFwd arr'
+-- unArr = isoFwd (dom fin . representableIso . newtypeIso)
+-- unArr = isoFwd (dom fin) . isoFwd representableIso . isoFwd newtypeIso
+-- unArr = dom (isoFwd fin) . index . unpack
+unArr = dom toFin . index . unpack
+-- unArr = (toFin ^^^ id) . index . unpack
+-- unArr = \ z -> ((toFin ^^^ id) . index . unpack) z
+-- unArr = \ z -> index (unpack z) . toFin
+-- unArr = \ (Arr xs) -> index xs . toFin
+
+-- toFlat :: HasFlat f => f a -> Flat f a
+-- toFlat = \ xs -> Flat (tabulate (index xs . unFin))
+
+{--------------------------------------------------------------------
+    Try "flattened functors" instead
+--------------------------------------------------------------------}
+
+type KnownFlat f = KnownCard (Rep f)
+
+type HasFlat f = (Representable f, KnownFlat f, HasFin (Rep f))
+
+#if 1
+
+type Flat f = Arr (Rep f)
+
+flat :: HasFlat f => f a <-> Flat f a
+flat = arr . representableIso
+
+toFlat :: HasFlat f => f a -> Flat f a
+toFlat = isoFwd flat
+-- toFlat = toArr . index
+-- toFlat xs = Arr (tabulate (index xs . unFin))
+
+#else
+
+newtype Flat f a = Flat (Vector (Card (Rep f)) a)
+
+instance Newtype (Flat f a) where
+  type O (Flat f a) = Vector (Card (Rep f)) a
+  pack v = Flat v
+  unpack (Flat v) = v
+
+instance R.HasRep (Flat f a) where
+  type Rep (Flat f a) = O (Flat f a)
+  abst = pack
+  repr = unpack
+
+-- type HasFlat f = (KnownCard (Rep f), HasFin (Rep f))
+-- type HasFlat f = HasFin' (Rep f)
+
+-- type HasFin' a = (KnownCard a, HasFin a)
+-- type HasFlat f = HasFin' (Rep f)
+-- type KnownCard a = KnownNat (Card a)
+
+deriving instance Functor (Flat f)
+deriving instance HasFlat f => Applicative (Flat f)
+
+instance HasFlat f => Distributive (Flat f) where
+  distribute :: Functor g => g (Flat f a) -> Flat f (g a)
+  distribute = distributeRep
+  {-# INLINE distribute #-}
+
+instance HasFlat f => Representable (Flat f) where
+  type Rep (Flat f) = Rep f
+  tabulate :: (Rep f -> b) -> Flat f b
+  tabulate h = pack (tabulate (h . unFin))
+  index :: Flat f b -> (Rep f -> b)
+  Flat v `index` a = v `index` toFin a
+  {-# INLINE tabulate #-}
+  {-# INLINE index #-}
+
+#if 0
+
+-- (!) :: HasFlat f => Flat f b -> (Rep f -> b)
+-- (!) = index
+-- {-# INLINE (!) #-}
+
+#endif
+
+#if 0
+
+-- Or maybe Flat (f :*: g) c -> (Flat f :*: Flat g) c
+flatSplitProd :: KnownCard2 f g => Flat (f :*: g) c -> Flat f c :* Flat g c
+flatSplitProd = (pack *** pack) . vecSplitSum . unpack
+{-# INLINE flatSplitSum #-}
+
+flatSplitProd :: KnownCard2 a b => Flat (a :*: b) c -> Flat a (Flat b c)
+flatSplitProd = pack . fmap pack . vecSplitProd . unpack
+{-# INLINE flatSplitProd #-}
+
+#endif
+
+flatIso :: HasFlat f => f a <-> Flat f a
+flatIso = inv newtypeIso . inv representableIso . dom (inv fin) . representableIso
+
+unflatIso :: HasFlat f => Flat f a <-> f a
+unflatIso = inv representableIso . dom fin . representableIso . newtypeIso
+
+unflatIso' :: HasFlat f => Flat f a <-> f a
+unflatIso' = inv flatIso
+
+-- In the paper, maybe use the shorter names "repIso" and "newIso".
+
+toFlat :: HasFlat f => f a -> Flat f a
+toFlat = \ xs -> Flat (tabulate (index xs . unFin))
+
+-- toFlat xs = Flat (tabulate (dom unFin (index xs)))
+-- toFlat = Flat . tabulate . dom unFin . index
+-- toFlat = isoFwd flatIso
+
+unFlat :: HasFlat f => Flat f a -> f a
+unFlat = isoRev flatIso
+-- unFlat = tabulate . dom toFin . index . unpack
+-- unFlat = \ xs -> Flat (tabulate (index xs . unFin))
+
+
+#endif
+
+#if 0
+
+i1 :: Representable f => f a <-> (Rep f -> a)
+i1 = representableIso
+
+i2 :: HasFin (Rep f) => (Rep f -> a) <-> (Finite (Card (Rep f)) -> a)
+i2 = dom (inv fin)
+
+i3 :: KnownNat n => (Finite n -> a) <-> Vector n a
+i3 = inv i1
+
+i3' :: KnownNat (Card (Rep f))
+    => (Finite (Card (Rep f)) -> a) <-> Vector (Card (Rep f)) a
+i3' = inv i1
+
+i4 :: Vector (Card (Rep f)) a <-> Flat f a
+i4 = inv hasrepIso
+
+-- i5 :: (KnownFlat f) => f a <-> Flat f a
+-- i5 = i4 . i3 . i2 . i1
+
+-- ii = i4 . i3 . undefined -- . i2 . i1
+
+-- (Finite (Card (Rep f)) -> a)
+
+-- type FinFlat f = HasFin
 
 #endif
