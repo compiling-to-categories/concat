@@ -156,7 +156,7 @@ import Data.Finite (Finite)
 -- import ConCat.Finite (Finite,Vector,HasFin,Arr)
 #endif
 #ifdef WithArr
-import ConCat.TArr
+import ConCat.TArr (HasFin',Arr)
 #endif
 import ConCat.Known
 
