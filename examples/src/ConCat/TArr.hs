@@ -35,6 +35,7 @@ import Data.Monoid
 import Data.Foldable
 import GHC.TypeLits
 import GHC.Types (Nat)
+import GHC.Generics ((:*:),(:.:))
 -- import Data.Proxy
 -- import Data.Tuple            (swap)
 
@@ -128,6 +129,99 @@ toFin = f where f :<-> _ = fin
 
 unFin :: forall a. HasFin a => Finite (Card a) -> a
 unFin = f' where _ :<-> f' = fin
+
+#endif
+
+#if 0
+
+repIso :: Vector (m + n) a <-> (Finite (m + n) -> a)
+dom finSum :: (Finite (m + n) -> a) <-> (Finite m :+ Finite n -> a)
+inv joinIso :: (Finite m :+ Finite n -> a) <-> (Finite m -> a) :* (Finite n -> a)
+inv (repIso *** repIso) :: (Finite m -> a) :* (Finite n -> a) <-> Vector m a :* Vector n a
+inv newIso :: Vector m a :* Vector n a <-> (Vector m :*: Vector n) a
+
+vecProd = inv newIso . inv (repIso *** repIso) . inv joinIso . dom finSum . repIso
+        = inv (joinIso . (repIso *** repIso) . newIso) . dom finSum . repIso
+
+#endif
+
+#if 0
+
+i1 :: forall m n a. KnownNat2 m n
+   => Vector (m + n) a <-> (Finite (m + n) -> a)
+i1 = repIso \\ knownAdd @m @n
+
+i2 :: KnownNat2 m n
+   => (Finite (m + n) -> a) <-> (Finite m :+ Finite n -> a)
+i2 = dom finSum
+
+i3 :: (Finite m :+ Finite n -> a) <-> (Finite m -> a) :* (Finite n -> a)
+i3 = inv joinIso
+
+i4 :: KnownNat2 m n
+   => (Finite m -> a) :* (Finite n -> a) <-> Vector m a :* Vector n a
+i4 = inv (repIso *** repIso)
+
+i5 :: Vector m a :* Vector n a <-> (Vector m :*: Vector n) a
+i5 = inv newIso
+
+#endif
+
+vecProd :: forall m n a. KnownNat2 m n
+        => Vector (m + n) a <-> (Vector m :*: Vector n) a
+-- vecProd = i5 . i4 . i3 . i2 . i1 @m @n
+
+-- vecProd = inv newIso . inv (repIso *** repIso) . inv joinIso . dom finSum . repIso
+--         \\ knownAdd @m @n
+
+vecProd = inv (joinIso . (repIso *** repIso) . newIso) . dom finSum . repIso
+        \\ knownAdd @m @n
+
+#if 1
+
+i1 :: forall m n a. KnownNat2 m n => Vector (m * n) a <-> (Finite (m * n) -> a)
+i1 = repIso \\ knownMul @m @n
+
+i2 :: KnownNat2 m n => (Finite (m * n) -> a) <-> (Finite m :* Finite n -> a)
+i2 = dom finProd
+
+i3 :: (Finite m :* Finite n -> a) <-> (Finite m -> Finite n -> a)
+i3 = curryIso
+
+i4 :: KnownNat n => (Finite m -> Finite n -> a) <-> (Finite m -> Vector n a)
+i4 = inv (cod repIso)
+
+i5 :: KnownNat m => (Finite m -> Vector n a) <-> Vector m (Vector n a)
+i5 = inv repIso
+
+i6 :: Vector m (Vector n a) <-> (Vector m :.: Vector n) a
+i6 = inv newIso
+
+#endif
+
+vecComp :: forall m n a. KnownNat2 m n
+        => Vector (m * n) a <-> (Vector m :.: Vector n) a
+
+vecComp = i6 . i5 . i4 . i3 . i2 . i1 @m @n
+
+-- vecComp = inv newIso . inv repIso . inv (cod repIso) . curryIso . dom finProd . repIso
+--         \\ knownMul @m @n
+
+-- vecComp = inv (cod repIso . repIso . newIso) . curryIso . dom finProd . repIso
+--         \\ knownMul @m @n
+
+reindex :: (Representable f, Representable g)
+        => (Rep f <-> Rep g) -> (f a <-> g a)
+reindex h = inv repIso . inv (dom h) . repIso
+
+#if 0
+
+         h  :: Rep f <-> Rep g
+     dom h  :: (Rep g -> a) <-> (Rep f -> a)
+
+repIso :: f a <-> (Rep f -> a)
+inv (dom h) :: (Rep f -> a) <-> (Rep g -> a)
+inv repIso :: (Rep g -> a) <-> g a
 
 #endif
 
@@ -347,11 +441,11 @@ instance (Foldable (Arr a), Foldable (Arr b), KnownCard2 a b)
 #endif
 
 arr :: HasFin' a => (a -> b) <-> Arr a b
--- arr = inv newtypeIso . inv representableIso . dom (inv fin)
-arr = inv (dom fin . representableIso . newtypeIso)
+-- arr = inv newIso . inv repIso . dom (inv fin)
+arr = inv (dom fin . repIso . newIso)
 
 -- arr' :: HasFin' a => Arr a b <-> (a -> b)
--- arr' = dom fin . representableIso . newtypeIso
+-- arr' = dom fin . repIso . newIso
 
 toArr :: HasFin' a => (a -> b) -> Arr a b
 -- toArr = isoFwd arr
@@ -362,8 +456,8 @@ toArr = pack . tabulate . dom unFin
 unArr :: HasFin' a => Arr a b -> (a -> b)
 -- unArr = isoRev arr
 -- unArr = isoFwd arr'
--- unArr = isoFwd (dom fin . representableIso . newtypeIso)
--- unArr = isoFwd (dom fin) . isoFwd representableIso . isoFwd newtypeIso
+-- unArr = isoFwd (dom fin . repIso . newIso)
+-- unArr = isoFwd (dom fin) . isoFwd repIso . isoFwd newIso
 -- unArr = dom (isoFwd fin) . index . unpack
 unArr = dom toFin . index . unpack
 -- unArr = (toFin ^^^ id) . index . unpack
@@ -387,7 +481,7 @@ type HasFlat f = (Representable f, KnownFlat f, HasFin (Rep f))
 type Flat f = Arr (Rep f)
 
 flat :: HasFlat f => f a <-> Flat f a
-flat = arr . representableIso
+flat = arr . repIso
 
 toFlat :: HasFlat f => f a -> Flat f a
 toFlat = isoFwd flat
@@ -454,10 +548,10 @@ flatSplitProd = pack . fmap pack . vecSplitProd . unpack
 #endif
 
 flatIso :: HasFlat f => f a <-> Flat f a
-flatIso = inv newtypeIso . inv representableIso . dom (inv fin) . representableIso
+flatIso = inv newIso . inv repIso . dom (inv fin) . repIso
 
 unflatIso :: HasFlat f => Flat f a <-> f a
-unflatIso = inv representableIso . dom fin . representableIso . newtypeIso
+unflatIso = inv repIso . dom fin . repIso . newIso
 
 unflatIso' :: HasFlat f => Flat f a <-> f a
 unflatIso' = inv flatIso
@@ -482,7 +576,7 @@ unFlat = isoRev flatIso
 #if 0
 
 i1 :: Representable f => f a <-> (Rep f -> a)
-i1 = representableIso
+i1 = repIso
 
 i2 :: HasFin (Rep f) => (Rep f -> a) <-> (Finite (Card (Rep f)) -> a)
 i2 = dom (inv fin)
