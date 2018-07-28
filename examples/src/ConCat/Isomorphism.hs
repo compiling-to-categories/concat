@@ -6,6 +6,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -13,15 +14,14 @@
 
 module ConCat.Isomorphism where
 
-import Prelude hiding (id, (.), const)  -- Coming from ConCat.AltCat.
-
--- import Control.Applicative (liftA2)
-import Data.Coerce (Coercible,coerce)
+import Prelude hiding (id, (.), const, curry,uncurry)  -- Coming from ConCat.AltCat.
 
 import Data.Functor.Rep (Representable(..))
+-- import Control.Applicative (liftA2)
+import Data.Coerce (Coercible,coerce)
 import Control.Newtype.Generics
 
-import ConCat.Misc ((:*),(:=>))
+import ConCat.Misc ((:+),(:*),(:=>))
 import ConCat.AltCat
 import qualified ConCat.Category
 import qualified ConCat.Rep as R
@@ -97,14 +97,14 @@ type (<->) = Iso (->)
 pattern Iso :: (a `k` b) -> (b `k` a) -> Iso k a b
 pattern Iso f f' = f :<-> f'
 
-newtypeIso :: Newtype a => a <-> O a
-newtypeIso = unpack :<-> pack
+newIso :: Newtype a => a <-> O a
+newIso = unpack :<-> pack
 
 hasrepIso :: R.HasRep a => a <-> R.Rep a
 hasrepIso = R.repr :<-> R.abst
 
-representableIso :: Representable f => f a <-> (Rep f -> a)
-representableIso = index :<-> tabulate
+repIso :: Representable f => f a <-> (Rep f -> a)
+repIso = index :<-> tabulate
 
 coerceIso :: Coercible a b => a <-> b
 coerceIso = coerce :<-> coerce
@@ -160,10 +160,11 @@ p' ^^^ q' :: (d :=> b) `k` (c :=> a)
     Generic isomorphism-based homomorphisms
 --------------------------------------------------------------------}
 
--- Natural isomorphism
-type NatIso f g = forall a. f a <-> g a
+-- | Natural isomorphism
+infix 0 <-->
+type f <--> g = forall a. f a <-> g a
 
-fmapIso :: Functor f => NatIso f g -> (a -> b) -> (g a -> g b)
+fmapIso :: Functor f => (f <--> g) -> (a -> b) -> (g a -> g b)
 fmapIso fg h = isoFwd fg . fmap h . isoRev fg
 
 -- Don't pattern match fg, since we need two type instantiations.
@@ -171,10 +172,10 @@ fmapIso fg h = isoFwd fg . fmap h . isoRev fg
 -- 
 --   fmapIso (fg :<-> gf) h = fg . fmap h . gf
 
-pureIso :: Applicative f => NatIso f g -> a -> g a
+pureIso :: Applicative f => (f <--> g) -> a -> g a
 pureIso fg a = isoFwd fg (pure a)
 
-appIso :: Applicative f => NatIso f g -> g (a -> b) -> g a -> g b
+appIso :: Applicative f => (f <--> g) -> g (a -> b) -> g a -> g b
 appIso fg hs xs = isoFwd fg (isoRev fg hs <*> isoRev fg xs)
 
 memptyIso :: Monoid a => (a <-> b) -> b
@@ -184,3 +185,16 @@ mappendIso :: Monoid a => (a <-> b) -> (b -> b -> b)
 mappendIso (ab :<-> ba) b b' = ab (ba b `mappend` ba b')
 
 -- mappendIso (ab :<-> ba) (ab a) (ab a') = ab (a `mappend` a')
+
+joinIso :: (MCoproductCat k, Ok3 k a c d) 
+        => (c `k` a) :* (d `k` a) <-> ((c :+ d) `k` a)
+joinIso = join :<-> unjoin
+
+forkIso :: (MProductCat k, Ok3 k a c d)
+        => (a `k` c) :* (a `k` d) <-> (a `k` (c :* d))
+forkIso = fork :<-> unfork
+
+curryIso :: (ClosedCat k, Ok3 k a b c)
+         => ((a :* b) `k` c) <-> (a `k` (b -> c))
+curryIso = curry :<-> uncurry
+
