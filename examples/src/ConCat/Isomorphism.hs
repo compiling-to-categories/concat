@@ -1,3 +1,6 @@
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -20,6 +23,8 @@ import Data.Functor.Rep (Representable(..))
 -- import Control.Applicative (liftA2)
 import Data.Coerce (Coercible,coerce)
 import Control.Newtype.Generics
+import qualified GHC.Generics as G
+import Data.Constraint (Dict(..),(:-)(..))
 
 import ConCat.Misc ((:+),(:*),(:=>))
 import ConCat.AltCat
@@ -84,6 +89,23 @@ instance UnitCat k => UnitCat (Iso k) where
   {-# INLINE lcounit #-}
   {-# INLINE rcounit #-}
 
+-- instance OkFunctor k h => OkFunctor (Iso k) h where okFunctor = Entail (Sub Dict)
+
+instance OkFunctor k h => OkFunctor (Iso k) h where
+  okFunctor :: forall a. Ok' (Iso k) a |- Ok' (Iso k) (h a)
+  okFunctor = Entail (Sub (Dict <+ okFunctor @k @h @a))
+  {-# INLINE okFunctor #-}
+
+instance (FunctorCat k h, ZipCat k h) => FunctorCat (Iso k) h where
+  fmapC (f :<-> f') = fmapC f :<-> fmapC f'
+  unzipC = unzipC :<-> zipC
+
+instance (FunctorCat k h, ZipCat k h) => ZipCat (Iso k) h where
+  zipC = zipC :<-> unzipC
+
+-- pure'
+-- liftA2'
+
 isoFwd :: Iso k a b -> (a `k` b)
 isoFwd (f :<-> _) = f
 
@@ -106,8 +128,29 @@ hasrepIso = R.repr :<-> R.abst
 repIso :: Representable f => f a <-> (Rep f -> a)
 repIso = index :<-> tabulate
 
+reindex :: (Representable f, Representable g)
+        => (Rep f <-> Rep g) -> (f <--> g)
+reindex h = inv repIso . inv (dom h) . repIso
+
+#if 0
+
+         h  :: Rep f <-> Rep g
+     dom h  :: (Rep g -> a) <-> (Rep f -> a)
+
+repIso      :: f a          <-> (Rep f -> a)
+inv (dom h) :: (Rep f -> a) <-> (Rep g -> a)
+inv repIso  :: (Rep g -> a) <-> g a
+
+#endif
+
 coerceIso :: Coercible a b => a <-> b
 coerceIso = coerce :<-> coerce
+
+genericIso :: G.Generic a => (a <-> G.Rep a x)
+genericIso = G.from :<-> G.to
+
+generic1Iso :: G.Generic1 f => (f <--> G.Rep1 f)
+generic1Iso = G.from1 :<-> G.to1
 
 {--------------------------------------------------------------------
     Experiment
