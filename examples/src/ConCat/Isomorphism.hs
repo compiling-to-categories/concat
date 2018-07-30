@@ -129,17 +129,16 @@ repIso :: Representable f => f a <-> (Rep f -> a)
 repIso = index :<-> tabulate
 
 reindex :: (Representable f, Representable g)
-        => (Rep f <-> Rep g) -> (f <--> g)
-reindex h = inv repIso . inv (dom h) . repIso
+        => (Rep g <-> Rep f) -> (f <--> g)
+reindex h = inv repIso . dom h . repIso
 
 #if 0
 
-         h  :: Rep f <-> Rep g
-     dom h  :: (Rep g -> a) <-> (Rep f -> a)
+h  :: Rep g <-> Rep f
 
-repIso      :: f a          <-> (Rep f -> a)
-inv (dom h) :: (Rep f -> a) <-> (Rep g -> a)
-inv repIso  :: (Rep g -> a) <-> g a
+repIso     :: f a          <-> (Rep f -> a)
+dom h      :: (Rep f -> a) <-> (Rep g -> a)
+inv repIso :: (Rep g -> a) <-> g a
 
 #endif
 

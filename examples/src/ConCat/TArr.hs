@@ -147,10 +147,10 @@ unFin = f' where _ :<-> f' = fin
 #endif
 
 vecU1 :: Vector 0 <--> U1
-vecU1 = reindex (inv finU1)
+vecU1 = reindex finU1
 
 vecPar1 :: Vector 1 <--> Par1
-vecPar1 = reindex (inv finPar1)
+vecPar1 = reindex finPar1
 
 #if 0
 
@@ -204,7 +204,7 @@ vecProd :: forall m n. KnownNat2 m n
 --         => (Rep f <-> Rep g) -> (f <--> a)
 -- reindex h = inv repIso . inv (dom h) . repIso
 
-vecProd = reindex (inv finSum) \\ knownAdd @m @n
+vecProd = reindex finSum \\ knownAdd @m @n
 
 #if 0
 
@@ -264,7 +264,7 @@ vecComp :: forall m n. KnownNat2 m n
 -- vecComp = inv (cod repIso . repIso . newIso) . curryIso . dom finProd . repIso
 --         \\ knownMul @m @n
 
-vecComp = reindex (inv finProd) \\ knownMul @m @n
+vecComp = reindex finProd \\ knownMul @m @n
 
 {----------------------------------------------------------------------
    A class of types with known finite cardinalities.
