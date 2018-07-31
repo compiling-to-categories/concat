@@ -326,7 +326,9 @@ instance (HasFin' a, HasFin' b) => HasFin (a :* b) where
   Domain-typed "arrays"
 ----------------------------------------------------------------------}
 
-newtype Arr a b = Arr (Vector (Card a) b)
+type VC a = Vector (Card a)
+
+newtype Arr a b = Arr (VC a b)
 
 instance Newtype (Arr a b) where
   type O (Arr a b) = Vector (Card a) b
@@ -344,6 +346,16 @@ instance R.HasRep (Arr a b) where
 
 deriving instance Functor (Arr a)
 deriving instance KnownCard a => Applicative (Arr a)
+
+#elif 0
+
+instance Functor (Arr a) where
+  fmap :: forall u v. (u -> v) -> Arr a u -> Arr a v
+  fmap = coerce (fmap @(VC a) @u @v)
+
+-- instance KnownCard a => Applicative (Arr a) where
+--   pure = coerce (pure @(VC a))
+--   (<*>) = coerce ((<*>) @(VC a))
 
 #else
 
@@ -396,9 +408,23 @@ arrU1 = vecU1 . newIso
 arrPar1 :: Arr () <--> Par1
 arrPar1 = vecPar1 . newIso
 
-arrProd :: KnownCard2 a b => Arr (a :+ b) <--> (Arr a :*: Arr b)
-arrProd = inv ((newIso *** newIso) . newIso) . newIso . vecProd . newIso
--- arrProd = inv newIso . inv (newIso *** newIso) . newIso . vecProd . newIso
+arrProd :: forall a b. KnownCard2 a b => Arr (a :+ b) <--> (Arr a :*: Arr b)
+arrProd = inv newIso . inv (newIso *** newIso) . newIso . vecProd . newIso
+
+-- arrProd = inv ((newIso *** newIso) . newIso) . newIso . vecProd . newIso
+
+-- arrProd = reindexFinProd ...
+-- arrProd = coerce (vecProd @(Card a) @(Card b))
+
+-- arrProd = coerceIso . vecProd . newIso
+
+-- arrProd = undefined . newIso
+-- arrProd = undefined . vecProd @(Card a) @(Card b) . newIso
+
+-- arrProd = undefined . reindexId @(VC (a :+ b)) @(VC a :*: VC b) . vecProd @(Card a) @(Card b) . newIso
+
+-- i2 :: Vector (Card (a :+ b)) <--> Vector (Card a) :*: Vector (Card b)
+-- i2 = reindexId
 
 #if 0
 
@@ -712,7 +738,7 @@ type HasFlat f = (Representable f, KnownFlat f, HasFin (Rep f))
 
 type Flat f = Arr (Rep f)
 
-flat :: HasFlat f => f a <-> Flat f a
+flat :: HasFlat f => f <--> Flat f
 flat = reindex id
 -- flat = inv repIso . repIso
 
@@ -842,3 +868,4 @@ i4 = inv hasrepIso
 -- type FinFlat f = HasFin
 
 #endif
+
