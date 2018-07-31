@@ -18,7 +18,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 {-# OPTIONS_GHC -Wall #-}
--- {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
+{-# OPTIONS_GHC -Wno-unused-binds #-}   -- TEMP
 
 -- When spurious recompilation is fixed, use this plugin, and drop ConCat.Known.
 -- {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
@@ -38,12 +39,14 @@ import Data.Monoid
 import Data.Foldable
 import GHC.TypeLits
 import GHC.Types (Nat)
-import GHC.Generics (U1(..),Par1(..),(:*:),(:.:))
+import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
+import GHC.Exts (Coercible,coerce)
 -- import Data.Proxy
 -- import Data.Tuple            (swap)
 
 import Data.Finite.Internal  (Finite(..))
 import Data.Vector.Sized (Vector)
+import qualified Data.Vector.Generic.Sized.Internal
 -- import qualified Data.Vector.Sized as V
 import Control.Newtype.Generics
 import Data.Distributive (Distributive(..))
@@ -62,8 +65,6 @@ import ConCat.Known
 ----------------------------------------------------------------------}
 
 -- TODO: reverse the sense of finU1, finPar1, finSum and finProd
-
--- finU1 :: Finite 0 <-> Void
 
 finU1 :: Void <-> Finite 0
 finU1 = absurd :<-> error "no Finite 0"
@@ -192,6 +193,9 @@ i5 = inv newIso
 
 vecProd :: forall m n. KnownNat2 m n
         => Vector (m + n) <--> (Vector m :*: Vector n)
+
+vecProd = reindex finSum \\ knownAdd @m @n
+
 -- vecProd = i5 . i4 . i3 . i2 . i1 @m @n
 
 -- vecProd = inv newIso . inv (repIso *** repIso) . inv joinIso . dom finSum . repIso
@@ -203,8 +207,6 @@ vecProd :: forall m n. KnownNat2 m n
 -- reindex :: (Representable f, Representable g)
 --         => (Rep f <-> Rep g) -> (f <--> a)
 -- reindex h = inv repIso . inv (dom h) . repIso
-
-vecProd = reindex finSum \\ knownAdd @m @n
 
 #if 0
 
@@ -501,6 +503,43 @@ arrComp' = reindexId \\ knownMul @(Card a) @(Card b)
 
 #endif
 
+-- reindexFin :: HasFin' a => Vector (Card a) <--> Arr a
+reindexFin :: (Representable g, Rep g ~ a, HasFin' a) => Vector (Card a) <--> g
+reindexFin = reindex fin
+
+reindexFin' :: (Representable g, Rep g ~ a, HasFin' a) => Arr a <--> g
+reindexFin' = reindex fin . newIso
+-- reindexFin' = reindex id
+
+reindexFinProd :: (HasFin' a, HasFin' b) => Vector (Card a) :*: Vector (Card b) <--> Arr a :*: Arr b
+-- reindexFinProd = reindex (fin +++ fin)
+reindexFinProd = coerceIso
+
+-- reindexFinComp :: (HasFin' a, HasFin' b) => Vector (Card a) :.: Vector (Card b) <--> Arr a :.: Arr b
+-- -- reindexFinComp = reindex (fin *** fin)
+-- reindexFinComp = coerceIso
+
+foo :: HasFin' b => Vector (Card b) <--> Arr b
+foo = coerceIso
+
+-- foo :: (Vector (Card a) :.: Vector (Card b)) z -> (Arr a :.: Arr b) z  -- error
+-- foo :: (Vector (Card a) :.: Vector (Card b)) z -> (Vector (Card a) :.: Arr b) z  -- error
+-- foo :: Vector (Card a) (Vector (Card b) z) -> Vector (Card a) (Arr b z)  -- error
+-- foo :: Vector 1 (Vector (Card b) z) -> Vector 1 (Arr b z)  -- error
+
+-- foo :: Coercible a b => Vector 1 a -> Vector 1 b -- error
+
+-- foo :: Coercible a b => [a] -> [b] -- okay
+
+-- foo :: (Vector (Card b) z, ()) -> (Ar r b z, ())  -- okay
+-- foo :: [Vector (Card b) z] -> [Arr b z]  -- okay
+-- foo :: Vector (Card b) z -> Arr b z  -- okay
+-- foo :: (Vector (Card a) :.: Vector (Card b)) z -> (Arr a :.: Vector (Card b)) z  -- okay
+-- foo :: (Vector (Card a) :.: Vector (Card b)) z -> Vector (Card a) (Vector (Card b) z)  -- okay
+-- foo :: (Arr a :.: Arr b) z -> Arr a (Arr b z) -- okay
+
+-- foo = coerce
+
 {--------------------------------------------------------------------
     Splitting
 --------------------------------------------------------------------}
@@ -557,7 +596,7 @@ arrSplitProd = pack . fmap pack . vecSplitProd . unpack
 
 #if 0
 
-instance (HasFin a, Foldable ((->) a)) => Foldable (Arr a) where
+instance (HasFin' a, Foldable ((->) a)) => Foldable (Arr a) where
   foldMap f = foldMap f . index
   {-# INLINE foldMap #-}
 
@@ -653,6 +692,14 @@ unArr = dom toFin . index . unpack
 
 #endif
 
+-- -- reindexFin :: q
+-- reindexFin :: f <--> g
+-- reindexFin = reindex fin
+
+-- reindex :: (Representable f, Representable g) => (Rep g <-> Rep f) -> (f <--> g)
+-- reindex h = inv repIso . dom h . repIso
+
+
 {--------------------------------------------------------------------
     Try "flattened functors" instead
 --------------------------------------------------------------------}
@@ -666,7 +713,8 @@ type HasFlat f = (Representable f, KnownFlat f, HasFin (Rep f))
 type Flat f = Arr (Rep f)
 
 flat :: HasFlat f => f a <-> Flat f a
-flat = inv repIso . repIso
+flat = reindex id
+-- flat = inv repIso . repIso
 
 toFlat :: HasFlat f => f a -> Flat f a
 -- toFlat = isoFwd flat
