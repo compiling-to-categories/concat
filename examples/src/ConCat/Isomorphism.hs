@@ -128,8 +128,7 @@ hasrepIso = R.repr :<-> R.abst
 repIso :: Representable f => f a <-> (Rep f -> a)
 repIso = index :<-> tabulate
 
-reindex :: (Representable f, Representable g)
-        => (Rep g <-> Rep f) -> (f <--> g)
+reindex :: (Representable f, Representable g) => (Rep g <-> Rep f) -> (f <--> g)
 reindex h = inv repIso . dom h . repIso
 
 #if 0
@@ -141,6 +140,12 @@ dom h      :: (Rep f -> a) <-> (Rep g -> a)
 inv repIso :: (Rep g -> a) <-> g a
 
 #endif
+
+reindexId :: (Representable f, Representable g, Rep f ~ Rep g) => (f <--> g)
+reindexId = -- reindex id
+            -- inv repIso . dom id . repIso
+            -- inv repIso . id . repIso
+            inv repIso . repIso
 
 coerceIso :: Coercible a b => a <-> b
 coerceIso = coerce :<-> coerce
