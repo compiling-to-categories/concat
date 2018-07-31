@@ -331,7 +331,7 @@ type VC a = Vector (Card a)
 newtype Arr a b = Arr (VC a b)
 
 instance Newtype (Arr a b) where
-  type O (Arr a b) = Vector (Card a) b
+  type O (Arr a b) = VC a b
   pack v = Arr v
   unpack (Arr v) = v
 
@@ -423,17 +423,16 @@ arrProd = inv newIso . inv (newIso *** newIso) . newIso . vecProd . newIso
 
 -- arrProd = undefined . reindexId @(VC (a :+ b)) @(VC a :*: VC b) . vecProd @(Card a) @(Card b) . newIso
 
--- i2 :: Vector (Card (a :+ b)) <--> Vector (Card a) :*: Vector (Card b)
+-- i2 :: VC (a :+ b) <--> VC a :*: VC b
 -- i2 = reindexId
 
 #if 0
 
-newIso :: Arr (a :+ b) <--> Vector (Card (a :+ b))
-       :: Arr (a :+ b) <--> Vector (Card a + Card b)
-vecProd :: Vector (Card a + Card b) <--> (Vector (Card a) :*: Vector (Card b))
-newIso :: (Vector (Card a) :*: Vector (Card b)) z <-> (Vector (Card a) z :* Vector (Card b) z)
+newIso :: Arr (a :+ b) <--> VC (a :+ b)
+vecProd :: VC (a :+ b) <--> (VC a :*: VC b)
+newIso :: (VC a :*: VC b) z <-> (VC a z :* VC b z)
 inv (newIso *** newIso) ::
-  (Vector (Card a) z :* Vector (Card b) z) <-> (Arr a z :* Arr b z)
+  (VC a z :* VC b z) <-> (Arr a z :* Arr b z)
 inv newIso :: (Arr a z :* Arr b z) <-> (Arr a :*: Arr b) z
 
 #endif
@@ -448,19 +447,19 @@ arrComp = inv (fmapC newIso . newIso . newIso) . newIso . vecComp . newIso
 
 #if 0
 
-i1 :: Arr (a :* b) <--> Vector (Card a * Card b)
+i1 :: Arr (a :* b) <--> VC (a :* b)
 i1 = newIso
 
-i2 :: KnownCard2 a b => Vector (Card a * Card b) <--> (Vector (Card a) :.: Vector (Card b))
+i2 :: KnownCard2 a b => VC (a :* b) <--> (VC a :.: VC b)
 i2 = vecComp
 
-i3 :: (Vector (Card a) :.: Vector (Card b)) z <-> Vector (Card a) (Vector (Card b) z)
+i3 :: (VC a :.: VC b) z <-> VC a (VC b z)
 i3 = newIso
 
-i4 :: KnownCard a => Vector (Card a) (Vector (Card b) z) <-> Vector (Card a) (Arr b z)
+i4 :: KnownCard a => VC a (VC b z) <-> VC a (Arr b z)
 i4 = fmapC (inv newIso)
 
-i5 :: Vector (Card a) (Arr b z) <-> Arr a (Arr b z)
+i5 :: VC a (Arr b z) <-> Arr a (Arr b z)
 i5 = inv newIso
 
 i6 :: Arr a (Arr b z) <-> (Arr a :.: Arr b) z
@@ -470,12 +469,11 @@ i6 = inv newIso
 
 #if 0
 
-newIso :: Arr (a :* b) <--> Vector (Card (a :* b))
-       :: Arr (a :* b) <--> Vector (Card a * Card b)
-vecComp :: Vector (Card a * Card b) <--> (Vector (Card a) :.: Vector (Card b))
-newIso :: (Vector (Card a) :.: Vector (Card b)) z <-> Vector (Card a) (Vector (Card b) z)
-fmapI (inv newIso) :: Vector (Card a) (Vector (Card b) z) <-> Vector (Card a) (Arr b z)
-inv newIso :: Vector (Card a) (Arr b z) <-> Arr a (Arr b z)
+newIso :: Arr (a :* b) <--> VC (a :* b)
+vecComp :: VC (a :* b) <--> (VC a :.: VC b)
+newIso :: (VC a :.: VC b) z <-> VC a (VC b z)
+fmapI (inv newIso) :: VC a (VC b z) <-> VC a (Arr b z)
+inv newIso :: VC a (Arr b z) <-> Arr a (Arr b z)
 inv newIso :: Arr a (Arr b z) <-> (Arr a :.: Arr b) z
 
 #endif
@@ -529,39 +527,39 @@ arrComp' = reindexId \\ knownMul @(Card a) @(Card b)
 
 #endif
 
--- reindexFin :: HasFin' a => Vector (Card a) <--> Arr a
-reindexFin :: (Representable g, Rep g ~ a, HasFin' a) => Vector (Card a) <--> g
+-- reindexFin :: HasFin' a => VC a <--> Arr a
+reindexFin :: (Representable g, Rep g ~ a, HasFin' a) => VC a <--> g
 reindexFin = reindex fin
 
 reindexFin' :: (Representable g, Rep g ~ a, HasFin' a) => Arr a <--> g
 reindexFin' = reindex fin . newIso
 -- reindexFin' = reindex id
 
-reindexFinProd :: (HasFin' a, HasFin' b) => Vector (Card a) :*: Vector (Card b) <--> Arr a :*: Arr b
+reindexFinProd :: (HasFin' a, HasFin' b) => VC a :*: VC b <--> Arr a :*: Arr b
 -- reindexFinProd = reindex (fin +++ fin)
 reindexFinProd = coerceIso
 
--- reindexFinComp :: (HasFin' a, HasFin' b) => Vector (Card a) :.: Vector (Card b) <--> Arr a :.: Arr b
+-- reindexFinComp :: (HasFin' a, HasFin' b) => VC a :.: VC b <--> Arr a :.: Arr b
 -- -- reindexFinComp = reindex (fin *** fin)
 -- reindexFinComp = coerceIso
 
-foo :: HasFin' b => Vector (Card b) <--> Arr b
+foo :: HasFin' b => VC b <--> Arr b
 foo = coerceIso
 
--- foo :: (Vector (Card a) :.: Vector (Card b)) z -> (Arr a :.: Arr b) z  -- error
--- foo :: (Vector (Card a) :.: Vector (Card b)) z -> (Vector (Card a) :.: Arr b) z  -- error
--- foo :: Vector (Card a) (Vector (Card b) z) -> Vector (Card a) (Arr b z)  -- error
--- foo :: Vector 1 (Vector (Card b) z) -> Vector 1 (Arr b z)  -- error
+-- foo :: (VC a :.: VC b) z -> (Arr a :.: Arr b) z  -- error
+-- foo :: (VC a :.: VC b) z -> (VC a :.: Arr b) z  -- error
+-- foo :: VC a (VC b z) -> VC a (Arr b z)  -- error
+-- foo :: Vector 1 (VC b z) -> Vector 1 (Arr b z)  -- error
 
 -- foo :: Coercible a b => Vector 1 a -> Vector 1 b -- error
 
 -- foo :: Coercible a b => [a] -> [b] -- okay
 
--- foo :: (Vector (Card b) z, ()) -> (Ar r b z, ())  -- okay
--- foo :: [Vector (Card b) z] -> [Arr b z]  -- okay
--- foo :: Vector (Card b) z -> Arr b z  -- okay
--- foo :: (Vector (Card a) :.: Vector (Card b)) z -> (Arr a :.: Vector (Card b)) z  -- okay
--- foo :: (Vector (Card a) :.: Vector (Card b)) z -> Vector (Card a) (Vector (Card b) z)  -- okay
+-- foo :: (VC b z, ()) -> (Ar r b z, ())  -- okay
+-- foo :: [VC b z] -> [Arr b z]  -- okay
+-- foo :: VC b z -> Arr b z  -- okay
+-- foo :: (VC a :.: VC b) z -> (Arr a :.: VC b) z  -- okay
+-- foo :: (VC a :.: VC b) z -> VC a (VC b z)  -- okay
 -- foo :: (Arr a :.: Arr b) z -> Arr a (Arr b z) -- okay
 
 -- foo = coerce
@@ -757,10 +755,10 @@ unFlat (Arr xs) = tabulate (index xs . toFin)
 
 #else
 
-newtype Flat f a = Flat (Vector (Card (Rep f)) a)
+newtype Flat f a = Flat (VC (Rep f) a)
 
 instance Newtype (Flat f a) where
-  type O (Flat f a) = Vector (Card (Rep f)) a
+  type O (Flat f a) = VC (Rep f) a
   pack v = Flat v
   unpack (Flat v) = v
 
@@ -852,10 +850,10 @@ i3 :: KnownNat n => (Finite n -> a) <-> Vector n a
 i3 = inv i1
 
 i3' :: KnownNat (Card (Rep f))
-    => (Finite (Card (Rep f)) -> a) <-> Vector (Card (Rep f)) a
+    => (Finite (Card (Rep f)) -> a) <-> VC (Rep f) a
 i3' = inv i1
 
-i4 :: Vector (Card (Rep f)) a <-> Flat f a
+i4 :: VC (Rep f) a <-> Flat f a
 i4 = inv hasrepIso
 
 -- i5 :: (KnownFlat f) => f a <-> Flat f a
