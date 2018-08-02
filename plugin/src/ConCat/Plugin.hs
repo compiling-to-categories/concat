@@ -2266,7 +2266,11 @@ etaReduceN e = e
 
 -- The function category
 funCat :: Cat
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+funCat = mkTyConApp funTyCon [liftedRepDataConTy, liftedRepDataConTy]
+#else
 funCat = mkTyConTy funTyCon
+#endif
 
 liftedExpr :: CoreExpr -> Bool
 liftedExpr e = not (isTyCoDictArg e) && liftedType (exprType e)
