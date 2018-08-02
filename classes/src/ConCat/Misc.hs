@@ -31,6 +31,7 @@ import GHC.Types (Constraint)
 import Data.Typeable (Typeable,TypeRep,typeRep,Proxy(..))
 import Data.Data (Data)
 import Data.Monoid (Endo(..))
+import Data.Semigroup (Semigroup(..))
 import Data.Complex (Complex)
 import GHC.Generics hiding (R)
 -- import Unsafe.Coerce (unsafeCoerce)  -- for oops
@@ -165,9 +166,13 @@ instance Newtype Parity where
   pack = Parity
   unpack (Parity x) = x
 
+instance Semigroup Parity where
+  Parity a <> Parity b = Parity (a `xor` b)
+
 instance Monoid Parity where
   mempty = Parity False
-  Parity a `mappend` Parity b = Parity (a `xor` b)
+  mappend = (<>)
+  -- Parity a `mappend` Parity b = Parity (a `xor` b)
 
 boolToInt :: Bool -> Int
 boolToInt c = if c then 1 else 0

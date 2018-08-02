@@ -1,4 +1,4 @@
--- {-# LANGUAGE #-}
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -Wall #-}
 
 -- {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
@@ -78,7 +78,11 @@ simplEnvForCcc dflags inline
                            , sm_rules = rules_on
                            , sm_inline = inline -- was False
                            , sm_eta_expand = eta_expand_on
-                           , sm_case_case = True }
+                           , sm_case_case = True
+#if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
+                           , sm_dflags = dflags
+#endif
+                           }
   where
     rules_on      = gopt Opt_EnableRewriteRules   dflags
     eta_expand_on = gopt Opt_DoLambdaEtaExpansion dflags
