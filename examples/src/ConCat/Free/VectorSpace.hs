@@ -22,6 +22,7 @@ module ConCat.Free.VectorSpace where
 
 import Prelude hiding (zipWith)
 import Data.Monoid (Sum(..),Product(..))
+import Data.Semigroup (Semigroup(..))
 -- import GHC.Exts (Coercible,coerce)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:+:)(..),(:.:)(..))
 #ifdef VectorSized
@@ -173,9 +174,12 @@ instance HasRep (SumV f a) where
   {-# INLINE abst #-}
   {-# INLINE repr #-}
 
+instance (Zeroable f, Zip f, Num a) => Semigroup (SumV f a) where
+  (<>) = inAbst2 (^+^)
+
 instance (Zeroable f, Zip f, Num a) => Monoid (SumV f a) where
   mempty = abst zeroV
-  mappend = inAbst2 (^+^)
+  mappend = (<>)
 
 sumV :: (Functor m, Foldable m, Zeroable n, Zip n, Num a) => m (n a) -> n a
 sumV = repr . fold . fmap SumV
