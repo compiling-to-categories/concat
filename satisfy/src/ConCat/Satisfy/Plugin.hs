@@ -10,7 +10,7 @@ module ConCat.Satisfy.Plugin where
 import System.IO.Unsafe (unsafePerformIO)
 
 -- GHC API
-import GhcPlugins
+import GhcPlugins as GHC
 import Class (classAllSelIds)
 import MkId (mkDictSelRhs)
 import DynamicLoading
@@ -56,6 +56,6 @@ satisfy _ _ _ _ _ args | pprTrace "satisfyRule" (ppr args) False = undefined
 satisfy hscEnv guts dflags inScope _sat (Type _c : Type _z : f : _) =
   case unsafePerformIO $ buildDictionary hscEnv dflags guts inScope (exprType f) of
     Left  msg  -> pprPanic "satisfy: couldn't build dictionary for" 
-                    (ppr (exprType f) <> colon $$ msg)
+                    (ppr (exprType f) GHC.<> colon $$ msg)
     Right dict -> Just (f `App` dict)
 satisfy _ _ _ _ _ args = pprPanic "satisfy mismatch" (ppr args)

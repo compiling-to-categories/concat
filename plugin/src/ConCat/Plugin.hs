@@ -43,7 +43,7 @@ import Text.Printf (printf)
 import System.IO.Unsafe (unsafePerformIO)
 import Data.IORef
 
-import GhcPlugins hiding (substTy,cat)
+import GhcPlugins as GHC hiding (substTy,cat)
 import Class (classAllSelIds)
 import CoreArity (etaExpand)
 import CoreLint (lintExpr)
@@ -1129,7 +1129,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    --   Nothing
    noDictErr :: SDoc -> Either SDoc a -> a
    noDictErr doc =
-     either (\ msg -> pprPanic "ccc - couldn't build dictionary for" (doc <> colon $$ msg)) id
+     either (\ msg -> pprPanic "ccc - couldn't build dictionary for" (doc GHC.<> colon $$ msg)) id
    onDictTry :: CoreExpr -> Either SDoc CoreExpr
    onDictTry e | Just (ty,_) <- splitFunTy_maybe (exprType e)
                , isPredTy' ty = App e <$> buildDictMaybe ty
@@ -1143,7 +1143,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    -- TODO: refactor onDictMaybe
    onDictMaybe e = case onDictTry e of
                      Left  msg  -> dtrace "Couldn't build dictionary for" 
-                                     (pprWithType e <> colon $$ msg) $
+                                     (pprWithType e GHC.<> colon $$ msg) $
                                    Nothing
                      Right dict -> Just dict
 #endif
@@ -1728,7 +1728,7 @@ install opts todos =
                            splitAt 5 todos  -- guess
                            -- (swap . (reverse *** reverse) . splitAt 1 . reverse) todos
               ours = [ CoreDoPluginPass "Ccc insert rule" addRule
-                     , CoreDoSimplify 7 mode
+                     , CoreDoSimplify 7 (mode dflags)
                      , CoreDoPluginPass "Ccc remove rule" delRule
                      , CoreDoPluginPass "Flag remaining ccc calls" (flagCcc env)
                      ]
@@ -1759,12 +1759,21 @@ install opts todos =
       collectQ :: (Data a, Monoid m) => (a -> m) -> GenericQ m
       collectQ f = everything mappend (mkQ mempty f)
    -- Extra simplifier pass
-   mode = SimplMode { sm_names      = ["Ccc simplifier pass"]
+   mode
+#if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
+     dflags
+#else
+     _dflags
+#endif
+        = SimplMode { sm_names      = ["Ccc simplifier pass"]
                     , sm_phase      = Phase 1 -- ??
                     , sm_rules      = True  -- important
                     , sm_inline     = True -- False -- ??
                     , sm_eta_expand = False -- ??
-                    , sm_case_case  = True 
+                    , sm_case_case  = True
+#if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
+                    , sm_dflags     = dflags
+#endif
                     }
 
 mkCccEnv :: [CommandLineOption] -> CoreM CccEnv
@@ -2169,6 +2178,9 @@ coercionTag InstCo      {} = "InstCo"
 coercionTag CoherenceCo {} = "CoherenceCo"
 coercionTag KindCo      {} = "KindCo"
 coercionTag SubCo       {} = "SubCo"
+#if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
+coercionTag HoleCo      {} = "HoleCo"
+#endif
 
 -- TODO: Should I unfold (inline application head) earlier? Doing so might
 -- result in much simpler generated code by avoiding many beta-redexes. If I
