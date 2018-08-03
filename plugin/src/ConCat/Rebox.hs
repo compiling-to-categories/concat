@@ -482,11 +482,14 @@ Catify(cosDouble,cosC)
 
 {-# RULES
 
-"pair fst snd" forall p. (,) (exl p) (exr p) = p
-
 "curry apply 2" forall f a b. curry f a b = f (a,b)
 
+-- GHC 8.2+ says "A constructor, (,), appears as outermost match in RULE lhs.
+-- This rule will be ignored."
+#if ! MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+"pair fst snd" forall p. (,) (exl p) (exr p) = p
 "swap" forall p. (,) (exr p) (exl p) = swap p
+#endif
 
  #-}
 
