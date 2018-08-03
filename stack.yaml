@@ -11,7 +11,7 @@ packages:
 - sandbox
 - location:
     git: https://github.com/ku-fpg/netlist
-    commit: 8f7cb58ea966c8faefdffe99c53258cd1e3a1221
+    commit: 0f50a9cfd947885cac7fc392a5295cffe0b3ac31
   subdirs:
   - netlist
   - verilog
