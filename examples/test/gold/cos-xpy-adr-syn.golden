@@ -12,8 +12,9 @@ apply .
        (curry
         (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
        repr . repr . exr ***
-       repr . exl) .
+       exl) .
       dup) .
+     repr .
      abst .
      abst .
      curry mulC . apply . (curry exl . negateC . sinC . exl *** exr) . dup ***

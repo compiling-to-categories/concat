@@ -9,9 +9,9 @@ second repr .
      curry
      (curry (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
      repr . repr . exr ***
-     repr . exl) .
+     exl) .
     dup) .
-   exr ***
+   repr . exr ***
    abst . abst . curry (addC . exr)) .
   dup) .
  dup) .

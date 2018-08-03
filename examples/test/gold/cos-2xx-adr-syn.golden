@@ -14,8 +14,9 @@ apply .
          (curry
           (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
          repr . repr . exr ***
-         repr . exl) .
+         exl) .
         dup) .
+       repr .
        abst .
        abst .
        curry mulC .
@@ -29,9 +30,9 @@ apply .
           (curry
            (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
           repr . repr . exr ***
-          repr . exl) .
+          exl) .
          dup) .
-        exr . exr . exl ***
+        repr . exr . exr . exl ***
         apply .
         (curry
          (abst .
@@ -41,9 +42,9 @@ apply .
            (curry
             (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
            repr . repr . exr ***
-           repr . exl) .
+           exl) .
           dup) .
-         exr . exl . exl ***
+         repr . exr . exl . exl ***
          abst . abst . curry (addC . exr)) .
         dup) .
        dup) .
@@ -103,9 +104,9 @@ apply .
           (curry
            (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
           repr . repr . exr ***
-          repr . exl) .
+          exl) .
          dup) .
-        exr . exr ***
+        repr . exr . exr ***
         apply .
         (curry
          (abst .
@@ -115,9 +116,9 @@ apply .
            (curry
             (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
            repr . repr . exr ***
-           repr . exl) .
+           exl) .
           dup) .
-         exr . exr . exl ***
+         repr . exr . exr . exl ***
          abst . abst . curry (addC . exr)) .
         dup) .
        dup ***
