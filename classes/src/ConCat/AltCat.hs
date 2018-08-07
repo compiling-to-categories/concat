@@ -93,7 +93,7 @@ import ConCat.Category
   -- , Arr, ArrayCat
   , TransitiveCon(..)
   , U2(..), (:**:)(..)
-  , type (|-)(..), (<+), OkProd,okProd, OkCoprod,okCoprod, okExp
+  , type (|-)(..), (<+), OkProd,okProd, OkCoprod,okCoprod, OkExp, okExp
   , OpCon(..),Sat(..) -- ,FunctorC(..)
   , yes1, forkCon, joinCon, inForkCon
   -- Functor-level. To be removed.

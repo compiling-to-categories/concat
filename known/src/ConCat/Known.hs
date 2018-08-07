@@ -20,8 +20,8 @@ import Data.Constraint
 nm :: (KnownNat m, KnownNat n) :- KnownNat (m op n) ; \
 nm = Sub Dict
 
--- knowAdd :: KnownNat2 m n :- KnownNat (m + n)
--- knowAdd = Sub Dict
+-- knownAdd :: KnownNat2 m n :- KnownNat (m + n)
+-- knownAdd = Sub Dict
 
 KNOW(knownAdd,+)
 KNOW(knownMul,*)

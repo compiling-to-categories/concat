@@ -23,6 +23,7 @@ import Prelude hiding (zipWith)
 import Control.Arrow ((|||))
 import Data.Monoid
 import GHC.Generics (U1(..),Par1(..),(:+:)(..),(:*:)(..),(:.:)(..))
+-- import Data.Foldable 
 
 import Data.Void
 import Data.Key
@@ -412,8 +413,7 @@ pointV = V.replicate
 
 {--------------------------------------------------------------------
     Foldable for functions
--------------------------------------------------------------------
--}
+--------------------------------------------------------------------}
 
 instance Foldable ((->) Void) where
   foldMap _ _ = mempty
@@ -434,6 +434,9 @@ instance (Foldable ((->) m), Foldable ((->) n)) => Foldable ((->) (m :+ n)) wher
 instance (Foldable ((->) m), Foldable ((->) n)) => Foldable ((->) (m :* n)) where
   -- foldMap h as = (foldMap.foldMap) h (curry as)
   foldMap h = foldMap h . Comp1 . curry
+  -- fold as = foldMap fold (curry as)  -- experiment
+  -- fold as = fold (fmap fold (curry as))  -- experiment
+  -- fold as = fold (fold . curry as)  -- experiment
   {-# INLINE foldMap #-}
 
 instance KnownNat n => Foldable ((->) (Finite n)) where

@@ -24,8 +24,6 @@ import ConCat.RAD (andDerR, andGradR)
 import ConCat.Circuit (GenBuses,(:>))
 import ConCat.Syntactic (Syn,render)
 import ConCat.RunCircuit (run)
--- import ConCat.Chain (Chain)
--- import ConCat.StackMachine (Stack(..))
 import ConCat.StackVM (StackProg(..))
 
 type EC = Syn :**: (:>)

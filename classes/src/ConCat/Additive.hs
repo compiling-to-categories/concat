@@ -22,7 +22,8 @@
 module ConCat.Additive where
 
 import Prelude hiding (zipWith)
-import Data.Monoid
+import Data.Monoid (Monoid(..), Sum(..), Product(..))
+import Data.Semigroup (Semigroup(..))
 import Data.Complex hiding (magnitude)
 import Data.Ratio
 import Foreign.C.Types (CSChar, CInt, CShort, CLong, CLLong, CIntMax, CFloat, CDouble)
@@ -184,9 +185,12 @@ instance Applicative Add where
   pure  = abst
   (<*>) = inAbst2 ($)
 
+instance Additive a => Semigroup (Add a) where
+  (<>) = inAbst2 (^+^)
+
 instance Additive a => Monoid (Add a) where
   mempty  = abst zero
-  mappend = inAbst2 (^+^)
+  mappend = (<>)
 
 instance Additive a => Additive (Add a) where
   zero  = mempty
