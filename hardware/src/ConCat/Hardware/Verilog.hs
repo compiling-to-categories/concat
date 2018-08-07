@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE LambdaCase #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-orphans #-} -- TEMP
@@ -99,8 +100,8 @@ mkModule name cs = Module name
     firstCompNamed nm = head $ filter ((== nm) . compName) cs
 
 busId' :: Bus -> (String, Int)
-busId' (Bus cId ix ty) = ('n' : show cId ++ ('_' : show ix), width)
-  where width = case ty of
+busId' (Bus cId ix ty) = ('n' : show cId ++ ('_' : show ix), fromIntegral $ width ty)
+  where width = \case
                   C.Void       -> err "Void"
                   C.Unit       -> 0
                   C.Bool       -> 1
@@ -109,7 +110,7 @@ busId' (Bus cId ix ty) = ('n' : show cId ++ ('_' : show ix), width)
                   C.Float      -> 32
                   C.Double     -> 64
                   C.Finite n   -> ceiling (log (fromInteger n) :: Double)
-                  C.Vector _ _ -> err "Arr"
+                  C.Vector n a -> n * width a
                   C.Prod   _ _ -> err "Prod"
                   C.Sum    _ _ -> err "Sum"
                   C.Fun    _ _ -> err "Fun"
