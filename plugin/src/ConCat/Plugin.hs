@@ -685,18 +685,16 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           return $
             mkIfC cat rhsTy (mkCcc (Lam x scrut))
               (mkCcc (Lam x rhsT)) (mkCcc (Lam x rhsF))
+     Trying("lam Case non-dead wild")
+     (deadifyCaseWild -> Just e') ->
+       goLam' x e'
      Trying("lam Case of product")
      e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
          | isBoxedTupleTyCon (dataConTyCon dc) ->
        Doing("lam Case of product")
 #if 1
        if | not (isDeadBinder wild) ->  -- About to remove
-              -- TODO: handle this case
-              -- pprPanic "lam Case of product live wild binder" (ppr e)
-              let wild' = freshDeadId (exprFreeVars e) "newWild" (varType wild) in
-                goLam' x 
-                 (Let (NonRec wild scrut) 
-                   (Case (Var wild) wild' _rhsTy [(DataAlt dc, [a,b], rhs)]))
+              pprPanic "lam Case of product live wild binder" (ppr e)
           | not (b `isFreeIn` rhs) ->
               return $ mkCcc $ -- inlineE $  -- already inlines early
                 varApps casePairLTV
