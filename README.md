@@ -4,7 +4,7 @@
 
 Experimenting (again) with constrained categories, as well as Haskell to hardware, automatic differentiation, interval analysis, and other interpretations. See the paper [*Compiling to categories*](http://conal.net/papers/compiling-to-categories).
 
-You will need to have [GraphViz](https://www.graphviz.org/) installed.
+You will need to have [GraphViz](https://www.graphviz.org/) installed, with its `dot` command on your execution path.
 
 To run miscellaneous examples:
 
