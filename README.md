@@ -27,6 +27,10 @@ To enable some of those examples, install Z3, uncomment them in examples/test/Ex
 
 # Troubleshooting
 
+## "dot: command not found"
+
+Install [GraphViz](https://www.graphviz.org/).
+
 ## I can't install netlist-to-verilog with cabal new-build or cabal install
 https://github.com/ku-fpg/netlist is the repo that includes the offending package.
 To get things started do
