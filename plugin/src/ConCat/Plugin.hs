@@ -248,19 +248,19 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        ,  FunTy dom cod <- exprType e
        -> Doing("top Case of bottom")
           mkBottomC cat dom cod
+     Trying("top Case live wild")
+     (deadifyCaseWild -> Just e') ->
+       Doing("top Case live wild")
+       go e'
      -- See journal 2018-02-02.
      Trying("top Case of product")
      e@(Case scrut wild _rhsTy [(DataAlt dc, [b,c], rhs)])
          | isBoxedTupleTyCon (dataConTyCon dc) ->
        Doing("top Case of product")
-       if | not (isDeadBinder wild) ->
-              -- TODO: handle this case
-              pprPanic "top Case of product live wild binder" (ppr e)
-          | otherwise ->
-              return $ mkCcc $
-                varApps casePairTopTV
-                  [varType b,varType c,_rhsTy]
-                  [scrut, mkLams [b,c] rhs]
+       return $ mkCcc $
+         varApps casePairTopTV
+           [varType b,varType c,_rhsTy]
+           [scrut, mkLams [b,c] rhs]
 
 #if 0
      Trying("top case abstRepr")
@@ -660,41 +660,42 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           return $
            mkCcc (Case scrut wild (FunTy xty ty) [(dc,vs, Lam x rhs)])
           -- pprPanic ("lam Case hoist") empty
-     Trying("lam Case default")
-     Case _scrut (isDeadBinder -> True) _rhsTy [(DEFAULT,[],rhs)] ->
-       Doing("lam case-default")
-       return (mkCcc (Lam x rhs))
-     Trying("lam Case nullary")
-     Case _scrut (isDeadBinder -> True) _rhsTy [(_, [], rhs)] ->
-       Doing("lam Case nullary")
-       return (mkCcc (Lam x rhs))
-       -- TODO: abstract return (mkCcc (Lam x ...))
      Trying("lam Case to let")
      Case scrut v@(isDeadBinder -> False) _rhsTy [(_, bs, rhs)]
        | isEmptyVarSet (mkVarSet bs `intersectVarSet` exprFreeVars rhs) ->
        Doing("lam Case to let")
        return (mkCcc (Lam x (Let (NonRec v scrut) rhs)))
+     Trying("lam Case live wild")
+     (deadifyCaseWild -> Just e') ->
+       Doing("lam Case live wild")
+       goLam' x e'
+     Trying("lam Case default")
+     Case _scrut _ _rhsTy [(DEFAULT,[],rhs)] ->
+       Doing("lam case-default")
+       return (mkCcc (Lam x rhs))
+     Trying("lam Case nullary")
+     Case _scrut _ _rhsTy [(_, [], rhs)] ->
+       Doing("lam Case nullary")
+       return (mkCcc (Lam x rhs))
+       -- TODO: abstract return (mkCcc (Lam x ...))
      Trying("lam Case of Bool")
      e@(Case scrut wild rhsTy [(DataAlt false, [], rhsF),(DataAlt true, [], rhsT)])
          | false == falseDataCon && true == trueDataCon ->
        -- To start, require v to be unused. Later, extend.
-       if not (isDeadBinder wild) && wild `isFreeIns` [rhsF,rhsT] then
-            pprPanic "lam Case of Bool: live wild var (not yet handled)" (ppr e)
-       else
+       -- if not (isDeadBinder wild) && wild `isFreeIns` [rhsF,rhsT] then
+       --      pprPanic "lam Case of Bool: live wild var (not yet handled)" (ppr e)
+       -- else
           Doing("lam Case of Bool")
           return $
             mkIfC cat rhsTy (mkCcc (Lam x scrut))
               (mkCcc (Lam x rhsT)) (mkCcc (Lam x rhsF))
-     Trying("lam Case non-dead wild")
-     (deadifyCaseWild -> Just e') ->
-       goLam' x e'
      Trying("lam Case of product")
      e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
          | isBoxedTupleTyCon (dataConTyCon dc) ->
        Doing("lam Case of product")
 #if 1
-       if | not (isDeadBinder wild) ->  -- About to remove
-              pprPanic "lam Case of product live wild binder" (ppr e)
+       if -- | not (isDeadBinder wild) ->  -- About to remove
+          --     pprPanic "lam Case of product live wild binder" (ppr e)
           | not (b `isFreeIn` rhs) ->
               return $ mkCcc $ -- inlineE $  -- already inlines early
                 varApps casePairLTV
