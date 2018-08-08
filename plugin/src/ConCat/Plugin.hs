@@ -255,7 +255,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        Doing("top Case of product")
        if | not (isDeadBinder wild) ->
               -- TODO: handle this case
-              pprPanic "lam Case of product live wild binder" (ppr e)
+              pprPanic "top Case of product live wild binder" (ppr e)
           | otherwise ->
               return $ mkCcc $
                 varApps casePairTopTV
@@ -690,9 +690,13 @@ ccc (CccEnv {..}) (Ops {..}) cat =
          | isBoxedTupleTyCon (dataConTyCon dc) ->
        Doing("lam Case of product")
 #if 1
-       if | not (isDeadBinder wild) ->
+       if | not (isDeadBinder wild) ->  -- About to remove
               -- TODO: handle this case
-              pprPanic "lam Case of product live wild binder" (ppr e)
+              -- pprPanic "lam Case of product live wild binder" (ppr e)
+              let wild' = freshDeadId (exprFreeVars e) "newWild" (varType wild) in
+                goLam' x 
+                 (Let (NonRec wild scrut) 
+                   (Case (Var wild) wild' _rhsTy [(DataAlt dc, [a,b], rhs)]))
           | not (b `isFreeIn` rhs) ->
               return $ mkCcc $ -- inlineE $  -- already inlines early
                 varApps casePairLTV
@@ -1965,7 +1969,7 @@ monoInfo =
   , (hop,tyArgs) <- ps
   ]
  where
-   -- (cat-name, [(std-name,cat-type-args)]
+   -- (cat-name, [(std-name,cat-type-args)])
    info :: [(String, [(String, [Type])])]
    info =
      [ ("notC",boolOp "not"), ("andC",boolOp "&&"), ("orC",boolOp "||")
@@ -2228,6 +2232,9 @@ freshId used nm ty =
   uniqAway (mkInScopeSet used) $
   mkSysLocal (fsLit nm) (mkBuiltinUnique 17) ty
 
+freshDeadId :: VarSet -> String -> Type -> Id
+freshDeadId used nm ty = setIdOccInfo (freshId used nm ty) IAmDead
+
 infixl 3 <+
 (<+) :: Binop (a -> Maybe b)
 (<+) = liftA2 (<|>)
@@ -2484,3 +2491,14 @@ mkCoercible k a b co =
 isFunCat :: Type -> Bool
 isFunCat (TyConApp tc _) = isFunTyCon tc
 isFunCat _               = False
+
+-- If the wild variable in a Case is not dead, make a new dead wild var and
+-- transform to a Let.
+deadifyCaseWild :: ReExpr
+deadifyCaseWild e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
+  | not (isDeadBinder wild) =
+  Just (Let (NonRec wild scrut) 
+         (Case (Var wild) wild' _rhsTy [(DataAlt dc, [a,b], rhs)]))
+ where 
+   wild' = freshDeadId (exprFreeVars e) "newWild" (varType wild)
+deadifyCaseWild _ = Nothing
