@@ -254,7 +254,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        go e'
      -- See journal 2018-02-02.
      Trying("top Case of product")
-     e@(Case scrut wild _rhsTy [(DataAlt dc, [b,c], rhs)])
+     Case scrut _ _rhsTy [(DataAlt dc, [b,c], rhs)]
          | isBoxedTupleTyCon (dataConTyCon dc) ->
        Doing("top Case of product")
        return $ mkCcc $
@@ -679,7 +679,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        return (mkCcc (Lam x rhs))
        -- TODO: abstract return (mkCcc (Lam x ...))
      Trying("lam Case of Bool")
-     e@(Case scrut wild rhsTy [(DataAlt false, [], rhsF),(DataAlt true, [], rhsT)])
+     Case scrut _ rhsTy [(DataAlt false, [], rhsF),(DataAlt true, [], rhsT)]
          | false == falseDataCon && true == trueDataCon ->
        -- To start, require v to be unused. Later, extend.
        -- if not (isDeadBinder wild) && wild `isFreeIns` [rhsF,rhsT] then
@@ -690,7 +690,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
             mkIfC cat rhsTy (mkCcc (Lam x scrut))
               (mkCcc (Lam x rhsT)) (mkCcc (Lam x rhsF))
      Trying("lam Case of product")
-     e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
+     Case scrut _ _rhsTy [(DataAlt dc, [a,b], rhs)]
          | isBoxedTupleTyCon (dataConTyCon dc) ->
        Doing("lam Case of product")
 #if 1
