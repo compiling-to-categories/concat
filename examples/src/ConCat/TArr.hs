@@ -718,6 +718,18 @@ instance (HasFin' a, Foldable ((->) a)) => Foldable (Arr a) where
   foldMap f = foldMap f . index
   {-# INLINE foldMap #-}
 
+#elif 0
+
+instance (HasFin' a, Foldable ((->) a), Decomposable a) => Foldable (Arr a) where
+  foldMap f = foldMap f . isoFwd (reindex (indexIso @a)) . unpack
+  {-# INLINE foldMap #-}
+
+class Decomposable a where
+  type Decomp a
+  indexIso :: Decomp a <-> Finite (Card a)
+
+-- foldMap f = foldMap f . isoFwd vecU1 . unpack
+
 #else
 
 -- The explicit repetition of the fold and sum defaults below prevent premature
@@ -732,8 +744,9 @@ sum = getSum . foldMap Sum ; \
 
 instance Foldable (Arr Void) where
   -- foldMap _ _ = mempty
-  -- foldMap f = foldMap f . isoFwd arrU1
-  foldMap f = foldMap f . isoFwd vecU1 . unpack
+  foldMap f = foldMap f . isoFwd arrU1
+  -- foldMap f = foldMap f . isoFwd vecU1 . unpack
+  -- foldMap f = foldMap f . isoFwd (reindex finU1 :: Vector 0 <--> U1) . unpack
   {-# INLINE foldMap #-}
   DEFAULTS
   -- fold = foldMap id ; {-# INLINE fold #-}
@@ -741,8 +754,8 @@ instance Foldable (Arr Void) where
 
 instance Foldable (Arr ()) where
   -- foldMap f xs = f (xs ! ())
-  -- foldMap f = foldMap f . isoFwd arrPar1
-  foldMap f = foldMap f . isoFwd vecPar1 . unpack
+  foldMap f = foldMap f . isoFwd arrPar1
+  -- foldMap f = foldMap f . isoFwd vecPar1 . unpack
   {-# INLINE foldMap #-}
   DEFAULTS
   -- fold = foldMap id ; {-# INLINE fold #-}
@@ -757,24 +770,27 @@ instance Foldable (Arr Bool) where
 
 instance (Foldable (Arr a), Foldable (Arr b), KnownCard2 a b)
       => Foldable (Arr (a :+ b)) where
-  -- foldMap f = foldMap f . isoFwd arrProd
+  foldMap f = foldMap f . isoFwd arrProd
   -- foldMap f u = foldMap f v <> foldMap f w where (v,w) = arrSplitSum u
   -- foldMap f = uncurry (<>) . (foldMap f *** foldMap f) . arrSplitSum
-  foldMap f = foldMap f . isoFwd (vecProd @(Card a) @(Card b)) . unpack
+  -- foldMap f = foldMap f . isoFwd (vecProd @(Card a) @(Card b)) . unpack
   {-# INLINE foldMap #-}
+  DEFAULTS
   -- sum = getSum . foldMap Sum ; {-# INLINE sum #-}
   -- fold = foldMap id; {-# INLINE fold #-}
 
 instance (Foldable (Arr a), Foldable (Arr b), KnownCard2 a b)
       => Foldable (Arr (a :* b)) where
+  foldMap f = foldMap f . isoFwd arrComp
   -- foldMap f = (foldMap.foldMap) f . arrSplitProd
   -- foldMap f = fold . fmap f
-  foldMap f = foldMap f . isoFwd (vecComp @(Card a) @(Card b)) . unpack
+  -- foldMap f = foldMap f . isoFwd (vecComp @(Card a) @(Card b)) . unpack
   {-# INLINE foldMap #-}
-  fold = fold . isoFwd arrComp
+  DEFAULTS
+  -- fold = fold . isoFwd arrComp
   -- fold = fold . fmap fold . arrSplitProd
-  {-# INLINE fold #-}
-  sum = getSum . foldMap Sum ; {-# INLINE sum #-}
+  -- {-# INLINE fold #-}
+  -- sum = getSum . foldMap Sum ; {-# INLINE sum #-}
 
 #endif
 
