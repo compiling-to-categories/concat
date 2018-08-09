@@ -718,17 +718,35 @@ instance (HasFin' a, Foldable ((->) a)) => Foldable (Arr a) where
   foldMap f = foldMap f . index
   {-# INLINE foldMap #-}
 
-#elif 0
+#elif 1
 
-instance (HasFin' a, Foldable ((->) a), Decomposable a) => Foldable (Arr a) where
-  foldMap f = foldMap f . isoFwd (reindex (indexIso @a)) . unpack
+instance (Decomposable a, Foldable (Decomp a)) => Foldable (Arr a) where
+  foldMap f = foldMap f . isoFwd decomp
   {-# INLINE foldMap #-}
 
-class Decomposable a where
-  type Decomp a
-  indexIso :: Decomp a <-> Finite (Card a)
+-- TODO: Maybe use reindexId with just an associated functor.
 
--- foldMap f = foldMap f . isoFwd vecU1 . unpack
+class Decomposable a where
+  type Decomp a :: * -> *
+  decomp :: Arr a <--> Decomp a
+
+type Decomposable' a = (Decomposable a, KnownCard a)
+
+instance Decomposable Void where
+  type Decomp Void = U1
+  decomp = arrU1
+
+instance Decomposable () where
+  type Decomp () = Par1
+  decomp = arrPar1
+
+instance (Decomposable' a, Decomposable' b) => Decomposable (a :+ b) where
+  type Decomp (a :+ b) = Arr a :*: Arr b
+  decomp = arrProd
+
+instance (Decomposable' a, Decomposable' b) => Decomposable (a :* b) where
+  type Decomp (a :* b) = Arr a :.: Arr b
+  decomp = arrComp
 
 #else
 
