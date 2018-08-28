@@ -4,6 +4,8 @@
 
 Experimenting (again) with constrained categories, as well as Haskell to hardware, automatic differentiation, interval analysis, and other interpretations. See the paper [*Compiling to categories*](http://conal.net/papers/compiling-to-categories).
 
+You will need to have [GraphViz](https://www.graphviz.org/) installed, with its `dot` command on your execution path.
+
 To run miscellaneous examples:
 
     stack build :misc-examples
@@ -24,6 +26,10 @@ To enable some of those examples, install Z3, uncomment them in examples/test/Ex
     stack build :misc-examples --flag concat-examples:smt
 
 # Troubleshooting
+
+## "dot: command not found"
+
+Install [GraphViz](https://www.graphviz.org/).
 
 ## I can't install netlist-to-verilog with cabal new-build or cabal install
 https://github.com/ku-fpg/netlist is the repo that includes the offending package.
