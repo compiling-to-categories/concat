@@ -1739,7 +1739,11 @@ install opts todos =
           -- pprTrace "ccc post-install todos:" (ppr (pre ++ ours ++ post)) (return ())
           return $ pre ++ ours ++ post
  where
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+   flagCcc :: CccEnv -> CorePluginPass
+#else
    flagCcc :: CccEnv -> PluginPass
+#endif
    flagCcc (CccEnv {..}) guts
      | showCcc && pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
      | not (Seq.null remaining) &&
