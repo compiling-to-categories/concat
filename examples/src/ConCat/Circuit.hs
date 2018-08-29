@@ -420,9 +420,12 @@ genPrimBus = genBus PrimB (ty @a)
 --    flat (ConvertB b) = flat b
 
 unflattenPrimB :: GenBuses a => State [Source] (Buses a)
-unflattenPrimB = do (s:ss) <- M.get
-                    M.put ss
-                    return (PrimB s)
+unflattenPrimB = do ss0 <- M.get
+                    case ss0 of
+                      s:ss -> do M.put ss
+                                 return (PrimB s)
+                      []   -> error "unflattenPrimB: expected non-empty list"
+                                -- TODO: can we do better than raise an error here?
 
 instance GenBuses Bool where
   genBuses' = genPrimBus
