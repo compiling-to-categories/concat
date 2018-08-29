@@ -2371,7 +2371,11 @@ splitTyConApp_maybe :: Type -> Maybe (TyCon, [Type])
 #endif
 
 starKind :: Kind
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+starKind = liftedTypeKind
+#else
 starKind = mkTyConTy starKindTyCon
+#endif
 
 castE :: Coercion -> CoreExpr
 castE co = Lam x (mkCast (Var x) co)
