@@ -297,7 +297,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
 #if 1
      Trying("top nominal Cast")
      Cast e co@( -- dtrace "top nominal cast co" (pprCoWithType co {-<+> (ppr (setNominalRole_maybe co))-}) id
-                setNominalRole_maybe -> Just (reCatCo -> Just co')) ->
+                setNominalRole_maybe' -> Just (reCatCo -> Just co')) ->
        -- etaExpand turns cast lambdas into themselves
        Doing("top nominal cast")
        let co'' = downgradeRole (coercionRole co) (coercionRole co') co' in
@@ -768,7 +768,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
            Case (inlineE abst `App` (repr `App` scrut)) v altsTy alts
 #endif
      Trying("lam nominal Cast")
-     Cast body' co@(setNominalRole_maybe -> Just co') ->
+     Cast body' co@(setNominalRole_maybe' -> Just co') ->
        -- etaExpand turns cast lambdas into themselves
        Doing("lam nominal cast")
        let r  = coercionRole co
@@ -2433,6 +2433,13 @@ setNominalRole_maybe' (UnivCo prov _ co1 co2)
                  HoleProv _       -> False  -- no no no.
   = Just $ UnivCo prov Nominal co1 co2
 setNominalRole_maybe' _ = Nothing
+#endif
+
+setNominalRole_maybe' :: Coercion -> Maybe Coercion
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+setNominalRole_maybe' c = setNominalRole_maybe (coercionRole c) c
+#else
+setNominalRole_maybe' = setNominalRole_maybe
 #endif
 
 -- Exists somewhere?
