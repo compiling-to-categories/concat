@@ -80,11 +80,19 @@ inlineClassOp e = pprTrace "inlineClassOp failed/unnecessary" (ppr e) $
 
 lookupRdr :: ModuleName -> (String -> OccName) -> (Name -> CoreM a) -> String -> CoreM a
 lookupRdr modu mkOcc mkThing str =
-  maybe (panic err) mkThing =<<
+  maybe (panic err) mkThing' =<<
     do hsc_env <- getHscEnv
        liftIO (lookupRdrNameInModuleForPlugins hsc_env modu (Unqual (mkOcc str)))
  where
    err = "lookupRdr: couldn't find " ++ str ++ " in " ++ moduleNameString modu
+
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+   -- In GHC 8.6, lookupRdrNameInModuleForPlugins returns a (Name, Module)
+   -- where earlier it was just a Name
+   mkThing' = mkThing . fst
+#else
+   mkThing' = mkThing
+#endif
 
 lookupTh :: (String -> OccName) -> (Name -> CoreM a) -> String
          -> String -> CoreM a

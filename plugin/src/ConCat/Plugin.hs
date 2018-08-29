@@ -1789,11 +1789,20 @@ mkCccEnv opts = do
                      | otherwise = id
       lookupRdr :: ModuleName -> (String -> OccName) -> (Name -> CoreM a) -> String -> CoreM a
       lookupRdr modu mkOcc mkThing str =
-        maybe (panic err) mkThing =<<
+        maybe (panic err) mkThing' =<<
           liftIO (lookupRdrNameInModuleForPlugins hsc_env modu (Unqual (mkOcc str)))
        where
          err = "ccc installation: couldn't find "
                ++ str ++ " in " ++ moduleNameString modu
+
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+         -- In GHC 8.6, lookupRdrNameInModuleForPlugins returns a (Name, Module)
+         -- where earlier it was just a Name
+         mkThing' = mkThing . fst
+#else
+         mkThing' = mkThing
+#endif
+
       lookupTh mkOcc mk modu = lookupRdr (mkModuleName modu) mkOcc mk
       findId      = lookupTh mkVarOcc lookupId
       findTc      = lookupTh mkTcOcc  lookupTyCon
