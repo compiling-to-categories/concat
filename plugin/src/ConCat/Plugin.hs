@@ -1686,7 +1686,11 @@ cccRules steps famEnvs env@(CccEnv {..}) guts annotations =
     ops = mkOps env guts annotations famEnvs
 
 plugin :: Plugin
-plugin = defaultPlugin { installCoreToDos = install }
+plugin = defaultPlugin { installCoreToDos = install
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+                       , pluginRecompile = purePlugin
+#endif
+                       }
 
 -- Find an option "foo=bar" for optName "foo", returning a read of "bar".
 parseOpt :: Read a => String -> [CommandLineOption] -> Maybe a
