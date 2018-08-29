@@ -1117,7 +1117,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                  -- -- , dtrace "unfoldMaybe" (text (fqVarName v)) True
                  -- , isNothing (catFun (Var v))
                  --  | True  -- experiment: don't restrict unfolding
-                 = onExprHead ({- traceRewrite "inlineMaybe" -} inlineMaybe) e
+                 = onExprHead dflags ({- traceRewrite "inlineMaybe" -} inlineMaybe) e
                  -- | otherwise = Nothing
    -- unfoldMaybe = -- traceRewrite "unfoldMaybe" $
    --               onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe)
@@ -2224,14 +2224,20 @@ exprHead (App fun _) = exprHead fun
 exprHead (Cast e _)  = exprHead e
 exprHead _           = Nothing
 
-onExprHead :: (Id -> Maybe CoreExpr) -> ReExpr
-onExprHead h = (fmap.fmap) simpleOptExpr $
+onExprHead :: DynFlags -> (Id -> Maybe CoreExpr) -> ReExpr
+onExprHead dflags h = (fmap.fmap) simpleOptExpr' $
                go id
  where
    go cont (Var v)       = cont <$> h v
    go cont (App fun arg) = go (cont . (`App` arg)) fun
    go cont (Cast e co)   = go (cont . (`Cast` co)) e
    go _ _                = Nothing
+
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+   simpleOptExpr' = simpleOptExpr dflags
+#else
+   simpleOptExpr' = simpleOptExpr
+#endif
 
 -- TODO: try go using Maybe fmap instead of continuation.
 
