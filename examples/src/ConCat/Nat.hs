@@ -1,5 +1,11 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds, TypeOperators, TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-} -- see comment
+
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+-- Needed to define (*) as a type family
+{-# LANGUAGE NoStarIsType #-}
+#endif
 
 {-# OPTIONS_GHC -Wall #-}
 

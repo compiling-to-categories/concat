@@ -42,6 +42,10 @@
 {-# LANGUAGE LiberalTypeSynonyms, ImpredicativeTypes, EmptyDataDecls #-}
 #endif
 
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+{-# LANGUAGE NoStarIsType #-}
+#endif
+
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-} -- for OkayArr
 {-# OPTIONS_GHC -fno-warn-unticked-promoted-constructors #-}
@@ -134,6 +138,7 @@ import Unsafe.Coerce
 import Data.Typeable (TypeRep,Typeable,eqT,cast) -- ,Proxy(..),typeOf
 import Data.Type.Equality ((:~:)(..))
 import GHC.Types (Constraint)
+import Data.Kind (Type)
 
 import Data.Constraint (Dict(..),(:-)(..),(\\))
 import Data.Pointed (Pointed)
@@ -261,7 +266,7 @@ newSource t templ ins o = -- trace "newSource" $
 -- | Typed aggregate of buses. @'Buses' a@ carries a value of type @a@.
 -- 'AbstB' is for isomorphic forms. Note: b must not have one of the standard
 -- forms. If it does, we'll get a run-time error when consuming.
-data Buses :: * -> * where
+data Buses :: Type -> Type where
   UnitB    :: Buses ()
   PrimB    :: Source -> Buses b
   ProdB    :: Ok2 (:>) a b => Buses a -> Buses b -> Buses (a :* b)
@@ -416,9 +421,12 @@ genPrimBus = genBus PrimB (ty @a)
 --    flat (ConvertB b) = flat b
 
 unflattenPrimB :: GenBuses a => State [Source] (Buses a)
-unflattenPrimB = do (s:ss) <- M.get
-                    M.put ss
-                    return (PrimB s)
+unflattenPrimB = do ss0 <- M.get
+                    case ss0 of
+                      s:ss -> do M.put ss
+                                 return (PrimB s)
+                      []   -> error "unflattenPrimB: expected non-empty list"
+                                -- TODO: can we do better than raise an error here?
 
 instance GenBuses Bool where
   genBuses' = genPrimBus
@@ -539,7 +547,7 @@ mkConvertB a -- | Just Refl <- eqT @a @b = a
 type PrimName = String
 
 -- | Primitive of type @a -> b@
-data Template :: * -> * -> * where
+data Template :: Type -> Type -> Type where
   Prim :: PrimName -> Template a b
   Subgraph :: Graph -> BCirc a b -> Template () (a -> b)
 

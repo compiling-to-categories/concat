@@ -20,6 +20,9 @@ For the graphics examples, instead run
 
 There are more examples in graphics/test/Examples.hs.
 
+*Note:* as of 2018-08-30, the graphics examples work under GHC 8.0.2 and 8.2.2 but not later, because of dependency on language-glsl.
+(See [this issue](https://github.com/noteed/language-glsl/issues/18).)
+
 The SMT examples are disabled by default, because they rely on installing the [Z3 SMT solver](https://github.com/Z3Prover/z3) (with installation etc described [here](https://github.com/Z3Prover/z3/wiki)).
 To enable some of those examples, install Z3, uncomment them in examples/test/Examples.hs, and run as follows:
 

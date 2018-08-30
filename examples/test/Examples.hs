@@ -151,8 +151,6 @@ import qualified ConCat.Deep as D
 -- import ConCat.Finite
 import ConCat.TArr
 import qualified ConCat.TArr as TA
--- import ConCat.StackMachine (Stack)
--- import qualified ConCat.StackMachine as S
 
 -- Experimental
 import qualified ConCat.Inline.SampleMethods as I
@@ -223,7 +221,6 @@ main = sequence_ [
   -- -- twice x = x + x
   -- , runSyn        $ toCcc twice  -- addC . dup
   -- , runSynStack   $ toCcc twice  -- first addC . first dup
-  -- , runChainStack $ toCcc twice  -- [first dup,first addC]
 
   -- , runSynStack $ toCcc $ \ x     -> x + x  -- addC . dup, [Dup,Add]
   -- , runSynStack $ toCcc $ \ (x,y) -> x * y  -- mulC, [Mul]
@@ -388,6 +385,10 @@ main = sequence_ [
   -- , runSynCircDers "cos-2xx" $ \ x -> cos (2 * x * x) :: R
   -- , runSynCircDers "cos-xpy" $ \ (x,y) -> cos (x + y) :: R
   -- , runSynCircDers "cos-xpytz" $ \ (x,y,z) -> cos (x + y * z) :: R
+
+  -- , runSynCirc "cos-xpy-adr-802" $ toCcc $ andGradR $ \ (x,y) -> cos (x + y) :: R
+
+  -- , runSynCirc "sqr-adr-802" $ toCcc $ andGradR $ sqr @R
 
   -- , runSynCirc "magSqr-adr"  $ toCcc $ andDerR $ magSqr  @R
   -- , runSynCirc "cosSinProd-adr"  $ toCcc $ andDerR $ cosSinProd @R
