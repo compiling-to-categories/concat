@@ -21,7 +21,7 @@ import Prelude hiding (id, (.), const, curry,uncurry)  -- Coming from ConCat.Alt
 
 import Data.Functor.Rep (Representable(..))
 -- import Control.Applicative (liftA2)
-import Data.Coerce (Coercible,coerce)
+-- import Data.Coerce (Coercible,coerce)
 import Control.Newtype.Generics
 import qualified GHC.Generics as G
 import Data.Constraint (Dict(..),(:-)(..))
@@ -141,14 +141,17 @@ inv repIso :: (Rep g -> a) <-> g a
 
 #endif
 
-reindexId :: (Representable f, Representable g, Rep f ~ Rep g) => (f <--> g)
+reindexId :: forall f g. (Representable f, Representable g, Rep f ~ Rep g) => (f <--> g)
 reindexId = -- reindex id
             -- inv repIso . dom id . repIso
             -- inv repIso . id . repIso
             inv repIso . repIso
 
-coerceIso :: Coercible a b => a <-> b
-coerceIso = coerce :<-> coerce
+-- coerceIso :: Coercible a b => a <-> b
+-- coerceIso = coerce :<-> coerce
+
+coerceIso :: (CoerceCat k a b, CoerceCat k b a) => Iso k a b
+coerceIso = coerceC :<-> coerceC
 
 genericIso :: G.Generic a => (a <-> G.Rep a x)
 genericIso = G.from :<-> G.to
