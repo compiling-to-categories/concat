@@ -55,11 +55,12 @@ import qualified Data.Type.Coercion as Co
 import GHC.Types (Constraint)
 import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import Debug.Trace
+import Data.Void
 import Data.Monoid
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import GHC.TypeLits
 import Control.Monad.Fix (MonadFix)
-import Data.Proxy (Proxy)
+-- import Data.Proxy (Proxy)
 
 import Data.Pointed
 import Data.Key (Zip(..))
@@ -2477,15 +2478,27 @@ instance (IxCoproductPCat k h, IxCoproductPCat k' h, Zip h)
 type KnownNat2 m n = (KnownNat m, KnownNat n)
 
 class FiniteCat k where
-  finite       :: (KnownNat2 a m, a + 1 <= m) => Proxy a `k` Finite m
+  -- finite       :: (KnownNat2 a m, a + 1 <= m) => Proxy a `k` Finite m
+  combineZero  :: Void `k` Finite 0
+  separateZero :: Finite 0 `k` Void
+  combineOne   :: () `k` Finite 1
+  separateOne  :: Finite 1 `k` ()
   combineSum   :: KnownNat2 m n => (Finite m :+ Finite n) `k` Finite (m + n)
   separateSum  :: KnownNat2 m n => Finite (m + n) `k` (Finite m :+ Finite n)
   combineProd  :: KnownNat2 m n => (Finite m :* Finite n) `k` Finite (m * n)
   separateProd :: KnownNat2 m n => Finite (m * n) `k` (Finite m :* Finite n)
 
 instance FiniteCat (->) where
-  finite :: forall a m. (KnownNat2 a m, a + 1 <= m) => Proxy a -> Finite m
-  finite p = Finite (natVal p)
+  -- finite :: forall a m. (KnownNat2 a m, a + 1 <= m) => Proxy a -> Finite m
+  -- finite p = Finite (natVal p)
+  combineZero  :: Void -> Finite 0
+  combineZero = absurd
+  separateZero :: Finite 0 -> Void
+  separateZero = error "no Finite 0"  -- Hm.
+  combineOne   :: () -> Finite 1
+  combineOne = const (Finite 0)
+  separateOne  :: Finite 1 -> ()
+  separateOne = const ()
   combineSum :: forall m n. KnownNat2 m n => (Finite m :+ Finite n) -> Finite (m + n)
   combineSum (Left  (Finite l)) = Finite l
   combineSum (Right (Finite k)) = Finite (nat @m + k)
@@ -2498,7 +2511,7 @@ instance FiniteCat (->) where
   combineProd (Finite l, Finite k) = Finite (nat @n * l + k)
   separateProd :: forall m n. KnownNat2 m n => Finite (m * n) -> (Finite m :* Finite n)
   separateProd (Finite l) = (Finite q, Finite r) where (q,r) = l `divMod` nat @n
-  {-# OPINLINE finite #-}
+  -- {-# OPINLINE finite #-}
   {-# OPINLINE combineSum #-}
   {-# OPINLINE separateSum #-}
   {-# OPINLINE combineProd #-}
@@ -2537,3 +2550,4 @@ f `crossSecondFirst` g = second g . first f
 {-# INLINE crossSecondFirst #-}
 
 #endif
+
