@@ -26,6 +26,10 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE RecursiveDo #-}
 
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+{-# LANGUAGE NoStarIsType #-}
+#endif
+
 {-# OPTIONS_GHC -Wall #-}
 
 -- {-# OPTIONS_GHC -fno-warn-unused-imports #-}  -- TEMP
@@ -52,7 +56,7 @@ import Data.Type.Equality ((:~:)(..))
 import qualified Data.Type.Equality as Eq
 import Data.Type.Coercion (Coercion(..))
 import qualified Data.Type.Coercion as Co
-import GHC.Types (Constraint)
+import GHC.Types (Constraint, Type)
 import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import Debug.Trace
 import Data.Monoid
@@ -306,7 +310,7 @@ class Show2 k where show2 :: a `k` b -> String
 --------------------------------------------------------------------}
 
 class Category k where
-  type Ok k :: * -> Constraint
+  type Ok k :: Type -> Constraint
   type Ok k = Yes1
   id  :: Ok k a => a `k` a
   infixr 9 .
@@ -1240,7 +1244,7 @@ type BiCCC k = (ClosedCat k, CoproductCat k, TerminalCat k, DistribCat k)
 --   toDict (And1 (toDict -> Dict) (toDict -> Dict)) = Dict
 --   unDict = And1 unDict unDict
 
-data Constrained (con :: * -> Constraint) k a b = Constrained (a `k` b)
+data Constrained (con :: Type -> Constraint) k a b = Constrained (a `k` b)
 
 instance (OpSat op con, OpSat op con') => OpCon op (Sat (con &+& con')) where
   inOp :: forall a b. Sat (con &+& con') a && Sat (con &+& con') b |- Sat (con &+& con') (a `op` b)

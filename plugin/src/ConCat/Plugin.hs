@@ -297,7 +297,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
 #if 1
      Trying("top nominal Cast")
      Cast e co@( -- dtrace "top nominal cast co" (pprCoWithType co {-<+> (ppr (setNominalRole_maybe co))-}) id
-                setNominalRole_maybe -> Just (reCatCo -> Just co')) ->
+                setNominalRole_maybe' -> Just (reCatCo -> Just co')) ->
        -- etaExpand turns cast lambdas into themselves
        Doing("top nominal cast")
        let co'' = downgradeRole (coercionRole co) (coercionRole co') co' in
@@ -768,7 +768,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
            Case (inlineE abst `App` (repr `App` scrut)) v altsTy alts
 #endif
      Trying("lam nominal Cast")
-     Cast body' co@(setNominalRole_maybe -> Just co') ->
+     Cast body' co@(setNominalRole_maybe' -> Just co') ->
        -- etaExpand turns cast lambdas into themselves
        Doing("lam nominal cast")
        let r  = coercionRole co
@@ -1117,7 +1117,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                  -- -- , dtrace "unfoldMaybe" (text (fqVarName v)) True
                  -- , isNothing (catFun (Var v))
                  --  | True  -- experiment: don't restrict unfolding
-                 = onExprHead ({- traceRewrite "inlineMaybe" -} inlineMaybe) e
+                 = onExprHead dflags ({- traceRewrite "inlineMaybe" -} inlineMaybe) e
                  -- | otherwise = Nothing
    -- unfoldMaybe = -- traceRewrite "unfoldMaybe" $
    --               onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe)
@@ -1686,7 +1686,11 @@ cccRules steps famEnvs env@(CccEnv {..}) guts annotations =
     ops = mkOps env guts annotations famEnvs
 
 plugin :: Plugin
-plugin = defaultPlugin { installCoreToDos = install }
+plugin = defaultPlugin { installCoreToDos = install
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+                       , pluginRecompile = purePlugin
+#endif
+                       }
 
 -- Find an option "foo=bar" for optName "foo", returning a read of "bar".
 parseOpt :: Read a => String -> [CommandLineOption] -> Maybe a
@@ -1739,7 +1743,11 @@ install opts todos =
           -- pprTrace "ccc post-install todos:" (ppr (pre ++ ours ++ post)) (return ())
           return $ pre ++ ours ++ post
  where
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+   flagCcc :: CccEnv -> CorePluginPass
+#else
    flagCcc :: CccEnv -> PluginPass
+#endif
    flagCcc (CccEnv {..}) guts
      | showCcc && pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
      | not (Seq.null remaining) &&
@@ -1789,11 +1797,20 @@ mkCccEnv opts = do
                      | otherwise = id
       lookupRdr :: ModuleName -> (String -> OccName) -> (Name -> CoreM a) -> String -> CoreM a
       lookupRdr modu mkOcc mkThing str =
-        maybe (panic err) mkThing =<<
+        maybe (panic err) mkThing' =<<
           liftIO (lookupRdrNameInModuleForPlugins hsc_env modu (Unqual (mkOcc str)))
        where
          err = "ccc installation: couldn't find "
                ++ str ++ " in " ++ moduleNameString modu
+
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+         -- In GHC 8.6, lookupRdrNameInModuleForPlugins returns a (Name, Module)
+         -- where earlier it was just a Name
+         mkThing' = mkThing . fst
+#else
+         mkThing' = mkThing
+#endif
+
       lookupTh mkOcc mk modu = lookupRdr (mkModuleName modu) mkOcc mk
       findId      = lookupTh mkVarOcc lookupId
       findTc      = lookupTh mkTcOcc  lookupTyCon
@@ -2211,14 +2228,20 @@ exprHead (App fun _) = exprHead fun
 exprHead (Cast e _)  = exprHead e
 exprHead _           = Nothing
 
-onExprHead :: (Id -> Maybe CoreExpr) -> ReExpr
-onExprHead h = (fmap.fmap) simpleOptExpr $
+onExprHead :: DynFlags -> (Id -> Maybe CoreExpr) -> ReExpr
+onExprHead dflags h = (fmap.fmap) simpleOptExpr' $
                go id
  where
    go cont (Var v)       = cont <$> h v
    go cont (App fun arg) = go (cont . (`App` arg)) fun
    go cont (Cast e co)   = go (cont . (`Cast` co)) e
    go _ _                = Nothing
+
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+   simpleOptExpr' = simpleOptExpr dflags
+#else
+   simpleOptExpr' = simpleOptExpr
+#endif
 
 -- TODO: try go using Maybe fmap instead of continuation.
 
@@ -2371,7 +2394,11 @@ splitTyConApp_maybe :: Type -> Maybe (TyCon, [Type])
 #endif
 
 starKind :: Kind
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+starKind = liftedTypeKind
+#else
 starKind = mkTyConTy starKindTyCon
+#endif
 
 castE :: Coercion -> CoreExpr
 castE co = Lam x (mkCast (Var x) co)
@@ -2416,6 +2443,13 @@ setNominalRole_maybe' (UnivCo prov _ co1 co2)
                  HoleProv _       -> False  -- no no no.
   = Just $ UnivCo prov Nominal co1 co2
 setNominalRole_maybe' _ = Nothing
+#endif
+
+setNominalRole_maybe' :: Coercion -> Maybe Coercion
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+setNominalRole_maybe' c = setNominalRole_maybe (coercionRole c) c
+#else
+setNominalRole_maybe' = setNominalRole_maybe
 #endif
 
 -- Exists somewhere?
