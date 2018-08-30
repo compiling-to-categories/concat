@@ -47,6 +47,7 @@ import GHC.TypeLits
 import GHC.Exts (Coercible,coerce,inline)
 import Data.Constraint ((\\))
 import Data.Proxy (Proxy)
+import Data.Void
 
 import Data.Pointed
 import Data.Key (Zip(..))
@@ -1032,7 +1033,11 @@ collectC f = distribute . fmap f
 
 Catify(collect, collectC)
 
-Op0(finite       , (FiniteCat k, KnownNat2 a m, a + 1 <= m) => Proxy a `k` Finite m)
+-- Op0(finite       , (FiniteCat k, KnownNat2 a m, a + 1 <= m) => Proxy a `k` Finite m)
+Op0(combineZero  , FiniteCat k => Void `k` Finite 0)
+Op0(separateZero , FiniteCat k => Finite 0 `k` Void)
+Op0(combineOne   , FiniteCat k => () `k` Finite 1)
+Op0(separateOne  , FiniteCat k => Finite 1 `k` ())
 Op0(combineSum   , (FiniteCat k, KnownNat2 m n) => (Finite m :+ Finite n) `k` Finite (m + n))
 Op0(separateSum  , (FiniteCat k, KnownNat2 m n) => Finite (m + n) `k` (Finite m :+ Finite n))
 Op0(combineProd  , (FiniteCat k, KnownNat2 m n) => (Finite m :* Finite n) `k` Finite (m * n))
