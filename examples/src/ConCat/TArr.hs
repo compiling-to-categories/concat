@@ -730,7 +730,9 @@ class Decomposable a where
   type Decomp a :: * -> *
   decomp :: Arr a <--> Decomp a
 
-type Decomposable' a = (Decomposable a, KnownCard a)
+type Decomposable' a = (Decomposable a, HasFin' a)
+
+-- TODO: rename Decomposable to something less generic
 
 instance Decomposable Void where
   type Decomp Void = U1
@@ -742,7 +744,10 @@ instance Decomposable () where
 
 instance (Decomposable' a, Decomposable' b) => Decomposable (a :+ b) where
   type Decomp (a :+ b) = Arr a :*: Arr b
-  decomp = arrProd
+  decomp = reindexId \\ knownAdd @(Card a) @(Card b)
+  -- decomp = arrProd -- okay
+  -- decomp = coerceIso . vecProd @(Card a) @(Card b) . newIso -- okay
+  -- decomp = coerceIso . (reindex finSum \\ knownAdd @(Card a) @(Card b)) . newIso -- nope
 
 instance (Decomposable' a, Decomposable' b) => Decomposable (a :* b) where
   type Decomp (a :* b) = Arr a :.: Arr b
