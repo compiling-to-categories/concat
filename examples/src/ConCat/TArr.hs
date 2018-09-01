@@ -1013,8 +1013,11 @@ i4 = inv hasrepIso
 reverseF :: forall f a. (Representable f, HasFin' (Rep f)) => f a -> f a
 reverseF = isoFwd (reindex reverseFinIso)
 
+reverseFinite :: forall n. KnownNat n => Finite n -> Finite n
+reverseFinite i = finite (nat @n - 1) - i
+
 reverseFin :: forall a. HasFin' a => a -> a
-reverseFin a = unFin (finite (nat @(Card a)) - toFin a - 1)
+reverseFin = unFin . reverseFinite . toFin
 
 reverseFinIso :: HasFin' a => a <-> a
 reverseFinIso = involution reverseFin
