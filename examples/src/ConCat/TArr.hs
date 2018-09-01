@@ -1009,24 +1009,15 @@ i4 = inv hasrepIso
 
 #endif
 
--- | Reverse the order of a @Representable@.
-reverseF :: forall f a. (Representable f, HasFin' (Rep f)) => f a -> f a
-reverseF = isoFwd (reindex reverseFinIso)
-
 reverseFinite :: forall n. KnownNat n => Finite n -> Finite n
 reverseFinite i = finite (nat @n - 1) - i
-
-reverseFin :: forall a. HasFin' a => a -> a
-reverseFin = inFin reverseFinite
--- reverseFin = unFin . reverseFinite . toFin
-
-reverseFinIso :: HasFin' a => a <-> a
-reverseFinIso = involution reverseFin
-
--- More experiments
 
 reverseFiniteIso :: KnownNat n => Finite n <-> Finite n
 reverseFiniteIso = involution reverseFinite
 
-reverseFinIso' :: HasFin' a => a <-> a
-reverseFinIso' = reverseFiniteIso `via` fin
+reverseFinIso :: HasFin' a => a <-> a
+reverseFinIso = reverseFiniteIso `via` fin
+
+-- | Reverse the order of a representable functor.
+reverseF :: forall f a. (Representable f, HasFin' (Rep f)) => f a -> f a
+reverseF = isoFwd (reindex reverseFinIso)
