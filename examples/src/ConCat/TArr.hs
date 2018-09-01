@@ -1010,7 +1010,7 @@ i4 = inv hasrepIso
 #endif
 
 reverseFinite :: forall n. KnownNat n => Finite n -> Finite n
-reverseFinite i = finite (nat @n - 1) - i
+reverseFinite i = finite (nat @n) - i - 1
 
 reverseFiniteIso :: KnownNat n => Finite n <-> Finite n
 reverseFiniteIso = involution reverseFinite
