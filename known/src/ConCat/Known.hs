@@ -24,4 +24,4 @@ nm = Sub Dict
 -- knownAdd = Sub Dict
 
 KNOW(knownAdd,+)
-KNOW(knownMul,*)
+KNOW(knownMul,GHC.TypeLits.*)

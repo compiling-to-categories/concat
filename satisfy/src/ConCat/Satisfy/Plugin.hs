@@ -19,7 +19,11 @@ import ConCat.BuildDictionary (buildDictionary)
 import ConCat.Inline.Plugin (findId)
 
 plugin :: Plugin
-plugin = defaultPlugin { installCoreToDos = install }
+plugin = defaultPlugin { installCoreToDos = install
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+                       , pluginRecompile = purePlugin
+#endif
+                       }
 
 install :: [CommandLineOption] -> [CoreToDo] -> CoreM [CoreToDo]
 install _opts todos =

@@ -42,6 +42,10 @@
 {-# LANGUAGE LiberalTypeSynonyms, ImpredicativeTypes, EmptyDataDecls #-}
 #endif
 
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+{-# LANGUAGE NoStarIsType #-}
+#endif
+
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-} -- for OkayArr
 {-# OPTIONS_GHC -fno-warn-unticked-promoted-constructors #-}
@@ -133,6 +137,8 @@ import Unsafe.Coerce
 -- import GHC.Exts (Coercible) -- ,coerce
 import Data.Typeable (TypeRep,Typeable,eqT,cast) -- ,Proxy(..),typeOf
 import Data.Type.Equality ((:~:)(..))
+import GHC.Types (Constraint)
+import Data.Kind (Type)
 
 import Data.Constraint (Dict(..),(:-)(..),(\\))
 import Data.Pointed (Pointed)
@@ -260,7 +266,7 @@ newSource t templ ins o = -- trace "newSource" $
 -- | Typed aggregate of buses. @'Buses' a@ carries a value of type @a@.
 -- 'AbstB' is for isomorphic forms. Note: b must not have one of the standard
 -- forms. If it does, we'll get a run-time error when consuming.
-data Buses :: * -> * where
+data Buses :: Type -> Type where
   UnitB    :: Buses ()
   PrimB    :: Source -> Buses b
   ProdB    :: Ok2 (:>) a b => Buses a -> Buses b -> Buses (a :* b)
@@ -415,9 +421,12 @@ genPrimBus = genBus PrimB (ty @a)
 --    flat (ConvertB b) = flat b
 
 unflattenPrimB :: GenBuses a => State [Source] (Buses a)
-unflattenPrimB = do (s:ss) <- M.get
-                    M.put ss
-                    return (PrimB s)
+unflattenPrimB = do ss0 <- M.get
+                    case ss0 of
+                      s:ss -> do M.put ss
+                                 return (PrimB s)
+                      []   -> error "unflattenPrimB: expected non-empty list"
+                                -- TODO: can we do better than raise an error here?
 
 instance GenBuses Bool where
   genBuses' = genPrimBus
@@ -538,7 +547,7 @@ mkConvertB a -- | Just Refl <- eqT @a @b = a
 type PrimName = String
 
 -- | Primitive of type @a -> b@
-data Template :: * -> * -> * where
+data Template :: Type -> Type -> Type where
   Prim :: PrimName -> Template a b
   Subgraph :: Graph -> BCirc a b -> Template () (a -> b)
 
@@ -685,9 +694,34 @@ newtype a :> b = C { unC :: a :+> b }
 
 -- type a :> b =~ Buses a -> CircuitM (Buses b)
 
+-- #define ShowRep
+
+#ifdef ShowRep
+
+pattern AbstS :: Source -> Source
+pattern AbstS a <- PSource _ "abst" [a]
+
+-- Temporary alias to mark an experiment
+type STB  r = SourceToBuses r
+type STBR a = STB (Rep a)
+
+instance (OkCAR a, r ~ Rep a, STB r) => RepCat (:>) a r where
+  -- reprC = namedC "repr"
+  -- The SourceToBuses above is for sourceB
+  reprC = primOpt "reprC" $ \ case
+           [AbstS a] -> sourceB a
+           _         -> nothingA
+  abstC = namedC "abst"
+-- TODO: coerceC also.
+#else
+-- Temporary alias to mark an experiment
+type STB  r = (() :: Constraint)
+type STBR a = STB (Rep a)
+
 instance (OkCAR a, r ~ Rep a) => RepCat (:>) a r where
   reprC = C (arr reprB)
   abstC = C (arr abstB)
+#endif
 
 instance Ok2 (:>) a b => CoerceCat (:>) a b where coerceC = convertC
 
@@ -1740,7 +1774,15 @@ instance (IfCat (:>) a, IfCat (:>) b) => IfCat (:>) (a :* b) where
   ifC = prodIf
 
 instance FiniteCat (:>) where
-  finite = namedC "finite"
+  -- finite = namedC "finite"
+  combineZero  :: Void :> Finite 0
+  combineZero = namedC "combineZero"
+  separateZero :: Finite 0 :> Void
+  separateZero = namedC "separateZero"
+  combineOne  :: () :> Finite 1
+  combineOne = namedC "combineOne"
+  separateOne :: Finite 1 :> ()
+  separateOne = namedC "separateOne"
   combineSum :: forall m n. KnownNat2 m n => (Finite m :+ Finite n) :> Finite (m + n)
   combineSum = namedC "combineSum" \\ knownAdd @m @n
   separateSum :: forall m n. KnownNat2 m n => Finite (m + n) :> (Finite m :+ Finite n)
@@ -2234,7 +2276,8 @@ genBusesRep' templ ins = abstB <$> genBuses' templ ins
 -- tweakValRep :: (HasRep a, Tweakable (Rep a)) => Unop a
 -- tweakValRep = abst . tweakVal . repr
 
-bottomRep :: (Ok3 (:>) a b (Rep b), BottomCat (:>) a (Rep b)) => a :> b
+bottomRep :: (Ok3 (:>) a b (Rep b), BottomCat (:>) a (Rep b), STBR b)
+          => a :> b
 bottomRep = abstC . bottomC
 
 tyRep :: forall a. GenBuses (Rep a) => Ty
