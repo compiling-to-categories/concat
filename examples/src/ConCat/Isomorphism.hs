@@ -44,7 +44,7 @@ inv :: Iso k a b -> Iso k b a
 inv (f :<-> f') = f' :<-> f
 {-# INLINE inv #-}
 
--- Form an ivolution from a _self-inverse_ arrow.
+-- | Form an ivolution from a _self-inverse_ arrow.
 involution :: (a `k` a) -> Iso k a a
 involution f = f :<-> f
 
