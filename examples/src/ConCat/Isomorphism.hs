@@ -122,6 +122,7 @@ type (<->) = Iso (->)
 -- | Apply one isomorphism via another
 via :: (Category k, Ok2 k a b) => Iso k b b -> Iso k a b -> Iso k a a
 (g :<-> g') `via` (ab :<-> ba) = ba . g . ab :<-> ba . g' . ab
+{-# INLINE via #-}
 
 -- Old notation
 pattern Iso :: (a `k` b) -> (b `k` a) -> Iso k a b
