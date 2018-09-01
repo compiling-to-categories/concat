@@ -119,28 +119,9 @@ isoRev (_ :<-> f') = f'
 infix 0 <->
 type (<->) = Iso (->)
 
-#if 1
-
+-- | Apply one isomorphism via another
 via :: (Category k, Ok2 k a b) => Iso k b b -> Iso k a b -> Iso k a a
 (g :<-> g') `via` (ab :<-> ba) = ba . g . ab :<-> ba . g' . ab
-
-#else
-
-via :: (Category k, Ok2 k a b) => Iso k a b -> Iso k a a -> Iso k b b
-(ab :<-> ba) `via` (f :<-> f') = ab . f . ba :<-> ab . f' . ba
-
-via' :: (Category k, Ok2 k a b) => Iso k a b -> Iso k b b -> Iso k a a
--- (ab :<-> ba) `via'` (g :<-> g') = ba . g . ab :<-> ba . g' . ab
-via' = via . inv
-
--- viaI :: (a <-> b) -> ((a <-> a) <-> (b <-> b))
-viaI :: (Category k, Ok2 k a b) => Iso k b a -> (Iso k b b <-> Iso k a a)
-viaI abi = via abi :<-> via (inv abi)
-
--- viaI abi = via abi :<-> via' abi
-
-#endif
-
 
 -- Old notation
 pattern Iso :: (a `k` b) -> (b `k` a) -> Iso k a b

@@ -1030,8 +1030,3 @@ reverseFiniteIso = involution reverseFinite
 
 reverseFinIso' :: HasFin' a => a <-> a
 reverseFinIso' = reverseFiniteIso `via` fin
-
--- fin :: HasFin' a => a <-> Finite (Card a)
--- reverseFiniteIso :: Finite (Card a) <-> Finite (Card a)
-
--- via :: (a <-> b) -> (a <-> a) -> (b <-> b)
