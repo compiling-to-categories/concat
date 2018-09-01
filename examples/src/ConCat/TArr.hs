@@ -1011,8 +1011,10 @@ i4 = inv hasrepIso
 
 -- | Reverse the order of a @Representable@.
 reverseF :: forall f a. (Representable f, HasFin' (Rep f)) => f a -> f a
-reverseF f = tabulate $ \ ix -> f `index` unFin (lastIx - toFin ix)
- where lastIx = finite (nat @(Card (Rep f))) - 1
+reverseF = isoFwd (reindex reverseFinIso)
 
--- I copied and tweaked this reverseF definition from Dave Banas's
--- ConCat.Learn.CNN.Conv.
+reverseFin :: forall a. HasFin' a => a -> a
+reverseFin a = unFin (finite (nat @(Card a)) - toFin a - 1)
+
+reverseFinIso :: HasFin' a => a <-> a
+reverseFinIso = involution reverseFin
