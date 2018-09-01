@@ -49,6 +49,7 @@ import GHC.Exts (Coercible,coerce)
 -- import Data.Tuple            (swap)
 
 import Data.Finite.Internal  (Finite(..))
+import Data.Finite  (finite)
 import Data.Vector.Sized (Vector)
 import qualified Data.Vector.Generic.Sized.Internal
 -- import qualified Data.Vector.Sized as V
@@ -58,7 +59,7 @@ import Data.Functor.Rep (Representable(..),distributeRep)
 import Data.Constraint ((\\))
 import Data.Void
 
-import ConCat.Misc ((:+), (:*), cond)  -- ,nat,int
+import ConCat.Misc ((:+), (:*), cond,nat)  -- ,int
 import qualified ConCat.Rep as R
 import ConCat.AltCat
 import ConCat.Isomorphism
@@ -1008,3 +1009,10 @@ i4 = inv hasrepIso
 
 #endif
 
+-- | Reverse the order of a @Representable@.
+reverseF :: forall f a. (Representable f, HasFin' (Rep f)) => f a -> f a
+reverseF f = tabulate $ \ix -> f `index` unFin (lastIx - toFin ix)
+ where lastIx = finite (nat @(Card (Rep f))) - 1
+
+-- I copied and tweaked this reverseF definition from Dave Banas's
+-- ConCat.Learn.CNN.Conv.
