@@ -128,12 +128,6 @@ finExp = Iso h g
         h = (V.foldl' . curry) u (Finite 0) . (V.reverse . V.generate)
           where u (Finite acc, Finite m) = Finite (acc * nat @m + m)
 
-inFin :: (HasFin a, HasFin b) => (Finite (Card a) -> Finite (Card b)) -> (a -> b)
-inFin f' = unFin . f' . toFin
-
-liftFin :: (HasFin a, HasFin b) => (a -> b) -> Finite (Card a) -> Finite (Card b)
-liftFin f = toFin . f . unFin
-
 #endif
 
 #if 1
@@ -151,6 +145,12 @@ unFin :: forall a. HasFin a => Finite (Card a) -> a
 unFin = f' where _ :<-> f' = fin
 
 #endif
+
+inFin :: (HasFin a, HasFin b) => (Finite (Card a) -> Finite (Card b)) -> (a -> b)
+inFin f' = unFin . f' . toFin
+
+exFin :: (HasFin a, HasFin b) => (a -> b) -> Finite (Card a) -> Finite (Card b)
+exFin f = toFin . f . unFin
 
 vecU1 :: Vector 0 <--> U1
 vecU1 = reindex finU1
@@ -323,7 +323,7 @@ instance (HasFin' a, HasFin' b) => HasFin (a :* b) where
 
 -- instance (HasFin a, HasFin b) => HasFin (a :^ b) where
 --   type Card (a :^ b) = Card a ^ Card b
---   fin = finExp . Iso liftFin inFin
+--   fin = finExp . Iso exFin inFin
 
 {----------------------------------------------------------------------
   Domain-typed "arrays"
@@ -1017,7 +1017,21 @@ reverseFinite :: forall n. KnownNat n => Finite n -> Finite n
 reverseFinite i = finite (nat @n - 1) - i
 
 reverseFin :: forall a. HasFin' a => a -> a
-reverseFin = unFin . reverseFinite . toFin
+reverseFin = inFin reverseFinite
+-- reverseFin = unFin . reverseFinite . toFin
 
 reverseFinIso :: HasFin' a => a <-> a
 reverseFinIso = involution reverseFin
+
+-- More experiments
+
+reverseFiniteIso :: KnownNat n => Finite n <-> Finite n
+reverseFiniteIso = involution reverseFinite
+
+reverseFinIso' :: HasFin' a => a <-> a
+reverseFinIso' = reverseFiniteIso `via` fin
+
+-- fin :: HasFin' a => a <-> Finite (Card a)
+-- reverseFiniteIso :: Finite (Card a) <-> Finite (Card a)
+
+-- via :: (a <-> b) -> (a <-> a) -> (b <-> b)
