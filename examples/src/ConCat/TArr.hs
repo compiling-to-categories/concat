@@ -35,6 +35,7 @@ module ConCat.TArr
   , Arr(..),Flat,flat,toFlat,unFlat
   , vecU1, vecPar1, vecProd, vecComp
   , arrU1, arrPar1, arrProd, arrComp
+  , reverseFinite, reverseFiniteIso, reverseFinIso, reverseF
   ) where
 
 import Prelude hiding (id, (.), const, curry, uncurry)  -- Coming from ConCat.AltCat.
