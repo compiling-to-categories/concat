@@ -30,6 +30,7 @@ module ConCat.Graphics.Color
   , ToColor(..)
   ) where
 
+import qualified Data.Semigroup as Semi
 import Data.Monoid (Monoid(..))
 import Control.Applicative (liftA2)
 
@@ -120,12 +121,12 @@ grey, gray :: R -> Color
 grey x = rgb x x x
 gray = grey
 
-instance Semigroup Color where
+instance Semi.Semigroup Color where
   (<>) = overC
 
 instance Monoid Color where
   mempty  = clear
-  mappend = (<>)
+  mappend = overC
 
 {--------------------------------------------------------------------
     Conversion to color
