@@ -633,9 +633,9 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      e@(Case scrut wild _ty [(_dc,[unboxedV],rhs)])
        | Just (tc,[]) <- splitTyConApp_maybe (varType wild)
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-       , Just boxV <- flip DFMap.lookupUDFM (tyConName tc) boxers
+       , Just boxV <- flip DFMap.lookupUDFM tc boxers
 #else
-       , Just boxV <- OrdMap.lookup         (tyConName tc) boxers
+       , Just boxV <- OrdMap.lookup         tc boxers
 #endif
        -> Doing("lam Case of boxer")
           -- dtrace "boxV" (ppr boxV) $
@@ -1876,9 +1876,9 @@ mkCccEnv opts = do
   -- pprTrace "ruleBase" (ppr ruleBase) (return ())
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
   -- TODO: refactor to eliminate duplicate code here and elsewhere.
-  let boxers = DFMap.listToUDFM [(intTyConName,boxIV),(doubleTyConName,boxDV),(floatTyConName,boxFV)]
+  let boxers = DFMap.listToUDFM [(intTyCon,boxIV),(doubleTyCon,boxDV),(floatTyCon,boxFV)]
 #else
-  let boxers = OrdMap.fromList  [(intTyConName,boxIV),(doubleTyConName,boxDV),(floatTyConName,boxFV)]
+  let boxers = OrdMap.fromList  [(intTyCon,boxIV),(doubleTyCon,boxDV),(floatTyCon,boxFV)]
 #endif
 #if 0
   let idAt t = Var idV `App` Type t     -- varApps idV [t] []
