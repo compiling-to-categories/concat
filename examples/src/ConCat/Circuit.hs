@@ -86,7 +86,7 @@
 module ConCat.Circuit
   ( CircuitM, (:>)
   , Bus(..),Comp(..),Input,Output, Ty(..), busTy, Source(..), Template(..)
-  , GenBuses(..), GS, genBusesRep', tyRep, bottomRep
+  , GenBuses(..), GS, genBusesRep', tyRep
   -- , delayCRep, unDelayName
   , namedC, constC -- , constS
   , genUnflattenB'
@@ -179,10 +179,9 @@ import ConCat.Misc ((:*),(:+),Unop,Binop,Yes1,typeR,transpose)
 -- import ConCat.Complex (Complex(..))
 import ConCat.Rep
 import ConCat.Additive (Additive(..),Add)
-import ConCat.Category  -- AltCat instead?
-import qualified ConCat.AltCat  -- for AbsTy
-import qualified ConCat.AltCat as A
-import ConCat.AltCat (Uncurriable(..),funIf,repIf,unitIf,prodIf,Finite)
+import qualified ConCat.Category
+import ConCat.AltCat  -- for AbsTy
+-- import ConCat.AltCat (Uncurriable(..),funIf,repIf,unitIf,prodIf,Finite)
 
 {--------------------------------------------------------------------
     Buses
@@ -2253,10 +2252,6 @@ genBusesRep' templ ins = abstB <$> genBuses' templ ins
 
 -- tweakValRep :: (HasRep a, Tweakable (Rep a)) => Unop a
 -- tweakValRep = abst . tweakVal . repr
-
-bottomRep :: (Ok3 (:>) a b (Rep b), BottomCat (:>) a (Rep b), STBR b)
-          => a :> b
-bottomRep = abstC . bottomC
 
 tyRep :: forall a. GenBuses (Rep a) => Ty
 tyRep = ty @(Rep a)
