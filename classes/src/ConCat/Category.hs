@@ -2356,7 +2356,7 @@ instance (OkIxCoprod k n, OkIxCoprod k' n) => OkIxCoprod (k :**: k') n where
 instance (IxMonoidalSCat k n, IxMonoidalSCat k' n) => IxMonoidalSCat (k :**: k) n where
   plusF = prod . (plusF *** plusF) . unzip . fmap unProd
 
-instance (IxCoproductCat k n, IxCoproductCat k' n) => IxCoproductCat (k :**: k) n where
+instance (IxCoproductCat k n, IxCoproductCat k' n) => IxCoproductCat (k :**: k') n where
   inF   = zipWith (:**:) inF inF
   joinF = prod . (joinF *** joinF) . unzip . fmap unProd
   jamF  = jamF :**: jamF
@@ -2481,6 +2481,10 @@ instance FiniteCat (->) where
   unFinite (Finite n) = fromInteger n
   {-# OPINLINE unsafeFinite #-}
   {-# OPINLINE unFinite #-}
+
+instance (FiniteCat k,FiniteCat k') => FiniteCat (k :**: k') where
+  unFinite     = unFinite     :**: unFinite
+  unsafeFinite = unsafeFinite :**: unsafeFinite
 
 #if 0
 {--------------------------------------------------------------------
