@@ -633,11 +633,12 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      e@(Case scrut wild _ty [(_dc,[unboxedV],rhs)])
        | Just (tc,[]) <- splitTyConApp_maybe (varType wild)
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-       , Just boxV <-  flip DFMap.lookupUDFM tc boxers
+       , Just boxV <- flip DFMap.lookupUDFM (tyConName tc) boxers
 #else
-       , Just boxV <- OrdMap.lookup tc boxers
+       , Just boxV <- OrdMap.lookup         (tyConName tc) boxers
 #endif
        -> Doing("lam Case of boxer")
+          -- dtrace "boxV" (ppr boxV) $
           let wild' = setIdOccInfo wild compatNoOccInfo
               tweak :: Unop CoreExpr
               tweak (Var v) | v == unboxedV =
@@ -1053,7 +1054,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
         , Just  boxV <- flip DFMap.lookupUDFM  tc boxers
 #else
-        , Just  boxV <- OrdMap.lookup  tc boxers
+        , Just  boxV <- OrdMap.lookup          tc boxers
 #endif
         = success $ Var boxV `App` e'
       tweak ((Var v `App` Type ty) `App` e')
@@ -1874,9 +1875,10 @@ mkCccEnv opts = do
   ruleBase <- eps_rule_base <$> (liftIO $ hscEPS hsc_env)
   -- pprTrace "ruleBase" (ppr ruleBase) (return ())
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-  let boxers = DFMap.listToUDFM [(intTyCon,boxIV),(doubleTyCon,boxDV),(floatTyCon,boxFV)]
+  -- TODO: refactor to eliminate duplicate code here and elsewhere.
+  let boxers = DFMap.listToUDFM [(intTyConName,boxIV),(doubleTyConName,boxDV),(floatTyConName,boxFV)]
 #else
-  let boxers = OrdMap.fromList [(intTyCon,boxIV),(doubleTyCon,boxDV),(floatTyCon,boxFV)]
+  let boxers = OrdMap.fromList  [(intTyConName,boxIV),(doubleTyConName,boxDV),(floatTyConName,boxFV)]
 #endif
 #if 0
   let idAt t = Var idV `App` Type t     -- varApps idV [t] []
