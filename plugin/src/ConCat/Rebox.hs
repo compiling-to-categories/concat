@@ -34,6 +34,25 @@ boxI :: Int# -> Int
 boxI = I#
 {-# INLINE [0] boxI #-}
 
+-- boxZ :: Int# -> Integer
+-- boxZ = smallInteger
+-- {-# INLINE [0] boxZ #-}
+
+-- -- I suspect that GHC has the opposite rule.
+-- {-# RULES "elim smallInteger" forall x. smallInteger x = fromIntegral (boxI x) #-}
+
+-- {-# RULES "elim smallInteger" [~0] forall x. smallInteger x = boxZ x #-}
+
+-- -- Avoid a rewriting loop with GHC.
+-- fromIntegral' :: Int -> Integer
+-- fromIntegral' = fromIntegral
+-- {-# INLINE [0] fromIntegral' #-}
+
+-- {-# RULES "elim smallInteger" [~0] forall x. smallInteger x = fromIntegral' (boxI x) #-}
+
+-- The problem with fromIntegral' is that it has to get inlined to fromIntegral,
+-- which then gets inlined to another use of smallInteger.
+
 boxF :: Float# -> Float
 boxF = F#
 {-# INLINE [0] boxF #-}
