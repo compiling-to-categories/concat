@@ -61,7 +61,7 @@ import Data.Functor.Rep (Representable(..),distributeRep)
 import Data.Constraint ((\\))
 import Data.Void
 
-import ConCat.Misc ((:+), (:*), cond,nat)  -- ,int
+import ConCat.Misc ((:+), (:*), cond,int)
 import qualified ConCat.Rep as R
 import ConCat.AltCat
 import ConCat.Isomorphism
@@ -74,40 +74,20 @@ import ConCat.Known
 -- TODO: reverse the sense of finU1, finPar1, finSum and finProd
 
 finU1 :: Void <-> Finite 0
-finU1 = absurd :<-> error "no Finite 0"
+finU1 = combineZero :<-> separateZero
 
 finPar1 :: () <-> Finite 1
-finPar1 = const (Finite 0) :<-> const ()
+finPar1 = combineOne :<-> separateOne
 
-finSum  :: forall k m n. (FiniteCat k, KnownNat2 m n)
-        => Iso k (Finite m :+ Finite n) (Finite (m + n))
+finSum  :: KnownNat2 m n => Finite m :+ Finite n <-> Finite (m + n)
 finSum  = combineSum :<-> separateSum
 {-# INLINE finSum #-}
 
-finProd  :: forall k m n. (FiniteCat k, KnownNat2 m n)
-         => Iso k (Finite m :* Finite n) (Finite (m * n))
+finProd  :: KnownNat2 m n => Finite m :* Finite n <-> Finite (m * n)
 finProd  = combineProd :<-> separateProd
 {-# INLINE finProd #-}
 
--- finSum :: forall m n. KnownNat m => Finite m :+ Finite n <-> Finite (m + n)
--- finSum = Iso combineSum separateSum
-
--- finSum = Iso to un
---  where 
---    to (Left  (Finite l)) = Finite l
---    to (Right (Finite k)) = Finite (nat @m + k)
---    un (Finite l) | l < m     = Left  (Finite l)
---                  | otherwise = Right (Finite (l - m))
---     where
---       m = nat @m
-
--- finProd :: forall m n. KnownNat n => Finite m :* Finite n <-> Finite (m * n)
--- finProd = Iso combineProd separateProd
-
--- finProd = Iso to un
---  where
---    to (Finite l, Finite k) = Finite (nat @n * l + k)
---    un (Finite l) = (Finite q, Finite r) where (q,r) = l `divMod` nat @n
+-- TODO: Maybe move combineZero, ..., separateProd here from ConCat.AltCat
 
 #if 0
 
@@ -115,7 +95,7 @@ type a :^ b = b -> a
 
 -- Using Horner's rule and its inverse, as per Conal's suggestion.
 finExp :: forall m n. KnownNat2 m n => Finite m :^ Finite n <-> Finite (m ^ n)
-finExp = Iso h g
+finExp = h :<-> g
   where -- g :: forall m n. KnownNat2 m n => Finite (m ^ n) -> Finite m :^ Finite n
         g (Finite l) = \ n -> v `V.index` n
           where v :: V.Vector n (Finite m)
@@ -325,7 +305,7 @@ instance (HasFin' a, HasFin' b) => HasFin (a :* b) where
 
 -- instance (HasFin a, HasFin b) => HasFin (a :^ b) where
 --   type Card (a :^ b) = Card a ^ Card b
---   fin = finExp . Iso exFin inFin
+--   fin = finExp . (exFin :<-> inFin)
 
 {----------------------------------------------------------------------
   Domain-typed "arrays"
@@ -391,7 +371,7 @@ instance HasFin' a => Representable (Arr a) where
 
 -- i.e. tabulate :<-> index = arr
 
--- TODO: combine tabulate and index into a single Iso
+-- TODO: combine tabulate and index into a single isomorphism
 -- Did it as arr below. Reconcile the redundant definitions.
 
 (!) :: HasFin' a => Arr a b -> (a -> b)
@@ -1038,8 +1018,11 @@ reverseFinIso = reverseFiniteIso `via` fin
 #endif
 
 reverseFinite :: forall n. KnownNat n => Finite n -> Finite n
-reverseFinite i = finite (nat @n - 1) - i
+-- reverseFinite i = finite (nat @n - 1) - i
+reverseFinite i = unsafeFinite (int @n - 1 - unFinite i)
 {-# INLINE reverseFinite #-}
+
+-- reverseFinite (Finite i) = finite (nat @n - 1 - i)
 
 -- | Reverse the order of a representable functor.
 reverseF :: forall f a. (Representable f, HasFin' (Rep f)) => f a -> f a
