@@ -35,7 +35,7 @@ module ConCat.TArr
   , Arr(..),Flat,flat,toFlat,unFlat
   , vecU1, vecPar1, vecProd, vecComp
   , arrU1, arrPar1, arrProd, arrComp
-  , reverseF
+  , reverseFinite, reverseFiniteIso, reverseFinIso, reverseF
   ) where
 
 import Prelude hiding (id, (.), const, curry, uncurry)  -- Coming from ConCat.AltCat.
@@ -129,12 +129,6 @@ finExp = Iso h g
         h = (V.foldl' . curry) u (Finite 0) . (V.reverse . V.generate)
           where u (Finite acc, Finite m) = Finite (acc * nat @m + m)
 
-inFin :: (HasFin a, HasFin b) => (Finite (Card a) -> Finite (Card b)) -> (a -> b)
-inFin f' = unFin . f' . toFin
-
-liftFin :: (HasFin a, HasFin b) => (a -> b) -> Finite (Card a) -> Finite (Card b)
-liftFin f = toFin . f . unFin
-
 #endif
 
 #if 1
@@ -152,6 +146,12 @@ unFin :: forall a. HasFin a => Finite (Card a) -> a
 unFin = f' where _ :<-> f' = fin
 
 #endif
+
+inFin :: (HasFin a, HasFin b) => (Finite (Card a) -> Finite (Card b)) -> (a -> b)
+inFin f' = unFin . f' . toFin
+
+exFin :: (HasFin a, HasFin b) => (a -> b) -> Finite (Card a) -> Finite (Card b)
+exFin f = toFin . f . unFin
 
 vecU1 :: Vector 0 <--> U1
 vecU1 = reindex finU1
@@ -324,7 +324,7 @@ instance (HasFin' a, HasFin' b) => HasFin (a :* b) where
 
 -- instance (HasFin a, HasFin b) => HasFin (a :^ b) where
 --   type Card (a :^ b) = Card a ^ Card b
---   fin = finExp . Iso liftFin inFin
+--   fin = finExp . Iso exFin inFin
 
 {----------------------------------------------------------------------
   Domain-typed "arrays"
@@ -1010,20 +1010,20 @@ i4 = inv hasrepIso
 
 #endif
 
--- | Reverse the order of a @Representable@.
+reverseFinite :: forall n. KnownNat n => Finite n -> Finite n
+reverseFinite i = finite (nat @n) - i - 1
+{-# INLINE reverseFinite #-}
+
+reverseFiniteIso :: KnownNat n => Finite n <-> Finite n
+reverseFiniteIso = involution reverseFinite
+{-# INLINE reverseFiniteIso #-}
+
+reverseFinIso :: HasFin' a => a <-> a
+reverseFinIso = reverseFiniteIso `via` fin
+{-# INLINE reverseFinIso #-}
+
+-- | Reverse the order of a representable functor.
 reverseF :: forall f a. (Representable f, HasFin' (Rep f)) => f a -> f a
 reverseF = isoFwd (reindex reverseFinIso)
 {-# INLINE reverseF #-}
-
-reverseFinite :: forall n. KnownNat n => Finite n -> Finite n
-reverseFinite i = finite (nat @n - 1) - i
-{-# INLINE reverseFinite #-}
-
-reverseFin :: forall a. HasFin' a => a -> a
-reverseFin = unFin . reverseFinite . toFin
-{-# INLINE reverseFin #-}
-
-reverseFinIso :: HasFin' a => a <-> a
-reverseFinIso = involution reverseFin
-{-# INLINE reverseFinIso #-}
 
