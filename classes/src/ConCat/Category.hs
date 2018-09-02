@@ -73,14 +73,6 @@ import Control.Newtype.Generics (Newtype(..))
 import Data.Vector.Sized (Vector)
 import Data.Finite.Internal (Finite(..))
 
-#ifdef VectorSized
--- import Data.Finite (Finite)
--- import Data.Vector.Sized (Vector)
--- import qualified Data.Vector.Sized as VS
-#endif
-
--- import Data.MemoTrie
-
 import ConCat.Misc hiding ((<~),(~>),type (&&))
 import ConCat.Rep hiding (Rep)
 import qualified ConCat.Rep as R
