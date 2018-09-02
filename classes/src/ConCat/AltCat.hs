@@ -646,6 +646,9 @@ id2 = id <+ okProd @k @a @b
 "apply . (curry exr &&& f)" forall f.
   apply . (curry exr &&& f) = f
 
+-- "if True"  forall f g. ifC . (const True  *** (f *** g) . dup) . dup = f
+-- "if False" forall f g. ifC . (const False *** (f *** g) . dup) . dup = g
+
 #if 0
 -- Prelude versions of categorical ops
 
