@@ -37,6 +37,7 @@ library
                      , prettyclass
                      , concat-inline
                      , concat-satisfy
+                     , concat-known
   exposed-modules:     
                        ConCat.Orphans
                        ConCat.Misc
