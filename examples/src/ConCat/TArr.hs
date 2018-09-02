@@ -35,7 +35,8 @@ module ConCat.TArr
   , Arr(..),Flat,flat,toFlat,unFlat
   , vecU1, vecPar1, vecProd, vecComp
   , arrU1, arrPar1, arrProd, arrComp
-  , reverseFinite, reverseFiniteIso, reverseFinIso, reverseF
+  --, reverseFiniteIso, reverseFinIso
+  , reverseF, reverseFinite
   ) where
 
 import Prelude hiding (id, (.), const, curry, uncurry)  -- Coming from ConCat.AltCat.
@@ -1010,9 +1011,21 @@ i4 = inv hasrepIso
 
 #endif
 
-reverseFinite :: forall n. KnownNat n => Finite n -> Finite n
-reverseFinite i = finite (nat @n) - i - 1
-{-# INLINE reverseFinite #-}
+#if 1
+
+reverseFin :: forall a. HasFin' a => a -> a
+reverseFin = unFin . reverseFinite . toFin
+{-# INLINE reverseFin #-}
+
+reverseFinIso :: HasFin' a => a <-> a
+reverseFinIso = involution reverseFin
+{-# INLINE reverseFinIso #-}
+
+#else
+
+-- This alternative leads to a compilation error when compiling reverseF with
+-- the concat plugin: "Join points can be bound only by a non-top-level let".
+-- Investigating.
 
 reverseFiniteIso :: KnownNat n => Finite n <-> Finite n
 reverseFiniteIso = involution reverseFinite
@@ -1022,8 +1035,13 @@ reverseFinIso :: HasFin' a => a <-> a
 reverseFinIso = reverseFiniteIso `via` fin
 {-# INLINE reverseFinIso #-}
 
+#endif
+
+reverseFinite :: forall n. KnownNat n => Finite n -> Finite n
+reverseFinite i = finite (nat @n - 1) - i
+{-# INLINE reverseFinite #-}
+
 -- | Reverse the order of a representable functor.
 reverseF :: forall f a. (Representable f, HasFin' (Rep f)) => f a -> f a
 reverseF = isoFwd (reindex reverseFinIso)
 {-# INLINE reverseF #-}
-
