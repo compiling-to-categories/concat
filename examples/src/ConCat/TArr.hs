@@ -1,10 +1,11 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
@@ -47,14 +48,9 @@ import GHC.TypeLits
 import GHC.Types (Nat)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import GHC.Exts (Coercible,coerce)
--- import Data.Proxy
--- import Data.Tuple            (swap)
 
-import Data.Finite.Internal  (Finite(..))
-import Data.Finite  (finite)
 import Data.Vector.Sized (Vector)
 import qualified Data.Vector.Generic.Sized.Internal
--- import qualified Data.Vector.Sized as V
 import Control.Newtype.Generics
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..),distributeRep)
@@ -278,7 +274,7 @@ instance HasFin () where
 
 instance HasFin Bool where
   type Card Bool = 2
-  fin = (Finite . cond 1 0) :<-> (\ (Finite n) -> n > 0)
+  fin = (unsafeFinite . cond 1 0) :<-> (\ (unFinite -> n) -> n > 0)
 
 instance KnownNat n => HasFin (Finite n) where
   type Card (Finite n) = n
@@ -1003,9 +999,7 @@ reverseFinIso = involution reverseFin
 
 #else
 
--- This alternative leads to a compilation error when compiling reverseF with
--- the concat plugin: "Join points can be bound only by a non-top-level let".
--- Investigating.
+-- This version yields a much more complex compilation result for reverseF.
 
 reverseFiniteIso :: KnownNat n => Finite n <-> Finite n
 reverseFiniteIso = involution reverseFinite
