@@ -37,7 +37,6 @@ import GHC.TypeLits (KnownNat)
 
 import Data.Functor.Rep (Representable(tabulate))
 import qualified Data.Functor.Rep as R
-import Data.Finite (Finite)
 import Data.Vector.Sized (Vector)
 
 import qualified ConCat.Category

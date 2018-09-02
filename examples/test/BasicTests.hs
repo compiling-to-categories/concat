@@ -31,7 +31,6 @@ import           ConCat.Rebox ()
 import           ConCat.Shaped
 import           Control.Applicative (liftA2)
 import           Data.Distributive
-import           Data.Finite
 import           Data.Functor.Rep
 import           Data.Key
 import           Data.Pointed
