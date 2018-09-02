@@ -315,9 +315,11 @@ natValAt = nat @n
 -- Shorter name
 nat :: forall n. KnownNat n => Integer
 nat = natVal (Proxy @n)
+{-# INLINE nat #-}
 
 int :: forall n. KnownNat n => Int
-int = fromIntegral (natValAt @n)
+int = fromIntegral (nat @n)
+{-# INLINE int #-}
 
 {--------------------------------------------------------------------
     Newtype
