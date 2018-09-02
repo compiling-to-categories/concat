@@ -120,9 +120,12 @@ grey, gray :: R -> Color
 grey x = rgb x x x
 gray = grey
 
+instance Semigroup Color where
+  (<>) = overC
+
 instance Monoid Color where
   mempty  = clear
-  mappend = overC
+  mappend = (<>)
 
 {--------------------------------------------------------------------
     Conversion to color
