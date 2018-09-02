@@ -158,8 +158,6 @@ import System.Exit (ExitCode(ExitSuccess))
 #ifdef VectorSized
 import GHC.TypeLits (Nat,KnownNat)
 import Data.Vector.Sized (Vector)
-import Data.Finite (Finite)
--- import ConCat.Finite (Finite,Vector,HasFin,Arr)
 #endif
 #ifdef WithArr
 import ConCat.TArr (HasFin',Arr)
@@ -184,7 +182,7 @@ import ConCat.Additive (Additive(..),Add)
 import ConCat.Category  -- AltCat instead?
 import qualified ConCat.AltCat  -- for AbsTy
 import qualified ConCat.AltCat as A
-import ConCat.AltCat (Uncurriable(..),funIf,repIf,unitIf,prodIf)
+import ConCat.AltCat (Uncurriable(..),funIf,repIf,unitIf,prodIf,Finite)
 
 {--------------------------------------------------------------------
     Buses
@@ -494,10 +492,10 @@ instance (GenBuses a, GenBuses b) => GenBuses (a -> b) where
   ty = ty @a `Fun` ty @b
   unflattenB' = unflattenPrimB
 
-flattenB :: GenBuses a => Buses a -> [Source]
+flattenB :: Buses a -> [Source]
 flattenB = toList . flat
  where
-   flat :: forall a. GenBuses a => Buses a -> Seq Source
+   flat :: Buses c -> Seq Source
    flat UnitB        = mempty
    flat (PrimB s)    = singleton s
    flat (ProdB a b)  = flat a <> flat b
@@ -573,7 +571,7 @@ type IdSupply = Id
 
 -- Component: primitive instance with inputs & outputs. Numbered consistently
 -- with dependency partial ordering.
-data Comp = forall a b. Ok2 (:>) a b => Comp CompId (Template a b) (Buses a) (Buses b)
+data Comp = forall a b. Ok (:>) b => Comp CompId (Template a b) (Buses a) (Buses b)
 
 deriving instance Show Comp
 
@@ -604,7 +602,7 @@ genId = do n <- M.gets fst
 type BCirc a b = Buses a -> CircuitM (Buses b)
 
 -- Instantiate a 'Prim'
-genComp :: forall a b. Ok2 (:>) a b => Template a b -> BCirc a b
+genComp :: forall a b. Ok (:>) b => Template a b -> BCirc a b
 #if !defined NoHashCons
 genComp templ a =
   -- trace ("genComp " ++ name ++ ". b == " ++ show (ty @b)) $
@@ -749,7 +747,7 @@ inCK2 = inCK <~ unmkCK
 inCKF1 :: Functor h => (h (BCirc a a') -> BCirc b b') -> (h (a :> a') -> (b :> b'))
 inCKF1 = mkCK <~ fmap unmkCK
 
-namedC :: Ok2 (:>) a b => PrimName -> a :> b
+namedC :: Ok (:>) b => PrimName -> a :> b
 -- namedC name = primOpt name noOpt
 namedC name = -- trace ("namedC " ++ name) $
               mkCK (genComp (Prim name))
@@ -1774,28 +1772,8 @@ instance (IfCat (:>) a, IfCat (:>) b) => IfCat (:>) (a :* b) where
   ifC = prodIf
 
 instance FiniteCat (:>) where
-  -- finite = namedC "finite"
-  combineZero  :: Void :> Finite 0
-  combineZero = namedC "combineZero"
-  separateZero :: Finite 0 :> Void
-  separateZero = namedC "separateZero"
-  combineOne  :: () :> Finite 1
-  combineOne = namedC "combineOne"
-  separateOne :: Finite 1 :> ()
-  separateOne = namedC "separateOne"
-  combineSum :: forall m n. KnownNat2 m n => (Finite m :+ Finite n) :> Finite (m + n)
-  combineSum = namedC "combineSum" \\ knownAdd @m @n
-  separateSum :: forall m n. KnownNat2 m n => Finite (m + n) :> (Finite m :+ Finite n)
-  separateSum = namedC "separateSum" \\ knownAdd @m @n
-  combineProd :: forall m n. KnownNat2 m n => (Finite m :* Finite n) :> Finite (m * n)
-  combineProd = namedC "combineProd" \\ knownMul @m @n
-  separateProd :: forall m n. KnownNat2 m n => Finite (m * n) :> (Finite m :* Finite n)
-  separateProd = namedC "separateProd" \\ knownMul @m @n
-
--- Without these entailments, we get "Could not deduce KnownNat (m + n)." Needs
--- -fplugin GHC.TypeLits.KnownNat.Solver, but then this module will always
--- recompile, (just as ConCat.TArr does now) until
--- https://github.com/ghc-proposals/ghc-proposals/pull/108#issuecomment-361932782.
+  unsafeFinite = namedC "unsafeFinite"
+  unFinite     = namedC "unFinite"
 
 {--------------------------------------------------------------------
     Running
@@ -2116,7 +2094,7 @@ simpleComp (Comp n prim a b) = CompS n (show prim) (flatB a) (flatB b)
 -- pattern CompS :: CompId -> String -> [Bus] -> [Bus] -> Comp
 -- pattern CompS cid name ins outs <- Comp cid (Prim name) (flatB -> ins) (flatB -> outs)
 
-flatB :: GenBuses c => Buses c -> [Bus]
+flatB :: {- GenBuses c => -} Buses c -> [Bus]
 flatB = fmap sourceBus . flattenB
 
 data Dir = In | Out deriving Show

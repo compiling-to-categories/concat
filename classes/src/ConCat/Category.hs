@@ -59,7 +59,6 @@ import qualified Data.Type.Coercion as Co
 import GHC.Types (Constraint, Type)
 import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import Debug.Trace
-import Data.Void
 import Data.Monoid
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import GHC.TypeLits
@@ -2479,47 +2478,17 @@ instance (IxCoproductPCat k h, IxCoproductPCat k' h, Zip h)
     Finite
 --------------------------------------------------------------------}
 
-type KnownNat2 m n = (KnownNat m, KnownNat n)
-
 class FiniteCat k where
-  -- finite       :: (KnownNat2 a m, a + 1 <= m) => Proxy a `k` Finite m
-  combineZero  :: Void `k` Finite 0
-  separateZero :: Finite 0 `k` Void
-  combineOne   :: () `k` Finite 1
-  separateOne  :: Finite 1 `k` ()
-  combineSum   :: KnownNat2 m n => (Finite m :+ Finite n) `k` Finite (m + n)
-  separateSum  :: KnownNat2 m n => Finite (m + n) `k` (Finite m :+ Finite n)
-  combineProd  :: KnownNat2 m n => (Finite m :* Finite n) `k` Finite (m * n)
-  separateProd :: KnownNat2 m n => Finite (m * n) `k` (Finite m :* Finite n)
+  unFinite     ::               Finite n `k` Int
+  unsafeFinite :: KnownNat n => Int `k` Finite n
 
 instance FiniteCat (->) where
-  -- finite :: forall a m. (KnownNat2 a m, a + 1 <= m) => Proxy a -> Finite m
-  -- finite p = Finite (natVal p)
-  combineZero  :: Void -> Finite 0
-  combineZero = absurd
-  separateZero :: Finite 0 -> Void
-  separateZero = error "no Finite 0"  -- Hm.
-  combineOne   :: () -> Finite 1
-  combineOne = const (Finite 0)
-  separateOne  :: Finite 1 -> ()
-  separateOne = const ()
-  combineSum :: forall m n. KnownNat2 m n => (Finite m :+ Finite n) -> Finite (m + n)
-  combineSum (Left  (Finite l)) = Finite l
-  combineSum (Right (Finite k)) = Finite (nat @m + k)
-  separateSum :: forall m n. KnownNat2 m n => Finite (m + n) -> (Finite m :+ Finite n)
-  separateSum (Finite l) | l < m     = Left  (Finite l)
-                         | otherwise = Right (Finite (l - m))
-    where
-      m = nat @m
-  combineProd :: forall m n. KnownNat2 m n => (Finite m :* Finite n) -> Finite (m * n)
-  combineProd (Finite l, Finite k) = Finite (nat @n * l + k)
-  separateProd :: forall m n. KnownNat2 m n => Finite (m * n) -> (Finite m :* Finite n)
-  separateProd (Finite l) = (Finite q, Finite r) where (q,r) = l `divMod` nat @n
-  -- {-# OPINLINE finite #-}
-  {-# OPINLINE combineSum #-}
-  {-# OPINLINE separateSum #-}
-  {-# OPINLINE combineProd #-}
-  {-# OPINLINE separateProd #-}
+  unsafeFinite :: KnownNat n => Int -> Finite n
+  unsafeFinite n = Finite (fromIntegral n)
+  unFinite :: Finite n -> Int
+  unFinite (Finite n) = fromInteger n
+  {-# OPINLINE unsafeFinite #-}
+  {-# OPINLINE unFinite #-}
 
 #if 0
 {--------------------------------------------------------------------

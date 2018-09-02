@@ -296,6 +296,10 @@ instance Pretty b => ConstCat Syn b where
 
 -- Some or all of the methods below are failing to inline
 
+instance FiniteCat Syn where
+  unsafeFinite = app0 "unsafeFinite"
+  unFinite     = app0 "unFinite"
+
 instance BoolCat Syn where
   notC = app0 "notC"
   andC = app0 "andC"

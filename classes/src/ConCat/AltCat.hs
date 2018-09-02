@@ -12,6 +12,8 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- For Uncurriable:
 {-# LANGUAGE TypeFamilies          #-}
@@ -40,7 +42,7 @@
 
 #include "ConCat/Ops.inc"
 
-module ConCat.AltCat (module ConCat.AltCat, module C, oops) where
+module ConCat.AltCat (module ConCat.AltCat, module C, Finite, oops) where
 
 import Prelude hiding (id,(.),curry,uncurry,const,unzip,zip,zipWith)
 import qualified Prelude as P
@@ -69,12 +71,13 @@ import Data.Vector.Sized (Vector)
 
 import ConCat.Misc
   ( (:*),(:+),(:^),Binop, unzip,PseudoFun(..),oops,type (&&),type (&+&)
-  , result, C1,C2,C3,C4,C5,C6 )
+  , result, C1,C2,C3,C4,C5,C6, int )
 import ConCat.Rep hiding (Rep)
 import qualified ConCat.Rep as R
 import ConCat.Additive
 import qualified ConCat.Category as C
 import ConCat.Satisfy
+import ConCat.Known
 
 import ConCat.Category
   ( Category, Ok,Ok2,Ok3,Ok4,Ok5,Ok6, Ok', (<~), (~>), Show2(..)
@@ -104,7 +107,7 @@ import ConCat.Category
   -- Functor-level. To be removed.
   , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat
   , DistributiveCat,RepresentableCat 
-  , KnownNat2, FiniteCat
+  , FiniteCat
   , fmap', liftA2' 
   -- 
   -- , crossSecondFirst
@@ -1040,15 +1043,51 @@ collectC f = distribute . fmap f
 
 Catify(collect, collectC)
 
--- Op0(finite       , (FiniteCat k, KnownNat2 a m, a + 1 <= m) => Proxy a `k` Finite m)
-Op0(combineZero  , FiniteCat k => Void `k` Finite 0)
-Op0(separateZero , FiniteCat k => Finite 0 `k` Void)
-Op0(combineOne   , FiniteCat k => () `k` Finite 1)
-Op0(separateOne  , FiniteCat k => Finite 1 `k` ())
-Op0(combineSum   , (FiniteCat k, KnownNat2 m n) => (Finite m :+ Finite n) `k` Finite (m + n))
-Op0(separateSum  , (FiniteCat k, KnownNat2 m n) => Finite (m + n) `k` (Finite m :+ Finite n))
-Op0(combineProd  , (FiniteCat k, KnownNat2 m n) => (Finite m :* Finite n) `k` Finite (m * n))
-Op0(separateProd , (FiniteCat k, KnownNat2 m n) => Finite (m * n) `k` (Finite m :* Finite n))
+Op0(unFinite     ,  FiniteCat k              => Finite n `k` Int)
+Op0(unsafeFinite , (FiniteCat k, KnownNat n) => Int `k` Finite n)
+
+-- TODO: Maybe move the following utilities to ConCat.TArr or elsewhere. 
+
+combineZero  :: Void -> Finite 0
+combineZero = absurd
+{-# INLINE combineZero #-}
+
+separateZero :: Finite 0 -> Void
+separateZero = error "no Finite 0"  -- Hm.
+{-# INLINE separateZero #-}
+
+combineOne   :: () -> Finite 1
+combineOne () = unsafeFinite 0
+{-# INLINE combineOne #-}
+
+separateOne  :: Finite 1 -> ()
+separateOne = const ()
+{-# INLINE separateOne #-}
+
+type KnownNat2 m n = (KnownNat m, KnownNat n)
+
+combineSum :: forall m n. KnownNat2 m n => (Finite m :+ Finite n) -> Finite (m + n)
+combineSum (Left  l) = unsafeFinite (unFinite l)          \\ knownAdd @m @n
+combineSum (Right k) = unsafeFinite (int @m + unFinite k) \\ knownAdd @m @n
+{-# INLINE combineSum #-}
+
+separateSum :: forall m n. KnownNat2 m n => Finite (m + n) -> (Finite m :+ Finite n)
+separateSum (unFinite -> x) | x < m     = Left  (unsafeFinite x)
+                            | otherwise = Right (unsafeFinite (x - m))
+  where
+    m = int @m
+{-# INLINE separateSum #-}
+
+combineProd :: forall m n. KnownNat2 m n => (Finite m :* Finite n) -> Finite (m * n)
+combineProd (unFinite -> l, unFinite -> k) =
+  unsafeFinite (int @n * l + k) \\ knownMul @m @n
+{-# INLINE combineProd #-}
+
+separateProd :: forall m n. KnownNat2 m n => Finite (m * n) -> (Finite m :* Finite n)
+separateProd (unFinite -> l) = (unsafeFinite q, unsafeFinite r)
+  where
+    (q,r) = l `divMod` int @n
+{-# INLINE separateProd #-}
 
 {-# RULES
 
