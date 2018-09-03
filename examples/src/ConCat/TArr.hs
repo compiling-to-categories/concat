@@ -268,10 +268,12 @@ type HasFin' a = (KnownCard a, HasFin a)
 instance HasFin Void where
   type Card Void = 0
   fin = finU1
+  {-# INLINE fin #-}
 
 instance HasFin () where
   type Card () = 1
   fin = finPar1
+  {-# INLINE fin #-}
 
 instance HasFin Bool where
   type Card Bool = 2
@@ -281,6 +283,7 @@ instance HasFin Bool where
 instance KnownNat n => HasFin (Finite n) where
   type Card (Finite n) = n
   fin = id
+  {-# INLINE fin #-}
 
 -- Moving KnownCard from HasFin to HasFin' solves the puzzle of persuading GHC
 -- that KnownCard (a :+ b), a superclass constraint for HasFin (a :+ b). When
@@ -291,19 +294,18 @@ instance (HasFin' a, HasFin' b) => HasFin (a :+ b) where
   type Card (a :+ b) = Card a + Card b
   fin = finSum . (fin +++ fin)
   -- fin = (combineSum :<-> separateSum) . (fin +++ fin)
+  {-# INLINE fin #-}
 
 instance (HasFin' a, HasFin' b) => HasFin (a :* b) where
   type Card (a :* b) = Card a * Card b
   fin = finProd . (fin *** fin)
   -- fin = (combineProd :<-> separateProd) . (fin *** fin)
-
--- instance (HasFin' a, HasFin' b) => HasFin (a :* b) where
---   type Card (a :* b) = Card a * Card b
---   fin = finProd . (fin *** fin)
+  {-# INLINE fin #-}
 
 -- instance (HasFin a, HasFin b) => HasFin (a :^ b) where
 --   type Card (a :^ b) = Card a ^ Card b
 --   fin = finExp . (exFin :<-> inFin)
+--   {-# INLINE fin #-}
 
 {----------------------------------------------------------------------
   Domain-typed "arrays"
