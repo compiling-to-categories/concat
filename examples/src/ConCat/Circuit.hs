@@ -792,7 +792,8 @@ orOpt f g a = do mb <- f a
                    Nothing -> g a
                    Just _  -> return mb
 
-primOpt, primOptSort :: Ok2 (:>) a b => PrimName -> Opt b -> a :> b
+primOpt     :: Ok  (:>)   b => PrimName -> Opt b -> a :> b
+primOptSort :: Ok2 (:>) a b => PrimName -> Opt b -> a :> b
 #if !defined NoOptimizeCircuit
 
 -- primOpt name _ = mkCK (genComp (Template name))
@@ -1770,9 +1771,15 @@ instance IfCat (:>) () where ifC = unitIf
 instance (IfCat (:>) a, IfCat (:>) b) => IfCat (:>) (a :* b) where
   ifC = prodIf
 
+pattern UnsafeFiniteS :: Source -> Source
+pattern UnsafeFiniteS a <- PSource _ "unsafeFinite" [a]
+
 instance FiniteCat (:>) where
   unsafeFinite = namedC "unsafeFinite"
-  unFinite     = namedC "unFinite"
+  -- unFinite     = namedC "unFinite"
+  unFinite     = primOpt "unFinite" $ \case
+                   [UnsafeFiniteS x] -> sourceB x
+                   _                 -> nothingA
 
 {--------------------------------------------------------------------
     Running
