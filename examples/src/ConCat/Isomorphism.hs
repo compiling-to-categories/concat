@@ -139,6 +139,7 @@ repIso = index :<-> tabulate
 
 reindex :: (Representable f, Representable g) => (Rep g <-> Rep f) -> (f <--> g)
 reindex h = inv repIso . dom h . repIso
+{-# INLINE reindex #-}
 
 #if 0
 
