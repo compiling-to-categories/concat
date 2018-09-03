@@ -36,8 +36,8 @@ module ConCat.TArr
   , Arr(..),Flat,flat,toFlat,unFlat
   , vecU1, vecPar1, vecProd, vecComp
   , arrU1, arrPar1, arrProd, arrComp
-  --, reverseFiniteIso, reverseFinIso
-  , reverseF, reverseFinite
+  --, reverseFiniteIso
+  , reverseF, reverseFinite, reverseFinIso
   ) where
 
 import Prelude hiding (id, (.), const, curry, uncurry)  -- Coming from ConCat.AltCat.
@@ -56,6 +56,7 @@ import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..),distributeRep)
 import Data.Constraint ((\\))
 import Data.Void
+-- import Data.Finite.Internal (Finite(..))  -- TEMP
 
 import ConCat.Misc ((:+), (:*), cond,int)
 import qualified ConCat.Rep as R
@@ -275,6 +276,7 @@ instance HasFin () where
 instance HasFin Bool where
   type Card Bool = 2
   fin = (unsafeFinite . cond 1 0) :<-> (\ (unFinite -> n) -> n > 0)
+  {-# INLINE fin #-}
 
 instance KnownNat n => HasFin (Finite n) where
   type Card (Finite n) = n
@@ -999,7 +1001,9 @@ reverseFinIso = involution reverseFin
 
 #else
 
--- This version yields a much more complex compilation result for reverseF.
+-- This version yields a much more complex compilation result for reverseF, and
+-- now it triggers a compilation error ("The type of this binder is unlifted:
+-- wild_am4m Binder's type: Int#").
 
 reverseFiniteIso :: KnownNat n => Finite n <-> Finite n
 reverseFiniteIso = involution reverseFinite
@@ -1012,11 +1016,13 @@ reverseFinIso = reverseFiniteIso `via` fin
 #endif
 
 reverseFinite :: forall n. KnownNat n => Finite n -> Finite n
--- reverseFinite i = finite (nat @n - 1) - i
 reverseFinite i = unsafeFinite (int @n - 1 - unFinite i)
 {-# INLINE reverseFinite #-}
 
 -- reverseFinite (Finite i) = finite (nat @n - 1 - i)
+
+-- -- Rule "reverseFinIso @Bool" may never fire because 'reverseFinIso' might inline first.
+-- {-# RULES "reverseFinIso @Bool" reverseFinIso = involution not #-}
 
 -- | Reverse the order of a representable functor.
 reverseF :: forall f a. (Representable f, HasFin' (Rep f)) => f a -> f a
