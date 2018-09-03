@@ -1043,7 +1043,7 @@ collectC f = distribute . fmap f
 
 Catify(collect, collectC)
 
-Op0(unFinite     ,  FiniteCat k              => Finite n `k` Int)
+Op0(unFinite     , (FiniteCat k, KnownNat n) => Finite n `k` Int)
 Op0(unsafeFinite , (FiniteCat k, KnownNat n) => Int `k` Finite n)
 
 {-# RULES
@@ -1071,27 +1071,33 @@ separateOne = const ()
 
 type KnownNat2 m n = (KnownNat m, KnownNat n)
 
-combineSum :: forall m n. KnownNat2 m n => (Finite m :+ Finite n) -> Finite (m + n)
+combineSum :: forall m n. KnownNat2 m n
+           => (Finite m :+ Finite n) -> Finite (m + n)
 combineSum (Left  l) = unsafeFinite (unFinite l)          \\ knownAdd @m @n
 combineSum (Right k) = unsafeFinite (int @m + unFinite k) \\ knownAdd @m @n
 {-# INLINE combineSum #-}
 
-separateSum :: forall m n. KnownNat2 m n => Finite (m + n) -> (Finite m :+ Finite n)
-separateSum (unFinite -> x) | x < m     = Left  (unsafeFinite x)
-                            | otherwise = Right (unsafeFinite (x - m))
-  where
-    m = int @m
+separateSum :: forall m n. KnownNat2 m n
+            => Finite (m + n) -> (Finite m :+ Finite n)
+separateSum (unFinite \\ knownAdd @m @n -> x)
+  | x < m     = Left  (unsafeFinite x)
+  | otherwise = Right (unsafeFinite (x - m))
+ where
+   m = int @m
 {-# INLINE separateSum #-}
 
-combineProd :: forall m n. KnownNat2 m n => (Finite m :* Finite n) -> Finite (m * n)
+combineProd :: forall m n. KnownNat2 m n
+            => (Finite m :* Finite n) -> Finite (m * n)
 combineProd (unFinite -> l, unFinite -> k) =
   unsafeFinite (int @n * l + k) \\ knownMul @m @n
 {-# INLINE combineProd #-}
 
-separateProd :: forall m n. KnownNat2 m n => Finite (m * n) -> (Finite m :* Finite n)
-separateProd (unFinite -> l) = (unsafeFinite q, unsafeFinite r)
-  where
-    (q,r) = l `divMod` int @n
+separateProd :: forall m n. KnownNat2 m n
+             => Finite (m * n) -> (Finite m :* Finite n)
+separateProd (unFinite \\ knownMul @m @n -> x) =
+  (unsafeFinite q, unsafeFinite r)
+ where
+   (q,r) = x `divMod` int @n
 {-# INLINE separateProd #-}
 
 {-# RULES

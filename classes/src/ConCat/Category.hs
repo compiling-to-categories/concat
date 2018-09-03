@@ -2471,7 +2471,7 @@ instance (IxCoproductPCat k h, IxCoproductPCat k' h, Zip h)
 --------------------------------------------------------------------}
 
 class FiniteCat k where
-  unFinite     ::               Finite n `k` Int
+  unFinite     :: KnownNat n => Finite n `k` Int
   unsafeFinite :: KnownNat n => Int `k` Finite n
 
 instance FiniteCat (->) where
