@@ -1046,6 +1046,11 @@ Catify(collect, collectC)
 Op0(unFinite     ,  FiniteCat k              => Finite n `k` Int)
 Op0(unsafeFinite , (FiniteCat k, KnownNat n) => Int `k` Finite n)
 
+{-# RULES
+"unFinite . unsafeFinite" unFinite . unsafeFinite = id
+"unsafeFinite . unFinite" unsafeFinite . unFinite = id
+ #-}
+
 -- TODO: Maybe move the following utilities to ConCat.TArr or elsewhere. 
 
 combineZero  :: Void -> Finite 0
