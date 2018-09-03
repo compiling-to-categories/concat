@@ -417,7 +417,7 @@ genPrimBus = genBus PrimB (ty @a)
 --    flat (ProdB a b)  = flat a <> flat b
 --    flat (ConvertB b) = flat b
 
-unflattenPrimB :: GenBuses a => State [Source] (Buses a)
+unflattenPrimB :: State [Source] (Buses a)
 unflattenPrimB = do ss0 <- M.get
                     case ss0 of
                       s:ss -> do M.put ss
@@ -1777,9 +1777,11 @@ pattern UnsafeFiniteS a <- PSource _ "unsafeFinite" [a]
 instance FiniteCat (:>) where
   unsafeFinite = namedC "unsafeFinite"
   -- unFinite     = namedC "unFinite"
-  unFinite     = primOpt "unFinite" $ \case
-                   [UnsafeFiniteS x] -> sourceB x
-                   _                 -> nothingA
+  unFinite :: forall n. KnownNat n => Finite n :> Int
+  unFinite = primOpt "unFinite" $ \case
+               [ValT(x,Finite n)] -> newVal (unFinite x)
+               [UnsafeFiniteS x]  -> sourceB x
+               _                  -> nothingA
 
 {--------------------------------------------------------------------
     Running
