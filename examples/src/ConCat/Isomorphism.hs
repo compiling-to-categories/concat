@@ -103,9 +103,12 @@ instance OkFunctor k h => OkFunctor (Iso k) h where
 instance (FunctorCat k h, ZipCat k h) => FunctorCat (Iso k) h where
   fmapC (f :<-> f') = fmapC f :<-> fmapC f'
   unzipC = unzipC :<-> zipC
+  {-# INLINE fmapC #-}
+  {-# INLINE unzipC #-}
 
 instance (FunctorCat k h, ZipCat k h) => ZipCat (Iso k) h where
   zipC = zipC :<-> unzipC
+  {-# INLINE zipC #-}
 
 -- pure'
 -- liftA2'
@@ -130,12 +133,15 @@ pattern Iso f f' = f :<-> f'
 
 newIso :: Newtype a => a <-> O a
 newIso = unpack :<-> pack
+{-# INLINE newIso #-}
 
 hasrepIso :: R.HasRep a => a <-> R.Rep a
 hasrepIso = R.repr :<-> R.abst
+{-# INLINE hasrepIso #-}
 
 repIso :: Representable f => f a <-> (Rep f -> a)
 repIso = index :<-> tabulate
+{-# INLINE repIso #-}
 
 reindex :: (Representable f, Representable g) => (Rep g <-> Rep f) -> (f <--> g)
 reindex h = inv repIso . dom h . repIso
