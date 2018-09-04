@@ -17,15 +17,20 @@ packages:
   - verilog
   - netlist-to-verilog
   extra-dep: true
+- location: # Until vector-sized-1.0.4.1 is on Hackage
+    git: https://github.com/expipiplus1/vector-sized
+    commit: f80e3ce774d255ee4ba25fcb12a81a76f600e0b0
+  extra-dep: true
 extra-deps:
   # The next three provide instances for GHC.Generics
   - pointed-5.0.1
   - keys-3.12
   - adjunctions-4.4
   - z3-4.3.1         ## For the SMT category
-  - vector-sized-1.0.0.0
-  - indexed-list-literals-0.1.0.1
-  # The next three are for ConCat.Finite
+  # - vector-sized-1.0.0.0
+  # - vector-sized-1.0.4.1
+  # - indexed-list-literals-0.1.0.1
+  - indexed-list-literals-0.2.1.1 # Needed by vector-sized-1.0.4.1
   - ghc-typelits-knownnat-0.5
   - ghc-typelits-natnormalise-0.6.1
   - ghc-tcplugins-extra-0.3
