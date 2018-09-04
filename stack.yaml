@@ -27,8 +27,7 @@ extra-deps:
   - keys-3.12
   - adjunctions-4.4
   - z3-4.3.1         ## For the SMT category
-  # - vector-sized-1.0.0.0
-  # - vector-sized-1.0.4.1
+  # - vector-sized-1.0.4.1  # For GHC 8.6. See above.
   # - indexed-list-literals-0.1.0.1
   - indexed-list-literals-0.2.1.1 # Needed by vector-sized-1.0.4.1
   - ghc-typelits-knownnat-0.5
