@@ -107,6 +107,7 @@ library
                        -- ConCat.Finite
                        ConCat.Chain
                        ConCat.StackVM
+                       ConCat.Distribution
   if flag(smt)
     exposed-modules: ConCat.SMT
   ghc-options:      -O2

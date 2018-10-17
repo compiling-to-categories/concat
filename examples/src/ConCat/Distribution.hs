@@ -9,79 +9,82 @@
 
 -- | 
 
-module ConCat.Distrib where
+module ConCat.Distribution where
 
 import Prelude hiding (id,(.))
 
-import Data.Map -- (Map,fromList,toList,singleton,unionsWith,mapKeys)
--- import qualified Data.Map as M
+import Data.Map
 
 import ConCat.Misc (R)
 import ConCat.AltCat
 import qualified ConCat.Category
 
 -- | Distribution category
-newtype Distrib a b = Distrib (a -> Map b R)
+newtype Dist a b = Dist (a -> Map b R)
 
--- TODO: generalize Distrib to a category transformer
+-- TODO: generalize Dist to a category transformer
 
 -- | The one category-specific operation.
-distrib :: (a -> Map b R) -> Distrib a b
-distrib = Distrib
+distrib :: (a -> Map b R) -> Dist a b
+distrib = Dist
 
 -- TODO: Perhaps replace 'distrib' with a simpler alternative.
 
 -- | Embed a regular deterministic function
-exactly :: (a -> b) -> Distrib a b
-exactly f = Distrib (flip singleton 1 . f)
--- exactly f = Distrib (\ a -> singleton (f a) 1)
+exactly :: (a -> b) -> Dist a b
+exactly f = Dist (flip singleton 1 . f)
+-- exactly f = Dist (\ a -> singleton (f a) 1)
 
-instance Category Distrib where
-  type Ok Distrib = Ord
+instance Category Dist where
+  type Ok Dist = Ord
   id = exactly id
-  Distrib g . Distrib f = Distrib h
+  Dist g . Dist f = Dist h
    where
      h a = unionsWith (+) [ (p *) <$> g b | (b,p) <- toList (f a) ]
 
-instance AssociativePCat Distrib where
+instance AssociativePCat Dist where
   lassocP = exactly lassocP
   rassocP = exactly rassocP
 
-instance BraidedPCat Distrib where swapP = exactly swapP
+instance BraidedPCat Dist where swapP = exactly swapP
 
-instance MonoidalPCat Distrib where
-  Distrib f *** Distrib g = Distrib h
+instance MonoidalPCat Dist where
+  Dist f *** Dist g = Dist h
    where
      h (a,b) = fromList [ ((c,d),p*q) | (c,p) <- toList (f a), (d,q) <- toList (g b) ]
   -- We could default first and second, but the following may be more efficient:
-  first  (Distrib f) = Distrib (\ (a,b) -> mapKeys (,b) (f a))
-  second (Distrib g) = Distrib (\ (a,b) -> mapKeys (a,) (g b))
+  first  (Dist f) = Dist (\ (a,b) -> mapKeys (,b) (f a))
+  second (Dist g) = Dist (\ (a,b) -> mapKeys (a,) (g b))
      
-instance ProductCat Distrib where
+instance ProductCat Dist where
   exl = exactly exl
   exr = exactly exr
   dup = exactly dup
 
-instance AssociativeSCat Distrib where
+instance AssociativeSCat Dist where
   lassocS = exactly lassocS
   rassocS = exactly rassocS
 
-instance BraidedSCat Distrib where swapS = exactly swapS
+instance BraidedSCat Dist where swapS = exactly swapS
 
-instance MonoidalSCat Distrib where
-  Distrib f +++ Distrib g = Distrib h
+instance MonoidalSCat Dist where
+  Dist f +++ Dist g = Dist h
    where
      h = mapKeys Left . f ||| mapKeys Right . g
   -- We could default left and right, but the following may be more efficient:
-  left  (Distrib f) = Distrib (mapKeys Left . f ||| flip singleton 1 . Right)
-  right (Distrib g) = Distrib (flip singleton 1 . Left ||| mapKeys Right . g)
+  left  (Dist f) = Dist (mapKeys Left . f ||| flip singleton 1 . Right)
+  right (Dist g) = Dist (flip singleton 1 . Left ||| mapKeys Right . g)
 
-instance CoproductCat Distrib where
+-- TODO: test whether the first/second and left/right definitions produce more
+-- efficient implementations than the defaults. Can GHC optimize away the
+-- singleton dictionaries in the defaults?
+
+instance CoproductCat Dist where
   inl = exactly inl
   inr = exactly inr
   jam = exactly jam
 
-instance Num a => ScalarCat Distrib a where
+instance Num a => ScalarCat Dist a where
   scale s = exactly (scale s)
 
 -- TODO: CoproductPCat, DistribCat, ClosedCat.
