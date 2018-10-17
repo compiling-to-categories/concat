@@ -7,7 +7,7 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
--- | 
+-- | A category of probabilistic functions
 
 module ConCat.Distribution where
 
