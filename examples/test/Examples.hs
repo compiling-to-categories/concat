@@ -112,7 +112,6 @@ import Data.Key
 import Data.Distributive
 import Data.Functor.Rep
 import qualified Data.Functor.Rep as FR
-import Data.Finite (Finite)
 import Data.Vector.Sized (Vector)
 
 import ConCat.Misc
@@ -149,6 +148,7 @@ import ConCat.LC
 import ConCat.Deep
 import qualified ConCat.Deep as D
 -- import ConCat.Finite
+import ConCat.Isomorphism
 import ConCat.TArr
 import qualified ConCat.TArr as TA
 
@@ -358,6 +358,26 @@ main = sequence_ [
     -- , runSynCirc "zeroV" $ toCcc $ \ () -> zero @(Vector 7 R)
 
     -- , runSynCirc "addR" $ toCcc $ (^+^) @R
+   
+    -- , runSyn $ toCcc $ \ () -> finite @2 (nat @1) -- okay
+
+    -- , runSyn $ toCcc $ \ (i :: Finite 2) -> finite @2 (nat @2 - 1) -- okay
+
+    -- , runSyn $ toCcc $ \ (i :: Finite 2) -> finite (nat @2 - 1) - i -- okay
+
+    -- , runSyn $ toCcc $ reverseFinite @5  -- Fine
+
+    -- , runSynCirc "reverseFinite" $ toCcc $ reverseFinite @5
+
+    -- , runSynCirc "reverseF-pair" $ toCcc $ reverseF @Pair @Int
+
+    -- , runSynCirc "reverseF-vec" $ toCcc $ reverseF @(Vector 5) @Int
+
+    -- , runSynCirc "reverseFin-Bool-802" $ toCcc $ isoFwd (reverseFinIso @Bool)
+
+    -- , runSynCirc "reverseFin-vec" $ toCcc $ isoFwd (reverseFinIso @(A.Finite 5))
+
+    -- , runSynCirc "reverseFin-Bool-cheat" $ toCcc $ unFin @Bool . (1 -) . toFin @Bool
 
   -- Circuit graphs
   , runSynCirc "add"         $ toCcc $ (+) @R
