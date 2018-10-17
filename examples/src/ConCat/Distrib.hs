@@ -28,7 +28,8 @@ instance Category Distrib where
    where
      -- h = M.fromListWith (+) . concatMap (rescale . first (M.toList . g)) . M.toList . f
      -- rescale (w,q) = second (q *) <$> w
-     h a = M.fromListWith (+) [ (c,p*q) | (b,p) <- toList (f a), (c,q) <- toList (g b) ]
+     -- h a = M.fromListWith (+) [ (c,p*q) | (b,p) <- toList (f a), (c,q) <- toList (g b) ]
+     h a = M.unionsWith (+) [ (p *) <$> g b | (b,p) <- toList (f a) ]
 
 #if 0
 
