@@ -278,6 +278,14 @@ instance OpCon (:*) (Sat Additive) where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
 
+instance OpCon (:+) (Sat Eq) where
+  inOp = Entail (Sub Dict)
+  {-# INLINE inOp #-}
+
+instance OpCon (:+) (Sat Ord) where
+  inOp = Entail (Sub Dict)
+  {-# INLINE inOp #-}
+
 instance OpCon (->) (Sat Additive) where
   inOp = Entail (Sub Dict)
   {-# INLINE inOp #-}
@@ -571,6 +579,8 @@ f ||| g = jam . (f +++ g)
         <+ okCoprod @k @a @a
         <+ okCoprod @k @c @d
 {-# INLINE (|||) #-}
+
+instance AssociativeSCat (->)
 
 instance MonoidalSCat (->) where
   (+++) = (A.+++)
