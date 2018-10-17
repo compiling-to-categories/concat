@@ -26,8 +26,9 @@ instance Category Distrib where
   id = Distrib (\ a -> M.singleton a 1)
   Distrib g . Distrib f = Distrib h
    where
-     h = M.fromListWith (+) . concatMap (rescale . first (M.toList . g)) . M.toList . f
-     rescale (w,q) = second (q *) <$> w
+     -- h = M.fromListWith (+) . concatMap (rescale . first (M.toList . g)) . M.toList . f
+     -- rescale (w,q) = second (q *) <$> w
+     h a = M.fromListWith (+) [ (c,p*q) | (b,p) <- toList (f a), (c,q) <- toList (g b) ]
 
 #if 0
 
