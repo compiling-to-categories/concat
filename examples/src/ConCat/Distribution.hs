@@ -42,6 +42,10 @@ instance Category Dist where
    where
      h a = unionsWith (+) [ (p *) <$> g b | (b,p) <- toList (f a) ]
 
+-- Finite maps here denote total functions with missing entries being implicitly
+-- zero. If so, equality should probably treat explicit zeros as missing entries
+-- as the same. It might be worth removing the zero values as they arise.
+
 instance AssociativePCat Dist where
   lassocP = exactly lassocP
   rassocP = exactly rassocP
@@ -55,6 +59,9 @@ instance MonoidalPCat Dist where
   -- We could default first and second, but the following may be more efficient:
   first  (Dist f) = Dist (\ (a,b) -> mapKeys (,b) (f a))
   second (Dist g) = Dist (\ (a,b) -> mapKeys (a,) (g b))
+
+-- TODO: define (***) less expensively by using toAscList and fromAscList and
+-- relying on lexicographic ordering for correctness.
      
 instance ProductCat Dist where
   exl = exactly exl
