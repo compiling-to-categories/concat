@@ -20,15 +20,21 @@ import ConCat.Misc (R)
 import ConCat.AltCat
 import qualified ConCat.Category
 
+-- | Distribution category
 newtype Distrib a b = Distrib (a -> Map b R)
 
 -- TODO: generalize Distrib to a category transformer
 
--- TODO: Maybe generalize to semirings
+-- | The one category-specific operation.
+distrib :: (a -> Map b R) -> Distrib a b
+distrib = Distrib
 
+-- TODO: Perhaps replace 'distrib' with a simpler alternative.
+
+-- | Embed a regular deterministic function
 exactly :: (a -> b) -> Distrib a b
--- exactly f = Distrib (\ a -> singleton (f a) 1)
 exactly f = Distrib (flip singleton 1 . f)
+-- exactly f = Distrib (\ a -> singleton (f a) 1)
 
 instance Category Distrib where
   type Ok Distrib = Ord
@@ -56,8 +62,6 @@ instance ProductCat Distrib where
   exr = exactly exr
   dup = exactly dup
 
--- TODO: coproducts and closure.
-
 instance AssociativeSCat Distrib where
   lassocS = exactly lassocS
   rassocS = exactly rassocS
@@ -81,3 +85,7 @@ instance Num a => ScalarCat Distrib a where
   scale s = exactly (scale s)
 
 -- TODO: CoproductPCat, DistribCat, ClosedCat.
+
+-- TODO: vocabulary specific to this category.
+
+
