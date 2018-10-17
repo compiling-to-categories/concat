@@ -5,7 +5,7 @@
 {-# LANGUAGE CPP #-}
 
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
+-- {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
 -- | A category of probabilistic functions
 
@@ -36,7 +36,7 @@ exactly f = Dist (flip singleton 1 . f)
 -- exactly f = Dist (\ a -> singleton (f a) 1)
 
 instance Category Dist where
-  type Ok Dist = Ord
+  type Ok Dist = Ord  -- needed for Map keys
   id = exactly id
   Dist g . Dist f = Dist h
    where
@@ -88,7 +88,3 @@ instance Num a => ScalarCat Dist a where
   scale s = exactly (scale s)
 
 -- TODO: CoproductPCat, DistribCat, ClosedCat.
-
--- TODO: vocabulary specific to this category.
-
-
