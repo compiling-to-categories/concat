@@ -12,6 +12,9 @@
 
 -- | Experiment in nondeterministic functions as functions to lists.
 
+-- Not much depends on lists. Could be any monad. General Kleisli?
+-- Oh. I already have these instances defined for Kleisli in ConCat.Category.
+
 module ConCat.Nondet where
 
 import Prelude hiding (id,(.),curry,uncurry,const)
@@ -23,7 +26,7 @@ import Control.Monad ((<=<))
 import ConCat.Misc ((:+))
 import ConCat.Category
 
-data ND a b = ND (a -> [b])
+newtype ND a b = ND (a -> [b])
 
 exactly :: (a -> b) -> ND a b
 exactly f = ND (pure . f)
