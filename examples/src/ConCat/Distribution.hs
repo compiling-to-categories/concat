@@ -91,7 +91,11 @@ instance CoproductCat Dist where
   inr = exactly inr
   jam = exactly jam
 
+instance DistribCat Dist where
+  distl = exactly distl
+  distr = exactly distr 
+
 instance Num a => ScalarCat Dist a where
   scale s = exactly (scale s)
 
--- TODO: CoproductPCat, DistribCat, ClosedCat.
+-- TODO: ClosedCat.
