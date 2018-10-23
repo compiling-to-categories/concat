@@ -49,6 +49,7 @@ import GHC.Types (Nat)
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import GHC.Exts (Coercible,coerce)
 
+import Data.Kind (Type)
 import Data.Vector.Sized (Vector)
 import qualified Data.Vector.Generic.Sized.Internal
 import Control.Newtype.Generics
@@ -714,7 +715,7 @@ instance (Decomposable a, Foldable (Decomp a)) => Foldable (Arr a) where
 -- TODO: Maybe use reindexId with just an associated functor.
 
 class Decomposable a where
-  type Decomp a :: * -> *
+  type Decomp a :: Type -> Type
   decomp :: Arr a <--> Decomp a
 
 type Decomposable' a = (Decomposable a, HasFin' a)
