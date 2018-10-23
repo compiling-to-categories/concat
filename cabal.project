@@ -10,4 +10,6 @@ packages:
           ./examples/concat-examples.cabal
           ./../netlist-kit-kufp/*/*.cabal
           --- cloned from git@github.com:ku-fpg/netlist.git
+          ./../vector-sized/*.cabal
+          --- cloned from git@github.com:expipiplus1/vector-sized.git
 documentation: False
