@@ -209,6 +209,9 @@ instance SummableF h => Summable h
 --   is no smaller than the instance head
 -- (Use UndecidableInstances to permit this)
 
-sumA :: (Summable h, Additive a) => h a -> a
+sumA :: (
+  -- Summable h, Additive a
+  Foldable h, Additive a
+  ) => h a -> a
 sumA = getAdd . foldMap Add
 {-# OPINLINE sumA #-}

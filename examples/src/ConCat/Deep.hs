@@ -72,18 +72,14 @@ infixl 7 ^/
 v ^/ s = recip s *^ v
 {-# INLINE (^/) #-}
 
-normalize :: (Summable a, Fractional s, Additive s) => Unop (a s)
+normalize :: (Foldable a, Functor a, Fractional s, Additive s)
+          => Unop (a s)
 normalize v = v ^/ sumA v
 {-# INLINE normalize #-}
 
--- The constraint ‘Summable a’ matches an instance declaration
--- instance SummableF h => Summable h -- Defined in ‘ConCat.Additive’
--- This makes type inference for inner bindings fragile;
---   either use MonoLocalBinds, or simplify it using the instance
-
 -- | Inner product
-dotV,(<.>) :: (Summable a, Additive s, Num s) => a s -> a s -> s
-xs <.> ys = sumA (zipWith (*) xs ys)
+dotV,(<.>) :: (Foldable a, Zip a, Num s) => a s -> a s -> s
+xs <.> ys = sum (zipWith (*) xs ys)
 -- (<.>)  = joinPF . fmap scale
 dotV      = (<.>)
 {-# INLINE (<.>) #-}
@@ -99,14 +95,8 @@ outerV  = (>.<)
 -- (*^ b)       :: s   -> b s
 -- (*^ b) <$> a :: a s -> a (b s)
 
--- linear' :: (Summable a, Summable b, Additive v)
---         => (a --* b) (u -> v) -> (a u -> b v)
--- linear' = linearApp'
--- linear' = forkF . fmap joinPF
--- {-# INLINE linear' #-}
-
 -- | Apply a linear map
-linear :: (Summable a, Summable b, Additive s, Num s)
+linear :: (Foldable a, Zip a, Functor b, Additive s, Num s)
        => (a --* b) s -> (a s -> b s)
 linear (Comp1 ba) a = (<.> a) <$> ba
 {-# INLINE linear #-}
@@ -129,7 +119,7 @@ infixr 1 --+
 type a --+ b = Bump a --* b
 
 -- | Affine application
-affine :: (Summable a, Summable b, Additive s, Num s)
+affine :: (Foldable a, Zip a, Functor b, Additive s, Num s)
        => (a --+ b) s -> (a s -> b s)
 affine m = linear m . bump
 {-# INLINE affine #-}
@@ -140,12 +130,12 @@ affine m = linear m . bump
 
 -- TODO: Is there an affine counterpart to linear'?
 
-normSqr :: (Summable n, Additive s, Num s) => n s -> s
+normSqr :: (Foldable n, Zip n, Additive s, Num s) => n s -> s
 normSqr u  = u <.> u
 {-# INLINE normSqr #-}
 
 -- | Distance squared
-distSqr :: (Summable n, Additive s, Num s) => n s -> n s -> s
+distSqr :: (Foldable n, Zip n, Additive s, Num s) => n s -> n s -> s
 distSqr u v = normSqr (u ^-^ v)
 {-# INLINE distSqr #-}
 
@@ -160,7 +150,7 @@ relus = fmap (max 0)
 {-# INLINE relus #-}
 
 -- | Affine followed by RELUs.
-affRelu :: (C2 Summable a b, Ord s, Additive s, Num s)
+affRelu :: (Foldable a, Zip a, Functor b, Ord s, Additive s, Num s)
         => (a --+ b) s -> (a s -> b s)
 affRelu l = relus . affine l
 {-# INLINE affRelu #-}
@@ -172,23 +162,22 @@ logistics = fmap (\x -> 1 / (1 + exp (-x)))
 {-# INLINE logistics #-}
 
 -- | Affine followed by logistics.
--- affLog :: (C2 Summable a b, Ord s, Additive s, Num s)
-affLog :: (C2 Summable a b, Floating s, Additive s)
-        => (a --+ b) s -> (a s -> b s)
+affLog :: (Foldable a, Zip a, Functor b, Floating s, Additive s)
+       => (a --+ b) s -> (a s -> b s)
 affLog l = logistics . affine l
 {-# INLINE affLog #-}
 
-errSqr :: (Summable b, Additive s, Num s)
+errSqr :: (Foldable b, Zip b, Additive s, Num s)
        => a s :* b s -> (a s -> b s) -> s
 errSqr (a,b) h = distSqr b (h a)
 {-# INLINE errSqr #-}
 
-errSqrSampled :: (Summable b, Additive s, Num s)
+errSqrSampled :: (Foldable b, Zip b, Additive s, Num s)
               => (p s -> a s -> b s) -> a s :* b s -> p s -> s
 errSqrSampled h sample = errSqr sample . h
 {-# INLINE errSqrSampled #-}
 
-errGrad :: (Summable b, Additive s, Num s)
+errGrad :: (Foldable b, Zip b, Additive s, Num s)
         => (p s -> a s -> b s) -> a s :* b s -> Unop (p s)
 errGrad = (result.result) gradR errSqrSampled
 {-# INLINE errGrad #-}
@@ -206,14 +195,16 @@ infixr 9 @.
 --------------------------------------------------------------------}
 
 -- Single SGD step, from one parameter estimation to the next
-step :: forall s p a b. (C3 Summable p a b, Additive1 p, Additive s, Num s)
-     => (p s -> a s -> b s) -> s -> a s :* b s -> Unop (p s)
+step :: forall s p a b.
+     (Foldable b, Zip b, Functor p, Zip p, Additive1 p, Additive s, Num s)
+  => (p s -> a s -> b s) -> s -> a s :* b s -> Unop (p s)
 -- step m gamma sample p = p ^+^ gamma *^ errGrad m sample p <+ additive1 @p @s
 step = \ m gamma sample p -> p ^-^ gamma *^ errGrad m sample p <+ additive1 @p @s
 {-# INLINE step #-}
 
 -- Multiple SGD steps, from one parameter estimation to another
-steps :: (C3 Summable p a b, Additive1 p, Functor f, Foldable f, Additive s, Num s)
+steps :: ( Foldable b, Zip b, Zip p
+         , Additive1 p, Functor f, Foldable f, Additive s, Num s)
       => (p s -> a s -> b s) -> s -> f (a s :* b s) -> Unop (p s)
 -- steps m gamma samples = compose (step m gamma <$> samples)
 steps = \ m gamma samples -> compose (step m gamma <$> samples)
@@ -231,7 +222,8 @@ steps = \ m gamma samples -> compose (step m gamma <$> samples)
 
 -- | Train a network on several epochs of the training data, keeping
 -- track of its parameters after each.
-trainNTimes :: (C3 Summable p a b, Additive1 p, Functor f, Foldable f, Additive s, Num s)
+trainNTimes :: ( Foldable b, Zip b, Zip p
+               , Additive1 p, Functor f, Foldable f, Additive s, Num s)
             => Int                  -- ^ number of epochs
             -> s                    -- ^ learning rate
             -> (p s -> a s -> b s)  -- ^ The "network" just converts a set of parameters
@@ -262,19 +254,23 @@ err1Grad h sample = gradR (\ a -> err1 (h a) sample)
 infixr 1 -->
 type (a --> b) s = a s -> b s
 
-lr1 :: C2 Summable a b => (a --+ b) R  ->  (a --> b) R
+lr1 :: (C2 Foldable a b, Zip a, Functor b)
+    => (a --+ b) R  ->  (a --> b) R
 lr1 = affRelu
 {-# INLINE lr1 #-}
 
-lr2 :: C3 Summable a b c => ((b --+ c) :*: (a --+ b)) R  ->  (a --> c) R
+lr2 :: (C2 Foldable a b, C2 Zip a b, C2 Functor b c)
+    => ((b --+ c) :*: (a --+ b)) R  ->  (a --> c) R
 lr2 = affRelu @. affRelu
 {-# INLINE lr2 #-}
 
-lr3 :: C4 Summable a b c d => ((c --+ d) :*: (b --+ c) :*: (a --+ b)) R  ->  (a --> d) R
+lr3 :: (C3 Foldable a b c, C3 Zip a b c, C3 Functor b c d)
+    => ((c --+ d) :*: (b --+ c) :*: (a --+ b)) R  ->  (a --> d) R
 lr3 = affRelu @. affRelu @. affRelu
 {-# INLINE lr3 #-}
 
-lr3' :: C4 Summable a b c d => ((c --+ d) :*: (b --+ c) :*: (a --+ b)) R  ->  (a --> d) R
+lr3' :: (C3 Foldable a b c, C3 Zip a b c, C3 Functor b c d)
+     => ((c --+ d) :*: (b --+ c) :*: (a --+ b)) R  ->  (a --> d) R
 lr3' = affLog @. affLog @. affLog
 {-# INLINE lr3' #-}
 

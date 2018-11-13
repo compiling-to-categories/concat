@@ -2041,7 +2041,7 @@ instance Pointed h => PointedCat (->) h a where
 --   sumC = IC.inline sum
 --   {-# OPINLINE sumC #-}
 
-instance (Summable h, Additive a) => AddCat (->) h a where
+instance (Foldable h, Additive a) => AddCat (->) h a where
   sumAC = sumA  -- not a method, so no IC.inline
   {-# OPINLINE sumAC #-}
 
