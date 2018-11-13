@@ -17,6 +17,10 @@
 
 module ConCat.OkType (OkType) where
 
+import GHC.TypeLits (KnownNat)
+import Data.Finite (Finite)
+import Data.Vector.Sized (Vector)
+
 #ifdef TESTING
 import ConCat.Misc (Unop)
 #endif
@@ -30,6 +34,9 @@ instance OkType Int
 instance OkType Integer
 instance OkType Float
 instance OkType Double
+
+instance KnownNat n => OkType (Finite n)
+instance (KnownNat n, OkType a) => OkType (Vector n a)
 
 instance (OkType a, OkType b) => OkType (a ,  b)
 instance (OkType a, OkType b) => OkType (a -> b)

@@ -29,6 +29,7 @@ library
                      , integer-gmp
                      , pointed, keys
                      , syb >= 0.6
+                     , finite-typelits, vector-sized >= 1.0.0.0
                      , concat-classes
                      , concat-satisfy
   exposed-modules:     
