@@ -50,9 +50,12 @@ import CoreLint (lintExpr)
 import DynamicLoading
 import MkId (mkDictSelRhs,coerceId)
 import Pair (Pair(..))
-import PrelNames (leftDataConName,rightDataConName)
+import PrelNames (leftDataConName,rightDataConName
+                 ,floatTyConKey,doubleTyConKey,integerTyConKey
+                 ,intTyConKey,boolTyConKey)
 import Type (coreView)
-import TcType (isIntTy,isIntegerTy,tcSplitTyConApp_maybe)
+import TcType (isFloatTy,isDoubleTy,isIntegerTy,isIntTy,isBoolTy,isUnitTy
+              ,tcSplitTyConApp_maybe)
 import TysPrim (intPrimTyCon)
 import FamInstEnv (normaliseType)
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
@@ -120,6 +123,7 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                   -- , monoOps          :: MonoOpsMap
                      , hsc_env          :: HscEnv
                      , ruleBase         :: RuleBase  -- to remove
+                     , okTypeTc         :: TyCon
                      }
 
 -- Whether to run Core Lint after every step
@@ -599,6 +603,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      -- (\ x -> U V) --> U . (\ x -> V) if x not free in U
      u `App` v | liftedExpr v
                , not (x `isFreeIn` u)
+               , okType (exprType v)
                -> case mkCompose' cat (mkCcc u) (mkCcc (Lam x v)) of
                     Nothing -> 
                       Doing("lam App compose bail")
@@ -625,7 +630,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam App")
      -- (\ x -> U V) --> apply . (\ x -> U) &&& (\ x -> V)
      u `App` v --  | pprTrace "lam App" (ppr (u,v)) False -> undefined
-               | catClosed, liftedExpr v
+               | catClosed, liftedExpr v, okType (exprType v)
                -- , pprTrace "lam App mkApplyMaybe -->" (ppr (mkApplyMaybe cat vty bty, cat)) True
                , mbComp <- do app  <- mkApplyMaybe cat vty bty
                               fork <- mkFork' cat (mkCcc (Lam x u)) (mkCcc (Lam x v))
@@ -759,13 +764,15 @@ data Ops = Ops
  , reCat          :: ReExpr
  , isPseudoApp    :: CoreExpr -> Bool
  , normType       :: Role -> Type -> (Coercion, Type)
-
+ , okType         :: Type -> Bool
  }
 
 mkOps :: CccEnv -> ModGuts -> AnnEnv -> FamInstEnvs
       -> DynFlags -> InScopeEnv -> Type -> Ops
 mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
  where
+   okType t = isRight (buildDictMaybe (mkTyConApp okTypeTc [t]))
+   -- okType _ = True
    inlineE :: Unop CoreExpr
    inlineE e = varApps inlineV [exprType e] [e]  -- move outward
    -- Replace boxing constructors by their boxing function synonyms (boxI etc)
@@ -1256,6 +1263,9 @@ repModule = "ConCat.Rep"
 boxModule :: String
 boxModule = "ConCat.Rebox"
 
+okTypeModule :: String
+okTypeModule = "ConCat.OkType"
+
 extModule :: String
 extModule =  "GHC.Exts"
 
@@ -1457,6 +1467,7 @@ mkCccEnv opts = do
       findCatId   = findId catModule
       findTrnId   = findId trnModule
       findRepTc   = findTc repModule
+      findOkTyTc  = findTc okTypeModule
       findRepId   = findId repModule
       findBoxId   = findId boxModule
       findExtTc   = findTc extModule
@@ -1489,6 +1500,7 @@ mkCccEnv opts = do
   castConstTV   <- findTrnId "castConstT"
   bottomTV      <- findTrnId "bottomT"
   repTc         <- findRepTc "Rep"
+  okTypeTc      <- findOkTyTc "OkType"
   prePostV      <- findId "ConCat.Misc" "~>"
   boxIV         <- findBoxId "boxI"
   boxFV         <- findBoxId "boxF"
