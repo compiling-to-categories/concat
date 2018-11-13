@@ -13,7 +13,7 @@
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 #endif
 
--- | Determine whether the plugin can handle a type. Used in ConCat.Plugin
+-- | Determine whether the plugin can handle a type. Used in ConCat.Plugin.
 
 module ConCat.OkType (OkType) where
 
