@@ -221,3 +221,22 @@ Test-Suite gold-tests
     cpp-options:        -DCONCAT_SMT
   cpp-options:      -DVectorSized
 
+executable ad_rev
+  hs-source-dirs:      app
+  main-is:             ad_rev.lhs
+  build-depends:       base >= 4.7 && < 5
+                     , optparse-generic
+                     , concat-classes
+                     , concat-examples
+                     , concat-plugin
+  default-language:    Haskell2010
+  ghc-options:       -O2
+                     -funbox-strict-fields
+                     -threaded
+                     -optc-ffast-math
+                     -optc-O3
+                     -- -fplugin=ConCat.Plugin
+                     -- -fplugin-opt=ConCat.Plugin:trace
+                     -- -fplugin-opt=ConCat.Plugin:maxSteps=200
+                     -- -fforce-recomp
+

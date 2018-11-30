@@ -1,0 +1,131 @@
+h1 {
+  font-family: "Rockwell", "Futura", "Century Gothic", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 32px;
+  margin: 16px 0 32px 0;
+  line-height: 1.1;
+}
+
+h2 {
+  font-family: "Rockwell", "Futura", "Century Gothic", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 24px;
+  margin: 40px 0 20px 0;
+  line-height: 1.1;
+}
+
+body {
+    background-color: #f6f6f6;
+    color: #3d3d3d;
+    font-family: "Futura", "Century Gothic", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    word-wrap: break-word;
+    min-width: 200px;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 45px;
+}
+
+body a {
+    background-color: transparent;
+    border-bottom: 2px solid #e1e1e1;
+    color: #3d3d3d;
+    text-decoration: none;
+}
+
+body a:hover {
+    color: #2640cb;
+    border-color: #2640cb;
+    text-decoration: none;
+}
+
+body blockquote {
+  border-left: 0.25rem solid #ebebeb;
+  border-left-style: solid;
+  font-style: italic;
+  margin: 0.5rem 0 1rem 0;
+  padding: 0 0 0 1rem;
+  padding: 0 15px;
+  color: #777;
+}
+
+body code {
+    color: #49341c;
+    background-color: #f5f0f0;
+}
+
+body .footer {
+    color: #888888;
+    font-size: 10px;
+    text-align: right;
+}
+
+body hr {
+  height: 0;
+  margin: 15px 0;
+  overflow: hidden;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #ddd;
+}
+
+body img {
+    max-width: 100%;
+    border: 0;
+}
+
+body pre {
+    color: #ab1f27;
+    background-color: #f5f0f0;
+    padding: 12px;
+    overflow: auto;
+}
+
+body ul {
+  margin: 1.25rem 0;
+  /* padding-left: 0; */
+  padding-left: 1em;
+  list-style-type: disc;
+}
+
+body ul li {
+  counter-increment: this;
+  line-height: 1.313em;
+  /* list-style: none; */
+  /* position: relative; */
+}
+
+body ul li ul {
+  margin: 1.25rem 0;
+  /* padding-left: 0; */
+  padding-left: 1em;
+  list-style-type: square;
+}
+
+/*
+body ul li:after {
+  color: #757575;
+  content: "-";
+  font-size: 100%;
+  /* left: -1em; */
+  left: 1em;
+  position: absolute;
+  top: 0;
+}
+*/
+
+.sourceCode {
+    background-color: #f0f0f0;
+    color: #3d323d;
+    font-family: "lucida console", "9x15", "DejaVu Sans Mono", "Monaco";
+    font-size: 1em;
+}
+.sourceCode .ot { color: #3d323d; }
+.sourceCode .kw { color: #3d323d; }
+.sourceCode .dt { color: #ab1f27; }
+.sourceCode .dv { color: #2536d6; }
+.sourceCode .st { color: #2536d6; }
+.sourceCode .co {
+  color: #808080;
+  font-style: italic;
+}
+.sourceCode .fu { color: #e347e4; }
