@@ -93,6 +93,8 @@ main = do
     unwrapRecord "A toy for playing w/ concat-based reverse mode automatic differentiation."
   let unUsed = fromMaybe False (dummy o)
 
+  -- Construct a simple, fully-connected, neural network.
+  
   -- Print test message.
   writeFile  mdFilename "\n### Test message:\n\n"
   appendFile mdFilename "Hello, World!\n"
