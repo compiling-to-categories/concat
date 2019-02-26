@@ -379,6 +379,10 @@ main = sequence_ [
 
     -- , runSynCirc "reverseFin-Bool-cheat" $ toCcc $ unFin @Bool . (1 -) . toFin @Bool
 
+    -- -- https://github.com/conal/concat/issues/49
+    -- -- , putStrLn $ render (toCcc (\f g x -> f (g (x))))
+    -- , putStrLn $ render (toCcc (\ (f :: Int -> Bool) (g :: Bool -> Int) x -> f (g (x))))
+
   -- Circuit graphs
   , runSynCirc "add"         $ toCcc $ (+) @R
   , runSynCirc "add-uncurry" $ toCcc $ uncurry ((+) @R)
@@ -414,7 +418,6 @@ main = sequence_ [
   -- , runSynCirc "cosSinProd-adr"  $ toCcc $ andDerR $ cosSinProd @R
   -- , runSynCirc "cosSinProd-gradr"  $ toCcc $ andGrad2R $ cosSinProd @R
 
-  -- , runSynCirc "dup"     $ A.dup @(->) @R
   -- , runSynCirc "cosSinProd-adf" $ toCcc $ andDerF $ cosSinProd @R
   -- , runSynCirc "cosSinProd-adr" $ toCcc $ andDerR $ cosSinProd @R
 

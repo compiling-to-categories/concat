@@ -1,0 +1,91 @@
+<meta charset="utf-8"> <link rel="stylesheet" href="other/lhs.css">
+<script type="text/javascript" async
+  src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-MML-AM_CHTML">
+</script>
+<h1 id="concat-playing-with-reverse-mode-automatic-differentiation-ad">concat: Playing with reverse mode automatic differentiation (AD)</h1>
+<p>This <a href="https://wiki.haskell.org/Literate_programming">literate Haskell</a> document provides an example of using the <em>reverse mode AD</em> machinery available in <em>concat</em>.</p>
+<p>Original author: <a href="mailto:capn.freako@gmail.com">David Banas</a><br />
+Original date: November 30, 2018</p>
+<p>Copyright © 2018 David Banas; all rights reserved World wide.</p>
+<h2 id="contents">Contents</h2>
+<ul class="incremental">
+<li><a href="#code">Code</a></li>
+<li><a href="#output">Output</a></li>
+</ul>
+<h2 id="code">code</h2>
+<h2 id="ghc-options"><a href="https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/flags.html#flag-reference">ghc options</a></h2>
+<div class="sourceCode"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">{-# OPTIONS_GHC -cpp #-}</span>
+<span class="ot">{-# OPTIONS_GHC -Wall #-}</span>
+<span class="ot">{-# OPTIONS_GHC -Wno-missing-signatures #-}</span></code></pre></div>
+<h2 id="pragmas"><a href="https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/lang.html">pragmas</a></h2>
+<div class="sourceCode"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="co">-- doctest doesn&#39;t look at the cabal file, so you need pragmas here</span>
+<span class="ot">{-# LANGUAGE DataKinds #-}</span>
+<span class="ot">{-# LANGUAGE DeriveGeneric #-}</span>
+<span class="ot">{-# LANGUAGE FlexibleInstances #-}</span>
+<span class="ot">{-# LANGUAGE OverloadedStrings #-}</span>
+<span class="ot">{-# LANGUAGE ScopedTypeVariables #-}</span>
+<span class="ot">{-# LANGUAGE TypeOperators #-}</span></code></pre></div>
+<h2 id="libraries"><a href="https://www.stackage.org/">libraries</a></h2>
+<ul class="incremental">
+<li><a href="https://www.stackage.org/package/optparse-generic">optparse-generic</a></li>
+<li><a href="https://www.stackage.org/package/vector-sized">vector-sized</a></li>
+<li><a href="https://www.stackage.org/package/finite-typelits">finite-typelits</a></li>
+<li><a href="https://www.stackage.org/package/text">text</a></li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Options.Generic</span>
+
+<span class="kw">import </span><span class="dt">Data.Maybe</span>
+
+<span class="kw">import </span><span class="dt">ConCat.AD</span></code></pre></div>
+<ul class="incremental">
+<li><a href="https://www.stackage.org/package/hoogle">hoogle</a></li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="co">-- #define DEBUG</span>
+
+<span class="co">{----------------------------------------------------------------------</span>
+<span class="co">  Constant definitions.</span>
+<span class="co">----------------------------------------------------------------------}</span>
+
+mdFilename <span class="fu">=</span> <span class="st">&quot;out/ad_rev.md&quot;</span>
+
+<span class="co">{----------------------------------------------------------------------</span>
+<span class="co">  Command line options defintions.</span>
+<span class="co">----------------------------------------------------------------------}</span>
+
+<span class="kw">data</span> <span class="dt">Opts</span> w <span class="fu">=</span> <span class="dt">Opts</span>
+    {<span class="ot"> dummy ::</span> w <span class="ot">::</span><span class="fu">:</span> <span class="dt">Maybe</span> <span class="dt">Bool</span> <span class="fu">&lt;?&gt;</span>
+        <span class="st">&quot;Not used.&quot;</span>
+    }
+    <span class="kw">deriving</span> (<span class="dt">Generic</span>)
+
+<span class="kw">instance</span> <span class="dt">ParseRecord</span> (<span class="dt">Opts</span> <span class="dt">Wrapped</span>)
+
+<span class="co">{----------------------------------------------------------------------</span>
+<span class="co">  main()</span>
+<span class="co">----------------------------------------------------------------------}</span>
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  <span class="co">-- Process command line options.</span>
+<span class="ot">  o ::</span> <span class="dt">Opts</span> <span class="dt">Unwrapped</span> <span class="ot">&lt;-</span>
+    unwrapRecord <span class="st">&quot;A toy for playing w/ concat-based reverse mode automatic differentiation.&quot;</span>
+  <span class="kw">let</span> unUsed <span class="fu">=</span> fromMaybe <span class="dt">False</span> (dummy o)
+
+  <span class="co">-- Print test message.</span>
+  writeFile  mdFilename <span class="st">&quot;\n### Test message:\n\n&quot;</span>
+  appendFile mdFilename <span class="st">&quot;Hello, World!\n&quot;</span>
+  putStrLn <span class="st">&quot;Program complete.&quot;</span>
+
+  <span class="co">-- Debug.</span>
+<span class="ot">#ifdef DEBUG</span>
+  <span class="co">{-</span>
+<span class="co">  appendFile mdFilename &quot;\n## Debugging Information:\n\n&quot;</span>
+<span class="co">  -}</span>
+<span class="ot">#endif</span></code></pre></div>
+<h2 id="output">output</h2>
+<h3 id="test-message">Test message:</h3>
+<p>Hello, World!</p>
+<hr />
+<div class="footer">
+<p>Powered by <a href="https://haskell-lang.org/">haskell</a>, <a href="https://docs.haskellstack.org/en/stable/README/">stack</a> and <a href="http://pandoc.org/">pandoc</a>.</p>
+</div>
