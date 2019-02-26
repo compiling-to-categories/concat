@@ -17,26 +17,36 @@ packages:
   - verilog
   - netlist-to-verilog
   extra-dep: true
-- location: # Until vector-sized-1.0.4.1 is on Hackage
-    git: https://github.com/expipiplus1/vector-sized
-    commit: f80e3ce774d255ee4ba25fcb12a81a76f600e0b0
-  extra-dep: true
 extra-deps:
   # The next three provide instances for GHC.Generics
   - pointed-5.0.1
-  - keys-3.12
+  - keys-3.12.1
   - adjunctions-4.4
-  - z3-4.3.1         ## For the SMT category
-  # - vector-sized-1.0.4.1  # For GHC 8.6. See above.
+
+  # Needed for containers-0.6.0.1 (which I don't really need)
+  - Cabal-2.4.0.1
+  - free-5.1
+  - semigroupoids-5.3.1
+  - base-orphans-0.8
+
+  - containers-0.6.0.1
+  # - containers-0.5.11.0
+  - z3-4.3.1         # for the SMT category
+  - vector-sized-1.1.1.0  # for GHC 8.6
   # - indexed-list-literals-0.1.0.1
-  - indexed-list-literals-0.2.1.1 # Needed by vector-sized-1.0.4.1
-  - ghc-typelits-knownnat-0.5
-  - ghc-typelits-natnormalise-0.6.1
+  - indexed-list-literals-0.2.1.2
+  - ghc-typelits-knownnat-0.6
+  - ghc-typelits-natnormalise-0.6.2
   - ghc-tcplugins-extra-0.3
   - newtype-generics-0.5.3
   - language-glsl-0.3.0
+  - NumInstances-1.4
 
-# resolver: lts-9.20 # ghc-8.0.2
-resolver: lts-11.12 # ghc-8.2.2
-# resolver: lts-12.4 # ghc-8.4.3
+# resolver: lts-9.21  # ghc-8.0.2
+# resolver: lts-11.22 # ghc-8.2.2
+# resolver: lts-12.14 # ghc-8.4.3
+# resolver: lts-12.19 # ghc-8.4.4
 
+# resolver: nightly-2018-11-23 # ghc-8.6.2
+
+resolver: lts-13.0 # ghc-8.6.3
