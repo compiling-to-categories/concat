@@ -78,8 +78,8 @@ normalize v = v ^/ sumA v
 {-# INLINE normalize #-}
 
 -- | Inner product
-dotV,(<.>) :: (Foldable a, Zip a, Num s) => a s -> a s -> s
-xs <.> ys = sum (zipWith (*) xs ys)
+dotV,(<.>) :: (Foldable a, Zip a, Additive s, Num s) => a s -> a s -> s
+xs <.> ys = sumA (zipWith (*) xs ys)
 -- (<.>)  = joinPF . fmap scale
 dotV      = (<.>)
 {-# INLINE (<.>) #-}
