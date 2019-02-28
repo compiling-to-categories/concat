@@ -320,22 +320,22 @@ main = sequence_ [
 
   -- , runSynCirc "sumAV" $ toCcc $ sumA @(Vector 5) @R -- ??
 
-  -- , runSynCirc "foo" $ toCcc $ andDerR $ \ () -> zero @((Vector 3 :.: Bump (Vector 2)) R) -- fail
+  -- , runSynCirc "foo" $ toCcc $ andDerR $ \ () -> zero @((Vector 3 :.: Bump (Vector 2)) R) -- works
 
-  -- , runSynCirc "foo" $ toCcc $ andDerR $ \ () -> zero @((Vector 3 :.: Vector 2) R) -- o2 fail
+  -- , runSynCirc "foo" $ toCcc $ andDerR $ \ () -> zero @((Vector 3 :.: Vector 2) R) -- o2 works
 
   -- , runSynCirc "foo" $ toCcc $ \ () -> zero @((Vector 3 :.: Vector 2) R) -- o3 fail
 
   -- , runSynCirc "foo" $ toCcc $ \ () -> zero @((Vector 3 :.: Par1) R) -- o4 fail; o7, o1 (without vector-sized mod)
 
 
-  -- , runSynCirc "foo" $ toCcc $ point @(Vector 3 :.: Par1) @R -- o6 okay
+  -- , runSynCirc "foo" $ toCcc $ point @(Vector 3 :.: Par1) @R -- o6 fail
 
 
   -- , runSynCirc "foo" $ toCcc $ \ () -> zero @((Par1 :.: Par1) R) -- okay
   -- , runSynCirc "foo" $ toCcc $ \ () -> zero @(Vector 3 R) -- okay
   -- , runSynCirc "foo" $ toCcc $ \ () -> zero @((Par1 :.: Par1) R) -- okay
-  -- , runSynCirc "foo" $ toCcc $ point @(Vector 3 :.: Vector 2) @R -- okay
+  -- , runSynCirc "foo" $ toCcc $ point @(Vector 3 :.: Vector 2) @R -- fail (unsized Vector?)
   -- , runSynCirc "foo" $ toCcc $ andDerR $ \ () -> zero @(Vector 3 R) -- okay
   -- , runSynCirc "foo" $ toCcc $ (^+^) @(Vector 3 R) -- okay
   -- , runSynCirc "foo" $ toCcc $ andDerR $ id @(Vector 2 R) -- okay
@@ -351,14 +351,14 @@ main = sequence_ [
 
     -- , runSynCirc "constV" $ toCcc $ \ () -> pure 1 :: Vector 7 Int
 
-    -- , runSynCirc "pointV" $ toCcc $ point @(Vector 7) @Bool
+    -- , runSynCirc "pointV" $ toCcc $ point @(Vector 7) @Bool -- fail
 
     -- , runSynCirc "addV" $ toCcc $ (^+^) @(Vector 7 R)
 
     -- , runSynCirc "zeroV" $ toCcc $ \ () -> zero @(Vector 7 R)
 
     -- , runSynCirc "addR" $ toCcc $ (^+^) @R
-   
+
     -- , runSyn $ toCcc $ \ () -> finite @2 (nat @1) -- okay
 
     -- , runSyn $ toCcc $ \ (i :: Finite 2) -> finite @2 (nat @2 - 1) -- okay
@@ -423,7 +423,7 @@ main = sequence_ [
 
   -- , runCirc "affRelu"         $ toCcc $                affRelu @(Vector 2) @(Vector 3) @R
   -- , runCirc "affRelu-err"     $ toCcc $ errSqrSampled (affRelu @(Vector 2) @(Vector 3) @R)
-  -- , runCirc "affRelu-errGrad" $ toCcc $ errGrad (affRelu @(Vector 2) @(Vector 3) @R)
+  -- , runCirc "affRelu-errGrad" $ toCcc $ errGrad (affRelu @(Vector 2) @(Vector 3) @R) -- fail
 
   -- , runCirc "affRelu2"         $ toCcc $                lr2 @(Vector 5) @(Vector 3) @(Vector 2)
   -- , runCirc "affRelu2-err"     $ toCcc $ errSqrSampled (lr2 @(Vector 5) @(Vector 3) @(Vector 2))
