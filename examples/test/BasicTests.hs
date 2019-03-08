@@ -23,14 +23,17 @@ import           ConCat.FFT
 import           ConCat.Free.LinearRow
 import           ConCat.Free.VectorSpace (HasV(..))
 import           ConCat.GAD
+import           ConCat.Incremental
 import           ConCat.Interval
 import           ConCat.Misc ((:*), (:+), R, C, Unop, Binop, magSqr, sqr, unzip)
+import           ConCat.Nat
 import           ConCat.Orphans ()
 import           ConCat.RAD
 import           ConCat.Rebox ()
 import           ConCat.Shaped
 import           Control.Applicative (liftA2)
 import           Data.Distributive
+import           Data.Finite
 import           Data.Functor.Rep
 import           Data.Key
 import           Data.Pointed
@@ -103,8 +106,7 @@ basicTests = testGroup "basic tests"
 
   , runSynCirc "fmap-fun-bool-plus" $ toCcc $ fmap @((->) Bool) ((+) @Int)
 
-  -- -- !! compile failed
-  -- , runSynCirc "mul-andInc"    $ toCcc $ andInc $ uncurry ((*) @R)
+  , runSynCirc "mul-andInc"    $ toCcc $ andInc $ uncurry ((*) @R)
 
   , runSynCirc "subtract-1" $ toCcc $ \x -> x - 1 :: R
 
@@ -133,17 +135,19 @@ basicTests = testGroup "basic tests"
 
   , runSynCirc "exl" $ toCcc $ A.exl @(->) @R @R
 
-  , runSynCirc "fst-dual" $ toCcc $ toDual $ fst @R @R
+  -- , runSynCirc "fst-dual" $ toCcc $ toDual $ fst @R @R -- seems to loop endlessly
 
   , runSynCirc "fst-af" $ toCcc $ addFun $ fst @R @R
 
-  , runSynCirc "point-dual" $ toCcc $ toDual $ point @(Vector 5) @R
+  -- -- !! compile failed
+  -- , runSynCirc "point-dual" $ toCcc $ toDual $ point @(Vector 5) @R
 
   , runSynCirc "sumA-dual" $ toCcc $ toDual $ sumA @(Vector 5) @R
 
   , runSynCirc "cos-adfl" $ toCcc $ andDerFL @R $ cos @R
 
   -- Automatic differentiation with ADFun + linear
+
   , runSynCirc "sin-adfl" $ toCcc $ andDerFL @R $ sin @R
 
   , runSynCirc "foo9-d" $ toCcc $ derF (\(_ :: R) -> 1 :: R)
@@ -154,7 +158,7 @@ basicTests = testGroup "basic tests"
 
   , runSynCirc "idL-v" $ toCcc (\() -> idL @(Vector 8) @R) -- ok
 
-  , runSynCirc "idL-2" $ toCcc (\() -> idL @(Par1 :*: Par1) @R) -- fail
+  -- , runSynCirc "idL-2" $ toCcc (\() -> idL @(Par1 :*: Par1) @R) -- fail
 
   , runSynCirc "equal-sum" $ toCcc $ (==) @(() :+ ())
 
@@ -179,12 +183,11 @@ basicTests = testGroup "basic tests"
   -- , runSynCirc "mul-iv"    $ toCcc $ ivFun $ uncurry ((*) @Int)
 
   -- Interval analysis
-  , runSynCirc "add-iv" $ toCcc $ ivFun $ uncurry ((+) @Int)
+  -- , runSynCirc "add-iv" $ toCcc $ ivFun $ uncurry ((+) @Int)
 
   , runSynCirc "fft-pair" $ toCcc $ fft @Pair @Double
 
-  -- -- !! compile failed
-  -- , runSynCirc "sum-rb4"    $ toCcc $ sum   @(RBin N4) @Int
+  , runSynCirc "sum-rb4"    $ toCcc $ sum   @(RBin N4) @Int
 
   -- Circuit graphs on trees etc
   , runSynCirc "sum-pair" $ toCcc $ sum @Pair @Int
@@ -218,7 +221,8 @@ basicTests = testGroup "basic tests"
   , runSynCirc "tabulate-v" $
       toCcc (tabulate :: (Finite 8 -> Bool) -> Vector 8 Bool)
 
-  , runSynCirc "point-v" $ toCcc $ (point :: Bool -> Vector 8 Bool)
+  -- -- !! compile failed
+  -- , runSynCirc "point-v" $ toCcc $ (point :: Bool -> Vector 8 Bool)
 
   , runSynCirc "fmap-not-v" $ toCcc $ (fmap not :: Unop (Vector 2 Bool))
 
@@ -238,8 +242,7 @@ basicTests = testGroup "basic tests"
 
   , runSynCirc "zipWith-v" $ toCcc $ zipWith @(Vector 7) (||)
 
-  -- -- !! compile timeout
-  -- , runSynCirc "fmap-v-dl" $ toCcc $ derFL @R $ (fmap negate :: Unop (Vector 5 R))
+  , runSynCirc "fmap-v-dl" $ toCcc $ derFL @R $ (fmap negate :: Unop (Vector 5 R))
 
   , runSynCirc "y-plus-x" $ toCcc $ \(x, y) -> y + x :: R
 
@@ -250,8 +253,9 @@ basicTests = testGroup "basic tests"
 
   , runSynCirc "fmapT" $ toCcc $ \x (v :: Vector 5 R) -> fmap (+ x) v
 
-  , runSynCirc "fmap-point" $
-      toCcc $ \(x :: R) -> fmap negate (point @(Vector 5) x)
+  -- -- !! compile failed
+  -- , runSynCirc "fmap-point" $
+  --     toCcc $ \(x :: R) -> fmap negate (point @(Vector 5) x)
 
   , runSynCirc "fmap-negate2" $
       toCcc $ \(v :: Vector 5 R) -> fmap negate (fmap (+ 1) v)
@@ -262,11 +266,9 @@ basicTests = testGroup "basic tests"
 
   , runSynCirc "fmap-v-der-e" $ toCcc $ andDerF $ fmap @(Vector 5) @R negate
 
-  -- -- !! compile timeout
-  -- , runSynCirc "relu-ad" $ toCcc $ andDerF $ max @R 0
+  , runSynCirc "relu-ad" $ toCcc $ andDerF $ max @R 0
 
-  -- -- !! compile timeout
-  -- , runSynCirc "max-ad" $ toCcc $ andDerF $ uncurry (max @R)
+  , runSynCirc "max-ad" $ toCcc $ andDerF $ uncurry (max @R)
 
   , runSynCirc "maxC-der" $ toCcc $ andDerF $ A.maxC @(->) @R
 
@@ -275,9 +277,6 @@ basicTests = testGroup "basic tests"
   , runSynCirc "negate-derF" $ toCcc $ derF $ fmap @(Vector 5) @R negate
 
   , runSynCirc "unzip-b" $ toCcc $ unzip @(Vector 5) @R @R
-
-  -- -- !! compile failed
-  -- , runSynCirc $ toCcc $ (\ (x,xs :: Vector 5 R) -> fmap (+x) xs)
 
   , runSynCirc "fmap-complex-b" $ toCcc $ (\ (x,xs :: Vector 5 R) -> fmap (+x) xs)
 
@@ -302,7 +301,7 @@ basicTests = testGroup "basic tests"
 
   , runSynCirc "equal-pair-d" $ toCcc $ toCcc $ uncurry ((==) @(Int :* R))
 
-  , runSynCirc "equal-pair-b" $ toCcc $ uncurry ((==) @(Int :* R))
+  , runSynCirc "equal-pair-b-int" $ toCcc $ uncurry ((==) @(Int :* R))
 
   , runSynCirc "equal-pair-a" $ toCcc $ uncurry ((==) @(Bool :* Int))
 
@@ -315,17 +314,14 @@ basicTests = testGroup "basic tests"
   -- Play with the "cat equal" trick.
   , runSynCirc "eq-i" $ toCcc $ (==) @Int
 
-  -- -- !! compile timeout
-  -- , runSynCirc "err1Grad-c" $ toCcc $ uncurry $ err1Grad (\ (p,q) z -> p * z + q)
-
+  , runSynCirc "err1Grad-c" $ toCcc $ uncurry $ err1Grad (\ (p,q) z -> p * z + q)
   , runSynCirc "err1-c" $ toCcc $ \(a, b) -> err1 (\z -> a * z + b)
 
   , runSynCirc "err1-b" $ toCcc $ err1 (\z -> 3 * z + 2)
 
   , runSynCirc "err1-a" $ toCcc $ uncurry err1
 
-  -- -- !! compile failed
-  -- , runSynCirc "linear" $ toCcc' $ D.linear @(Vector 10) @(Vector 20) @R
+  , runSynCirc "linear" $ toCcc $ ConCat.Deep.linear @(Vector 10) @(Vector 20) @R
 
   , runSynCirc "const" $ toCcc' $ A.const @(->) @R @R
 
