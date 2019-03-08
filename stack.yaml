@@ -8,7 +8,7 @@ packages:
 - examples
 - graphics
 - hardware
-- sandbox
+#- sandbox
 - location:
     git: https://github.com/ku-fpg/netlist
     commit: 0f50a9cfd947885cac7fc392a5295cffe0b3ac31
