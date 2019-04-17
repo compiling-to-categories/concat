@@ -1,4 +1,4 @@
-## Constrained categories
+## Compiling to categories
 
 [![Build Status](https://travis-ci.org/conal/concat.svg?branch=master)](https://travis-ci.org/conal/concat)
 
