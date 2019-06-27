@@ -1,23 +1,23 @@
 flags: {}
 packages:
-- inline
-- known
-- satisfy
-- classes
-- plugin
-- examples
-- graphics
-- hardware
-#- sandbox
-- location:
-    git: https://github.com/ku-fpg/netlist
-    commit: 0f50a9cfd947885cac7fc392a5295cffe0b3ac31
-  subdirs:
-  - netlist
-  - verilog
-  - netlist-to-verilog
-  extra-dep: true
+  - inline
+  - known
+  - satisfy
+  - classes
+  - plugin
+  - examples
+  - graphics
+  - hardware
+  #- sandbox
 extra-deps:
+  # Extra packages
+  - git: https://github.com/ku-fpg/netlist
+    commit: 0f50a9cfd947885cac7fc392a5295cffe0b3ac31
+    subdirs:
+      - netlist
+      - verilog
+      - netlist-to-verilog
+
   # The next three provide instances for GHC.Generics
   - pointed-5.0.1
   - keys-3.12.1
