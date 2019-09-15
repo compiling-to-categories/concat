@@ -46,4 +46,7 @@ library
                        ConCat.Category
                        ConCat.AltCat
   ghc-options:      -O2
+                    -- -fobject-code here avoids error "mkPluginUsage: file not found"
+                    -- with GHCi. See https://gitlab.haskell.org/ghc/ghc/issues/16093.
+                    -fobject-code
   cpp-options:      -DVectorSized
