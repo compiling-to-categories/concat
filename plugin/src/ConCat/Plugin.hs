@@ -1310,11 +1310,12 @@ cccRules steps famEnvs env@(CccEnv {..}) guts annotations =
                                 \ case
                                   -- _args | pprTrace "ccc ru_try args" (ppr _args) False -> undefined
                                   _es@(Type k : Type _a : Type _b : arg : _) ->
-                                    -- pprTrace "ccc: going in" (ppr es) $
+                                    -- pprTrace "ccc: going in" (ppr _es) $
                                     -- ccc env (ops dflags inScope k) k arg
                                     unsafeLimit steps $
                                       ccc env (ops dflags inScope k) k arg
-                                  _args -> -- pprTrace "ccc ru_try mismatch args" (ppr _args) $
+                                  _args -> 
+                                           -- pprTrace "ccc ru_try mismatch args" (ppr _args) $
                                            Nothing
                 }
 #if 1
