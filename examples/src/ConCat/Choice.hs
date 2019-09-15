@@ -292,8 +292,10 @@ instance (Integral b, RealFrac a, con ()) => RealFracCat (Choice con) a b where
 instance (Integral a, Num b, con ()) => FromIntegralCat (Choice con) a b where
   fromIntegralC = exactly fromIntegralC
 
+#ifdef BOTTOM
 instance (con ()) => BottomCat (Choice con) a b where
   bottomC = exactly bottomC
+#endif
 
 instance CartCon con => IfCat (Choice con) a where
   ifC = exactly ifC

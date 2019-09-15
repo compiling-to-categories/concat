@@ -91,9 +91,9 @@ module ConCat.Circuit
   , namedC, constC -- , constS
   , genUnflattenB'
   , SourceToBuses(..), CompS(..), simpleComp
-  , mkGraph
+  , GO, mkGraph
   , Attr
-  , graphDot, writeDot, displayDot,Name,Report,Graph
+  , Dot, graphDot, writeDot, displayDot,Name,Report,Graph
   -- , simpleComp
   , tagged
   , systemSuccess
@@ -900,10 +900,12 @@ instance CoproductPCat (:>) where
     Misc
 --------------------------------------------------------------------}
 
-instance (Ok (:>) a, IfCat (:>) b) => IfCat (:>) (a -> b) where
-  ifC = funIf
+-- -- Am I using this instance? I've commented out the definition of funIf.
+-- If I need it, restore and fix.
+-- instance (Ok (:>) a, IfCat (:>) b) => IfCat (:>) (a -> b) where
+--   ifC = funIf
 
-instance OpCon (->) (Sat GenBuses) where inOp = Entail (Sub Dict)
+-- instance OpCon (->) (Sat GenBuses) where inOp = Entail (Sub Dict)
 
 genSubgraph :: Ok2 (:>) b c => BCirc b c -> CircuitM (Buses (b -> c))
 genSubgraph bcirc =
@@ -1787,7 +1789,9 @@ instance FiniteCat (:>) where
     Running
 --------------------------------------------------------------------}
 
-instance (GenBuses a, Ok2 (:>) a b) => Show (a :> b) where
+type GO a b = (GenBuses a, Ok2 (:>) a b)
+
+instance GO a b => Show (a :> b) where
   -- show = show . mkGraph -- runC
   show = show . fmap simpleComp . mkGraph
 

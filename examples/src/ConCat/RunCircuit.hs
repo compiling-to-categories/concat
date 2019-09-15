@@ -32,7 +32,7 @@ import Prelude
 
 import Control.Monad (when)
 
-import ConCat.AltCat (toCcc,Uncurriable(..),Ok,Ok2) -- unitArrow
+import ConCat.AltCat (toCcc{-,Uncurriable(..)-},Ok,Ok2) -- unitArrow
 import ConCat.Circuit (Attr,mkGraph,writeDot,displayDot,(:>),GenBuses)
 
 -- import ConCat.Netlist (saveAsVerilog)
@@ -45,7 +45,8 @@ ranksep n = ("ranksep",show n)
 
 -- type Okay = Yes2
 -- type Okay a b = GenBuses a
-type Okay a b = (Uncurriable (:>) a b, GenBuses (UncDom a b), Ok (:>) (UncRan a b))
+-- type Okay a b = (Uncurriable (:>) a b, GenBuses (UncDom a b), Ok (:>) (UncRan a b))
+type Okay a b = (GenBuses a, Ok (:>) b)
 
 go :: Okay a b => String -> (a -> b) -> IO ()
 -- go name = go' name []
@@ -72,7 +73,8 @@ goSep _ _ _ = error "goSep: not implemented"
 
 {-# RULES
 
-"go'"   forall name attrs f . go' name attrs f = run name attrs (uncurries (toCcc f))
+-- "go'"   forall name attrs f . go' name attrs f = run name attrs (uncurries (toCcc f))
+"go'"   forall name attrs f . go' name attrs f = run name attrs (toCcc f)
 "go"    forall name         . go name          = go' name []
 "goSep" forall name s       . goSep name s     = go' name [ranksep s]
 

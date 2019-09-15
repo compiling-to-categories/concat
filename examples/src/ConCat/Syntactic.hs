@@ -334,11 +334,16 @@ instance EnumCat Syn a where
   predC = app0 "predC"
   INLINER(succC)
   INLINER(predC)
+
 -- Use primitive operations only for primitive types. See 2019-09-15 notes.
 class PrimNum a
+#if 0
 instance PrimNum Int
 instance PrimNum Float
 instance PrimNum Double
+#else
+instance PrimNum a
+#endif
 
 instance PrimNum a => NumCat Syn a where
   negateC = app0 "negateC"
@@ -386,9 +391,11 @@ instance PrimNum a => FromIntegralCat Syn a b where
   fromIntegralC = app0 "fromIntegralC"
   INLINER(fromIntegralC)
 
+#ifdef BOTTOM
 instance BottomCat Syn a b where
   bottomC = app0 "bottomC"
   INLINER(bottomC)
+#endif
 
 #if 1
 instance IfCat Syn a where

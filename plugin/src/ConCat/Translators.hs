@@ -136,7 +136,9 @@ castConstT :: forall k a b b'. (ConstCat k b', Ok k a, Coercible b b')
 castConstT b = const (coerce b)
 {-# INLINE castConstT #-}
 
+#ifdef BOTTOM
 bottomT :: forall k a b. (Category k, TerminalCat k, BottomCat k () b, Ok2 k a b)
         => a `k` b
 bottomT = bottomC . it
 {-# INLINE bottomT #-}
+#endif

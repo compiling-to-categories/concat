@@ -242,8 +242,10 @@ instance CoproductCat (:-?) where
 instance ConstCat (:-?) a where
   const _ = pack (const NoneD)
 
+#ifdef BOTTOM
 instance BottomCat (:-?) a b where
   bottomC = pack (const NoneD)
+#endif
 
 hyperStrict :: a :-? b
 hyperStrict = pack f

@@ -737,7 +737,7 @@ okExp :: forall k a b. OkExp k
 okExp = inOp
 {-# INLINE okExp #-}
 
--- #define ExpAsCat
+#define ExpAsCat
 
 #ifdef ExpAsCat
 type Exp k = k
@@ -1063,6 +1063,10 @@ type BiCCC k = (ClosedCat k, CoproductCat k, TerminalCat k, DistribCat k)
 -- type BiCCCC k p = (BiCCC k, ConstCat k p {-, RepCat k, LoopCat k, DelayCat k-})
 
 
+-- #define CONSTRAINEDCAT
+
+#ifdef CONSTRAINEDCAT
+
 {--------------------------------------------------------------------
     Add constraints to a category
 --------------------------------------------------------------------}
@@ -1134,6 +1138,8 @@ instance (ClosedCat k, OpSat (Prod k) con, OpSat (Exp k) con) => ClosedCat (Cons
   apply = Constrained apply
   curry   (Constrained f) = Constrained (curry f)
   uncurry (Constrained g) = Constrained (uncurry g)
+
+#endif
 
 {--------------------------------------------------------------------
     Other category subclasses, perhaps to move elsewhere
@@ -1454,7 +1460,9 @@ instance (Monad m, Integral a, Num b) => FromIntegralCat (Kleisli m) a b where
 instance FromIntegralCat U2 a b where
   fromIntegralC = U2
 
-#if 1
+-- #define BOTTOM
+
+#ifdef BOTTOM
 
 -- Revisit later. I used BottomCat for an encoding of sums via products.
 
@@ -2146,7 +2154,7 @@ f `crossSecondFirst` g = second g . first f
     Phasing out
 --------------------------------------------------------------------}
 
-#define PRODUCTCAT
+-- #define PRODUCTCAT
 
 #ifdef PRODUCTCAT
 
@@ -2407,9 +2415,11 @@ instance (FromIntegralCat k a b, FromIntegralCat k' a b) => FromIntegralCat (k :
   fromIntegralC = fromIntegralC :**: fromIntegralC
   PINLINER(fromIntegralC)
 
+#ifdef BOTTOM
 instance (BottomCat k a b, BottomCat k' a b) => BottomCat (k :**: k') a b where
   bottomC = bottomC :**: bottomC
   PINLINER(bottomC)
+#endif
 
 instance (IfCat k a, IfCat k' a) => IfCat (k :**: k') a where
   ifC = ifC :**: ifC

@@ -97,10 +97,12 @@ import ConCat.Category
   , BoolCat, BoolOf
   , NumCat, IntegralCat, FractionalCat, FloatingCat, RealFracCat, FromIntegralCat
   , EqCat, okTT, OrdCat, MinMaxCat, EnumCat, IfCat, IfT, RepCat
-  , CoerceCat, UnknownCat, BottomCat
+  , CoerceCat, UnknownCat
+  -- , BottomCat
   -- , Arr, ArrayCat
   , TransitiveCon(..)
-  , U2(..), (:**:)(..)
+  , U2(..)
+  -- , (:**:)(..)
   , type (|-)(..), (<+), OkProd,okProd, OkCoprod,okCoprod, OkExp, okExp
   , OpCon(..),Sat(..) -- ,FunctorC(..)
   , yes1, forkCon, joinCon, inForkCon
@@ -338,7 +340,7 @@ Op0(maxC, (MinMaxCat k a, Ok k a) => Prod k a a `k` a)
 Op0(succC,EnumCat k a => a `k` a)
 Op0(predC,EnumCat k a => a `k` a)
 
-Op0(bottomC,BottomCat k a b => a `k` b)
+-- Op0(bottomC,BottomCat k a b => a `k` b)
 
 Op0(ifC,IfCat k a => Prod k (BoolOf k) (Prod k a a) `k` a)
 
@@ -381,9 +383,9 @@ Op0(fromIntegralC,FromIntegralCat k a b => a `k` b)
 -- Unnecessary but helpful to track NOINLINE choice
 -- Op(constFun,forall k p a b. (ClosedCat k, Ok3 k p a b) => (a `k` b) -> (p `k` Exp k a b))
 
-bottomRep :: forall k a b r.
-  (Category k, RepCat k b r, BottomCat k a r, Ok3 k a b r) => a `k` b
-bottomRep = abstC @k @b @r . bottomC
+-- bottomRep :: forall k a b r.
+--   (Category k, RepCat k b r, BottomCat k a r, Ok3 k a b r) => a `k` b
+-- bottomRep = abstC @k @b @r . bottomC
 
 -- lunit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k (Unit k) a
 -- lunit = it &&& id
@@ -398,9 +400,9 @@ constFun f = curry (f . exr) <+ okProd @k @p @a
 -- {-# OPINLINE constFun #-}
 -- OpRule1(constFun)
 
-funConst :: forall k a b. (ClosedCat k, TerminalCat k, UnitCat k, Ok2 k a b)
-         => (() `k` (a -> b)) -> (a `k` b)
-funConst f = uncurry f . lunit <+ okProd @k @(Unit k) @a
+-- funConst :: forall k a b. (ClosedCat k, TerminalCat k, UnitCat k, Ok2 k a b)
+--          => (() `k` (a -> b)) -> (a `k` b)
+-- funConst f = uncurry f . lunit <+ okProd @k @(Unit k) @a
 
 #if 0
 
@@ -446,6 +448,9 @@ pair = curry id <+ okProd @k @a @b
 "toCcc' fmap" toCcc' fmap = fmap
  #-}
 
+-- #define UNCURRIABLE
+
+#ifdef UNCURRIABLE
 {--------------------------------------------------------------------
     Automatic uncurrying
 --------------------------------------------------------------------}
@@ -497,6 +502,8 @@ UncId(Float)
 UncId(Double)
 UncId(c :* d)
 UncId(c :+ d)
+
+#endif
 
 -- | Pseudo function to trigger rewriting to TOCCC form.
 toCcc' :: forall k a b. (a -> b) -> (a `k` b)
@@ -1204,6 +1211,8 @@ prodIf = (ifC . second (twiceP exl)) &&& (ifC . second (twiceP exr))
 
 #endif
 
+#if 0
+
 funIf :: forall k a b. (MonoidalPCat k, ClosedCat k, Ok k a, IfCat k b) => IfT k (a -> b)
 funIf = curry (ifC . (exl . exl &&& (apply . first (exl . exr) &&& apply . first (exr . exr))))
   <+ okProd @k @(Bool :* ((a -> b) :* (a -> b))) @a
@@ -1219,6 +1228,8 @@ funIf = curry (ifC . (exl . exl &&& (apply . first (exl . exr) &&& apply . first
            -- <+ okProd @k @(Exp k a b) @a
            -- <+ okExp @k @a @b
            -- <+ okIf @k @b
+
+#endif
 
 #if 0
 

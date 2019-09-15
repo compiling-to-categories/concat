@@ -163,8 +163,10 @@ instance (CartCon con, RealFracCat (->) a b) => RealFracCat (Mealy con) a b wher
   ceilingC  = arr ceilingC
   truncateC = arr truncateC
  
+#ifdef BOTTOM
 instance (CartCon con, BottomCat (->) a b) => BottomCat (Mealy con) a b where
   bottomC = arr bottomC
+#endif
 
 instance CartCon con => IfCat (Mealy con) a where
   ifC = arr ifC

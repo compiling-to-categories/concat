@@ -189,6 +189,8 @@ dom f = f ^^^ id
 cod :: (Closed k, Ok3 k c a b) => (a `k` b) -> ((c :=> a) `k` (c :=> b))
 cod g = id ^^^ g
 
+#if 0
+
 foo1, foo2 :: forall k a b c d a' c'.
               (Closed k, Ok k c, Ok k a, Ok k d, Ok k c', Ok k b, Ok k a')
            => (d `k` c') -> (c' `k` c) -> (a `k` a') -> (a' `k` b)
@@ -219,6 +221,8 @@ q' :: b `k` a
 
 p  ^^^ q  :: (c :=> a) `k` (d :=> b)
 p' ^^^ q' :: (d :=> b) `k` (c :=> a)
+
+#endif
 
 #endif
 

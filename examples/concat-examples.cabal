@@ -96,7 +96,7 @@ library
                        ConCat.Shaped
                        ConCat.Scan
                        ConCat.FFT
-                       ConCat.Choice
+                       -- ConCat.Choice
                        -- ConCat.RegressChoice  -- see 2017-12-27 notes
                        ConCat.LC
                        ConCat.Local

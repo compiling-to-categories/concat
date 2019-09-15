@@ -71,6 +71,8 @@ import ConCat.Misc (Unop,Binop,Ternop,PseudoFun(..),(~>))
 import ConCat.BuildDictionary
 -- import ConCat.Simplify
 
+-- #define BOTTOM
+
 -- Information needed for reification. We construct this info in
 -- CoreM and use it in the ccc rule, which must be pure.
 data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
@@ -100,7 +102,10 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , reprCV           :: Id
                      , abstCV           :: Id
                      , coerceV          :: Id
+#ifdef BOTTOM
+                     , bottomV          :: Id
                      , bottomTV         :: Id
+#endif
                      , repTc            :: TyCon
                   -- , hasRepMeth       :: HasRepMeth
                      -- , hasRepFromAbstCo :: Coercion   -> CoreExpr
@@ -112,7 +117,6 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , boxers           :: OrdMap.Map TyCon Id
 #endif
                      , tagToEnumV       :: Id
-                     , bottomV          :: Id
                      , boxIBV           :: Id
                      , ifEqIntHash      :: Id
                   -- , reboxV           :: Id
@@ -213,12 +217,14 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      (isPseudoApp -> True) ->
        Doing("top Avoid pseudo-app")
        Nothing
-  Trying("top Case of bottom")
-     e@(Case (collectArgs -> (Var v,_args)) _wild _rhsTy _alts)
-       |  v == bottomV
-       ,  FunTy dom cod <- exprType e
-       -> Doing("top Case of bottom")
-          mkBottomC cat dom cod
+#ifdef BOTTOM
+     Trying("top Case of bottom")
+        e@(Case (collectArgs -> (Var v,_args)) _wild _rhsTy _alts)
+          |  v == bottomV
+          ,  FunTy dom cod <- exprType e
+          -> Doing("top Case of bottom")
+             mkBottomC cat dom cod
+#endif
      Trying("top Case live wild")
      (deadifyCaseWild -> Just e') ->
        Doing("top Case live wild")
@@ -341,6 +347,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -> Doing("lam Poly const bail")
           -- dtrace("lam Poly const: bty, isFunTy, isMonoTy") (ppr (bty, isFunTy bty, isMonoTy bty)) $
           Nothing
+#ifdef BOTTOM
      Trying("lam bottom") -- must come before "lam Const" and "lam App"
      -- TODO: translate to bottomC in Rebox or AltCat.
      -- Maybe I don't need anything here.
@@ -349,6 +356,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        | Just e' <- mkBottomC cat xty ty
        -> Doing("lam bottom")
           return e'
+#endif
      Trying("lam Const")
      -- _ | isConst, dtrace "goLam mkConst'" (ppr (exprType body,mkConst' cat xty body)) False -> undefined
      _ | isConst, Just body' <- mkConst' cat xty body
@@ -742,7 +750,9 @@ data Ops = Ops
  , mkCurry'       :: Cat -> ReExpr
  , mkUncurryMaybe :: Cat -> ReExpr
  , mkIfC          :: Cat -> Type -> Ternop CoreExpr
+#ifdef BOTTOM
  , mkBottomC      :: Cat -> Type -> Type -> Maybe CoreExpr
+#endif
  , mkConst        :: Cat -> Type -> ReExpr
  , mkConst'       :: Cat -> Type -> ReExpr
  , mkConstFun     :: Cat -> Type -> ReExpr
@@ -1014,10 +1024,12 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    mkIfC k ty cond true false =
      mkCompose cat (catOp k ifV [ty])
        (mkFork cat cond (mkFork cat true false))
+#ifdef BOTTOM
    mkBottomC :: Cat -> Type -> Type -> Maybe CoreExpr
    mkBottomC k dom cod = 
      -- dtrace "mkBottomC bottomTV" (pprWithType (Var bottomTV)) $
      onDicts <$> catOpMaybe k bottomTV [dom,cod]
+#endif
    mkConst :: Cat -> Type -> ReExpr
    -- mkConst k dom e | dtrace "mkConst1" (ppr (k,dom,e)) False = undefined
    -- mkConst k dom e | dtrace "mkConst2" (ppr ((`App` e) <$> (onDictMaybe =<< catOpMaybe k constV [exprType e, dom]))) False = undefined
@@ -1499,7 +1511,10 @@ mkCccEnv opts = do
   casePairRTV   <- findTrnId "casePairRT"
   flipForkTV    <- findTrnId "flipForkT"
   castConstTV   <- findTrnId "castConstT"
+#ifdef BOT
+  bottomV       <- findId "ConCat.Misc" "bottom"
   bottomTV      <- findTrnId "bottomT"
+#endif
   repTc         <- findRepTc "Rep"
   okTypeTc      <- findOkTyTc "OkType"
   prePostV      <- findId "ConCat.Misc" "~>"
@@ -1509,7 +1524,6 @@ mkCccEnv opts = do
   boxIBV        <- findBoxId "boxIB"
   ifEqIntHash   <- findBoxId "ifEqInt#"
   tagToEnumV    <- findId "GHC.Prim" "tagToEnum#"
-  bottomV       <- findId "ConCat.Misc" "bottom"
   inlineV       <- findExtId "inline"
   let mkPolyOp :: (String,(String,String)) -> CoreM (String,Var)
       mkPolyOp (stdName,(cmod,cop)) =
