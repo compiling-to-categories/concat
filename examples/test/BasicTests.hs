@@ -11,7 +11,7 @@
 {-# OPTIONS_GHC -freduction-depth=0 #-}
 {-# OPTIONS_GHC -fsimpl-tick-factor=500 #-}
 
-{-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
+-- {-# OPTIONS_GHC -fplugin-opt=ConCat.Plugin:trace #-}
 
 module BasicTests where
 
@@ -57,20 +57,25 @@ import           Utils
 -- import Test.Tasty (TestTree, testGroup)
 -- import Test.Tasty.Golden
 
-
 basicTests :: TestTree
 basicTests = testGroup "basic tests"
   [ testGroup "" []
 
   -- -- Circuit graphs
-  , runSynCirc "add"         $ (+) @R
+
+  -- , runSynCirc' "add" (toCcc ((+) @R)) (toCcc ((+) @R))
+
+  -- , runSynCirc "add"         $ (+) @R
+
+  -- , runSynCirc "add" ((+) @R)
+
   -- , runSynCirc "add-uncurry" $ uncurry ((+) @R)
   -- , runSynCirc "dup"         $ A.dup @(->) @R
   -- , runSynCirc "fst"         $ fst @R @R
   -- , runSynCirc "twice"       $ twice @R
   -- , runSynCirc "sqr"         $ sqr @R
 
-  -- , runSynCirc "complex-mul" $ uncurry ((*) @C)
+  , runSynCirc "complex-mul" $ uncurry ((*) @C)
 
   -- , runSynCirc "magSqr"      $ magSqr @R
   -- , runSynCirc "cosSinProd"  $ cosSinProd @R
@@ -347,8 +352,8 @@ runSynCircDers :: (GO a b, Num b) => String -> (a -> b) -> TestTree
 runSynCircDers nm f =
   testGroup (nm ++ "-ders")
   [ {- runSynCirc nm               $ id       $ f
-  , -} runSynCirc (nm ++ "-adf")   $ andDerF  $ f
+  , runSynCirc (nm ++ "-adf")   $ andDerF  $ f
   , runSynCirc (nm ++ "-adr")   $ andDerR  $ f
-  , runSynCirc (nm ++ "-gradr") $ andGradR $ f
+  , -} runSynCirc (nm ++ "-gradr") $ andGradR $ f
   ]
 {-# INLINE runSynCircDers #-}

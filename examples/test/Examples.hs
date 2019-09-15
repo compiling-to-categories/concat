@@ -191,7 +191,7 @@ main = sequence_ [
 
     -- , runSyn S.t14'
 
-  , runSynCirc "dup" $ A.dup @(->) @R
+  -- , runSynCirc "dup" $ A.dup @(->) @R
 
   -- , runSyn $ A.addC . A.dup
   -- , runSyn $ A.addC . (A.id A.&&& A.id)
@@ -388,7 +388,7 @@ main = sequence_ [
   -- , runSynCirc "fst"         $ fst @R @R
   -- , runSynCirc "twice"       $ twice @R
   -- , runSynCirc "sqr"         $ sqr @R
-  -- , runSynCirc "complex-mul" $ uncurry ((*) @C)
+  , runSynCirc "complex-mul" $ uncurry ((*) @C)
   -- , runSynCirc "magSqr"      $ magSqr @R
   -- , runSynCirc "cosSinProd"  $ cosSinProd @R
   -- , runSynCirc "xp3y"        $ \ (x,y) -> x + 3 * y :: R
