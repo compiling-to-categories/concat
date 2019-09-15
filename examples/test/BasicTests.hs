@@ -46,16 +46,8 @@ import           Miscellany hiding (runSynCirc,runSynCircDers)
 import           Prelude hiding (unzip, zip, zipWith)
 import           Test.Tasty (TestTree, testGroup)
 import           Utils
+import           GHC.Exts (inline)
 
-
--- import ConCat.AltCat (toCcc)
--- import ConCat.Circuit (mkGraph, graphDot)
--- import ConCat.Syntactic (render)
--- import Data.ByteString.Lazy.Char8 (pack)
--- import Data.Semigroup ((<>))
--- import Miscellany (GO)
--- import Test.Tasty (TestTree, testGroup)
--- import Test.Tasty.Golden
 
 basicTests :: TestTree
 basicTests = testGroup "basic tests"
@@ -75,18 +67,18 @@ basicTests = testGroup "basic tests"
   , runSynCirc "horner"      $ horner @R [1,3,5]
   , runSynCirc "cos-2xx"     $ \ x -> cos (2 * x * x) :: R
 
-  -- Automatic differentiation variants
-  , runSynCircDers "add"     $ uncurry ((+) @R)
-  , runSynCircDers "sin"     $ sin @R
-  , runSynCircDers "cos"     $ cos @R
-  , runSynCircDers "twice"   $ twice @R
-  , runSynCircDers "sqr"     $ sqr @R
-  , runSynCircDers "magSqr"  $ magSqr  @R
-  , runSynCircDers "cos-2x"  $ \ x -> cos (2 * x) :: R
-  , runSynCircDers "cos-2xx" $ \ x -> cos (2 * x * x) :: R
-  , runSynCircDers "cos-xpy" $ \ (x,y) -> cos (x + y) :: R
+  -- -- Automatic differentiation variants
+  -- , runSynCircDers "add"     $ uncurry ((+) @R)
+  -- , runSynCircDers "sin"     $ sin @R
+  -- , runSynCircDers "cos"     $ cos @R
+  -- , runSynCircDers "twice"   $ twice @R
+  -- , runSynCircDers "sqr"     $ sqr @R
+  -- , runSynCircDers "magSqr"  $ magSqr  @R
+  -- , runSynCircDers "cos-2x"  $ \ x -> cos (2 * x) :: R
+  -- , runSynCircDers "cos-2xx" $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCircDers "cos-xpy" $ \ (x,y) -> cos (x + y) :: R
 
-  , runSynCirc "cosSinProd-adr" $ andDerR $ cosSinProd @R
+  -- , runSynCirc "cosSinProd-adr" $ andDerR $ cosSinProd @R
 
 #if 0
 
@@ -341,9 +333,11 @@ basicTests = testGroup "basic tests"
 runSynCircDers :: (GO a b, Num b) => String -> (a -> b) -> TestTree
 runSynCircDers nm f =
   testGroup (nm ++ "-ders")
-  [ {- runSynCirc nm               $ id       $ f
-  , runSynCirc (nm ++ "-adf")   $ andDerF  $ f
-  , runSynCirc (nm ++ "-adr")   $ andDerR  $ f
-  , -} runSynCirc (nm ++ "-gradr") $ andGradR $ f
+  [ testGroup "" []
+  -- , runSynCirc nm               $ id       $ f
+  -- , runSynCirc (nm ++ "-adf")   $ andDerF  f
+  -- , runSynCirc (nm ++ "-adr")   $ andDerR  (inline f)
+  -- , runSynCirc (nm ++ "-gradr") $ andGradR (inline f)
+  , runSynCirc (nm ++ "-gradr") $ andGradR (inline f)
   ]
 {-# INLINE runSynCircDers #-}

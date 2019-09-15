@@ -14,25 +14,22 @@ module Miscellany where
 import Prelude
 
 import GHC.TypeLits ()
+import GHC.Exts (inline)
 
 import ConCat.Misc ((:*))
-import ConCat.AltCat ((:**:)(..),Ok2,U2,toCcc)
+import ConCat.AltCat (U2,toCcc)
 import ConCat.Orphans ()
 import ConCat.Rebox ()
 import ConCat.ADFun (andDerF)
 import ConCat.RAD (andDerR, andGradR)
-import ConCat.Circuit (GenBuses,(:>))
-import ConCat.Syntactic (Syn,render)
+import ConCat.Circuit (GO)
+import ConCat.Syntactic (render)
 import ConCat.RunCircuit (run)
 import ConCat.StackVM (StackProg(..))
-
-type EC = Syn :**: (:>)
 
 runU2 :: (a -> b) -> IO ()
 runU2 f = print (toCcc @U2 f)
 {-# INLINE runU2 #-}
-
-type GO a b = (GenBuses a, Ok2 (:>) a b)
 
 runSyn :: (a -> b) -> IO ()
 runSyn f = putStrLn ('\n' : render (toCcc f))
@@ -43,15 +40,17 @@ runCirc nm f = run nm [] (toCcc f)
 {-# INLINE runCirc #-}
 
 runSynCirc :: GO a b => String -> (a -> b) -> IO ()
-runSynCirc nm f = runSyn (toCcc f) >> runCirc nm (toCcc f)
+runSynCirc nm f =
+  do runSyn (toCcc (inline f))
+     runCirc nm (toCcc (inline f))
 {-# INLINE runSynCirc #-}
 
 runSynCircDers :: (GO a b, Num b) => String -> (a -> b) -> IO ()
 runSynCircDers nm f =
-  do runSynCirc nm               $ id       $ f
-     runSynCirc (nm ++ "-adf")   $ andDerF  $ f
-     runSynCirc (nm ++ "-adr")   $ andDerR  $ f
-     runSynCirc (nm ++ "-gradr") $ andGradR $ f
+  do runSynCirc nm               $ id       (inline f)
+     runSynCirc (nm ++ "-adf")   $ andDerF  (inline f)
+     runSynCirc (nm ++ "-adr")   $ andDerR  (inline f)
+     runSynCirc (nm ++ "-gradr") $ andGradR (inline f)
 {-# INLINE runSynCircDers #-}
 
 runPrint :: Show b => a -> (a -> b) -> IO ()
@@ -72,9 +71,6 @@ runPrint a f = print (f a)
 
 runStack :: StackProg a b -> IO ()
 runStack = print
-
--- runSynStack :: (Syn :**: StackProg) a b -> IO ()
--- runSynStack (syn :**: prog) = runSyn syn >> runStack prog
 
 runSynStack :: (a -> b) -> IO ()
 runSynStack f = runSyn (toCcc f) >> runStack (toCcc f)

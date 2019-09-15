@@ -157,7 +157,7 @@ import qualified ConCat.Inline.SampleMethods as I
 
 import qualified ConCat.Regress as R
 import ConCat.Free.Affine
-import ConCat.Choice
+-- import ConCat.Choice
 -- import ConCat.RegressChoice
 
 -- import ConCat.Vector -- (liftArr2,FFun,arrFFun)  -- and (orphan) instances
@@ -388,7 +388,7 @@ main = sequence_ [
   -- , runSynCirc "fst"         $ fst @R @R
   -- , runSynCirc "twice"       $ twice @R
   -- , runSynCirc "sqr"         $ sqr @R
-  , runSynCirc "complex-mul" $ uncurry ((*) @C)
+  -- , runSynCirc "complex-mul" $ uncurry ((*) @C)
   -- , runSynCirc "magSqr"      $ magSqr @R
   -- , runSynCirc "cosSinProd"  $ cosSinProd @R
   -- , runSynCirc "xp3y"        $ \ (x,y) -> x + 3 * y :: R
@@ -402,7 +402,7 @@ main = sequence_ [
   -- , runSynCircDers "sqr"     $ sqr @R
   -- , runSynCircDers "sin"     $ sin @R
   -- , runSynCircDers "cos"     $ cos @R
-  -- , runSynCircDers "magSqr"  $ magSqr  @R
+  , runSynCircDers "magSqr"  $ magSqr  @R
   -- , runSynCircDers "cos-2x"  $ \ x -> cos (2 * x) :: R
   -- , runSynCircDers "cos-2xx" $ \ x -> cos (2 * x * x) :: R
   -- , runSynCircDers "cos-xpy" $ \ (x,y) -> cos (x + y) :: R
