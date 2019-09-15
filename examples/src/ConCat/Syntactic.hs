@@ -334,8 +334,13 @@ instance EnumCat Syn a where
   predC = app0 "predC"
   INLINER(succC)
   INLINER(predC)
+-- Use primitive operations only for primitive types. See 2019-09-15 notes.
+class PrimNum a
+instance PrimNum Int
+instance PrimNum Float
+instance PrimNum Double
 
-instance NumCat Syn a where
+instance PrimNum a => NumCat Syn a where
   negateC = app0 "negateC"
   addC    = app0 "addC"
   subC    = app0 "subC"
@@ -347,19 +352,19 @@ instance NumCat Syn a where
   INLINER(mulC)
   INLINER(powIC)
 
-instance IntegralCat Syn a where
+instance PrimNum a => IntegralCat Syn a where
   divC = app0 "divC"
   modC = app0 "modC"
   INLINER(divC)
   INLINER(modC)
 
-instance FractionalCat Syn a where
+instance PrimNum a => FractionalCat Syn a where
   recipC  = app0 "recipC"
   divideC = app0 "divideC"
   INLINER(recipC)
   INLINER(divideC)
 
-instance RealFracCat Syn a b where
+instance PrimNum a => RealFracCat Syn a b where
   floorC    = app0 "floorC"
   ceilingC  = app0 "ceilingC"
   truncateC = app0 "truncateC"
@@ -367,7 +372,7 @@ instance RealFracCat Syn a b where
   INLINER(ceilingC)
   INLINER(truncateC)
 
-instance FloatingCat Syn a where
+instance PrimNum a => FloatingCat Syn a where
   expC = app0 "expC"
   cosC = app0 "cosC"
   sinC = app0 "sinC"
@@ -377,7 +382,7 @@ instance FloatingCat Syn a where
   INLINER(sinC)
   INLINER(logC)
 
-instance FromIntegralCat Syn a b where
+instance PrimNum a => FromIntegralCat Syn a b where
   fromIntegralC = app0 "fromIntegralC"
   INLINER(fromIntegralC)
 
