@@ -1,14 +1,14 @@
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
 ------------------------------------------------------------------------------
--- | This module requires all of its exports to be INLINEd so that we can
--- preserve referential transparency in any tests which attempt to use their
--- definitions for 'toCCC'.
+-- | This module requires all of its exports to be INLINEd to enable
+-- toCcc magic to work.
 module Miscellany where
 
 import Prelude
@@ -28,30 +28,30 @@ import ConCat.StackVM (StackProg(..))
 
 type EC = Syn :**: (:>)
 
-runU2 :: U2 a b -> IO ()
-runU2 = print
+runU2 :: (a -> b) -> IO ()
+runU2 f = print (toCcc @U2 f)
 {-# INLINE runU2 #-}
 
 type GO a b = (GenBuses a, Ok2 (:>) a b)
 
-runSyn :: Syn a b -> IO ()
-runSyn syn = putStrLn ('\n' : render syn)
+runSyn :: (a -> b) -> IO ()
+runSyn f = putStrLn ('\n' : render (toCcc f))
 {-# INLINE runSyn #-}
 
-runSynCirc :: GO a b => String -> EC a b -> IO ()
-runSynCirc nm (syn :**: circ) = runSyn syn >> runCirc nm circ
-{-# INLINE runSynCirc #-}
-
-runCirc :: GO a b => String -> (a :> b) -> IO ()
-runCirc nm circ = run nm [] circ
+runCirc :: GO a b => String -> (a -> b) -> IO ()
+runCirc nm f = run nm [] (toCcc f)
 {-# INLINE runCirc #-}
+
+runSynCirc :: GO a b => String -> (a -> b) -> IO ()
+runSynCirc nm f = runSyn (toCcc f) >> runCirc nm (toCcc f)
+{-# INLINE runSynCirc #-}
 
 runSynCircDers :: (GO a b, Num b) => String -> (a -> b) -> IO ()
 runSynCircDers nm f =
-  do runSynCirc nm               $ toCcc $ id       $ f
-     runSynCirc (nm ++ "-adf")   $ toCcc $ andDerF  $ f
-     runSynCirc (nm ++ "-adr")   $ toCcc $ andDerR  $ f
-     runSynCirc (nm ++ "-gradr") $ toCcc $ andGradR $ f
+  do runSynCirc nm               $ id       $ f
+     runSynCirc (nm ++ "-adf")   $ andDerF  $ f
+     runSynCirc (nm ++ "-adr")   $ andDerR  $ f
+     runSynCirc (nm ++ "-gradr") $ andGradR $ f
 {-# INLINE runSynCircDers #-}
 
 runPrint :: Show b => a -> (a -> b) -> IO ()
@@ -73,8 +73,11 @@ runPrint a f = print (f a)
 runStack :: StackProg a b -> IO ()
 runStack = print
 
-runSynStack :: (Syn :**: StackProg) a b -> IO ()
-runSynStack (syn :**: prog) = runSyn syn >> runStack prog
+-- runSynStack :: (Syn :**: StackProg) a b -> IO ()
+-- runSynStack (syn :**: prog) = runSyn syn >> runStack prog
+
+runSynStack :: (a -> b) -> IO ()
+runSynStack f = runSyn (toCcc f) >> runStack (toCcc f)
 
 twice :: Num a => a -> a
 twice x = x + x

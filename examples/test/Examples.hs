@@ -135,7 +135,7 @@ import qualified ConCat.RunCircuit as RC
 import qualified ConCat.AltCat as A
 -- import ConCat.AltCat
 import ConCat.AltCat
-  (toCcc,toCcc',unCcc,unCcc',conceal,(:**:)(..),Ok,Ok2,U2,equal)
+  (toCcc,toCcc',unCcc,unCcc',conceal,Ok,Ok2,U2,equal)
 import qualified ConCat.Rep
 import ConCat.Rebox () -- necessary for reboxing rules to fire
 import ConCat.Orphans ()
@@ -191,211 +191,209 @@ main = sequence_ [
 
     -- , runSyn S.t14'
 
-  -- , runSyn $ toCcc $ A.addC . A.dup
-  -- , runSyn $ toCcc $ A.addC . (A.id A.&&& A.id)
+  , runSynCirc "dup" $ A.dup @(->) @R
+
+  -- , runSyn $ A.addC . A.dup
+  -- , runSyn $ A.addC . (A.id A.&&& A.id)
 
   -- -- first add . first dup
 
-  -- , runSynStack $ toCcc $ id @ Int
+  -- , runSynStack $ id @ Int
 
-  -- , runSynStack $ toCcc $ negate . negate @ Int
+  -- , runSynStack $ negate . negate @ Int
 
-  -- , runSynStack $ toCcc $ \ (x :: Int) -> x  -- fine
-  -- , runSyn $ toCcc $ \ (x :: Int) -> (x,x) -- fine
-  -- , runSyn $ toCcc $ A.id A.&&& A.id -- fine
-  -- , runSyn $ toCcc $ A.addC . (A.id A.&&& A.id) -- okay
+  -- , runSynStack $ \ (x :: Int) -> x  -- fine
+  -- , runSyn $ \ (x :: Int) -> (x,x) -- fine
+  -- , runSyn $ A.id A.&&& A.id -- fine
+  -- , runSyn $ A.addC . (A.id A.&&& A.id) -- okay
 
-  -- , runSynStack $ toCcc $ A.addC . A.dup
+  -- , runSynStack $ A.addC . A.dup
 
 
   -- -- first add . ((first swapP . (lassocP . id . rassocP) . first swapP) . lassocP . id . rassocP) . first dup
-  -- , runSynStack $ toCcc $ A.addC . (A.id A.&&& A.id)
+  -- , runSynStack $ A.addC . (A.id A.&&& A.id)
 
   -- -- [first dup,first addC]
-  -- , runChainStack $ toCcc $ A.addC . A.dup
+  -- , runChainStack $ A.addC . A.dup
 
   -- -- [first dup,rassocP,lassocP,first swapP,rassocP,lassocP,first swapP,first addC]
   -- -- [first dup,first addC]  -- with AltCat rule (id &&& id) = dup
-  -- , runChainStack $ toCcc $ A.addC . (A.id A.&&& A.id)
+  -- , runChainStack $ A.addC . (A.id A.&&& A.id)
 
   -- -- twice x = x + x
-  -- , runSyn        $ toCcc twice  -- addC . dup
-  -- , runSynStack   $ toCcc twice  -- first addC . first dup
+  -- , runSyn        twice  -- addC . dup
+  -- , runSynStack   twice  -- first addC . first dup
 
-  -- , runSynStack $ toCcc $ \ x     -> x + x  -- addC . dup, [Dup,Add]
-  -- , runSynStack $ toCcc $ \ (x,y) -> x * y  -- mulC, [Mul]
+  -- , runSynStack $ \ x     -> x + x  -- addC . dup, [Dup,Add]
+  -- , runSynStack $ \ (x,y) -> x * y  -- mulC, [Mul]
 
   -- -- addC . (exl *** mulC . (const 3 *** exr) . dup) . dup
   -- -- [Dup,Push,Exl,Pop,Swap,Push,Dup,Push,Const 3,Pop,Swap,Push,Exr,Pop,Swap,Mul,Pop,Swap,Add]
   -- -- TODO: better categorical optimization
-  -- , runSynStack $ toCcc $ \ (x,y) -> x + 3 * y
+  -- , runSynStack $ \ (x,y) -> x + 3 * y
 
-  -- , runSynStack $ toCcc $ \ y -> 3 * y
+  -- , runSynStack $ \ y -> 3 * y
 
-  -- , runSyn $ toCcc' $ A.lassocP A.. A.rassocP                  -- id
-  -- , runSyn $ toCcc' $ A.lassocP A.. A.id A.. A.rassocP         -- id
-  -- , runSyn $ toCcc' $ A.first A.id                             -- id
-  -- , runSyn $ toCcc' $ A.lassocP A.. A.first A.id A.. A.rassocP -- id
+  -- , runSyn $ A.lassocP A.. A.rassocP                  -- id
+  -- , runSyn $ A.lassocP A.. A.id A.. A.rassocP         -- id
+  -- , runSyn $ A.first A.id                             -- id
+  -- , runSyn $ A.lassocP A.. A.first A.id A.. A.rassocP -- id
 
-  -- , runSynCirc "sum-fun-B" $ toCcc $ sum @((->) Bool) @Int
-  -- , runSynCirc "sum-fun-BxB" $ toCcc $ sum @((->) (Bool :* Bool)) @Int
+  -- , runSynCirc "sum-fun-B" $ sum @((->) Bool) @Int
+  -- , runSynCirc "sum-fun-BxB" $ sum @((->) (Bool :* Bool)) @Int
 
-  -- , runSynCirc "foo" $ toCcc $ \ (arr :: Arr Bool Int) -> arr `FR.index` False -- okay
+  -- , runSynCirc "foo" $ \ (arr :: Arr Bool Int) -> arr `FR.index` False -- okay
 
-  -- , runSynCirc "sum-arr-B"   $ toCcc $ sum @(Arr Bool) @Int -- okay
+  -- , runSynCirc "sum-arr-B"   $ sum @(Arr Bool) @Int -- okay
 
-  -- , runSynCirc "arrSplitProd-B-B" $ toCcc $ arrSplitProd @Bool @Bool @Int -- okay
+  -- , runSynCirc "arrSplitProd-B-B" $ arrSplitProd @Bool @Bool @Int -- okay
 
-  -- , runSynCirc "foo" $ toCcc $ arrSplitProd @Bool @Bool @(Sum Int) -- okay
+  -- , runSynCirc "foo" $ arrSplitProd @Bool @Bool @(Sum Int) -- okay
 
-  -- , runSynCirc "foo" $ toCcc $ fmap fold . arrSplitProd @Bool @Bool @(Sum Int) -- fail
+  -- , runSynCirc "foo" $ fmap fold . arrSplitProd @Bool @Bool @(Sum Int) -- fail
 
-  -- , runSynCirc "foo" $ toCcc $ fmap @(Vector 2) not -- okay
+  -- , runSynCirc "foo" $ fmap @(Vector 2) not -- okay
 
-  -- , runSynCirc "foo" $ toCcc $ fmap @(Arr Bool) not -- okay
+  -- , runSynCirc "foo" $ fmap @(Arr Bool) not -- okay
 
-  -- , runSynCirc "foo" $ toCcc $ fmap @(Arr Bool) @(Arr Bool (Sum Int)) fold 
+  -- , runSynCirc "foo" $ fmap @(Arr Bool) @(Arr Bool (Sum Int)) fold 
 
-  -- , runSynCirc "foo" $ toCcc $ fold @(Arr Bool) @(Sum Int) --
+  -- , runSynCirc "foo" $ fold @(Arr Bool) @(Sum Int) --
 
-  -- , runSynCirc "foo" $ toCcc $ (TA.!) @Bool @(Sum Int)
+  -- , runSynCirc "foo" $ (TA.!) @Bool @(Sum Int)
 
-  -- , runSynCirc "sum-arr-BxB" $ toCcc $ sum @(Arr (Bool :* Bool)) @Int -- okay
+  -- , runSynCirc "sum-arr-BxB" $ sum @(Arr (Bool :* Bool)) @Int -- okay
 
-  -- , runSynCirc "sum-arr-BxBxB-r" $ toCcc $ sum @(Arr (Bool :* (Bool :* Bool))) @Int -- okay
-  -- , runSynCirc "sum-arr-BxBxB-l" $ toCcc $ sum @(Arr ((Bool :* Bool) :* Bool)) @Int -- okay
+  -- , runSynCirc "sum-arr-BxBxB-r" $ sum @(Arr (Bool :* (Bool :* Bool))) @Int -- okay
+  -- , runSynCirc "sum-arr-BxBxB-l" $ sum @(Arr ((Bool :* Bool) :* Bool)) @Int -- okay
 
-  -- , runSynCirc "foo" $ toCcc $ sum @((->) (Bool :* (Bool :* ()))) @Int -- okay
-  -- , runSynCirc "foo" $ toCcc $ sum @(Arr (Bool :* ())) @Int -- okay
-  -- , runSynCirc "foo" $ toCcc $ sum @(Arr (Bool :* (Bool :* ()))) @Int -- okay
+  -- , runSynCirc "foo" $ sum @((->) (Bool :* (Bool :* ()))) @Int -- okay
+  -- , runSynCirc "foo" $ sum @(Arr (Bool :* ())) @Int -- okay
+  -- , runSynCirc "foo" $ sum @(Arr (Bool :* (Bool :* ()))) @Int -- okay
 
-  -- , runSynCirc "sum-flat-rbin-3" $ toCcc $ sum @(Flat (RBin N3)) @Int -- okay
-  -- , runSynCirc "sum-flat-lbin-3" $ toCcc $ sum @(Flat (LBin N3)) @Int -- okay
+  -- , runSynCirc "sum-flat-rbin-3" $ sum @(Flat (RBin N3)) @Int -- okay
+  -- , runSynCirc "sum-flat-lbin-3" $ sum @(Flat (LBin N3)) @Int -- okay
 
-  -- , runSynCirc "fmap-rbin-4" $ toCcc $ fmap @(Flat (LBin N4)) not -- 
+  -- , runSynCirc "fmap-rbin-4" $ fmap @(Flat (LBin N4)) not -- 
 
-  -- , runSynCirc "add-int" $ toCcc $ (+) @Int -- fine
+  -- , runSynCirc "add-int" $ (+) @Int -- fine
 
-  -- , runSynCirc "add-int" $ toCcc $ (+) @Integer -- 
+  -- , runSynCirc "add-int" $ (+) @Integer -- 
 
-  -- , runSynCirc "foo" $ toCcc $ toFin @Bool -- works
+  -- , runSynCirc "foo" $ toFin @Bool -- works
 
-  -- , runSyn $ toCcc $ unFin @Bool -- breaks
+  -- , runSyn $ unFin @Bool -- breaks
 
-  -- , runSyn $ toCcc $ finVal @2 -- 
+  -- , runSyn $ finVal @2 -- 
 
-  -- , runSyn $ toCcc $ unFin @() -- works
+  -- , runSyn $ unFin @() -- works
 
-  -- , runSyn{-Circ "foo"-} $ toCcc $ sum @((->) (Finite 5)) @Int -- breaks
+  -- , runSyn{-Circ "foo"-} $ sum @((->) (Finite 5)) @Int -- breaks
 
-  -- , runSynCirc "foo" $ toCcc $ sum @((->) (Bool :* (Bool :* ()))) @Int -- works
+  -- , runSynCirc "foo" $ sum @((->) (Bool :* (Bool :* ()))) @Int -- works
 
-  -- , runCirc "foo" $ toCcc $ fmap @(Arr (Bool :* (Bool :* ()))) not -- works
+  -- , runCirc "foo" $ fmap @(Arr (Bool :* (Bool :* ()))) not -- works
 
-  -- , runCirc "foo" $ toCcc $ fmap @(Flat (RBin N6)) not -- works
+  -- , runCirc "foo" $ fmap @(Flat (RBin N6)) not -- works
 
-  -- , runCirc "foo" $ toCcc $ sum @(Arr (Bool :* (Bool :* ()))) @Int -- nope
+  -- , runCirc "foo" $ sum @(Arr (Bool :* (Bool :* ()))) @Int -- nope
 
-  -- , runCirc "foo" $ toCcc $ fmap @(Arr (Bool :* (Bool :* ()))) not -- works with Syn but not Circ
+  -- , runCirc "foo" $ fmap @(Arr (Bool :* (Bool :* ()))) not -- works with Syn but not Circ
 
-  -- , runSynCirc "sum-rbin-3" $ toCcc $ sum @(RBin N3) @Int
+  -- , runSynCirc "sum-rbin-3" $ sum @(RBin N3) @Int
 
-  -- , runSyn{-Circ "sum-flat-rbin-1"-} $ toCcc $ sum @(Flat (RBin N1)) @Int -- ?
+  -- , runSyn{-Circ "sum-flat-rbin-1"-} $ sum @(Flat (RBin N1)) @Int -- ?
 
-  -- , runSynCirc "packFinite" $ toCcc $ packFinite @5 -- fail (missing INLINE)
+  -- , runSynCirc "packFinite" $ packFinite @5 -- fail (missing INLINE)
 
-  -- , runSynCirc "packFiniteM" $ toCcc $ packFiniteM @5 @Maybe -- okay 
+  -- , runSynCirc "packFiniteM" $ packFiniteM @5 @Maybe -- okay 
 
-  -- , runSynCirc "vecIndexDef" $ toCcc $ vecIndexDef @5 @R -- okay
+  -- , runSynCirc "vecIndexDef" $ vecIndexDef @5 @R -- okay
 
-  -- , runSynCirc "finite" $ toCcc $ Finite @5 -- okay
+  -- , runSynCirc "finite" $ Finite @5 -- okay
 
-  -- , runSynCirc "add-integer" $ toCcc $ uncurry ((+) @Integer) -- fine
+  -- , runSynCirc "add-integer" $ uncurry ((+) @Integer) -- fine
 
-  -- , runSynCirc "sum1" $ toCcc $ sum @Par1 @R -- ??
+  -- , runSynCirc "sum1" $ sum @Par1 @R -- ??
 
-  -- , runSynCirc "sum2" $ toCcc $ sum @Pair @R -- ??
+  -- , runSynCirc "sum2" $ sum @Pair @R -- ??
 
-  -- , runSynCirc "sumV" $ toCcc $ sum @(Vector 5) @R -- ??
+  -- , runSynCirc "sumV" $ sum @(Vector 5) @R -- ??
 
-  -- , runSynCirc "sumAV" $ toCcc $ sumA @(Vector 5) @R -- ??
+  -- , runSynCirc "sumAV" $ sumA @(Vector 5) @R -- ??
 
-  -- , runSynCirc "foo" $ toCcc $ andDerR $ \ () -> zero @((Vector 3 :.: Bump (Vector 2)) R) -- works
+  -- , runSynCirc "foo" $ andDerR $ \ () -> zero @((Vector 3 :.: Bump (Vector 2)) R) -- works
 
-  -- , runSynCirc "foo" $ toCcc $ andDerR $ \ () -> zero @((Vector 3 :.: Vector 2) R) -- o2 works
+  -- , runSynCirc "foo" $ andDerR $ \ () -> zero @((Vector 3 :.: Vector 2) R) -- o2 works
 
-  -- , runSynCirc "foo" $ toCcc $ \ () -> zero @((Vector 3 :.: Vector 2) R) -- o3 fail
+  -- , runSynCirc "foo" $ \ () -> zero @((Vector 3 :.: Vector 2) R) -- o3 fail
 
-  -- , runSynCirc "foo" $ toCcc $ \ () -> zero @((Vector 3 :.: Par1) R) -- o4 fail; o7, o1 (without vector-sized mod)
+  -- , runSynCirc "foo" $ \ () -> zero @((Vector 3 :.: Par1) R) -- o4 fail; o7, o1 (without vector-sized mod)
 
 
-  -- , runSynCirc "foo" $ toCcc $ point @(Vector 3 :.: Par1) @R -- o6 fail
+  -- , runSynCirc "foo" $ point @(Vector 3 :.: Par1) @R -- o6 fail
 
 
-  -- , runSynCirc "foo" $ toCcc $ \ () -> zero @((Par1 :.: Par1) R) -- okay
-  -- , runSynCirc "foo" $ toCcc $ \ () -> zero @(Vector 3 R) -- okay
-  -- , runSynCirc "foo" $ toCcc $ \ () -> zero @((Par1 :.: Par1) R) -- okay
-  -- , runSynCirc "foo" $ toCcc $ point @(Vector 3 :.: Vector 2) @R -- fail (unsized Vector?)
-  -- , runSynCirc "foo" $ toCcc $ andDerR $ \ () -> zero @(Vector 3 R) -- okay
-  -- , runSynCirc "foo" $ toCcc $ (^+^) @(Vector 3 R) -- okay
-  -- , runSynCirc "foo" $ toCcc $ andDerR $ id @(Vector 2 R) -- okay
-  -- , runSynCirc "foo" $ toCcc $ andDerR $ id @((Vector 3 :.: Bump (Vector 2)) R) -- okay
+  -- , runSynCirc "foo" $ \ () -> zero @((Par1 :.: Par1) R) -- okay
+  -- , runSynCirc "foo" $ \ () -> zero @(Vector 3 R) -- okay
+  -- , runSynCirc "foo" $ \ () -> zero @((Par1 :.: Par1) R) -- okay
+  -- , runSynCirc "foo" $ point @(Vector 3 :.: Vector 2) @R -- fail (unsized Vector?)
+  -- , runSynCirc "foo" $ andDerR $ \ () -> zero @(Vector 3 R) -- okay
+  -- , runSynCirc "foo" $ (^+^) @(Vector 3 R) -- okay
+  -- , runSynCirc "foo" $ andDerR $ id @(Vector 2 R) -- okay
+  -- , runSynCirc "foo" $ andDerR $ id @((Vector 3 :.: Bump (Vector 2)) R) -- okay
 
-  -- , runSynCirc "step-lr1" $ toCcc $ D.step (lr1 @(Vector 2) @(Vector 3)) 0.01
+  -- , runSynCirc "step-lr1" $ D.step (lr1 @(Vector 2) @(Vector 3)) 0.01
 
-  -- , runSynCirc "errGrad-lr1" $ toCcc $ D.errGrad (lr1 @(Vector 2) @(Vector 3)) -- fails with cast confusion
+  -- , runSynCirc "errGrad-lr1" $ D.errGrad (lr1 @(Vector 2) @(Vector 3)) -- fails with cast confusion
 
-  -- , runSynCirc "step-lr2" $ toCcc $ D.step (lr2 @(Vector 2) @(Vector 3) @(Vector 5)) 0.01
+  -- , runSynCirc "step-lr2" $ D.step (lr2 @(Vector 2) @(Vector 3) @(Vector 5)) 0.01
 
-    -- , runSynCirc "fmap" $ toCcc $ fmap @(Vector 7) not
+    -- , runSynCirc "fmap" $ fmap @(Vector 7) not
 
-    -- , runSynCirc "constV" $ toCcc $ \ () -> pure 1 :: Vector 7 Int
+    -- , runSynCirc "constV" $ \ () -> pure 1 :: Vector 7 Int
 
-    -- , runSynCirc "pointV" $ toCcc $ point @(Vector 7) @Bool -- fail
+    -- , runSynCirc "pointV" $ point @(Vector 7) @Bool -- fail
 
-    -- , runSynCirc "addV" $ toCcc $ (^+^) @(Vector 7 R)
+    -- , runSynCirc "addV" $ (^+^) @(Vector 7 R)
 
-    -- , runSynCirc "zeroV" $ toCcc $ \ () -> zero @(Vector 7 R)
+    -- , runSynCirc "zeroV" $ \ () -> zero @(Vector 7 R)
 
-    -- , runSynCirc "addR" $ toCcc $ (^+^) @R
+    -- , runSynCirc "addR" $ (^+^) @R
 
-    -- , runSyn $ toCcc $ \ () -> finite @2 (nat @1) -- okay
+    -- , runSyn $ \ () -> finite @2 (nat @1) -- okay
 
-    -- , runSyn $ toCcc $ \ (i :: Finite 2) -> finite @2 (nat @2 - 1) -- okay
+    -- , runSyn $ \ (i :: Finite 2) -> finite @2 (nat @2 - 1) -- okay
 
-    -- , runSyn $ toCcc $ \ (i :: Finite 2) -> finite (nat @2 - 1) - i -- okay
+    -- , runSyn $ \ (i :: Finite 2) -> finite (nat @2 - 1) - i -- okay
 
-    -- , runSyn $ toCcc $ reverseFinite @5  -- Fine
+    -- , runSyn $ reverseFinite @5  -- Fine
 
-    -- , runSynCirc "reverseFinite" $ toCcc $ reverseFinite @5
+    -- , runSynCirc "reverseFinite" $ reverseFinite @5
 
-    -- , runSynCirc "reverseF-pair" $ toCcc $ reverseF @Pair @Int
+    -- , runSynCirc "reverseF-pair" $ reverseF @Pair @Int
 
-    -- , runSynCirc "reverseF-vec" $ toCcc $ reverseF @(Vector 5) @Int
+    -- , runSynCirc "reverseF-vec" $ reverseF @(Vector 5) @Int
 
-    -- , runSynCirc "reverseFin-Bool-802" $ toCcc $ isoFwd (reverseFinIso @Bool)
+    -- , runSynCirc "reverseFin-Bool-802" $ isoFwd (reverseFinIso @Bool)
 
-    -- , runSynCirc "reverseFin-vec" $ toCcc $ isoFwd (reverseFinIso @(A.Finite 5))
+    -- , runSynCirc "reverseFin-vec" $ isoFwd (reverseFinIso @(A.Finite 5))
 
-    -- , runSynCirc "reverseFin-Bool-cheat" $ toCcc $ unFin @Bool . (1 -) . toFin @Bool
+    -- , runSynCirc "reverseFin-Bool-cheat" $ unFin @Bool . (1 -) . toFin @Bool
 
-    -- -- https://github.com/conal/concat/issues/49
-    -- -- , putStrLn $ render (toCcc (\f g x -> f (g (x))))
-    -- , putStrLn $ render (toCcc (\ (f :: Int -> Bool) (g :: Bool -> Int) x -> f (g (x))))
-
-  -- Circuit graphs
-  , runSynCirc "add"         $ toCcc $ (+) @R
-  , runSynCirc "add-uncurry" $ toCcc $ uncurry ((+) @R)
-  , runSynCirc "dup"         $ toCcc $ A.dup @(->) @R
-  , runSynCirc "fst"         $ toCcc $ fst @R @R
-  , runSynCirc "twice"       $ toCcc $ twice @R
-  , runSynCirc "sqr"         $ toCcc $ sqr @R
-  , runSynCirc "complex-mul" $ toCcc $ uncurry ((*) @C)
-  , runSynCirc "magSqr"      $ toCcc $ magSqr @R
-  , runSynCirc "cosSinProd"  $ toCcc $ cosSinProd @R
-  , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
-  , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
-  , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  -- -- Circuit graphs
+  -- , runSynCirc "add"         $ (+) @R
+  -- , runSynCirc "add-uncurry" $ uncurry ((+) @R)
+  -- , runSynCirc "dup"         $ A.dup @(->) @R
+  -- , runSynCirc "fst"         $ fst @R @R
+  -- , runSynCirc "twice"       $ twice @R
+  -- , runSynCirc "sqr"         $ sqr @R
+  -- , runSynCirc "complex-mul" $ uncurry ((*) @C)
+  -- , runSynCirc "magSqr"      $ magSqr @R
+  -- , runSynCirc "cosSinProd"  $ cosSinProd @R
+  -- , runSynCirc "xp3y"        $ \ (x,y) -> x + 3 * y :: R
+  -- , runSynCirc "horner"      $ horner @R [1,3,5]
+  -- , runSynCirc "cos-2xx"     $ \ x -> cos (2 * x * x) :: R
 
   -- -- Automatic differentiation
   -- , runSynCircDers "add"     $ uncurry ((+) @R)
@@ -410,28 +408,28 @@ main = sequence_ [
   -- , runSynCircDers "cos-xpy" $ \ (x,y) -> cos (x + y) :: R
   -- , runSynCircDers "cos-xpytz" $ \ (x,y,z) -> cos (x + y * z) :: R
 
-  -- , runSynCirc "cos-xpy-adr-802" $ toCcc $ andGradR $ \ (x,y) -> cos (x + y) :: R
+  -- , runSynCirc "cos-xpy-adr-802" $ andGradR $ \ (x,y) -> cos (x + y) :: R
 
-  -- , runSynCirc "sqr-adr-802" $ toCcc $ andGradR $ sqr @R
+  -- , runSynCirc "sqr-adr-802" $ andGradR $ sqr @R
 
-  -- , runSynCirc "magSqr-adr"  $ toCcc $ andDerR $ magSqr  @R
-  -- , runSynCirc "cosSinProd-adr"  $ toCcc $ andDerR $ cosSinProd @R
-  -- , runSynCirc "cosSinProd-gradr"  $ toCcc $ andGrad2R $ cosSinProd @R
+  -- , runSynCirc "magSqr-adr"  $ andDerR $ magSqr  @R
+  -- , runSynCirc "cosSinProd-adr"  $ andDerR $ cosSinProd @R
+  -- , runSynCirc "cosSinProd-gradr"  $ andGrad2R $ cosSinProd @R
 
-  -- , runSynCirc "cosSinProd-adf" $ toCcc $ andDerF $ cosSinProd @R
-  -- , runSynCirc "cosSinProd-adr" $ toCcc $ andDerR $ cosSinProd @R
+  -- , runSynCirc "cosSinProd-adf" $ andDerF $ cosSinProd @R
+  -- , runSynCirc "cosSinProd-adr" $ andDerR $ cosSinProd @R
 
-  -- , runCirc "affRelu"         $ toCcc $                affRelu @(Vector 2) @(Vector 3) @R
-  -- , runCirc "affRelu-err"     $ toCcc $ errSqrSampled (affRelu @(Vector 2) @(Vector 3) @R)
-  -- , runCirc "affRelu-errGrad" $ toCcc $ errGrad (affRelu @(Vector 2) @(Vector 3) @R) -- fail
+  -- , runCirc "affRelu"         $                affRelu @(Vector 2) @(Vector 3) @R
+  -- , runCirc "affRelu-err"     $ errSqrSampled (affRelu @(Vector 2) @(Vector 3) @R)
+  -- , runCirc "affRelu-errGrad" $ errGrad (affRelu @(Vector 2) @(Vector 3) @R) -- fail
 
-  -- , runCirc "affRelu2"         $ toCcc $                lr2 @(Vector 5) @(Vector 3) @(Vector 2)
-  -- , runCirc "affRelu2-err"     $ toCcc $ errSqrSampled (lr2 @(Vector 5) @(Vector 3) @(Vector 2))
-  -- , runCirc "affRelu2-errGrad" $ toCcc $ errGrad       (lr2 @(Vector 5) @(Vector 3) @(Vector 2))
+  -- , runCirc "affRelu2"         $                lr2 @(Vector 5) @(Vector 3) @(Vector 2)
+  -- , runCirc "affRelu2-err"     $ errSqrSampled (lr2 @(Vector 5) @(Vector 3) @(Vector 2))
+  -- , runCirc "affRelu2-errGrad" $ errGrad       (lr2 @(Vector 5) @(Vector 3) @(Vector 2))
 
-  -- , runCirc "affRelu3"         $ toCcc $                lr3 @(Vector 7) @(Vector 5) @(Vector 3) @(Vector 2)
-  -- , runCirc "affRelu3-err"     $ toCcc $ errSqrSampled (lr3 @(Vector 7) @(Vector 5) @(Vector 3) @(Vector 2))
-  -- , runCirc "affRelu3-errGrad" $ toCcc $ errGrad       (lr3 @(Vector 7) @(Vector 5) @(Vector 3) @(Vector 2))
+  -- , runCirc "affRelu3"         $                lr3 @(Vector 7) @(Vector 5) @(Vector 3) @(Vector 2)
+  -- , runCirc "affRelu3-err"     $ errSqrSampled (lr3 @(Vector 7) @(Vector 5) @(Vector 3) @(Vector 2))
+  -- , runCirc "affRelu3-errGrad" $ errGrad       (lr3 @(Vector 7) @(Vector 5) @(Vector 3) @(Vector 2))
 
   ]
 

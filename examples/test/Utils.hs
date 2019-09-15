@@ -2,25 +2,26 @@
 
 module Utils where
 
-import qualified ConCat.AltCat as A
-import           ConCat.Circuit (mkGraph, graphDot)
-import           ConCat.Syntactic (render)
-import qualified Data.ByteString.Lazy.Char8 as BS
-import           Data.Semigroup ((<>))
-import           Miscellany (GO, EC)
-import           Test.Tasty (TestTree, testGroup)
-import           Test.Tasty.Golden
+import ConCat.AltCat (toCcc)
+import ConCat.Circuit (mkGraph, graphDot)
+import ConCat.Syntactic (render)
+import Data.ByteString.Lazy.Char8 (pack)
+import Data.Semigroup ((<>))
+import Miscellany (GO)
+import Test.Tasty (TestTree, testGroup)
+import Test.Tasty.Golden
 
 
 ------------------------------------------------------------------------------
 -- | Run gold tests for a CCC'd syntax and circuit graph dot.
-runSynCirc :: GO a b => String -> EC a b -> TestTree
-runSynCirc nm (syn A.:**: circ) =
+runSynCirc :: GO a b => String -> (a -> b) -> TestTree
+runSynCirc nm f =
   testGroup nm
-    [ gold "syn" (render syn)
-    , gold "dot" (graphDot nm [] (mkGraph circ))
+    [ gold "syn" (render (toCcc f))
+    , gold "dot" (graphDot nm [] (mkGraph (toCcc f)))
     ]
  where
-   gold str = goldenVsString "syntax"
+   gold str = goldenVsString str
                      ("test/gold/" <> nm <> "-" <> str <> ".golden")
-            . pure . BS.pack
+            . pure . pack
+{-# INLINE runSynCirc #-}
