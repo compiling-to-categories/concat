@@ -95,27 +95,6 @@ import qualified ConCat.Inline.ClassOp as IC
 -- Unit for binary type constructors
 data U2 a b = U2 deriving (Show)
 
-infixr 7 :**:
--- | Product for binary type constructors
-data (p :**: q) a b = p a b :**: q a b
-
-prod :: p a b :* q a b -> (p :**: q) a b
-prod (p,q) = (p :**: q)
-
-unProd :: (p :**: q) a b -> p a b :* q a b
-unProd (p :**: q) = (p,q)
-
-exl2 :: (p :**: q) a b -> p a b
-exl2 = exl . unProd
-
-exr2 :: (p :**: q) a b -> q a b
-exr2 = exr . unProd
-
-instance HasRep ((k :**: k') a b) where
-  type Rep ((k :**: k') a b) = k a b :* k' a b
-  abst (f,g) = f :**: g
-  repr (f :**: g) = (f,g)
-
 {--------------------------------------------------------------------
     Monoid wrapper
 --------------------------------------------------------------------}
@@ -352,13 +331,6 @@ instance Monoid m => Category (Monoid2 m) where
   id = Monoid2 mempty
   Monoid2 m . Monoid2 n = Monoid2 (m `mappend` n)
 
-instance (Category k, Category k') => Category (k :**: k') where
-  type Ok (k :**: k') = Ok k &+& Ok k'
-  id = id :**: id
-  (g :**: g') . (f :**: f') = g.f :**: g'.f'
-  PINLINER(id)
-  PINLINER((.))
-
 {--------------------------------------------------------------------
     Products
 --------------------------------------------------------------------}
@@ -468,32 +440,6 @@ instance ProductCat U2 where
   PINLINER(exr)
   PINLINER(dup)
   -- PINLINER((&&&))
-
-instance (AssociativePCat k, AssociativePCat k') => AssociativePCat (k :**: k') where
-  lassocP = lassocP :**: lassocP
-  rassocP = rassocP :**: rassocP
-  PINLINER(lassocP)
-  PINLINER(rassocP)
-
-instance (MonoidalPCat k, MonoidalPCat k') => MonoidalPCat (k :**: k') where
-  (f :**: f') *** (g :**: g') = (f *** g) :**: (f' *** g')
-  first (f :**: f') = first f :**: first f'
-  second (f :**: f') = second f :**: second f'
-  PINLINER((***))
-  PINLINER(first)
-  PINLINER(second)
-
-instance (BraidedPCat k, BraidedPCat k') => BraidedPCat (k :**: k') where
-  swapP = swapP :**: swapP
-  PINLINER(swapP)
-
-instance (ProductCat k, ProductCat k') => ProductCat (k :**: k') where
-  exl = exl :**: exl
-  exr = exr :**: exr
-  dup = dup :**: dup
-  PINLINER(exl)
-  PINLINER(exr)
-  PINLINER(dup)
 
 instance Monad m => MonoidalPCat (Kleisli m) where
   (***) = (A.***)
@@ -625,36 +571,10 @@ instance MonoidalSCat U2 where
 
 instance BraidedSCat U2 where swapS = U2
 
-instance (BraidedSCat k, BraidedSCat k') => BraidedSCat (k :**: k') where
-  swapS = swapS :**: swapS
-  PINLINER(swapS)
-
 instance CoproductCat U2 where
   inl = U2
   inr = U2
   jam = U2
-
-instance (AssociativeSCat k, AssociativeSCat k') => AssociativeSCat (k :**: k') where
-  lassocS = lassocS :**: lassocS
-  rassocS = rassocS :**: rassocS
-  PINLINER(lassocS)
-  PINLINER(rassocS)
-
-instance (MonoidalSCat k, MonoidalSCat k') => MonoidalSCat (k :**: k') where
-  (f :**: f') +++ (g :**: g') = (f +++ g) :**: (f' +++ g')
-  left (f :**: f') = left f :**: left f'
-  right (f :**: f') = right f :**: right f'
-  PINLINER((+++))
-  PINLINER(left)
-  PINLINER(right)
-
-instance (CoproductCat k, CoproductCat k') => CoproductCat (k :**: k') where
-  inl = inl :**: inl
-  inr = inr :**: inr
-  jam = jam :**: jam
-  PINLINER(inl)
-  PINLINER(inr)
-  PINLINER(jam)
 
 {--------------------------------------------------------------------
     Abelian categories
@@ -694,12 +614,6 @@ class AbelianCat k where
 instance AbelianCat U2 where
   zeroC = U2
   U2 `plusC` U2 = U2
-
-instance (AbelianCat k, AbelianCat k') => AbelianCat (k :**: k') where
-  zeroC = zeroC :**: zeroC
-  (f :**: f') `plusC` (g :**: g') = (f `plusC` g) :**: (f' `plusC` g')
-  PINLINER(zeroC)
-  PINLINER(plusC)
 
 -- TODO: relate AbelianCat to ProductCat and CoproductPCat.
 -- Also to IxProductCat and IxCoproductPCat.
@@ -747,14 +661,6 @@ instance CoproductPCat U2 where
   inrP = U2
   jamP = U2
 
-instance (CoproductPCat k, CoproductPCat k') => CoproductPCat (k :**: k') where
-  inlP = inlP :**: inlP
-  inrP = inrP :**: inrP
-  jamP = jamP :**: jamP
-  PINLINER(inlP)
-  PINLINER(inrP)
-  PINLINER(jamP)
-
 -- Scalar multiplication
 
 class ScalarCat k a where
@@ -766,10 +672,6 @@ instance Num a => ScalarCat (->) a where
 
 instance ScalarCat U2 a where
   scale = const U2
-
-instance (ScalarCat k a, ScalarCat k' a) => ScalarCat (k :**: k') a where
-  scale s = scale s :**: scale s
-  PINLINER(scale)
 
 type LinearCat k a = (MProductCat k, CoproductPCat k, ScalarCat k a, Ok k a)
 
@@ -824,12 +726,6 @@ instance DistribCat U2 where
   distl = U2
   distr = U2
 
-instance (DistribCat k, DistribCat k') => DistribCat (k :**: k') where
-  distl = distl :**: distl
-  distr = distr :**: distr
-  PINLINER(distl)
-  PINLINER(distr)
-
 {--------------------------------------------------------------------
     Exponentials
 --------------------------------------------------------------------}
@@ -850,7 +746,8 @@ type Exp k = (->)
 #endif
 
 class (OkExp k, ProductCat k) => ClosedCat k where
-  -- type Exp k :: u -> u -> u
+  -- type Exp k :: Type -> Type -> Type  -- u -> u -> u
+  -- type Exp k = (->)
   apply   :: forall a b. Ok2 k a b => Prod k (Exp k a b) a `k` b
   apply = uncurry id
           <+ okExp @k @a @b
@@ -898,34 +795,6 @@ instance ClosedCat U2 where
   curry U2 = U2
   uncurry U2 = U2
 
-#ifdef ExpAsCat
-instance (ClosedCat k, ClosedCat k') => ClosedCat (k :**: k') where
-  apply = (apply . first exl) :**: undefined
-  -- apply = (apply . first exl) :**: (apply . first exr)
-
-  -- apply = (apply . exl) :**: (apply . exr)
-  -- apply :: forall a b. (Ok2 k a b, Ok2 k' a b)
-  --       => (k :**: k') ((k :**: k') a b :* a) b
-  -- apply = undefined -- (apply . exl) :**: _
-  curry (f :**: f') = curry f :**: curry f'
-  uncurry (g :**: g') = uncurry g :**: uncurry g'
-  PINLINER(apply)
-  PINLINER(curry)
-  PINLINER(uncurry)
-#else
-instance (ClosedCat k, ClosedCat k') => ClosedCat (k :**: k') where
-  apply = apply :**: apply
-  -- apply = (apply . exl) :**: (apply . exr)
-  -- apply :: forall a b. (Ok2 k a b, Ok2 k' a b)
-  --       => (k :**: k') ((k :**: k') a b :* a) b
-  -- apply = undefined -- (apply . exl) :**: _
-  curry (f :**: f') = curry f :**: curry f'
-  uncurry (g :**: g') = uncurry g :**: uncurry g'
-  PINLINER(apply)
-  PINLINER(curry)
-  PINLINER(uncurry)
-#endif
-
 -- An alternative to ClosedCat
 class OkExp k => FlipCat k where
   flipC  :: Ok3 k a b c => (a `k` (b -> c)) -> (b -> (a `k` c))
@@ -940,16 +809,6 @@ instance FlipCat (->) where
 instance FlipCat U2 where
   flipC  U2 = const U2
   flipC' _ = U2
-
-instance (FlipCat k, FlipCat k') => FlipCat (k :**: k') where
-  flipC (f :**: f') b = flipC f b :**: flipC f' b
-  flipC' h = flipC' (exl2 . h) :**: flipC' (exr2 . h)
-
--- Hm. The use of exl2 and exr2 here suggest replication of effort
-
---                h  :: b -> (k :**: k') a c
---         exl2 . h  :: b -> a `k` c
--- flipC' (exl2 . h) :: b -> a `k` c
 
 type Unit k = ()
 
@@ -976,10 +835,6 @@ instance Monad m => TerminalCat (Kleisli m) where
 instance TerminalCat U2 where
   it = U2
 
-instance (TerminalCat k, TerminalCat k') => TerminalCat (k :**: k') where
-  it = it :**: it
-  PINLINER(it)
-
 class OkUnit k => UnitCat k where
   lunit :: Ok k a => a `k` Prod k (Unit k) a
   default lunit :: (MProductCat k, TerminalCat k, Ok k a) => a `k` Prod k (Unit k) a
@@ -1002,16 +857,6 @@ instance UnitCat (->)
 instance Monad m => UnitCat (Kleisli m)
 instance UnitCat U2
 
-instance (UnitCat k, UnitCat k') => UnitCat (k :**: k') where
-  lunit   = lunit   :**: lunit
-  runit   = runit   :**: runit
-  lcounit = lcounit :**: lcounit
-  rcounit = rcounit :**: rcounit
-  PINLINER(lunit)
-  PINLINER(runit)
-  PINLINER(lcounit)
-  PINLINER(rcounit)
-
 -- lunit :: (ProductCat k, TerminalCat k, Ok k a) => a `k` Prod k (Unit k) a
 -- lunit = it &&& id
 
@@ -1025,10 +870,6 @@ class Ok k (Counit k) => CoterminalCat k where
 
 instance CoterminalCat U2 where
   ti = U2
-
-instance (CoterminalCat k, CoterminalCat k') => CoterminalCat (k :**: k') where
-  ti = ti :**: ti
-  PINLINER(ti)
 
 #if 0
 
@@ -1173,13 +1014,6 @@ instance (Monad m, ConstCat (->) b) => ConstCat (Kleisli m) b where const b = ar
 
 instance ConstCat U2 a where
   const _ = U2
-  -- unitArrow b = unitArrow b :**: unitArrow b
-
-instance (ConstCat k a, ConstCat k' a) => ConstCat (k :**: k') a where
-  const b = const b :**: const b
-  -- unitArrow b = unitArrow b :**: unitArrow b
-  PINLINER(const)
-  -- PINLINER(unitArrow)
 
 -- Note that `ConstCat` is *not* poly-kinded. Since the codomain `b` is an
 -- argument to `unitArrow` and `const`, `k :: * -> * -> *`. I'm uneasy
@@ -1211,10 +1045,6 @@ instance TracedCat (->) where
   trace h a = b where (b,c) = h (a,c)
 
 instance TracedCat U2 where trace U2 = U2
-
-instance (TracedCat k, TracedCat k') => TracedCat (k :**: k') where
-  trace (f :**: g) = trace f :**: trace g
-  PINLINER(trace)
 
 instance MonadFix m => TracedCat (Kleisli m) where
   trace (Kleisli h) = Kleisli (\ a -> do rec (b,c) <- h (a,c)
@@ -1354,16 +1184,6 @@ instance BoolCat U2 where
   orC  = U2
   xorC = U2
 
-instance (BoolCat k, BoolCat k') => BoolCat (k :**: k') where
-  notC = notC :**: notC
-  andC = andC :**: andC
-  orC  = orC  :**: orC
-  xorC = xorC :**: xorC
-  PINLINER(notC)
-  PINLINER(andC)
-  PINLINER(orC)
-  PINLINER(xorC)
-
 okTT :: forall k a. OkProd k => Ok' k a |- Ok' k (Prod k a a)
 okTT = okProd @k @a @a . dup
 
@@ -1388,12 +1208,6 @@ instance (Monad m, Eq a) => EqCat (Kleisli m) a where
 instance EqCat U2 a where
   equal = U2
   notEqual = U2
-
-instance (EqCat k a, EqCat k' a) => EqCat (k :**: k') a where
-  equal = equal :**: equal
-  notEqual = notEqual :**: notEqual
-  PINLINER(equal)
-  PINLINER(notEqual)
 
 class (EqCat k a, Ord a) => OrdCat k a where
   lessThan, greaterThan, lessThanOrEqual, greaterThanOrEqual :: Prod k a a `k` BoolOf k
@@ -1456,22 +1270,6 @@ instance MinMaxCat U2 a where
   minC = U2
   maxC = U2
 
-instance (OrdCat k a, OrdCat k' a) => OrdCat (k :**: k') a where
-  lessThan = lessThan :**: lessThan
-  greaterThan = greaterThan :**: greaterThan
-  lessThanOrEqual = lessThanOrEqual :**: lessThanOrEqual
-  greaterThanOrEqual = greaterThanOrEqual :**: greaterThanOrEqual
-  PINLINER(lessThan)
-  PINLINER(greaterThan)
-  PINLINER(lessThanOrEqual)
-  PINLINER(greaterThanOrEqual)
-
-instance (MinMaxCat k a, MinMaxCat k' a) => MinMaxCat (k :**: k') a where
-  minC = minC :**: minC
-  maxC = maxC :**: maxC
-  PINLINER(minC)
-  PINLINER(maxC)
-
 class (Category k, Ok k a) => EnumCat k a where
   succC, predC :: a `k` a
   default succC :: (MProductCat k, NumCat k a, ConstCat k a, Num a) => a `k` a
@@ -1488,12 +1286,6 @@ instance Enum a => EnumCat (->) a where
 instance EnumCat U2 a where
   succC = U2
   predC = U2
-
-instance (EnumCat k a, EnumCat k' a) => EnumCat (k :**: k') a where
-  succC = succC :**: succC
-  predC = predC :**: predC
-  PINLINER(succC)
-  PINLINER(predC)
 
 class Ok k a => NumCat k a where
   negateC :: a `k` a
@@ -1533,18 +1325,6 @@ instance NumCat U2 a where
   mulC    = U2
   powIC   = U2
 
-instance (NumCat k a, NumCat k' a) => NumCat (k :**: k') a where
-  negateC = negateC :**: negateC
-  addC    = addC    :**: addC
-  subC    = subC    :**: subC
-  mulC    = mulC    :**: mulC
-  powIC   = powIC   :**: powIC
-  PINLINER(negateC)
-  PINLINER(addC)
-  PINLINER(subC)
-  PINLINER(mulC)
-  PINLINER(powIC)
-
 class Ok k a => IntegralCat k a where
   -- For now
   divC :: Prod k a a `k` a
@@ -1569,12 +1349,6 @@ instance (Monad m, Integral a) => IntegralCat (Kleisli m) a where
 instance IntegralCat U2 a where
   divC = U2
   modC = U2
-
-instance (IntegralCat k a, IntegralCat k' a) => IntegralCat (k :**: k') a where
-  divC = divC :**: divC
-  modC = modC :**: modC
-  PINLINER(divC)
-  PINLINER(modC)
 
 class Ok k a => FractionalCat k a where
   recipC :: a `k` a
@@ -1602,12 +1376,6 @@ instance (Monad m, Fractional a) => FractionalCat (Kleisli m) a where
 instance FractionalCat U2 a where
   recipC  = U2
   divideC = U2
-
-instance (FractionalCat k a, FractionalCat k' a) => FractionalCat (k :**: k') a where
-  recipC  = recipC  :**: recipC
-  divideC = divideC :**: divideC
-  PINLINER(recipC)
-  PINLINER(divideC)
 
 class Ok k a => FloatingCat k a where
   expC, logC, cosC, sinC :: a `k` a
@@ -1643,18 +1411,6 @@ instance FloatingCat U2 a where
   sinC = U2
   -- powC = U2
 
-instance (FloatingCat k a, FloatingCat k' a) => FloatingCat (k :**: k') a where
-  expC = expC :**: expC
-  logC = logC :**: logC
-  cosC = cosC :**: cosC
-  sinC = sinC :**: sinC
-  PINLINER(expC)
-  PINLINER(logC)
-  PINLINER(cosC)
-  PINLINER(sinC)
-  -- powC = powC :**: powC
-  -- PINLINER(powC)
-
 class Ok k a => RealFracCat k a b where
   floorC, ceilingC :: a `k` b
   truncateC :: a `k` b
@@ -1679,14 +1435,6 @@ instance Integral b => RealFracCat U2 a b where
   ceilingC  = U2
   truncateC = U2
 
-instance (RealFracCat k a b, RealFracCat k' a b) => RealFracCat (k :**: k') a b where
-  floorC    = floorC    :**: floorC
-  ceilingC  = ceilingC  :**: ceilingC
-  truncateC = truncateC :**: truncateC
-  PINLINER(floorC)
-  PINLINER(ceilingC)
-  PINLINER(truncateC)
-
 -- Stand-in for fromIntegral, avoiding the intermediate Integer in the Prelude
 -- definition.
 class FromIntegralCat k a b where
@@ -1706,10 +1454,6 @@ instance (Monad m, Integral a, Num b) => FromIntegralCat (Kleisli m) a b where
 instance FromIntegralCat U2 a b where
   fromIntegralC = U2
 
-instance (FromIntegralCat k a b, FromIntegralCat k' a b) => FromIntegralCat (k :**: k') a b where
-  fromIntegralC = fromIntegralC :**: fromIntegralC
-  PINLINER(fromIntegralC)
-
 #if 1
 
 -- Revisit later. I used BottomCat for an encoding of sums via products.
@@ -1727,10 +1471,6 @@ instance BottomCat (->) a b where bottomC = error "bottomC for (->) evaluated"
 
 instance BottomCat U2 a b where
   bottomC = U2
-
-instance (BottomCat k a b, BottomCat k' a b) => BottomCat (k :**: k') a b where
-  bottomC = bottomC :**: bottomC
-  PINLINER(bottomC)
 
 #endif
 
@@ -1750,10 +1490,6 @@ instance Monad m => IfCat (Kleisli m) a where
 instance IfCat U2 a where
   ifC = U2
 
-instance (IfCat k a, IfCat k' a) => IfCat (k :**: k') a where
-  ifC = ifC :**: ifC
-  PINLINER(ifC)
-
 class UnknownCat k a b where
   unknownC :: a `k` b
 
@@ -1762,10 +1498,6 @@ instance UnknownCat (->) a b where
 
 instance UnknownCat U2 a b where
   unknownC = U2
-
-instance (UnknownCat k a b, UnknownCat k' a b) => UnknownCat (k :**: k') a b where
-  unknownC = unknownC :**: unknownC
-  PINLINER(unknownC)
 
 class RepCat k a r where
   reprC :: a `k` r
@@ -1780,12 +1512,6 @@ instance (HasRep a, r ~ R.Rep a) => RepCat (->) a r where
 instance (r ~ R.Rep a) => RepCat U2 a r where
   reprC = U2
   abstC = U2
-
-instance (RepCat k a b, RepCat k' a b) => RepCat (k :**: k') a b where
-  reprC = reprC :**: reprC
-  abstC = abstC :**: abstC
-  PINLINER(reprC)
-  PINLINER(abstC)
 
 class TransitiveCon con where
   trans :: (con a b, con b c) :- con a c
@@ -1806,10 +1532,6 @@ instance Coercible a b => CoerceCat (->) a b where
 
 instance CoerceCat U2 a b where
   coerceC = U2
-
-instance (CoerceCat k a b, CoerceCat k' a b) => CoerceCat (k :**: k') a b where
-  coerceC = coerceC :**: coerceC
-  PINLINER(coerceC)
 
 #if 0
 
@@ -1841,12 +1563,6 @@ arrAtFun = uncurry VS.index
 instance {- KnownNat n => -} ArrayCat U2 n b where
   array = U2
   arrAt = U2
-
-instance (ArrayCat k n b, ArrayCat k' n b) => ArrayCat (k :**: k') n b where
-  array = array :**: array
-  arrAt = arrAt :**: arrAt
-  PINLINER(array)
-  PINLINER(arrAt)
 
 -- #ifdef KleisliInstances
 -- instance (Monad m, Enum n) => ArrayCat (Kleisli m) n b where
@@ -1889,14 +1605,6 @@ instance ArrayCat U2 a b where
   -- array _ = U2
   arrAt = U2
 
-instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
-  array = array :**: array
-  arrAt = arrAt :**: arrAt
-  PINLINER(array)
-  PINLINER(arrAt)
-  -- at = at :**: at
-  -- PINLINER(at)
-
 -- #ifdef KleisliInstances
 -- instance (Monad m, Enum a) => ArrayCat (Kleisli m) a b where
 --   array = arr array
@@ -1930,10 +1638,6 @@ class OkFunctor k h where
   okFunctor :: Ok' k a |- Ok' k (h a)
 
 instance OkFunctor (->) h where okFunctor = Entail (Sub Dict)
-
-instance (OkFunctor k h, OkFunctor k' h)
-      => OkFunctor (k :**: k') h where
-  okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
 
 class (Functor h, OkFunctor k h) => FunctorCat k h where
   fmapC :: Ok2 k a b => (a `k` b) -> (h a `k` h b)
@@ -2045,51 +1749,6 @@ instance (Foldable h, Additive a) => AddCat (->) h a where
   sumAC = sumA  -- not a method, so no IC.inline
   {-# OPINLINE sumAC #-}
 
--- instance (OkFunctor k h, OkFunctor k' h) => OkFunctor (k :**: k') h where
---   okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
-
-instance (FunctorCat k h, FunctorCat k' h) => FunctorCat (k :**: k') h where
-  fmapC (f :**: g) = fmapC f :**: fmapC g
-  unzipC = unzipC :**: unzipC
-  {-# INLINE fmapC #-}
-  {-# INLINE unzipC #-}
-
-instance (ZipCat k h, ZipCat k' h) => ZipCat (k :**: k') h where
-  zipC = zipC :**: zipC
-  {-# INLINE zipC #-}
-  -- zipWithC = zipWithC :**: zipWithC
-  -- {-# INLINE zipWithC #-}
-
-instance (ZapCat k h, ZapCat k' h, Functor h) => ZapCat (k :**: k') h where
-  zapC = uncurry (:**:) . (zapC *** zapC) . unzip . fmap unProd
-  {-# INLINE zapC #-}
-
---             unProd  :: (p :**: q) a b -> p a b :* q a b
---        fmap unProd  :: h ((p :**: q) a b) -> h (p a b :* q a b)
--- unzip (fmap unProd) :: h (p a b :* q a b) -> h (p a b) :* h (q a b)
--- (zapC *** zapC)     :: h (p a b) :* h (q a b) -> p (h a) (h b) :* q (h a) (h b)
--- uncurry (:**:)      :: p (h a) (h b) :* q (h a) (h b) -> (p :**: q) (h a) (h b)
-
-instance (PointedCat k h a, PointedCat k' h a) => PointedCat (k :**: k') h a where
-  pointC = pointC :**: pointC
-  {-# INLINE pointC #-}
-
--- instance (DiagCat k h, DiagCat k' h) => DiagCat (k :**: k') h where
---   diagC  = diagC :**: diagC
---   {-# INLINE diagC #-}
-
--- instance (SumCat k h a, SumCat k' h a) => SumCat (k :**: k') h a where
---   sumC = sumC :**: sumC
---   {-# INLINE sumC #-}
-
-instance (AddCat k h a, AddCat k' h a) => AddCat (k :**: k') h a where
-  sumAC = sumAC :**: sumAC
-  {-# INLINE sumAC #-}
-
--- instance (IxSummableCat k h a, IxSummableCat k' h a) => IxSummableCat (k :**: k') h a where
---   ixSumC = ixSumC :**: ixSumC
---   {-# INLINE ixSumC #-}
-
 class DistributiveCat k g f where
   distributeC :: Ok k a => f (g a) `k` g (f a)
 
@@ -2102,11 +1761,6 @@ instance (Distributive g, Functor f) => DistributiveCat (->) g f where
   distributeC = IC.inline distribute
   {-# OPINLINE distributeC #-}
 
-instance (DistributiveCat k g f, DistributiveCat k' g f)
-      => DistributiveCat (k :**: k') g f where
-  distributeC = distributeC :**: distributeC
-  {-# INLINE distributeC #-}
-
 class RepresentableCat k f where
   tabulateC :: Ok k a => (Rep f -> a) `k` f a
   indexC    :: Ok k a => f a `k` (Rep f -> a)
@@ -2116,13 +1770,6 @@ instance Representable f => RepresentableCat (->) f where
   indexC    = IC.inline index
   {-# OPINLINE tabulateC #-}
   {-# OPINLINE indexC #-}
-
-instance (RepresentableCat k h, RepresentableCat k' h)
-      => RepresentableCat (k :**: k') h where
-  tabulateC = tabulateC :**: tabulateC
-  indexC    = indexC    :**: indexC
-  {-# INLINE tabulateC #-}
-  {-# INLINE indexC #-}
 
 ---- Experiment
 
@@ -2146,9 +1793,6 @@ class FunctorCat k h => Strong k h where
 
 instance Functor h => Strong (->) h where
   strength (a,bs) = (a,) <$> bs
-
-instance (Strong k h, Strong k' h) => Strong (k :**: k') h where
-  strength = strength :**: strength
 
 #endif
 
@@ -2250,27 +1894,6 @@ instance Pointed h => IxProductCat U2 h where
   exF    = point U2
   forkF  = const U2
   replF  = U2
-
-instance (OkIxProd k h, OkIxProd k' h) => OkIxProd (k :**: k') h where
-  okIxProd :: forall a. Ok' (k :**: k') a |- Ok' (k :**: k') (h a)
-  okIxProd = Entail (Sub (Dict <+ okIxProd @k  @h @a
-                               <+ okIxProd @k' @h @a))
-
-instance (IxMonoidalPCat k h, IxMonoidalPCat k' h, Zip h) => IxMonoidalPCat (k :**: k') h where
-  crossF = prod . (crossF *** crossF) . unzip . fmap unProd
-
-instance (IxProductCat k h, IxProductCat k' h, Zip h) => IxProductCat (k :**: k') h where
-  exF    = zipWith (:**:) exF exF
-  forkF  = prod . (forkF  *** forkF ) . unzip . fmap unProd
-  replF  = replF :**: replF
-
-#if 0
--- forkF:
-fmap unProd     :: h ((k :**: k') a b) -> h ((a `k` b) :* (a `k'` b))
-unzip           :: ... -> h (a `k` b) :* h (a `k'` b)
-forkF *** forkF :: ... -> (a `k` h b) :* (a `k'` h b)
-prod            :: ... -> (k :**: k') a (h b)
-#endif
 
 #if 0
 
@@ -2469,13 +2092,6 @@ instance Pointed h => IxCoproductPCat U2 h where
   jamPF  = U2
   -- plusPF = const U2
 
-instance (IxCoproductPCat k h, IxCoproductPCat k' h, Zip h)
-      => IxCoproductPCat (k :**: k') h where
-  inPF   = zipWith (:**:) inPF inPF
-  joinPF = prod . (joinPF *** joinPF) . unzip . fmap unProd
-  jamPF  = jamPF :**: jamPF
-  -- plusPF = prod . (plusPF *** plusPF) . unzip . fmap unProd
-
 {--------------------------------------------------------------------
     Finite
 --------------------------------------------------------------------}
@@ -2491,10 +2107,6 @@ instance FiniteCat (->) where
   unFinite (Finite n) = fromInteger n
   {-# OPINLINE unsafeFinite #-}
   {-# OPINLINE unFinite #-}
-
-instance (FiniteCat k,FiniteCat k') => FiniteCat (k :**: k') where
-  unFinite     = unFinite     :**: unFinite
-  unsafeFinite = unsafeFinite :**: unsafeFinite
 
 #if 0
 {--------------------------------------------------------------------
@@ -2527,5 +2139,408 @@ f `crossSecondFirst` g = second g . first f
                          <+ okProd @k @c @b
                          <+ okProd @k @c @d
 {-# INLINE crossSecondFirst #-}
+
+#endif
+
+{--------------------------------------------------------------------
+    Phasing out
+--------------------------------------------------------------------}
+
+#define PRODUCTCAT
+
+#ifdef PRODUCTCAT
+
+infixr 7 :**:
+-- | Product for binary type constructors
+data (p :**: q) a b = p a b :**: q a b
+
+prod :: p a b :* q a b -> (p :**: q) a b
+prod (p,q) = (p :**: q)
+
+unProd :: (p :**: q) a b -> p a b :* q a b
+unProd (p :**: q) = (p,q)
+
+exl2 :: (p :**: q) a b -> p a b
+exl2 = exl . unProd
+
+exr2 :: (p :**: q) a b -> q a b
+exr2 = exr . unProd
+
+instance HasRep ((k :**: k') a b) where
+  type Rep ((k :**: k') a b) = k a b :* k' a b
+  abst (f,g) = f :**: g
+  repr (f :**: g) = (f,g)
+
+instance (Category k, Category k') => Category (k :**: k') where
+  type Ok (k :**: k') = Ok k &+& Ok k'
+  id = id :**: id
+  (g :**: g') . (f :**: f') = g.f :**: g'.f'
+  PINLINER(id)
+  PINLINER((.))
+
+instance (AssociativePCat k, AssociativePCat k') => AssociativePCat (k :**: k') where
+  lassocP = lassocP :**: lassocP
+  rassocP = rassocP :**: rassocP
+  PINLINER(lassocP)
+  PINLINER(rassocP)
+
+instance (MonoidalPCat k, MonoidalPCat k') => MonoidalPCat (k :**: k') where
+  (f :**: f') *** (g :**: g') = (f *** g) :**: (f' *** g')
+  first (f :**: f') = first f :**: first f'
+  second (f :**: f') = second f :**: second f'
+  PINLINER((***))
+  PINLINER(first)
+  PINLINER(second)
+
+instance (BraidedPCat k, BraidedPCat k') => BraidedPCat (k :**: k') where
+  swapP = swapP :**: swapP
+  PINLINER(swapP)
+
+instance (ProductCat k, ProductCat k') => ProductCat (k :**: k') where
+  exl = exl :**: exl
+  exr = exr :**: exr
+  dup = dup :**: dup
+  PINLINER(exl)
+  PINLINER(exr)
+  PINLINER(dup)
+
+instance (BraidedSCat k, BraidedSCat k') => BraidedSCat (k :**: k') where
+  swapS = swapS :**: swapS
+  PINLINER(swapS)
+
+instance (AssociativeSCat k, AssociativeSCat k') => AssociativeSCat (k :**: k') where
+  lassocS = lassocS :**: lassocS
+  rassocS = rassocS :**: rassocS
+  PINLINER(lassocS)
+  PINLINER(rassocS)
+
+instance (MonoidalSCat k, MonoidalSCat k') => MonoidalSCat (k :**: k') where
+  (f :**: f') +++ (g :**: g') = (f +++ g) :**: (f' +++ g')
+  left (f :**: f') = left f :**: left f'
+  right (f :**: f') = right f :**: right f'
+  PINLINER((+++))
+  PINLINER(left)
+  PINLINER(right)
+
+instance (CoproductCat k, CoproductCat k') => CoproductCat (k :**: k') where
+  inl = inl :**: inl
+  inr = inr :**: inr
+  jam = jam :**: jam
+  PINLINER(inl)
+  PINLINER(inr)
+  PINLINER(jam)
+
+-- instance (AbelianCat k, AbelianCat k') => AbelianCat (k :**: k') where
+--   zeroC = zeroC :**: zeroC
+--   (f :**: f') `plusC` (g :**: g') = (f `plusC` g) :**: (f' `plusC` g')
+--   PINLINER(zeroC)
+--   PINLINER(plusC)
+
+instance (CoproductPCat k, CoproductPCat k') => CoproductPCat (k :**: k') where
+  inlP = inlP :**: inlP
+  inrP = inrP :**: inrP
+  jamP = jamP :**: jamP
+  PINLINER(inlP)
+  PINLINER(inrP)
+  PINLINER(jamP)
+
+instance (ScalarCat k a, ScalarCat k' a) => ScalarCat (k :**: k') a where
+  scale s = scale s :**: scale s
+  PINLINER(scale)
+
+instance (DistribCat k, DistribCat k') => DistribCat (k :**: k') where
+  distl = distl :**: distl
+  distr = distr :**: distr
+  PINLINER(distl)
+  PINLINER(distr)
+
+#ifdef ExpAsCat
+instance (ClosedCat k, ClosedCat k') => ClosedCat (k :**: k') where
+  apply = apply :**: apply
+  -- apply = (apply . first exl) :**: undefined
+  -- apply = (apply . first exl) :**: (apply . first exr)
+
+  -- apply = (apply . exl) :**: (apply . exr)
+  -- apply :: forall a b. (Ok2 k a b, Ok2 k' a b)
+  --       => (k :**: k') ((k :**: k') a b :* a) b
+  -- apply = undefined -- (apply . exl) :**: _
+  curry (f :**: f') = curry f :**: curry f'
+  uncurry (g :**: g') = uncurry g :**: uncurry g'
+  PINLINER(apply)
+  PINLINER(curry)
+  PINLINER(uncurry)
+#else
+instance (ClosedCat k, ClosedCat k') => ClosedCat (k :**: k') where
+  apply = apply :**: apply
+  -- apply = (apply . exl) :**: (apply . exr)
+  -- apply :: forall a b. (Ok2 k a b, Ok2 k' a b)
+  --       => (k :**: k') ((k :**: k') a b :* a) b
+  -- apply = undefined -- (apply . exl) :**: _
+  curry (f :**: f') = curry f :**: curry f'
+  uncurry (g :**: g') = uncurry g :**: uncurry g'
+  PINLINER(apply)
+  PINLINER(curry)
+  PINLINER(uncurry)
+#endif
+
+instance (FlipCat k, FlipCat k') => FlipCat (k :**: k') where
+  flipC (f :**: f') b = flipC f b :**: flipC f' b
+  flipC' h = flipC' (exl2 . h) :**: flipC' (exr2 . h)
+
+-- Hm. The use of exl2 and exr2 here suggest replication of effort
+
+--                h  :: b -> (k :**: k') a c
+--         exl2 . h  :: b -> a `k` c
+-- flipC' (exl2 . h) :: b -> a `k` c
+
+instance (TerminalCat k, TerminalCat k') => TerminalCat (k :**: k') where
+  it = it :**: it
+  PINLINER(it)
+
+instance (UnitCat k, UnitCat k') => UnitCat (k :**: k') where
+  lunit   = lunit   :**: lunit
+  runit   = runit   :**: runit
+  lcounit = lcounit :**: lcounit
+  rcounit = rcounit :**: rcounit
+  PINLINER(lunit)
+  PINLINER(runit)
+  PINLINER(lcounit)
+  PINLINER(rcounit)
+
+instance (CoterminalCat k, CoterminalCat k') => CoterminalCat (k :**: k') where
+  ti = ti :**: ti
+  PINLINER(ti)
+
+instance (TracedCat k, TracedCat k') => TracedCat (k :**: k') where
+  trace (f :**: g) = trace f :**: trace g
+  PINLINER(trace)
+
+instance (ConstCat k a, ConstCat k' a) => ConstCat (k :**: k') a where
+  const b = const b :**: const b
+  -- unitArrow b = unitArrow b :**: unitArrow b
+  PINLINER(const)
+  -- PINLINER(unitArrow)
+
+instance (BoolCat k, BoolCat k') => BoolCat (k :**: k') where
+  notC = notC :**: notC
+  andC = andC :**: andC
+  orC  = orC  :**: orC
+  xorC = xorC :**: xorC
+  PINLINER(notC)
+  PINLINER(andC)
+  PINLINER(orC)
+  PINLINER(xorC)
+
+instance (EqCat k a, EqCat k' a) => EqCat (k :**: k') a where
+  equal = equal :**: equal
+  notEqual = notEqual :**: notEqual
+  PINLINER(equal)
+  PINLINER(notEqual)
+
+instance (OrdCat k a, OrdCat k' a) => OrdCat (k :**: k') a where
+  lessThan = lessThan :**: lessThan
+  greaterThan = greaterThan :**: greaterThan
+  lessThanOrEqual = lessThanOrEqual :**: lessThanOrEqual
+  greaterThanOrEqual = greaterThanOrEqual :**: greaterThanOrEqual
+  PINLINER(lessThan)
+  PINLINER(greaterThan)
+  PINLINER(lessThanOrEqual)
+  PINLINER(greaterThanOrEqual)
+
+instance (MinMaxCat k a, MinMaxCat k' a) => MinMaxCat (k :**: k') a where
+  minC = minC :**: minC
+  maxC = maxC :**: maxC
+  PINLINER(minC)
+  PINLINER(maxC)
+
+instance (EnumCat k a, EnumCat k' a) => EnumCat (k :**: k') a where
+  succC = succC :**: succC
+  predC = predC :**: predC
+  PINLINER(succC)
+  PINLINER(predC)
+
+instance (NumCat k a, NumCat k' a) => NumCat (k :**: k') a where
+  negateC = negateC :**: negateC
+  addC    = addC    :**: addC
+  subC    = subC    :**: subC
+  mulC    = mulC    :**: mulC
+  powIC   = powIC   :**: powIC
+  PINLINER(negateC)
+  PINLINER(addC)
+  PINLINER(subC)
+  PINLINER(mulC)
+  PINLINER(powIC)
+
+instance (IntegralCat k a, IntegralCat k' a) => IntegralCat (k :**: k') a where
+  divC = divC :**: divC
+  modC = modC :**: modC
+  PINLINER(divC)
+  PINLINER(modC)
+
+instance (FractionalCat k a, FractionalCat k' a) => FractionalCat (k :**: k') a where
+  recipC  = recipC  :**: recipC
+  divideC = divideC :**: divideC
+  PINLINER(recipC)
+  PINLINER(divideC)
+
+instance (FloatingCat k a, FloatingCat k' a) => FloatingCat (k :**: k') a where
+  expC = expC :**: expC
+  logC = logC :**: logC
+  cosC = cosC :**: cosC
+  sinC = sinC :**: sinC
+  PINLINER(expC)
+  PINLINER(logC)
+  PINLINER(cosC)
+  PINLINER(sinC)
+  -- powC = powC :**: powC
+  -- PINLINER(powC)
+
+instance (RealFracCat k a b, RealFracCat k' a b) => RealFracCat (k :**: k') a b where
+  floorC    = floorC    :**: floorC
+  ceilingC  = ceilingC  :**: ceilingC
+  truncateC = truncateC :**: truncateC
+  PINLINER(floorC)
+  PINLINER(ceilingC)
+  PINLINER(truncateC)
+
+instance (FromIntegralCat k a b, FromIntegralCat k' a b) => FromIntegralCat (k :**: k') a b where
+  fromIntegralC = fromIntegralC :**: fromIntegralC
+  PINLINER(fromIntegralC)
+
+instance (BottomCat k a b, BottomCat k' a b) => BottomCat (k :**: k') a b where
+  bottomC = bottomC :**: bottomC
+  PINLINER(bottomC)
+
+instance (IfCat k a, IfCat k' a) => IfCat (k :**: k') a where
+  ifC = ifC :**: ifC
+  PINLINER(ifC)
+
+instance (UnknownCat k a b, UnknownCat k' a b) => UnknownCat (k :**: k') a b where
+  unknownC = unknownC :**: unknownC
+  PINLINER(unknownC)
+
+instance (RepCat k a b, RepCat k' a b) => RepCat (k :**: k') a b where
+  reprC = reprC :**: reprC
+  abstC = abstC :**: abstC
+  PINLINER(reprC)
+  PINLINER(abstC)
+
+instance (CoerceCat k a b, CoerceCat k' a b) => CoerceCat (k :**: k') a b where
+  coerceC = coerceC :**: coerceC
+  PINLINER(coerceC)
+
+#if 0
+#if 0
+instance (ArrayCat k n b, ArrayCat k' n b) => ArrayCat (k :**: k') n b where
+  array = array :**: array
+  arrAt = arrAt :**: arrAt
+  PINLINER(array)
+  PINLINER(arrAt)
+#else
+instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
+  array = array :**: array
+  arrAt = arrAt :**: arrAt
+  PINLINER(array)
+  PINLINER(arrAt)
+  -- at = at :**: at
+  -- PINLINER(at)
+#endif
+#endif
+
+instance (OkFunctor k h, OkFunctor k' h)
+      => OkFunctor (k :**: k') h where
+  okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
+
+-- instance (OkFunctor k h, OkFunctor k' h) => OkFunctor (k :**: k') h where
+--   okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
+
+instance (FunctorCat k h, FunctorCat k' h) => FunctorCat (k :**: k') h where
+  fmapC (f :**: g) = fmapC f :**: fmapC g
+  unzipC = unzipC :**: unzipC
+  {-# INLINE fmapC #-}
+  {-# INLINE unzipC #-}
+
+instance (ZipCat k h, ZipCat k' h) => ZipCat (k :**: k') h where
+  zipC = zipC :**: zipC
+  {-# INLINE zipC #-}
+  -- zipWithC = zipWithC :**: zipWithC
+  -- {-# INLINE zipWithC #-}
+
+instance (ZapCat k h, ZapCat k' h, Functor h) => ZapCat (k :**: k') h where
+  zapC = uncurry (:**:) . (zapC *** zapC) . unzip . fmap unProd
+  {-# INLINE zapC #-}
+
+--             unProd  :: (p :**: q) a b -> p a b :* q a b
+--        fmap unProd  :: h ((p :**: q) a b) -> h (p a b :* q a b)
+-- unzip (fmap unProd) :: h (p a b :* q a b) -> h (p a b) :* h (q a b)
+-- (zapC *** zapC)     :: h (p a b) :* h (q a b) -> p (h a) (h b) :* q (h a) (h b)
+-- uncurry (:**:)      :: p (h a) (h b) :* q (h a) (h b) -> (p :**: q) (h a) (h b)
+
+instance (PointedCat k h a, PointedCat k' h a) => PointedCat (k :**: k') h a where
+  pointC = pointC :**: pointC
+  {-# INLINE pointC #-}
+
+-- instance (DiagCat k h, DiagCat k' h) => DiagCat (k :**: k') h where
+--   diagC  = diagC :**: diagC
+--   {-# INLINE diagC #-}
+
+-- instance (SumCat k h a, SumCat k' h a) => SumCat (k :**: k') h a where
+--   sumC = sumC :**: sumC
+--   {-# INLINE sumC #-}
+
+instance (AddCat k h a, AddCat k' h a) => AddCat (k :**: k') h a where
+  sumAC = sumAC :**: sumAC
+  {-# INLINE sumAC #-}
+
+-- instance (IxSummableCat k h a, IxSummableCat k' h a) => IxSummableCat (k :**: k') h a where
+--   ixSumC = ixSumC :**: ixSumC
+--   {-# INLINE ixSumC #-}
+
+instance (DistributiveCat k g f, DistributiveCat k' g f)
+      => DistributiveCat (k :**: k') g f where
+  distributeC = distributeC :**: distributeC
+  {-# INLINE distributeC #-}
+
+instance (RepresentableCat k h, RepresentableCat k' h)
+      => RepresentableCat (k :**: k') h where
+  tabulateC = tabulateC :**: tabulateC
+  indexC    = indexC    :**: indexC
+  {-# INLINE tabulateC #-}
+  {-# INLINE indexC #-}
+
+-- instance (Strong k h, Strong k' h) => Strong (k :**: k') h where
+--   strength = strength :**: strength
+
+instance (OkIxProd k h, OkIxProd k' h) => OkIxProd (k :**: k') h where
+  okIxProd :: forall a. Ok' (k :**: k') a |- Ok' (k :**: k') (h a)
+  okIxProd = Entail (Sub (Dict <+ okIxProd @k  @h @a
+                               <+ okIxProd @k' @h @a))
+
+instance (IxMonoidalPCat k h, IxMonoidalPCat k' h, Zip h) => IxMonoidalPCat (k :**: k') h where
+  crossF = prod . (crossF *** crossF) . unzip . fmap unProd
+
+instance (IxProductCat k h, IxProductCat k' h, Zip h) => IxProductCat (k :**: k') h where
+  exF    = zipWith (:**:) exF exF
+  forkF  = prod . (forkF  *** forkF ) . unzip . fmap unProd
+  replF  = replF :**: replF
+
+#if 0
+-- forkF:
+fmap unProd     :: h ((k :**: k') a b) -> h ((a `k` b) :* (a `k'` b))
+unzip           :: ... -> h (a `k` b) :* h (a `k'` b)
+forkF *** forkF :: ... -> (a `k` h b) :* (a `k'` h b)
+prod            :: ... -> (k :**: k') a (h b)
+#endif
+
+instance (IxCoproductPCat k h, IxCoproductPCat k' h, Zip h)
+      => IxCoproductPCat (k :**: k') h where
+  inPF   = zipWith (:**:) inPF inPF
+  joinPF = prod . (joinPF *** joinPF) . unzip . fmap unProd
+  jamPF  = jamPF :**: jamPF
+  -- plusPF = prod . (plusPF *** plusPF) . unzip . fmap unProd
+
+instance (FiniteCat k,FiniteCat k') => FiniteCat (k :**: k') where
+  unFinite     = unFinite     :**: unFinite
+  unsafeFinite = unsafeFinite :**: unsafeFinite
 
 #endif
