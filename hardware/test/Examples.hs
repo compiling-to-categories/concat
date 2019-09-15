@@ -99,5 +99,5 @@ runVerilog' :: (GenBuses a, GenBuses b) => String -> (a -> b) -> IO ()
 runVerilog' _ _ = error "runVerilog' called directly"
 {-# NOINLINE runVerilog' #-}
 {-# RULES "runVerilog'"
-  forall n f. runVerilog' n f = runVerilog n $ ccc f #-}
+  forall n f. runVerilog' n f = runVerilog n $ toCcc' f #-}
 
