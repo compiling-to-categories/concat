@@ -61,42 +61,32 @@ basicTests :: TestTree
 basicTests = testGroup "basic tests"
   [ testGroup "" []
 
-  -- -- Circuit graphs
-
-  -- , runSynCirc' "add" (toCcc ((+) @R)) (toCcc ((+) @R))
-
-  -- , runSynCirc "add"         $ (+) @R
-
-  -- , runSynCirc "add" ((+) @R)
-
-  -- , runSynCirc "add-uncurry" $ uncurry ((+) @R)
-  -- , runSynCirc "dup"         $ A.dup @(->) @R
-  -- , runSynCirc "fst"         $ fst @R @R
-  -- , runSynCirc "twice"       $ twice @R
-  -- , runSynCirc "sqr"         $ sqr @R
-
+  -- Circuit graphs
+  , runSynCirc "add" $ (+) @R
+  , runSynCirc "add-uncurry" $ uncurry ((+) @R)
+  , runSynCirc "dup"         $ A.dup @(->) @R
+  , runSynCirc "fst"         $ fst @R @R
+  , runSynCirc "twice"       $ twice @R
+  , runSynCirc "sqr"         $ sqr @R
   , runSynCirc "complex-mul" $ uncurry ((*) @C)
+  , runSynCirc "magSqr"      $ magSqr @R
+  , runSynCirc "cosSinProd"  $ cosSinProd @R
+  , runSynCirc "xp3y"        $ \ (x,y) -> x + 3 * y :: R
+  , runSynCirc "horner"      $ horner @R [1,3,5]
+  , runSynCirc "cos-2xx"     $ \ x -> cos (2 * x * x) :: R
 
-  -- , runSynCirc "magSqr"      $ magSqr @R
-  -- , runSynCirc "cosSinProd"  $ cosSinProd @R
-  -- , runSynCirc "xp3y"        $ \ (x,y) -> x + 3 * y :: R
-  -- , runSynCirc "horner"      $ horner @R [1,3,5]
-  -- , runSynCirc "cos-2xx"     $ \ x -> cos (2 * x * x) :: R
+  -- Automatic differentiation variants
+  , runSynCircDers "add"     $ uncurry ((+) @R)
+  , runSynCircDers "sin"     $ sin @R
+  , runSynCircDers "cos"     $ cos @R
+  , runSynCircDers "twice"   $ twice @R
+  , runSynCircDers "sqr"     $ sqr @R
+  , runSynCircDers "magSqr"  $ magSqr  @R
+  , runSynCircDers "cos-2x"  $ \ x -> cos (2 * x) :: R
+  , runSynCircDers "cos-2xx" $ \ x -> cos (2 * x * x) :: R
+  , runSynCircDers "cos-xpy" $ \ (x,y) -> cos (x + y) :: R
 
-  -- -- Automatic differentiation variants
-  -- , runSynCircDers "add"     $ uncurry ((+) @R)
-  -- , runSynCircDers "sin"     $ sin @R
-  -- , runSynCircDers "cos"     $ cos @R
-  -- , runSynCircDers "twice"   $ twice @R
-  -- , runSynCircDers "sqr"     $ sqr @R
-
-  -- , runSynCircDers "magSqr"  $ magSqr  @R
-
-  -- , runSynCircDers "cos-2x"  $ \ x -> cos (2 * x) :: R
-  -- , runSynCircDers "cos-2xx" $ \ x -> cos (2 * x * x) :: R
-  -- , runSynCircDers "cos-xpy" $ \ (x,y) -> cos (x + y) :: R
-
-  -- , runSynCirc "cosSinProd" $ andDerR $ cosSinProd @R
+  , runSynCirc "cosSinProd-adr" $ andDerR $ cosSinProd @R
 
 #if 0
 
