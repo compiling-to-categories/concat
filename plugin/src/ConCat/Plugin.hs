@@ -773,7 +773,8 @@ data Ops = Ops
  , transCatOp     :: ReExpr
  , reCat          :: ReExpr
  , isPseudoApp    :: CoreExpr -> Bool
- , normType       :: Role -> Type -> (Coercion, Type)
+ -- , normType       :: Role -> Type -> (Coercion, Type)
+ , famEnvs        :: FamInstEnvs
  , okType         :: Type -> Bool
  }
 
@@ -984,7 +985,6 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    isClosed :: Cat -> Bool
    -- isClosed k = isJust (mkApplyMaybe k unitTy unitTy)
    isClosed k = isRight (buildDictMaybe (TyConApp closedTc [k]))
-   normType = normaliseType famEnvs
 
    mkCurry' :: Cat -> ReExpr
    -- mkCurry' k e | dtrace "mkCurry'" (ppr k <+> pprWithType e) False = undefined
@@ -1086,7 +1086,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      -- pprTrace "mkReprC 3" (pprMbWithType (catOpMaybe k reprCV [a,r])) $
      catOpMaybe k reprCV [a,r]
     where
-      (_co,r) = normType Nominal (repTy a)
+      (_co,r) = normaliseType famEnvs Nominal (repTy a)
    mkAbstC'_maybe :: Cat -> Type -> Maybe CoreExpr
    mkAbstC'_maybe k a =
      -- pprTrace "mkAbstC 1" (ppr (r,a)) $
@@ -1094,7 +1094,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      -- pprTrace "mkAbstC 3" (pprMbWithType (catOpMaybe k abstCV [a,r])) $
      catOpMaybe k abstCV [a,r]
     where
-      (_co,r) = normType Nominal (repTy a)
+      (_co,r) = normaliseType famEnvs Nominal (repTy a)
    mkCoerceC :: Cat -> Type -> Type -> CoreExpr
    mkCoerceC k dom cod
      | dom `eqType` cod = mkId k dom
