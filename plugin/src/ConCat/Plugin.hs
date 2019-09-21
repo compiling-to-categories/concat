@@ -57,15 +57,15 @@ import Type (coreView)
 import TcType (isFloatTy,isDoubleTy,isIntegerTy,isIntTy,isBoolTy,isUnitTy
               ,tcSplitTyConApp_maybe)
 import TysPrim (intPrimTyCon)
-import FamInstEnv (normaliseType)
+import FamInstEnv (FamInstEnvs,normaliseType)
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
 import CoreOpt (simpleOptExpr)
 #endif
 import TyCoRep
 import GHC.Classes
 import Unique (mkBuiltinUnique)
--- For normaliseType etc
-import FamInstEnv
+-- -- For normaliseType etc
+-- import FamInstEnv
 
 import ConCat.Misc (Unop,Binop,Ternop,PseudoFun(..),(~>))
 import ConCat.BuildDictionary
@@ -805,7 +805,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
 #endif
         = success $ Var boxV `App` e'
       tweak ((Var v `App` Type ty) `App` e')
-        | v == tagToEnumV && ty `eqType` boolTy
+        | v == tagToEnumV && ty `eqT` boolTy
         = success $ Var boxIBV `App` e'
       -- Int equality turns into matching, which takes some care.
       tweak (Case scrut v rhsTy ((DEFAULT, [], d) : (mapM litAlt -> Just las)))
@@ -907,6 +907,13 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    -- catOp k op = catOp k op []
    catOpMaybe :: Cat -> Var -> [Type] -> Maybe CoreExpr
    catOpMaybe k op tys = onDictMaybe (Var op `mkTyApps` (k : tys))
+   -- Normalize types, taking type families into account
+   normTy :: Type -> Type
+   -- normTy = topNormaliseType famEnvs
+   normTy ty = snd (normaliseType famEnvs Nominal ty)
+   -- Like 'eqType' but account for type families
+   eqT :: Type -> Type -> Bool
+   a `eqT` b = normTy a `eqType` normTy b
    mkCcc' :: Unop CoreExpr  -- Any reason to parametrize over Cat?
    mkCcc' e = varApps cccV [cat,a,b] [e]
     where
@@ -923,24 +930,37 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    mkCompose :: Cat -> Binop CoreExpr
    -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
    mkCompose k g f
-     | Just (b,c ) <- tyArgs2_maybe (exprType g)
-     , Just (a,b') <- tyArgs2_maybe (exprType f)
+     | Just (b,c ) <- tyArgs2_maybe gty
+     , Just (a,b') <- tyArgs2_maybe fty
      , b `eqType` b'
      = -- mkCoreApps (onDict (catOp k composeV `mkTyApps` [b,c,a])) [g,f]
        mkCoreApps (onDict (catOp k composeV [b,c,a])) [g,f]
-     | otherwise = pprPanic "mkCompose mismatch:" (pprWithType g $$ pprWithType f)
+     | otherwise = pprPanic "mkCompose mismatch:" $
+         ppr g $$ ppr f
+         $$ ppr (exprType g) $$ ppr (exprType f)
+         $$ ppr gty $$ ppr fty
+    where
+      gty = normTy (exprType g)
+      fty = normTy (exprType f)
 
    -- Experiment
    mkCompose' :: Cat -> ReExpr2
    -- (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
    mkCompose' k g f
-     | Just (b,c ) <- tyArgs2_maybe (exprType g)
-     , Just (a,b') <- tyArgs2_maybe (exprType f)
+     | Just (b,c ) <- tyArgs2_maybe gty
+     , Just (a,b') <- tyArgs2_maybe fty
      , b `eqType` b'
      = -- flip mkCoreApps [g,f] <$> onDictMaybe (catOp k composeV [b,c,a])
        -- (flip mkCoreApps [g,f] . onDict) <$> catOpMaybe k composeV [b,c,a]
        flip mkCoreApps [g,f] <$> (onDictMaybe =<< catOpMaybe k composeV [b,c,a])
-     | otherwise = pprPanic "mkCompose mismatch:" (pprWithType g $$ pprWithType f)
+     | otherwise = pprPanic "mkCompose' mismatch:" $
+         ppr g $$ ppr f
+         $$ ppr (exprType g) $$ ppr (normTy (exprType g))
+         -- $$ ppr (exprType g) $$ ppr (exprType f)
+         -- $$ ppr gty $$ ppr fty
+    where
+      gty = normTy (exprType g)
+      fty = normTy (exprType f)
 
    mkEx :: Cat -> Var -> Unop CoreExpr
    mkEx k ex z =
@@ -1086,7 +1106,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      -- pprTrace "mkReprC 3" (pprMbWithType (catOpMaybe k reprCV [a,r])) $
      catOpMaybe k reprCV [a,r]
     where
-      (_co,r) = normaliseType famEnvs Nominal (repTy a)
+      r = normTy (repTy a)
    mkAbstC'_maybe :: Cat -> Type -> Maybe CoreExpr
    mkAbstC'_maybe k a =
      -- pprTrace "mkAbstC 1" (ppr (r,a)) $
@@ -1094,7 +1114,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
      -- pprTrace "mkAbstC 3" (pprMbWithType (catOpMaybe k abstCV [a,r])) $
      catOpMaybe k abstCV [a,r]
     where
-      (_co,r) = normaliseType famEnvs Nominal (repTy a)
+      r = normTy (repTy a)
    mkCoerceC :: Cat -> Type -> Type -> CoreExpr
    mkCoerceC k dom cod
      | dom `eqType` cod = mkId k dom
@@ -1129,7 +1149,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
                              (doc $$ ppr before' $$ "-->" $$ ppr after)
             beforeTy = exprType before'
             afterTy  = exprType after
-        maybe (if beforeTy `eqType` afterTy then
+        maybe (if beforeTy `eqT` afterTy then
                  return after
                else
                  oops "type change"

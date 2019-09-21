@@ -337,7 +337,7 @@ instance EnumCat Syn a where
 
 -- Use primitive operations only for primitive types. See 2019-09-15 notes.
 class PrimNum a
-#if 0
+#if 1
 instance PrimNum Int
 instance PrimNum Float
 instance PrimNum Double

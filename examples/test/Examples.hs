@@ -389,7 +389,7 @@ main = sequence_ [
   -- , runSynCirc "twice"       $ twice @R
   -- , runSynCirc "sqr"         $ sqr @R
   -- , runSynCirc "complex-mul" $ uncurry ((*) @C)
-  -- , runSynCirc "magSqr"      $ magSqr @R
+  , runSynCirc "magSqr"      $ magSqr @R
   -- , runSynCirc "cosSinProd"  $ cosSinProd @R
   -- , runSynCirc "xp3y"        $ \ (x,y) -> x + 3 * y :: R
   -- , runSynCirc "horner"      $ horner @R [1,3,5]
@@ -402,7 +402,7 @@ main = sequence_ [
   -- , runSynCircDers "sqr"     $ sqr @R
   -- , runSynCircDers "sin"     $ sin @R
   -- , runSynCircDers "cos"     $ cos @R
-  , runSynCircDers "magSqr"  $ magSqr  @R
+  -- , runSynCircDers "magSqr"  $ magSqr  @R
   -- , runSynCircDers "cos-2x"  $ \ x -> cos (2 * x) :: R
   -- , runSynCircDers "cos-2xx" $ \ x -> cos (2 * x * x) :: R
   -- , runSynCircDers "cos-xpy" $ \ (x,y) -> cos (x + y) :: R

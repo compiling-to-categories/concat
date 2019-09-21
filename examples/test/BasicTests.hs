@@ -53,19 +53,19 @@ basicTests :: TestTree
 basicTests = testGroup "basic tests"
   [ testGroup "" []
 
-  -- Circuit graphs
-  , runSynCirc "add" $ (+) @R
-  , runSynCirc "add-uncurry" $ uncurry ((+) @R)
-  , runSynCirc "dup"         $ A.dup @(->) @R
-  , runSynCirc "fst"         $ fst @R @R
-  , runSynCirc "twice"       $ twice @R
-  , runSynCirc "sqr"         $ sqr @R
+  -- -- Circuit graphs
+  -- , runSynCirc "add"         $ (+) @R
+  -- , runSynCirc "add-uncurry" $ uncurry ((+) @R)
+  -- , runSynCirc "dup"         $ A.dup @(->) @R
+  -- , runSynCirc "fst"         $ fst @R @R
+  -- , runSynCirc "twice"       $ twice @R
+  -- , runSynCirc "sqr"         $ sqr @R
   , runSynCirc "complex-mul" $ uncurry ((*) @C)
-  , runSynCirc "magSqr"      $ magSqr @R
-  , runSynCirc "cosSinProd"  $ cosSinProd @R
-  , runSynCirc "xp3y"        $ \ (x,y) -> x + 3 * y :: R
-  , runSynCirc "horner"      $ horner @R [1,3,5]
-  , runSynCirc "cos-2xx"     $ \ x -> cos (2 * x * x) :: R
+  -- , runSynCirc "magSqr"      $ magSqr @R
+  -- , runSynCirc "cosSinProd"  $ cosSinProd @R
+  -- , runSynCirc "xp3y"        $ \ (x,y) -> x + 3 * y :: R
+  -- , runSynCirc "horner"      $ horner @R [1,3,5]
+  -- , runSynCirc "cos-2xx"     $ \ x -> cos (2 * x * x) :: R
 
   -- -- Automatic differentiation variants
   -- , runSynCircDers "add"     $ uncurry ((+) @R)

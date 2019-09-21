@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -9,6 +10,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
@@ -25,6 +27,7 @@ module ConCat.Dual where
 import Prelude hiding (id,(.),zip,unzip,zipWith,const)
 import qualified Prelude as P
 
+import GHC.Types (Constraint)
 import Data.Constraint (Dict(..),(:-)(..))
 import Data.Pointed
 import Data.Key
@@ -59,14 +62,11 @@ instance HasRep (Dual k a b) where
 AbsTy(Dual k a b)
 
 instance Category k => Category (Dual k) where
-  type Ok (Dual k) = Ok k &+& Additive -- for ProductCat instance
+  type Ok (Dual k) = Ok k
   id = abst id
   (.) = inAbst2 (flip (.))
   {-# INLINE id #-}
   {-# INLINE (.) #-}
-
--- I could define Ok (Dual k) = Ok k, and rely on Ok k and OkAdd k for Additive,
--- but doing do requires a lot of entailments and explicit signatures.
 
 instance AssociativePCat k => AssociativePCat (Dual k) where
   lassocP = abst rassocP
@@ -112,15 +112,18 @@ instance (BraidedPCat k, ProductCat k) => CoproductPCat (Dual k) where
 instance ScalarCat k s => ScalarCat (Dual k) s where
   scale s = abst (scale s)
 
-instance (OkIxProd k h, Additive1 h) => OkIxProd (Dual k) h where
+-- The property of Ok k implying additivity.
+type AddOk k = (forall a. Ok k a => Additive a :: Constraint)
+
+instance (OkIxProd k h, Additive1 h, AddOk k) => OkIxProd (Dual k) h where
   okIxProd :: forall a. Ok' (Dual k) a |- Ok' (Dual k) (h a)
   okIxProd = Entail (Sub (Dict <+ okIxProd @k @h @a <+ additive1 @h @a))
 
-instance (IxMonoidalPCat k h, Functor h, Additive1 h) => IxMonoidalPCat (Dual k) h where
+instance (IxMonoidalPCat k h, Functor h, Additive1 h, AddOk k) => IxMonoidalPCat (Dual k) h where
   crossF = inAbstF1 crossF -- plusPF
   {-# INLINE crossF #-}
 
-instance (IxCoproductPCat k h, Functor h, Additive1 h) => IxProductCat (Dual k) h where
+instance (IxCoproductPCat k h, Functor h, Additive1 h, AddOk k) => IxProductCat (Dual k) h where
   exF    = abst <$> inPF
   forkF  = inAbstF1 joinPF
   replF  = abst jamPF
@@ -132,7 +135,7 @@ instance (IxCoproductPCat k h, Functor h, Additive1 h) => IxProductCat (Dual k) 
 --   plusPF = inAbstF1 crossF
 --   {-# INLINE plusPF #-}
 
-instance (IxProductCat k h, Functor h, Additive1 h) => IxCoproductPCat (Dual k) h where
+instance (IxProductCat k h, Functor h, Additive1 h, AddOk k) => IxCoproductPCat (Dual k) h where
   inPF   = abst <$> exF
   joinPF = inAbstF1 forkF
   jamPF  = abst replF
@@ -193,23 +196,23 @@ instance RepCat k a r => RepCat (Dual k) a r where
 
 type OkF k h = (Additive1 h, OkFunctor k h)
 
-instance (OkFunctor k h, Additive1 h) => OkFunctor (Dual k) h where
+instance (OkFunctor k h, Additive1 h, AddOk k) => OkFunctor (Dual k) h where
   okFunctor :: forall a. Ok' (Dual k) a |- Ok' (Dual k) (h a)
   okFunctor = Entail (Sub (Dict <+ okFunctor @k @h @a <+ additive1 @h @a))
   {-# INLINE okFunctor #-}
 
-instance (Functor h, ZipCat k h, Additive1 h, FunctorCat k h) => FunctorCat (Dual k) h where
+instance (Functor h, ZipCat k h, Additive1 h, FunctorCat k h, AddOk k) => FunctorCat (Dual k) h where
   fmapC  = inAbst fmapC
   unzipC = abst zipC
   {-# INLINE fmapC #-}
   {-# INLINE unzipC #-}
 
-instance (Zip h, Additive1 h, FunctorCat k h) => ZipCat (Dual k) h where
+instance (Zip h, Additive1 h, FunctorCat k h, AddOk k) => ZipCat (Dual k) h where
   zipC = abst unzipC
   {-# INLINE zipC #-}
   -- {-# INLINE zipWithC #-}
 
-instance (Zip h, ZapCat k h, OkF k h) => ZapCat (Dual k) h where
+instance (Zip h, ZapCat k h, OkF k h, AddOk k) => ZapCat (Dual k) h where
   zapC :: Ok2 k a b => h (Dual k a b) -> Dual k (h a) (h b)
   -- zapC = A.abstC . A.zapC . A.fmapC A.reprC
   -- zapC = abst . A.zapC . fmap repr
@@ -224,7 +227,7 @@ instance (PointedCat k h a, Additive a) => AddCat (Dual k) h a where
   sumAC = abst pointC
   {-# INLINE sumAC #-}
 
-instance (AddCat k h a, OkF k h) => PointedCat (Dual k) h a where
+instance (AddCat k h a, OkF k h, AddOk k) => PointedCat (Dual k) h a where
   pointC = abst sumAC
   {-# INLINE pointC #-}
 

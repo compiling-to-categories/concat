@@ -905,7 +905,7 @@ instance CoproductPCat (:>) where
 -- instance (Ok (:>) a, IfCat (:>) b) => IfCat (:>) (a -> b) where
 --   ifC = funIf
 
--- instance OpCon (->) (Sat GenBuses) where inOp = Entail (Sub Dict)
+instance OpCon (->) (Sat GenBuses) where inOp = Entail (Sub Dict)
 
 genSubgraph :: Ok2 (:>) b c => BCirc b c -> CircuitM (Buses (b -> c))
 genSubgraph bcirc =
@@ -1179,6 +1179,8 @@ BottomTemplate(Double)
 
 #endif
 
+#ifdef BOTTOM
+
 #if 0
 
 instance BottomCat (:>) z () where
@@ -1209,6 +1211,8 @@ instance BottomCat (:>) where
 instance BottomCat (:>) where
   type BottomKon (:>) a = GenBuses a
   bottomC = mkCK (const mkBot)
+#endif
+
 #endif
 
 #endif

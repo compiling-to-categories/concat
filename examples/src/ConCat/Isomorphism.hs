@@ -180,7 +180,7 @@ generic1Iso = G.from1 :<-> G.to1
 --------------------------------------------------------------------}
 
 infixr 8 ^^^
-class (Category k, OkExp k) => Closed k where
+class (Category k{-, OkExp k-}) => Closed k where
   (^^^) :: Ok4 k a b c d => (d `k` c) -> (a `k` b) -> ((c :=> a) `k` (d :=> b))
 
 dom :: (Closed k, Ok3 k c a d) => (d `k` c) -> ((c :=> a) `k` (d :=> a))
@@ -200,6 +200,8 @@ foo1 f g h k = (f ^^^ k) . (g ^^^ h)
              <+ okExp @k @c' @a'
              <+ okExp @k @d  @b
 foo2 f g h k = (g . f) ^^^ (k . h)
+
+#endif
 
 -- {-# RULES
 -- "(^^^)/(.)" forall f g h k. (f ^^^ k) . (g ^^^ h) = (g . f) ^^^ (k . h)
@@ -221,8 +223,6 @@ q' :: b `k` a
 
 p  ^^^ q  :: (c :=> a) `k` (d :=> b)
 p' ^^^ q' :: (d :=> b) `k` (c :=> a)
-
-#endif
 
 #endif
 
@@ -265,6 +265,6 @@ forkIso :: (MProductCat k, Ok3 k a c d)
 forkIso = fork :<-> unfork
 
 curryIso :: (ClosedCat k, Ok3 k a b c)
-         => ((a :* b) `k` c) <-> (a `k` (b -> c))
+         => ((a :* b) `k` c) <-> (a `k` Exp k b c)
 curryIso = curry :<-> uncurry
 

@@ -737,17 +737,17 @@ okExp :: forall k a b. OkExp k
 okExp = inOp
 {-# INLINE okExp #-}
 
-#define ExpAsCat
+-- #define ExpAsCat
 
-#ifdef ExpAsCat
-type Exp k = k
-#else
-type Exp k = (->)
-#endif
+-- #ifdef ExpAsCat
+-- type Exp k = k
+-- #else
+-- type Exp k = (->)
+-- #endif
 
 class (OkExp k, ProductCat k) => ClosedCat k where
-  -- type Exp k :: Type -> Type -> Type  -- u -> u -> u
-  -- type Exp k = (->)
+  type Exp k :: Type -> Type -> Type  -- u -> u -> u
+  type Exp k = (->)
   apply   :: forall a b. Ok2 k a b => Prod k (Exp k a b) a `k` b
   apply = uncurry id
           <+ okExp @k @a @b
@@ -784,7 +784,7 @@ uncurryK = inNew $ \ f -> \ (a,b) -> f a >>= ($ b) . unpack
 
 #if 0
 instance Monad m => ClosedCat (Kleisli m) where
-  -- type Exp (Kleisli m) = Kleisli m
+  type Exp (Kleisli m) = Kleisli m
   apply   = applyK
   curry   = curryK
   uncurry = uncurryK
