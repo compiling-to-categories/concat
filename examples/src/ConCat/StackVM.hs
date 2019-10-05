@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE InstanceSigs #-}
@@ -31,6 +32,9 @@ import ConCat.AltCat
 --------------------------------------------------------------------}
 
 newtype StackFun a b = SF (forall z. a :* z -> b :* z)
+
+unSF :: StackFun a b -> forall z. a :* z -> b :* z
+unSF (SF h) = h
 
 inSF :: ((forall z. a :* z -> b :* z) -> (forall z. c :* z -> d :* z))
      -> StackFun a b -> StackFun c d
@@ -124,9 +128,13 @@ instance DistribCat StackFun where
   {-# INLINE distl #-}
   {-# INLINE distr #-}
 
--- instance ClosedCat StackFun where
---   apply = stackFun apply
---   curry f = undefined
+instance ClosedCat StackFun where
+  apply = stackFun apply
+  curry sf = stackFun (curry (evalStackFun sf))
+  uncurry sf = stackFun (uncurry (evalStackFun sf))
+  {-# INLINE apply #-}
+  {-# INLINE curry #-}
+  {-# INLINE uncurry #-}
 
 {--------------------------------------------------------------------
     Stack programs
@@ -144,6 +152,7 @@ data Prim :: * -> * -> * where
   -- Experiment
   -- (:+++) :: StackProg a c -> StackProg b d -> Prim (a :+ b) (c :+ d)
   (:+++) :: StackOps a c -> StackOps b d -> Prim (a :+ b) (c :+ d)
+  Closure :: Show e => StackProg (e :* a) b -> e -> Prim a b
 
 deriving instance Show (Prim a b)
 
@@ -176,6 +185,7 @@ evalPrim PowI      = powIC
 evalPrim Swap      = swapP
 -- evalPrim (f :+++ g) = evalProg f +++ evalProg g
 evalPrim (f :+++ g) = evalStackOps f +++ evalStackOps g
+evalPrim (Closure p e) = evalProg p . (e,)
 
 data StackOp :: * -> * -> * where
   Pure :: Prim a b -> StackOp (a :* z) (b :* z)
@@ -190,6 +200,7 @@ instance Show (StackOp a b) where
 instance Show2 StackOp where show2 = show
 
 evalStackOp :: StackOp u v -> (u -> v)
+evalStackOp (Pure (Closure p e)) = unSF (progFun p) . first (e,) -- optimization
 evalStackOp (Pure f) = first (evalPrim f)
 evalStackOp Push     = rassocP
 evalStackOp Pop      = lassocP
@@ -271,6 +282,11 @@ instance BraidedPCat     StackProg where swapP = primProg Swap
   
 -- Alternatively, remove Swap and use default in BraidedPCat, though Swap makes
 -- for shorter programs.
+
+-- data StackProg a b = SP { unSP :: forall z. StackOps (a :* z) (b :* z) }
+
+-- instance ClosedCat StackProg where
+--   curry p = primProg ()
 
 instance Num a => NumCat StackProg a where
   negateC = primProg Negate
