@@ -152,7 +152,8 @@ data Prim :: * -> * -> * where
   -- Experiment
   -- (:+++) :: StackProg a c -> StackProg b d -> Prim (a :+ b) (c :+ d)
   (:+++) :: StackOps a c -> StackOps b d -> Prim (a :+ b) (c :+ d)
-  Closure :: Show e => StackProg (e :* a) b -> e -> Prim a b
+  Apply :: Prim ((a -> b) :* a) b
+  Curry :: StackProg (a :* b) c -> Prim a (b -> c)
 
 deriving instance Show (Prim a b)
 
@@ -185,7 +186,8 @@ evalPrim PowI      = powIC
 evalPrim Swap      = swapP
 -- evalPrim (f :+++ g) = evalProg f +++ evalProg g
 evalPrim (f :+++ g) = evalStackOps f +++ evalStackOps g
-evalPrim (Closure p e) = evalProg p . (e,)
+evalPrim Apply     = apply
+evalPrim (Curry p) = curry (evalProg p)
 
 data StackOp :: * -> * -> * where
   Pure :: Prim a b -> StackOp (a :* z) (b :* z)
@@ -200,7 +202,6 @@ instance Show (StackOp a b) where
 instance Show2 StackOp where show2 = show
 
 evalStackOp :: StackOp u v -> (u -> v)
-evalStackOp (Pure (Closure p e)) = unSF (progFun p) . first (e,) -- optimization
 evalStackOp (Pure f) = first (evalPrim f)
 evalStackOp Push     = rassocP
 evalStackOp Pop      = lassocP
@@ -285,8 +286,9 @@ instance BraidedPCat     StackProg where swapP = primProg Swap
 
 -- data StackProg a b = SP { unSP :: forall z. StackOps (a :* z) (b :* z) }
 
--- instance ClosedCat StackProg where
---   curry p = primProg ()
+instance ClosedCat StackProg where
+  apply = primProg Apply
+  curry p = primProg (Curry p)
 
 instance Num a => NumCat StackProg a where
   negateC = primProg Negate
