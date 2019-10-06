@@ -56,7 +56,7 @@ import ConCat.Misc ((:*),R,sqr,magSqr,Unop,Binop,inNew,inNew2,(:+))
 import ConCat.Circuit (GenBuses(..),(:>),Ty(..),Buses(..))
 import qualified ConCat.RunCircuit as RC
 import ConCat.Syntactic (Syn,render)
-import ConCat.AltCat (Ok2,ccc,(:**:)(..))
+import ConCat.AltCat (Ok2,ccc,(:**:)(..),toCcc')
 import qualified ConCat.AltCat as A
 
 import ConCat.Rebox () -- necessary for reboxing rules to fire
