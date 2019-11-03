@@ -196,6 +196,11 @@ type (&&) = (:*)
 
 class OpCon op con where
   inOp :: con a && con b |- con (a `op` b)
+  -- default inOp :: (forall a b. (Con (con a), Con (con b)) => Con (con (a `op` b)))
+  --              => con a && con b |- con (a `op` b)
+  -- inOp = Entail (Sub Dict)
+
+-- TODO: Look for a working type for this default inOp definition
 
 -- class    OpCon op (Dict (kon a)) => OpCon' op kon a
 -- instance OpCon op (Dict (kon a)) => OpCon' op kon a
