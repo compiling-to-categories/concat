@@ -1,5 +1,6 @@
 .*
 !.travis*
+!.circleci*
 *.stackwork
 *out/
 *.tmp
