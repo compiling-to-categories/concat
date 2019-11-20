@@ -1767,7 +1767,9 @@ coercionTag AxiomRuleCo {} = "AxiomRuleCo"
 coercionTag NthCo       {} = "NthCo"
 coercionTag LRCo        {} = "LRCo"
 coercionTag InstCo      {} = "InstCo"
+#if !MIN_VERSION_GLASGOW_HASKELL(8,8,0,0)
 coercionTag CoherenceCo {} = "CoherenceCo"
+#endif
 coercionTag KindCo      {} = "KindCo"
 coercionTag SubCo       {} = "SubCo"
 #if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
