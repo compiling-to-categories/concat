@@ -1715,7 +1715,11 @@ isPred :: CoreExpr -> Bool
 isPred e  = not (isTyCoArg e) && isPredTy' (exprType e)
 
 stringExpr :: String -> CoreExpr
+#if MIN_VERSION_GLASGOW_HASKELL(8,8,0,0)
+stringExpr = Lit . mkLitString
+#else
 stringExpr = Lit . mkMachString
+#endif
 
 varNameExpr :: Id -> CoreExpr
 varNameExpr = stringExpr . uniqVarName
