@@ -28,6 +28,12 @@ To enable some of those examples, install Z3, uncomment them in examples/test/Ex
 
     stack build :misc-examples --flag concat-examples:smt
 
+If you tweak the source and want to make a pull request, please also run the gold tests:
+
+    stack build :gold-tests
+
+Sometimes the generated categorical expressions change with GHC versions while preserving semantics. In such cases, it might be unclear whether something broke or not.
+
 # Troubleshooting
 
 ## "dot: command not found"
