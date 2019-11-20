@@ -822,9 +822,15 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    reCatCo (FunCo r a b) = Just (mkAppCos (mkReflCo r cat) [a,b])
    reCatCo (splitAppCo_maybe -> Just
             (splitAppCo_maybe -> Just
+#if MIN_VERSION_GLASGOW_HASKELL(8,8,0,0)
+             (GRefl r _k mrefl,a),b)) =
+     -- dtrace "reCatCo app" (ppr (r,_k,a,b)) $
+     Just (mkAppCos (mkGReflCo r cat mrefl) [a,b])
+#else
              (Refl r _k,a),b)) =
      -- dtrace "reCatCo app" (ppr (r,_k,a,b)) $
      Just (mkAppCos (mkReflCo r cat) [a,b])
+#endif
    reCatCo (co1 `TransCo` co2) = TransCo <$> reCatCo co1 <*> reCatCo co2
    reCatCo co = pprTrace "ccc reCatCo: unhandled coercion" (ppr co) $
                 Nothing
@@ -1741,6 +1747,9 @@ onAltRhs f (con,bs,rhs) = (con,bs,f rhs)
 -- To help debug. Sometimes I'm unsure what constructor goes with what ppr.
 coercionTag :: Coercion -> String
 coercionTag Refl        {} = "Refl"
+#if MIN_VERSION_GLASGOW_HASKELL(8,8,0,0)
+coercionTag GRefl        {} = "GRefl"
+#endif
 coercionTag FunCo       {} = "FunCo" -- pattern synonym
 coercionTag TyConAppCo  {} = "TyConAppCo"
 coercionTag AppCo       {} = "AppCo"
