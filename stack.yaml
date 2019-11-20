@@ -22,15 +22,6 @@ extra-deps:
   - pointed-5.0.1
   - keys-3.12.1
   - adjunctions-4.4
-
-  # Needed for containers-0.6.0.1 (which I don't really need)
-  - Cabal-2.4.0.1
-  - free-5.1
-  - semigroupoids-5.3.1
-  - base-orphans-0.8
-
-  - containers-0.6.0.1
-  # - containers-0.5.11.0
   - z3-4.3.1         # for the SMT category
   - vector-sized-1.1.1.0  # for GHC 8.6
   # - indexed-list-literals-0.1.0.1
@@ -47,5 +38,10 @@ extra-deps:
 # resolver: lts-12.14 # ghc-8.4.3
 # resolver: lts-12.19 # ghc-8.4.4
 # resolver: lts-13.0 # ghc-8.6.3
-resolver: lts-13.13 # ghc-8.6.4
+# resolver: lts-13.13 # ghc-8.6.4
 # resolver: lts-14.6 # ghc-8.6.5
+
+resolver: nightly-2019-11-20 # ghc-8.8.1
+
+## Work-around for several version incompatibilities with GHC 8.8.1
+allow-newer: true
