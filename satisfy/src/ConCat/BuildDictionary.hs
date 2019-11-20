@@ -155,8 +155,13 @@ buildDictionary' env dflags guts evIds evar =
                        return z
                    )
           traceTc' "buildDictionary' back from runTcS" (ppr bnds0)
+#if MIN_VERSION_GLASGOW_HASKELL(8,8,0,0)
+          ez <- emptyZonkEnv
+#else
+          let ez = emptyZonkEnv
+#endif
           -- Use the newly exported zonkEvBinds. <https://phabricator.haskell.org/D2088>
-          (_env',bnds) <- zonkEvBinds emptyZonkEnv bnds0
+          (_env',bnds) <- zonkEvBinds ez bnds0
           -- traceTc "buildDictionary' _wCs'" (ppr _wCs')
           -- changed next line from reportAllUnsolved, which panics. revisit and fix!
           -- warnAllUnsolved _wCs'
