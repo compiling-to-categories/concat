@@ -28,7 +28,7 @@ library
   include-dirs:        src
   install-includes:    ConCat/AbsTy.inc
   build-depends:       base >=4.9
-                     , newtype-generics >= 0.5.0.1
+                     , newtype-generics >= 0.5.3
                      , constraints >= 0.8
                      , containers >= 0.5.7.1
                      , keys >= 3.11
@@ -76,6 +76,7 @@ library
                        ConCat.Circuit
                        ConCat.RunCircuit
                        ConCat.GAD
+                       -- ConCat.ADO
                        ConCat.AD
                        ConCat.ADFun
                        ConCat.Continuation
@@ -127,7 +128,7 @@ Test-Suite misc-examples
                   , Cabal >= 1.24.0.0
                   , ghc-prim
                   , constraints >= 0.8
-                  , newtype-generics >= 0.5.0.1
+                  , newtype-generics >= 0.5.3
                   , pointed, keys
                   , distributive, adjunctions
                   , concat-inline
@@ -156,7 +157,7 @@ Test-Suite misc-trace
                   , Cabal >= 1.24.0.0
                   , ghc-prim
                   , constraints >= 0.8
-                  , newtype-generics >= 0.5.0.1
+                  , newtype-generics >= 0.5.3
                   , pointed, keys
                   , distributive, adjunctions
                   , concat-inline
@@ -199,7 +200,7 @@ Test-Suite gold-tests
                   , Cabal >= 1.24.0.0
                   , ghc-prim
                   , constraints >= 0.8
-                  , newtype-generics >= 0.5.0.1
+                  , newtype-generics >= 0.5.3
                   , pointed, keys
                   , distributive, adjunctions
                   , concat-inline

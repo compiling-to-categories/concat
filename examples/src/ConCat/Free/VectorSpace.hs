@@ -37,7 +37,7 @@ import Data.Key (Zip(..))
 import Data.Constraint ((:-)(..),Dict(..))
 import Data.Vector.Sized (Vector)
 
--- import Control.Newtype
+-- import Control.Newtype.Generics
 
 import ConCat.Orphans ()
 import ConCat.Misc ((:*),(:+),(<~),sqr)

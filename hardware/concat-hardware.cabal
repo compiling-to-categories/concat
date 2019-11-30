@@ -53,7 +53,7 @@ test-suite hardware-examples
                      , concat-plugin
                      -- , shaped-types
                      , ghc-prim
-                     , newtype-generics
+                     , newtype-generics >= 0.5.3
                      , text >= 1.2.2.1
                      -- , lambdabot-utils
                      -- , language-glsl >= 0.2.1
@@ -76,7 +76,7 @@ test-suite hardware-trace
                      , concat-plugin
                      -- , shaped-types
                      , ghc-prim
-                     , newtype-generics
+                     , newtype-generics >= 0.5.3
                      , text >= 1.2.2.1
                      -- , lambdabot-utils
                      -- , language-glsl >= 0.2.1

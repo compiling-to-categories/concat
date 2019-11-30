@@ -31,7 +31,7 @@ import GHC.Exts (Constraint)
 import Data.Constraint (Dict(..),(:-)(..))
 
 -- import GHC.Generics (Par1(..),(:.:)(..),(:*:)())
--- import Control.Newtype
+-- import Control.Newtype.Generics
 -- import Data.Key (Zip(..))
 
 import Data.Pointed
