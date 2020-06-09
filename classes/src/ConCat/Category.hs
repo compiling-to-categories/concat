@@ -1310,6 +1310,71 @@ instance (ClosedCat k, OpSat (Prod k) con, OpSat (Exp k) con) => ClosedCat (Cons
   curry   (Constrained f) = Constrained (curry f)
   uncurry (Constrained g) = Constrained (uncurry g)
 
+instance (BoolCat k, con Bool, OpCon (Prod k) (Sat con))
+      => BoolCat (Constrained con k) where
+  notC = Constrained notC
+  andC = Constrained andC
+  orC = Constrained orC
+  xorC = Constrained xorC
+
+instance (CoerceCat k a b, con a, con b) => CoerceCat (Constrained con k) a b where
+  coerceC = Constrained coerceC
+
+instance (ConstCat k b, con b) => ConstCat (Constrained con k) b where
+  const = Constrained . const
+
+instance OkFunctor (Constrained con k) f where
+  okFunctor = okFunctor @(Constrained con k)
+
+instance FunctorCat k f => FunctorCat (Constrained con k) f where
+  fmapC (Constrained fn) = Constrained $ fmapC fn
+  unzipC = Constrained unzipC
+
+instance (NumCat k a, con a) => NumCat (Constrained con k) a where
+  negateC = Constrained negateC
+  addC = Constrained addC
+  subC = Constrained subC
+  mulC = Constrained mulC
+  powIC = Constrained powIC
+
+instance (IntegralCat k a, con a) => IntegralCat (Constrained con k) a where
+  divC = Constrained divC
+  modC = Constrained modC
+
+instance (FractionalCat k a, con a) => FractionalCat (Constrained con k) a where
+  recipC  = Constrained recipC
+  divideC = Constrained divideC
+
+instance (FloatingCat k a, con a) => FloatingCat (Constrained con k) a where
+  expC = Constrained expC
+  logC = Constrained logC
+  cosC = Constrained cosC
+  sinC = Constrained sinC
+
+instance (RealFracCat k a b, con a, con b) => RealFracCat (Constrained con k) a b where
+  floorC = Constrained floorC
+  ceilingC = Constrained ceilingC
+  truncateC = Constrained truncateC
+
+instance (FromIntegralCat k a b, con a, con b)
+      => FromIntegralCat (Constrained con k) a b where
+  fromIntegralC = Constrained fromIntegralC
+
+instance (BottomCat k a b, con a, con b) => BottomCat (Constrained con k) a b where
+  bottomC = Constrained bottomC
+
+instance (IfCat k a, OpCon (Prod k) (Sat con), con Bool, con a)
+      => IfCat (Constrained con k) a where
+  ifC = Constrained ifC
+
+instance (RepCat k a r, con a, con r) => RepCat (Constrained con k) a r where
+  abstC = Constrained abstC
+  reprC = Constrained reprC
+
+instance RepresentableCat k f => RepresentableCat (Constrained con k) f where
+  tabulateC = Constrained tabulateC
+  indexC = Constrained indexC
+
 {--------------------------------------------------------------------
     Other category subclasses, perhaps to move elsewhere
 --------------------------------------------------------------------}
