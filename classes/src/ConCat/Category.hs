@@ -2209,8 +2209,6 @@ liftA2' f as bs = fmap' f as <*> bs
 zipWith' :: Zip f => (a -> b -> c) -> f a -> f b -> f c
 zipWith' = IC.inline zipWith
 
-#if 0
-
 class FunctorCat k h => Strong k h where
   strength :: Ok2 k a b => (a :* h b) `k` h (a :* b)
 
@@ -2219,8 +2217,6 @@ instance Functor h => Strong (->) h where
 
 instance (Strong k h, Strong k' h) => Strong (k :**: k') h where
   strength = strength :**: strength
-
-#endif
 
 {--------------------------------------------------------------------
     Indexed products and coproducts
