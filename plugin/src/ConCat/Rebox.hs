@@ -67,7 +67,7 @@ ifEqInt# :: Int# -> Int# -> a -> a -> a
 ifEqInt# m n a b = if equal (boxI m, boxI n) then a else b
 {-# INLINE ifEqInt# #-}
 
-#if 1
+#if 0
 
 #define Rebox1(box,unbox,uop,bop) \
   "rebox2" [~0] uop = \ u# -> unbox (bop (box u#))
@@ -200,7 +200,7 @@ Rebox2(id,unboxIB, leInteger#,lessThanOrEqual)
 "boxF -"      [~0] forall u v . boxF (u `minusFloat#` v) = subC (boxF u,boxF v)
 "boxF *"      [~0] forall u v . boxF (u `timesFloat#` v) = mulC (boxF u,boxF v)
 "boxF exp"    [~0] forall u   . boxF (expFloat# u)       = expC (boxF u)
-"boxF log"    [~0] forall u   . boxF (logFloat# u        = logC(boxF u)
+"boxF log"    [~0] forall u   . boxF (logFloat# u)        = logC(boxF u)
 "boxF cos"    [~0] forall u   . boxF (cosFloat# u)       = cosC (boxF u)
 "boxF sin"    [~0] forall u   . boxF (sinFloat# u)       = sinC (boxF u)
 
