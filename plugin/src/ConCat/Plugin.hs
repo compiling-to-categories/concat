@@ -75,6 +75,7 @@ import ConCat.BuildDictionary
 -- CoreM and use it in the ccc rule, which must be pure.
 data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , cccV             :: Id
+                     , cccPV            :: Id -- evidence-annotated version, toCcc''
                      , uncccV           :: Id
                      , closedTc         :: TyCon
                      , idV              :: Id
@@ -152,9 +153,9 @@ polyBail :: Bool
 polyBail = True -- False
 
 ccc :: CccEnv -> Ops -> Type -> ReExpr
--- ccc _ _ _ | pprTrace "ccc" empty False = undefined
+-- ccc _ _ _ _ _ | pprTrace "ccc" empty False = undefined
 ccc (CccEnv {..}) (Ops {..}) cat =
-  traceRewrite "toCcc'" $
+  traceRewrite "toCcc''" $
   (if lintSteps then lintReExpr else id) $
   go
  where
@@ -768,8 +769,8 @@ data Ops = Ops
  }
 
 mkOps :: CccEnv -> ModGuts -> AnnEnv -> FamInstEnvs
-      -> DynFlags -> InScopeEnv -> Type -> Ops
-mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
+      -> DynFlags -> InScopeEnv -> Type -> CoreExpr -> Type -> Ops
+mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {..}
  where
    okType t = isRight (buildDictMaybe (mkTyConApp okTypeTc [t]))
    -- okType _ = True
@@ -892,7 +893,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
              | otherwise    = e
    buildDictMaybe :: Type -> Either SDoc CoreExpr
    buildDictMaybe ty = unsafePerformIO $
-                       buildDictionary hsc_env dflags guts inScope ty
+                       buildDictionary hsc_env dflags guts inScope evTy ev ty
    catOp :: Cat -> Var -> [Type] -> CoreExpr
    -- catOp k op tys | dtrace "catOp" (ppr (k,op,tys)) False = undefined
    catOp k op tys --  | dtrace "catOp" (pprWithType (Var op `mkTyApps` (k : tys))) True
@@ -903,7 +904,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope cat = Ops {..}
    catOpMaybe :: Cat -> Var -> [Type] -> Maybe CoreExpr
    catOpMaybe k op tys = onDictMaybe (Var op `mkTyApps` (k : tys))
    mkCcc' :: Unop CoreExpr  -- Any reason to parametrize over Cat?
-   mkCcc' e = varApps cccV [cat,a,b] [e]
+   mkCcc' e = varApps cccPV [cat,a,b,evTy] [ev,e]
     where
       (a,b) = fromMaybe (pprPanic "mkCcc non-function:" (pprWithType e)) $
               splitFunTy_maybe (exprType e)
@@ -1307,24 +1308,28 @@ cccRuleName = fsLit "toCcc'"
 composeRuleName :: FastString
 composeRuleName = fsLit "compose/coerce"
 
+evidenceRuleName :: FastString
+evidenceRuleName = fsLit "evidence annotation"
+
 cccRules :: Maybe (IORef Int) -> FamInstEnvs -> CccEnv -> ModGuts -> AnnEnv -> [CoreRule]
 cccRules steps famEnvs env@(CccEnv {..}) guts annotations =
   [ BuiltinRule { ru_name  = cccRuleName
-                , ru_fn    = varName cccV
-                , ru_nargs = 4  -- including type args
+                , ru_fn    = varName cccPV
+                , ru_nargs = 6  -- including type args
                 , ru_try   = \ dflags inScope _fn ->
                                 \ case
                                   -- _args | pprTrace "ccc ru_try args" (ppr _args) False -> undefined
-                                  _es@(Type k : Type _a : Type _b : arg : _) ->
+                                  _es@(Type k : Type _a : Type _b : Type evType : ev : arg : _) ->
                                     -- pprTrace "ccc: going in" (ppr es) $
                                     -- ccc env (ops dflags inScope k) k arg
                                     unsafeLimit steps $
-                                      ccc env (ops dflags inScope k) k arg
+                                      ccc env (ops dflags inScope evType ev k) k arg
                                   _args -> -- pprTrace "ccc ru_try mismatch args" (ppr _args) $
                                            Nothing
                 }
-#if 1
+#if 0
   -- Are we still using the special composition rules?
+  -- FIXME: needs a version with evidence argument
   , BuiltinRule { ru_name  = composeRuleName
                 , ru_fn    = varName composeV
                 , ru_nargs = 8  -- including type args and dicts
@@ -1339,6 +1344,9 @@ cccRules steps famEnvs env@(CccEnv {..}) guts annotations =
   ]
   where
     ops = mkOps env guts annotations famEnvs
+
+evidencePass :: CccEnv -> ModGuts -> CoreM ModGuts
+evidencePass (CccEnv {..}) guts = bindsOnlyPass (mapM (annotateEvidence cccV cccPV 3)) guts
 
 plugin :: Plugin
 plugin = defaultPlugin { installCoreToDos = install
@@ -1371,16 +1379,16 @@ install opts todos =
           env <- mkCccEnv opts
           -- Add the rule after existing ones, so that automatically generated
           -- specialized ccc rules are tried first.
-          let addRule, delRule :: ModGuts -> CoreM ModGuts
-              addRule guts =
+          let addCccRule, delCccRule :: ModGuts -> CoreM ModGuts
+              addCccRule guts =
                 -- pprTrace "Program binds before ccc" (ppr (mg_binds guts)) $
                 do allAnns <- liftIO (prepareAnnotations hsc_env (Just guts))
                    let famEnvs = (pkgFamEnv, mg_fam_inst_env guts)
                        maxSteps = (unsafePerformIO . newIORef) <$>
                                   parseOpt "maxSteps" opts
                    return (on_mg_rules (++ cccRules maxSteps famEnvs env guts allAnns) guts)
-              delRule guts = return (on_mg_rules (filter (not . isOurRule)) guts)
-              isOurRule r = isBuiltinRule r && ru_name r `elem` [cccRuleName,composeRuleName]
+              delCccRule guts = return (on_mg_rules (filter (not . isCccRule)) guts)
+              isCccRule r = isBuiltinRule r && ru_name r `elem` [cccRuleName,composeRuleName]
               -- isCCC r | is = pprTrace "delRule" (ppr cccRuleName) is
               --         | otherwise = is
               --  where
@@ -1389,14 +1397,16 @@ install opts todos =
                            -- ([],todos)
                            splitAt 5 todos  -- guess
                            -- (swap . (reverse *** reverse) . splitAt 1 . reverse) todos
-              ours = [ CoreDoPluginPass "Ccc insert rule" addRule
+              annotateEvidencePass = CoreDoPluginPass "evidence-annotate toCcc'" (evidencePass env)
+              ours = [ annotateEvidencePass
+                     , CoreDoPluginPass "Ccc insert rule" addCccRule
                      , CoreDoSimplify 7 (mode dflags)
-                     , CoreDoPluginPass "Ccc remove rule" delRule
+                     , CoreDoPluginPass "Ccc remove rule" delCccRule
                      , CoreDoPluginPass "Flag remaining ccc calls" (flagCcc env)
                      ]
           -- pprTrace "ccc pre-install todos:" (ppr todos) (return ())
           -- pprTrace "ccc post-install todos:" (ppr (pre ++ ours ++ post)) (return ())
-          return $ pre ++ ours ++ post
+          return (pre ++ ours ++ post)
  where
 #if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
    flagCcc :: CccEnv -> CorePluginPass
@@ -1419,8 +1429,8 @@ install opts todos =
       -- ccc :: forall k a b. (a -> b) -> k a b
       -- cccArgs c@(unVarApps -> Just (v,_tys,[_])) | v == cccV = Seq.singleton c
       cccArgs c@(unVarApps -> Just (v,_tys,[arg]))
-        | v == cccV, not polyBail || isMono arg = Seq.singleton c
-      cccArgs _                                 = mempty
+        | v == cccPV, not polyBail || isMono arg = Seq.singleton c
+      cccArgs _                                  = mempty
       -- cccArgs = const mempty  -- for now
       collectQ :: (Data a, Monoid m) => (a -> m) -> GenericQ m
       collectQ f = everything mappend (mkQ mempty f)
@@ -1494,6 +1504,7 @@ mkCccEnv opts = do
   reprCV        <- findCatId "reprC"
   coerceV       <- findCatId "coerceC"
   cccV          <- findCatId "toCcc'"
+  cccPV         <- findCatId "toCcc''"
   uncccV        <- findCatId "unCcc'"
   fmapV         <- findCatId "fmapC"
   fmapT1V       <- findTrnId "fmapT1"
