@@ -125,6 +125,7 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , hsc_env          :: HscEnv
                      , ruleBase         :: RuleBase  -- to remove
                      , okTypeTc         :: TyCon
+                     , enablePolymorphism :: Bool -- experimental
                      }
 
 -- Whether to run Core Lint after every step
@@ -149,9 +150,6 @@ trying tr str a = tr ("Trying " ++ str) (a `seq` empty) False
 -- Category
 type Cat = Type
 
-polyBail :: Bool
-polyBail = True -- False
-
 ccc :: CccEnv -> Ops -> Type -> ReExpr
 -- ccc _ _ _ _ _ | pprTrace "ccc" empty False = undefined
 ccc (CccEnv {..}) (Ops {..}) cat =
@@ -166,7 +164,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      -- be important to restore polymorphic transformation later for useful
      -- separate compilation. Put first, to remove tracing clutter
      -- Trying("top poly bail")
-     (isMono -> False) | polyBail ->
+     (isMono -> False) | not enablePolymorphism ->
        -- Doing("top poly bail")
        Nothing
      e | dtrace ("go ccc "++pp cat++":") (pprWithType' e) False -> undefined
@@ -338,7 +336,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Var y | x == y -> Doing("lam Id")
                        return (mkId cat xty)
      Trying("lam Poly const")
-     _ | isConst, not (isFunTy bty), not (isMonoTy bty)
+     _ | not enablePolymorphism, isConst, not (isFunTy bty), not (isMonoTy bty)
        -> Doing("lam Poly const bail")
           -- dtrace("lam Poly const: bty, isFunTy, isMonoTy") (ppr (bty, isFunTy bty, isMonoTy bty)) $
           Nothing
@@ -1429,7 +1427,7 @@ install opts todos =
       -- ccc :: forall k a b. (a -> b) -> k a b
       -- cccArgs c@(unVarApps -> Just (v,_tys,[_])) | v == cccV = Seq.singleton c
       cccArgs c@(unVarApps -> Just (v,_tys,[arg]))
-        | v == cccPV, not polyBail || isMono arg = Seq.singleton c
+        | v == cccPV, enablePolymorphism || isMono arg = Seq.singleton c
       cccArgs _                                  = mempty
       -- cccArgs = const mempty  -- for now
       collectQ :: (Data a, Monoid m) => (a -> m) -> GenericQ m
@@ -1477,6 +1475,7 @@ mkCccEnv opts = do
 #endif
 
       lookupTh mkOcc mk modu = lookupRdr (mkModuleName modu) mkOcc mk
+      enablePolymorphism = "enablePolymorphism" `elem` opts
       findId      = lookupTh mkVarOcc lookupId
       findTc      = lookupTh mkTcOcc  lookupTyCon
       -- findFloatTy = fmap mkTyConTy . findTc floatModule -- TODO: eliminate
