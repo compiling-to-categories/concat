@@ -63,6 +63,7 @@ basicTests = testGroup "basic tests"
   , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
   , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
   , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  , runSynCirc "log-2xx"     $ toCcc $ \ x -> log (2 * x * x) :: R
 
   -- Automatic differentiation variants
   , runSynCircDers "add"     $ uncurry ((+) @R)
@@ -74,8 +75,6 @@ basicTests = testGroup "basic tests"
   , runSynCircDers "cos-2x"  $ \ x -> cos (2 * x) :: R
   , runSynCircDers "cos-2xx" $ \ x -> cos (2 * x * x) :: R
   , runSynCircDers "cos-xpy" $ \ (x,y) -> cos (x + y) :: R
-
-  -- , runSynCirc "cosSinProd" $ toCcc $ andDerR $ cosSinProd @R
 
 #if 0
 
