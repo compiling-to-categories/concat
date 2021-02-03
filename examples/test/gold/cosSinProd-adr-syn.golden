@@ -1,0 +1,86 @@
+((exl . id *** repr . exr . id) . dup) .
+second repr .
+apply .
+((curry
+  ((exl . exr ***
+    apply .
+    (curry
+     (abst .
+      apply .
+      (curry (abst . apply . (exl *** repr . exr) . dup) .
+       curry
+       (curry
+        (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
+       repr . repr . exr ***
+       exl) .
+      dup) .
+     repr . exr . exr ***
+     abst .
+     apply .
+     ((curry (abst . apply . (exl *** repr . exr) . dup) .
+       curry
+       (curry
+        (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
+       repr . repr ***
+       abst . curry (addC . exr)) .
+      dup) .
+     exr . exl) .
+    dup) .
+   dup) ***
+  apply .
+  ((curry
+    (apply .
+     (curry
+      (((exr *** exr . exl) . dup ***
+        apply .
+        (curry (abst . apply . (exl *** repr . exr) . dup) .
+         curry (abst . apply . (exl *** repr . exr) . dup) .
+         curry
+         (curry
+          ((apply . (exl . exl *** exl . exr) . dup ***
+            apply . (exr . exl *** exr . exr) . dup) .
+           dup)) .
+         repr .
+         repr .
+         abst .
+         abst .
+         curry mulC .
+         apply .
+         (curry exl . negateC . sinC . exl . exl . exl *** exr) . dup ***
+         abst .
+         abst .
+         curry mulC .
+         apply . (curry exl . cosC . exr . exl . exl *** exr . exl) . dup) .
+        dup) .
+       dup) ***
+      cosC . exl . exl) .
+     dup) ***
+    sinC . exr) .
+   dup) .
+  dup . exl) .
+ dup) .
+(mulC ***
+ apply .
+ (curry
+  (abst .
+   apply .
+   (curry (abst . apply . (exl *** repr . exr) . dup) .
+    curry
+    (curry (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
+    repr .
+    apply .
+    (curry (abst . apply . (exl *** repr . exr) . dup) .
+     curry
+     (curry
+      ((apply . (exl . exl *** exl . exr) . dup ***
+        apply . (exr . exl *** exr . exr) . dup) .
+       dup)) .
+     repr . repr . exl ***
+     repr . exr) .
+    dup ***
+    abst . curry (dup . exr)) .
+   dup) .
+  abst . abst . curry mulC . exr ***
+  abst . abst . curry mulC . exl) .
+ dup) .
+dup
