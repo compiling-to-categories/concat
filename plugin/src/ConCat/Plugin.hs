@@ -454,6 +454,10 @@ ccc (CccEnv {..}) (Ops {..}) cat =
         sub = [(x,mkEx funCat exlV (Var z)),(y,mkEx funCat exrV (Var z))]
         -- TODO: consider using fst & snd instead of exl and exr here
         mbe' = mkCurry' cat (mkCcc (Lam z (subst sub e)))
+     Trying("lam boxer")
+     (boxCon -> Just e') ->
+       Doing("lam boxer")
+       return (mkCcc (Lam x e'))
      Trying("lam Case of boxer")
      e@(Case scrut wild _ty [(_dc,[unboxedV],rhs)])
        | Just (tc,[]) <- splitTyConApp_maybe (varType wild)
