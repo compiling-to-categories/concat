@@ -230,6 +230,10 @@ main = sequence_ [
   -- -- TODO: better categorical optimization
   -- , runSynStack $ toCcc $ \ (x,y) -> x + 3 * y
 
+  -- -- addC . (mulC . (const 2 *** exl) . dup *** mulC . (const 3 *** exr) . dup) . dup
+  -- -- [Dup,Push,Dup,Push,Const 2,Pop,Swap,Push,Exl,Pop,Swap,Mul,Pop,Swap,Push,Dup,Push,Const 3,Pop,Swap,Push,Exr,Pop,Swap,Mul,Pop,Swap,Add]
+  -- , runSynStack $ toCcc $ \ (x,y) -> 2 * x + 3 * y
+
   -- , runSynStack $ toCcc $ \ y -> 3 * y
 
   -- , runSyn $ toCcc' $ A.lassocP A.. A.rassocP                  -- id
@@ -396,6 +400,7 @@ main = sequence_ [
   , runSynCirc "xp3y"        $ toCcc $ \ (x,y) -> x + 3 * y :: R
   , runSynCirc "horner"      $ toCcc $ horner @R [1,3,5]
   , runSynCirc "cos-2xx"     $ toCcc $ \ x -> cos (2 * x * x) :: R
+  , runSynCirc "log-2xx"     $ toCcc $ \ x -> log (2 * x * x) :: R
 
   -- -- Automatic differentiation
   -- , runSynCircDers "add"     $ uncurry ((+) @R)
