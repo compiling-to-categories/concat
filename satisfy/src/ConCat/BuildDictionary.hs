@@ -48,6 +48,7 @@ import TcInteract (solveSimpleGivens)
 import TcSMonad -- (TcS,runTcS)
 import TcEvidence (evBindMapBinds)
 import TcErrors(warnAllUnsolved)
+import qualified TcMType as TcMType
 
 import DsMonad
 import DsBinds
@@ -131,22 +132,16 @@ runDsM :: HscEnv -> DynFlags -> ModGuts -> DsM a -> IO a
 runDsM env dflags guts = runTcM env dflags guts . initDsTc
 
 -- | Build a dictionary for the given id
-buildDictionary' :: HscEnv -> DynFlags -> ModGuts -> VarSet -> Id
+buildDictionary' :: HscEnv -> DynFlags -> ModGuts -> VarSet -> Type
                  -> IO (Maybe (Id, [CoreBind]))
-buildDictionary' env dflags guts evIds evar =
+buildDictionary' env dflags guts evIds predTy =
   do res <-
        runTcM env dflags guts $
        do loc <- getCtLocM (GivenOrigin UnkSkol) Nothing
-          let givens = mkGivens loc (uniqSetToList evIds)
-              predTy = varType evar
-              nonC = mkNonCanonical $
-                       CtWanted { ctev_pred = predTy
-                                , ctev_dest = EvVarDest evar
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-                                , ctev_nosh = WOnly
-#endif
-                                , ctev_loc = loc }
-              wCs = mkSimpleWC [cc_ev nonC]
+          evidence <- TcMType.newWanted (GivenOrigin UnkSkol) Nothing predTy
+          let EvVarDest evarDest = ctev_dest evidence
+              givens = mkGivens loc (uniqSetToList evIds)
+              wCs = mkSimpleWC [evidence]
           -- TODO: Make sure solveWanteds is the right function to call.
           traceTc' "buildDictionary': givens" (ppr givens)
           (wantedConstraints, bnds0) <-
@@ -170,20 +165,13 @@ buildDictionary' env dflags guts evIds evar =
           -- warnAllUnsolved _wCs'
           traceTc' "buildDictionary' zonked" (ppr bnds)
           if isEmptyWC wantedConstraints
-          then return (Just (evar, bnds))
+          then return (Just (evarDest, bnds))
           else return Nothing
      case res of
        Just (i, bs) ->
          do bs' <- runDsM env dflags guts (dsEvBinds bs)
             return (Just (i, bs'))
        Nothing -> return Nothing
-
--- TODO: Richard Eisenberg: "use TcMType.newWanted to make your CtWanted. As it
--- stands, if predTy is an equality constraint, your CtWanted will be
--- ill-formed, as all equality constraints should have HoleDests, not
--- EvVarDests. Using TcMType.newWanted will simplify and improve your code."
-
--- TODO: Why return the given evar?
 
 -- TODO: Try to combine the two runTcM calls.
 
@@ -199,15 +187,12 @@ reallyBuildDictionary :: HscEnv -> DynFlags -> ModGuts -> InScopeEnv -> Type -> 
 reallyBuildDictionary env dflags guts inScope evType evTypes ev goalTy =
   pprTrace' "\nbuildDictionary" (ppr goalTy) $
   pprTrace' "buildDictionary in-scope evidence" (ppr ev) $
-  reassemble <$> buildDictionary' env dflags guts evIdSet binder
+  reassemble <$> buildDictionary' env dflags guts evIdSet goalTy
  where
    evIds = [ local
            | (evTy, index) <- evTypes `zip` [(0 :: Int) ..]
            , let local = localId inScope ("evidence" ++ show index) evTy ]
    evIdSet = mkVarSet evIds
-   binder = localId inScope name goalTy
-   name = "$d" ++ zEncodeString (filter (not . isSpace) (showPpr dflags goalTy))
-   goalTyVars = tyCoVarsOfType goalTy
    reassemble Nothing =
      Left (text "unsolved constraints")
    reassemble (Just (i,bnds)) =
