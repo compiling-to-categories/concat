@@ -31,8 +31,6 @@ module ConCat.BuildDictionary
 
 import Data.Monoid (Any(..))
 import Data.Char (isSpace)
-import Data.Data (Data)
-import Data.Generics (mkQ,everything)
 import Control.Monad (filterM,when)
 
 import GhcPlugins
@@ -203,7 +201,6 @@ reallyBuildDictionary env dflags guts inScope evType evTypes ev goalTy =
      res
     where
       res | null bnds          = Left (text "no bindings")
-          | notNull holeyBinds = Left (text "coercion holes: " <+> ppr holeyBinds)
           | otherwise          = return $ simplifyE dflags False
                                           expr
       dict =
@@ -215,13 +212,6 @@ reallyBuildDictionary env dflags guts inScope evType evTypes ev goalTy =
       expr = if null evTypes
              then dict
              else mkWildCase ev evType goalTy [(DataAlt (tupleDataCon Boxed (length evIds)), evIds, dict)]
-      holeyBinds = filter hasCoercionHole bnds
-
-hasCoercionHole :: Data t => t -> Bool
-hasCoercionHole = getAny . everything mappend (mkQ mempty (Any . isHole))
- where
-   isHole :: CoercionHole -> Bool
-   isHole = const True
 
 -- | Make a unique identifier for a specified type, using a provided name.
 localId :: InScopeEnv -> String -> Type -> Id
