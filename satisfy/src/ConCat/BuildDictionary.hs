@@ -171,25 +171,26 @@ buildDictionary' env dflags guts evIds predTy =
             return (Just (i, bs'))
        Nothing -> return Nothing
 
+
 -- TODO: Try to combine the two runTcM calls.
 
-buildDictionary :: HscEnv -> DynFlags -> ModGuts -> InScopeEnv -> Type -> CoreExpr -> Type -> IO (Either SDoc CoreExpr)
-buildDictionary env dflags guts inScope evType@(TyConApp tyCon evTypes) ev goalTy | isTupleTyCon tyCon =
-  reallyBuildDictionary env dflags guts inScope evType evTypes ev goalTy
+buildDictionary :: HscEnv -> DynFlags -> ModGuts -> UniqSupply -> InScopeEnv -> Type -> CoreExpr -> Type -> IO (Either SDoc CoreExpr)
+buildDictionary env dflags guts uniqSupply inScope evType@(TyConApp tyCon evTypes) ev goalTy | isTupleTyCon tyCon =
+  reallyBuildDictionary env dflags guts uniqSupply inScope evType evTypes ev goalTy
 -- only 1-tuples in Haskell  
-buildDictionary env dflags guts inScope evType ev goalTy | isEvVarType evType =
-  reallyBuildDictionary env dflags guts inScope evType [evType] ev goalTy
-buildDictionary _env _dflags _guts _inScope evT _ev _goalTy = pprPanic "evidence type mismatch" (ppr evT)
+buildDictionary env dflags guts uniqSupply inScope evType ev goalTy | isEvVarType evType =
+  reallyBuildDictionary env dflags guts uniqSupply inScope evType [evType] ev goalTy
+buildDictionary _env _dflags _guts _uniqSupply _inScope evT _ev _goalTy = pprPanic "evidence type mismatch" (ppr evT)
                                                          
-reallyBuildDictionary :: HscEnv -> DynFlags -> ModGuts -> InScopeEnv -> Type -> [Type] -> CoreExpr -> Type -> IO (Either SDoc CoreExpr)
-reallyBuildDictionary env dflags guts inScope evType evTypes ev goalTy =
+reallyBuildDictionary :: HscEnv -> DynFlags -> ModGuts -> UniqSupply -> InScopeEnv -> Type -> [Type] -> CoreExpr -> Type -> IO (Either SDoc CoreExpr)
+reallyBuildDictionary env dflags guts uniqSupply _inScope evType evTypes ev goalTy =
   pprTrace' "\nbuildDictionary" (ppr goalTy) $
   pprTrace' "buildDictionary in-scope evidence" (ppr ev) $
   reassemble <$> buildDictionary' env dflags guts evIdSet goalTy
  where
    evIds = [ local
-           | (evTy, index) <- evTypes `zip` [(0 :: Int) ..]
-           , let local = localId inScope ("evidence" ++ show index) evTy ]
+           | (evTy, unq) <- evTypes `zip` (uniqsFromSupply uniqSupply)
+           , let local = mkLocalId (mkSystemVarName unq evVarName) evTy ]
    evIdSet = mkVarSet evIds
    reassemble Nothing =
      Left (text "unsolved constraints")
@@ -213,18 +214,8 @@ reallyBuildDictionary env dflags guts inScope evType evTypes ev goalTy =
              then dict
              else mkWildCase ev evType goalTy [(DataAlt (tupleDataCon Boxed (length evIds)), evIds, dict)]
 
--- | Make a unique identifier for a specified type, using a provided name.
-localId :: InScopeEnv -> String -> Type -> Id
-localId (inScopeSet,_) str ty =
-  uniqAway inScopeSet (mkLocalId (stringToName str) ty)
-
-stringToName :: String -> Name
-stringToName str =
-  mkSystemVarName (mkUniqueGrimily (abs (fromIntegral (hashString str))))
-                  (mkFastString str)
-
--- When mkUniqueGrimily's argument is negative, we see something like
--- "Exception: Prelude.chr: bad argument: (-52)". Hence the abs.
+evVarName :: FastString
+evVarName = mkFastString "evidence"
 
 -- Transform calls to a function that requires a dictionary into one
 -- another one that also takes a tuple of available locally-bound

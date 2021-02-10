@@ -118,6 +118,7 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      , ifEqIntHash      :: Id
                   -- , reboxV           :: Id
                      , inlineV          :: Id
+                     , uniqSupply       :: UniqSupply
                   -- , coercibleTc      :: TyCon
                   -- , coerceV          :: Id
                   -- , polyOps          :: PolyOpsMap
@@ -891,7 +892,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
              | otherwise    = e
    buildDictMaybe :: Type -> Either SDoc CoreExpr
    buildDictMaybe ty = unsafePerformIO $
-                       buildDictionary hsc_env dflags guts inScope evTy ev ty
+                       buildDictionary hsc_env dflags guts uniqSupply inScope evTy ev ty
    catOp :: Cat -> Var -> [Type] -> CoreExpr
    -- catOp k op tys | dtrace "catOp" (ppr (k,op,tys)) False = undefined
    catOp k op tys --  | dtrace "catOp" (pprWithType (Var op `mkTyApps` (k : tys))) True
@@ -1526,6 +1527,7 @@ mkCccEnv opts = do
   tagToEnumV    <- findId "GHC.Prim" "tagToEnum#"
   bottomV       <- findId "ConCat.Misc" "bottom"
   inlineV       <- findExtId "inline"
+  uniqSupply    <- getUniqueSupplyM
   let mkPolyOp :: (String,(String,String)) -> CoreM (String,Var)
       mkPolyOp (stdName,(cmod,cop)) =
         do cv <- findId cmod cop

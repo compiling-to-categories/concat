@@ -43,11 +43,12 @@ install _opts todos =
 #endif
           hscEnv <- getHscEnv
           pprTrace "Install satisfyRule" empty (return ())
+          uniqSupply <- getUniqueSupplyM
           let addRule, delRule :: ModGuts -> CoreM ModGuts
               addRule guts =
                 do satisfyPV <- findId "ConCat.Satisfy" "satisfy'"
                    pprTrace "adding satisfyRule" empty (return ())
-                   return (on_mg_rules (++ [satisfyRule hscEnv guts satisfyPV]) guts)
+                   return (on_mg_rules (++ [satisfyRule hscEnv guts uniqSupply satisfyPV]) guts)
               isOurRule r = (isBuiltinRule r) && (ru_name r == satisfyRuleName)
               delRule guts =
                 do pprTrace "removing satisfyRule" empty (return ())
@@ -88,19 +89,19 @@ satisfyRuleName :: FastString
 satisfyRuleName = fsLit "satisfy'Rule"
 -- satisfy :: forall c z. (c => z) -> z
 
-satisfyRule :: HscEnv -> ModGuts -> Id -> CoreRule
-satisfyRule env guts satisfyPV = BuiltinRule
+satisfyRule :: HscEnv -> ModGuts -> UniqSupply -> Id -> CoreRule
+satisfyRule env guts uniqSupply satisfyPV = BuiltinRule
   { ru_name  = satisfyRuleName
   , ru_fn    = varName satisfyPV
   , ru_nargs = 5  -- including type args
-  , ru_try   = satisfy env guts
+  , ru_try   = satisfy env guts uniqSupply
   }
 
-satisfy :: HscEnv -> ModGuts -> DynFlags -> InScopeEnv -> Id -> [CoreExpr] -> Maybe CoreExpr
-satisfy _ _ _ _ _ args | pprTrace "satisfyRule" (ppr args) False = undefined
-satisfy hscEnv guts dflags inScope _sat [Type evT, Type c, Type _z, ev, f] =
-  case unsafePerformIO $ buildDictionary hscEnv dflags guts inScope evT ev c of
+satisfy :: HscEnv -> ModGuts -> UniqSupply -> DynFlags -> InScopeEnv -> Id -> [CoreExpr] -> Maybe CoreExpr
+satisfy _ _ _ _ _ _ args | pprTrace "satisfyRule" (ppr args) False = undefined
+satisfy hscEnv guts uniqSupply dflags inScope _sat [Type evT, Type c, Type _z, ev, f] =
+  case unsafePerformIO $ buildDictionary hscEnv dflags guts uniqSupply inScope evT ev c of
     Left  msg  -> pprPanic "satisfy: couldn't build dictionary for"
                     (ppr (exprType f) GHC.<> colon $$ msg)
     Right dict -> Just (f `App` dict)
-satisfy _ _ _ _ _ args = pprPanic "satisfy mismatch" (ppr args)
+satisfy _ _ _ _ _ _ args = pprPanic "satisfy mismatch" (ppr args)
