@@ -212,7 +212,9 @@ reallyBuildDictionary env dflags guts uniqSupply _inScope evType evTypes ev goal
       -- could optimize if these things are already variables
       expr = if null evTypes
              then dict
-             else mkWildCase ev evType goalTy [(DataAlt (tupleDataCon Boxed (length evIds)), evIds, dict)]
+             else case evIds of
+                    [evId] -> mkCoreLet (NonRec evId ev) dict
+                    _ -> mkWildCase ev evType goalTy [(DataAlt (tupleDataCon Boxed (length evIds)), evIds, dict)]
 
 evVarName :: FastString
 evVarName = mkFastString "evidence"
