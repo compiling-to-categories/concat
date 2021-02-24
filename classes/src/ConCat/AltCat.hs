@@ -816,13 +816,6 @@ coco' = (undefined, (coerceC \\ trans @(CoerceCat k) @a @b @c))
 deriving instance Functor  (Arr i)
 deriving instance Foldable (Arr i)
 
-{-
-instance Traversable (Arr i) where
-  sequenceA :: forall f a. Functor f => f (Arr i a) -> Arr i (f a)
-  sequenceA = sequenceARep
-  {-# INLINE sequenceA #-}
--}
-
 instance Distributive (Arr i) where
   distribute :: forall f a. Functor f => f (Arr i a) -> Arr i (f a)
   distribute = distributeRep
