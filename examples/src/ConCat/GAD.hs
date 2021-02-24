@@ -366,6 +366,10 @@ instance (OkFunctor (GD k) h, Pointed h, PointedCat k h a) => PointedCat (GD k) 
 --       => Strong (GD k) h where
 --   Linear(strength)
 
+instance (TraversableCat (->) t f, TraversableCat k t f)
+      => TraversableCat (GD k) t f where
+  Linear(sequenceAC)
+
 instance (DistributiveCat (->) g f, DistributiveCat k g f)
       => DistributiveCat (GD k) g f where
   Linear(distributeC)

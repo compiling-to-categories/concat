@@ -236,6 +236,10 @@ instance (AddCat k h a, OkF k h) => PointedCat (Dual k) h a where
 
 -- -- TODO: can I use sumA instead of A.sumAC?
 
+instance TraversableCat k f t => TraversableCat (Dual k) t f where
+  sequenceAC = abst sequenceAC
+  {-# INLINE sequenceAC #-}
+
 instance DistributiveCat k f g => DistributiveCat (Dual k) g f where
   distributeC = abst distributeC
   {-# INLINE distributeC #-}

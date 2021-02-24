@@ -106,7 +106,7 @@ import ConCat.Category
   , yes1, forkCon, joinCon, inForkCon
   -- Functor-level. To be removed.
   , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat
-  , DistributiveCat,RepresentableCat 
+  , TraversableCat,DistributiveCat,RepresentableCat
   , FiniteCat
   , fmap', liftA2' 
   -- 
@@ -816,6 +816,13 @@ coco' = (undefined, (coerceC \\ trans @(CoerceCat k) @a @b @c))
 deriving instance Functor  (Arr i)
 deriving instance Foldable (Arr i)
 
+{-
+instance Traversable (Arr i) where
+  sequenceA :: forall f a. Functor f => f (Arr i a) -> Arr i (f a)
+  sequenceA = sequenceARep
+  {-# INLINE sequenceA #-}
+-}
+
 instance Distributive (Arr i) where
   distribute :: forall f a. Functor f => f (Arr i a) -> Arr i (f a)
   distribute = distributeRep
@@ -1028,13 +1035,22 @@ idCon f = f
 
 #endif
 
+Op0(sequenceAC, (TraversableCat k t f, Ok k a) => t (f a) `k` f (t a))
 Op0(distributeC, (DistributiveCat k g f, Ok k a) => f (g a) `k` g (f a))
 Op0(tabulateC  , (RepresentableCat k f , Ok k a) => (Rep f -> a) `k` f a)
 Op0(indexC     , (RepresentableCat k f , Ok k a) => f a `k` (Rep f -> a))
 
+Catify(sequenceA, sequenceAC)
 Catify(distribute, distributeC)
 Catify(tabulate  , tabulateC)
 Catify(index     , indexC)
+
+traverseC :: (Traversable t, Applicative f) => (a -> f b) -> t a -> f (t b)
+traverseC f = sequenceA . fmap f
+-- traverseC f = sequenceAC . fmapC f
+{-# INLINE traverseC #-}
+
+Catify(traverse, traverseC)
 
 collectC :: (Distributive g, Functor f) => (a -> g b) -> f a -> g (f b)
 collectC f = distribute . fmap f

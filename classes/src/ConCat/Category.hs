@@ -2160,6 +2160,23 @@ instance (AddCat k h a, AddCat k' h a) => AddCat (k :**: k') h a where
 --   ixSumC = ixSumC :**: ixSumC
 --   {-# INLINE ixSumC #-}
 
+class TraversableCat k t f where
+  sequenceAC :: Ok k a => t (f a) `k` f (t a)
+
+-- TODO: perhaps remove the f parameter:
+--
+-- class TraversableCat k g where
+--   sequenceAC :: (OkFunctor k f, Ok k a) => t (f a) `k` f (t a)
+
+instance (Traversable t, Applicative f) => TraversableCat (->) t f where
+  sequenceAC = IC.inline sequenceA
+  {-# OPINLINE sequenceAC #-}
+
+instance (TraversableCat k t f, TraversableCat k' t f)
+      => TraversableCat (k :**: k') t f where
+  sequenceAC = sequenceAC :**: sequenceAC
+  {-# INLINE sequenceAC #-}
+
 class DistributiveCat k g f where
   distributeC :: Ok k a => f (g a) `k` g (f a)
 
