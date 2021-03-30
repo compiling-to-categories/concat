@@ -263,6 +263,9 @@ instance (Pointed h, Additive1 h, Additive a) => PointedCat (-+>) h a where
 instance (Summable h, Additive a) => AddCat (-+>) h a where
   Abst(sumAC)
 
+instance (Traversable t, Applicative f) => TraversableCat (-+>) t f where
+  Abst(sequenceAC)
+
 {--------------------------------------------------------------------
     CCC interface
 --------------------------------------------------------------------}
