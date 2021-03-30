@@ -28,7 +28,6 @@ extra-deps:
   - indexed-list-literals-0.2.1.2
   - ghc-typelits-knownnat-0.6
   - ghc-typelits-natnormalise-0.6.2
-  - ghc-tcplugins-extra-0.3
   - newtype-generics-0.5.3
   - language-glsl-0.3.0
   - NumInstances-1.4
