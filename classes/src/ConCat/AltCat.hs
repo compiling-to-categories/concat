@@ -503,6 +503,11 @@ toCcc' :: forall k a b. (a -> b) -> (a `k` b)
 toCcc' _ = oops "toCcc' called"
 {-# NOINLINE toCcc' #-}
 
+-- | Internal function, annotated with available dictionaries
+toCcc'' :: forall k a b ev . ev -> (a -> b) -> (a `k` b)
+toCcc'' _ = oops "toCcc'' called"
+{-# NOINLINE toCcc'' #-}
+
 -- | Pseudo function to stop rewriting from TOCCC form.
 unCcc' :: forall k a b. (a `k` b) -> (a -> b)
 unCcc' _ = oops "unCcc' called"

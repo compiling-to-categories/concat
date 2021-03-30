@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -Wall #-}
 
 {-# OPTIONS_GHC -fno-warn-unused-imports #-} -- TEMP
@@ -25,19 +26,19 @@ module ConCat.BuildDictionary
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
   ,uniqSetToList
 #endif
+  ,annotateEvidence
   ) where
 
 import Data.Monoid (Any(..))
 import Data.Char (isSpace)
-import Data.Data (Data)
-import Data.Generics (mkQ,everything)
 import Control.Monad (filterM,when)
 
 import GhcPlugins
 
 import Control.Arrow (second)
 
-import TyCoRep (CoercionHole(..))
+import TyCoRep (CoercionHole(..), Type(..))
+import TyCon (isTupleTyCon)
 import TcHsSyn (emptyZonkEnv,zonkEvBinds)
 import           TcRnMonad (getCtLocM,traceTc)
 import           TcRnTypes (cc_ev)
@@ -45,6 +46,7 @@ import TcInteract (solveSimpleGivens)
 import TcSMonad -- (TcS,runTcS)
 import TcEvidence (evBindMapBinds)
 import TcErrors(warnAllUnsolved)
+import qualified TcMType as TcMType
 
 import DsMonad
 import DsBinds
@@ -128,25 +130,19 @@ runDsM :: HscEnv -> DynFlags -> ModGuts -> DsM a -> IO a
 runDsM env dflags guts = runTcM env dflags guts . initDsTc
 
 -- | Build a dictionary for the given id
-buildDictionary' :: HscEnv -> DynFlags -> ModGuts -> VarSet -> Id
-                 -> IO (Id, [CoreBind])
-buildDictionary' env dflags guts evIds evar =
-  do (i, bs) <-
+buildDictionary' :: HscEnv -> DynFlags -> ModGuts -> VarSet -> Type
+                 -> IO (Maybe (Id, [CoreBind]))
+buildDictionary' env dflags guts evIds predTy =
+  do res <-
        runTcM env dflags guts $
        do loc <- getCtLocM (GivenOrigin UnkSkol) Nothing
-          let givens = mkGivens loc (uniqSetToList evIds)
-              predTy = varType evar
-              nonC = mkNonCanonical $
-                       CtWanted { ctev_pred = predTy
-                                , ctev_dest = EvVarDest evar
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-                                , ctev_nosh = WOnly
-#endif
-                                , ctev_loc = loc }
-              wCs = mkSimpleWC [cc_ev nonC]
+          evidence <- TcMType.newWanted (GivenOrigin UnkSkol) Nothing predTy
+          let EvVarDest evarDest = ctev_dest evidence
+              givens = mkGivens loc (uniqSetToList evIds)
+              wCs = mkSimpleWC [evidence]
           -- TODO: Make sure solveWanteds is the right function to call.
           traceTc' "buildDictionary': givens" (ppr givens)
-          (_wCs', bnds0) <-
+          (wantedConstraints, bnds0) <-
             second evBindMapBinds <$>
             runTcS (do _ <- solveSimpleGivens givens
                        traceTcS' "buildDictionary' back from solveSimpleGivens" empty
@@ -166,88 +162,139 @@ buildDictionary' env dflags guts evIds evar =
           -- changed next line from reportAllUnsolved, which panics. revisit and fix!
           -- warnAllUnsolved _wCs'
           traceTc' "buildDictionary' zonked" (ppr bnds)
-          warnAllUnsolved _wCs'
-          return (evar, bnds)
-     bs' <- runDsM env dflags guts (dsEvBinds bs)
-     return (i, bs')
+          if isEmptyWC wantedConstraints
+          then return (Just (evarDest, bnds))
+          else return Nothing
+     case res of
+       Just (i, bs) ->
+         do bs' <- runDsM env dflags guts (dsEvBinds bs)
+            return (Just (i, bs'))
+       Nothing -> return Nothing
 
--- TODO: Richard Eisenberg: "use TcMType.newWanted to make your CtWanted. As it
--- stands, if predTy is an equality constraint, your CtWanted will be
--- ill-formed, as all equality constraints should have HoleDests, not
--- EvVarDests. Using TcMType.newWanted will simplify and improve your code."
-
--- TODO: Why return the given evar?
 
 -- TODO: Try to combine the two runTcM calls.
 
-buildDictionary :: HscEnv -> DynFlags -> ModGuts -> InScopeEnv -> Type -> IO (Either SDoc CoreExpr)
-buildDictionary env dflags guts inScope goalTy =
+buildDictionary :: HscEnv -> DynFlags -> ModGuts -> UniqSupply -> InScopeEnv -> Type -> CoreExpr -> Type -> IO (Either SDoc CoreExpr)
+buildDictionary env dflags guts uniqSupply inScope evType@(TyConApp tyCon evTypes) ev goalTy | isTupleTyCon tyCon =
+  reallyBuildDictionary env dflags guts uniqSupply inScope evType evTypes ev goalTy
+-- only 1-tuples in Haskell  
+buildDictionary env dflags guts uniqSupply inScope evType ev goalTy | isEvVarType evType =
+  reallyBuildDictionary env dflags guts uniqSupply inScope evType [evType] ev goalTy
+buildDictionary _env _dflags _guts _uniqSupply _inScope evT _ev _goalTy = pprPanic "evidence type mismatch" (ppr evT)
+                                                         
+reallyBuildDictionary :: HscEnv -> DynFlags -> ModGuts -> UniqSupply -> InScopeEnv -> Type -> [Type] -> CoreExpr -> Type -> IO (Either SDoc CoreExpr)
+reallyBuildDictionary env dflags guts uniqSupply _inScope evType evTypes ev goalTy =
   pprTrace' "\nbuildDictionary" (ppr goalTy) $
-  pprTrace' "buildDictionary in-scope evidence" (ppr (WithType . Var <$> uniqSetToList scopedDicts)) $
-  reassemble <$> buildDictionary' env dflags guts scopedDicts binder
+  pprTrace' "buildDictionary in-scope evidence" (ppr ev) $
+  reassemble <$> buildDictionary' env dflags guts evIdSet goalTy
  where
-   binder = localId inScope name goalTy
-   name = "$d" ++ zEncodeString (filter (not . isSpace) (showPpr dflags goalTy))
-   scopedDicts = filterVarSet keepVar (getInScopeVars (fst inScope))
-   keepVar v =
-     -- Occasionally I get "StgCmmEnv: variable not found", so don't keep any.
-     -- See 2018-01-23 journal notes. For now, False
-     -- TODO: Investigate!
-     False &&
-     isEvVar v -- && not (isDeadBinder v)
-     -- Keep evidence that relates to free type variables in the goal.
-     -- && not (isEmptyVarSet (goalTyVars `intersectVarSet` tyCoVarsOfType (varType v))) -- see issue #20
-   -- freeIds = filter isId (uniqSetToList (exprFreeVars dict))
-   -- freeIdTys = varType <$> freeIds
-   -- goalTyVars = tyCoVarsOfType goalTy
-   reassemble (i,bnds) =
-     -- pprTrace' "buildDictionary" (ppr goalTy $$ text "-->" $$ ppr dict) $
-     -- pprTrace' "buildDictionary inScope" (ppr (fst inScope)) $
-     -- pprTrace' "buildDictionary freeIds" (ppr freeIds) $
-     -- pprTrace' "buildDictionary (bnds,freeIds)" (ppr (bnds,freeIds)) $
-     -- pprTrace' "buildDictionary dict" (ppr dict) $
-     -- either (\ e -> pprTrace' "buildDictionary fail" (ppr goalTy $$ text "-->" $$ e) res) (const res) $
+   evIds = [ local
+           | (evTy, unq) <- evTypes `zip` (uniqsFromSupply uniqSupply)
+           , let local = mkLocalId (mkSystemVarName unq evVarName) evTy ]
+   evIdSet = mkVarSet evIds
+   reassemble Nothing =
+     Left (text "unsolved constraints")
+   reassemble (Just (i,bnds)) =
+     pprTrace' "buildDictionary" (ppr goalTy $$ text "-->" $$ ppr expr) $
+     pprTrace' "buildDictionary evIds" (ppr evIds) $
+     pprTrace' "buildDictionary expr" (ppr expr) $
+     either (\ e -> pprTrace' "buildDictionary fail" (ppr goalTy $$ text "-->" $$ e) res) (const res) $
      res
     where
       res | null bnds          = Left (text "no bindings")
-          | notNull holeyBinds = Left (text "coercion holes: " <+> ppr holeyBinds)
-          | notNull freeIdTys  = Left (text "free id types:" <+> ppr freeIdTys)
           | otherwise          = return $ simplifyE dflags False
-                                          dict
+                                          expr
       dict =
         case bnds of
           -- Common case with single non-recursive let
           [NonRec v e] | i == v -> e
           _                     -> mkCoreLets bnds (varToCoreExpr i)
-      -- Sometimes buildDictionary' constructs bogus dictionaries with free
-      -- identifiers. Hence check that freeIds is empty. Allow for free *type*
-      -- variables, however, since there may be some in the given type as
-      -- parameters. Alternatively, check that there are no free variables (val or
-      -- type) in the resulting dictionary that were not in the original type.
-      freeIds = filterVarSet isId (exprFreeVars dict) `minusVarSet` scopedDicts
-      freeIdTys = varType <$> uniqSetToList freeIds
-      holeyBinds = filter hasCoercionHole bnds
-      -- err doc = Left (doc $$ ppr goalTy $$ text "-->" $$ ppr dict)
+      -- could optimize if these things are already variables
+      expr = if null evTypes
+             then dict
+             else case evIds of
+                    [evId] -> mkCoreLet (NonRec evId ev) dict
+                    _ -> mkWildCase ev evType goalTy [(DataAlt (tupleDataCon Boxed (length evIds)), evIds, dict)]
 
-hasCoercionHole :: Data t => t -> Bool
-hasCoercionHole = getAny . everything mappend (mkQ mempty (Any . isHole))
- where
-   isHole :: CoercionHole -> Bool
-   isHole = const True
+evVarName :: FastString
+evVarName = mkFastString "evidence"
 
--- | Make a unique identifier for a specified type, using a provided name.
-localId :: InScopeEnv -> String -> Type -> Id
-localId (inScopeSet,_) str ty =
-  uniqAway inScopeSet (mkLocalId (stringToName str) ty)
+-- Transform calls to a function that requires a dictionary into one
+-- another one that also takes a tuple of available locally-bound
+-- dictionaries.  (Note that inScope contains a superset of these
+-- variables, including some that will be unbound in the final output
+-- code.)
 
-stringToName :: String -> Name
-stringToName str =
-  mkSystemVarName (mkUniqueGrimily (abs (fromIntegral (hashString str))))
-                  (mkFastString str)
+extendEvVars :: DVarSet -> Var -> DVarSet
+extendEvVars evVars var =
+  if isEvVar var
+  then extendDVarSet evVars var
+  else evVars
 
--- When mkUniqueGrimily's argument is negative, we see something like
--- "Exception: Prelude.chr: bad argument: (-52)". Hence the abs.
+extendEvVarsList :: DVarSet -> [Var] -> DVarSet
+extendEvVarsList evVars vars =
+  extendDVarSetList evVars (filter isEvVar vars)
 
+annotateEvidence :: Id -> Id -> Int -> CoreBind -> CoreM CoreBind
+annotateEvidence fnId fnId' typeArgsCount (NonRec var expr) =
+  do let expr' = annotateExpr fnId fnId' typeArgsCount expr
+     return (NonRec var expr')
+annotateEvidence fnId fnId' typeArgsCount (Rec bindings) =
+  do bindings' <- mapM (\ (var, expr) ->
+                          do let expr' = annotateExpr fnId fnId' typeArgsCount expr
+                             return (var, expr'))
+                       bindings
+     return (Rec bindings')
+
+annotateExpr :: Id -> Id -> Int -> CoreExpr -> CoreExpr
+-- annotateExpr _fnId _fnId' _typeArgsCount expr | pprTrace "annotateExpr" (ppr expr) False = undefined
+annotateExpr fnId fnId' typeArgsCount expr0 =
+  go emptyDVarSet expr0
+  where
+    go _evVars expr@(Var _) = expr
+    go _evVars expr@(Lit _) = expr
+    go evVars expr@(collectArgs -> (Var ((== fnId) -> True), args)) =
+       let (tyArgs, valArgs) = splitAt typeArgsCount args
+       in if length tyArgs < typeArgsCount
+          then pprPanic "unsaturated call to target function" (ppr expr)
+          else
+            let evVarExp = mkCoreTup (map Var (dVarSetElems evVars))
+                valArgs' = map (go evVars) valArgs
+            in mkCoreApps (Var fnId') (tyArgs ++ [Type (exprType evVarExp), evVarExp] ++ valArgs')
+    go evVars (App fn arg) =
+      let fn' = go evVars fn
+          arg' = go evVars arg
+      in App fn' arg'
+    go evVars (Lam var body) =
+      let evVars' = extendEvVars evVars var
+          body' = go evVars' body
+      in Lam var body'
+    go evVars (Let (NonRec var rhs) body) =
+      let rhs' = go evVars rhs
+          body' = go (extendEvVars evVars var) body
+      in Let (NonRec var rhs') body'
+    go evVars (Let (Rec bindings) body) =
+      let evVars' = extendEvVarsList evVars (map fst bindings)
+          bindings' = map (\ (var, expr) -> (var, go evVars' expr))
+                           bindings
+          body' = go  evVars' body
+      in Let (Rec bindings') body'
+    go evVars (Case scrutinee var ty alts) =
+      let evVars' = extendEvVars evVars var
+          scrutinee' = go evVars scrutinee
+          alts' = map (annotateAlt evVars') alts
+      in Case scrutinee' var ty alts'
+    go evVars (Cast expr coercion) =
+      let expr' = go evVars expr
+      in Cast expr' coercion
+    go evVars (Tick tickish expr) =
+      let expr' = go evVars expr
+      in Tick tickish expr'
+    go _evVars expr@(Type _) = expr
+    go _evVars expr@(Coercion _) = expr
+
+    annotateAlt evVars (con, binders, rhs) =
+      (con, binders, go (extendEvVarsList evVars binders) rhs)
 
 -- Maybe place in a GHC utils module.
 

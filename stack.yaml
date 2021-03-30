@@ -41,7 +41,7 @@ extra-deps:
 # resolver: lts-13.13 # ghc-8.6.4
 # resolver: lts-14.6 # ghc-8.6.5
 
-resolver: nightly-2019-11-20 # ghc-8.8.1
+resolver: lts-16.12
 
 ## Work-around for several version incompatibilities with GHC 8.8.1
 allow-newer: true
