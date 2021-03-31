@@ -67,7 +67,7 @@ ifEqInt# :: Int# -> Int# -> a -> a -> a
 ifEqInt# m n a b = if equal (boxI m, boxI n) then a else b
 {-# INLINE ifEqInt# #-}
 
-#if 0
+#if 1
 
 #define Rebox1(box,unbox,uop,bop) \
   "rebox2" [~0] uop = \ u# -> unbox (bop (box u#))
