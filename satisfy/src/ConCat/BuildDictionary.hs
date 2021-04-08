@@ -41,7 +41,13 @@ import TyCoRep (CoercionHole(..), Type(..))
 import TyCon (isTupleTyCon)
 import TcHsSyn (emptyZonkEnv,zonkEvBinds)
 import           TcRnMonad (getCtLocM,traceTc)
+#if MIN_VERSION_GLASGOW_HASKELL(8,10,0,0)
+import Constraint
+import TcOrigin
+import Predicate
+#else
 import           TcRnTypes (cc_ev)
+#endif
 import TcInteract (solveSimpleGivens)
 import TcSMonad -- (TcS,runTcS)
 import TcEvidence (evBindMapBinds)
