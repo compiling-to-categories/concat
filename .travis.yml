@@ -29,21 +29,21 @@ before_cache:
 matrix:
   include:
 
-    - compiler: "ghc-8.6.3"
+    - compiler: "ghc-8.10.4"
       # env: ALLOW_GOLD_TEST_FAILURES=true
-      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.2,ghc-8.6.3], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-3.4.0.0,ghc-8.10.4], sources: [hvr-ghc]}}
 
-    - compiler: "ghc-8.4.3"
-      env: ALLOW_GOLD_TEST_FAILURES=true
-      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.2,ghc-8.4.3], sources: [hvr-ghc]}}
+    - compiler: "ghc-8.4.4"
+      # env: ALLOW_GOLD_TEST_FAILURES=true
+      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-3.0.1.0,ghc-8.4.4], sources: [hvr-ghc]}}
 
-    - compiler: "ghc-8.2.2"
-      env: ALLOW_GOLD_TEST_FAILURES=true
-      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.2,ghc-8.2.2], sources: [hvr-ghc]}}
+    # - compiler: "ghc-8.6.3"
+    #   # env: ALLOW_GOLD_TEST_FAILURES=true
+    #   addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.2,ghc-8.6.3], sources: [hvr-ghc]}}
 
-    - compiler: "ghc-8.0.2"
-      env: ALLOW_GOLD_TEST_FAILURES=true
-      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.2,ghc-8.0.2], sources: [hvr-ghc]}}
+    # - compiler: "ghc-8.4.3"
+    #   env: ALLOW_GOLD_TEST_FAILURES=true
+    #   addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.2,ghc-8.4.3], sources: [hvr-ghc]}}
 
     # - compiler: "ghc-head"
     #   env: GHCHEAD=true ALLOW_GOLD_TEST_FAILURES=true
