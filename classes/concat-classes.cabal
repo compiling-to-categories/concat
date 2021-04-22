@@ -43,6 +43,8 @@ library
                        ConCat.Misc
                        ConCat.Rep
                        ConCat.Additive
+                       ConCat.Zip
+                       ConCat.Pointed
                        ConCat.Category
                        ConCat.AltCat
   ghc-options:      -O2
