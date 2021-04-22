@@ -55,7 +55,10 @@ import Data.Constraint ((\\))
 import Data.Proxy (Proxy)
 import Data.Void
 
-import Data.Pointed
+import Data.Pointed (Pointed)
+import qualified Data.Pointed as Pointed
+import qualified ConCat.Pointed as ConCatPointed
+import qualified ConCat.Zip as ConCatZip
 import Data.Key (Zip(..))
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..),distributeRep)
@@ -863,7 +866,8 @@ Catify(fmap , fmapC)
 
 Catify(unzip, unzipC)
 Catify(zip  , curry zipC)
-Catify(point, pointC)
+Catify(Pointed.point, pointC)
+Catify(ConCatPointed.point, pointC)
 Catify(sumA , sumAC)
 
 zipWithC :: Zip h => (a -> b -> c) -> (h a -> h b -> h c)
@@ -878,6 +882,9 @@ Catify(zipWith, zipWithC)
 -- Experiment
 Catify(pointNI, pointC)
 Catify(zipWithNI, zipWithC)
+
+Catify(ConCatZip.zipWith, zipWithC)
+Catify(ConCatZip.zip, curry zipC)
 
 #if 0
 unzipC :: forall k h a b. (FunctorCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
@@ -905,13 +912,13 @@ zapC = fmapC apply . zipC
          <+ okExp     @k    @a @b
 {-# INLINE zapC #-}
 
-Catify(zap, uncurry zapC)
-
 -- TODO: define zapC via zipWithC
 #else
 Op1(zapC, (ZapCat k h, Ok2 k a b) => h (a `k` b) -> (h a `k` h b))
 -- Translation for zap? Maybe like fmap's.
 -- Catify(zap, zapC)  -- 2017-12-27 notes
+Catify(ConCatZip.zap, zapC)
+-- Catify(Aliases.zap, zapC)
 #endif
 
 -- TODO: Is there any value to defining utility functions like unzipC and zapC
