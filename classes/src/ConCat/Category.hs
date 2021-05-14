@@ -44,7 +44,7 @@
 
 module ConCat.Category where
 
-import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip,zipWith)
+import Prelude hiding (id,(.),curry,uncurry,const,zip,unzip,zipWith,minimum,maximum)
 import qualified Prelude as P
 import Control.Arrow (Kleisli(..),arr)
 import qualified Control.Arrow as A
@@ -75,6 +75,7 @@ import Data.Finite.Internal (Finite(..))
 
 import ConCat.Misc hiding ((<~),(~>),type (&&))
 import ConCat.Rep hiding (Rep)
+import ConCat.MinMax
 import qualified ConCat.Rep as R
 import ConCat.Additive
 import qualified ConCat.Inline.ClassOp as IC
@@ -2350,6 +2351,46 @@ instance (IxProductCat k h, IxProductCat k' h, Zip h) => IxProductCat (k :**: k'
   exF    = zipWith (:**:) exF exF
   forkF  = prod . (forkF  *** forkF ) . unzip . fmap unProd
   replF  = replF :**: replF
+
+class (OkFunctor k h, Ok k a, Ord a) => MinMaxFunctorCat k h a where
+  minimumC :: h a `k` a
+  maximumC :: h a `k` a
+
+instance (MinMaxFunctorCat k h a, MinMaxFunctorCat k' h a) => MinMaxFunctorCat (k :**: k') h a where
+  minimumC = minimumC :**: minimumC
+  maximumC = maximumC :**: maximumC
+  
+instance MinMax h a => MinMaxFunctorCat (->) h a where
+  minimumC = minimum
+  maximumC = maximum
+  {-# OPINLINE minimumC #-}
+  {-# OPINLINE maximumC #-}
+
+-- needed to construct the typeclass hierarchy for MinMaxFunctorCat
+class (Ord a, OkFunctor k h, Ok k a) => MinMaxFFunctorCat k h a where
+  minimumCF :: h a -> (a :* (h a `k` a))
+  maximumCF :: h a -> (a :* (h a `k` a))
+
+instance MinMaxRep h a => MinMaxFFunctorCat (->) h a where
+  minimumCF h =
+    let (i, v) = minimumRep h
+    in (v, flip index i)
+
+  maximumCF h =
+    let (i, v) = maximumRep h
+    in (v, flip index i)
+  {-# OPINLINE minimumCF #-}
+  {-# OPINLINE maximumCF #-}
+
+instance (MinMaxFFunctorCat k h a, MinMaxFFunctorCat k' h a) => MinMaxFFunctorCat (k :**: k') h a where
+  minimumCF h =
+    let (a, f) = minimumCF h
+        (a', f') = minimumCF h
+    in (min a a', f :**: f') -- min is fishy here: they should both agree
+  maximumCF h =
+    let (a, f) = maximumCF h
+        (a', f') = maximumCF h
+    in (max a a', f :**: f') -- ditto is fishy here: they should both agree
 
 #if 0
 -- forkF:

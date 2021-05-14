@@ -34,6 +34,7 @@ import Data.Pointed (Pointed)
 import Data.Functor.Rep (Representable(tabulate,index))
 
 import ConCat.Orphans ()
+import qualified ConCat.Category as Category
 import ConCat.AltCat
 import ConCat.Rep
 import ConCat.Additive
@@ -273,6 +274,12 @@ instance Representable f => RepresentableCat (-+>) f where
   indexC    = abst (IC.inline index)
   {-# OPINLINE tabulateC #-}
   {-# OPINLINE indexC #-}
+
+instance (Ord a, Additive a, Additive1 h, MinMaxFFunctorCat (->) h a) => MinMaxFFunctorCat (-+>) h a where
+  minimumCF = second abst . (IC.inline minimumCF)
+  {-# OPINLINE minimumCF #-}
+  maximumCF = second abst . (IC.inline maximumCF)
+  {-# OPINLINE maximumCF #-}
 
 {--------------------------------------------------------------------
     CCC interface

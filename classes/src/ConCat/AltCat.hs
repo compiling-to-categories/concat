@@ -59,6 +59,7 @@ import Data.Pointed (Pointed)
 import qualified Data.Pointed as Pointed
 import qualified ConCat.Pointed as ConCatPointed
 import qualified ConCat.Zip as ConCatZip
+import qualified ConCat.MinMax as ConCatMinMax
 import Data.Key (Zip(..))
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..),distributeRep)
@@ -110,6 +111,7 @@ import ConCat.Category
   -- Functor-level. To be removed.
   , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat
   , TraversableCat,DistributiveCat,RepresentableCat
+  , MinMaxFunctorCat, MinMaxFFunctorCat
   , FiniteCat
   , fmap', liftA2' 
   -- 
@@ -857,7 +859,11 @@ Op0(unzipC  , (FunctorCat k h, Ok2 k a b) => h (a :* b) `k` (h a :* h b))
 Op0(zipC    , (ZipCat k h    , Ok2 k a b) => (h a :* h b) `k` h (a :* b))
 Op0(pointC  , (PointedCat k h a)          => a `k` h a)
 Op0(sumAC   , (AddCat k h a)              => h a `k` a)
-
+Op0(minimumC, (MinMaxFunctorCat k h a, OkFunctor k h, Ok k a) => h a `k` a)
+Op0(maximumC, (MinMaxFunctorCat k h a, OkFunctor k h, Ok k a) => h a `k` a)
+Op0(minimumCF, (MinMaxFFunctorCat k h a, OkFunctor k h, Ok k a) => h a -> (a :*  (h a `k` a)))
+Op0(maximumCF, (MinMaxFFunctorCat k h a, OkFunctor k h, Ok k a) => h a -> (a :*  (h a `k` a)))
+  
 -- Op0(ixSumAC , (IxSummableCat k n a)       => (a :^ n) `k` a)
 -- Op0(sumC  , (SumCat k h a)              => h a `k` a)
 
@@ -885,6 +891,9 @@ Catify(zipWithNI, zipWithC)
 
 Catify(ConCatZip.zipWith, zipWithC)
 Catify(ConCatZip.zip, curry zipC)
+
+Catify(ConCatMinMax.minimum, minimumC)
+Catify(ConCatMinMax.maximum, maximumC)
 
 #if 0
 unzipC :: forall k h a b. (FunctorCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)

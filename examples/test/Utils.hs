@@ -1,8 +1,10 @@
+{-# LANGUAGE TypeOperators       #-}
 {-# OPTIONS_GHC -Wall #-}
 
 module Utils where
 
 import qualified ConCat.AltCat as A
+import           ConCat.Misc ((:*))
 import           ConCat.Circuit (mkGraph, graphDot)
 import           ConCat.Syntactic (render)
 import qualified Data.ByteString.Lazy.Char8 as BS
@@ -24,3 +26,25 @@ runSynCirc nm (syn A.:**: circ) =
    gold str = goldenVsString "syntax"
                      ("test/gold/" <> nm <> "-" <> str <> ".golden")
             . pure . BS.pack
+
+runDers :: (Show a, Show b, Show s) => String
+  -> (a -> b :* (a -> b))
+  -> (a -> b :* (b -> a))
+  -> (a -> s :* a)
+  -> a -> a -> b
+  -> TestTree
+runDers nm derf derr gradr a a' b =
+ let gold str = goldenVsString str
+                ("test/gold/" <> nm <> "-" <> str <> ".golden")
+                  . pure . BS.pack
+     (b', d) = derf a
+     (b'', rd) = derr a
+     p = gradr a
+ in
+     testGroup nm
+       [ gold "derf" (show (b', d a')),
+         gold "derr" (show (b'', rd b)),
+         gold "gradr" (show p) ]
+{-# INLINE runDers #-}
+
+

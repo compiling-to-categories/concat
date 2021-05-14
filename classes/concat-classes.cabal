@@ -30,7 +30,7 @@ library
                      , ghc-prim >= 0.5.0.0
                      , newtype-generics >= 0.5.3
                      , transformers >= 0.5.2.0
-                     , finite-typelits, vector-sized >= 1.0.0.0
+                     , finite-typelits, vector, vector-sized >= 1.0.0.0
                      , free
                      , keys, pointed
                      , distributive, adjunctions
@@ -45,6 +45,7 @@ library
                        ConCat.Additive
                        ConCat.Zip
                        ConCat.Pointed
+                       ConCat.MinMax
                        ConCat.Category
                        ConCat.AltCat
   ghc-options:      -O2

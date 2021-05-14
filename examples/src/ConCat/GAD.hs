@@ -379,6 +379,13 @@ instance (RepresentableCat (->) g, RepresentableCat k g)
   Linear(indexC)
   Linear(tabulateC)
 
+instance MinMaxFFunctorCat k h a => MinMaxFunctorCat (GD k) h a where
+  minimumC = abst minimumCF
+  {-# INLINE minimumC #-}
+  maximumC = abst maximumCF
+  {-# INLINE maximumC #-}
+
+
 {--------------------------------------------------------------------
     Other instances
 --------------------------------------------------------------------}

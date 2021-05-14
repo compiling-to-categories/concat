@@ -1071,6 +1071,18 @@ instance (OkFunctor (:>) h, Additive a, Ok (:>) a) => AddCat (:>) h a where
   sumAC :: h a :> a
   sumAC = namedC "sumA" <+ okFunctor' @(:>) @h @a
 
+instance (OkFunctor (:>) h, Ord a, Ok (:>) a) => MinMaxFunctorCat (:>) h a where
+  minimumC :: h a :> a
+  minimumC = namedC "minimum" <+ okFunctor' @(:>) @h @a
+  maximumC :: h a :> a
+  maximumC = namedC "maximum" <+ okFunctor' @(:>) @h @a
+
+instance (OkFunctor (:>) h, Foldable h, Ord a, Ok (:>) a) => MinMaxFFunctorCat (:>) h a where
+  minimumCF :: h a -> (a :* (h a :> a))
+  minimumCF h = (minimum h, namedC "minimumF" <+ okFunctor' @(:>) @h @a)
+  maximumCF :: h a -> (a :* (h a :> a))
+  maximumCF h = (maximum h, namedC "maximumF" <+ okFunctor' @(:>) @h @a)
+
 -- instance () => IxSummableCat (:>) n a where
 --   -- ixSumC :: forall a. (Additive a, Ok (:>) a) => a :^ n :> a
 --   ixSumC = namedC "ixSum" -- <+ okFunctor' @(:>) @n @a
