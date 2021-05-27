@@ -1459,7 +1459,7 @@ install opts todos =
      _dflags
 #endif
         = SimplMode { sm_names      = ["Ccc simplifier pass"]
-                    , sm_phase      = Phase 1 -- ??
+                    , sm_phase      = Phase 2 -- avoid inlining i.e. Vector which is at phase 1
                     , sm_rules      = True  -- important
                     , sm_inline     = True -- False -- ??
                     , sm_eta_expand = False -- ??
