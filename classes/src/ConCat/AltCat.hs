@@ -871,8 +871,10 @@ Catify(ConCatPointed.point, pointC)
 Catify(sumA , sumAC)
 
 zipWithC :: Zip h => (a -> b -> c) -> (h a -> h b -> h c)
--- zipWithC f = curry (fmapC (uncurry f) . zipC)
-zipWithC f = P.curry (fmap (P.uncurry f) . P.uncurry zip)
+zipWithC f = curry (fmapC (uncurry f) . zipC)
+-- This version inlines too early, thus precenting ghc from
+-- seeing curry . uncrry / uncurry . curry
+-- zipWithC f = P.curry (fmap (P.uncurry f) . P.uncurry zip)
 {-# INLINE zipWithC #-}
 
 -- zipWithC f as bs = fmapC (uncurry f) (zipC (as,bs))
