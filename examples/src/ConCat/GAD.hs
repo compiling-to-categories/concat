@@ -248,10 +248,12 @@ instance (ScalarCat k s, Ok k s, Floating s) => FloatingCat (GD k) s where
   logC = scalarX log recip
   sinC = scalarX sin cos
   cosC = scalarX cos (negate . sin)
+  sqrtC = scalarX sqrt (recip . scale 2 . sqrt)
   {-# INLINE expC #-}
   {-# INLINE sinC #-}
   {-# INLINE cosC #-}
   {-# INLINE logC #-}
+  {-# INLINE sqrtC #-}
 
 -- TODO: experiment with moving some of these dual derivatives to DualAdditive,
 -- in the style of addD, mulD, etc.

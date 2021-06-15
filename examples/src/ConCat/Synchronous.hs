@@ -157,6 +157,7 @@ instance (CartCon con, Floating a) => FloatingCat (Mealy con) a where
   logC = arr logC
   cosC = arr cosC
   sinC = arr sinC
+  sqrtC = arr sqrtC
 
 instance (CartCon con, RealFracCat (->) a b) => RealFracCat (Mealy con) a b where
   floorC    = arr floorC

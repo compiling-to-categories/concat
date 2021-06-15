@@ -380,6 +380,7 @@ Op0(expC,FloatingCat k a => a `k` a)
 Op0(logC,FloatingCat k a => a `k` a)
 Op0(cosC,FloatingCat k a => a `k` a)
 Op0(sinC,FloatingCat k a => a `k` a)
+Op0(sqrtC,FloatingCat k a => a `k` a)
 -- Op0(powC,FloatingCat k a => a `k` a)
 
 Op0(fromIntegralC,FromIntegralCat k a b => a `k` b)
