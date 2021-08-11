@@ -377,7 +377,7 @@ instance KnownNat n => Keyed (Vector n) where
   mapWithKey = imap'
   {-# INLINE mapWithKey #-}
 
-instance KnownNat n => Zip (Vector n) where
+instance Zip (Vector n) where
   zip = V.zip
   zipWith = V.zipWith
   {-# INLINE zip #-}

@@ -178,7 +178,8 @@ Op0(dup,forall k a. (ProductCat k, Ok k a) => a `k` Prod k a a)
 f &&& g = (f *** g) . dup
   <+ okProd @k @a @a
   <+ okProd @k @c @d
-{-# INLINE (&&&) #-}
+-- for some reason, plain INLINE doesn't do anything
+{-# INLINE [0] (&&&) #-}
 
 -- Op1(unfork, forall k a c d. (ProductCat k, Ok3 k a c d) => (a `k` Prod k c d) -> (a `k` c, a `k` d))
 

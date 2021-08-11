@@ -49,8 +49,8 @@ AbsTyImports
 
 -- TODO: try again with importing Category qualified and AltCat unqualified.
 
--- newtype GD k a b = D { unD :: a -> b :* (a `k` b) }
-data GD k a b = D { unD :: a -> (b :* (a `k` b)) }
+newtype GD k a b = D { unD :: a -> b :* (a `k` b) }
+-- data GD k a b = D { unD :: a -> (b :* (a `k` b)) }
 
 mkD :: HasRep (a `k` b) => (a -> b :* Rep (a `k` b)) -> GD k a b
 mkD = D P.. (result P.. second) abst

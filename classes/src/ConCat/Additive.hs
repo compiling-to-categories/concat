@@ -68,7 +68,9 @@ instance Additive () where
   () ^+^ () = ()
 
 #define ScalarType(t) \
-  instance Additive (t) where { zero = 0 ; (^+^) = (+) }
+  instance Additive (t) where { zero = 0 ; (^+^) = (+);\
+  {-# INLINE zero #-}; \
+  {-# INLINE (^+^) #-} }
 
 ScalarType(Int)
 ScalarType(Integer)
