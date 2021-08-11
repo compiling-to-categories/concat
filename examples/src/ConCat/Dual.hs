@@ -41,7 +41,7 @@ import ConCat.AdditiveFun (Additive,Additive1(..))
 AbsTyImports
 
 -- Category dual
-data Dual k a b = Dual (b `k` a)
+newtype Dual k a b = Dual (b `k` a)
 
 unDual :: Dual k a b -> b `k` a
 unDual (Dual f) = f
