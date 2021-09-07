@@ -1,1 +1,1 @@
-(addC *** id . repr . abst . curry (addC . exr)) . dup
+(addC *** coerce . coerce . curry (addC . exr)) . dup

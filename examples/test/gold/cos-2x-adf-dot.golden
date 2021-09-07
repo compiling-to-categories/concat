@@ -7,32 +7,32 @@ digraph cos_2x_adf {
   bgcolor=transparent
   nslimit=20
   subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>}}"] }
-  subgraph clusterc1 { label=""; color=white; margin=0; c1 [label="{2.0|{<Out0>}}"] }
-  subgraph clusterc174 { label=""; color=white; margin=0; c174 [label="{{<In0>|<In1>}|\×|{<Out0>}}"] }
-  subgraph clusterc310 { label=""; color=white; margin=0; c310 [label="{{<In0>}|cos|{<Out0>}}"] }
-  subgraph clusterc311 { label=""; color=white; margin=0; c311 [label="{{<In0>}|sin|{<Out0>}}"] }
-  subgraph cluster_393 {
+  subgraph clusterc77 { label=""; color=white; margin=0; c77 [label="{2.0|{<Out0>}}"] }
+  subgraph clusterc142 { label=""; color=white; margin=0; c142 [label="{{<In0>|<In1>}|\×|{<Out0>}}"] }
+  subgraph clusterc253 { label=""; color=white; margin=0; c253 [label="{{<In0>}|cos|{<Out0>}}"] }
+  subgraph clusterc254 { label=""; color=white; margin=0; c254 [label="{{<In0>}|sin|{<Out0>}}"] }
+  subgraph cluster_287 {
     margin=8
     fontsize=20
     labeljust=r
     color=DarkGreen
-    c389 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
-    c390 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
-    c387 [label="{In|{<Out0>}}"]
-    c392 [label="{{<In0>}|Out}"]
-    c391 [label="{{<In0>}|negate|{<Out0>}}"]
-    c1:Out0 -> c389:In0 [label="Double"]
-    c387:Out0 -> c389:In1 [label="Double"]
-    c311:Out0 -> c390:In0 [label="Double"]
-    c389:Out0 -> c390:In1 [label="Double"]
-    c391:Out0 -> c392:In0 [label="Double"]
-    c390:Out0 -> c391:In0 [label="Double"]
+    c283 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c284 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c282 [label="{In|{<Out0>}}"]
+    c286 [label="{{<In0>}|Out}"]
+    c285 [label="{{<In0>}|negate|{<Out0>}}"]
+    c77:Out0 -> c283:In0 [label="Double"]
+    c282:Out0 -> c283:In1 [label="Double"]
+    c254:Out0 -> c284:In0 [label="Double"]
+    c283:Out0 -> c284:In1 [label="Double"]
+    c285:Out0 -> c286:In0 [label="Double"]
+    c284:Out0 -> c285:In0 [label="Double"]
   }
-  subgraph clusterc394 { label=""; color=white; margin=0; c394 [label="{{<In0>|<In1>}|Out}"] }
-  c0:Out0 -> c174:In0 [label="Double"]
-  c1:Out0 -> c174:In1 [label="Double"]
-  c174:Out0 -> c310:In0 [label="Double"]
-  c174:Out0 -> c311:In0 [label="Double"]
-  c310:Out0 -> c394:In0 [label="Double"]
-  c392 -> c394:In1 [ltail=cluster_393,label="Double ’ Double"]
+  subgraph clusterc288 { label=""; color=white; margin=0; c288 [label="{{<In0>|<In1>}|Out}"] }
+  c0:Out0 -> c142:In0 [label="Double"]
+  c77:Out0 -> c142:In1 [label="Double"]
+  c142:Out0 -> c253:In0 [label="Double"]
+  c142:Out0 -> c254:In0 [label="Double"]
+  c253:Out0 -> c288:In0 [label="Double"]
+  c286 -> c288:In1 [ltail=cluster_287,label="Double ’ Double"]
 }

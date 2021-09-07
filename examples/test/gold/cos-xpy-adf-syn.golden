@@ -1,15 +1,16 @@
-second (id . repr) .
+second coerce .
 apply .
 ((curry
   ((exr ***
     apply .
-    (curry (abst . apply . (exl *** repr . exr) . dup) .
+    (coerce .
+     curry (apply . (exl *** coerce . exr) . dup) .
      curry
      (curry (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
-     repr .
-     abst .
+     coerce .
+     coerce .
      curry mulC . apply . (curry exl . negateC . sinC . exl *** exr) . dup ***
-     abst . curry (addC . exr)) .
+     coerce . curry (addC . exr)) .
     dup) .
    dup) ***
   cosC) .

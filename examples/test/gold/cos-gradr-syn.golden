@@ -1,10 +1,11 @@
-((exl . id *** apply . ((id *** const 1.0) . dup) . repr . exr . id) . dup) .
-second repr .
+((exl . id ***
+  apply . ((coerce . exr *** const 1.0) . dup) . (id *** exr . id) . dup) .
+ dup) .
+second coerce .
 apply .
 (curry
  ((exr ***
-   abst .
-   abst .
+   coerce .
    curry mulC . apply . (curry exl . negateC . sinC . exl *** exr) . dup) .
   dup) ***
  cosC) .
