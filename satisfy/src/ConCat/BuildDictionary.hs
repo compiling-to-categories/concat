@@ -30,29 +30,30 @@ module ConCat.BuildDictionary
   ,annotateEvidence
   ) where
 
-import Data.Maybe (fromMaybe)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid (Any(..))
 import Data.Char (isSpace)
 import qualified Data.List.NonEmpty as NonEmpty
 import Control.Monad (filterM,join,when)
 
-import GhcPlugins
+import GhcPlugins hiding (plugins)
 
 import Control.Arrow (first, second)
 
 import TyCoRep (CoercionHole(..), Type(..))
 import TyCon (isTupleTyCon)
 import TcHsSyn (emptyZonkEnv,zonkEvBinds)
-import           TcRnMonad (getCtLocM,getEnvs,setEnvs,traceTc)
+import           TcRnMonad (failM,getCtLocM,getEnvs,newTcEvBinds,setEnvs,traceTc,tryM,updGblEnv)
 #if MIN_VERSION_GLASGOW_HASKELL(8,10,0,0)
 import Constraint
 import TcOrigin
 import Predicate
+import TcHoleFitTypes
 #else
 import           TcRnTypes (cc_ev)
 #endif
 import TcInteract (solveSimpleGivens)
-import TcSMonad -- (TcS,runTcS)
+import TcSMonad hiding (newTcEvBinds) -- (TcS,runTcS)
 import TcEvidence (evBindMapBinds)
 import TcErrors(warnAllUnsolved)
 import qualified TcMType as TcMType
@@ -113,7 +114,7 @@ runDsM env dflags guts m = do
 buildDictionary' :: HscEnv -> DynFlags -> ModGuts -> VarSet -> Type
                  -> IO (Maybe (Id, [CoreBind]))
 buildDictionary' env dflags guts evIds predTy = runDsM env dflags guts $ do
-  (msgs, evarAndBs) <- DsMonad.initTcDsForSolver $ do
+  (msgs, evarAndBs) <- DsMonad.initTcDsForSolver . withTcPlugins env . withHoleFitPlugins env $ do
     loc <- getCtLocM (GivenOrigin UnkSkol) Nothing
     evidence <- TcMType.newWanted (GivenOrigin UnkSkol) Nothing predTy
     let EvVarDest evarDest = ctev_dest evidence
@@ -304,3 +305,55 @@ instance Outputable WithIdInfo where
   -- I wanted the full IdInfo, but it's not Outputtable
   -- ppr (WithIdInfo v) = ppr v <+> colon <+> ppr (occInfo (idInfo v))
   ppr (WithIdInfo v) = ppr v <+> colon <+> ppr (splitTyConApp_maybe (varType v))
+
+------------------------------------------------------------------
+-- The following is copied from GHC's TcRnDriver.hs since they are not exported.
+withTcPlugins :: HscEnv -> TcM a -> TcM a
+withTcPlugins hsc_env m =
+  do let plugins = getTcPlugins (hsc_dflags hsc_env)
+     case plugins of
+       [] -> m  -- Common fast case
+       _  -> do ev_binds_var <- newTcEvBinds
+                (solvers,stops) <- unzip `fmap` mapM (startPlugin ev_binds_var) plugins
+                -- This ensures that tcPluginStop is called even if a type
+                -- error occurs during compilation (Fix of #10078)
+                eitherRes <- tryM $ do
+                  updGblEnv (\e -> e { tcg_tc_plugins = solvers }) m
+                mapM_ (flip runTcPluginM ev_binds_var) stops
+                case eitherRes of
+                  Left _ -> failM
+                  Right res -> return res
+  where
+  startPlugin ev_binds_var (TcPlugin start solve stop) =
+    do s <- runTcPluginM start ev_binds_var
+       return (solve s, stop s)
+
+getTcPlugins :: DynFlags -> [TcRnTypes.TcPlugin]
+getTcPlugins dflags = catMaybes $ mapPlugins dflags (\p args -> tcPlugin p args)
+
+#if MIN_VERSION_GLASGOW_HASKELL(8,10,0,0)
+withHoleFitPlugins :: HscEnv -> TcM a -> TcM a
+withHoleFitPlugins hsc_env m =
+  case (getHfPlugins (hsc_dflags hsc_env)) of
+    [] -> m  -- Common fast case
+    plugins -> do (plugins,stops) <- unzip `fmap` mapM startPlugin plugins
+                  -- This ensures that hfPluginStop is called even if a type
+                  -- error occurs during compilation.
+                  eitherRes <- tryM $ do
+                    updGblEnv (\e -> e { tcg_hf_plugins = plugins }) m
+                  sequence_ stops
+                  case eitherRes of
+                    Left _ -> failM
+                    Right res -> return res
+  where
+    startPlugin (HoleFitPluginR init plugin stop) =
+      do ref <- init
+         return (plugin ref, stop ref)
+
+getHfPlugins :: DynFlags -> [HoleFitPluginR]
+getHfPlugins dflags =
+  catMaybes $ mapPlugins dflags (\p args -> holeFitPlugin p args)
+#else
+withHoleFitPlugins :: HscEnv -> TcM a -> TcM a
+withHoleFitPlugins = const id
+#endif
