@@ -70,7 +70,7 @@ effectHtml widgets effect = unlines $
   , "</script>" ]
 
 shaderDefs :: Shader a -> String
-shaderDefs (Shader uniforms def) = 
+shaderDefs (Shader uniforms def) =
   "var uniforms = " ++ BS.unpack (encodePretty' prettyConfig uniforms) ++ ";\n" ++
   "var effect = `\n" ++ prettyShow def ++ "`;"
 
@@ -153,7 +153,7 @@ accumComps counts = go M.empty
    go :: M.Map Bus Expr -> [CompS] -> (M.Map Bus Expr, [(Bus,Expr)])
    -- go saved comps | DT.trace ("accumComps/go " ++ show saved ++ " " ++ show comps) False = undefined
    go saved [] = (saved, [])
-   go saved (c@(CompS _ _ _ [o]) : comps) 
+   go saved (c@(CompS _ _ _ [o]) : comps)
      | Just n <- M.lookup o counts, (n > 1 || not nestExpressions) =
          let (saved',assignments') = go saved comps in
            (saved', (o,e) : assignments')
@@ -215,9 +215,9 @@ app ty nm es =
   case nm of
     "not"    -> app1 UnaryNot
     "&&"     -> app2 And
-    "||"     -> app2 Or 
-    "<"      -> app2 Lt 
-    ">"      -> app2 Gt 
+    "||"     -> app2 Or
+    "<"      -> app2 Lt
+    ">"      -> app2 Gt
     "<="     -> app2 Lte
     ">="     -> app2 Gte
     "=="     -> app2 Equ
@@ -254,7 +254,7 @@ knownFuncs = M.fromList $
 bToE :: Bus -> Expr
 bToE = Variable . varName
 
--- Extract input, middle, output components. 
+-- Extract input, middle, output components.
 splitComps :: [CompS] -> (CompS,[CompS],CompS)
 splitComps (i@(CompS _ "In" [] _)
             : (unsnoc -> (mid,o@(CompS _ "Out" _ [])))) = (i,mid,o)
@@ -268,9 +268,8 @@ unsnoc as = (mid,o) where (mid,[o]) = splitAt' 1 as
 splitAt' :: Int -> [a] -> ([a], [a])
 splitAt' n as = splitAt (length as - n) as
 
-{--------------------------------------------------------------------
-    GLSL syntax utilities
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * GLSL syntax utilities
 
 -- For experiments. Makes it easy to see syntax representations.
 _parse :: P a -> String -> Either ParseError a
@@ -285,7 +284,7 @@ decl mbTq ty var mbe =
 
 paramDecl :: Bus -> ParameterDeclaration
 paramDecl b =
-  ParameterDeclaration Nothing Nothing 
+  ParameterDeclaration Nothing Nothing
     (TypeSpec Nothing (TypeSpecNoPrecision (busType b) Nothing))
     (Just (varName b,Nothing))
 
@@ -301,9 +300,8 @@ funDef resultTy name params statements =
 funcall :: String -> [Expr] -> Expr
 funcall fun args = FunctionCall (FuncId fun) (Params args)
 
-{--------------------------------------------------------------------
-    Shader representation for conversion to JSON and String
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Shader representation for conversion to JSON and String
 
 data Widget = Time | Slider String (R,R) R
 

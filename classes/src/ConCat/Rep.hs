@@ -17,10 +17,10 @@
 -- |
 -- Module      :  ConCat.Rep
 -- Copyright   :  (c) 2016 Conal Elliott
--- 
+--
 -- Maintainer  :  conal@conal.net
 -- Stability   :  experimental
--- 
+--
 -- Convert to and from standard representations.
 -- TODO: Can I replace HasRep with Generic or Newtype?
 ----------------------------------------------------------------------
@@ -166,7 +166,7 @@ instance HasRep (Maybe a) where
   repr (Just a) = (True,a)
   repr Nothing  = (False, bottom)
   abst (True,a ) = Just a
-  abst (False,_) = Nothing 
+  abst (False,_) = Nothing
   INLINES
 
 -- TODO: LambdaCCC.Prim has an BottomP primitive. If the error ever occurs,
@@ -184,7 +184,7 @@ instance HasRep (Maybe a) where
 --   abst (True ,(_,b)) = Right b
 
 -- -- TODO: Redefine `Maybe` representation as sum:
--- 
+--
 -- type instance Rep (Maybe a) = Unit :+ a
 -- ...
 
@@ -246,9 +246,9 @@ instance HasRep ((g G.:.: f) p) where
 
 -- TODO: Can I *replace* HasRep with Generic?
 
-{--------------------------------------------------------------------
-    Utilities
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Utilities
+
 
 inAbst :: (HasRep p, HasRep q) =>
           (Rep p -> Rep q) -> (p -> q)
@@ -274,9 +274,9 @@ inRepr2 :: (HasRep p, HasRep q, HasRep r) =>
 inRepr2 = inRepr <~ abst
 {-# INLINE inRepr2 #-}
 
-{--------------------------------------------------------------------
-    Unlifted types
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Unlifted types
+
 
 #if 0
 -- Represent unboxed types as boxed counterparts.

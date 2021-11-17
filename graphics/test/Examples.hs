@@ -1,10 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
 -- To run:
--- 
+--
 --   stack build :graphics-examples
 --
 --   stack build :graphics-trace >& ~/Haskell/concat/graphics/out/o1
--- 
+--
 -- You might also want to use stack's --file-watch flag for automatic recompilation.
 
 {-# LANGUAGE CPP                 #-}
@@ -84,11 +84,11 @@ main = sequence_
   --     liftA2 xorR (const checker15) orbits1
   -- , runHtml' "checker-orbits2" timeW $ \ t ->
   --     uscale (sin t + 1.05) checker `xorR` orbits1 t
-  -- , runHtml' "checker-orbits3" timeW $ \ t -> 
+  -- , runHtml' "checker-orbits3" timeW $ \ t ->
   --     orbits1 t `intersectR` checker15
-  -- , runHtml' "checker-orbits4" timeW $ \ t -> 
+  -- , runHtml' "checker-orbits4" timeW $ \ t ->
   --     orbits1 t `intersectR` translate (t/10,0) checker15
-  -- , runHtml' "checker-orbits5" timeW $ \ t -> 
+  -- , runHtml' "checker-orbits5" timeW $ \ t ->
   --     orbits1 t `intersectR` rotate (t/10) checker15
   -- , runHtml' "orbits2" timeW $ orbits2
   -- , runHtml' "checker-orbits6" timeW $ \ t ->
@@ -100,9 +100,8 @@ main = sequence_
 
   ]
 
-{--------------------------------------------------------------------
-    Testing utilities
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Testing utilities
 
 type GO a b = (GenBuses a, Ok2 (:>) a b)
 
@@ -133,10 +132,8 @@ runHtml' _ _ _ = error "runHtml' called directly"
 --   runH name widgets $ toCcc $ toPImageC f
 -- {-# INLINE runHtml' #-}
 
-
-{--------------------------------------------------------------------
-    Misc
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * ?
 
 later :: Num t => t -> Unop (t -> a)
 later dt f = f . subtract dt

@@ -85,16 +85,16 @@ import ConCat.Rep
 #define PINLINER(nm) {-# INLINE nm #-}
 -- #define PINLINER(nm)
 
-{--------------------------------------------------------------------
-    Unit and pairing for binary type constructors
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Unit and pairing for binary type constructors
+
 
 -- Unit for binary type constructors
 data U2 a b = U2 deriving (Show)
 
-{--------------------------------------------------------------------
-    Constraints
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Constraints
+
 
 class HasCon a where
   type Con a :: Constraint
@@ -174,7 +174,7 @@ inOpL = inOp . first  inOp
 inOpR :: OpCon op con => con a && (con b && con c) |- con (a `op` (b `op` c))
 inOpR = inOp . second inOp
 
-inOpL' :: OpCon op con 
+inOpL' :: OpCon op con
        => (con a && con b) && con c |- con (a `op` b) && con ((a `op` b) `op` c)
 inOpL' = inOp . exl &&& inOpL
 -- inOpL' = second inOp . rassocP . first (dup . inOp)
@@ -240,9 +240,9 @@ type Oks k as = AllC (Ok k) as
 -- I like the elegance of Oks, but it leads to complex dictionary expressions.
 -- For now, use Okn for the operations introduced by lambda-to-ccc conversion.
 
-{--------------------------------------------------------------------
-    Categories
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Categories
+
 
 class Category (k :: Type -> Type -> Type) where
   type Ok k :: Type -> Constraint
@@ -254,12 +254,12 @@ class Category (k :: Type -> Type -> Type) where
 infixl 1 <~
 infixr 1 ~>
 -- | Add post- and pre-processing
-(<~) :: (Category k, Oks k [a,b,a',b']) 
+(<~) :: (Category k, Oks k [a,b,a',b'])
      => (b `k` b') -> (a' `k` a) -> ((a `k` b) -> (a' `k` b'))
 (h <~ f) g = h . g . f
 
 -- | Add pre- and post-processing
-(~>) :: (Category k, Oks k [a,b,a',b']) 
+(~>) :: (Category k, Oks k [a,b,a',b'])
      => (a' `k` a) -> (b `k` b') -> ((a `k` b) -> (a' `k` b'))
 f ~> h = h <~ f
 
@@ -298,9 +298,9 @@ instance Category U2 where
 --   PINLINER(id)
 --   PINLINER((.))
 
-{--------------------------------------------------------------------
-    Products
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Products
+
 
 okProd :: forall k a b. OpCon (Prod k) (Ok' k)
        => Ok' k a && Ok' k b |- Ok' k (Prod k a b)
@@ -334,10 +334,10 @@ class (OkProd k, Category k) => ProductCat k where
     <+ okProd @k @a @a
     <+ okProd @k @c @d
 #endif
-  first :: forall a a' b. Ok3 k a b a' 
+  first :: forall a a' b. Ok3 k a b a'
         => (a `k` a') -> (Prod k a b `k` Prod k a' b)
   first = (*** id)
-  second :: forall a b b'. Ok3 k a b b' 
+  second :: forall a b b'. Ok3 k a b b'
          => (b `k` b') -> (Prod k a b `k` Prod k a b')
   second = (id ***)
   lassocP :: forall a b c. Ok3 k a b c
@@ -381,13 +381,13 @@ instance ProductCat U2 where
   U2 &&& U2 = U2
 
 -- | Apply to both parts of a product
-twiceP :: (ProductCat k, Oks k [a,c]) 
+twiceP :: (ProductCat k, Oks k [a,c])
        => (a `k` c) -> Prod k a a `k` (Prod k c c)
 twiceP f = f *** f
 
 -- | Operate on left-associated form
 inLassocP :: forall k a b c a' b' c'.
-             -- (ProductCat k, Ok6 k a b c a' b' c') 
+             -- (ProductCat k, Ok6 k a b c a' b' c')
              -- Needs :set -fconstraint-solver-iterations=5 or greater:
              (ProductCat k, Oks k [a,b,c,a',b',c'])
           => Prod k (Prod k a b) c `k` Prod k (Prod k a' b') c'
@@ -398,7 +398,7 @@ inLassocP = rassocP <~ lassocP
 
 -- | Operate on right-associated form
 inRassocP :: forall a b c a' b' c' k.
---              (ProductCat k, Ok6 k a b c a' b' c') 
+--              (ProductCat k, Ok6 k a b c a' b' c')
              (ProductCat k, Oks k [a,b,c,a',b',c'])
           => Prod k a (Prod k b c) `k` (Prod k a' (Prod k b' c'))
           -> Prod k (Prod k a b) c `k` Prod k (Prod k a' b') c'
@@ -416,7 +416,7 @@ transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
   <+ okProd @k @a @c
 
 -- | Inverse to '(&&&)'
-unfork :: forall k a c d. (ProductCat k, Ok3 k a c d) 
+unfork :: forall k a c d. (ProductCat k, Ok3 k a c d)
        => (a `k` Prod k c d) -> (a `k` c, a `k` d)
 unfork f = (exl . f, exr . f)  <+ okProd @k @c @d
 
@@ -440,14 +440,14 @@ crossK :: Applicative m => (a -> m c) -> (b -> m d) -> (a :* b -> m (c :* d))
 (f `crossK` g) (a,b) = liftA2 (,) (f a) (g b)
 #endif
 
-{--------------------------------------------------------------------
-    Exponentials
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Exponentials
 
 
-{--------------------------------------------------------------------
-    Product category
---------------------------------------------------------------------}
+
+--------------------------------------------------
+-- * Product category
+
 
 data P a b
 

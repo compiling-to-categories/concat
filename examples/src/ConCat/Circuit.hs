@@ -361,7 +361,7 @@ type GS a = (GenBuses a, Show a)
 
 genBus :: (Source -> Buses a) -> Ty
        -> Template u v -> [Source] -> BusesM (Buses a)
-genBus wrap t templ ins = seq (show t) $  -- * [Note seq]
+genBus wrap t templ ins = seq (show t) $  --  * [Note seq]
                           -- seq t $
                           -- trace ("genBus " ++ show t) $
                           do o <- M.get
@@ -534,7 +534,7 @@ convertB a            = mkConvertB a
 
 -- Make a ConvertB if source and target types differ; otherwise id
 mkConvertB :: forall a b. Ok2 (:>) a b => Buses a -> Buses b
-mkConvertB a -- | Just Refl <- eqT @a @b = a
+mkConvertB a --  | Just Refl <- eqT @a @b = a
              | otherwise              = ConvertB a
 
 {--------------------------------------------------------------------

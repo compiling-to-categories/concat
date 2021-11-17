@@ -172,9 +172,7 @@ instance Additive Bool where
   {-# INLINE zero #-}
   {-# INLINE (^+^) #-}
 
-{--------------------------------------------------------------------
-    Monoid wrapper
---------------------------------------------------------------------}
+-- * Monoid wrapper
 
 -- | Monoid under group addition.  Alternative to the @Sum@ in
 -- "Data.Monoid", which uses 'Num' instead of 'Additive'.

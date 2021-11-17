@@ -194,7 +194,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      --              , second splitFunTy_maybe (splitFunTy (exprType f))
      --              , not catClosed)) False = undefined
      f | z `FunTy` (a `FunTy` b) <- exprType f
-       , not catClosed 
+       , not catClosed
        -> Doing("top flipForkT")
           -- pprTrace "flipForkT type" (ppr (varType flipForkTV)) $
           return (onDicts (varApps flipForkTV [cat,z,a,b] []) `App` f)
@@ -211,7 +211,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
          -- return (mkCcc (subst1 v rhs body))
        else if
           -- dtrace "top Let tests" (ppr (not catClosed, substFriendly catClosed rhs, idOccs False v body)) $
-          not (isMonoTy (varType v)) || 
+          not (isMonoTy (varType v)) ||
           not catClosed ||  -- experiment
           substFriendly catClosed rhs || idOccs False v body <= 1 then
          Doing("top Let float")
@@ -312,7 +312,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           return (mkCcc e')
      Trying("top App")
      e@(App u v)
-       -- | dtrace "top App tests" (ppr (exprType v,liftedExpr v, mkConst' cat dom v,mkUncurryMaybe cat (mkCcc u))) False -> undefined
+       -- dtrace "top App tests" (ppr (exprType v,liftedExpr v, mkConst' cat dom v,mkUncurryMaybe cat (mkCcc u))) False -> undefined
        | catClosed, liftedExpr v
        , Just v' <- mkConst' cat dom v
        -- , dtrace "top App  --> " (pprWithType v') True
@@ -337,7 +337,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
    -- goLam x body | dtrace ("goLam body constr: " ++ exprConstr body) (ppr (Lam x body)) False = undefined
     where
       catClosed = isClosed cat
-   goLam' x body = 
+   goLam' x body =
      dtrace ("goLam "++pp x++" "++pp cat++":") (pprWithType body) $
      goLam x body
 #if 0
@@ -537,7 +537,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Case scrut _ _rhsTy [(DataAlt dc, [a,b], rhs)]
          | isBoxedTupleTyCon (dataConTyCon dc) ->
        Doing("lam Case of product")
-       if -- | not (isDeadBinder wild) ->  -- About to remove
+       if --  | not (isDeadBinder wild) ->  -- About to remove
           --     pprPanic "lam Case of product live wild binder" (ppr e)
           | not (b `isFreeIn` rhs) ->
               return $ mkCcc $ -- inlineE $  -- already inlines early
@@ -562,7 +562,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      --           Trying("lam Case cast")
      Trying("lam Case unfold")
      Case scrut v altsTy alts
-       -- | pprTrace "lam Case unfold" (ppr (scrut,unfoldMaybe' scrut)) False -> undefined
+       --  | pprTrace "lam Case unfold" (ppr (scrut,unfoldMaybe' scrut)) False -> undefined
        | Just scrut' <- unfoldMaybe' scrut
        -> Doing("lam Case unfold")
           return $ mkCcc $ Lam x $
@@ -604,7 +604,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
         -> Doing("lam fmap unfold")
            -- dtrace "lam fmap unfold" (ppr body') $
            return (mkCcc (Lam x body'))
-       
+
      Trying("lam fmap 1")
      _e@(collectArgs -> (Var v, [Type _ {-(isFunTy -> True)-},Type h,Type b,Type c,_dict,_ok,f])) | v == fmapV ->
         Doing("lam fmap 1")
@@ -623,10 +623,10 @@ ccc (CccEnv {..}) (Ops {..}) cat =
                , not (x `isFreeIn` u)
                , okType (exprType v)
                -> case mkCompose' cat (mkCcc u) (mkCcc (Lam x v)) of
-                    Nothing -> 
+                    Nothing ->
                       Doing("lam App compose bail")
                       Nothing
-                    Just e' -> 
+                    Just e' ->
                       Doing("lam App compose")
                       return e'
 
@@ -863,16 +863,16 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
    -- unfoldMaybe' e | pprTrace "unfoldMaybe'" (ppr (e,exprHead e)) False = undefined
    unfoldMaybe' e@(exprHead -> Just v)
      | not (isSelectorId v || isAbstReprId v) = unfoldMaybe e
-   unfoldMaybe' _ = Nothing                                    
+   unfoldMaybe' _ = Nothing
    unfoldMaybe :: ReExpr
    -- unfoldMaybe e | dtrace "unfoldMaybe" (ppr (e,collectArgsPred isTyCoDictArg e)) False = undefined
-   unfoldMaybe e -- | unfoldOkay e
+   unfoldMaybe e --  | unfoldOkay e
                  --  | (Var v, _) <- collectArgsPred isTyCoDictArg e
                  -- -- , dtrace "unfoldMaybe" (text (fqVarName v)) True
                  -- , isNothing (catFun (Var v))
                  --  | True  -- experiment: don't restrict unfolding
                  = onExprHead dflags ({- traceRewrite "inlineMaybe" -} inlineMaybe) e
-                 -- | otherwise = Nothing
+                 --  | otherwise = Nothing
    -- unfoldMaybe = -- traceRewrite "unfoldMaybe" $
    --               onExprHead ({-traceRewrite "inlineMaybe"-} inlineMaybe)
    inlineMaybe :: Id -> Maybe CoreExpr
@@ -895,7 +895,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
    onDictMaybe :: ReExpr
    -- TODO: refactor onDictMaybe
    onDictMaybe e = case onDictTry e of
-                     Left  msg  -> dtrace "Couldn't build dictionary for" 
+                     Left  msg  -> dtrace "Couldn't build dictionary for"
                                      (pprWithType e GHC.<> colon $$ msg) $
                                    Nothing
                      Right dict -> Just dict
@@ -1039,7 +1039,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
      mkCompose cat (catOp k ifV [ty])
        (mkFork cat cond (mkFork cat true false))
    mkBottomC :: Cat -> Type -> Type -> Maybe CoreExpr
-   mkBottomC k dom cod = 
+   mkBottomC k dom cod =
      -- dtrace "mkBottomC bottomTV" (pprWithType (Var bottomTV)) $
      onDicts <$> catOpMaybe k bottomTV [dom,cod]
    mkConst :: Cat -> Type -> ReExpr
@@ -1153,7 +1153,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
      | isFunCat cat = Just orig
      -- Take care with const, so we don't transform it alone.
      -- TODO: look for a more general suitable test for wrong number of arguments.
-     -- | pprTrace "transCatOp" (ppr (WithType (Var v),WithType <$> rest,length rest, orig)) False = undefined
+     --  | pprTrace "transCatOp" (ppr (WithType (Var v),WithType <$> rest,length rest, orig)) False = undefined
      | v == constV && length rest /= 5 = Nothing
      | varModuleName v == Just catModule
      , uqVarName v `elem`
@@ -1586,8 +1586,8 @@ monoInfo =
    info :: [(String, [(String, [Type])])]
    info =
      [ ("notC",boolOp "not"), ("andC",boolOp "&&"), ("orC",boolOp "||")
-     , ("equal", eqOp "==" <$> ifd) 
-     , ("notEqual", eqOp "/=" <$> ifd) 
+     , ("equal", eqOp "==" <$> ifd)
+     , ("notEqual", eqOp "/=" <$> ifd)
      , ("lessThan", compOps "lt" "<")
      , ("greaterThan", compOps "gt" ">")
      , ("lessThanOrEqual", compOps "le" "<=")
@@ -1661,9 +1661,8 @@ pp :: Outputable a => a -> String
 pp = showPpr unsafeGlobalDynFlags
 
 
-{--------------------------------------------------------------------
-    Misc
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Misc
 
 on_mg_rules :: Unop [CoreRule] -> Unop ModGuts
 on_mg_rules f mg = mg { mg_rules = f (mg_rules mg) }
@@ -1954,7 +1953,7 @@ idOccs penalizeUnderLambda x = go
    go (Type _)                 = 0
    go (Coercion _)             = 0
    go _e@(exprType -> isPredTy' -> True)
-     -- | pprTrace "idOccs predicate" (pprWithType _e) False = undefined
+     --  | pprTrace "idOccs predicate" (pprWithType _e) False = undefined
      = 0
    go (Lit _)                  = 0
    go (Var y)      | y == x    = -- pprTrace "idOccs found" (ppr y) $
@@ -2087,8 +2086,8 @@ isFunCat _               = False
 deadifyCaseWild :: ReExpr
 deadifyCaseWild e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
   | not (isDeadBinder wild) =
-  Just (Let (NonRec wild scrut) 
+  Just (Let (NonRec wild scrut)
          (Case (Var wild) wild' _rhsTy [(DataAlt dc, [a,b], rhs)]))
- where 
+ where
    wild' = freshDeadId (exprFreeVars e) "newWild" (varType wild)
 deadifyCaseWild _ = Nothing

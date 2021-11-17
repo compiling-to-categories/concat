@@ -86,9 +86,9 @@ import ConCat.Rep
 #define PINLINER(nm) {-# INLINE nm #-}
 -- #define PINLINER(nm)
 
-{--------------------------------------------------------------------
-    Constraints
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Constraints
+
 
 type Ok2 k a b         = (Ok k a, Ok k b)
 type Ok3 k a b c       = (Ok k a, Ok k b, Ok k c)
@@ -101,9 +101,9 @@ infixl 1 <+
 -- r <+ Sub Dict = r
 {-# INLINE (<+) #-}
 
-{--------------------------------------------------------------------
-    Categories
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Categories
+
 
 type Arr k a b = F k a `k` F k b
 
@@ -233,9 +233,9 @@ class (Cartesian k, OkExp k) => CartesianClosed k where
 -- first g :: Arr k (a :* b) ((b -> c) :* b)
 -- apply   :: Arr k ((b -> c) :* b) c
 
-{--------------------------------------------------------------------
-    Category of functions
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Category of functions
+
 
 instance Category (->) where
   type F (->) t = t
@@ -268,9 +268,9 @@ instance CartesianClosed (->) where
 
 -- ccc :: (a -> b) -> Arr k a b
 
-{--------------------------------------------------------------------
-    Category of constraints with entailment
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Category of constraints with entailment
+
 
 type family AsCon (a :: Type) :: Constraint
 
@@ -294,9 +294,9 @@ instance Cartesian (:-) where
 
 -- No Cocartesian or CartesianClosed
 
-{--------------------------------------------------------------------
-    Non-standard types via standard types
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Non-standard types via standard types
+
 
 #if 0
 
@@ -447,9 +447,9 @@ instance Category k => Category (StdArr k) where
 
 -- TODO: Cartesian, Cocartesian, Closed
 
-{--------------------------------------------------------------------
-    Linear maps
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Linear maps
+
 
 type RepHasV s a = (HasRep a, HasV s (Rep a), V s a ~ V s (Rep a))
 
@@ -505,11 +505,11 @@ instance Category (LMap s) where
 --        => LMap s a c -> LMap s a d -> LMap s a (c :*: d)
 
 -- instance Cartesian (LMap s) where
-  
 
-{--------------------------------------------------------------------
-    Product categories
---------------------------------------------------------------------}
+
+--------------------------------------------------
+-- * Product categories
+
 
 infixr 7 :**:
 -- | Category of products

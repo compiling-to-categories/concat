@@ -17,9 +17,8 @@ import ConCat.Graphics.Color (Color,ToColor(..))
 
 type R2 = R :* R
 
-{--------------------------------------------------------------------
-    Spatial transformations
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Spatial transformations
 
 type Angle = R -- in radians
 
@@ -43,9 +42,8 @@ uniform f z = f (z,z)
 uscaleP :: R -> Transform
 uscaleP = uniform scaleP
 
-{--------------------------------------------------------------------
-    Images
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Images
 
 type Image c = R2 -> c
 
@@ -120,7 +118,7 @@ checker :: Region
 checker (x,y) = test x == test y
   where test w = frac w > 0.5
 {-# INLINE checker #-}
-  
+
 frac :: RealFrac a => a -> a
 frac x = x - fromIntegral (delay floor x :: Int)
 {-# INLINE frac #-}

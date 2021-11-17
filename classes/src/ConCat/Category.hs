@@ -88,9 +88,10 @@ import qualified ConCat.Inline.ClassOp as IC
 -- Changed to NOINLINE [0]. See 2017-12-29 journal notes.
 #define OPINLINE NOINLINE [0]
 
-{--------------------------------------------------------------------
-    Unit and pairing for binary type constructors
---------------------------------------------------------------------}
+
+--------------------------------------------------
+-- * Unit and pairing for binary type constructors
+
 
 -- Unit for binary type constructors
 data U2 a b = U2 deriving (Show)
@@ -116,15 +117,15 @@ instance HasRep ((k :**: k') a b) where
   abst (f,g) = f :**: g
   repr (f :**: g) = (f,g)
 
-{--------------------------------------------------------------------
-    Monoid wrapper
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Monoid wrapper
+
 
 newtype Monoid2 m a b = Monoid2 m
 
-{--------------------------------------------------------------------
-    Constraints
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Constraints
+
 
 class HasCon a where
   type Con a :: Constraint
@@ -310,9 +311,9 @@ type Oks k as = AllC (Ok k) as
 
 class Show2 k where show2 :: a `k` b -> String
 
-{--------------------------------------------------------------------
-    Categories
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Categories
+
 
 class Category k where
   type Ok k :: Type -> Constraint
@@ -364,9 +365,9 @@ instance (Category k, Category k') => Category (k :**: k') where
   PINLINER(id)
   PINLINER((.))
 
-{--------------------------------------------------------------------
-    Products
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Products
+
 
 type Prod k = (:*)
 
@@ -439,7 +440,7 @@ type MProductCat k = (ProductCat k, MonoidalPCat k)
 instance AssociativePCat (->) where
   lassocP = \ (a,(b,c)) -> ((a,b),c)
   rassocP = \ ((a,b),c) -> (a,(b,c))
-  
+
 instance MonoidalPCat (->) where
   (***)  = (A.***)
   first  = A.first
@@ -516,9 +517,9 @@ instance Monad m => ProductCat (Kleisli m) where
   PINLINER(exr)
   PINLINER(dup)
 
-{--------------------------------------------------------------------
-    Coproducts
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Coproducts
+
 
 type Coprod k = (:+)
 
@@ -661,9 +662,9 @@ instance (CoproductCat k, CoproductCat k') => CoproductCat (k :**: k') where
   PINLINER(inr)
   PINLINER(jam)
 
-{--------------------------------------------------------------------
-    Abelian categories
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Abelian categories
+
 
 #if 1
 
@@ -711,9 +712,9 @@ instance (AbelianCat k, AbelianCat k') => AbelianCat (k :**: k') where
 
 #endif
 
-{--------------------------------------------------------------------
-    A dual to ProductCat. Temporary workaround.
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * A dual to ProductCat. Temporary workaround.
+
 
 -- TODO: eliminate CoproductPCat in favor of when we have associated products,
 -- coproducts, etc.
@@ -778,9 +779,9 @@ instance (ScalarCat k a, ScalarCat k' a) => ScalarCat (k :**: k') a where
 
 type LinearCat k a = (MProductCat k, CoproductPCat k, ScalarCat k a, Ok k a)
 
-{--------------------------------------------------------------------
-    Distributive
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Distributive
+
 
 class DistribCat k where
   distl :: forall a u v. Ok3 k a u v
@@ -835,9 +836,9 @@ instance (DistribCat k, DistribCat k') => DistribCat (k :**: k') where
   PINLINER(distl)
   PINLINER(distr)
 
-{--------------------------------------------------------------------
-    Exponentials
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Exponentials
+
 
 type OkExp k = OpCon (Exp k) (Ok' k)
 
@@ -1073,9 +1074,9 @@ unUnitFun :: forall k p a. (ClosedCat k, MonoidalPCat k, TerminalCat k, Oks k [p
 unUnitFun g = uncurry g . (it &&& id)
               <+ okProd @k @(Unit k) @p
 
-{--------------------------------------------------------------------
-    Constant arrows
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Constant arrows
+
 
 -- Drop ConstObj for now
 
@@ -1205,9 +1206,9 @@ instance LoopCat (->) where
   loop = error "loop: not really defined for functions"
   -- Will I need to use oops instead?
 
-{--------------------------------------------------------------------
-    Traced monoidal categories
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Traced monoidal categories
+
 
 class ProductCat k => TracedCat k where
   trace :: Ok3 k a b c => ((a :* c) `k` (b :* c)) -> (a `k` b)
@@ -1226,9 +1227,9 @@ instance MonadFix m => TracedCat (Kleisli m) where
                                          return b)
   PINLINER(trace)
 
-{--------------------------------------------------------------------
-    Class aggregates
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Class aggregates
+
 
 -- | Bi-cartesion (cartesian & co-cartesian) closed categories. Also lumps in
 -- terminal and distributive, though should probably be moved out.
@@ -1238,9 +1239,9 @@ type BiCCC k = (ClosedCat k, CoproductCat k, TerminalCat k, DistribCat k)
 -- type BiCCCC k p = (BiCCC k, ConstCat k p {-, RepCat k, LoopCat k, DelayCat k-})
 
 
-{--------------------------------------------------------------------
-    Add constraints to a category
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Add constraints to a category
+
 
 -- infixr 3 &+&
 -- class    (con a, con' a) => (con &+& con') a
@@ -1375,9 +1376,9 @@ instance RepresentableCat k f => RepresentableCat (Constrained con k) f where
   tabulateC = Constrained tabulateC
   indexC = Constrained indexC
 
-{--------------------------------------------------------------------
-    Other category subclasses, perhaps to move elsewhere
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Other category subclasses, perhaps to move elsewhere
+
 
 -- I don't think I want the general Kleisli instances for the rest.
 -- For instance, for circuits, type BoolOf (:>) = Source Bool.
@@ -1977,9 +1978,9 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
 
 #endif
 
-{--------------------------------------------------------------------
-    Functors
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Functors
+
 
 -- -- These functors change categories but not objects
 
@@ -1992,9 +1993,9 @@ instance (ArrayCat k a b, ArrayCat k' a b) => ArrayCat (k :**: k') a b where
 --   -- fmapC id == id
 --   -- fmapC (q . p) == fmapC q . fmapC p
 
-{--------------------------------------------------------------------
-    Functor-level operations
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Functor-level operations
+
 
 class OkFunctor k h where
   okFunctor :: Ok' k a |- Ok' k (h a)
@@ -2239,9 +2240,9 @@ instance (Strong k h, Strong k' h) => Strong (k :**: k') h where
 
 #endif
 
-{--------------------------------------------------------------------
-    Indexed products and coproducts
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Indexed products and coproducts
+
 
 -- I intend to replace all of the functor-level vocabulary with indexed products
 -- and coproducts.
@@ -2323,7 +2324,7 @@ instance (Representable h, Zip h, Pointed h) => IxProductCat (->) h where
 
 --           flip index :: Rep h -> h a -> a
 -- tabulate (flip index) :: h (h a -> a)
--- 
+--
 -- point :: a -> h a
 -- zap   :: h (a -> b) -> h a -> h b
 
@@ -2563,9 +2564,9 @@ instance (IxCoproductPCat k h, IxCoproductPCat k' h, Zip h)
   jamPF  = jamPF :**: jamPF
   -- plusPF = prod . (plusPF *** plusPF) . unzip . fmap unProd
 
-{--------------------------------------------------------------------
-    Finite
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Finite
+
 
 class FiniteCat k where
   unFinite     :: KnownNat n => Finite n `k` Int
@@ -2584,9 +2585,9 @@ instance (FiniteCat k,FiniteCat k') => FiniteCat (k :**: k') where
   unsafeFinite = unsafeFinite :**: unsafeFinite
 
 #if 0
-{--------------------------------------------------------------------
-    Obsolete
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Obsolete
+
 
 -- | Alias for '(***)'
 (++++) :: (MonoidalPCat k, Ok4 k a b c d) =>
@@ -2602,9 +2603,9 @@ plusPF = crossF
 
 #if 0
 
-{--------------------------------------------------------------------
-    Experimental
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Experimental
+
 
 -- Experimentally moved from ConCat.AltCat
 crossSecondFirst :: forall k a b c d. (MonoidalPCat k, Ok4 k a b c d)

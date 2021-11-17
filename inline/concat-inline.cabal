@@ -20,8 +20,7 @@ library
   include-dirs:     src
   build-depends:    base >=4.9, ghc
   ghc-options:      -O2
-  exposed-modules:  
+  exposed-modules:
                     ConCat.Inline.ClassOp
                     ConCat.Inline.Plugin
                     ConCat.Inline.SampleMethods
-

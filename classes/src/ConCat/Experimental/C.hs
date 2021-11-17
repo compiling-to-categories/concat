@@ -86,9 +86,9 @@ import ConCat.Rep
 #define PINLINER(nm) {-# INLINE nm #-}
 -- #define PINLINER(nm)
 
-{--------------------------------------------------------------------
-    Constraints
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Constraints
+
 
 #if 0
 
@@ -113,9 +113,9 @@ type Ok4 k a b c d     = (Ok k a, Ok k b, Ok k c, Ok k d)
 
 #endif
 
-{--------------------------------------------------------------------
-    Categories
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Categories
+
 
 type Arr k a b = F k a `k` F k b
 
@@ -175,7 +175,7 @@ f *** g = (&&&) @u @k @(a :* b) @c @d
 -- (***) :: forall u k a b c d. Ok4 k a b c d
 --       => Arr k a c -> Arr k b d -> Arr k (a :* b) (c :* d)
 -- f *** g = -- f . exl &&& g . exr -- Type errors to sort out
---   (&&&) @u @k f . exl &&& 
+--   (&&&) @u @k f . exl &&&
 
 -- f :: Arr k a c
 -- g :: Arr k b d
@@ -273,9 +273,9 @@ class Category k => Cocartesian k where
 class (Cartesian k, Cocartesian k) => Distributive k where
   distl :: Ok3 k a u v => Arr k (a :* (u :+ v)) (a :* u :+ a :* v)
 
-{--------------------------------------------------------------------
-    Category of functions
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Category of functions
+
 
 instance Category (->) where
   type F (->) t = t
@@ -299,9 +299,9 @@ instance Distributive (->) where
 
 -- ccc :: (a -> b) -> Arr k a b
 
-{--------------------------------------------------------------------
-    Category of constraints with entailment
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Category of constraints with entailment
+
 
 type family AsCon (a :: Type) :: Constraint
 
@@ -323,9 +323,9 @@ instance Cartesian (:-) where
   exr = weaken2
   (&&&) = (K.&&&)
 
-{--------------------------------------------------------------------
-    Non-standard types via standard types
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Non-standard types via standard types
+
 
 #if 0
 
@@ -402,9 +402,9 @@ instance Category (k :: B u) => Category (StdArr (k :: B u)) where
 
 -- TODO: Cartesian, Cocartesian, Closed
 
-{--------------------------------------------------------------------
-    Linear maps
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Linear maps
+
 
 type RepHasV s a = (HasRep a, HasV s (Rep a), V s a ~ V s (Rep a))
 

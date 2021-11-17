@@ -298,12 +298,12 @@ ghc: panic! (the 'impossible' happened)
 
 -- When I turn off lintSteps in ConCat.Plugin, we get into an infinite
 -- unfolding/reboxing loop. I tried the following rules
--- 
+--
 -- "D# . unboxD" [~0] forall u. D# (unboxD u) = u
 -- "F# . unboxF" [~0] forall u. F# (unboxF u) = u
--- 
+--
 -- but
--- 
+--
 --     RULE left-hand side too complicated to desugar
 --       Optimised lhs: case unboxD u of wild_00 { __DEFAULT ->
 --                      GHC.Types.D# wild_00 }
@@ -329,21 +329,20 @@ ghc: panic! (the 'impossible' happened)
 
 -- We don't yet have categorical versions of the following, but we will.
 
--- "absInteger    cat" [~0] absInteger    = 
--- "signumInteger cat" [~0] signumInteger = 
+-- "absInteger    cat" [~0] absInteger    =
+-- "signumInteger cat" [~0] signumInteger =
 
--- "quotInteger   cat" [~0] quotInteger   = 
--- "remInteger    cat" [~0] remInteger    = 
--- "divInteger    cat" [~0] divInteger    = 
--- "modInteger    cat" [~0] modInteger    = 
--- "gcdInteger    cat" [~0] gcdInteger    = 
--- "lcmInteger    cat" [~0] lcmInteger    = 
+-- "quotInteger   cat" [~0] quotInteger   =
+-- "remInteger    cat" [~0] remInteger    =
+-- "divInteger    cat" [~0] divInteger    =
+-- "modInteger    cat" [~0] modInteger    =
+-- "gcdInteger    cat" [~0] gcdInteger    =
+-- "lcmInteger    cat" [~0] lcmInteger    =
 
 #-}
 
-{--------------------------------------------------------------------
-    Capture class ops
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Capture class ops
 
 #if 1
 
@@ -502,7 +501,7 @@ Catify(cosDouble,cosC)
 "mulC 1 right" forall f. mulC . (f &&& const 1.0) = f
 
 -- (\ z -> if f z <= g z then g z else f z) --> max . (f &&& g)
--- "if-as-max" forall f g. 
+-- "if-as-max" forall f g.
 --   ifC . (lessThanOrEqual . (f &&& g) &&& (g &&& f)) = maxC . (f &&& g)
 
 --    • Could not deduce (MinMaxCat k c) arising from a use of ‘maxC’
@@ -519,4 +518,3 @@ Catify(cosDouble,cosC)
 
 -- -- Notes 2018-01-04, 2018-01-07, and 2018-02-23
 -- CatifyC((^+^),jamP)
-

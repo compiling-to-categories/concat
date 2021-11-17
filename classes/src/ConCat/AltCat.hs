@@ -111,8 +111,8 @@ import ConCat.Category
   , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat
   , TraversableCat,DistributiveCat,RepresentableCat
   , FiniteCat
-  , fmap', liftA2' 
-  -- 
+  , fmap', liftA2'
+  --
   -- , crossSecondFirst
   )
 
@@ -439,7 +439,7 @@ at = curry arrAt
 -- TODO: Consider moving all of the auxiliary functions (like constFun) here.
 -- Rename "ConCat.Category" to something like "ConCat.Category.Class" and
 -- "ConCat.AltCat" to "ConCat.Category".
--- 
+--
 -- Maybe move some of the methods with defaults out of the classes, e.g.,
 -- "lassocP" and maybe "dup" and "jam".
 
@@ -450,9 +450,8 @@ pair = curry id <+ okProd @k @a @b
 "toCcc' fmap" toCcc' fmap = fmap
  #-}
 
-{--------------------------------------------------------------------
-    Automatic uncurrying
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Automatic uncurrying
 
 -- Note: I'm not using yet. I think it needs to go before ccc.
 -- Alternatively, generalize from (->) to ClosedCat.
@@ -547,9 +546,8 @@ unCcc f = unCcc' (conceal f)
 -- unCcc f = unCcc' f  -- Try doing without reveal/conceal
 {-# INLINE unCcc #-}
 
-{--------------------------------------------------------------------
-    Rewrite rules
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Rewrite rules
 
 id2 :: forall k a b. (MonoidalPCat k, Ok2 k a b) => (a :* b) `k` (a :* b)
 id2 = id <+ okProd @k @a @b
@@ -749,7 +747,7 @@ idProd :: forall k a b. (Category k, OkProd k, Ok2 k a b) => (a :* b) `k` (a :* 
 idProd = id <+ okProd @k @a @b
 {-# INLINE idProd #-}
 
-{-# RULES  
+{-# RULES
 
 "first id" first id = idProd
 "second id" second id = idProd
@@ -814,9 +812,8 @@ coco' = (undefined, (coerceC \\ trans @(CoerceCat k) @a @b @c))
 -- lassocP' :: (a,(b,c)) `k` ((a,b),c)
 -- lassocP' = ccc (\ (a,(b,c)) -> ((a,b),c))
 
-{--------------------------------------------------------------------
-    Some orphan instances
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Some orphan instances
 
 -- For some (->) instances, we'll want to use late-inlining synonyms
 
@@ -992,7 +989,8 @@ unzipFmapFork f g = fmapC f &&& fmapC g
 
 -- Do I need to inline constFun, at least on the left?
 
--- -- *Applying* pointC restricts to functions
+--------------------------------------------------
+--  *Applying* pointC restricts to functions
 
 -- -- RHS needs PointedCat
 -- "fmapC (constFun f)" forall f.
@@ -1075,7 +1073,7 @@ Op0(unsafeFinite , (FiniteCat k, KnownNat n) => Int `k` Finite n)
 "unsafeFinite . unFinite" unsafeFinite . unFinite = id
  #-}
 
--- TODO: Maybe move the following utilities to ConCat.TArr or elsewhere. 
+-- TODO: Maybe move the following utilities to ConCat.TArr or elsewhere.
 
 combineZero  :: Void -> Finite 0
 combineZero = absurd
@@ -1192,9 +1190,8 @@ diag z o =
 -- See notes from 2017-10-15.
 -- TODO: remove and test, now that we're translating (==) early (via Catify).
 
-{--------------------------------------------------------------------
-    
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * ?
 
 unitIf :: forall k. (TerminalCat k, BoolCat k) => IfT k (Unit k)
 unitIf = it
@@ -1272,9 +1269,8 @@ repIf = abstC @k @a @r . ifC . second (twiceP reprC)
 == abstC . ifC . second (twiceP reprC)
 #endif
 
-{--------------------------------------------------------------------
-    Misc utilities
---------------------------------------------------------------------}
+--------------------------------------------------
+-- * Misc utilities
 
 -- TODO: Finish moving utilities from Category to here
 
@@ -1300,19 +1296,19 @@ transposeP = (exl.exl &&& exl.exr) &&& (exr.exl &&& exr.exr)
 -- (a :* c) :* (b :* d)
 
 -- | Convenient alias for @uncurry '(&&&)'@
-fork :: forall k a c d. (MProductCat k, Ok3 k a c d) 
+fork :: forall k a c d. (MProductCat k, Ok3 k a c d)
      => (a `k` c) :* (a `k` d) -> (a `k` Prod k c d)
 fork = uncurry (&&&)
 {-# INLINE fork #-}
 
 -- | Inverse to @uncurry '(&&&)'@
-unfork :: forall k a c d. (ProductCat k, Ok3 k a c d) 
+unfork :: forall k a c d. (ProductCat k, Ok3 k a c d)
        => (a `k` Prod k c d) -> (a `k` c) :* (a `k` d)
 unfork f = (exl . f, exr . f)  <+ okProd @k @c @d
 {-# INLINE unfork #-}
 
 -- | Convenient alias for @uncurry '(|||)'@
-join :: forall k a c d. (MCoproductCat k, Ok3 k a c d) 
+join :: forall k a c d. (MCoproductCat k, Ok3 k a c d)
      => (c `k` a) :* (d `k` a) -> (Coprod k c d `k` a)
 join = uncurry (|||)
 {-# INLINE join #-}
@@ -1347,7 +1343,7 @@ unjoinPF hba = fmap (hba .) inPF  <+ okIxProd @k @h @b
 {-# INLINE unjoinPF #-}
 
 -- | Inverse to 'forkF'
-unforkF :: forall k h a b. (IxProductCat k h, Functor h, Ok2 k a b) 
+unforkF :: forall k h a b. (IxProductCat k h, Functor h, Ok2 k a b)
         => (a `k` h b) -> h (a `k` b)
 unforkF ahb = fmap (. ahb) exF  <+ okIxProd @k @h @b
 {-# INLINE unforkF #-}
@@ -1397,7 +1393,7 @@ inLassocP :: forall k a b c a' b' c'.
 inLassocP = rassocP <~ lassocP
           <+ okProd @k @a  @(b  :* c ) <+ okProd @k @b  @c
           <+ okProd @k @a' @(b' :* c') <+ okProd @k @b' @c'
-          <+ okProd @k @(a  :* b ) @c  <+ okProd @k @a  @b 
+          <+ okProd @k @(a  :* b ) @c  <+ okProd @k @a  @b
           <+ okProd @k @(a' :* b') @c' <+ okProd @k @a' @b'
 {-# INLINE inLassocP #-}
 
@@ -1409,7 +1405,7 @@ inRassocP :: forall a b c a' b' c' k.
 inRassocP = lassocP <~ rassocP
           <+ okProd @k @a  @(b  :* c ) <+ okProd @k @b  @c
           <+ okProd @k @a' @(b' :* c') <+ okProd @k @b' @c'
-          <+ okProd @k @(a  :* b ) @c  <+ okProd @k @a  @b 
+          <+ okProd @k @(a  :* b ) @c  <+ okProd @k @a  @b
           <+ okProd @k @(a' :* b') @c' <+ okProd @k @a' @b'
 {-# INLINE inRassocP #-}
 
@@ -1428,7 +1424,7 @@ inLassocS :: forall k a b c a' b' c'.
 inLassocS = rassocS <~ lassocS
           <+ okCoprod @k @a  @(b  :+ c ) <+ okCoprod @k @b  @c
           <+ okCoprod @k @a' @(b' :+ c') <+ okCoprod @k @b' @c'
-          <+ okCoprod @k @(a  :+ b ) @c  <+ okCoprod @k @a  @b 
+          <+ okCoprod @k @(a  :+ b ) @c  <+ okCoprod @k @a  @b
           <+ okCoprod @k @(a' :+ b') @c' <+ okCoprod @k @a' @b'
 {-# INLINE inLassocS #-}
 
@@ -1440,7 +1436,7 @@ inRassocS :: forall a b c a' b' c' k.
 inRassocS = lassocS <~ rassocS
           <+ okCoprod @k @a  @(b  :+ c ) <+ okCoprod @k @b  @c
           <+ okCoprod @k @a' @(b' :+ c') <+ okCoprod @k @b' @c'
-          <+ okCoprod @k @(a  :+ b ) @c  <+ okCoprod @k @a  @b 
+          <+ okCoprod @k @(a  :+ b ) @c  <+ okCoprod @k @a  @b
           <+ okCoprod @k @(a' :+ b') @c' <+ okCoprod @k @a' @b'
 {-# INLINE inRassocS #-}
 
