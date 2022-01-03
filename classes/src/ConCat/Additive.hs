@@ -34,6 +34,7 @@ import Data.Key(Zip(..))
 import Data.Pointed
 import Data.Functor.Rep (Representable(..))
 import Data.Vector.Sized (Vector)
+import Data.Finite.Internal
 
 import ConCat.Misc
 import ConCat.Rep (HasRep(abst),inAbst,inAbst2)
@@ -67,7 +68,9 @@ instance Additive () where
   () ^+^ () = ()
 
 #define ScalarType(t) \
-  instance Additive (t) where { zero = 0 ; (^+^) = (+) }
+  instance Additive (t) where { zero = 0 ; (^+^) = (+);\
+  {-# INLINE zero #-}; \
+  {-# INLINE (^+^) #-} }
 
 ScalarType(Int)
 ScalarType(Integer)
@@ -109,6 +112,10 @@ instance (Additive u,Additive v,Additive w,Additive x)
   (u,v,w,x) ^+^ (u',v',w',x') = (u^+^u',v^+^v',w^+^w',x^+^x')
 
 type AddF f = (Pointed f, Zip f)
+
+instance KnownNat n => Additive (Finite n) where
+  zero = 0
+  (^+^) = (+)
 
 #if 1
 

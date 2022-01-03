@@ -41,7 +41,7 @@ import ConCat.AdditiveFun (Additive,Additive1(..))
 AbsTyImports
 
 -- Category dual
-data Dual k a b = Dual (b `k` a)
+newtype Dual k a b = Dual (b `k` a)
 
 unDual :: Dual k a b -> b `k` a
 unDual (Dual f) = f
@@ -235,6 +235,10 @@ instance (AddCat k h a, OkF k h) => PointedCat (Dual k) h a where
 --   {-# INLINE strength #-}
 
 -- -- TODO: can I use sumA instead of A.sumAC?
+
+instance TraversableCat k f t => TraversableCat (Dual k) t f where
+  sequenceAC = abst sequenceAC
+  {-# INLINE sequenceAC #-}
 
 instance DistributiveCat k f g => DistributiveCat (Dual k) g f where
   distributeC = abst distributeC

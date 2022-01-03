@@ -218,6 +218,8 @@ Test-Suite gold-tests
                   , finite-typelits, vector-sized >= 1.0.0.0
   ghc-options:      -O2
                     -fplugin=ConCat.Plugin
+--                    -fplugin-opt=ConCat.Plugin:showCcc
+--                    -dppr-debug -dverbose-core2core -dinline-check satisfy -ddump-inlinings
   if flag(smt)
     cpp-options:        -DCONCAT_SMT
   cpp-options:      -DVectorSized

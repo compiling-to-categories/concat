@@ -49,8 +49,8 @@ AbsTyImports
 
 -- TODO: try again with importing Category qualified and AltCat unqualified.
 
--- newtype GD k a b = D { unD :: a -> b :* (a `k` b) }
-data GD k a b = D { unD :: a -> (b :* (a `k` b)) }
+newtype GD k a b = D { unD :: a -> b :* (a `k` b) }
+-- data GD k a b = D { unD :: a -> (b :* (a `k` b)) }
 
 mkD :: HasRep (a `k` b) => (a -> b :* Rep (a `k` b)) -> GD k a b
 mkD = D P.. (result P.. second) abst
@@ -365,6 +365,10 @@ instance (OkFunctor (GD k) h, Pointed h, PointedCat k h a) => PointedCat (GD k) 
 -- instance (IxProductCat k h, FunctorCat k h, Strong k h)
 --       => Strong (GD k) h where
 --   Linear(strength)
+
+instance (TraversableCat (->) t f, TraversableCat k t f)
+      => TraversableCat (GD k) t f where
+  Linear(sequenceAC)
 
 instance (DistributiveCat (->) g f, DistributiveCat k g f)
       => DistributiveCat (GD k) g f where

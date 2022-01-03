@@ -31,18 +31,20 @@ import Prelude hiding (id,(.),const,curry,uncurry,zipWith)
 import Data.Constraint (Dict(..),(:-)(..))
 import Data.Key (Zip)
 import Data.Pointed (Pointed)
-import Data.Functor.Rep (Representable(tabulate))
+import Data.Functor.Rep (Representable(tabulate,index))
 
 import ConCat.Orphans ()
 import ConCat.AltCat
 import ConCat.Rep
 import ConCat.Additive
 
+import qualified ConCat.Inline.ClassOp as IC
+
 AbsTyImports
 
 infixr 1 -+>
 -- | Additive homomorphisms
-data a -+> b = AddFun (a -> b)
+newtype a -+> b = AddFun (a -> b)
 
 -- newtype
 
@@ -262,6 +264,15 @@ instance (Pointed h, Additive1 h, Additive a) => PointedCat (-+>) h a where
 
 instance (Summable h, Additive a) => AddCat (-+>) h a where
   Abst(sumAC)
+
+instance (Traversable t, Applicative f) => TraversableCat (-+>) t f where
+  Abst(sequenceAC)
+
+instance Representable f => RepresentableCat (-+>) f where
+  tabulateC = abst (IC.inline tabulate)
+  indexC    = abst (IC.inline index)
+  {-# OPINLINE tabulateC #-}
+  {-# OPINLINE indexC #-}
 
 {--------------------------------------------------------------------
     CCC interface

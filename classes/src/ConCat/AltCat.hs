@@ -55,7 +55,10 @@ import Data.Constraint ((\\))
 import Data.Proxy (Proxy)
 import Data.Void
 
-import Data.Pointed
+import Data.Pointed (Pointed)
+import qualified Data.Pointed as Pointed
+import qualified ConCat.Pointed as ConCatPointed
+import qualified ConCat.Zip as ConCatZip
 import Data.Key (Zip(..))
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..),distributeRep)
@@ -106,7 +109,7 @@ import ConCat.Category
   , yes1, forkCon, joinCon, inForkCon
   -- Functor-level. To be removed.
   , OkFunctor(..),FunctorCat,Strong,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat
-  , DistributiveCat,RepresentableCat 
+  , TraversableCat,DistributiveCat,RepresentableCat
   , FiniteCat
   , fmap', liftA2' 
   -- 
@@ -175,7 +178,8 @@ Op0(dup,forall k a. (ProductCat k, Ok k a) => a `k` Prod k a a)
 f &&& g = (f *** g) . dup
   <+ okProd @k @a @a
   <+ okProd @k @c @d
-{-# INLINE (&&&) #-}
+-- for some reason, plain INLINE doesn't do anything
+{-# INLINE [0] (&&&) #-}
 
 -- Op1(unfork, forall k a c d. (ProductCat k, Ok3 k a c d) => (a `k` Prod k c d) -> (a `k` c, a `k` d))
 
@@ -502,6 +506,11 @@ UncId(c :+ d)
 toCcc' :: forall k a b. (a -> b) -> (a `k` b)
 toCcc' _ = oops "toCcc' called"
 {-# NOINLINE toCcc' #-}
+
+-- | Internal function, annotated with available dictionaries
+toCcc'' :: forall k a b ev . ev -> (a -> b) -> (a `k` b)
+toCcc'' _ = oops "toCcc'' called"
+{-# NOINLINE toCcc'' #-}
 
 -- | Pseudo function to stop rewriting from TOCCC form.
 unCcc' :: forall k a b. (a `k` b) -> (a -> b)
@@ -859,12 +868,15 @@ Catify(fmap , fmapC)
 
 Catify(unzip, unzipC)
 Catify(zip  , curry zipC)
-Catify(point, pointC)
+Catify(Pointed.point, pointC)
+Catify(ConCatPointed.point, pointC)
 Catify(sumA , sumAC)
 
 zipWithC :: Zip h => (a -> b -> c) -> (h a -> h b -> h c)
--- zipWithC f = curry (fmapC (uncurry f) . zipC)
-zipWithC f = P.curry (fmap (P.uncurry f) . P.uncurry zip)
+zipWithC f = curry (fmapC (uncurry f) . zipC)
+-- This version inlines too early, thus precenting ghc from
+-- seeing curry . uncrry / uncurry . curry
+-- zipWithC f = P.curry (fmap (P.uncurry f) . P.uncurry zip)
 {-# INLINE zipWithC #-}
 
 -- zipWithC f as bs = fmapC (uncurry f) (zipC (as,bs))
@@ -874,6 +886,9 @@ Catify(zipWith, zipWithC)
 -- Experiment
 Catify(pointNI, pointC)
 Catify(zipWithNI, zipWithC)
+
+Catify(ConCatZip.zipWith, zipWithC)
+Catify(ConCatZip.zip, curry zipC)
 
 #if 0
 unzipC :: forall k h a b. (FunctorCat k h, TerminalCat k, ClosedCat k, Ok2 k a b)
@@ -901,13 +916,13 @@ zapC = fmapC apply . zipC
          <+ okExp     @k    @a @b
 {-# INLINE zapC #-}
 
-Catify(zap, uncurry zapC)
-
 -- TODO: define zapC via zipWithC
 #else
 Op1(zapC, (ZapCat k h, Ok2 k a b) => h (a `k` b) -> (h a `k` h b))
 -- Translation for zap? Maybe like fmap's.
 -- Catify(zap, zapC)  -- 2017-12-27 notes
+Catify(ConCatZip.zap, zapC)
+-- Catify(Aliases.zap, zapC)
 #endif
 
 -- TODO: Is there any value to defining utility functions like unzipC and zapC
@@ -1029,13 +1044,22 @@ idCon f = f
 
 #endif
 
+Op0(sequenceAC, (TraversableCat k t f, Ok k a) => t (f a) `k` f (t a))
 Op0(distributeC, (DistributiveCat k g f, Ok k a) => f (g a) `k` g (f a))
 Op0(tabulateC  , (RepresentableCat k f , Ok k a) => (Rep f -> a) `k` f a)
 Op0(indexC     , (RepresentableCat k f , Ok k a) => f a `k` (Rep f -> a))
 
+Catify(sequenceA, sequenceAC)
 Catify(distribute, distributeC)
 Catify(tabulate  , tabulateC)
 Catify(index     , indexC)
+
+traverseC :: (Traversable t, Applicative f) => (a -> f b) -> t a -> f (t b)
+traverseC f = sequenceA . fmap f
+-- traverseC f = sequenceAC . fmapC f
+{-# INLINE traverseC #-}
+
+Catify(traverse, traverseC)
 
 collectC :: (Distributive g, Functor f) => (a -> g b) -> f a -> g (f b)
 collectC f = distribute . fmap f
