@@ -108,7 +108,7 @@ import ConCat.Category
   , OpCon(..),Sat(..) -- ,FunctorC(..)
   , yes1, forkCon, joinCon, inForkCon
   -- Functor-level. To be removed.
-  , OkFunctor(..),FunctorCat,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat
+  , OkFunctor(..),FunctorCat,Strong,ZipCat,ZapCat,PointedCat{-,SumCat-},AddCat
   , TraversableCat,DistributiveCat,RepresentableCat
   , FiniteCat
   , fmap', liftA2' 
@@ -856,6 +856,7 @@ instance Pointed (Arr i) where
 Op1(fmapC   , (FunctorCat k h, Ok2 k a b) => (a `k` b) -> (h a `k` h b))
 Op0(unzipC  , (FunctorCat k h, Ok2 k a b) => h (a :* b) `k` (h a :* h b))
 Op0(zipC    , (ZipCat k h    , Ok2 k a b) => (h a :* h b) `k` h (a :* b))
+Op0(strength, (Strong k h    , Ok2 k a b) => (a :* h b) `k` h (a :* b))
 Op0(pointC  , (PointedCat k h a)          => a `k` h a)
 Op0(sumAC   , (AddCat k h a)              => h a `k` a)
 
