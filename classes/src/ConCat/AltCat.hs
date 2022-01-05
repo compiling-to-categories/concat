@@ -1053,9 +1053,24 @@ Catify(distribute, distributeC)
 Catify(tabulate  , tabulateC)
 Catify(index     , indexC)
 
-traverseC :: (Traversable t, Applicative f) => (a -> f b) -> t a -> f (t b)
-traverseC f = sequenceA . fmap f
--- traverseC f = sequenceAC . fmapC f
+traverseC ::
+  forall k t f a b.
+  ( Category k,
+    FunctorCat k t,
+    OkFunctor k f,
+    TraversableCat k t f,
+    Ok k a,
+    Ok k b
+  ) =>
+  a `k` f b ->
+  t a `k` f (t b)
+traverseC f =
+  sequenceAC . fmapC f
+    <+ okFunctor @k @t @(f b)
+    <+ okFunctor @k @f @(t b)
+    <+ okFunctor @k @t @a
+    <+ okFunctor @k @t @b
+    <+ okFunctor @k @f @b
 {-# INLINE traverseC #-}
 
 Catify(traverse, traverseC)
