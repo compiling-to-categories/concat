@@ -23,7 +23,7 @@ import Data.Pointed
 import Data.Key (Zip(..))
 
 import ConCat.Misc ((:*),result)
-import ConCat.AltCat
+import ConCat.AltCat hiding (Strong, strength)
 
 -- I could use this simpler style to simplify the plugin, e.g.,
 
