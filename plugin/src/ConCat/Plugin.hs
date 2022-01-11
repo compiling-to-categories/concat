@@ -240,7 +240,9 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      -- See journal 2018-02-02.
      Trying("top Case of product")
      Case scrut _ _rhsTy [(DataAlt dc, [b,c], rhs)]
-         | isBoxedTupleTyCon (dataConTyCon dc) ->
+         | isBoxedTupleTyCon (dataConTyCon dc)
+         -- prevent infinite loop
+         , not (isCast rhs) ->
        Doing("top Case of product")
        return $ mkCcc $
          varApps casePairTopTV
