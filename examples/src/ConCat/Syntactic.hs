@@ -498,6 +498,16 @@ instance (Foldable h, Additive a) => AddCat Syn h a where
   sumAC = app0 "sumAC"
   INLINER(sumAC)
 
+instance (Foldable h, Ord a) => MinMaxFunctorCat Syn h a where
+  minimumC = app0 "minimumC"
+  INLINER(minimumC)
+  maximumC = app0 "maximumC"
+  INLINER(maximumC)
+
+instance (Foldable h, Ord a) => MinMaxFFunctorCat Syn h a where
+  minimumCF h = (minimum h, app0 "minimumCF")
+  maximumCF h = (maximum h, app0 "maximumCF")
+  
 -- instance Functor h => Strong Syn h where
 --   strength = app0 "strength"
 --   INLINER(strength)

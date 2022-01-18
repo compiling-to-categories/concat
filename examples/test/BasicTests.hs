@@ -31,18 +31,21 @@ import           ConCat.Orphans ()
 import           ConCat.RAD
 import           ConCat.Rebox ()
 import           ConCat.Shaped
+import qualified ConCat.MinMax as MinMax
 import           Control.Applicative (liftA2)
 import           Data.Distributive
 import           Data.Finite
 import           Data.Functor.Rep
 import           Data.Key
 import           Data.Pointed
-import           Data.Vector.Sized (Vector)
+import           Data.Vector.Sized (Vector, fromTuple)
 import           GHC.Generics hiding (C, D, R)
 import           GHC.TypeLits ()
 import           Miscellany hiding (runSynCirc,runSynCircDers)
 import           Prelude hiding (unzip, zip, zipWith)
 import           Test.Tasty (TestTree, testGroup)
+import           Test.Tasty.Golden
+import qualified Data.ByteString.Lazy.Char8 as BS
 import           Utils
 
 
@@ -75,6 +78,13 @@ basicTests = testGroup "basic tests"
   , runSynCircDers "cos-2x"  $ \ x -> cos (2 * x) :: R
   , runSynCircDers "cos-2xx" $ \ x -> cos (2 * x * x) :: R
   , runSynCircDers "cos-xpy" $ \ (x,y) -> cos (x + y) :: R
+
+  , runDers "maximum" (toCcc (andDerF (MinMax.maximum @(Vector 5) @R)))
+                      (toCcc (andDerR (MinMax.maximum @(Vector 5) @R)))
+                      (toCcc (andGradR (MinMax.maximum @(Vector 5) @R)))
+                      (fromTuple (1, 2, 7, 3, 0))
+                      (fromTuple (0, 1, 2, 3, 4))
+                      7
 
 #if 0
 

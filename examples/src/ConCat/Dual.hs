@@ -250,6 +250,12 @@ instance RepresentableCat k g => RepresentableCat (Dual k) g where
   {-# INLINE indexC #-}
   {-# INLINE tabulateC #-}
 
+instance (Additive a, Additive1 h, MinMaxFunctorCat (->) h a, PointedCat k h a) => MinMaxFFunctorCat (Dual k) h a where
+  minimumCF h = (minimumC h, abst pointC)
+  {-# INLINE minimumCF #-}
+  maximumCF h = (maximumC h, abst pointC)
+  {-# INLINE maximumCF #-}
+
 {--------------------------------------------------------------------
     CCC interface
 --------------------------------------------------------------------}

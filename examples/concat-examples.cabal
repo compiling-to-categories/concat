@@ -203,6 +203,7 @@ Test-Suite gold-tests
                   , newtype-generics >= 0.5.3
                   , pointed, keys
                   , distributive, adjunctions
+                  , vector
                   , concat-inline
                   , concat-classes
                   , concat-plugin
