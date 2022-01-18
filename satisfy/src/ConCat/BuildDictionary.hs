@@ -233,7 +233,9 @@ evVarName = mkFastString "evidence"
 
 extendEvVars :: DVarSet -> Var -> DVarSet
 extendEvVars evVars var =
-  if isEvVar var
+  -- isEvType would also include constraints, which are unboxed and
+  -- thus we can't put those in a boxed tuple
+  if isPredTy (varType var)
   then extendDVarSet evVars var
   else evVars
 
