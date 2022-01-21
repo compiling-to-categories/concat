@@ -275,7 +275,11 @@ instance Representable f => RepresentableCat (-+>) f where
   {-# OPINLINE tabulateC #-}
   {-# OPINLINE indexC #-}
 
-instance (Ord a, Additive a, Additive1 h, MinMaxFFunctorCat (->) h a) => MinMaxFFunctorCat (-+>) h a where
+instance (Additive a, MinMaxCat (->) a) => MinMaxCat (-+>) a where
+  Abst(minC)
+  Abst(maxC)
+
+instance (Additive a, Additive1 h, MinMaxFFunctorCat (->) h a) => MinMaxFFunctorCat (-+>) h a where
   minimumCF = second abst . (IC.inline minimumCF)
   {-# OPINLINE minimumCF #-}
   maximumCF = second abst . (IC.inline maximumCF)
