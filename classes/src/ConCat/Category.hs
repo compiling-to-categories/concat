@@ -56,7 +56,7 @@ import Data.Type.Equality ((:~:)(..))
 import qualified Data.Type.Equality as Eq
 import Data.Type.Coercion (Coercion(..))
 import qualified Data.Type.Coercion as Co
-import GHC.Types (Constraint, Type)
+import GHC.Types (Type)
 import Data.Constraint hiding ((&&&),(***),(:=>))
 -- import Debug.Trace
 import Data.Monoid
@@ -1477,8 +1477,8 @@ class (EqCat k a, Ord a) => OrdCat k a where
   greaterThanOrEqual = notC . lessThan     <+ okTT @k @a
   {-# MINIMAL lessThan | greaterThan #-}
 
-class MinMaxCat k a where
-  minC, maxC :: Ok k a => Prod k a a `k` a
+class Ok k a => MinMaxCat k a where
+  minC, maxC :: Prod k a a `k` a
 #if 0
   default minC :: (OrdCat k a, IfCat k a, Ok k a) => Prod k a a `k` a
   default maxC :: (OrdCat k a, IfCat k a, Ok k a) => Prod k a a `k` a
@@ -2355,7 +2355,7 @@ instance (IxProductCat k h, IxProductCat k' h, Zip h) => IxProductCat (k :**: k'
   forkF  = prod . (forkF  *** forkF ) . unzip . fmap unProd
   replF  = replF :**: replF
 
-class (OkFunctor k h, Ok k a, Ord a) => MinMaxFunctorCat k h a where
+class (OkFunctor k h, Ok k a) => MinMaxFunctorCat k h a where
   minimumC :: h a `k` a
   maximumC :: h a `k` a
 
@@ -2370,7 +2370,7 @@ instance MinMax h a => MinMaxFunctorCat (->) h a where
   {-# OPINLINE maximumC #-}
 
 -- needed to construct the typeclass hierarchy for MinMaxFunctorCat
-class (Ord a, OkFunctor k h, Ok k a) => MinMaxFFunctorCat k h a where
+class (OkFunctor k h, Ok k a) => MinMaxFFunctorCat k h a where
   minimumCF :: h a -> (a :* (h a `k` a))
   maximumCF :: h a -> (a :* (h a `k` a))
 
@@ -2385,7 +2385,7 @@ instance MinMaxRep h a => MinMaxFFunctorCat (->) h a where
   {-# OPINLINE minimumCF #-}
   {-# OPINLINE maximumCF #-}
 
-instance (MinMaxFFunctorCat k h a, MinMaxFFunctorCat k' h a) => MinMaxFFunctorCat (k :**: k') h a where
+instance (MinMaxFFunctorCat k h a, MinMaxFFunctorCat k' h a, Ord a) => MinMaxFFunctorCat (k :**: k') h a where
   minimumCF h =
     let (a, f) = minimumCF h
         (a', f') = minimumCF h

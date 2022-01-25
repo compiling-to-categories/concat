@@ -258,7 +258,7 @@ instance (ScalarCat k s, Ok k s, Floating s) => FloatingCat (GD k) s where
 -- TODO: experiment with moving some of these dual derivatives to DualAdditive,
 -- in the style of addD, mulD, etc.
 
-instance (ProductCat k, Ord a) => MinMaxCat (GD k) a where
+instance (ProductCat k, Ok k a, Ord a) => MinMaxCat (GD k) a where
   minC = D (minC &&& cond exl exr . lessThanOrEqual)
   maxC = D (maxC &&& cond exr exl . lessThanOrEqual)
   {-# INLINE minC #-} 
@@ -381,7 +381,7 @@ instance (RepresentableCat (->) g, RepresentableCat k g)
   Linear(indexC)
   Linear(tabulateC)
 
-instance MinMaxFFunctorCat k h a => MinMaxFunctorCat (GD k) h a where
+instance (ProductCat k, MinMaxFFunctorCat k h a, Ord a) => MinMaxFunctorCat (GD k) h a where
   minimumC = abst minimumCF
   {-# INLINE minimumC #-}
   maximumC = abst maximumCF
