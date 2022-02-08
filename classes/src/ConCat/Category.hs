@@ -1318,11 +1318,24 @@ instance (BoolCat k, con Bool, OpCon (Prod k) (Sat con))
   orC = Constrained orC
   xorC = Constrained xorC
 
+instance (EqCat k a, con a, con Bool, OpSat (Prod k) con) => EqCat (Constrained con k) a where
+  equal = Constrained equal
+  notEqual = Constrained notEqual
+
+instance (OrdCat k a, con a, con Bool, OpSat (Prod k) con) => OrdCat (Constrained con k) a where
+  lessThan = Constrained lessThan
+  greaterThan = Constrained greaterThan
+  lessThanOrEqual = Constrained lessThanOrEqual
+  greaterThanOrEqual = Constrained greaterThanOrEqual
+
 instance (CoerceCat k a b, con a, con b) => CoerceCat (Constrained con k) a b where
   coerceC = Constrained coerceC
 
 instance (ConstCat k b, con b) => ConstCat (Constrained con k) b where
   const = Constrained . const
+
+instance (TracedCat k, OpSat (Prod k) con) => TracedCat (Constrained con k) where
+  trace (Constrained fn) = Constrained $ trace fn
 
 instance OkFunctor (Constrained con k) f where
   okFunctor = okFunctor @(Constrained con k)
@@ -1330,6 +1343,9 @@ instance OkFunctor (Constrained con k) f where
 instance FunctorCat k f => FunctorCat (Constrained con k) f where
   fmapC (Constrained fn) = Constrained $ fmapC fn
   unzipC = Constrained unzipC
+
+instance (Applicative m, con a) => PointedCat (Constrained con (->)) m a where
+  pointC = Constrained pure
 
 instance (NumCat k a, con a) => NumCat (Constrained con k) a where
   negateC = Constrained negateC
