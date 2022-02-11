@@ -73,6 +73,10 @@ instance Additive () where
   {-# INLINE (^+^) #-} }
 
 ScalarType(Int)
+ScalarType(Int16)
+ScalarType(Int32)
+ScalarType(Int64)
+ScalarType(Int8)
 ScalarType(Integer)
 ScalarType(Float)
 ScalarType(Double)
@@ -84,6 +88,11 @@ ScalarType(CLLong)
 ScalarType(CIntMax)
 ScalarType(CDouble)
 ScalarType(CFloat)
+ScalarType(Word)
+ScalarType(Word16)
+ScalarType(Word32)
+ScalarType(Word64)
+ScalarType(Word8)
 
 instance Integral a => Additive (Ratio a) where
   zero  = 0
