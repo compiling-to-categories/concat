@@ -32,11 +32,34 @@ module ConCat.BuildDictionary
 import Data.Monoid (Any(..))
 import Data.Char (isSpace)
 import Control.Monad (filterM,when)
-
-import GhcPlugins
-
 import Control.Arrow (second)
 
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+import GHC.Core.Predicate
+import GHC.Core.TyCo.Rep (CoercionHole(..), Type(..))
+import GHC.Core.TyCon (isTupleTyCon)
+import GHC.Driver.Finder (findExposedPackageModule)
+import GHC.HsToCore.Binds
+import GHC.HsToCore.Monad
+import GHC.Plugins
+import GHC.Tc.Errors(warnAllUnsolved)
+import GHC.Tc.Module
+import GHC.Tc.Solver
+import GHC.Tc.Solver.Interact (solveSimpleGivens)
+import GHC.Tc.Solver.Monad -- (TcS,runTcS)
+import GHC.Tc.Types
+import GHC.Tc.Types.Constraint
+import GHC.Tc.Types.Evidence (evBindMapBinds)
+import GHC.Tc.Types.Origin
+import qualified GHC.Tc.Utils.Instantiate as TcMType
+import GHC.Tc.Utils.Monad (getCtLocM,traceTc)
+import GHC.Tc.Utils.Zonk (emptyZonkEnv,zonkEvBinds)
+import GHC.Types.Unique (mkUniqueGrimily)
+import qualified GHC.Types.Unique.Set as NonDetSet
+import GHC.Utils.Error (pprErrMsgBagWithLoc)
+import GHC.Utils.Encoding (zEncodeString)
+#else
+import GhcPlugins
 import TyCoRep (CoercionHole(..), Type(..))
 import TyCon (isTupleTyCon)
 import TcHsSyn (emptyZonkEnv,zonkEvBinds)
@@ -67,6 +90,7 @@ import TcRnDriver
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
 import qualified UniqSet as NonDetSet
 #endif
+#endif
 -- Temp
 -- import HERMIT.GHC.Typechecker (initTcFromModGuts)
 -- import ConCat.GHC
@@ -86,6 +110,20 @@ isFound _           = False
 
 moduleIsOkay :: HscEnv -> ModuleName -> IO Bool
 moduleIsOkay env mname = isFound <$> findExposedPackageModule env mname Nothing
+
+mkLocalId' :: HasDebugCallStack => Name -> Type -> Id
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+mkLocalId' n = mkLocalId n One
+#else
+mkLocalId' = mkLocalId
+#endif
+
+mkWildCase' :: CoreExpr -> Type -> Type -> [CoreAlt] -> CoreExpr
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+mkWildCase' ce t = mkWildCase ce (linear t)
+#else
+mkWildCase' = mkWildCase
+#endif
 
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
 uniqSetToList ::  UniqSet a -> [a]
@@ -203,7 +241,7 @@ reallyBuildDictionary env dflags guts uniqSupply _inScope evType evTypes ev goal
  where
    evIds = [ local
            | (evTy, unq) <- evTypes `zip` (uniqsFromSupply uniqSupply)
-           , let local = mkLocalId (mkSystemVarName unq evVarName) evTy ]
+           , let local = mkLocalId' (mkSystemVarName unq evVarName) evTy ]
    evIdSet = mkVarSet evIds
    reassemble Nothing =
      Left (text "unsolved constraints")
@@ -227,7 +265,7 @@ reallyBuildDictionary env dflags guts uniqSupply _inScope evType evTypes ev goal
              then dict
              else case evIds of
                     [evId] -> mkCoreLet (NonRec evId ev) dict
-                    _ -> mkWildCase ev evType goalTy [(DataAlt (tupleDataCon Boxed (length evIds)), evIds, dict)]
+                    _ -> mkWildCase' ev evType goalTy [(DataAlt (tupleDataCon Boxed (length evIds)), evIds, dict)]
 
 evVarName :: FastString
 evVarName = mkFastString "evidence"

@@ -22,6 +22,17 @@ module ConCat.Simplify (simplifyE) where
 
 import System.IO.Unsafe (unsafePerformIO)
 
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+import GHC.Core (emptyRuleEnv)
+import GHC.Core.FamInstEnv (emptyFamInstEnvs)
+import GHC.Core.Opt.OccurAnal (occurAnalyseExpr)
+import GHC.Core.Opt.Simplify (simplExpr)
+import GHC.Core.Opt.Simplify.Env
+import GHC.Core.Opt.Simplify.Monad (SimplM,initSmpl)
+import GHC.Core.Stats (exprSize)
+import GHC.Plugins
+import qualified GHC.Utils.Error as Err
+#else
 import GhcPlugins
 import Simplify (simplExpr)
 import SimplMonad (SimplM,initSmpl)
@@ -31,7 +42,14 @@ import SimplEnv
 import CoreStats (exprSize)
 import OccurAnal (occurAnalyseExpr)
 import FamInstEnv (emptyFamInstEnvs)
+#endif
 
+dumpIfSet_dyn' :: DynFlags -> DumpFlag -> String -> SDoc -> IO ()
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+dumpIfSet_dyn' dflags dumpFlag str = Err.dumpIfSet_dyn dflags dumpFlag str Err.FormatCore
+#else
+dumpIfSet_dyn' = Err.dumpIfSet_dyn
+#endif
 
 {--------------------------------------------------------------------
     Simplification
@@ -60,8 +78,8 @@ simplifyExpr dflags inline expr
                             (simplExprGently (simplEnvForCcc dflags inline) expr)
        Err.dumpIfSet dflags (dopt Opt_D_dump_simpl_stats dflags)
                "Simplifier statistics" (pprSimplCount counts)
-       Err.dumpIfSet_dyn dflags Opt_D_dump_simpl "Simplified expression"
-                     (ppr expr')
+       dumpIfSet_dyn' dflags Opt_D_dump_simpl "Simplified expression"
+                      (ppr expr')
        return expr'
 
 -- Copied from SimplCore (not exported)

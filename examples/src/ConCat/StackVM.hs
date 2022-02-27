@@ -58,8 +58,8 @@ evalStackFun (SF f) = rcounit . f . runit
 
 instance Category StackFun where
   id = stackFun id
-  -- SF g . SF f = SF (g . f)
-  (.) = inSF2 (.)
+  SF g . SF f = SF (g . f)
+  -- (.) = inSF2 (.)
   {-# INLINE id #-}
   {-# INLINE (.) #-}
 
@@ -70,9 +70,9 @@ instance AssociativePCat StackFun where
   {-# INLINE rassocP #-}
 
 instance MonoidalPCat StackFun where
-  first = inSF inRassocP -- okay
+  -- first = inSF inRassocP -- okay
   -- first (SF f) = SF (inRassocP f)
-  -- first (SF f) = SF (lassocP . f . rassocP)
+  first (SF f) = SF (lassocP . f . rassocP)
   -- first (SF f) = SF lassocP . SF f . SF rassocP -- doesn't type-check
   second = secondFirst
   f *** g = second g . first f

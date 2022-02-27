@@ -10,11 +10,19 @@ module ConCat.Satisfy.Plugin where
 import System.IO.Unsafe (unsafePerformIO)
 
 -- GHC API
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+import GHC.Core.Class (classAllSelIds)
+import GHC.Core.Make (mkCoreTup)
+import GHC.Plugins as GHC
+import GHC.Runtime.Loader
+import GHC.Types.Id.Make (mkDictSelRhs)
+#else
 import GhcPlugins as GHC
 import Class (classAllSelIds)
 import MkId (mkDictSelRhs)
 import MkCore (mkCoreTup)
 import DynamicLoading
+#endif
 
 import ConCat.BuildDictionary (buildDictionary, annotateEvidence)
 import ConCat.Inline.Plugin (findId)
@@ -48,7 +56,7 @@ install _opts todos =
               addRule guts =
                 do satisfyPV <- findId "ConCat.Satisfy" "satisfy'"
                    pprTrace "adding satisfyRule" empty (return ())
-                   return (on_mg_rules (++ [satisfyRule hscEnv guts uniqSupply satisfyPV]) guts)
+                   return (on_mg_rules (++ [satisfyRule hscEnv guts uniqSupply satisfyPV dflags]) guts)
               isOurRule r = (isBuiltinRule r) && (ru_name r == satisfyRuleName)
               delRule guts =
                 do pprTrace "removing satisfyRule" empty (return ())
@@ -89,12 +97,12 @@ satisfyRuleName :: FastString
 satisfyRuleName = fsLit "satisfy'Rule"
 -- satisfy :: forall c z. (c => z) -> z
 
-satisfyRule :: HscEnv -> ModGuts -> UniqSupply -> Id -> CoreRule
-satisfyRule env guts uniqSupply satisfyPV = BuiltinRule
+satisfyRule :: HscEnv -> ModGuts -> UniqSupply -> Id -> DynFlags -> CoreRule
+satisfyRule env guts uniqSupply satisfyPV dflags = BuiltinRule
   { ru_name  = satisfyRuleName
   , ru_fn    = varName satisfyPV
   , ru_nargs = 5  -- including type args
-  , ru_try   = satisfy env guts uniqSupply
+  , ru_try   = const $ satisfy env guts uniqSupply dflags
   }
 
 satisfy :: HscEnv -> ModGuts -> UniqSupply -> DynFlags -> InScopeEnv -> Id -> [CoreExpr] -> Maybe CoreExpr

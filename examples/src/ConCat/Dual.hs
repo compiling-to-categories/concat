@@ -224,7 +224,7 @@ instance (PointedCat k h a, Additive a) => AddCat (Dual k) h a where
   sumAC = abst pointC
   {-# INLINE sumAC #-}
 
-instance (AddCat k h a, OkF k h) => PointedCat (Dual k) h a where
+instance (AddCat k h a, Additive a, OkF k h) => PointedCat (Dual k) h a where
   pointC = abst sumAC
   {-# INLINE pointC #-}
 
