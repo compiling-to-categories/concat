@@ -1,3 +1,26 @@
+source-repository-package
+  type: git
+  location: https://github.com/ku-fpg/netlist.git
+  tag: master
+  subdir: netlist
+
+source-repository-package
+  type: git
+  location: https://github.com/ku-fpg/netlist.git
+  tag: master
+  subdir: netlist-to-verilog
+
+source-repository-package
+  type: git
+  location: https://github.com/ku-fpg/netlist.git
+  tag: master
+  subdir: verilog
+
+source-repository-package
+  type: git
+  location: https://github.com/expipiplus1/vector-sized.git
+  tag: master
+
 packages:
           ./inline/concat-inline.cabal
           ./plugin/concat-plugin.cabal
@@ -8,8 +31,4 @@ packages:
           ./hardware/concat-hardware.cabal
           ./graphics/concat-graphics.cabal
           ./examples/concat-examples.cabal
-          ./../netlist-kit-kufp/*/*.cabal
-          --- cloned from git@github.com:ku-fpg/netlist.git
-          ./../vector-sized/*.cabal
-          --- cloned from git@github.com:expipiplus1/vector-sized.git
 documentation: False
