@@ -1,0 +1,38 @@
+name: concat
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types:
+      - opened
+      - synchronize
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ghc:
+          # - "8.0.2" # We've (temporarily?) lost support for these, but still
+          # - "8.2.2" # have conditional compilation for them. We should either
+          # - "8.4.1" # fix (some) of them or remove the CPP.
+          # - "8.6.1"
+          - "8.8.1"
+          - "8.10.1"
+    steps:
+      - uses: actions/checkout@v2
+      - uses: haskell/actions/setup@v1
+        id: setup-haskell-cabal
+        with:
+          ghc-version: ${{ matrix.ghc }}
+          cabal-version: "3.6.0.0"
+      - run: cabal v2-update
+      - run: cabal v2-freeze $CONFIG
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
+            dist-newstyle
+          key: ${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
+      - run: cabal new-build all
+      - run: cabal new-test gold-tests
