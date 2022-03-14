@@ -16,11 +16,6 @@ source-repository-package
   tag: master
   subdir: verilog
 
-source-repository-package
-  type: git
-  location: https://github.com/expipiplus1/vector-sized.git
-  tag: master
-
 packages:
           ./inline/concat-inline.cabal
           ./plugin/concat-plugin.cabal
