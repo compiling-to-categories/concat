@@ -73,6 +73,13 @@ import qualified UniqSet as NonDetSet
 
 import ConCat.Simplify
 
+isEvVarType' :: Type -> Bool
+#if MIN_VERSION_GLASGOW_HASKELL(8, 8, 0, 0)
+isEvVarType' = isEvVarType
+#else
+isEvVarType' = isPredType
+#endif
+
 isFound :: FindResult -> Bool
 isFound (Found _ _) = True
 isFound _           = False
@@ -184,7 +191,7 @@ buildDictionary :: HscEnv -> DynFlags -> ModGuts -> UniqSupply -> InScopeEnv -> 
 buildDictionary env dflags guts uniqSupply inScope evType@(TyConApp tyCon evTypes) ev goalTy | isTupleTyCon tyCon =
   reallyBuildDictionary env dflags guts uniqSupply inScope evType evTypes ev goalTy
 -- only 1-tuples in Haskell  
-buildDictionary env dflags guts uniqSupply inScope evType ev goalTy | isEvVarType evType =
+buildDictionary env dflags guts uniqSupply inScope evType ev goalTy | isEvVarType' evType =
   reallyBuildDictionary env dflags guts uniqSupply inScope evType [evType] ev goalTy
 buildDictionary _env _dflags _guts _uniqSupply _inScope evT _ev _goalTy = pprPanic "evidence type mismatch" (ppr evT)
                                                          

@@ -16,7 +16,7 @@ jobs:
           # - "8.0.2" # We've (temporarily?) lost support for these, but still
           # - "8.2.2" # have conditional compilation for them. We should either
           # - "8.4.1" # fix (some) of them or remove the CPP.
-          # - "8.6.1"
+          - "8.6.1"
           - "8.8.1"
           - "8.10.1"
     steps:
