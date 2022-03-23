@@ -10,6 +10,11 @@ module ConCat.Satisfy.Plugin where
 import System.IO.Unsafe (unsafePerformIO)
 
 -- GHC API
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+import GHC.Core.Unfold (defaultUnfoldingOpts)
+import qualified GHC.Driver.Backend as Backend
+import GHC.Utils.Logger (getLogger)
+#endif
 #if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
 import GHC.Core.Class (classAllSelIds)
 import GHC.Core.Make (mkCoreTup)
@@ -43,8 +48,14 @@ install _opts todos =
   do dflags <- getDynFlags
      -- Unfortunately, the plugin doesn't work in GHCi. Until fixed,
      -- disable under GHCi, so we can at least type-check conveniently.
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+     logger <- getLogger
+     if backend dflags == Backend.Interpreter then
+        return todos
+#else
      if hscTarget dflags == HscInterpreted then
         return todos
+#endif
       else do
 #if !MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
           reinitializeGlobals
@@ -74,6 +85,12 @@ install _opts todos =
                             , sm_inline     = False -- important
                             , sm_eta_expand = False -- ??
                             , sm_case_case  = True
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+                            , sm_uf_opts = defaultUnfoldingOpts
+                            , sm_pre_inline = False
+                            , sm_logger = logger
+
+#endif
 #if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
                             , sm_dflags     = dflags
 #endif

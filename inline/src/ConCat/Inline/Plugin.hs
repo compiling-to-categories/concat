@@ -12,6 +12,10 @@ import qualified ConCat.Inline.ClassOp as CO
 import Data.List (elemIndex)
 
 -- GHC API
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+import qualified GHC.Driver.Backend as Backend
+import GHC.Types.TyThing (lookupId, lookupTyCon)
+#endif
 #if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
 import GHC.Core.Class (classAllSelIds)
 import GHC.Plugins
@@ -36,9 +40,14 @@ install _opts todos =
   do dflags <- getDynFlags
      -- Unfortunately, the plugin doesn't work in GHCi. Until fixed,
      -- disable under GHCi, so we can at least type-check conveniently.
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+     if backend dflags == Backend.Interpreter then
+        return todos
+#else
      if hscTarget dflags == HscInterpreted then
         return todos
-      else
+#endif
+     else
        do
 #if !MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
           reinitializeGlobals

@@ -59,7 +59,11 @@ import GHC.Runtime.Loader
 import GHC.Tc.Utils.TcType (isFloatTy,isDoubleTy,isIntegerTy,isIntTy,isBoolTy,isUnitTy
                            ,tcSplitTyConApp_maybe)
 import GHC.Types.Id.Make (mkDictSelRhs,coerceId)
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+import GHC.Builtin.Uniques (mkBuiltinUnique)
+#else
 import GHC.Types.Unique (mkBuiltinUnique)
+#endif
 import qualified GHC.Types.Unique.DFM as DFMap
 #else
 import GhcPlugins as GHC hiding (substTy,cat)
