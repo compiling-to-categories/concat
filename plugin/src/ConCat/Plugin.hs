@@ -466,12 +466,6 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      -- (\ x -> let y = f x in g y) --> g . f
      -- (\ x -> let y = RHS in BODY) --> (\ y -> BODY) . (\ x -> RHS)
      --    if x not free in B
-     Trying("lam Let compose")
-     Let (NonRec y rhs) body'
-       | not (x `isFreeIn` body')
-       , Just comp <- mkCompose' cat (mkCcc (Lam y body')) (mkCcc (Lam x rhs))
-       -> Doing("lam Let compose")
-          return comp
      Trying("lam Let")
      -- TODO: refactor with top Let
      _e@(Let bind@(NonRec v rhs) body') ->
@@ -504,6 +498,12 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      -- _e@(Let bind@(Rec [(v,rhs)]) body') ->
      --    Doing("lam letrec")
      --    undefined
+     Trying("lam Let compose")
+     Let (NonRec y rhs) body'
+       | not (x `isFreeIn` body')
+       , Just comp <- mkCompose' cat (mkCcc (Lam y body')) (mkCcc (Lam x rhs))
+       -> Doing("lam Let compose")
+          return comp
      Trying("lam inner eta-reduce")
      (etaReduce_maybe -> Just e') ->
        Doing("lam inner eta-reduce")
