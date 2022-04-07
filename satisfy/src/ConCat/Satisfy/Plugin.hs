@@ -85,11 +85,13 @@ install _opts todos =
                             , sm_inline     = False -- important
                             , sm_eta_expand = False -- ??
                             , sm_case_case  = True
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,2,0)
+                            , sm_cast_swizzle  = True
+#endif
 #if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
                             , sm_uf_opts = defaultUnfoldingOpts
                             , sm_pre_inline = False
                             , sm_logger = logger
-
 #endif
 #if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
                             , sm_dflags     = dflags

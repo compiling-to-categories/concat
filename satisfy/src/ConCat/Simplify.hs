@@ -125,6 +125,9 @@ simplEnvForCcc dflags inline logger
                            , sm_pre_inline = inline
                            , sm_logger = logger
                            , sm_dflags = dflags
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,2,0)
+                           , sm_cast_swizzle = True
+#endif
                            }
   where
     rules_on      = gopt Opt_EnableRewriteRules   dflags
