@@ -795,10 +795,12 @@ ccc (CccEnv {..}) (Ops {..}) cat =
     | not (null ts)
     = pprPanic "goCoercion': oddly kinded FunCo" (ppr co $$ ppr ts)
 
-   -- If we have "<t>_R -> co2", then we can use the Functor instance for "(->) t"
+   -- If we have "<t>_R -> co2", and a suitable FuncorCat instance exists,
+   -- we can use fmapC
     | Just (ty1, _role) <- isReflCo_maybe co1
-    = let h = mkTyConApp funTyCon [liftedRepTy, liftedRepTy, ty1]
-      in onDict (onDict (Var fmapV `mkTyApps` [cat, h, ty21, ty22])) `App` goCoercion pol co2 []
+    , let h = mkTyConApp funTyCon [liftedRepTy, liftedRepTy, ty1]
+    , Just exp_out <- onDictMaybe =<< catOpMaybe cat fmapV [h, ty21, ty22]
+    = exp_out `App` goCoercion pol co2 []
     where Pair ty21 ty22 = (if pol then id else swap) $ coercionKind co2
 
    goCoercion' pol co ts
