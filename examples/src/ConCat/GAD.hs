@@ -320,7 +320,7 @@ instance (ProductCat k, ConstCat k Bool, Ok2 k Bool a) => IfCat (GD k) a where
     Functor-level operations
 --------------------------------------------------------------------}
 
-instance (IxProductCat k h, FunctorCat k h) => FunctorCat (GD k) h where
+instance (IxProductCat k h, Functor h, FunctorCat k h) => FunctorCat (GD k) h where
   fmapC = inAbst (\ q -> second crossF . unzipC . fmapC q)
   Linear(unzipC)
   {-# INLINE fmapC #-}
