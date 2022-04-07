@@ -2029,7 +2029,7 @@ instance (OkFunctor k h, OkFunctor k' h)
       => OkFunctor (k :**: k') h where
   okFunctor = inForkCon (okFunctor @k *** okFunctor @k')
 
-class (Functor h, OkFunctor k h) => FunctorCat k h where
+class OkFunctor k h => FunctorCat k h where
   fmapC :: Ok2 k a b => (a `k` b) -> (h a `k` h b)
   unzipC :: forall a b. Ok2 k a b => h (a :* b) `k` (h a :* h b)
 #if 0
