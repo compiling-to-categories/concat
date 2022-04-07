@@ -704,18 +704,18 @@ ccc (CccEnv {..}) (Ops {..}) cat =
    -- goCoercion checks that the output types make sense; goCoercion' does the work
    goCoercion :: Bool -> Coercion -> [Type] -> CoreExpr
    goCoercion pol co ts
-     | Just (t1',t2') <- tyArgs2_maybe (exprType exp)
+     | Just (t1',t2') <- tyArgs2_maybe (exprType exp_out)
      , (t1 `mkAppTys` ts) `eqType` t1'
      , (t2 `mkAppTys` ts) `eqType` t2'
-     = exp
-     | Just (t1',t2') <- tyArgs2_maybe (exprType exp)
+     = exp_out
+     | Just (t1',t2') <- tyArgs2_maybe (exprType exp_out)
      = pprPanic "goCoercion mismatch:" $
-       ppr pol $$ ppr co $$ ppr (coercionKind co) $$ ppr ts $$ ppr (Pair t1' t2') $$ ppr exp
+       ppr pol $$ ppr co $$ ppr (coercionKind co) $$ ppr ts $$ ppr (Pair t1' t2') $$ ppr exp_out
      | otherwise
      = pprPanic "goCoercion not returning categorial arrow:" $
-       ppr pol $$ ppr co $$ ppr (coercionKind co) $$ ppr ts $$ pprWithType exp
+       ppr pol $$ ppr co $$ ppr (coercionKind co) $$ ppr ts $$ pprWithType exp_out
 
-     where exp = goCoercion' pol co ts
+     where exp_out = goCoercion' pol co ts
            Pair t1 t2 = (if pol then id else swap) $ coercionKind co
 
    -- Reflexivity
@@ -758,7 +758,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
    -- Newtype wrapper
    -- This is (very likely) a newtype, so lets see if mkReprC (or mkAbstC) works
    -- For now, the type arguments must not be coerced (usually there are none for newtypes)
-   goCoercion' pol co@(AxiomInstCo _ 0 cos) ts | all isReflCo cos
+   goCoercion' pol co@(AxiomInstCo _ 0 cos1) ts | all isReflCo cos1
     -- = mkReprC' cat (t1 `mkAppTys` ts)
     = fromMaybe (pprPanic "goCoercion AxiomInstCo: failed catOpMaybe" (ppr co)) $
       catOpMaybe cat (if pol then reprCV else abstCV) [t1 `mkAppTys` ts, t2 `mkAppTys` ts]
@@ -781,15 +781,15 @@ ccc (CccEnv {..}) (Ops {..}) cat =
    -- This will probably loop for recursive newtypes (newtype Stream = MkS (Double, Stream))
    --
    -- TODO: think this through for pol = False
-   goCoercion' pol (AxiomInstCo ax 0 cos) ts
+   goCoercion' pol (AxiomInstCo ax 0 cos1) ts
      = goCoercion pol (mkTransCo co1 co2) ts
      where
-       co1 = AxiomInstCo ax 0 cos'
+       co1 = AxiomInstCo ax 0 cos1'
        ax_branch = coAxiomNthBranch ax 0
        -- Experimental hack: Hardcoded for the Dual newtype’s RHS
        --co2 = mkAppCos c1 [c3,c2]
-       co2 = liftCoSubstWith Representational (coAxBranchTyVars ax_branch) cos (coAxBranchRHS ax_branch)
-       cos' = [ mkReflCo (coercionRole arg_co) (pFst (coercionKind arg_co)) | arg_co <- cos ]
+       co2 = liftCoSubstWith Representational (coAxBranchTyVars ax_branch) cos1 (coAxBranchRHS ax_branch)
+       cos1' = [ mkReflCo (coercionRole arg_co) (pFst (coercionKind arg_co)) | arg_co <- cos1 ]
 
    goCoercion' pol co@(FunCo Representational co1 co2) ts
     | not (null ts)
