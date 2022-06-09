@@ -55,6 +55,9 @@ import GHC.Core.SimpleOpt (simpleOptExpr)
 import GHC.Core.TyCo.Rep
 import GHC.Core.Type (coreView)
 import GHC.Core.Coercion.Axiom
+import GHC.Core.Coercion.Opt (optCoercion)
+import GHC.Core.TyCo.Subst (emptyTCvSubst)
+import GHC.Driver.Config (initOptCoercionOpts)
 import GHC.Data.Pair (Pair(..), swap)
 import GHC.Driver.Backend (Backend(..))
 import GHC.Plugins as GHC hiding (substTy,cat)
@@ -96,6 +99,8 @@ import qualified UniqDFM as DFMap
 import TyCoRep
 import Unique (mkBuiltinUnique)
 import CoAxiom (coAxiomNthBranch, coAxBranchTyVars, coAxBranchRHS)
+import OptCoercion (optCoercion)
+import TyCoSubst (emptyTCvSubst)
 #endif
 import GHC.Classes
 
@@ -330,7 +335,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        | dtrace "found representational cast" (ppr (exprType e, exprType e', co)) False -> undefined
        -- | FunTy' a  b  <- exprType e
        -- | FunTy' a' b' <- exprType e'
-       | FunCo' Representational co1 co2 <- co
+       | FunCo' Representational co1 co2 <- optimizeCoercion co
        --, Just coA    <- mkCoerceC_maybe cat a a'
        --, Just coB    <- mkCoerceC_maybe cat b' b
        , let coA    = goCoercion True co1 [] -- a a'
@@ -952,6 +957,7 @@ data Ops = Ops
  , isPseudoApp    :: CoreExpr -> Bool
  , normType       :: Role -> Type -> (Coercion, Type)
  , okType         :: Type -> Bool
+ , optimizeCoercion :: Coercion -> Coercion
  }
 
 mkOps :: CccEnv -> ModGuts -> AnnEnv -> FamInstEnvs
@@ -1385,6 +1391,11 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
     where
       pseudoAnns :: Id -> [PseudoFun]
       pseudoAnns = findAnns deserializeWithData annotations . NamedTarget . varName
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+   optimizeCoercion = optCoercion (initOptCoercionOpts dflags) emptyTCvSubst
+#else  
+   optimizeCoercion = optCoercion dflags emptyTCvSubst
+#endif                      
 
 substFriendly :: Bool -> CoreExpr -> Bool
 -- substFriendly catClosed rhs
