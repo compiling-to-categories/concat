@@ -43,7 +43,8 @@ import Data.IORef
 #if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
 import GHC.Builtin.Names (leftDataConName,rightDataConName
                          ,floatTyConKey,doubleTyConKey,integerTyConKey
-                         ,intTyConKey,boolTyConKey)
+                         ,intTyConKey,boolTyConKey
+                         ,typeRepTyConName)
 import GHC.Builtin.Types.Prim (intPrimTyCon)
 import GHC.Core.Class (classAllSelIds)
 -- For normaliseType etc
@@ -85,7 +86,8 @@ import MkId (mkDictSelRhs,coerceId)
 import Pair (Pair(..), swap)
 import PrelNames (leftDataConName,rightDataConName
                  ,floatTyConKey,doubleTyConKey,integerTyConKey
-                 ,intTyConKey,boolTyConKey)
+                 ,intTyConKey,boolTyConKey
+                 ,typeRepTyConName)
 import Type (coreView)
 import TcType (isFloatTy,isDoubleTy,isIntegerTy,isIntTy,isBoolTy,isUnitTy
               ,tcSplitTyConApp_maybe)
@@ -1407,6 +1409,7 @@ substFriendly :: Bool -> CoreExpr -> Bool
 substFriendly catClosed rhs =
      not (liftedExpr rhs)
   --  || substFriendlyTy (exprType rhs)
+  || substFriendlyTy' (exprType rhs) -- experiment
   || incompleteCatOp rhs
   || -- pprTrace "isTrivial" (ppr rhs <+> text "-->" <+> ppr (isTrivial rhs))
      (isTrivial rhs)
@@ -1454,6 +1457,14 @@ substFriendlyTy :: Type -> Bool
 substFriendlyTy (coreView -> Just ty) = substFriendlyTy ty
 substFriendlyTy (splitTyConApp_maybe -> Just (tc,tys)) = isFunTyCon tc || any substFriendlyTy tys
 substFriendlyTy _ = False
+
+-- This variant only checks if we're dealing with TypeRep expressions.
+-- These are effectively dictionary constructions for Typeable, but aren't
+-- applications of dictionary constructors.  We want the bindings for these
+-- to let-float, definitely not turned into a beta redex.
+substFriendlyTy' :: Type -> Bool
+substFriendlyTy' (TyConApp tc@(isAlgTyCon -> True) _) = tyConName tc == typeRepTyConName
+substFriendlyTy' _ = False
 
 catModule :: String
 catModule = "ConCat.AltCat"
