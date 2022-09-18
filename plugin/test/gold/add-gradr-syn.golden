@@ -1,4 +1,4 @@
 ((exl . id ***
-  apply . ((coerce . exr *** const 1.0) . dup) . (id *** exr . id) . dup) .
+  apply . ((repr . exr *** const 1.0) . dup) . (id *** exr . id) . dup) .
  dup) .
-(addC *** coerce . coerce . coerce . curry (dup . exr)) . dup
+(addC *** id . repr . abst . abst . curry (dup . exr)) . dup

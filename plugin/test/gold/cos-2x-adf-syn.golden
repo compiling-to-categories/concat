@@ -1,14 +1,14 @@
-second coerce .
+second (id . repr) .
 apply .
 ((curry
   ((exr ***
     apply .
     (coerce .
-     curry (apply . (exl *** coerce . exr) . dup) .
+     curry (apply . (exl *** repr . exr) . dup) .
      curry
      (curry (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
-     coerce .
-     coerce .
+     repr .
+     abst .
      curry mulC .
      apply . (curry exl . negateC . sinC . exl . exl *** exr) . dup ***
      exr . exl) .
@@ -21,10 +21,10 @@ apply .
   ((exl . exr ***
     apply .
     (coerce .
-     curry (apply . (exl *** coerce . exr) . dup) .
+     curry (apply . (exl *** repr . exr) . dup) .
      curry
      (curry (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
-     coerce . exr . exr ***
+     repr . exr . exr ***
      exr . exl) .
     dup) .
    dup) ***
@@ -39,11 +39,11 @@ apply .
         ((apply . (exl . exl *** exl . exr) . dup ***
           apply . (exr . exl *** exr . exr) . dup) .
          dup)) .
-       coerce . exl ***
-       coerce . exr) .
+       repr . exl ***
+       repr . exr) .
       dup) .
-     coerce . curry mulC . exr ***
-     coerce . curry mulC . exl) .
+     abst . curry mulC . exr ***
+     abst . curry mulC . exl) .
     dup) .
    dup) .
   exl) .
@@ -51,11 +51,11 @@ apply .
 ((exl ***
   apply .
   (coerce .
-   curry (apply . (exl *** coerce . exr) . dup) .
+   curry (apply . (exl *** repr . exr) . dup) .
    curry
    (curry (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
-   coerce . exr ***
-   coerce . curry (dup . exr)) .
+   repr . exr ***
+   abst . curry (dup . exr)) .
   dup) .
  dup) .
 apply .
@@ -65,18 +65,18 @@ apply .
     (((exl . exr *** exl . exr . exl) . dup ***
       apply .
       (coerce .
-       curry (apply . (exl *** coerce . exr) . dup) .
+       curry (apply . (exl *** repr . exr) . dup) .
        curry
        (curry
         ((apply . (exl . exl *** exl . exr) . dup ***
           apply . (exr . exl *** exr . exr) . dup) .
          dup)) .
-       coerce . exr . exr ***
+       repr . exr . exr ***
        exr . exr . exl) .
       dup) .
      dup) ***
-    ((const 2.0 *** coerce . curry exl . const 0.0) . dup) . exl . exl) .
+    ((const 2.0 *** abst . curry exl . const 0.0) . dup) . exl . exl) .
    dup) ***
-  ((id *** coerce . curry exr) . dup) . exr) .
+  ((id *** abst . curry exr) . dup) . exr) .
  dup) .
 dup
