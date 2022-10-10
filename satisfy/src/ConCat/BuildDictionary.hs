@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -Wall #-}
 
@@ -29,36 +30,40 @@ module ConCat.BuildDictionary
   ,annotateEvidence
   ) where
 
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid (Any(..))
 import Data.Char (isSpace)
-import Control.Monad (filterM,when)
+import qualified Data.List.NonEmpty as NonEmpty
+import Control.Monad (filterM,join,when)
 
-import GhcPlugins
+import GhcPlugins hiding (plugins)
 
-import Control.Arrow (second)
+import Control.Arrow (first, second)
 
 import TyCoRep (CoercionHole(..), Type(..))
 import TyCon (isTupleTyCon)
 import TcHsSyn (emptyZonkEnv,zonkEvBinds)
-import           TcRnMonad (getCtLocM,traceTc)
+import           TcRnMonad (failM,getCtLocM,getEnvs,newTcEvBinds,setEnvs,traceTc,tryM,updGblEnv)
 #if MIN_VERSION_GLASGOW_HASKELL(8,10,0,0)
 import Constraint
 import TcOrigin
 import Predicate
+import TcHoleFitTypes
 #else
 import           TcRnTypes (cc_ev)
 #endif
 import TcInteract (solveSimpleGivens)
-import TcSMonad -- (TcS,runTcS)
+import TcSMonad hiding (newTcEvBinds) -- (TcS,runTcS)
 import TcEvidence (evBindMapBinds)
 import TcErrors(warnAllUnsolved)
 import qualified TcMType as TcMType
 
+import Bag
 import DsMonad
 import DsBinds
 import           TcSimplify
 import           TcRnTypes
-import ErrUtils (pprErrMsgBagWithLoc)
+import ErrUtils (Messages, pprErrMsgBagWithLoc)
 import Encoding (zEncodeString)
 import Unique (mkUniqueGrimily)
 import Finder (findExposedPackageModule)
@@ -72,13 +77,6 @@ import qualified UniqSet as NonDetSet
 -- import ConCat.GHC
 
 import ConCat.Simplify
-
-isFound :: FindResult -> Bool
-isFound (Found _ _) = True
-isFound _           = False
-
-moduleIsOkay :: HscEnv -> ModuleName -> IO Bool
-moduleIsOkay env mname = isFound <$> findExposedPackageModule env mname Nothing
 
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
 uniqSetToList ::  UniqSet a -> [a]
@@ -99,95 +97,81 @@ traceTcS' str doc = pprTrace' str doc (return ())
 traceTc' :: String -> SDoc -> TcRn ()
 traceTc' str doc = pprTrace' str doc (return ())
 
-runTcM :: HscEnv -> DynFlags -> ModGuts -> TcM a -> IO a
-runTcM env0 dflags guts m = do
-    -- Remove hidden modules from dep_orphans
-    orphans <- filterM (moduleIsOkay env0) (moduleName <$> dep_orphs (mg_deps guts))
-    -- pprTrace' "runTcM orphans" (ppr orphans) (return ())
-    (msgs, mr) <- runTcInteractive (env orphans) m
-    let showMsgs (warns, errs) = showSDoc dflags $ vcat $
-              text "Errors:"   : pprErrMsgBagWithLoc errs
-           ++ text "Warnings:" : pprErrMsgBagWithLoc warns
-    maybe (fail $ showMsgs msgs) return mr
- where
-   imports0 = ic_imports (hsc_IC env0)
-   env :: [ModuleName] -> HscEnv
-   env extraModuleNames =
-     -- pprTrace' "runTcM extraModuleNames" (ppr extraModuleNames) $
-     -- pprTrace' "runTcM dep_mods" (ppr (dep_mods (mg_deps guts))) $
-     -- pprTrace' "runTcM dep_orphs" (ppr (dep_orphs (mg_deps guts))) $
-     -- pprTrace' "runTcM dep_finsts" (ppr (dep_finsts (mg_deps guts))) $
-     -- pprTrace' "runTcM mg_insts" (ppr (mg_insts guts)) $
-     -- pprTrace' "runTcM fam_mg_insts" (ppr (mg_fam_insts guts)) $
-     -- pprTrace' "runTcM imports0" (ppr imports0) $
-     -- pprTrace' "runTcM mg_rdr_env guts" (ppr (mg_rdr_env guts)) $
-     -- pprTrace' "runTcM ic_rn_gbl_env" (ppr (ic_rn_gbl_env (hsc_IC env0))) $
-     env0 { hsc_IC = (hsc_IC env0)
-             { ic_imports = map IIModule extraModuleNames ++ imports0
-             , ic_rn_gbl_env = mg_rdr_env guts
-             , ic_instances = (mg_insts guts, mg_fam_insts guts)
-             } }
-     -- env0
+runDsM :: HscEnv -> DynFlags -> ModGuts -> DsM (Messages, Maybe a) -> IO a
+runDsM env dflags guts m = do
+  ((warns0, errs0), ((warns1, errs1), r)) <-
+    second (first NonEmpty.unzip . NonEmpty.unzip) <$> initDsWithModGuts env guts m
+  let msgs = (warns0 `unionBags` fromMaybe emptyBag warns1, errs0 `unionBags` fromMaybe emptyBag errs1)
+      showMsgs (warns, errs) = showSDoc dflags $ vcat $
+            text "Errors:"   : pprErrMsgBagWithLoc errs
+         ++ text "Warnings:" : pprErrMsgBagWithLoc warns
+  maybe (fail $ showMsgs msgs) return (join r)
 
 -- TODO: Try initTcForLookup or initTcInteractive in place of initTcFromModGuts.
 -- If successful, drop dflags and guts arguments.
 
-runDsM :: HscEnv -> DynFlags -> ModGuts -> DsM a -> IO a
-runDsM env dflags guts = runTcM env dflags guts . initDsTc
-
 -- | Build a dictionary for the given id
 buildDictionary' :: HscEnv -> DynFlags -> ModGuts -> VarSet -> Type
                  -> IO (Maybe (Id, [CoreBind]))
-buildDictionary' env dflags guts evIds predTy =
-  do res <-
-       runTcM env dflags guts $
-       do loc <- getCtLocM (GivenOrigin UnkSkol) Nothing
-          evidence <- TcMType.newWanted (GivenOrigin UnkSkol) Nothing predTy
-          let EvVarDest evarDest = ctev_dest evidence
-              givens = mkGivens loc (uniqSetToList evIds)
-              wCs = mkSimpleWC [evidence]
-          -- TODO: Make sure solveWanteds is the right function to call.
-          traceTc' "buildDictionary': givens" (ppr givens)
-          (wantedConstraints, bnds0) <-
-            second evBindMapBinds <$>
-            runTcS (do _ <- solveSimpleGivens givens
-                       traceTcS' "buildDictionary' back from solveSimpleGivens" empty
-                       z <- solveWanteds wCs
-                       traceTcS' "buildDictionary' back from solveWanteds" (ppr z)
-                       return z
-                   )
-          traceTc' "buildDictionary' back from runTcS" (ppr bnds0)
+buildDictionary' env dflags guts evIds predTy = runDsM env dflags guts $ do
+  (msgs, evarAndBs) <- DsMonad.initTcDsForSolver . withTcPlugins env . withHoleFitPlugins env $ do
+    loc <- getCtLocM (GivenOrigin UnkSkol) Nothing
+    evidence <- TcMType.newWanted (GivenOrigin UnkSkol) Nothing predTy
+    let EvVarDest evarDest = ctev_dest evidence
+        givens = mkGivens loc (uniqSetToList evIds)
+        wCs = mkSimpleWC [evidence]
+    -- TODO: Make sure solveWanteds is the right function to call.
+    traceTc' "buildDictionary': givens" (ppr givens)
+    (gbl0, lcl) <- getEnvs
+    let imports0 = tcg_imports gbl0
+        imports = imports0 {imp_orphs = imp_orphs imports0 ++ dep_orphs (mg_deps guts)}
+        gbl = gbl0 {tcg_imports = imports}
+    setEnvs (gbl, lcl) $ do
+      (wantedConstraints, bnds0) <-
+        second evBindMapBinds <$>
+        runTcS (do _ <- solveSimpleGivens givens
+                   traceTcS' "buildDictionary' back from solveSimpleGivens" empty
+                   z <- solveWanteds wCs
+                   traceTcS' "buildDictionary' back from solveWanteds" (ppr z)
+                   return z
+                )
+      traceTc' "buildDictionary' back from runTcS" (ppr bnds0)
 #if MIN_VERSION_GLASGOW_HASKELL(8,8,0,0)
-          ez <- emptyZonkEnv
+      ez <- emptyZonkEnv
 #else
-          let ez = emptyZonkEnv
+      let ez = emptyZonkEnv
 #endif
-          -- Use the newly exported zonkEvBinds. <https://phabricator.haskell.org/D2088>
-          (_env',bnds) <- zonkEvBinds ez bnds0
-          -- traceTc "buildDictionary' _wCs'" (ppr _wCs')
-          -- changed next line from reportAllUnsolved, which panics. revisit and fix!
-          -- warnAllUnsolved _wCs'
-          traceTc' "buildDictionary' zonked" (ppr bnds)
-          if isEmptyWC wantedConstraints
-          then return (Just (evarDest, bnds))
-          else return Nothing
-     case res of
-       Just (i, bs) ->
-         do bs' <- runDsM env dflags guts (dsEvBinds bs)
-            return (Just (i, bs'))
-       Nothing -> return Nothing
-
+      -- Use the newly exported zonkEvBinds. <https://phabricator.haskell.org/D2088>
+      (_env',bnds) <- zonkEvBinds ez bnds0
+      -- traceTc "buildDictionary' _wCs'" (ppr _wCs')
+      -- changed next line from reportAllUnsolved, which panics. revisit and fix!
+      -- warnAllUnsolved _wCs'
+      traceTc' "buildDictionary' zonked" (ppr bnds)
+      if isEmptyWC wantedConstraints
+      then return (Just (evarDest, bnds))
+      else return Nothing
+  -- Outer Maybe signals initTcDsForSolver errors
+  -- Inner Maybe signals `isEmptyWC wantedConstraints = False`, i.e., some wanted constraints
+  -- are not solved
+  (msgs,)
+    <$> maybe
+      (return Nothing)
+      ( maybe
+          (return (Just Nothing))
+          (uncurry (\evar -> fmap (Just . Just . (evar,)) . dsEvBinds))
+      )
+      evarAndBs
 
 -- TODO: Try to combine the two runTcM calls.
 
 buildDictionary :: HscEnv -> DynFlags -> ModGuts -> UniqSupply -> InScopeEnv -> Type -> CoreExpr -> Type -> IO (Either SDoc CoreExpr)
 buildDictionary env dflags guts uniqSupply inScope evType@(TyConApp tyCon evTypes) ev goalTy | isTupleTyCon tyCon =
   reallyBuildDictionary env dflags guts uniqSupply inScope evType evTypes ev goalTy
--- only 1-tuples in Haskell  
+-- only 1-tuples in Haskell
 buildDictionary env dflags guts uniqSupply inScope evType ev goalTy | isEvVarType evType =
   reallyBuildDictionary env dflags guts uniqSupply inScope evType [evType] ev goalTy
 buildDictionary _env _dflags _guts _uniqSupply _inScope evT _ev _goalTy = pprPanic "evidence type mismatch" (ppr evT)
-                                                         
+
 reallyBuildDictionary :: HscEnv -> DynFlags -> ModGuts -> UniqSupply -> InScopeEnv -> Type -> [Type] -> CoreExpr -> Type -> IO (Either SDoc CoreExpr)
 reallyBuildDictionary env dflags guts uniqSupply _inScope evType evTypes ev goalTy =
   pprTrace' "\nbuildDictionary" (ppr goalTy) $
@@ -323,3 +307,55 @@ instance Outputable WithIdInfo where
   -- I wanted the full IdInfo, but it's not Outputtable
   -- ppr (WithIdInfo v) = ppr v <+> colon <+> ppr (occInfo (idInfo v))
   ppr (WithIdInfo v) = ppr v <+> colon <+> ppr (splitTyConApp_maybe (varType v))
+
+------------------------------------------------------------------
+-- The following is copied from GHC's TcRnDriver.hs since they are not exported.
+withTcPlugins :: HscEnv -> TcM a -> TcM a
+withTcPlugins hsc_env m =
+  do let plugins = getTcPlugins (hsc_dflags hsc_env)
+     case plugins of
+       [] -> m  -- Common fast case
+       _  -> do ev_binds_var <- newTcEvBinds
+                (solvers,stops) <- unzip `fmap` mapM (startPlugin ev_binds_var) plugins
+                -- This ensures that tcPluginStop is called even if a type
+                -- error occurs during compilation (Fix of #10078)
+                eitherRes <- tryM $ do
+                  updGblEnv (\e -> e { tcg_tc_plugins = solvers }) m
+                mapM_ (flip runTcPluginM ev_binds_var) stops
+                case eitherRes of
+                  Left _ -> failM
+                  Right res -> return res
+  where
+  startPlugin ev_binds_var (TcPlugin start solve stop) =
+    do s <- runTcPluginM start ev_binds_var
+       return (solve s, stop s)
+
+getTcPlugins :: DynFlags -> [TcRnTypes.TcPlugin]
+getTcPlugins dflags = catMaybes $ mapPlugins dflags (\p args -> tcPlugin p args)
+
+#if MIN_VERSION_GLASGOW_HASKELL(8,10,0,0)
+withHoleFitPlugins :: HscEnv -> TcM a -> TcM a
+withHoleFitPlugins hsc_env m =
+  case (getHfPlugins (hsc_dflags hsc_env)) of
+    [] -> m  -- Common fast case
+    plugins -> do (plugins,stops) <- unzip `fmap` mapM startPlugin plugins
+                  -- This ensures that hfPluginStop is called even if a type
+                  -- error occurs during compilation.
+                  eitherRes <- tryM $ do
+                    updGblEnv (\e -> e { tcg_hf_plugins = plugins }) m
+                  sequence_ stops
+                  case eitherRes of
+                    Left _ -> failM
+                    Right res -> return res
+  where
+    startPlugin (HoleFitPluginR init plugin stop) =
+      do ref <- init
+         return (plugin ref, stop ref)
+
+getHfPlugins :: DynFlags -> [HoleFitPluginR]
+getHfPlugins dflags =
+  catMaybes $ mapPlugins dflags (\p args -> holeFitPlugin p args)
+#else
+withHoleFitPlugins :: HscEnv -> TcM a -> TcM a
+withHoleFitPlugins = const id
+#endif
