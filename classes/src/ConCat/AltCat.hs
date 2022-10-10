@@ -1155,6 +1155,12 @@ separateProd (unFinite \\ knownMul @m @n -> x) =
 
  #-}
 
+{-# RULES
+
+"uncurry (,)" uncurry (,) = id
+
+#-}
+
 -- type Strong k h a = (ProductCat k, ZipCat k h, PointedCat k h a)
 
 -- -- Functorial strength
