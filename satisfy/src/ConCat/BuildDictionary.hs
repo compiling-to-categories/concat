@@ -32,11 +32,41 @@ module ConCat.BuildDictionary
 import Data.Monoid (Any(..))
 import Data.Char (isSpace)
 import Control.Monad (filterM,when)
-
-import GhcPlugins
-
 import Control.Arrow (second)
 
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+import GHC.Core.Predicate
+import GHC.Core.TyCo.Rep (CoercionHole(..), Type(..))
+import GHC.Core.TyCon (isTupleTyCon)
+import GHC.HsToCore.Binds
+import GHC.HsToCore.Monad
+import GHC.Plugins
+import GHC.Tc.Errors(warnAllUnsolved)
+import GHC.Tc.Module
+import GHC.Tc.Solver
+import GHC.Tc.Solver.Interact (solveSimpleGivens)
+import GHC.Tc.Solver.Monad -- (TcS,runTcS)
+import GHC.Tc.Types
+import GHC.Tc.Types.Constraint
+import GHC.Tc.Types.Evidence (evBindMapBinds)
+import GHC.Tc.Types.Origin
+import qualified GHC.Tc.Utils.Instantiate as TcMType
+import GHC.Tc.Utils.Monad (getCtLocM,traceTc)
+import GHC.Tc.Utils.Zonk (emptyZonkEnv,zonkEvBinds)
+import GHC.Types.Unique (mkUniqueGrimily)
+import qualified GHC.Types.Unique.Set as NonDetSet
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+import GHC.Runtime.Context (InteractiveContext (..), InteractiveImport (..))
+import GHC.Types.Error (getErrorMessages, getWarningMessages)
+import GHC.Unit.Finder (FindResult (..), findExposedPackageModule)
+import GHC.Unit.Module.Deps (Dependencies (..))
+import GHC.Utils.Error (pprMsgEnvelopeBagWithLoc)
+#else
+import GHC.Driver.Finder (findExposedPackageModule)
+import GHC.Utils.Error (pprErrMsgBagWithLoc)
+#endif
+#else
+import GhcPlugins
 import TyCoRep (CoercionHole(..), Type(..))
 import TyCon (isTupleTyCon)
 import TcHsSyn (emptyZonkEnv,zonkEvBinds)
@@ -59,7 +89,6 @@ import DsBinds
 import           TcSimplify
 import           TcRnTypes
 import ErrUtils (pprErrMsgBagWithLoc)
-import Encoding (zEncodeString)
 import Unique (mkUniqueGrimily)
 import Finder (findExposedPackageModule)
 
@@ -67,11 +96,19 @@ import TcRnDriver
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
 import qualified UniqSet as NonDetSet
 #endif
+#endif
 -- Temp
 -- import HERMIT.GHC.Typechecker (initTcFromModGuts)
 -- import ConCat.GHC
 
 import ConCat.Simplify
+
+isEvVarType' :: Type -> Bool
+#if MIN_VERSION_GLASGOW_HASKELL(8, 8, 0, 0)
+isEvVarType' = isEvVarType
+#else
+isEvVarType' = isPredTy
+#endif
 
 isFound :: FindResult -> Bool
 isFound (Found _ _) = True
@@ -79,6 +116,20 @@ isFound _           = False
 
 moduleIsOkay :: HscEnv -> ModuleName -> IO Bool
 moduleIsOkay env mname = isFound <$> findExposedPackageModule env mname Nothing
+
+mkLocalId' :: HasDebugCallStack => Name -> Type -> Id
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+mkLocalId' n = mkLocalId n One
+#else
+mkLocalId' = mkLocalId
+#endif
+
+mkWildCase' :: CoreExpr -> Type -> Type -> [CoreAlt] -> CoreExpr
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+mkWildCase' ce t = mkWildCase ce (linear t)
+#else
+mkWildCase' = mkWildCase
+#endif
 
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
 uniqSetToList ::  UniqSet a -> [a]
@@ -105,9 +156,15 @@ runTcM env0 dflags guts m = do
     orphans <- filterM (moduleIsOkay env0) (moduleName <$> dep_orphs (mg_deps guts))
     -- pprTrace' "runTcM orphans" (ppr orphans) (return ())
     (msgs, mr) <- runTcInteractive (env orphans) m
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+    let showMsgs msg = showSDoc dflags $ vcat $
+              text "Errors:"   : pprMsgEnvelopeBagWithLoc (getErrorMessages msg)
+           ++ text "Warnings:" : pprMsgEnvelopeBagWithLoc (getWarningMessages msg)
+#else
     let showMsgs (warns, errs) = showSDoc dflags $ vcat $
               text "Errors:"   : pprErrMsgBagWithLoc errs
            ++ text "Warnings:" : pprErrMsgBagWithLoc warns
+#endif
     maybe (fail $ showMsgs msgs) return mr
  where
    imports0 = ic_imports (hsc_IC env0)
@@ -184,7 +241,7 @@ buildDictionary :: HscEnv -> DynFlags -> ModGuts -> UniqSupply -> InScopeEnv -> 
 buildDictionary env dflags guts uniqSupply inScope evType@(TyConApp tyCon evTypes) ev goalTy | isTupleTyCon tyCon =
   reallyBuildDictionary env dflags guts uniqSupply inScope evType evTypes ev goalTy
 -- only 1-tuples in Haskell  
-buildDictionary env dflags guts uniqSupply inScope evType ev goalTy | isEvVarType evType =
+buildDictionary env dflags guts uniqSupply inScope evType ev goalTy | isEvVarType' evType =
   reallyBuildDictionary env dflags guts uniqSupply inScope evType [evType] ev goalTy
 buildDictionary _env _dflags _guts _uniqSupply _inScope evT _ev _goalTy = pprPanic "evidence type mismatch" (ppr evT)
                                                          
@@ -196,7 +253,7 @@ reallyBuildDictionary env dflags guts uniqSupply _inScope evType evTypes ev goal
  where
    evIds = [ local
            | (evTy, unq) <- evTypes `zip` (uniqsFromSupply uniqSupply)
-           , let local = mkLocalId (mkSystemVarName unq evVarName) evTy ]
+           , let local = mkLocalId' (mkSystemVarName unq evVarName) evTy ]
    evIdSet = mkVarSet evIds
    reassemble Nothing =
      Left (text "unsolved constraints")
@@ -220,7 +277,11 @@ reallyBuildDictionary env dflags guts uniqSupply _inScope evType evTypes ev goal
              then dict
              else case evIds of
                     [evId] -> mkCoreLet (NonRec evId ev) dict
-                    _ -> mkWildCase ev evType goalTy [(DataAlt (tupleDataCon Boxed (length evIds)), evIds, dict)]
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+                    _ -> mkWildCase' ev evType goalTy [Alt (DataAlt (tupleDataCon Boxed (length evIds))) evIds dict]
+#else
+                    _ -> mkWildCase' ev evType goalTy [(DataAlt (tupleDataCon Boxed (length evIds)), evIds, dict)]
+#endif
 
 evVarName :: FastString
 evVarName = mkFastString "evidence"
@@ -301,8 +362,13 @@ annotateExpr fnId fnId' typeArgsCount expr0 =
     go _evVars expr@(Type _) = expr
     go _evVars expr@(Coercion _) = expr
 
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+    annotateAlt evVars (Alt con binders rhs) =
+      Alt con binders $ go (extendEvVarsList evVars binders) rhs
+#else
     annotateAlt evVars (con, binders, rhs) =
       (con, binders, go (extendEvVarsList evVars binders) rhs)
+#endif
 
 -- Maybe place in a GHC utils module.
 

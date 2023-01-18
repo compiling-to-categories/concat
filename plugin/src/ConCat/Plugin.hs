@@ -36,13 +36,36 @@ import qualified Data.Sequence as Seq
 import qualified Data.Set as OrdSet
 --import qualified Data.Map (Map) as OrdMap
 import qualified Data.Map as OrdMap
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-import qualified UniqDFM as DFMap
-#endif
 import Text.Printf (printf)
 import System.IO.Unsafe (unsafePerformIO)
 import Data.IORef
 
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+import GHC.Builtin.Names (leftDataConName,rightDataConName
+                         ,floatTyConKey,doubleTyConKey,integerTyConKey
+                         ,intTyConKey,boolTyConKey)
+import GHC.Builtin.Types.Prim (intPrimTyCon)
+import GHC.Core.Class (classAllSelIds)
+-- For normaliseType etc
+import GHC.Core.FamInstEnv
+import GHC.Core.Lint (lintExpr)
+import GHC.Core.Opt.Arity (etaExpand)
+import GHC.Core.SimpleOpt (simpleOptExpr)
+import GHC.Core.TyCo.Rep
+import GHC.Core.Type (coreView)
+import GHC.Data.Pair (Pair(..))
+import GHC.Plugins as GHC hiding (substTy,cat)
+import GHC.Runtime.Loader
+import GHC.Tc.Utils.TcType (isFloatTy,isDoubleTy,isIntegerTy,isIntTy,isBoolTy,isUnitTy
+                           ,tcSplitTyConApp_maybe)
+import GHC.Types.Id.Make (mkDictSelRhs,coerceId)
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+import GHC.Builtin.Uniques (mkBuiltinUnique)
+#else
+import GHC.Types.Unique (mkBuiltinUnique)
+#endif
+import qualified GHC.Types.Unique.DFM as DFMap
+#else
 import GhcPlugins as GHC hiding (substTy,cat)
 import Class (classAllSelIds)
 import CoreArity (etaExpand)
@@ -57,33 +80,55 @@ import Type (coreView)
 import TcType (isFloatTy,isDoubleTy,isIntegerTy,isIntTy,isBoolTy,isUnitTy
               ,tcSplitTyConApp_maybe)
 import TysPrim (intPrimTyCon)
-import FamInstEnv (normaliseType)
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-import CoreOpt (simpleOptExpr)
-#endif
-import TyCoRep
-import GHC.Classes
-import CoAxiom
-import Unique (mkBuiltinUnique)
 -- For normaliseType etc
 import FamInstEnv
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+import CoreOpt (simpleOptExpr)
+import qualified UniqDFM as DFMap
+#endif
+import TyCoRep
+import Unique (mkBuiltinUnique)
+#endif
+import GHC.Classes
 
 import ConCat.Misc (Unop,Binop,Ternop,PseudoFun(..),(~>))
 import ConCat.BuildDictionary
 -- import ConCat.Simplify
 
+pattern FunCo' :: Role -> Coercion -> Coercion -> Coercion
+mkFunCo' :: Role -> Coercion -> Coercion -> Coercion
+pattern FunTy' :: Type -> Type -> Type
+mkFunTy' :: Type -> Type -> Type
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+pattern FunCo' r a b <- FunCo r _ a b
+mkFunCo' r = FunCo r (multToCo One)
+pattern FunTy' a r <- FunTy _ _ a r
+mkFunTy' = FunTy VisArg One
 -- GHC 8.10 FunTy as an extra operand
-#if MIN_VERSION_GLASGOW_HASKELL(8,10,0,0)
-pattern FunTy' a r <-
-  FunTy _ a r
-
-mkFunTy' :: Type -> Type -> Type
-mkFunTy' a b = FunTy VisArg a b
-#else
+#elif MIN_VERSION_GLASGOW_HASKELL(8,10,0,0)
+pattern FunCo' r a b = FunCo r a b
+mkFunCo' = FunCo
+pattern FunTy' a r <- FunTy _ a r
+mkFunTy' = FunTy VisArg
+#elif MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+pattern FunCo' r a b = FunCo r a b
+mkFunCo' = FunCo
 pattern FunTy' a r = FunTy a r
+mkFunTy' = FunTy
+#else
+pattern FunCo' r dom ran <- TyConAppCo r (isFunTyCon -> True) [dom,ran]
+ where FunCo' = mkFunCo
+pattern FunTy' dom ran <- (splitFunTy_maybe -> Just (dom,ran))
+ where FunTy' = mkFunTy
+-- TODO: Replace explicit uses of splitFunTy_maybe
+-- TODO: Look for other useful pattern synonyms
+#endif
 
-mkFunTy' :: Type -> Type -> Type
-mkFunTy' a b = FunTy a b
+splitFunTy_maybe' :: Type -> Maybe (Type, Type)
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+splitFunTy_maybe' = fmap (\(_, a, b) -> (a, b)) . splitFunTy_maybe
+#else
+splitFunTy_maybe' = splitFunTy_maybe
 #endif
 
 -- Information needed for reification. We construct this info in
@@ -122,8 +167,10 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      -- , hasRepFromAbstCo :: Coercion   -> CoreExpr
                      , prePostV         :: Id
                   -- , lazyV            :: Id
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-                     , boxers           :: DFMap.UniqDFM {- TyCo-} Id  -- to remove
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+                     , boxers           :: DFMap.UniqDFM TyCon Id  -- to remove
+#elif MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+                     , boxers           :: DFMap.UniqDFM Id  -- to remove
 #else
                      , boxers           :: OrdMap.Map TyCon Id
 #endif
@@ -192,7 +239,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("top flipForkT")
      -- f | pprTrace "flipForkT tests"
      --      (ppr ( splitFunTy (exprType f)
-     --              , second splitFunTy_maybe (splitFunTy (exprType f))
+     --              , second splitFunTy_maybe' (splitFunTy (exprType f))
      --              , not catClosed)) False = undefined
      f | z `FunTy` (a `FunTy` b) <- exprType f
        , not catClosed 
@@ -270,7 +317,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -- I think GHC is undoing this transformation, so continue eagerly
        -- (`Cast` co') <$> go e
      Trying("top const cast")
-     Cast (Lam v e) (FunCo _r _ co'@(coercionKind -> Pair b b'))
+     Cast (Lam v e) (FunCo' _r _ co'@(coercionKind -> Pair b b'))
        | not (v `isFreeIn` e)
        -- , dtrace "top const cast" (ppr (varWithType castConstTV)) True
        , Just mk <- onDictMaybe <=< onDictMaybe $
@@ -332,7 +379,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           -- dtrace "top App result" (ppr (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))) $
           return (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))
       where
-        Just (dom,_) = splitFunTy_maybe (exprType e)
+        Just (dom,_) = splitFunTy_maybe' (exprType e)
      Tick t e -> Doing("top tick")
                  return $ Tick t (mkCcc e)
      _e -> Doing("top Unhandled")
@@ -595,7 +642,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
            co'' = downgradeRole r r' co' -- same as co?
        in
          -- pprTrace "lam nominal Cast" (ppr co $$ text "-->" $$ ppr co'') $
-         return (mkCcc (Cast (Lam x body') (FunCo r (mkReflCo r xty) co'')))
+         return (mkCcc (Cast (Lam x body') (mkFunCo' r (mkReflCo r xty) co'')))
      Trying("lam representational cast")
      e@(Cast e' _) ->
        Doing("lam representational cast")
@@ -964,7 +1011,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
    catTy (tyArgs2 -> (a,b)) = mkAppTys cat [a,b]
    reCatCo :: Rewrite Coercion
    -- reCatCo co | dtrace "reCatCo" (ppr co) False = undefined
-   reCatCo (FunCo r a b) = Just (mkAppCos (mkReflCo r cat) [a,b])
+   reCatCo (FunCo' r a b) = Just (mkAppCos (mkReflCo r cat) [a,b])
    reCatCo (splitAppCo_maybe -> Just
             (splitAppCo_maybe -> Just
 #if MIN_VERSION_GLASGOW_HASKELL(8,8,0,0)
@@ -1015,7 +1062,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
    noDictErr doc =
      either (\ msg -> pprPanic "ccc - couldn't build dictionary for" (doc GHC.<> colon $$ msg)) id
    onDictTry :: CoreExpr -> Either SDoc CoreExpr
-   onDictTry e | Just (ty,_) <- splitFunTy_maybe (exprType e)
+   onDictTry e | Just (ty,_) <- splitFunTy_maybe' (exprType e)
                , isPredTy' ty = App e <$> buildDictMaybe ty
                | otherwise = return e
                              -- pprPanic "ccc / onDictTy: not a function from pred" (pprWithType e)
@@ -1032,7 +1079,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
    -- Yet another variant: keep applying to dictionaries as long as we have
    -- a predicate type. TODO: reassess and refactor these variants.
    onDicts :: Unop CoreExpr
-   onDicts e | Just (ty,_) <- splitFunTy_maybe (exprType e)
+   onDicts e | Just (ty,_) <- splitFunTy_maybe' (exprType e)
              , isPredTy' ty = onDicts (onDict e)
              | otherwise    = e
    buildDictMaybe :: Type -> Either SDoc CoreExpr
@@ -1051,7 +1098,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
    mkCcc' e = varApps cccPV [cat,a,b,evTy] [ev,e]
     where
       (a,b) = fromMaybe (pprPanic "mkCcc non-function:" (pprWithType e)) $
-              splitFunTy_maybe (exprType e)
+              splitFunTy_maybe' (exprType e)
    mkCcc :: Unop CoreExpr  -- Any reason to parametrize over Cat?
    mkCcc e = -- dtrace "mkCcc" (ppr (cat, e)) $
              mkCcc' e
@@ -1457,12 +1504,12 @@ composeRuleName = fsLit "compose/coerce"
 evidenceRuleName :: FastString
 evidenceRuleName = fsLit "evidence annotation"
 
-cccRules :: Maybe (IORef Int) -> FamInstEnvs -> CccEnv -> ModGuts -> AnnEnv -> [CoreRule]
-cccRules steps famEnvs env@(CccEnv {..}) guts annotations =
+cccRules :: Maybe (IORef Int) -> FamInstEnvs -> CccEnv -> ModGuts -> AnnEnv -> DynFlags -> [CoreRule]
+cccRules steps famEnvs env@(CccEnv {..}) guts annotations dflags =
   [ BuiltinRule { ru_name  = cccRuleName
                 , ru_fn    = varName cccPV
                 , ru_nargs = 6  -- including type args
-                , ru_try   = \ dflags inScope _fn ->
+                , ru_try   = \ _rOpts inScope _fn ->
                                 \ case
                                   -- _args | pprTrace "ccc ru_try args" (ppr _args) False -> undefined
                                   _es@(Type k : Type _a : Type _b : Type evType : ev : arg : _) ->
@@ -1532,7 +1579,7 @@ install opts todos =
                    let famEnvs = (pkgFamEnv, mg_fam_inst_env guts)
                        maxSteps = (unsafePerformIO . newIORef) <$>
                                   parseOpt "maxSteps" opts
-                   return (on_mg_rules (++ cccRules maxSteps famEnvs env guts allAnns) guts)
+                   return (on_mg_rules (++ cccRules maxSteps famEnvs env guts allAnns dflags) guts)
               delCccRule guts = return (on_mg_rules (filter (not . isCccRule)) guts)
               isCccRule r = isBuiltinRule r && ru_name r `elem` [cccRuleName,composeRuleName]
               -- isCCC r | is = pprTrace "delRule" (ppr cccRuleName) is
@@ -1688,8 +1735,13 @@ mkCccEnv opts = do
   let boxers = OrdMap.fromList  [(intTyCon,boxIV),(doubleTyCon,boxDV),(floatTyCon,boxFV)]
 #endif
   -- _ <- findId "GHC.Num" "subtract" -- help the plugin find instances for Float and Double
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+  when (isDeadEndId cccV) $
+    pprPanic "isDeadEndId cccV" empty
+#else
   when (isBottomingId cccV) $
     pprPanic "isBottomingId cccV" empty
+#endif
   return (CccEnv { .. })
 
 -- Variables that have associated ccc rewrite rules in AltCat. If we have
@@ -1825,7 +1877,11 @@ qualifiedName nm =
 -- binders, which is handy as dead binders can appear with live binders of the
 -- same variable.
 subst :: [(Id,CoreExpr)] -> Unop CoreExpr
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+subst ps = substExpr (foldr add emptySubst ps')
+#else
 subst ps = substExpr "subst" (foldr add emptySubst ps')
+#endif
  where
    add (v,new) sub = extendIdSubst sub v new
    ps' = filter (not . isDeadBinder . fst) ps
@@ -1882,22 +1938,6 @@ stringExpr = Lit . mkMachString
 
 varNameExpr :: Id -> CoreExpr
 varNameExpr = stringExpr . uniqVarName
-
-#if ! MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-
-pattern FunTy :: Type -> Type -> Type
-pattern FunTy dom ran <- (splitFunTy_maybe -> Just (dom,ran))
- where FunTy = mkFunTy
-
--- TODO: Replace explicit uses of splitFunTy_maybe
-
--- TODO: Look for other useful pattern synonyms
-
-pattern FunCo :: Role -> Coercion -> Coercion -> Coercion
-pattern FunCo r dom ran <- TyConAppCo r (isFunTyCon -> True) [dom,ran]
- where FunCo = mkFunCo
-
-#endif
 
 onCaseRhs :: Type -> Unop (Unop CoreExpr)
 onCaseRhs altsTy' f (Case scrut v _ alts) =
@@ -1985,7 +2025,11 @@ onExprHead _dflags h = (fmap.fmap) simpleOptExpr' $
 freshId :: VarSet -> String -> Type -> Id
 freshId used nm ty =
   uniqAway (mkInScopeSet used) $
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+  mkSysLocal (fsLit nm) (mkBuiltinUnique 17) One ty
+#else
   mkSysLocal (fsLit nm) (mkBuiltinUnique 17) ty
+#endif
 
 freshDeadId :: VarSet -> String -> Type -> Id
 freshDeadId used nm ty = setIdOccInfo (freshId used nm ty) IAmDead
