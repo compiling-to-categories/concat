@@ -331,7 +331,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        | dtrace "found representational cast" (ppr (exprType e, exprType e', co)) False -> undefined
        -- | FunTy' a  b  <- exprType e
        -- | FunTy' a' b' <- exprType e'
-       | FunCo Representational co1 co2 <- co
+       | FunCo' Representational co1 co2 <- co
        --, Just coA    <- mkCoerceC_maybe cat a a'
        --, Just coB    <- mkCoerceC_maybe cat b' b
        , let coA    = goCoercion True co1 [] -- a a'
@@ -838,7 +838,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        co2 = liftCoSubstWith Representational (coAxBranchTyVars ax_branch) cos1 (coAxBranchRHS ax_branch)
        cos1' = [ mkReflCo (coercionRole arg_co) (pFst (coercionKind arg_co)) | arg_co <- cos1 ]
 
-   goCoercion' pol co@(FunCo Representational co1 co2) ts
+   goCoercion' pol co@(FunCo' Representational co1 co2) ts
     | not (null ts)
     = pprPanic "goCoercion': oddly kinded FunCo" (ppr co $$ ppr ts)
 
