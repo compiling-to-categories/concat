@@ -49,16 +49,22 @@ import GHC.Core.Class (classAllSelIds)
 -- For normaliseType etc
 import GHC.Core.FamInstEnv
 import GHC.Core.Lint (lintExpr)
+import GHC.Utils.Error (pprMessageBag)
 import GHC.Core.Opt.Arity (etaExpand)
 import GHC.Core.SimpleOpt (simpleOptExpr)
 import GHC.Core.TyCo.Rep
 import GHC.Core.Type (coreView)
-import GHC.Data.Pair (Pair(..))
+import GHC.Core.Coercion.Axiom
+import GHC.Data.Pair (Pair(..), swap)
+import GHC.Driver.Backend (Backend(..))
+import GHC.Driver.Config (initSimpleOpts)
 import GHC.Plugins as GHC hiding (substTy,cat)
 import GHC.Runtime.Loader
 import GHC.Tc.Utils.TcType (isFloatTy,isDoubleTy,isIntegerTy,isIntTy,isBoolTy,isUnitTy
                            ,tcSplitTyConApp_maybe)
 import GHC.Types.Id.Make (mkDictSelRhs,coerceId)
+import GHC.Types.TyThing (MonadThings(..))
+import GHC.Unit.External (eps_rule_base)
 #if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
 import GHC.Builtin.Uniques (mkBuiltinUnique)
 #else
@@ -122,6 +128,11 @@ pattern FunTy' dom ran <- (splitFunTy_maybe -> Just (dom,ran))
  where FunTy' = mkFunTy
 -- TODO: Replace explicit uses of splitFunTy_maybe
 -- TODO: Look for other useful pattern synonyms
+#endif
+
+#if !MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+pattern Alt :: AltCon -> [b] -> (Expr b) -> (AltCon, [b], Expr b) 
+pattern Alt con bs rhs = (con, bs, rhs)
 #endif
 
 splitFunTy_maybe' :: Type -> Maybe (Type, Type)
@@ -287,7 +298,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        go e'
      -- See journal 2018-02-02.
      Trying("top Case of product")
-     Case scrut _ _rhsTy [(DataAlt dc, [b,c], rhs)]
+     Case scrut _ _rhsTy [Alt (DataAlt dc) [b,c] rhs]
          | isBoxedTupleTyCon (dataConTyCon dc)
          -- prevent infinite loop
          , not (isCast rhs) ->
@@ -527,7 +538,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        Doing("lam boxer")
        return (mkCcc (Lam x e'))
      Trying("lam Case of boxer")
-     e@(Case scrut wild _ty [(_dc,[unboxedV],rhs)])
+     e@(Case scrut wild _ty [Alt _dc [unboxedV] rhs])
        | Just (tc,[]) <- splitTyConApp_maybe (varType wild)
 #if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
        , Just boxV <- flip DFMap.lookupUDFM tc boxers
@@ -552,14 +563,14 @@ ccc (CccEnv {..}) (Ops {..}) cat =
             -- so that we can find 'boxI v' before v.
             return (mkCcc (Lam x (Let (NonRec wild' scrut) (everywhere' (mkT tweak) rhs))))
      Trying("lam Case hoist")
-     Case scrut wild ty [(dc,vs,rhs)]
+     Case scrut wild ty [Alt dc vs rhs]
        | not (x `isFreeIn` scrut)
        -> Doing("lam Case hoist")
           return $
-           mkCcc (Case scrut wild (mkFunTy' xty ty) [(dc,vs, Lam x rhs)])
+           mkCcc (Case scrut wild (mkFunTy' xty ty) [Alt dc vs (Lam x rhs)])
           -- pprPanic ("lam Case hoist") empty
      Trying("lam Case to let")
-     Case scrut v@(isDeadBinder -> False) _rhsTy [(_, bs, rhs)]
+     Case scrut v@(isDeadBinder -> False) _rhsTy [Alt _ bs rhs]
        | isEmptyVarSet (mkVarSet bs `intersectVarSet` exprFreeVars rhs) ->
        Doing("lam Case to let")
        return (mkCcc (Lam x (Let (NonRec v scrut) rhs)))
@@ -568,16 +579,16 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        Doing("lam Case live wild")
        goLam' x e'
      Trying("lam Case default")
-     Case _scrut _ _rhsTy [(DEFAULT,[],rhs)] ->
+     Case _scrut _ _rhsTy [Alt DEFAULT [] rhs] ->
        Doing("lam case-default")
        return (mkCcc (Lam x rhs))
      Trying("lam Case nullary")
-     Case _scrut _ _rhsTy [(_, [], rhs)] ->
+     Case _scrut _ _rhsTy [Alt _ [] rhs] ->
        Doing("lam Case nullary")
        return (mkCcc (Lam x rhs))
        -- TODO: abstract return (mkCcc (Lam x ...))
      Trying("lam Case of Bool")
-     Case scrut _ rhsTy [(DataAlt false, [], rhsF),(DataAlt true, [], rhsT)]
+     Case scrut _ rhsTy [Alt (DataAlt false) [] rhsF, Alt (DataAlt true) [] rhsT]
          | false == falseDataCon && true == trueDataCon ->
        -- To start, require v to be unused. Later, extend.
        -- if not (isDeadBinder wild) && wild `isFreeIns` [rhsF,rhsT] then
@@ -588,7 +599,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
             mkIfC cat rhsTy (mkCcc (Lam x scrut))
               (mkCcc (Lam x rhsT)) (mkCcc (Lam x rhsF))
      Trying("lam Case of product")
-     Case scrut _ _rhsTy [(DataAlt dc, [a,b], rhs)]
+     Case scrut _ _rhsTy [Alt (DataAlt dc) [a,b] rhs]
          | isBoxedTupleTyCon (dataConTyCon dc) ->
        Doing("lam Case of product")
        if -- | not (isDeadBinder wild) ->  -- About to remove
@@ -989,7 +1000,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
         | v == tagToEnumV && ty `eqType` boolTy
         = success $ Var boxIBV `App` e'
       -- Int equality turns into matching, which takes some care.
-      tweak (Case scrut v rhsTy ((DEFAULT, [], d) : (mapM litAlt -> Just las)))
+      tweak (Case scrut v rhsTy ((Alt DEFAULT [] d) : (mapM litAlt -> Just las)))
        | notNull las
        , hasTyCon intPrimTyCon vty
        = Doing("lam Case of Int#")
@@ -1001,7 +1012,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
          scrut' = Var scrutV
          mkIf (lit,rhs) e = varApps ifEqIntHash [rhsTy] [scrut',Lit lit,rhs,e]
       tweak e = (Any False, e)
-      litAlt (LitAlt lit,[],rhs) = Just (lit,rhs)
+      litAlt (Alt (LitAlt lit) [] rhs) = Just (lit,rhs)
       litAlt _ = Nothing
    -- hrMeth :: Type -> Maybe (Id -> CoreExpr)
    -- hrMeth ty = -- dtrace "hasRepMeth:" (ppr ty) $
@@ -1322,7 +1333,11 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
                else
                  oops "type change"
                   (ppr beforeTy <+> "vs" $$ ppr afterTy <+> "in"))
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+              (oops "Lint" . pprMessageBag)
+#else
               (oops "Lint")
+#endif
           (lintExpr dflags (uniqSetToList (exprFreeVars after)) after)
    transCatOp :: ReExpr
    transCatOp orig@(collectArgs -> (Var v, Type (isFunCat -> True) : rest))
@@ -1433,7 +1448,11 @@ isTrivial (App e arg) = isTyCoDictArg arg && isTrivial e
 isTrivial (Tick _ e) = isTrivial e
 isTrivial (Cast e _) = isTrivial e
 isTrivial (Lam b body) = not (isRuntimeVar b) && isTrivial body
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+isTrivial (Case _ _ _ [Alt DEFAULT [] rhs]) = isTrivial rhs
+#else
 isTrivial (Case _ _ _ [(DEFAULT,[],rhs)]) = isTrivial rhs
+#endif
 isTrivial (Case e _ _ alts) = isTrivial e && all (isTrivial . altRhs) alts
 isTrivial _ = False
 
@@ -1560,7 +1579,11 @@ install opts todos =
      dflags <- getDynFlags
      -- Unfortunately, the plugin doesn't work in GHCi. Until fixed,
      -- disable under GHCi, so we can at least type-check conveniently.
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+     if backend dflags == Interpreter then
+#else
      if hscTarget dflags == HscInterpreted then
+#endif
         return todos
       else
        do
@@ -1593,7 +1616,7 @@ install opts todos =
               annotateEvidencePass = CoreDoPluginPass "evidence-annotate toCcc'" (evidencePass env)
               ours = [ annotateEvidencePass
                      , CoreDoPluginPass "Ccc insert rule" addCccRule
-                     , CoreDoSimplify 7 (mode dflags)
+                     , CoreDoSimplify 7 (mode (hsc_logger hsc_env) dflags)
                      , CoreDoPluginPass "Ccc remove rule" delCccRule
                      , CoreDoPluginPass "Flag remaining ccc calls" (flagCcc env)
                      ]
@@ -1629,6 +1652,7 @@ install opts todos =
       collectQ f = everything mappend (mkQ mempty f)
    -- Extra simplifier pass
    mode
+     logger
 #if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
      dflags
 #else
@@ -1643,6 +1667,12 @@ install opts todos =
 #if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
                     , sm_dflags     = dflags
 #endif
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+                    , sm_uf_opts    = unfoldingOpts dflags
+                    , sm_cast_swizzle = True
+                    , sm_pre_inline = gopt Opt_SimplPreInlining dflags
+                    , sm_logger     = logger
+#endif                    
                     }
 
 mkCccEnv :: [CommandLineOption] -> CoreM CccEnv
@@ -1839,8 +1869,11 @@ floatModule = "GHC.Float"
 -- (<):  ltI, $fOrdFloat_$c<
 
 pp :: Outputable a => a -> String
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+pp = showPprUnsafe
+#else
 pp = showPpr unsafeGlobalDynFlags
-
+#endif
 
 {--------------------------------------------------------------------
     Misc
@@ -1945,7 +1978,7 @@ onCaseRhs altsTy' f (Case scrut v _ alts) =
 onCaseRhs _ _ e = pprPanic "onCaseRhs. Not a case: " (ppr e)
 
 onAltRhs :: Unop CoreExpr -> Unop CoreAlt
-onAltRhs f (con,bs,rhs) = (con,bs,f rhs)
+onAltRhs f (Alt con bs rhs) = Alt con bs (f rhs)
 
 -- To help debug. Sometimes I'm unsure what constructor goes with what ppr.
 coercionTag :: Coercion -> String
@@ -2010,7 +2043,9 @@ onExprHead _dflags h = (fmap.fmap) simpleOptExpr' $
    go cont (Cast e co)   = go (cont . (`Cast` co)) e
    go _ _                = Nothing
 
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+   simpleOptExpr' = simpleOptExpr (initSimpleOpts _dflags)
+#elif MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
    simpleOptExpr' = simpleOptExpr _dflags
 #else
    simpleOptExpr' = simpleOptExpr
@@ -2084,7 +2119,9 @@ etaReduceN e = e
 
 -- The function category
 funCat :: Cat
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+funCat = mkTyConApp funTyCon [liftedRepTy, liftedRepTy]
+#elif MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
 funCat = mkTyConApp funTyCon [liftedRepDataConTy, liftedRepDataConTy]
 #else
 funCat = mkTyConTy funTyCon
@@ -2145,7 +2182,7 @@ idOccs penalizeUnderLambda x = go
    goB (y,rhs) | y == x    = 0
                | otherwise = go rhs
    -- goAlt alt | pprTrace "idOccs goAlt" (ppr alt) False = undefined
-   goAlt (_,ys,rhs) | x `elem` ys = 0
+   goAlt (Alt _ ys rhs) | x `elem` ys = 0
                     | otherwise   = go rhs
 
 -- GHC's isPredTy says "no" to unboxed tuples of pred types.
@@ -2187,10 +2224,10 @@ eitherToMaybe :: Either a b -> Maybe b
 eitherToMaybe = either (const Nothing) Just
 
 altRhs :: Alt b -> Expr b
-altRhs (_,_,rhs) = rhs
+altRhs (Alt _ _ rhs) = rhs
 
 altVars :: Alt b -> [b]
-altVars (_,bs,_) = bs
+altVars (Alt _ bs _) = bs
 
 isCast :: Expr b -> Bool
 isCast (Cast {}) = True
@@ -2258,10 +2295,10 @@ isFunCat _               = False
 -- If the wild variable in a Case is not dead, make a new dead wild var and
 -- transform to a Let.
 deadifyCaseWild :: ReExpr
-deadifyCaseWild e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
+deadifyCaseWild e@(Case scrut wild _rhsTy [Alt (DataAlt dc) [a,b] rhs])
   | not (isDeadBinder wild) =
   Just (Let (NonRec wild scrut) 
-         (Case (Var wild) wild' _rhsTy [(DataAlt dc, [a,b], rhs)]))
+         (Case (Var wild) wild' _rhsTy [Alt (DataAlt dc) [a,b] rhs]))
  where 
    wild' = freshDeadId (exprFreeVars e) "newWild" (varType wild)
 deadifyCaseWild _ = Nothing
