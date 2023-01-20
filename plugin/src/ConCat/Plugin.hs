@@ -107,9 +107,9 @@ pattern FunTy' :: Type -> Type -> Type
 mkFunTy' :: Type -> Type -> Type
 #if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
 pattern FunCo' r a b <- FunCo r _ a b
-mkFunCo' r = FunCo r (multToCo One)
+mkFunCo' r = FunCo r (multToCo Many)
 pattern FunTy' a r <- FunTy _ _ a r
-mkFunTy' = FunTy VisArg One
+mkFunTy' = FunTy VisArg Many
 -- GHC 8.10 FunTy as an extra operand
 #elif MIN_VERSION_GLASGOW_HASKELL(8,10,0,0)
 pattern FunCo' r a b = FunCo r a b
@@ -2068,7 +2068,7 @@ freshId :: VarSet -> String -> Type -> Id
 freshId used nm ty =
   uniqAway (mkInScopeSet used) $
 #if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
-  mkSysLocal (fsLit nm) (mkBuiltinUnique 17) One ty
+  mkSysLocal (fsLit nm) (mkBuiltinUnique 17) Many ty
 #else
   mkSysLocal (fsLit nm) (mkBuiltinUnique 17) ty
 #endif
@@ -2127,7 +2127,7 @@ etaReduceN e = e
 -- The function category
 funCat :: Cat
 #if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
-funCat = mkTyConApp funTyCon [liftedRepTy, liftedRepTy]
+funCat = mkTyConApp funTyCon [Many, liftedRepTy, liftedRepTy]
 #elif MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
 funCat = mkTyConApp funTyCon [liftedRepDataConTy, liftedRepDataConTy]
 #else
