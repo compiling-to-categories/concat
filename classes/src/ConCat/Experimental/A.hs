@@ -56,7 +56,7 @@ import Data.Constraint (Dict(..),(:-)(..),refl,trans,(\\))
 -- import Data.Key
 -- import Data.IntMap ()
 
-import ConCat.Misc (Yes1,type (&+&),inNew,inNew2,oops,type (+->)(..))
+import ConCat.Misc (Yes1,type (&+&),inNew,inNew2,type (+->)(..))
 -- import ConCat.Free.VectorSpace
 -- import ConCat.Free.LinearRow (lapplyL,OkLF,idL,compL,exlL,exrL,forkL,inlL,inrL,joinL,HasL(..))
 -- import ConCat.Rep

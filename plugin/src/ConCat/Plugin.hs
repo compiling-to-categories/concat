@@ -1765,6 +1765,13 @@ mkCccEnv opts = do
   let boxers = OrdMap.fromList  [(intTyCon,boxIV),(doubleTyCon,boxDV),(floatTyCon,boxFV)]
 #endif
   -- _ <- findId "GHC.Num" "subtract" -- help the plugin find instances for Float and Double
+
+  -- toCcc' is defined to throw an exception, but this shouldn't matter as the plugin
+  -- transforms calls to toCcc'.
+  -- However, if ghc knows it throws an exception it elides calls to toCcc' before
+  -- the plugin gets to it.
+  -- See ConCat.Oops for the trick we're using to keep ghc from discoverng that toCcc'
+  -- throws an exception.  Make sure here that it works.
 #if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
   when (isDeadEndId cccV) $
     pprPanic "isDeadEndId cccV" empty
