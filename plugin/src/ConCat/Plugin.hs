@@ -95,6 +95,7 @@ import qualified UniqDFM as DFMap
 #endif
 import TyCoRep
 import Unique (mkBuiltinUnique)
+import CoAxiom (coAxiomNthBranch, coAxBranchTyVars, coAxBranchRHS)
 #endif
 import GHC.Classes
 
