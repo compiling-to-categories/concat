@@ -248,7 +248,7 @@ instance (ScalarCat k s, Ok k s, Floating s) => FloatingCat (GD k) s where
   logC = scalarX log recip
   sinC = scalarX sin cos
   cosC = scalarX cos (negate . sin)
-  sqrtC = scalarX sqrt (recip . scale 2 . sqrt)
+  sqrtC = scalarR sqrt (recip . scale 2)
   tanhC = scalarR tanh ((-) 1 . sqr)
   {-# INLINE expC #-}
   {-# INLINE sinC #-}
