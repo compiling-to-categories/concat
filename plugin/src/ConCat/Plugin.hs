@@ -57,17 +57,18 @@ import GHC.Core.Type (coreView)
 import GHC.Core.Coercion.Axiom
 import GHC.Data.Pair (Pair(..), swap)
 import GHC.Driver.Backend (Backend(..))
-import GHC.Driver.Config (initSimpleOpts)
 import GHC.Plugins as GHC hiding (substTy,cat)
 import GHC.Runtime.Loader
 import GHC.Tc.Utils.TcType (isFloatTy,isDoubleTy,isIntegerTy,isIntTy,isBoolTy,isUnitTy
                            ,tcSplitTyConApp_maybe)
 import GHC.Types.Id.Make (mkDictSelRhs,coerceId)
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
 import GHC.Types.TyThing (MonadThings(..))
 import GHC.Unit.External (eps_rule_base)
-#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+import GHC.Driver.Config (initSimpleOpts)
 import GHC.Builtin.Uniques (mkBuiltinUnique)
 #else
+import GHC.Driver.Types (eps_rule_base)
 import GHC.Types.Unique (mkBuiltinUnique)
 #endif
 import qualified GHC.Types.Unique.DFM as DFMap
@@ -856,7 +857,11 @@ ccc (CccEnv {..}) (Ops {..}) cat =
    -- If we have "<t>_R -> co2", and a suitable FuncorCat instance exists,
    -- we can use fmapC
     | Just (ty1, _role) <- isReflCo_maybe co1
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+    , let h = mkTyConApp funTyCon [Many, liftedRepTy, liftedRepTy, ty1]
+#else
     , let h = mkTyConApp funTyCon [liftedRepTy, liftedRepTy, ty1]
+#endif
     , Just exp_out <- onDictMaybe =<< catOpMaybe cat fmapV [h, ty21, ty22]
     = exp_out `App` goCoercion pol co2 []
     where Pair ty21 ty22 = (if pol then id else swap) $ coercionKind co2
@@ -1616,7 +1621,7 @@ install opts todos =
               annotateEvidencePass = CoreDoPluginPass "evidence-annotate toCcc'" (evidencePass env)
               ours = [ annotateEvidencePass
                      , CoreDoPluginPass "Ccc insert rule" addCccRule
-                     , CoreDoSimplify 7 (mode (hsc_logger hsc_env) dflags)
+                     , CoreDoSimplify 7 (mode hsc_env dflags)
                      , CoreDoPluginPass "Ccc remove rule" delCccRule
                      , CoreDoPluginPass "Flag remaining ccc calls" (flagCcc env)
                      ]
@@ -1652,7 +1657,7 @@ install opts todos =
       collectQ f = everything mappend (mkQ mempty f)
    -- Extra simplifier pass
    mode
-     logger
+     hsc_env
 #if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
      dflags
 #else
@@ -1671,7 +1676,7 @@ install opts todos =
                     , sm_uf_opts    = unfoldingOpts dflags
                     , sm_cast_swizzle = True
                     , sm_pre_inline = gopt Opt_SimplPreInlining dflags
-                    , sm_logger     = logger
+                    , sm_logger     = hsc_logger hsc_env
 #endif                    
                     }
 
@@ -2050,7 +2055,7 @@ onExprHead _dflags h = (fmap.fmap) simpleOptExpr' $
    go cont (Cast e co)   = go (cont . (`Cast` co)) e
    go _ _                = Nothing
 
-#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
    simpleOptExpr' = simpleOptExpr (initSimpleOpts _dflags)
 #elif MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
    simpleOptExpr' = simpleOptExpr _dflags
@@ -2126,7 +2131,7 @@ etaReduceN e = e
 
 -- The function category
 funCat :: Cat
-#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
 funCat = mkTyConApp funTyCon [Many, liftedRepTy, liftedRepTy]
 #elif MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
 funCat = mkTyConApp funTyCon [liftedRepDataConTy, liftedRepDataConTy]
