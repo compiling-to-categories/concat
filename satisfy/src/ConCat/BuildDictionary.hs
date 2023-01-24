@@ -23,9 +23,7 @@ module ConCat.BuildDictionary
   ,WithType(..)
   , withType
   ,varWithType
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
   ,uniqSetToList
-#endif
   ,annotateEvidence
   ) where
 
@@ -71,13 +69,9 @@ import TyCoRep (CoercionHole(..), Type(..))
 import TyCon (isTupleTyCon)
 import TcHsSyn (emptyZonkEnv,zonkEvBinds)
 import           TcRnMonad (getCtLocM,traceTc)
-#if MIN_VERSION_GLASGOW_HASKELL(8,10,0,0)
 import Constraint
 import TcOrigin
 import Predicate
-#else
-import           TcRnTypes (cc_ev)
-#endif
 import TcInteract (solveSimpleGivens)
 import TcSMonad -- (TcS,runTcS)
 import TcEvidence (evBindMapBinds)
@@ -93,9 +87,7 @@ import Unique (mkUniqueGrimily)
 import Finder (findExposedPackageModule)
 
 import TcRnDriver
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
 import qualified UniqSet as NonDetSet
-#endif
 #endif
 -- Temp
 -- import HERMIT.GHC.Typechecker (initTcFromModGuts)
@@ -104,11 +96,7 @@ import qualified UniqSet as NonDetSet
 import ConCat.Simplify
 
 isEvVarType' :: Type -> Bool
-#if MIN_VERSION_GLASGOW_HASKELL(8, 8, 0, 0)
 isEvVarType' = isEvVarType
-#else
-isEvVarType' = isPredTy
-#endif
 
 isFound :: FindResult -> Bool
 isFound (Found _ _) = True
@@ -131,10 +119,8 @@ mkWildCase' ce t = mkWildCase ce (linear t)
 mkWildCase' = mkWildCase
 #endif
 
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
 uniqSetToList ::  UniqSet a -> [a]
 uniqSetToList = NonDetSet.nonDetEltsUniqSet
-#endif
 -- #define TRACING
 
 pprTrace' :: String -> SDoc -> a -> a
@@ -214,11 +200,7 @@ buildDictionary' env dflags guts evIds predTy =
                        return z
                    )
           traceTc' "buildDictionary' back from runTcS" (ppr bnds0)
-#if MIN_VERSION_GLASGOW_HASKELL(8,8,0,0)
           ez <- emptyZonkEnv
-#else
-          let ez = emptyZonkEnv
-#endif
           -- Use the newly exported zonkEvBinds. <https://phabricator.haskell.org/D2088>
           (_env',bnds) <- zonkEvBinds ez bnds0
           -- traceTc "buildDictionary' _wCs'" (ppr _wCs')

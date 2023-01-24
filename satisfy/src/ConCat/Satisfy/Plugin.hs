@@ -34,9 +34,7 @@ import ConCat.Inline.Plugin (findId)
 
 plugin :: Plugin
 plugin = defaultPlugin { installCoreToDos = install
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
                        , pluginRecompile = purePlugin
-#endif
                        }
 
 on_mg_rules :: ([CoreRule] -> [CoreRule]) -> (ModGuts -> ModGuts)
@@ -57,9 +55,6 @@ install _opts todos =
         return todos
 #endif
       else do
-#if !MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-          reinitializeGlobals
-#endif
           hscEnv <- getHscEnv
           pprTrace "Install satisfyRule" empty (return ())
           uniqSupply <- getUniqueSupplyM
@@ -73,12 +68,7 @@ install _opts todos =
                 do pprTrace "removing satisfyRule" empty (return ())
                    return (on_mg_rules (filter (not . isOurRule)) guts)
 
-              mode
-#if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
-               dflags
-#else
-               _dflags
-#endif
+              mode dflags
                 = SimplMode { sm_names      = ["Satisfy simplifier pass"]
                             , sm_phase      = Phase 3 -- ??
                             , sm_rules      = True  -- important
@@ -87,15 +77,11 @@ install _opts todos =
                             , sm_case_case  = True
 #if MIN_VERSION_GLASGOW_HASKELL(9,2,2,0)
                             , sm_cast_swizzle  = True
-#endif
-#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
                             , sm_uf_opts = defaultUnfoldingOpts
                             , sm_pre_inline = False
                             , sm_logger = logger
 #endif
-#if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
                             , sm_dflags     = dflags
-#endif
                     }
           -- It really needs to be this early, otherwise ghc will
           -- break up the calls and the rule will not fire.

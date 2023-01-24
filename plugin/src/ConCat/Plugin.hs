@@ -113,23 +113,11 @@ mkFunCo' r = FunCo r (multToCo Many)
 pattern FunTy' a r <- FunTy _ _ a r
 mkFunTy' = FunTy VisArg Many
 -- GHC 8.10 FunTy as an extra operand
-#elif MIN_VERSION_GLASGOW_HASKELL(8,10,0,0)
+#else
 pattern FunCo' r a b = FunCo r a b
 mkFunCo' = FunCo
 pattern FunTy' a r <- FunTy _ a r
 mkFunTy' = FunTy VisArg
-#elif MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-pattern FunCo' r a b = FunCo r a b
-mkFunCo' = FunCo
-pattern FunTy' a r = FunTy a r
-mkFunTy' = FunTy
-#else
-pattern FunCo' r dom ran <- TyConAppCo r (isFunTyCon -> True) [dom,ran]
- where FunCo' = mkFunCo
-pattern FunTy' dom ran <- (splitFunTy_maybe -> Just (dom,ran))
- where FunTy' = mkFunTy
--- TODO: Replace explicit uses of splitFunTy_maybe
--- TODO: Look for other useful pattern synonyms
 #endif
 
 #if !MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
@@ -182,10 +170,8 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                   -- , lazyV            :: Id
 #if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
                      , boxers           :: DFMap.UniqDFM TyCon Id  -- to remove
-#elif MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-                     , boxers           :: DFMap.UniqDFM Id  -- to remove
 #else
-                     , boxers           :: OrdMap.Map TyCon Id
+                     , boxers           :: DFMap.UniqDFM Id  -- to remove
 #endif
                      , tagToEnumV       :: Id
                      , bottomV          :: Id
@@ -542,11 +528,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("lam Case of boxer")
      e@(Case scrut wild _ty [Alt _dc [unboxedV] rhs])
        | Just (tc,[]) <- splitTyConApp_maybe (varType wild)
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
        , Just boxV <- flip DFMap.lookupUDFM tc boxers
-#else
-       , Just boxV <- OrdMap.lookup         tc boxers
-#endif
        -> Doing("lam Case of boxer")
           -- dtrace "boxV" (ppr boxV) $
           let wild' = setIdOccInfo wild compatNoOccInfo
@@ -555,11 +537,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
                 pprPanic ("lam Case of boxer: bare unboxed var") (ppr e)
               tweak (App (Var f) (Var v)) | f == boxV, v == unboxedV = Var wild'
               tweak e' = e'
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
               compatNoOccInfo = noOccInfo
-#else
-              compatNoOccInfo = NoOccInfo
-#endif
           in
             -- Note top-down (everywhere') instead of bottom-up (everywhere)
             -- so that we can find 'boxI v' before v.
@@ -996,11 +974,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
       tweak e@(App (Var con) e')
         | isDataConWorkId con
         , Just (tc,[]) <- splitTyConApp_maybe (exprType e)
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
         , Just  boxV <- flip DFMap.lookupUDFM  tc boxers
-#else
-        , Just  boxV <- OrdMap.lookup          tc boxers
-#endif
         = success $ Var boxV `App` e'
       tweak ((Var v `App` Type ty) `App` e')
         | v == tagToEnumV && ty `eqType` boolTy
@@ -1031,15 +1005,9 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
    reCatCo (FunCo' r a b) = Just (mkAppCos (mkReflCo r cat) [a,b])
    reCatCo (splitAppCo_maybe -> Just
             (splitAppCo_maybe -> Just
-#if MIN_VERSION_GLASGOW_HASKELL(8,8,0,0)
              (GRefl r _k mrefl,a),b)) =
      -- dtrace "reCatCo app" (ppr (r,_k,a,b)) $
      Just (mkAppCos (mkGReflCo r cat mrefl) [a,b])
-#else
-             (Refl r _k,a),b)) =
-     -- dtrace "reCatCo app" (ppr (r,_k,a,b)) $
-     Just (mkAppCos (mkReflCo r cat) [a,b])
-#endif
    reCatCo (co1 `TransCo` co2) = TransCo <$> reCatCo co1 <*> reCatCo co2
    reCatCo co = pprTrace "ccc reCatCo: unhandled coercion" (ppr co) $
                 Nothing
@@ -1568,9 +1536,7 @@ evidencePass (CccEnv {..}) guts = bindsOnlyPass (mapM (annotateEvidence cccV ccc
 
 plugin :: Plugin
 plugin = defaultPlugin { installCoreToDos = install
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
                        , pluginRecompile = purePlugin
-#endif
                        }
 
 -- Find an option "foo=bar" for optName "foo", returning a read of "bar".
@@ -1593,9 +1559,6 @@ install opts todos =
         return todos
       else
        do
-#if !MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-          reinitializeGlobals
-#endif
           hsc_env <- getHscEnv
           pkgFamEnv <- getPackageFamInstEnv
           env <- mkCccEnv opts
@@ -1630,11 +1593,7 @@ install opts todos =
           -- pprTrace "ccc post-install todos:" (ppr (pre ++ ours ++ post)) (return ())
           return (pre ++ ours ++ post)
  where
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
    flagCcc :: CccEnv -> CorePluginPass
-#else
-   flagCcc :: CccEnv -> PluginPass
-#endif
    flagCcc (CccEnv {..}) guts
      | showCcc && pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
      | not (Seq.null remaining) &&
@@ -1659,20 +1618,14 @@ install opts todos =
    -- Extra simplifier pass
    mode
      hsc_env
-#if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
      dflags
-#else
-     _dflags
-#endif
         = SimplMode { sm_names      = ["Ccc simplifier pass"]
                     , sm_phase      = Phase 2 -- avoid inlining i.e. Vector which is at phase 1
                     , sm_rules      = True  -- important
                     , sm_inline     = True -- False -- ??
                     , sm_eta_expand = False -- ??
                     , sm_case_case  = True
-#if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
                     , sm_dflags     = dflags
-#endif
 #if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
                     , sm_uf_opts    = unfoldingOpts dflags
                     , sm_cast_swizzle = True
@@ -1697,13 +1650,9 @@ mkCccEnv opts = do
          err = "ccc installation: couldn't find "
                ++ str ++ " in " ++ moduleNameString modu
 
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
          -- In GHC 8.6, lookupRdrNameInModuleForPlugins returns a (Name, Module)
          -- where earlier it was just a Name
          mkThing' = mkThing . fst
-#else
-         mkThing' = mkThing
-#endif
 
       lookupTh mkOcc mk modu = lookupRdr (mkModuleName modu) mkOcc mk
       enablePolymorphism = "enablePolymorphism" `elem` opts
@@ -1976,11 +1925,7 @@ isPred :: CoreExpr -> Bool
 isPred e  = not (isTyCoArg e) && isPredTy' (exprType e)
 
 stringExpr :: String -> CoreExpr
-#if MIN_VERSION_GLASGOW_HASKELL(8,8,0,0)
 stringExpr = Lit . mkLitString
-#else
-stringExpr = Lit . mkMachString
-#endif
 
 varNameExpr :: Id -> CoreExpr
 varNameExpr = stringExpr . uniqVarName
@@ -1996,9 +1941,7 @@ onAltRhs f (Alt con bs rhs) = Alt con bs (f rhs)
 -- To help debug. Sometimes I'm unsure what constructor goes with what ppr.
 coercionTag :: Coercion -> String
 coercionTag Refl        {} = "Refl"
-#if MIN_VERSION_GLASGOW_HASKELL(8,8,0,0)
 coercionTag GRefl        {} = "GRefl"
-#endif
 coercionTag FunCo       {} = "FunCo" -- pattern synonym
 coercionTag TyConAppCo  {} = "TyConAppCo"
 coercionTag AppCo       {} = "AppCo"
@@ -2012,14 +1955,9 @@ coercionTag AxiomRuleCo {} = "AxiomRuleCo"
 coercionTag NthCo       {} = "NthCo"
 coercionTag LRCo        {} = "LRCo"
 coercionTag InstCo      {} = "InstCo"
-#if !MIN_VERSION_GLASGOW_HASKELL(8,8,0,0)
-coercionTag CoherenceCo {} = "CoherenceCo"
-#endif
 coercionTag KindCo      {} = "KindCo"
 coercionTag SubCo       {} = "SubCo"
-#if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
 coercionTag HoleCo      {} = "HoleCo"
-#endif
 
 -- TODO: Should I unfold (inline application head) earlier? Doing so might
 -- result in much simpler generated code by avoiding many beta-redexes. If I
@@ -2058,10 +1996,8 @@ onExprHead _dflags h = (fmap.fmap) simpleOptExpr' $
 
 #if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
    simpleOptExpr' = simpleOptExpr (initSimpleOpts _dflags)
-#elif MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
-   simpleOptExpr' = simpleOptExpr _dflags
 #else
-   simpleOptExpr' = simpleOptExpr
+   simpleOptExpr' = simpleOptExpr _dflags
 #endif
 
 -- TODO: try go using Maybe fmap instead of continuation.
@@ -2134,10 +2070,8 @@ etaReduceN e = e
 funCat :: Cat
 #if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
 funCat = mkTyConApp funTyCon [Many, liftedRepTy, liftedRepTy]
-#elif MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-funCat = mkTyConApp funTyCon [liftedRepDataConTy, liftedRepDataConTy]
 #else
-funCat = mkTyConTy funTyCon
+funCat = mkTyConApp funTyCon [liftedRepDataConTy, liftedRepDataConTy]
 #endif
 
 liftedExpr :: CoreExpr -> Bool
@@ -2210,11 +2144,7 @@ isPredTy' ty = isPredTy ty || others ty
    others _ = False
 
 starKind :: Kind
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
 starKind = liftedTypeKind
-#else
-starKind = mkTyConTy starKindTyCon
-#endif
 
 castE :: Coercion -> CoreExpr
 castE co = Lam x (mkCast (Var x) co)
@@ -2226,11 +2156,7 @@ pprCoWithType :: Coercion -> SDoc
 pprCoWithType co = ppr co <+> dcolon $$ ppr (coercionType co)
 
 setNominalRole_maybe' :: Coercion -> Maybe Coercion
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
 setNominalRole_maybe' c = setNominalRole_maybe (coercionRole c) c
-#else
-setNominalRole_maybe' = setNominalRole_maybe
-#endif
 
 -- Exists somewhere?
 eitherToMaybe :: Either a b -> Maybe b
