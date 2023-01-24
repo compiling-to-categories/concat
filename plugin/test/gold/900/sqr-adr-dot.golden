@@ -1,0 +1,31 @@
+digraph sqr_adr {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>}}"] }
+  subgraph clusterc53 { label=""; color=white; margin=0; c53 [label="{{<In0>|<In1>}|\×|{<Out0>}}"] }
+  subgraph cluster_202 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    c199 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c200 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+    c198 [label="{In|{<Out0>}}"]
+    c201 [label="{{<In0>}|Out}"]
+    c0:Out0 -> c199:In0 [label="Double"]
+    c198:Out0 -> c199:In1 [label="Double"]
+    c199:Out0 -> c200:In0 [label="Double"]
+    c199:Out0 -> c200:In1 [label="Double"]
+    c200:Out0 -> c201:In0 [label="Double"]
+  }
+  subgraph clusterc203 { label=""; color=white; margin=0; c203 [label="{{<In0>|<In1>}|Out}"] }
+  c0:Out0 -> c53:In0 [label="Double"]
+  c0:Out0 -> c53:In1 [label="Double"]
+  c53:Out0 -> c203:In0 [label="Double"]
+  c201 -> c203:In1 [ltail=cluster_202,label="Double ’ Double"]
+}

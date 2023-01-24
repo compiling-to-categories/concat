@@ -1,0 +1,4 @@
+((exl . id ***
+  apply . ((repr . exr *** const 1.0) . dup) . (id *** exr . id) . dup) .
+ dup) .
+(addC *** id . repr . abst . abst . curry (dup . exr)) . dup

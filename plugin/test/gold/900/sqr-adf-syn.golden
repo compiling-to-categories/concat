@@ -1,0 +1,34 @@
+second (id . repr) .
+apply .
+((curry
+  ((exl . exr ***
+    apply .
+    (coerce .
+     curry (apply . (exl *** repr . exr) . dup) .
+     curry
+     (curry (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
+     repr . exr . exr ***
+     exr . exl) .
+    dup) .
+   dup) ***
+  ((mulC ***
+    apply .
+    (curry
+     (abst .
+      curry (addC . apply) .
+      apply .
+      (curry
+       (curry
+        ((apply . (exl . exl *** exl . exr) . dup ***
+          apply . (exr . exl *** exr . exr) . dup) .
+         dup)) .
+       repr . exl ***
+       repr . exr) .
+      dup) .
+     abst . curry mulC . exr ***
+     abst . curry mulC . exl) .
+    dup) .
+   dup) .
+  exl) .
+ dup) .
+(dup *** abst . curry (dup . exr)) . dup
