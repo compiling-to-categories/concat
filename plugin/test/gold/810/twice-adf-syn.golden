@@ -1,0 +1,3 @@
+(addC . dup ***
+ id . repr . abst . curry (addC . apply) . repr . abst . curry (dup . exr)) .
+dup

@@ -1,0 +1,18 @@
+second (id . repr) .
+apply .
+((curry
+  ((exr ***
+    apply .
+    (coerce .
+     curry (apply . (exl *** repr . exr) . dup) .
+     curry
+     (curry (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
+     repr .
+     abst .
+     curry mulC . apply . (curry exl . negateC . sinC . exl *** exr) . dup ***
+     abst . curry (addC . exr)) .
+    dup) .
+   dup) ***
+  cosC) .
+ dup) .
+addC

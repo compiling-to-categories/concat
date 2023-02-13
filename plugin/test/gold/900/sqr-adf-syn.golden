@@ -13,20 +13,21 @@ apply .
    dup) ***
   ((mulC ***
     apply .
-    (curry
-     (abst .
-      curry (addC . apply) .
-      apply .
-      (curry
+    ((curry
+      (abst .
+       curry (addC . apply) .
+       apply .
        (curry
-        ((apply . (exl . exl *** exl . exr) . dup ***
-          apply . (exr . exl *** exr . exr) . dup) .
-         dup)) .
-       repr . exl ***
-       repr . exr) .
-      dup) .
-     abst . curry mulC . exr ***
-     abst . curry mulC . exl) .
+        (curry
+         ((apply . (exl . exl *** exl . exr) . dup ***
+           apply . (exr . exl *** exr . exr) . dup) .
+          dup)) .
+        repr . exl ***
+        repr . exr) .
+       dup) .
+      abst . curry mulC . exr . exr ***
+      abst . curry mulC . exl . exr) .
+     dup) .
     dup) .
    dup) .
   exl) .

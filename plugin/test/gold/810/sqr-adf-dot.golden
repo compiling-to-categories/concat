@@ -1,0 +1,31 @@
+digraph sqr_adf {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>}}"] }
+  subgraph clusterc1 { label=""; color=white; margin=0; c1 [label="{{<In0>|<In1>}|\×|{<Out0>}}"] }
+  subgraph cluster_78 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    c75 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c76 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+    c74 [label="{In|{<Out0>}}"]
+    c77 [label="{{<In0>}|Out}"]
+    c0:Out0 -> c75:In0 [label="Double"]
+    c74:Out0 -> c75:In1 [label="Double"]
+    c75:Out0 -> c76:In0 [label="Double"]
+    c75:Out0 -> c76:In1 [label="Double"]
+    c76:Out0 -> c77:In0 [label="Double"]
+  }
+  subgraph clusterc79 { label=""; color=white; margin=0; c79 [label="{{<In0>|<In1>}|Out}"] }
+  c0:Out0 -> c1:In0 [label="Double"]
+  c0:Out0 -> c1:In1 [label="Double"]
+  c1:Out0 -> c79:In0 [label="Double"]
+  c77 -> c79:In1 [ltail=cluster_78,label="Double ’ Double"]
+}

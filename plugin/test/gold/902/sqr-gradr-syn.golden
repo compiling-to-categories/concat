@@ -23,30 +23,31 @@ apply .
    dup) ***
   ((mulC ***
     apply .
-    (curry
-     (abst .
-      apply .
-      (coerce .
-       curry (apply . (exl *** repr . exr) . dup) .
-       curry
-       (curry
-        (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
-       repr .
+    ((curry
+      (abst .
        apply .
        (coerce .
         curry (apply . (exl *** repr . exr) . dup) .
         curry
         (curry
-         ((apply . (exl . exl *** exl . exr) . dup ***
-           apply . (exr . exl *** exr . exr) . dup) .
-          dup)) .
-        repr . repr . exl ***
-        repr . exr) .
-       dup ***
-       abst . curry (dup . exr)) .
-      dup) .
-     abst . abst . curry mulC . exr ***
-     abst . abst . curry mulC . exl) .
+         (apply . (exl . exl *** apply . (exr . exl *** exr) . dup) . dup)) .
+        repr .
+        apply .
+        (coerce .
+         curry (apply . (exl *** repr . exr) . dup) .
+         curry
+         (curry
+          ((apply . (exl . exl *** exl . exr) . dup ***
+            apply . (exr . exl *** exr . exr) . dup) .
+           dup)) .
+         repr . repr . exl ***
+         repr . exr) .
+        dup ***
+        abst . curry (dup . exr)) .
+       dup) .
+      abst . abst . curry mulC . exr . exr ***
+      abst . abst . curry mulC . exl . exr) .
+     dup) .
     dup) .
    dup) .
   exl) .

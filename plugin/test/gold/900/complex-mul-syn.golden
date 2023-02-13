@@ -10,7 +10,8 @@ apply .
      mulC . (exr . exr . exl *** exl . exr) . dup) .
     dup) .
    dup) .
-  ((id *** repr . exr . exl) . dup) . (id *** repr . exl) . dup) .
+  ((id *** repr . exr . exr . exl) . dup) .
+  ((id *** repr . exl . exr) . dup) . dup) .
  exl ***
  exr) .
 dup
