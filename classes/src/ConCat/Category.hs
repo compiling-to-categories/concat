@@ -2327,7 +2327,7 @@ instance OkIxProd (->) h where okIxProd = Entail (Sub Dict)
 
 instance Zip h => IxMonoidalPCat (->) h where
   crossF = zipWith id -- 2018-02-07 notes
-  {-# OPINLINE crossF #-}
+  {-# INLINE crossF #-}
 
 instance (Representable h, Zip h, Pointed h) => IxProductCat (->) h where
   exF    = tabulate (flip index)
