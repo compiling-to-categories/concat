@@ -17,10 +17,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
 {-# LANGUAGE NoStarIsType #-}
-#endif
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
@@ -45,7 +42,9 @@ import Prelude hiding (id, (.), const, curry, uncurry)  -- Coming from ConCat.Al
 import Data.Monoid
 import Data.Foldable
 import GHC.TypeLits
+#if !MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
 import GHC.Types (Nat)
+#endif
 import GHC.Generics (U1(..),Par1(..),(:*:)(..),(:.:)(..))
 import GHC.Exts (Coercible,coerce)
 

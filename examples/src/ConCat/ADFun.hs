@@ -31,7 +31,7 @@ import Data.Constraint hiding ((&&&),(***),(:=>))
 import Data.Distributive (Distributive(..))
 import Data.Functor.Rep (Representable(..))
 
-import ConCat.Misc ((:*),R,Yes1,oops,unzip,type (&+&),sqr,result)
+import ConCat.Misc ((:*),R,Yes1,unzip,type (&+&),sqr,result)
 import ConCat.Rep (repr)
 import ConCat.Free.VectorSpace (HasV(..),inV,IsScalar)
 import ConCat.Free.LinearRow -- hiding (linear)

@@ -36,13 +36,43 @@ import qualified Data.Sequence as Seq
 import qualified Data.Set as OrdSet
 --import qualified Data.Map (Map) as OrdMap
 import qualified Data.Map as OrdMap
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-import qualified UniqDFM as DFMap
-#endif
 import Text.Printf (printf)
 import System.IO.Unsafe (unsafePerformIO)
 import Data.IORef
 
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+import GHC.Builtin.Names (leftDataConName,rightDataConName
+                         ,floatTyConKey,doubleTyConKey,integerTyConKey
+                         ,intTyConKey,boolTyConKey)
+import GHC.Builtin.Types.Prim (intPrimTyCon)
+import GHC.Core.Class (classAllSelIds)
+-- For normaliseType etc
+import GHC.Core.FamInstEnv
+import GHC.Core.Lint (lintExpr)
+import GHC.Utils.Error (pprMessageBag)
+import GHC.Core.Opt.Arity (etaExpand)
+import GHC.Core.SimpleOpt (simpleOptExpr)
+import GHC.Core.TyCo.Rep
+import GHC.Core.Type (coreView)
+import GHC.Core.Coercion.Axiom
+import GHC.Data.Pair (Pair(..), swap)
+import GHC.Driver.Backend (Backend(..))
+import GHC.Plugins as GHC hiding (substTy,cat)
+import GHC.Runtime.Loader
+import GHC.Tc.Utils.TcType (isFloatTy,isDoubleTy,isIntegerTy,isIntTy,isBoolTy,isUnitTy
+                           ,tcSplitTyConApp_maybe)
+import GHC.Types.Id.Make (mkDictSelRhs,coerceId)
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+import GHC.Types.TyThing (MonadThings(..))
+import GHC.Unit.External (eps_rule_base)
+import GHC.Driver.Config (initSimpleOpts)
+import GHC.Builtin.Uniques (mkBuiltinUnique)
+#else
+import GHC.Driver.Types (eps_rule_base)
+import GHC.Types.Unique (mkBuiltinUnique)
+#endif
+import qualified GHC.Types.Unique.DFM as DFMap
+#else
 import GhcPlugins as GHC hiding (substTy,cat)
 import Class (classAllSelIds)
 import CoreArity (etaExpand)
@@ -57,33 +87,49 @@ import Type (coreView)
 import TcType (isFloatTy,isDoubleTy,isIntegerTy,isIntTy,isBoolTy,isUnitTy
               ,tcSplitTyConApp_maybe)
 import TysPrim (intPrimTyCon)
-import FamInstEnv (normaliseType)
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-import CoreOpt (simpleOptExpr)
-#endif
-import TyCoRep
-import GHC.Classes
-import CoAxiom
-import Unique (mkBuiltinUnique)
 -- For normaliseType etc
 import FamInstEnv
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
+import CoreOpt (simpleOptExpr)
+import qualified UniqDFM as DFMap
+#endif
+import TyCoRep
+import Unique (mkBuiltinUnique)
+import CoAxiom (coAxiomNthBranch, coAxBranchTyVars, coAxBranchRHS)
+#endif
+import GHC.Classes
 
 import ConCat.Misc (Unop,Binop,Ternop,PseudoFun(..),(~>))
 import ConCat.BuildDictionary
 -- import ConCat.Simplify
 
+pattern FunCo' :: Role -> Coercion -> Coercion -> Coercion
+mkFunCo' :: Role -> Coercion -> Coercion -> Coercion
+pattern FunTy' :: Type -> Type -> Type
+mkFunTy' :: Type -> Type -> Type
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+pattern FunCo' r a b <- FunCo r _ a b
+mkFunCo' r = FunCo r (multToCo Many)
+pattern FunTy' a r <- FunTy _ _ a r
+mkFunTy' = FunTy VisArg Many
 -- GHC 8.10 FunTy as an extra operand
-#if MIN_VERSION_GLASGOW_HASKELL(8,10,0,0)
-pattern FunTy' a r <-
-  FunTy _ a r
-
-mkFunTy' :: Type -> Type -> Type
-mkFunTy' a b = FunTy VisArg a b
 #else
-pattern FunTy' a r = FunTy a r
+pattern FunCo' r a b = FunCo r a b
+mkFunCo' = FunCo
+pattern FunTy' a r <- FunTy _ a r
+mkFunTy' = FunTy VisArg
+#endif
 
-mkFunTy' :: Type -> Type -> Type
-mkFunTy' a b = FunTy a b
+#if !MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+pattern Alt :: AltCon -> [b] -> (Expr b) -> (AltCon, [b], Expr b) 
+pattern Alt con bs rhs = (con, bs, rhs)
+#endif
+
+splitFunTy_maybe' :: Type -> Maybe (Type, Type)
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+splitFunTy_maybe' = fmap (\(_, a, b) -> (a, b)) . splitFunTy_maybe
+#else
+splitFunTy_maybe' = splitFunTy_maybe
 #endif
 
 -- Information needed for reification. We construct this info in
@@ -122,10 +168,10 @@ data CccEnv = CccEnv { dtrace           :: forall a. String -> SDoc -> a -> a
                      -- , hasRepFromAbstCo :: Coercion   -> CoreExpr
                      , prePostV         :: Id
                   -- , lazyV            :: Id
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-                     , boxers           :: DFMap.UniqDFM {- TyCo-} Id  -- to remove
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+                     , boxers           :: DFMap.UniqDFM TyCon Id  -- to remove
 #else
-                     , boxers           :: OrdMap.Map TyCon Id
+                     , boxers           :: DFMap.UniqDFM Id  -- to remove
 #endif
                      , tagToEnumV       :: Id
                      , bottomV          :: Id
@@ -192,7 +238,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      Trying("top flipForkT")
      -- f | pprTrace "flipForkT tests"
      --      (ppr ( splitFunTy (exprType f)
-     --              , second splitFunTy_maybe (splitFunTy (exprType f))
+     --              , second splitFunTy_maybe' (splitFunTy (exprType f))
      --              , not catClosed)) False = undefined
      f | z `FunTy` (a `FunTy` b) <- exprType f
        , not catClosed 
@@ -240,7 +286,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        go e'
      -- See journal 2018-02-02.
      Trying("top Case of product")
-     Case scrut _ _rhsTy [(DataAlt dc, [b,c], rhs)]
+     Case scrut _ _rhsTy [Alt (DataAlt dc) [b,c] rhs]
          | isBoxedTupleTyCon (dataConTyCon dc)
          -- prevent infinite loop
          , not (isCast rhs) ->
@@ -270,7 +316,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        -- I think GHC is undoing this transformation, so continue eagerly
        -- (`Cast` co') <$> go e
      Trying("top const cast")
-     Cast (Lam v e) (FunCo _r _ co'@(coercionKind -> Pair b b'))
+     Cast (Lam v e) (FunCo' _r _ co'@(coercionKind -> Pair b b'))
        | not (v `isFreeIn` e)
        -- , dtrace "top const cast" (ppr (varWithType castConstTV)) True
        , Just mk <- onDictMaybe <=< onDictMaybe $
@@ -284,7 +330,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        | dtrace "found representational cast" (ppr (exprType e, exprType e', co)) False -> undefined
        -- | FunTy' a  b  <- exprType e
        -- | FunTy' a' b' <- exprType e'
-       | FunCo Representational co1 co2 <- co
+       | FunCo' Representational co1 co2 <- co
        --, Just coA    <- mkCoerceC_maybe cat a a'
        --, Just coB    <- mkCoerceC_maybe cat b' b
        , let coA    = goCoercion True co1 [] -- a a'
@@ -332,7 +378,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
           -- dtrace "top App result" (ppr (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))) $
           return (mkCompose cat uncU' (mkFork cat v' (mkId cat dom)))
       where
-        Just (dom,_) = splitFunTy_maybe (exprType e)
+        Just (dom,_) = splitFunTy_maybe' (exprType e)
      Tick t e -> Doing("top tick")
                  return $ Tick t (mkCcc e)
      _e -> Doing("top Unhandled")
@@ -480,13 +526,9 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        Doing("lam boxer")
        return (mkCcc (Lam x e'))
      Trying("lam Case of boxer")
-     e@(Case scrut wild _ty [(_dc,[unboxedV],rhs)])
+     e@(Case scrut wild _ty [Alt _dc [unboxedV] rhs])
        | Just (tc,[]) <- splitTyConApp_maybe (varType wild)
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
        , Just boxV <- flip DFMap.lookupUDFM tc boxers
-#else
-       , Just boxV <- OrdMap.lookup         tc boxers
-#endif
        -> Doing("lam Case of boxer")
           -- dtrace "boxV" (ppr boxV) $
           let wild' = setIdOccInfo wild compatNoOccInfo
@@ -495,24 +537,20 @@ ccc (CccEnv {..}) (Ops {..}) cat =
                 pprPanic ("lam Case of boxer: bare unboxed var") (ppr e)
               tweak (App (Var f) (Var v)) | f == boxV, v == unboxedV = Var wild'
               tweak e' = e'
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
               compatNoOccInfo = noOccInfo
-#else
-              compatNoOccInfo = NoOccInfo
-#endif
           in
             -- Note top-down (everywhere') instead of bottom-up (everywhere)
             -- so that we can find 'boxI v' before v.
             return (mkCcc (Lam x (Let (NonRec wild' scrut) (everywhere' (mkT tweak) rhs))))
      Trying("lam Case hoist")
-     Case scrut wild ty [(dc,vs,rhs)]
+     Case scrut wild ty [Alt dc vs rhs]
        | not (x `isFreeIn` scrut)
        -> Doing("lam Case hoist")
           return $
-           mkCcc (Case scrut wild (mkFunTy' xty ty) [(dc,vs, Lam x rhs)])
+           mkCcc (Case scrut wild (mkFunTy' xty ty) [Alt dc vs (Lam x rhs)])
           -- pprPanic ("lam Case hoist") empty
      Trying("lam Case to let")
-     Case scrut v@(isDeadBinder -> False) _rhsTy [(_, bs, rhs)]
+     Case scrut v@(isDeadBinder -> False) _rhsTy [Alt _ bs rhs]
        | isEmptyVarSet (mkVarSet bs `intersectVarSet` exprFreeVars rhs) ->
        Doing("lam Case to let")
        return (mkCcc (Lam x (Let (NonRec v scrut) rhs)))
@@ -521,16 +559,16 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        Doing("lam Case live wild")
        goLam' x e'
      Trying("lam Case default")
-     Case _scrut _ _rhsTy [(DEFAULT,[],rhs)] ->
+     Case _scrut _ _rhsTy [Alt DEFAULT [] rhs] ->
        Doing("lam case-default")
        return (mkCcc (Lam x rhs))
      Trying("lam Case nullary")
-     Case _scrut _ _rhsTy [(_, [], rhs)] ->
+     Case _scrut _ _rhsTy [Alt _ [] rhs] ->
        Doing("lam Case nullary")
        return (mkCcc (Lam x rhs))
        -- TODO: abstract return (mkCcc (Lam x ...))
      Trying("lam Case of Bool")
-     Case scrut _ rhsTy [(DataAlt false, [], rhsF),(DataAlt true, [], rhsT)]
+     Case scrut _ rhsTy [Alt (DataAlt false) [] rhsF, Alt (DataAlt true) [] rhsT]
          | false == falseDataCon && true == trueDataCon ->
        -- To start, require v to be unused. Later, extend.
        -- if not (isDeadBinder wild) && wild `isFreeIns` [rhsF,rhsT] then
@@ -541,7 +579,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
             mkIfC cat rhsTy (mkCcc (Lam x scrut))
               (mkCcc (Lam x rhsT)) (mkCcc (Lam x rhsF))
      Trying("lam Case of product")
-     Case scrut _ _rhsTy [(DataAlt dc, [a,b], rhs)]
+     Case scrut _ _rhsTy [Alt (DataAlt dc) [a,b] rhs]
          | isBoxedTupleTyCon (dataConTyCon dc) ->
        Doing("lam Case of product")
        if -- | not (isDeadBinder wild) ->  -- About to remove
@@ -595,7 +633,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
            co'' = downgradeRole r r' co' -- same as co?
        in
          -- pprTrace "lam nominal Cast" (ppr co $$ text "-->" $$ ppr co'') $
-         return (mkCcc (Cast (Lam x body') (FunCo r (mkReflCo r xty) co'')))
+         return (mkCcc (Cast (Lam x body') (mkFunCo' r (mkReflCo r xty) co'')))
      Trying("lam representational cast")
      e@(Cast e' _) ->
        Doing("lam representational cast")
@@ -791,14 +829,18 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        co2 = liftCoSubstWith Representational (coAxBranchTyVars ax_branch) cos1 (coAxBranchRHS ax_branch)
        cos1' = [ mkReflCo (coercionRole arg_co) (pFst (coercionKind arg_co)) | arg_co <- cos1 ]
 
-   goCoercion' pol co@(FunCo Representational co1 co2) ts
+   goCoercion' pol co@(FunCo' Representational co1 co2) ts
     | not (null ts)
     = pprPanic "goCoercion': oddly kinded FunCo" (ppr co $$ ppr ts)
 
    -- If we have "<t>_R -> co2", and a suitable FuncorCat instance exists,
    -- we can use fmapC
     | Just (ty1, _role) <- isReflCo_maybe co1
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+    , let h = mkTyConApp funTyCon [Many, liftedRepTy, liftedRepTy, ty1]
+#else
     , let h = mkTyConApp funTyCon [liftedRepTy, liftedRepTy, ty1]
+#endif
     , Just exp_out <- onDictMaybe =<< catOpMaybe cat fmapV [h, ty21, ty22]
     = exp_out `App` goCoercion pol co2 []
     where Pair ty21 ty22 = (if pol then id else swap) $ coercionKind co2
@@ -932,17 +974,13 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
       tweak e@(App (Var con) e')
         | isDataConWorkId con
         , Just (tc,[]) <- splitTyConApp_maybe (exprType e)
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
         , Just  boxV <- flip DFMap.lookupUDFM  tc boxers
-#else
-        , Just  boxV <- OrdMap.lookup          tc boxers
-#endif
         = success $ Var boxV `App` e'
       tweak ((Var v `App` Type ty) `App` e')
         | v == tagToEnumV && ty `eqType` boolTy
         = success $ Var boxIBV `App` e'
       -- Int equality turns into matching, which takes some care.
-      tweak (Case scrut v rhsTy ((DEFAULT, [], d) : (mapM litAlt -> Just las)))
+      tweak (Case scrut v rhsTy ((Alt DEFAULT [] d) : (mapM litAlt -> Just las)))
        | notNull las
        , hasTyCon intPrimTyCon vty
        = Doing("lam Case of Int#")
@@ -954,7 +992,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
          scrut' = Var scrutV
          mkIf (lit,rhs) e = varApps ifEqIntHash [rhsTy] [scrut',Lit lit,rhs,e]
       tweak e = (Any False, e)
-      litAlt (LitAlt lit,[],rhs) = Just (lit,rhs)
+      litAlt (Alt (LitAlt lit) [] rhs) = Just (lit,rhs)
       litAlt _ = Nothing
    -- hrMeth :: Type -> Maybe (Id -> CoreExpr)
    -- hrMeth ty = -- dtrace "hasRepMeth:" (ppr ty) $
@@ -964,18 +1002,12 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
    catTy (tyArgs2 -> (a,b)) = mkAppTys cat [a,b]
    reCatCo :: Rewrite Coercion
    -- reCatCo co | dtrace "reCatCo" (ppr co) False = undefined
-   reCatCo (FunCo r a b) = Just (mkAppCos (mkReflCo r cat) [a,b])
+   reCatCo (FunCo' r a b) = Just (mkAppCos (mkReflCo r cat) [a,b])
    reCatCo (splitAppCo_maybe -> Just
             (splitAppCo_maybe -> Just
-#if MIN_VERSION_GLASGOW_HASKELL(8,8,0,0)
              (GRefl r _k mrefl,a),b)) =
      -- dtrace "reCatCo app" (ppr (r,_k,a,b)) $
      Just (mkAppCos (mkGReflCo r cat mrefl) [a,b])
-#else
-             (Refl r _k,a),b)) =
-     -- dtrace "reCatCo app" (ppr (r,_k,a,b)) $
-     Just (mkAppCos (mkReflCo r cat) [a,b])
-#endif
    reCatCo (co1 `TransCo` co2) = TransCo <$> reCatCo co1 <*> reCatCo co2
    reCatCo co = pprTrace "ccc reCatCo: unhandled coercion" (ppr co) $
                 Nothing
@@ -1015,7 +1047,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
    noDictErr doc =
      either (\ msg -> pprPanic "ccc - couldn't build dictionary for" (doc GHC.<> colon $$ msg)) id
    onDictTry :: CoreExpr -> Either SDoc CoreExpr
-   onDictTry e | Just (ty,_) <- splitFunTy_maybe (exprType e)
+   onDictTry e | Just (ty,_) <- splitFunTy_maybe' (exprType e)
                , isPredTy' ty = App e <$> buildDictMaybe ty
                | otherwise = return e
                              -- pprPanic "ccc / onDictTy: not a function from pred" (pprWithType e)
@@ -1032,7 +1064,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
    -- Yet another variant: keep applying to dictionaries as long as we have
    -- a predicate type. TODO: reassess and refactor these variants.
    onDicts :: Unop CoreExpr
-   onDicts e | Just (ty,_) <- splitFunTy_maybe (exprType e)
+   onDicts e | Just (ty,_) <- splitFunTy_maybe' (exprType e)
              , isPredTy' ty = onDicts (onDict e)
              | otherwise    = e
    buildDictMaybe :: Type -> Either SDoc CoreExpr
@@ -1051,7 +1083,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
    mkCcc' e = varApps cccPV [cat,a,b,evTy] [ev,e]
     where
       (a,b) = fromMaybe (pprPanic "mkCcc non-function:" (pprWithType e)) $
-              splitFunTy_maybe (exprType e)
+              splitFunTy_maybe' (exprType e)
    mkCcc :: Unop CoreExpr  -- Any reason to parametrize over Cat?
    mkCcc e = -- dtrace "mkCcc" (ppr (cat, e)) $
              mkCcc' e
@@ -1275,7 +1307,11 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
                else
                  oops "type change"
                   (ppr beforeTy <+> "vs" $$ ppr afterTy <+> "in"))
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+              (oops "Lint" . pprMessageBag)
+#else
               (oops "Lint")
+#endif
           (lintExpr dflags (uniqSetToList (exprFreeVars after)) after)
    transCatOp :: ReExpr
    transCatOp orig@(collectArgs -> (Var v, Type (isFunCat -> True) : rest))
@@ -1386,7 +1422,11 @@ isTrivial (App e arg) = isTyCoDictArg arg && isTrivial e
 isTrivial (Tick _ e) = isTrivial e
 isTrivial (Cast e _) = isTrivial e
 isTrivial (Lam b body) = not (isRuntimeVar b) && isTrivial body
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+isTrivial (Case _ _ _ [Alt DEFAULT [] rhs]) = isTrivial rhs
+#else
 isTrivial (Case _ _ _ [(DEFAULT,[],rhs)]) = isTrivial rhs
+#endif
 isTrivial (Case e _ _ alts) = isTrivial e && all (isTrivial . altRhs) alts
 isTrivial _ = False
 
@@ -1457,12 +1497,12 @@ composeRuleName = fsLit "compose/coerce"
 evidenceRuleName :: FastString
 evidenceRuleName = fsLit "evidence annotation"
 
-cccRules :: Maybe (IORef Int) -> FamInstEnvs -> CccEnv -> ModGuts -> AnnEnv -> [CoreRule]
-cccRules steps famEnvs env@(CccEnv {..}) guts annotations =
+cccRules :: Maybe (IORef Int) -> FamInstEnvs -> CccEnv -> ModGuts -> AnnEnv -> DynFlags -> [CoreRule]
+cccRules steps famEnvs env@(CccEnv {..}) guts annotations dflags =
   [ BuiltinRule { ru_name  = cccRuleName
                 , ru_fn    = varName cccPV
                 , ru_nargs = 6  -- including type args
-                , ru_try   = \ dflags inScope _fn ->
+                , ru_try   = \ _rOpts inScope _fn ->
                                 \ case
                                   -- _args | pprTrace "ccc ru_try args" (ppr _args) False -> undefined
                                   _es@(Type k : Type _a : Type _b : Type evType : ev : arg : _) ->
@@ -1496,9 +1536,7 @@ evidencePass (CccEnv {..}) guts = bindsOnlyPass (mapM (annotateEvidence cccV ccc
 
 plugin :: Plugin
 plugin = defaultPlugin { installCoreToDos = install
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
                        , pluginRecompile = purePlugin
-#endif
                        }
 
 -- Find an option "foo=bar" for optName "foo", returning a read of "bar".
@@ -1513,13 +1551,14 @@ install opts todos =
      dflags <- getDynFlags
      -- Unfortunately, the plugin doesn't work in GHCi. Until fixed,
      -- disable under GHCi, so we can at least type-check conveniently.
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+     if backend dflags == Interpreter then
+#else
      if hscTarget dflags == HscInterpreted then
+#endif
         return todos
       else
        do
-#if !MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-          reinitializeGlobals
-#endif
           hsc_env <- getHscEnv
           pkgFamEnv <- getPackageFamInstEnv
           env <- mkCccEnv opts
@@ -1532,7 +1571,7 @@ install opts todos =
                    let famEnvs = (pkgFamEnv, mg_fam_inst_env guts)
                        maxSteps = (unsafePerformIO . newIORef) <$>
                                   parseOpt "maxSteps" opts
-                   return (on_mg_rules (++ cccRules maxSteps famEnvs env guts allAnns) guts)
+                   return (on_mg_rules (++ cccRules maxSteps famEnvs env guts allAnns dflags) guts)
               delCccRule guts = return (on_mg_rules (filter (not . isCccRule)) guts)
               isCccRule r = isBuiltinRule r && ru_name r `elem` [cccRuleName,composeRuleName]
               -- isCCC r | is = pprTrace "delRule" (ppr cccRuleName) is
@@ -1546,7 +1585,7 @@ install opts todos =
               annotateEvidencePass = CoreDoPluginPass "evidence-annotate toCcc'" (evidencePass env)
               ours = [ annotateEvidencePass
                      , CoreDoPluginPass "Ccc insert rule" addCccRule
-                     , CoreDoSimplify 7 (mode dflags)
+                     , CoreDoSimplify 7 (mode hsc_env dflags)
                      , CoreDoPluginPass "Ccc remove rule" delCccRule
                      , CoreDoPluginPass "Flag remaining ccc calls" (flagCcc env)
                      ]
@@ -1554,11 +1593,7 @@ install opts todos =
           -- pprTrace "ccc post-install todos:" (ppr (pre ++ ours ++ post)) (return ())
           return (pre ++ ours ++ post)
  where
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
    flagCcc :: CccEnv -> CorePluginPass
-#else
-   flagCcc :: CccEnv -> PluginPass
-#endif
    flagCcc (CccEnv {..}) guts
      | showCcc && pprTrace "ccc final:" (ppr (mg_binds guts)) False = undefined
      | not (Seq.null remaining) &&
@@ -1582,20 +1617,21 @@ install opts todos =
       collectQ f = everything mappend (mkQ mempty f)
    -- Extra simplifier pass
    mode
-#if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
+     hsc_env
      dflags
-#else
-     _dflags
-#endif
         = SimplMode { sm_names      = ["Ccc simplifier pass"]
                     , sm_phase      = Phase 2 -- avoid inlining i.e. Vector which is at phase 1
                     , sm_rules      = True  -- important
                     , sm_inline     = True -- False -- ??
                     , sm_eta_expand = False -- ??
                     , sm_case_case  = True
-#if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
                     , sm_dflags     = dflags
-#endif
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+                    , sm_uf_opts    = unfoldingOpts dflags
+                    , sm_cast_swizzle = True
+                    , sm_pre_inline = gopt Opt_SimplPreInlining dflags
+                    , sm_logger     = hsc_logger hsc_env
+#endif                    
                     }
 
 mkCccEnv :: [CommandLineOption] -> CoreM CccEnv
@@ -1614,13 +1650,9 @@ mkCccEnv opts = do
          err = "ccc installation: couldn't find "
                ++ str ++ " in " ++ moduleNameString modu
 
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
          -- In GHC 8.6, lookupRdrNameInModuleForPlugins returns a (Name, Module)
          -- where earlier it was just a Name
          mkThing' = mkThing . fst
-#else
-         mkThing' = mkThing
-#endif
 
       lookupTh mkOcc mk modu = lookupRdr (mkModuleName modu) mkOcc mk
       enablePolymorphism = "enablePolymorphism" `elem` opts
@@ -1688,8 +1720,20 @@ mkCccEnv opts = do
   let boxers = OrdMap.fromList  [(intTyCon,boxIV),(doubleTyCon,boxDV),(floatTyCon,boxFV)]
 #endif
   -- _ <- findId "GHC.Num" "subtract" -- help the plugin find instances for Float and Double
+
+  -- toCcc' is defined to throw an exception, but this shouldn't matter as the plugin
+  -- transforms calls to toCcc'.
+  -- However, if ghc knows it throws an exception it elides calls to toCcc' before
+  -- the plugin gets to it.
+  -- See ConCat.Oops for the trick we're using to keep ghc from discoverng that toCcc'
+  -- throws an exception.  Make sure here that it works.
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+  when (isDeadEndId cccV) $
+    pprPanic "isDeadEndId cccV" empty
+#else
   when (isBottomingId cccV) $
     pprPanic "isBottomingId cccV" empty
+#endif
   return (CccEnv { .. })
 
 -- Variables that have associated ccc rewrite rules in AltCat. If we have
@@ -1787,8 +1831,11 @@ floatModule = "GHC.Float"
 -- (<):  ltI, $fOrdFloat_$c<
 
 pp :: Outputable a => a -> String
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+pp = showPprUnsafe
+#else
 pp = showPpr unsafeGlobalDynFlags
-
+#endif
 
 {--------------------------------------------------------------------
     Misc
@@ -1825,7 +1872,11 @@ qualifiedName nm =
 -- binders, which is handy as dead binders can appear with live binders of the
 -- same variable.
 subst :: [(Id,CoreExpr)] -> Unop CoreExpr
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+subst ps = substExpr (foldr add emptySubst ps')
+#else
 subst ps = substExpr "subst" (foldr add emptySubst ps')
+#endif
  where
    add (v,new) sub = extendIdSubst sub v new
    ps' = filter (not . isDeadBinder . fst) ps
@@ -1874,30 +1925,10 @@ isPred :: CoreExpr -> Bool
 isPred e  = not (isTyCoArg e) && isPredTy' (exprType e)
 
 stringExpr :: String -> CoreExpr
-#if MIN_VERSION_GLASGOW_HASKELL(8,8,0,0)
 stringExpr = Lit . mkLitString
-#else
-stringExpr = Lit . mkMachString
-#endif
 
 varNameExpr :: Id -> CoreExpr
 varNameExpr = stringExpr . uniqVarName
-
-#if ! MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-
-pattern FunTy :: Type -> Type -> Type
-pattern FunTy dom ran <- (splitFunTy_maybe -> Just (dom,ran))
- where FunTy = mkFunTy
-
--- TODO: Replace explicit uses of splitFunTy_maybe
-
--- TODO: Look for other useful pattern synonyms
-
-pattern FunCo :: Role -> Coercion -> Coercion -> Coercion
-pattern FunCo r dom ran <- TyConAppCo r (isFunTyCon -> True) [dom,ran]
- where FunCo = mkFunCo
-
-#endif
 
 onCaseRhs :: Type -> Unop (Unop CoreExpr)
 onCaseRhs altsTy' f (Case scrut v _ alts) =
@@ -1905,14 +1936,12 @@ onCaseRhs altsTy' f (Case scrut v _ alts) =
 onCaseRhs _ _ e = pprPanic "onCaseRhs. Not a case: " (ppr e)
 
 onAltRhs :: Unop CoreExpr -> Unop CoreAlt
-onAltRhs f (con,bs,rhs) = (con,bs,f rhs)
+onAltRhs f (Alt con bs rhs) = Alt con bs (f rhs)
 
 -- To help debug. Sometimes I'm unsure what constructor goes with what ppr.
 coercionTag :: Coercion -> String
 coercionTag Refl        {} = "Refl"
-#if MIN_VERSION_GLASGOW_HASKELL(8,8,0,0)
 coercionTag GRefl        {} = "GRefl"
-#endif
 coercionTag FunCo       {} = "FunCo" -- pattern synonym
 coercionTag TyConAppCo  {} = "TyConAppCo"
 coercionTag AppCo       {} = "AppCo"
@@ -1926,14 +1955,9 @@ coercionTag AxiomRuleCo {} = "AxiomRuleCo"
 coercionTag NthCo       {} = "NthCo"
 coercionTag LRCo        {} = "LRCo"
 coercionTag InstCo      {} = "InstCo"
-#if !MIN_VERSION_GLASGOW_HASKELL(8,8,0,0)
-coercionTag CoherenceCo {} = "CoherenceCo"
-#endif
 coercionTag KindCo      {} = "KindCo"
 coercionTag SubCo       {} = "SubCo"
-#if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
 coercionTag HoleCo      {} = "HoleCo"
-#endif
 
 -- TODO: Should I unfold (inline application head) earlier? Doing so might
 -- result in much simpler generated code by avoiding many beta-redexes. If I
@@ -1970,10 +1994,10 @@ onExprHead _dflags h = (fmap.fmap) simpleOptExpr' $
    go cont (Cast e co)   = go (cont . (`Cast` co)) e
    go _ _                = Nothing
 
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
-   simpleOptExpr' = simpleOptExpr _dflags
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+   simpleOptExpr' = simpleOptExpr (initSimpleOpts _dflags)
 #else
-   simpleOptExpr' = simpleOptExpr
+   simpleOptExpr' = simpleOptExpr _dflags
 #endif
 
 -- TODO: try go using Maybe fmap instead of continuation.
@@ -1985,7 +2009,11 @@ onExprHead _dflags h = (fmap.fmap) simpleOptExpr' $
 freshId :: VarSet -> String -> Type -> Id
 freshId used nm ty =
   uniqAway (mkInScopeSet used) $
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+  mkSysLocal (fsLit nm) (mkBuiltinUnique 17) Many ty
+#else
   mkSysLocal (fsLit nm) (mkBuiltinUnique 17) ty
+#endif
 
 freshDeadId :: VarSet -> String -> Type -> Id
 freshDeadId used nm ty = setIdOccInfo (freshId used nm ty) IAmDead
@@ -2040,10 +2068,10 @@ etaReduceN e = e
 
 -- The function category
 funCat :: Cat
-#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-funCat = mkTyConApp funTyCon [liftedRepDataConTy, liftedRepDataConTy]
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+funCat = mkTyConApp funTyCon [Many, liftedRepTy, liftedRepTy]
 #else
-funCat = mkTyConTy funTyCon
+funCat = mkTyConApp funTyCon [liftedRepDataConTy, liftedRepDataConTy]
 #endif
 
 liftedExpr :: CoreExpr -> Bool
@@ -2101,7 +2129,7 @@ idOccs penalizeUnderLambda x = go
    goB (y,rhs) | y == x    = 0
                | otherwise = go rhs
    -- goAlt alt | pprTrace "idOccs goAlt" (ppr alt) False = undefined
-   goAlt (_,ys,rhs) | x `elem` ys = 0
+   goAlt (Alt _ ys rhs) | x `elem` ys = 0
                     | otherwise   = go rhs
 
 -- GHC's isPredTy says "no" to unboxed tuples of pred types.
@@ -2116,11 +2144,7 @@ isPredTy' ty = isPredTy ty || others ty
    others _ = False
 
 starKind :: Kind
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
 starKind = liftedTypeKind
-#else
-starKind = mkTyConTy starKindTyCon
-#endif
 
 castE :: Coercion -> CoreExpr
 castE co = Lam x (mkCast (Var x) co)
@@ -2132,21 +2156,17 @@ pprCoWithType :: Coercion -> SDoc
 pprCoWithType co = ppr co <+> dcolon $$ ppr (coercionType co)
 
 setNominalRole_maybe' :: Coercion -> Maybe Coercion
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
 setNominalRole_maybe' c = setNominalRole_maybe (coercionRole c) c
-#else
-setNominalRole_maybe' = setNominalRole_maybe
-#endif
 
 -- Exists somewhere?
 eitherToMaybe :: Either a b -> Maybe b
 eitherToMaybe = either (const Nothing) Just
 
 altRhs :: Alt b -> Expr b
-altRhs (_,_,rhs) = rhs
+altRhs (Alt _ _ rhs) = rhs
 
 altVars :: Alt b -> [b]
-altVars (_,bs,_) = bs
+altVars (Alt _ bs _) = bs
 
 isCast :: Expr b -> Bool
 isCast (Cast {}) = True
@@ -2214,10 +2234,10 @@ isFunCat _               = False
 -- If the wild variable in a Case is not dead, make a new dead wild var and
 -- transform to a Let.
 deadifyCaseWild :: ReExpr
-deadifyCaseWild e@(Case scrut wild _rhsTy [(DataAlt dc, [a,b], rhs)])
+deadifyCaseWild e@(Case scrut wild _rhsTy [Alt (DataAlt dc) [a,b] rhs])
   | not (isDeadBinder wild) =
   Just (Let (NonRec wild scrut) 
-         (Case (Var wild) wild' _rhsTy [(DataAlt dc, [a,b], rhs)]))
+         (Case (Var wild) wild' _rhsTy [Alt (DataAlt dc) [a,b] rhs]))
  where 
    wild' = freshDeadId (exprFreeVars e) "newWild" (varType wild)
 deadifyCaseWild _ = Nothing

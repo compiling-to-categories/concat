@@ -21,7 +21,7 @@
 
 -- | Miscellany
 
-module ConCat.Misc where
+module ConCat.Misc(module ConCat.Misc, oops) where
 
 import GHC.Types (Constraint)
 
@@ -34,11 +34,11 @@ import Data.Monoid (Endo(..))
 import Data.Semigroup (Semigroup(..))
 import Data.Complex (Complex)
 import GHC.Generics hiding (R)
--- import Unsafe.Coerce (unsafeCoerce)  -- for oops
-import GHC.Stack (errorWithStackTrace)  -- for oops
 import GHC.TypeLits
 
 import Control.Newtype.Generics
+
+import ConCat.Oops
 
 {--------------------------------------------------------------------
     Type abbreviations
@@ -256,11 +256,6 @@ data PseudoFun = PseudoFun { pseudoArgs :: Int } deriving (Typeable,Data)
 
 -- pseudoFun :: Int -> PseudoFun
 -- pseudoFun = PseudoFun
-
--- | Pseudo function to fool GHC's divergence checker.
-oops :: String -> b
-oops str = errorWithStackTrace ("Oops: "++str)
-{-# NOINLINE oops #-}
 
 --     In the use of ‘errorWithStackTrace’ (imported from GHC.Stack):
 --     Deprecated: "'error' appends the call stack now"

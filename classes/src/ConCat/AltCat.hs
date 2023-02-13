@@ -23,9 +23,7 @@
 {-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
 {-# LANGUAGE NoStarIsType #-}
-#endif
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-inline-rule-shadowing #-}

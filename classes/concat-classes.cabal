@@ -48,6 +48,7 @@ library
                        ConCat.MinMax
                        ConCat.Category
                        ConCat.AltCat
+                       ConCat.Oops
   ghc-options:      -O2
                     -- -fobject-code here avoids error "mkPluginUsage: file not found"
                     -- with GHCi. See https://gitlab.haskell.org/ghc/ghc/issues/16093.

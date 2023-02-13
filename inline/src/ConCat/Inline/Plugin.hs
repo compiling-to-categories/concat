@@ -12,16 +12,25 @@ import qualified ConCat.Inline.ClassOp as CO
 import Data.List (elemIndex)
 
 -- GHC API
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+import qualified GHC.Driver.Backend as Backend
+import GHC.Types.TyThing (lookupId, lookupTyCon)
+#endif
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+import GHC.Core.Class (classAllSelIds)
+import GHC.Plugins
+import GHC.Types.Id.Make (mkDictSelRhs)
+import GHC.Runtime.Loader
+#else
 import GhcPlugins
 import Class (classAllSelIds)
 import MkId (mkDictSelRhs)
 import DynamicLoading
+#endif
 
 plugin :: Plugin
 plugin = defaultPlugin { installCoreToDos = install
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
                        , pluginRecompile = purePlugin
-#endif
                        }
 
 install :: [CommandLineOption] -> [CoreToDo] -> CoreM [CoreToDo]
@@ -29,13 +38,15 @@ install _opts todos =
   do dflags <- getDynFlags
      -- Unfortunately, the plugin doesn't work in GHCi. Until fixed,
      -- disable under GHCi, so we can at least type-check conveniently.
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+     if backend dflags == Backend.Interpreter then
+        return todos
+#else
      if hscTarget dflags == HscInterpreted then
         return todos
-      else
-       do
-#if !MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-          reinitializeGlobals
 #endif
+     else
+       do
           -- pprTrace "Install inlineClassOpRule" empty (return ())
           let addRule :: ModGuts -> CoreM ModGuts
               addRule guts =
@@ -90,13 +101,9 @@ lookupRdr modu mkOcc mkThing str =
  where
    err = "lookupRdr: couldn't find " ++ str ++ " in " ++ moduleNameString modu
 
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
    -- In GHC 8.6, lookupRdrNameInModuleForPlugins returns a (Name, Module)
    -- where earlier it was just a Name
    mkThing' = mkThing . fst
-#else
-   mkThing' = mkThing
-#endif
 
 lookupTh :: (String -> OccName) -> (Name -> CoreM a) -> String
          -> String -> CoreM a

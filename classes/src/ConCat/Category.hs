@@ -25,10 +25,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE RecursiveDo #-}
-
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
 {-# LANGUAGE NoStarIsType #-}
-#endif
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -1815,7 +1812,7 @@ class BottomCat k a b where
 --   bottomC = bottomC &&& bottomC
 
 instance (BottomCat k a b, ClosedCat k, Ok4 k z b a (z -> b)) => BottomCat k a (z -> b) where
-  bottomC = curry (bottomC . exl) <+ okProd @k @a @ z
+  bottomC = curry (bottomC . exl) <+ okProd @k @a @z
 
 instance BottomCat (->) a b where bottomC = error "bottomC for (->) evaluated"
 
@@ -2075,7 +2072,7 @@ class ({- Pointed h, -} OkFunctor k h, Ok k a) => PointedCat k h a where
 -- class (Ok k a, Num a) => SumCat k h a where
 --   sumC :: h a `k` a
 
-class (Ok k a, Additive a) => AddCat k h a where
+class Ok k a => AddCat k h a where
   sumAC :: h a `k` a
 
 -- class IxSummable n => IxSummableCat k n where

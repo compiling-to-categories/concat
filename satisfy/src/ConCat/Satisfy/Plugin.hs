@@ -10,20 +10,31 @@ module ConCat.Satisfy.Plugin where
 import System.IO.Unsafe (unsafePerformIO)
 
 -- GHC API
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+import GHC.Core.Unfold (defaultUnfoldingOpts)
+import qualified GHC.Driver.Backend as Backend
+import GHC.Utils.Logger (getLogger)
+#endif
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+import GHC.Core.Class (classAllSelIds)
+import GHC.Core.Make (mkCoreTup)
+import GHC.Plugins as GHC
+import GHC.Runtime.Loader
+import GHC.Types.Id.Make (mkDictSelRhs)
+#else
 import GhcPlugins as GHC
 import Class (classAllSelIds)
 import MkId (mkDictSelRhs)
 import MkCore (mkCoreTup)
 import DynamicLoading
+#endif
 
 import ConCat.BuildDictionary (buildDictionary, annotateEvidence)
 import ConCat.Inline.Plugin (findId)
 
 plugin :: Plugin
 plugin = defaultPlugin { installCoreToDos = install
-#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
                        , pluginRecompile = purePlugin
-#endif
                        }
 
 on_mg_rules :: ([CoreRule] -> [CoreRule]) -> (ModGuts -> ModGuts)
@@ -35,12 +46,15 @@ install _opts todos =
   do dflags <- getDynFlags
      -- Unfortunately, the plugin doesn't work in GHCi. Until fixed,
      -- disable under GHCi, so we can at least type-check conveniently.
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+     logger <- getLogger
+     if backend dflags == Backend.Interpreter then
+        return todos
+#else
      if hscTarget dflags == HscInterpreted then
         return todos
-      else do
-#if !MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
-          reinitializeGlobals
 #endif
+      else do
           hscEnv <- getHscEnv
           pprTrace "Install satisfyRule" empty (return ())
           uniqSupply <- getUniqueSupplyM
@@ -48,27 +62,26 @@ install _opts todos =
               addRule guts =
                 do satisfyPV <- findId "ConCat.Satisfy" "satisfy'"
                    pprTrace "adding satisfyRule" empty (return ())
-                   return (on_mg_rules (++ [satisfyRule hscEnv guts uniqSupply satisfyPV]) guts)
+                   return (on_mg_rules (++ [satisfyRule hscEnv guts uniqSupply satisfyPV dflags]) guts)
               isOurRule r = (isBuiltinRule r) && (ru_name r == satisfyRuleName)
               delRule guts =
                 do pprTrace "removing satisfyRule" empty (return ())
                    return (on_mg_rules (filter (not . isOurRule)) guts)
 
-              mode
-#if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
-               dflags
-#else
-               _dflags
-#endif
+              mode dflags
                 = SimplMode { sm_names      = ["Satisfy simplifier pass"]
                             , sm_phase      = Phase 3 -- ??
                             , sm_rules      = True  -- important
                             , sm_inline     = False -- important
                             , sm_eta_expand = False -- ??
                             , sm_case_case  = True
-#if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
-                            , sm_dflags     = dflags
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,2,0)
+                            , sm_cast_swizzle  = True
+                            , sm_uf_opts = defaultUnfoldingOpts
+                            , sm_pre_inline = False
+                            , sm_logger = logger
 #endif
+                            , sm_dflags     = dflags
                     }
           -- It really needs to be this early, otherwise ghc will
           -- break up the calls and the rule will not fire.
@@ -89,12 +102,12 @@ satisfyRuleName :: FastString
 satisfyRuleName = fsLit "satisfy'Rule"
 -- satisfy :: forall c z. (c => z) -> z
 
-satisfyRule :: HscEnv -> ModGuts -> UniqSupply -> Id -> CoreRule
-satisfyRule env guts uniqSupply satisfyPV = BuiltinRule
+satisfyRule :: HscEnv -> ModGuts -> UniqSupply -> Id -> DynFlags -> CoreRule
+satisfyRule env guts uniqSupply satisfyPV dflags = BuiltinRule
   { ru_name  = satisfyRuleName
   , ru_fn    = varName satisfyPV
   , ru_nargs = 5  -- including type args
-  , ru_try   = satisfy env guts uniqSupply
+  , ru_try   = const $ satisfy env guts uniqSupply dflags
   }
 
 satisfy :: HscEnv -> ModGuts -> UniqSupply -> DynFlags -> InScopeEnv -> Id -> [CoreExpr] -> Maybe CoreExpr

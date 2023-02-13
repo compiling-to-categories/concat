@@ -1,6 +1,13 @@
 with import ./nix/pkgs.nix;
 pkgs.haskellPackages.shellFor {
-  nativeBuildInputs = [ cabal-install ghc graphviz ];
+  nativeBuildInputs = with pkgs;
+    [ cabal-install
+      ghc
+      graphviz
+      (pkgs.haskell-language-server.override {
+        supportedGhcVersions = [ "8107" "902" "924" ];
+      })
+    ];
   packages = p:
     with pkgs.haskellPackages; [
       concat-classes

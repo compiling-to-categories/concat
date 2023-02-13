@@ -39,7 +39,7 @@ import Data.Pointed (Pointed)
 import Data.Distributive (Distributive)
 import Data.Functor.Rep (Representable)
 
-import ConCat.Misc ((:*),oops,inNew,inNew2)
+import ConCat.Misc ((:*),inNew,inNew2)
 import ConCat.Category
 import ConCat.AltCat (toCcc,unCcc)
 
