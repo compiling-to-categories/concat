@@ -1365,6 +1365,7 @@ instance (FloatingCat k a, con a) => FloatingCat (Constrained con k) a where
   cosC = Constrained cosC
   sinC = Constrained sinC
   sqrtC = Constrained sqrtC
+  tanhC = Constrained tanhC
 
 instance (RealFracCat k a b, con a, con b) => RealFracCat (Constrained con k) a b where
   floorC = Constrained floorC
@@ -1695,7 +1696,7 @@ instance (FractionalCat k a, FractionalCat k' a) => FractionalCat (k :**: k') a 
   PINLINER(divideC)
 
 class Ok k a => FloatingCat k a where
-  expC, logC, cosC, sinC, sqrtC :: a `k` a
+  expC, logC, cosC, sinC, sqrtC, tanhC :: a `k` a
   -- powC :: (a :* a) `k` a
 
 -- ln :: Floating a => a -> a
@@ -1707,12 +1708,14 @@ instance Floating a => FloatingCat (->) a where
   cosC = IC.inline cos
   sinC = IC.inline sin
   sqrtC = IC.inline sqrt
+  tanhC = IC.inline tanh
   -- powC = IC.inline (**)
   {-# OPINLINE expC #-}
   {-# OPINLINE logC #-}
   {-# OPINLINE cosC #-}
   {-# OPINLINE sinC #-}
   {-# OPINLINE sqrtC #-}
+  {-# OPINLINE tanhC #-}
 
 #ifdef KleisliInstances
 instance (Monad m, Floating a) => FloatingCat (Kleisli m) a where
@@ -1721,6 +1724,7 @@ instance (Monad m, Floating a) => FloatingCat (Kleisli m) a where
   cosC = arr cosC
   sinC = arr sinC
   sqrtC = arr sqrtC
+  tanhC = arr tanh
   -- powC = arr powC
 #endif
 
@@ -1730,6 +1734,7 @@ instance FloatingCat U2 a where
   cosC = U2
   sinC = U2
   sqrtC = U2
+  tanhC = U2
   -- powC = U2
 
 instance (FloatingCat k a, FloatingCat k' a) => FloatingCat (k :**: k') a where
@@ -1738,11 +1743,13 @@ instance (FloatingCat k a, FloatingCat k' a) => FloatingCat (k :**: k') a where
   cosC = cosC :**: cosC
   sinC = sinC :**: sinC
   sqrtC = sqrtC :**: sqrtC
+  tanhC = tanhC :**: tanhC
   PINLINER(expC)
   PINLINER(logC)
   PINLINER(cosC)
   PINLINER(sinC)
   PINLINER(sqrtC)
+  PINLINER(tanhC)
   -- powC = powC :**: powC
   -- PINLINER(powC)
 
