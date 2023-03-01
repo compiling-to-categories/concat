@@ -51,8 +51,7 @@ library
 -- whole library gets recompiled. For now, duplicate the test-suite. See
 -- <https://stackoverflow.com/questions/45015821/setting-component-specific-cabal-flag-from-stack-build>
 
-Test-Suite misc-examples
-  type:             exitcode-stdio-1.0
+Executable misc-examples
   default-language: Haskell98
   hs-Source-Dirs:   test
   main-is:          Examples.hs
@@ -80,8 +79,7 @@ Test-Suite misc-examples
     cpp-options:        -DCONCAT_SMT
   cpp-options:      -DVectorSized
 
-Test-Suite misc-trace
-  type:             exitcode-stdio-1.0
+Executable misc-trace
   default-language: Haskell98
   hs-Source-Dirs:   test
   main-is:          Examples.hs
