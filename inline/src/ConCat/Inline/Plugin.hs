@@ -78,7 +78,7 @@ inlineClassOp (collectArgs -> (Var v,rest))
   = -- pprTrace "inlineClassOp class" (ppr cls) $
     ((`mkCoreApps` rest) . mkDictSelRhs cls) <$> elemIndex v (classAllSelIds cls)
   -- Experiment
-  -- | Just e' <- maybeUnfoldingTemplate (realIdUnfolding v)
+  -- \| Just e' <- maybeUnfoldingTemplate (realIdUnfolding v)
   -- = pprTrace "inlining non-class-op to" (ppr e') $
   --   Just e'
 inlineClassOp e = pprTrace "inlineClassOp failed/unnecessary" (ppr e) $
