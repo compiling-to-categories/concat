@@ -35,8 +35,7 @@ library
                      , text >= 1.2.2.1
   default-language:    Haskell2010
 
-test-suite graphics-examples
-  type:                exitcode-stdio-1.0
+executable graphics-examples
   hs-source-dirs:      test
   main-is:             Examples.hs
   build-depends:       base
@@ -54,8 +53,7 @@ test-suite graphics-examples
   default-language:    Haskell2010
   ghc-options:         -fplugin=ConCat.Plugin
 
-test-suite graphics-trace
-  type:                exitcode-stdio-1.0
+executable graphics-trace
   hs-source-dirs:      test
   main-is:             Examples.hs
   build-depends:       base

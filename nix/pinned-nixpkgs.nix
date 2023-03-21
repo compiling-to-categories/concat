@@ -1,5 +1,5 @@
 let
-  bootstrapPkgs = import <nixpkgs> { };
+  bootstrapPkgs = import <nixpkgs> {};
   # We create this by using `nix-prefetch-git`, for instance:
   # nix-prefetch-git --rev foogitrev123 https://github.com/nixos/nixpkgs.git > ./nixpkgs-pin.json
   # The command `nix-prefetch-git` itself can be installed via Nix as well.
@@ -10,4 +10,5 @@ let
     repo = "nixpkgs";
     inherit (nixpkgs) rev sha256;
   };
-in src
+in
+  src

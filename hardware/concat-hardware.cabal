@@ -40,8 +40,7 @@ library
   default-language:    Haskell2010
   cpp-options:      -DVectorSized
 
-test-suite hardware-examples
-  type:                exitcode-stdio-1.0
+executable hardware-examples
   hs-source-dirs:      test
   main-is:             Examples.hs
   build-depends:       base
@@ -63,8 +62,7 @@ test-suite hardware-examples
   default-language:    Haskell2010
   ghc-options:         -fplugin=ConCat.Plugin
 
-test-suite hardware-trace
-  type:                exitcode-stdio-1.0
+executable hardware-trace
   hs-source-dirs:      test
   main-is:             Examples.hs
   build-depends:       base
@@ -86,4 +84,3 @@ test-suite hardware-trace
   default-language:    Haskell2010
   ghc-options:      -fplugin=ConCat.Plugin
                     -fplugin-opt=ConCat.Plugin:trace
-

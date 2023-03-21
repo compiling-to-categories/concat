@@ -359,7 +359,9 @@ type GS a = (GenBuses a, Show a)
 
 genBus :: (Source -> Buses a) -> Ty
        -> Template u v -> [Source] -> BusesM (Buses a)
-genBus wrap t templ ins = seq (show t) $  -- * [Note seq]
+-- Without this @seq (show t)@, I'm getting non-termination with
+-- `id @(Vector 4 Bool :* Bool)`. I don't know why @seq t@ isn't enough.
+genBus wrap t templ ins = seq (show t) $
                           -- seq t $
                           -- trace ("genBus " ++ show t) $
                           do o <- M.get
@@ -367,8 +369,6 @@ genBus wrap t templ ins = seq (show t) $  -- * [Note seq]
                              M.put (o+1)
                              return (wrap src)
 
--- [Note seq]: Without this seq, I'm getting non-termination with
--- `id @(Vector 4 Bool :* Bool)`. I don't know why. seq t isn't enough.
 
 unflattenB :: GenBuses a => [Source] -> Buses a
 unflattenB sources | [] <- rest = a
@@ -532,7 +532,7 @@ convertB a            = mkConvertB a
 
 -- Make a ConvertB if source and target types differ; otherwise id
 mkConvertB :: forall a b. Ok2 (:>) a b => Buses a -> Buses b
-mkConvertB a -- | Just Refl <- eqT @a @b = a
+mkConvertB a -- \| Just Refl <- eqT @a @b = a
              | otherwise              = ConvertB a
 
 {--------------------------------------------------------------------
