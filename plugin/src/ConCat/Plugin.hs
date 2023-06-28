@@ -2251,6 +2251,9 @@ mkCoercible k a b co =
 
 isFunCat :: Type -> Bool
 isFunCat (TyConApp tc _) = isFunTyCon tc
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+  || tc == unrestrictedFunTyCon -- ghc 9 has two representations for ->
+#endif
 isFunCat _               = False
 
 -- If the wild variable in a Case is not dead, make a new dead wild var and
