@@ -40,6 +40,10 @@ import Text.Printf (printf)
 import System.IO.Unsafe (unsafePerformIO)
 import Data.IORef
 
+#if MIN_VERSION_GLASGOW_HASKELL(9,4,0,0)
+import GHC.Utils.Trace
+import GHC.Core.Reduction (reductionCoercion, reductionReducedType)
+#endif
 #if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
 import GHC.Builtin.Names (leftDataConName,rightDataConName
                          ,floatTyConKey,doubleTyConKey,integerTyConKey
@@ -1167,7 +1171,12 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
    isClosed :: Cat -> Bool
    -- isClosed k = isJust (mkApplyMaybe k unitTy unitTy)
    isClosed k = isRight (buildDictMaybe (TyConApp closedTc [k]))
+#if MIN_VERSION_GLASGOW_HASKELL(9,4,0,0)
+   normType role ty = let reduction = normaliseType famEnvs role ty
+                      in (reductionCoercion reduction, reductionReducedType reduction)
+#else
    normType = normaliseType famEnvs
+#endif
 
    mkCurry' :: Cat -> ReExpr
    -- mkCurry' k e | dtrace "mkCurry'" (ppr k <+> pprWithType e) False = undefined

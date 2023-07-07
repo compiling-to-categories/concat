@@ -10,6 +10,9 @@ module ConCat.Satisfy.Plugin where
 import System.IO.Unsafe (unsafePerformIO)
 
 -- GHC API
+#if MIN_VERSION_GLASGOW_HASKELL(9,4,0,0)
+import GHC.Utils.Trace
+#endif
 #if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
 import GHC.Core.Unfold (defaultUnfoldingOpts)
 import qualified GHC.Driver.Backend as Backend

@@ -22,6 +22,9 @@ module ConCat.Simplify (simplifyE) where
 
 import System.IO.Unsafe (unsafePerformIO)
 
+#if MIN_VERSION_GLASGOW_HASKELL(9,4,0,0)
+import GHC.Unit.External (eps_rule_base)  
+#endif
 #if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
 #if !MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
 import GHC.Core (emptyRuleEnv)
@@ -51,16 +54,25 @@ import OccurAnal (occurAnalyseExpr)
 import FamInstEnv (emptyFamInstEnvs)
 #endif
 
-#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+#if MIN_VERSION_GLASGOW_HASKELL(9,4,0,0)
+dumpIfSet_dyn' :: Err.Logger -> DynFlags -> DumpFlag -> String -> SDoc -> IO ()
+dumpIfSet_dyn' logger _dflags dumpFlag str =
+  Err.putDumpFileMaybe logger dumpFlag str Err.FormatText
+dumpIfSet' :: Err.Logger -> DynFlags -> Bool -> String -> SDoc -> IO ()
+dumpIfSet' logger _dflags _opt hdr doc = Err.logDumpMsg logger hdr doc
+#elif MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
 dumpIfSet_dyn' :: Err.Logger -> DynFlags -> DumpFlag -> String -> SDoc -> IO ()
 dumpIfSet_dyn' logger dflags dumpFlag str =
   Err.dumpIfSet_dyn logger dflags dumpFlag str Err.FormatCore
+dumpIfSet' = Err.dumpIfSet
 #elif MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
 dumpIfSet_dyn' :: DynFlags -> DumpFlag -> String -> SDoc -> IO ()
 dumpIfSet_dyn' dflags dumpFlag str = Err.dumpIfSet_dyn dflags dumpFlag str Err.FormatCore
+dumpIfSet' = Err.dumpIfSet
 #else
 dumpIfSet_dyn' :: DynFlags -> DumpFlag -> String -> SDoc -> IO ()
 dumpIfSet_dyn' = Err.dumpIfSet_dyn
+dumpIfSet' = Err.dumpIfSet
 #endif
 
 {--------------------------------------------------------------------
@@ -71,10 +83,11 @@ dumpIfSet_dyn' = Err.dumpIfSet_dyn
 
 -- TODO: I don't think I'm using inline with simplifyE, so switch to simplifyExpr.
 
-simplifyE :: DynFlags -> Bool -> CoreExpr -> CoreExpr
-simplifyE dflags inline = unsafePerformIO . simplifyExpr dflags inline
+simplifyE :: HscEnv -> DynFlags -> Bool -> CoreExpr -> CoreExpr
+simplifyE hsc_env dflags inline = unsafePerformIO . simplifyExpr hsc_env dflags inline
 
-simplifyExpr :: DynFlags -- includes spec of what core-to-core passes to do
+simplifyExpr :: HscEnv
+             -> DynFlags -- includes spec of what core-to-core passes to do
              -> Bool
              -> CoreExpr
              -> IO CoreExpr
@@ -82,15 +95,26 @@ simplifyExpr :: DynFlags -- includes spec of what core-to-core passes to do
 -- expression typed in at the interactive prompt
 --
 -- Also used by Template Haskell
-simplifyExpr dflags inline expr
+simplifyExpr hsc_env dflags inline expr
   = do let sz = exprSize expr
-#if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
+#if MIN_VERSION_GLASGOW_HASKELL(9,4,0,0)
+       logger <- Err.initLogger
+       (expr', counts) <- initSmpl logger dflags
+                            (eps_rule_base <$> hscEPS hsc_env)
+                            emptyRuleEnv
+                            emptyFamInstEnvs sz
+                            (simplExprGently (simplEnvForCcc dflags inline logger) expr)
+       dumpIfSet' logger dflags (dopt Opt_D_dump_simpl_stats dflags)
+                  "Simplifier statistics" (pprSimplCount counts)
+       dumpIfSet_dyn' logger dflags Opt_D_dump_simpl "Simplified expression"
+                      (ppr expr')
+#elif MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
        logger <- Err.initLogger
        (expr', counts) <- initSmpl logger dflags emptyRuleEnv
                             emptyFamInstEnvs sz
                             (simplExprGently (simplEnvForCcc dflags inline logger) expr)
-       Err.dumpIfSet logger dflags (dopt Opt_D_dump_simpl_stats dflags)
-               "Simplifier statistics" (pprSimplCount counts)
+       dumpIfSet' logger dflags (dopt Opt_D_dump_simpl_stats dflags)
+                  "Simplifier statistics" (pprSimplCount counts)
        dumpIfSet_dyn' logger dflags Opt_D_dump_simpl "Simplified expression"
                       (ppr expr')
 #else
