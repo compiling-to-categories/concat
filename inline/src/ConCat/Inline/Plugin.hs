@@ -16,6 +16,9 @@ import Data.List (elemIndex)
 import qualified GHC.Driver.Backend as Backend
 import GHC.Types.TyThing (lookupId, lookupTyCon)
 #endif
+#if MIN_VERSION_GLASGOW_HASKELL(9,4,0,0)
+import GHC.Utils.Trace
+#endif
 #if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
 import GHC.Core.Class (classAllSelIds)
 import GHC.Plugins
@@ -52,12 +55,20 @@ install _opts todos =
               addRule guts =
                 do inlineV <- findId "ConCat.Inline.ClassOp" "inline"
                    return (guts { mg_rules = inlineClassOpRule inlineV : mg_rules guts })
+              isRule r = isBuiltinRule r && ru_name r == inlineClassOpName
+              delRule :: ModGuts -> CoreM ModGuts
+              delRule guts =
+                return (guts { mg_rules = filter (not . isRule) (mg_rules guts) })
           return $
              CoreDoPluginPass "Insert inlineClassOp rule" addRule : todos
+               ++ [CoreDoPluginPass "Remove inlineClassOp rule" delRule]
+
+inlineClassOpName :: FastString
+inlineClassOpName = fsLit "inlineClassOp"
 
 inlineClassOpRule :: Id -> CoreRule
 inlineClassOpRule inlineV = BuiltinRule
-  { ru_name  = fsLit "inlineClassOp"
+  { ru_name  = inlineClassOpName
   , ru_fn    = varName inlineV
   , ru_nargs = 2  -- including type args
   , ru_try   = \ _dflags _inScope _fn -> expand
