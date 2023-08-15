@@ -401,6 +401,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
    -- goLam x body | dtrace ("goLam body constr: " ++ exprConstr body) (ppr (Lam x body)) False = undefined
     where
       catClosed = isClosed cat
+      subst1 v e = subst [] [(v,e)]
    goLam' x body =
      dtrace ("goLam "++pp x++" "++pp cat++":") (pprWithType body) $
      goLam x body
@@ -487,7 +488,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
            -- Just (mkCcc (Lam x (subst1 v rhs body')))
            -- Sometimes GHC then un-substitutes, leading to a loop.
            -- Using goLam prevents GHC from getting that chance. (Always?)
-           goLam' x (subst1 v rhs body')
+           goLam' x (subst1 [x] v rhs body')
            -- Yet another choice is to lambda-lift the binding over x and then
            -- float the let past the x binding.
          else
@@ -531,7 +532,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
         zName = uqVarName x ++ "_" ++ uqVarName y
         sub = [(x,mkEx funCat exlV (Var z)),(y,mkEx funCat exrV (Var z))]
         -- TODO: consider using fst & snd instead of exl and exr here
-        mbe' = mkCurry' cat (mkCcc (Lam z (subst sub e)))
+        mbe' = mkCurry' cat (mkCcc (Lam z (subst [] sub e)))
      Trying("lam boxer")
      (boxCon -> Just e') ->
        Doing("lam boxer")
@@ -736,6 +737,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
       bty = exprType body
       isConst = not (x `isFreeIn` body)
       catClosed = isClosed cat
+      subst1 vars v e = subst vars [(v,e)]
 
    -- Given
    --
@@ -964,6 +966,7 @@ data Ops = Ops
  , normType       :: Role -> Type -> (Coercion, Type)
  , okType         :: Type -> Bool
  , optimizeCoercion :: Coercion -> Coercion
+ , subst          :: [Var] -> [(Id,CoreExpr)] -> Unop CoreExpr
  }
 
 mkOps :: CccEnv -> ModGuts -> AnnEnv -> FamInstEnvs
@@ -1407,6 +1410,19 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
 #else
    optimizeCoercion = optCoercion dflags emptyTCvSubst
 #endif
+    -- | Substitute new subexpressions for variables in an expression. Drop any dead
+    -- binders, which is handy as dead binders can appear with live binders of the
+    -- same variable.
+   subst :: [Var] -> [(Id,CoreExpr)] -> Unop CoreExpr
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+   -- substExpr / lookupIdSubst expects Vars to be in inScope, so pass it along
+   subst vars ps = substExpr (foldr add (extendInScopeList (mkEmptySubst (fst inScope)) vars) ps')
+#else
+   subst vars ps = substExpr "subst" (foldr add emptySubst ps')
+#endif
+    where
+      add (v,new) sub = extendIdSubst sub v new
+      ps' = filter (not . isDeadBinder . fst) ps
 
 substFriendly :: Bool -> CoreExpr -> Bool
 -- substFriendly catClosed rhs
@@ -1898,22 +1914,6 @@ uniqVarName v = uqVarName v ++ "_" ++ show (varUnique v)
 qualifiedName :: Name -> String
 qualifiedName nm =
   maybe "" (++ ".") (nameModuleName_maybe nm) ++ getOccString nm
-
--- | Substitute new subexpressions for variables in an expression. Drop any dead
--- binders, which is handy as dead binders can appear with live binders of the
--- same variable.
-subst :: [(Id,CoreExpr)] -> Unop CoreExpr
-#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
-subst ps = substExpr (foldr add emptySubst ps')
-#else
-subst ps = substExpr "subst" (foldr add emptySubst ps')
-#endif
- where
-   add (v,new) sub = extendIdSubst sub v new
-   ps' = filter (not . isDeadBinder . fst) ps
-
-subst1 :: Id -> CoreExpr -> Unop CoreExpr
-subst1 v e = subst [(v,e)]
 
 onHead :: Unop a -> Unop [a]
 onHead f (c:cs) = f c : cs
