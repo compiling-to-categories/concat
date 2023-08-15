@@ -1,0 +1,50 @@
+digraph cos_2xx_adr {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>}}"] }
+  subgraph clusterc610 { label=""; color=white; margin=0; c610 [label="{2.0|{<Out0>}}"] }
+  subgraph clusterc744 { label=""; color=white; margin=0; c744 [label="{{<In0>|<In1>}|\×|{<Out0>}}"] }
+  subgraph clusterc1043 { label=""; color=white; margin=0; c1043 [label="{{<In0>|<In1>}|\×|{<Out0>}}"] }
+  subgraph clusterc1281 { label=""; color=white; margin=0; c1281 [label="{{<In0>}|cos|{<Out0>}}"] }
+  subgraph clusterc1282 { label=""; color=white; margin=0; c1282 [label="{{<In0>}|sin|{<Out0>}}"] }
+  subgraph cluster_1358 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    c1346 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c1352 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c1348 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c1344 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c1355 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+    c1343 [label="{In|{<Out0>}}"]
+    c1357 [label="{{<In0>}|Out}"]
+    c1356 [label="{{<In0>}|negate|{<Out0>}}"]
+    c0:Out0 -> c1346:In0 [label="Double"]
+    c1344:Out0 -> c1346:In1 [label="Double"]
+    c610:Out0 -> c1352:In0 [label="Double"]
+    c1346:Out0 -> c1352:In1 [label="Double"]
+    c744:Out0 -> c1348:In0 [label="Double"]
+    c1344:Out0 -> c1348:In1 [label="Double"]
+    c1282:Out0 -> c1344:In0 [label="Double"]
+    c1343:Out0 -> c1344:In1 [label="Double"]
+    c1348:Out0 -> c1355:In0 [label="Double"]
+    c1352:Out0 -> c1355:In1 [label="Double"]
+    c1356:Out0 -> c1357:In0 [label="Double"]
+    c1355:Out0 -> c1356:In0 [label="Double"]
+  }
+  subgraph clusterc1359 { label=""; color=white; margin=0; c1359 [label="{{<In0>|<In1>}|Out}"] }
+  c0:Out0 -> c744:In0 [label="Double"]
+  c610:Out0 -> c744:In1 [label="Double"]
+  c0:Out0 -> c1043:In0 [label="Double"]
+  c744:Out0 -> c1043:In1 [label="Double"]
+  c1043:Out0 -> c1281:In0 [label="Double"]
+  c1043:Out0 -> c1282:In0 [label="Double"]
+  c1281:Out0 -> c1359:In0 [label="Double"]
+  c1357 -> c1359:In1 [ltail=cluster_1358,label="Double ’ Double"]
+}

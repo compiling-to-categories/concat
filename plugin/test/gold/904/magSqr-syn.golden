@@ -1,0 +1,4 @@
+addC .
+((mulC . ((exl *** exl) . dup) . exr *** mulC . ((exr *** exr) . dup) . exr) .
+ dup) .
+dup

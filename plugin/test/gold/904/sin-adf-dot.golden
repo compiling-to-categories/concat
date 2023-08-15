@@ -1,0 +1,29 @@
+digraph sin_adf {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>}}"] }
+  subgraph clusterc12 { label=""; color=white; margin=0; c12 [label="{{<In0>}|sin|{<Out0>}}"] }
+  subgraph clusterc13 { label=""; color=white; margin=0; c13 [label="{{<In0>}|cos|{<Out0>}}"] }
+  subgraph cluster_20 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    c18 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c17 [label="{In|{<Out0>}}"]
+    c19 [label="{{<In0>}|Out}"]
+    c13:Out0 -> c18:In0 [label="Double"]
+    c17:Out0 -> c18:In1 [label="Double"]
+    c18:Out0 -> c19:In0 [label="Double"]
+  }
+  subgraph clusterc21 { label=""; color=white; margin=0; c21 [label="{{<In0>|<In1>}|Out}"] }
+  c0:Out0 -> c12:In0 [label="Double"]
+  c0:Out0 -> c13:In0 [label="Double"]
+  c12:Out0 -> c21:In0 [label="Double"]
+  c19 -> c21:In1 [ltail=cluster_20,label="Double ’ Double"]
+}
