@@ -1,0 +1,31 @@
+digraph complex_mul {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  c0 [label="{In|{<Out0>|<Out1>|<Out2>|<Out3>}}"]
+  c10 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+  c11 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+  c12 [label="{{<In0>|<In1>}|\|{<Out0>}}"]
+  c13 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+  c14 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+  c15 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+  c16 [label="{{<In0>|<In1>}|Out}"]
+  c0:Out0 -> c10:In0 [label="Double"]
+  c0:Out2 -> c10:In1 [label="Double"]
+  c0:Out1 -> c11:In0 [label="Double"]
+  c0:Out3 -> c11:In1 [label="Double"]
+  c10:Out0 -> c12:In0 [label="Double"]
+  c11:Out0 -> c12:In1 [label="Double"]
+  c0:Out0 -> c13:In0 [label="Double"]
+  c0:Out3 -> c13:In1 [label="Double"]
+  c0:Out1 -> c14:In0 [label="Double"]
+  c0:Out2 -> c14:In1 [label="Double"]
+  c13:Out0 -> c15:In0 [label="Double"]
+  c14:Out0 -> c15:In1 [label="Double"]
+  c12:Out0 -> c16:In0 [label="Double"]
+  c15:Out0 -> c16:In1 [label="Double"]
+}

@@ -1,0 +1,28 @@
+digraph twice_adf {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>}}"] }
+  subgraph clusterc27 { label=""; color=white; margin=0; c27 [label="{{<In0>|<In1>}|+|{<Out0>}}"] }
+  subgraph cluster_51 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    c49 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+    c48 [label="{In|{<Out0>}}"]
+    c50 [label="{{<In0>}|Out}"]
+    c48:Out0 -> c49:In0 [label="Double"]
+    c48:Out0 -> c49:In1 [label="Double"]
+    c49:Out0 -> c50:In0 [label="Double"]
+  }
+  subgraph clusterc52 { label=""; color=white; margin=0; c52 [label="{{<In0>|<In1>}|Out}"] }
+  c0:Out0 -> c27:In0 [label="Double"]
+  c0:Out0 -> c27:In1 [label="Double"]
+  c27:Out0 -> c52:In0 [label="Double"]
+  c50 -> c52:In1 [ltail=cluster_51,label="Double ’ Double"]
+}
