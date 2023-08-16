@@ -200,10 +200,11 @@ runDsM env dflags guts dsm = runTcM env dflags guts $ do
 runDsM env dflags guts = runTcM env dflags guts . initDsTc
 #endif
 
-unkskol :: SkolemInfoAnon
 #if MIN_VERSION_GLASGOW_HASKELL(9,4,0,0)
+unkskol :: SkolemInfoAnon
 unkskol = unkSkolAnon
 #else
+unkskol :: SkolemInfo
 unkskol = UnkSkol
 #endif
 
