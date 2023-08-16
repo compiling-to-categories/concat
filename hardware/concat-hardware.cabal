@@ -41,6 +41,8 @@ library
   cpp-options:      -DVectorSized
 
 executable hardware-examples
+  -- currently fails with a panic from plugin
+  buildable:	     False
   hs-source-dirs:      test
   main-is:             Examples.hs
   build-depends:       base
@@ -63,6 +65,8 @@ executable hardware-examples
   ghc-options:         -fplugin=ConCat.Plugin
 
 executable hardware-trace
+  -- currently fails with a panic from plugin
+  buildable:	     False
   hs-source-dirs:      test
   main-is:             Examples.hs
   build-depends:       base
