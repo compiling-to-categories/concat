@@ -16,14 +16,12 @@
   outputs = inputs: let
     pname = "concat";
 
-    defaultCompiler = "ghc902";
+    defaultCompiler = "ghc945";
     supportedGhcVersions = [
       "ghc8107"
       "ghc902"
-      "ghc924"
-      # These don’t work yet.
-      # "ghc942"
-      # "ghcHEAD"
+      "ghc928"
+      "ghc945"
     ];
     # Haddock for `concat-inline` currently fails with
     #
@@ -81,7 +79,7 @@
                   ## These attributes are simply required by home-manager.
                   home = {
                     homeDirectory = /tmp/${pname}-example;
-                    stateVersion = "22.11";
+                    stateVersion = "23.105";
                     username = "${pname}-example-user";
                   };
                 })
@@ -195,9 +193,9 @@
 
     home-manager = {
       inputs.nixpkgs.follows = "nixpkgs";
-      url = "github:nix-community/home-manager/release-22.11";
+      url = "github:nix-community/home-manager/release-23.05";
     };
 
-    nixpkgs.url = "github:NixOS/nixpkgs/release-22.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/release-23.05";
   };
 }
