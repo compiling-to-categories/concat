@@ -101,6 +101,10 @@ import qualified UniqSet as NonDetSet
 
 import ConCat.Simplify
 
+#if MIN_VERSION_GLASGOW_HASKELL(9,4,0,0)
+import GHC.Utils.Trace
+#endif
+
 isEvVarType' :: Type -> Bool
 isEvVarType' = isEvVarType
 
