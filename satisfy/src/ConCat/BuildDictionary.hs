@@ -53,6 +53,7 @@ import GHC.Tc.Utils.Monad (getCtLocM,traceTc)
 import GHC.Tc.Utils.Zonk (emptyZonkEnv,zonkEvBinds)
 import GHC.Types.Unique (mkUniqueGrimily)
 import qualified GHC.Types.Unique.Set as NonDetSet
+import GHC.Core.FVs (exprFreeVars)
 #if MIN_VERSION_GLASGOW_HASKELL(9,4,0,0)
 import GHC.Runtime.Eval.Types (IcGlobalRdrEnv(..))
 import GHC.Driver.Config.Finder (initFinderOpts)
@@ -264,7 +265,7 @@ buildDictionary env dflags guts uniqSupply inScope evType ev goalTy | isEvVarTyp
 buildDictionary _env _dflags _guts _uniqSupply _inScope evT _ev _goalTy = pprPanic "evidence type mismatch" (ppr evT)
                                                          
 reallyBuildDictionary :: HscEnv -> DynFlags -> ModGuts -> UniqSupply -> InScopeEnv -> Type -> [Type] -> CoreExpr -> Type -> IO (Either SDoc CoreExpr)
-reallyBuildDictionary env dflags guts uniqSupply _inScope evType evTypes ev goalTy =
+reallyBuildDictionary env dflags guts uniqSupply inScope evType evTypes ev goalTy =
   pprTrace' "\nbuildDictionary" (ppr goalTy) $
   pprTrace' "buildDictionary in-scope evidence" (ppr ev) $
   reassemble <$> buildDictionary' env dflags guts evIdSet goalTy
@@ -283,7 +284,7 @@ reallyBuildDictionary env dflags guts uniqSupply _inScope evType evTypes ev goal
      res
     where
       res | null bnds          = Left (text "no bindings")
-          | otherwise          = return $ simplifyE env dflags False
+          | otherwise          = return $ simplifyE env dflags (fst inScope) False
                                           expr
       dict =
         case bnds of
