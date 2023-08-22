@@ -285,7 +285,7 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      (isPseudoApp -> True) ->
        Doing("top Avoid pseudo-app")
        Nothing
-  Trying("top Case of bottom")
+     Trying("top Case of bottom")
      e@(Case (collectArgs -> (Var v,_args)) _wild _rhsTy _alts)
        |  v == bottomV
        ,  FunTy' dom cod <- exprType e
