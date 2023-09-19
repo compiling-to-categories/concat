@@ -1410,9 +1410,9 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
 #else
    optimizeCoercion = optCoercion dflags emptyTCvSubst
 #endif
-    -- | Substitute new subexpressions for variables in an expression. Drop any dead
-    -- binders, which is handy as dead binders can appear with live binders of the
-    -- same variable.
+   -- | Substitute new subexpressions for variables in an expression. Drop any dead
+   -- binders, which is handy as dead binders can appear with live binders of the
+   -- same variable.
    subst :: [Var] -> [(Id,CoreExpr)] -> Unop CoreExpr
 #if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
    -- substExpr / lookupIdSubst expects Vars to be in inScope, so pass it along
