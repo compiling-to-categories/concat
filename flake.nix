@@ -16,12 +16,11 @@
   outputs = inputs: let
     pname = "concat";
 
-    defaultCompiler = "ghc945";
+    defaultCompiler = "ghc948";
     supportedGhcVersions = [
-      "ghc8107"
       "ghc902"
       "ghc928"
-      "ghc945"
+      "ghc948"
     ];
     # Haddock for `concat-inline` currently fails with
     #
@@ -193,9 +192,9 @@
 
     home-manager = {
       inputs.nixpkgs.follows = "nixpkgs";
-      url = "github:nix-community/home-manager/release-23.05";
+      url = "github:nix-community/home-manager/release-23.11";
     };
 
-    nixpkgs.url = "github:NixOS/nixpkgs/release-23.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/release-23.11";
   };
 }
