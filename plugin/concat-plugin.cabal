@@ -42,6 +42,7 @@ library
                        ConCat.OkType
                        ConCat.Plugin
                        ConCat.Rebox
+                       ConCat.NormaliseType
   ghc-options:      -O2
 
 -- Do I want to depend on integer-gmp? Maybe conditionally depend on integer-gmp
