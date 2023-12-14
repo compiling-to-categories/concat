@@ -1682,9 +1682,11 @@ install opts todos =
                     , sm_eta_expand = False -- ??
                     , sm_case_case  = True
                     , sm_dflags     = dflags
+#if MIN_VERSION_GLASGOW_HASKELL(9,2,2,0)
+                    , sm_cast_swizzle = True
+#endif
 #if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
                     , sm_uf_opts    = unfoldingOpts dflags
-                    , sm_cast_swizzle = True
                     , sm_pre_inline = gopt Opt_SimplPreInlining dflags
                     , sm_logger     = hsc_logger hsc_env
 #endif
