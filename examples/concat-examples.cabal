@@ -29,7 +29,7 @@ library
   install-includes:    ConCat/AbsTy.inc
   build-depends:       base >=4.9
                      , newtype-generics >= 0.5.3
-                     , constraints >= 0.8
+                     , constraints >= 0.8 && < 0.14
                      , containers >= 0.5.7.1
                      , keys >= 3.11
                      , pointed
