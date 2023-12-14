@@ -11,11 +11,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         ghc:
-          - "9.0.2"
-          - "9.2.4"
-          - "9.4.8"
+          - "9.0.1"
+          - "9.2.1"
+          - "9.2.2" # has breaking changes relative to 9.2.1
+          - "9.4.1"
     steps:
       - uses: actions/checkout@v2
       - uses: haskell/actions/setup@v1
