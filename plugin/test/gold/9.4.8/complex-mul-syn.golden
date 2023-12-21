@@ -1,0 +1,17 @@
+apply .
+(curry
+ (abst .
+  ((subC .
+    (mulC . (exl . exr . exl *** exl . exr) . dup ***
+     mulC . (exr . exr . exl *** exr . exr) . dup) .
+    dup ***
+    addC .
+    (mulC . (exl . exr . exl *** exr . exr) . dup ***
+     mulC . (exr . exr . exl *** exl . exr) . dup) .
+    dup) .
+   dup) .
+  ((id *** repr . exr . exr . exl) . dup) .
+  ((id *** repr . exl . exr) . dup) . dup) .
+ exl ***
+ exr) .
+dup

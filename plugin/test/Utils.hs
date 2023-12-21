@@ -25,7 +25,7 @@ runSynCirc nm (syn A.:**: circ) =
     ]
  where
    gold str = goldenVsString "syntax"
-                     ("test/gold/" <> show (__GLASGOW_HASKELL__ :: Int) <> "/" <> nm <> "-" <> str <> ".golden")
+                     ("test/gold/" <> __GLASGOW_HASKELL_FULL_VERSION__ <> "/" <> nm <> "-" <> str <> ".golden")
             . pure . BS.pack
 
 runDers :: (Show a, Show b, Show s) => String

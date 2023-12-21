@@ -1,0 +1,38 @@
+digraph cos_2xx_gradr {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  c0 [label="{In|{<Out0>}}"]
+  c610 [label="{2.0|{<Out0>}}"]
+  c744 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+  c1043 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+  c1281 [label="{{<In0>}|cos|{<Out0>}}"]
+  c1282 [label="{{<In0>}|sin|{<Out0>}}"]
+  c1360 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+  c1362 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+  c1366 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+  c1368 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+  c1369 [label="{{<In0>}|negate|{<Out0>}}"]
+  c1370 [label="{{<In0>|<In1>}|Out}"]
+  c0:Out0 -> c744:In0 [label="Double"]
+  c610:Out0 -> c744:In1 [label="Double"]
+  c0:Out0 -> c1043:In0 [label="Double"]
+  c744:Out0 -> c1043:In1 [label="Double"]
+  c1043:Out0 -> c1281:In0 [label="Double"]
+  c1043:Out0 -> c1282:In0 [label="Double"]
+  c0:Out0 -> c1360:In0 [label="Double"]
+  c1282:Out0 -> c1360:In1 [label="Double"]
+  c744:Out0 -> c1362:In0 [label="Double"]
+  c1282:Out0 -> c1362:In1 [label="Double"]
+  c610:Out0 -> c1366:In0 [label="Double"]
+  c1360:Out0 -> c1366:In1 [label="Double"]
+  c1362:Out0 -> c1368:In0 [label="Double"]
+  c1366:Out0 -> c1368:In1 [label="Double"]
+  c1368:Out0 -> c1369:In0 [label="Double"]
+  c1281:Out0 -> c1370:In0 [label="Double"]
+  c1369:Out0 -> c1370:In1 [label="Double"]
+}

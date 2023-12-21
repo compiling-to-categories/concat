@@ -1,1 +1,0 @@
-((cosC *** sinC) . dup) . mulC . exr . dup
