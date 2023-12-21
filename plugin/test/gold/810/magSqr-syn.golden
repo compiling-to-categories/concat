@@ -1,1 +1,0 @@
-addC . (mulC . (exl *** exl) . dup *** mulC . (exr *** exr) . dup) . dup

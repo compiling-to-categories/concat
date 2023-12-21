@@ -1,0 +1,37 @@
+digraph cos_xpy_adf {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  subgraph clusterc0 { label=""; color=white; margin=0; c0 [label="{In|{<Out0>|<Out1>}}"] }
+  subgraph clusterc1 { label=""; color=white; margin=0; c1 [label="{{<In0>|<In1>}|+|{<Out0>}}"] }
+  subgraph clusterc43 { label=""; color=white; margin=0; c43 [label="{{<In0>}|cos|{<Out0>}}"] }
+  subgraph clusterc44 { label=""; color=white; margin=0; c44 [label="{{<In0>}|sin|{<Out0>}}"] }
+  subgraph cluster_77 {
+    margin=8
+    fontsize=20
+    labeljust=r
+    color=DarkGreen
+    c74 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+    c73 [label="{{<In0>|<In1>}|+|{<Out0>}}"]
+    c72 [label="{In|{<Out0>|<Out1>}}"]
+    c76 [label="{{<In0>}|Out}"]
+    c75 [label="{{<In0>}|negate|{<Out0>}}"]
+    c44:Out0 -> c74:In0 [label="Double"]
+    c73:Out0 -> c74:In1 [label="Double"]
+    c72:Out0 -> c73:In0 [label="Double"]
+    c72:Out1 -> c73:In1 [label="Double"]
+    c75:Out0 -> c76:In0 [label="Double"]
+    c74:Out0 -> c75:In0 [label="Double"]
+  }
+  subgraph clusterc78 { label=""; color=white; margin=0; c78 [label="{{<In0>|<In1>}|Out}"] }
+  c0:Out0 -> c1:In0 [label="Double"]
+  c0:Out1 -> c1:In1 [label="Double"]
+  c1:Out0 -> c43:In0 [label="Double"]
+  c1:Out0 -> c44:In0 [label="Double"]
+  c43:Out0 -> c78:In0 [label="Double"]
+  c76 -> c78:In1 [ltail=cluster_77,label="Double × Double ’ Double"]
+}

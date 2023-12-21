@@ -1,0 +1,26 @@
+digraph cos_2x_gradr {
+  margin=0
+  compound=true
+  rankdir=LR
+  node [shape=Mrecord]
+  edge [fontsize=8,fontcolor=indigo]
+  bgcolor=transparent
+  nslimit=20
+  c0 [label="{In|{<Out0>}}"]
+  c109 [label="{2.0|{<Out0>}}"]
+  c243 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+  c463 [label="{{<In0>}|cos|{<Out0>}}"]
+  c464 [label="{{<In0>}|sin|{<Out0>}}"]
+  c532 [label="{{<In0>|<In1>}|\×|{<Out0>}}"]
+  c533 [label="{{<In0>}|negate|{<Out0>}}"]
+  c534 [label="{{<In0>|<In1>}|Out}"]
+  c0:Out0 -> c243:In0 [label="Double"]
+  c109:Out0 -> c243:In1 [label="Double"]
+  c243:Out0 -> c463:In0 [label="Double"]
+  c243:Out0 -> c464:In0 [label="Double"]
+  c109:Out0 -> c532:In0 [label="Double"]
+  c464:Out0 -> c532:In1 [label="Double"]
+  c532:Out0 -> c533:In0 [label="Double"]
+  c463:Out0 -> c534:In0 [label="Double"]
+  c533:Out0 -> c534:In1 [label="Double"]
+}
