@@ -969,7 +969,7 @@ data Ops = Ops
  , okType         :: Type -> Bool
  , optimizeCoercion :: Coercion -> Coercion
  , subst          :: [Var] -> [(Id,CoreExpr)] -> Unop CoreExpr
- , eqTypeNormalising :: Type -> Type -> Bool
+ , eqTypeNormalising :: Type -> Type -> Maybe (Type, Type)
  }
 
 mkOps :: CccEnv -> ModGuts -> AnnEnv -> FamInstEnvs
@@ -1116,9 +1116,11 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
      | Just (b,c ) <- tyArgs2_maybe (exprType g)
      , Just (a,b') <- tyArgs2_maybe (exprType f)
      = -- mkCoreApps (onDict (catOp k composeV `mkTyApps` [b,c,a])) [g,f]
-       if b `eqType` b'
-       then mkCoreApps (onDict (catOp k composeV [b,c,a])) [g,f]
-       else pprPanic "mkCompose mismatch:" $ ppr b $$ ppr b' $$ pprWithType g $$ pprWithType f
+       case b `eqTypeNormalising` b' of
+         Just (bNormalised, b'Normalised) ->
+           pprPanic "mkCompose mismatch:" $ ppr bNormalised $$ ppr b'Normalised $$ pprWithType g $$ pprWithType f
+         Nothing ->
+           mkCoreApps (onDict (catOp k composeV [b,c,a])) [g,f]
      | otherwise
      = pprPanic "mkCompose arguments not arrays:" $ pprWithType g $$ pprWithType f
 
@@ -1128,10 +1130,13 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
    mkCompose' k g f
      | Just (b,c ) <- tyArgs2_maybe (exprType g)
      , Just (a,b') <- tyArgs2_maybe (exprType f)
-     , b `eqType` b'
-     = -- flip mkCoreApps [g,f] <$> onDictMaybe (catOp k composeV [b,c,a])
+     =       
+       -- flip mkCoreApps [g,f] <$> onDictMaybe (catOp k composeV [b,c,a])         
        -- (flip mkCoreApps [g,f] . onDict) <$> catOpMaybe k composeV [b,c,a]
-       flip mkCoreApps [g,f] <$> (onDictMaybe =<< catOpMaybe k composeV [b,c,a])
+       case b `eqTypeNormalising` b' of
+         Nothing -> flip mkCoreApps [g,f] <$> (onDictMaybe =<< catOpMaybe k composeV [b,c,a])
+         Just (bNormalised, b'Normalised) ->
+           pprPanic "mkCompose' mismatch:" (pprWithExplicitType g bNormalised $$ pprWithExplicitType f b'Normalised)
      | otherwise = pprPanic "mkCompose' mismatch:" (pprWithType g $$ pprWithType f)
 
    mkEx :: Cat -> Var -> Unop CoreExpr
@@ -1325,11 +1330,11 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
                              (doc $$ ppr before' $$ "-->" $$ ppr after)
             beforeTy = exprType before'
             afterTy  = exprType after
-        maybe (if beforeTy `eqTypeNormalising` afterTy then
-                 return after
-               else
-                 oops "type change"
-                  (ppr beforeTy <+> "vs" $$ ppr afterTy <+> "in"))
+        maybe (case beforeTy `eqTypeNormalising` afterTy of
+                 Nothing -> return after
+                 Just (beforeTyNormalised, afterTyNormalised) ->
+                   oops "type change"
+                    (ppr beforeTyNormalised <+> "vs" $$ ppr afterTyNormalised <+> "in"))
 #if MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
               (oops "Lint" . pprMessageBag)
 #else
@@ -1429,7 +1434,7 @@ mkOps (CccEnv {..}) guts annotations famEnvs dflags inScope evTy ev cat = Ops {.
     where
       add (v,new) sub = extendIdSubst sub v new
       ps' = filter (not . isDeadBinder . fst) ps
-   eqTypeNormalising :: Type -> Type -> Bool
+   eqTypeNormalising :: Type -> Type -> Maybe (Type, Type)
    eqTypeNormalising ty1 ty2 =
      unsafePerformIO (eqTypeM hsc_env dflags guts ty1 ty2)
 
@@ -1535,8 +1540,11 @@ isAbstReprId v = fqVarName v `elem` (((catModule ++ ".") ++) <$> ["reprC","abstC
 -- TODO: refactor
 
 pprWithType :: CoreExpr -> SDoc
-pprWithType = ppr . WithType
+pprWithType = ppr . withType
 -- pprWithType e = ppr e <+> dcolon <+> ppr (exprType e)
+
+pprWithExplicitType :: CoreExpr -> Type -> SDoc
+pprWithExplicitType e ty = ppr (withExplicitType e ty)
 
 pprWithType' :: CoreExpr -> SDoc
 pprWithType' e = ppr e $+$ dcolon <+> ppr (exprType e)

@@ -20,8 +20,8 @@
 
 module ConCat.BuildDictionary
   (buildDictionary
-  ,WithType(..)
-  , withType
+  ,WithType
+  ,withType, withExplicitType
   ,varWithType
   ,uniqSetToList
   ,annotateEvidence
@@ -392,15 +392,18 @@ annotateExpr fnId fnId' typeArgsCount expr0 =
 -- Maybe place in a GHC utils module.
 
 withType :: CoreExpr -> WithType
-withType = WithType
+withType e = WithType e (exprType e)
+
+withExplicitType :: CoreExpr -> Type -> WithType
+withExplicitType e ty = WithType e ty 
 
 varWithType :: Var -> WithType
 varWithType = withType . Var
 
-newtype WithType = WithType CoreExpr
+data WithType = WithType CoreExpr Type
 
 instance Outputable WithType where
-  ppr (WithType e) = ppr e <+> dcolon <+> ppr (exprType e)
+  ppr (WithType e ty) = ppr e <+> dcolon <+> ppr ty
 
 newtype WithIdInfo = WithIdInfo Id
 

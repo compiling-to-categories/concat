@@ -15,18 +15,21 @@ import GHC.Core.Reduction (reductionReducedType)
 import GHC.Tc.Types (TcM)
 #endif
 
--- | compare two types after first normalising out type families
-eqTypeM :: HscEnv -> DynFlags -> ModGuts -> Type -> Type -> IO Bool
+-- | Compare two types after first normalising out type families.
+-- Returns 'Nothing' when they are equal, and 'Just' of the two normalised types if not.
+eqTypeM :: HscEnv -> DynFlags -> ModGuts -> Type -> Type -> IO (Maybe (Type, Type))
 #if MIN_VERSION_GLASGOW_HASKELL(9,4,0,0)
 eqTypeM env dflags guts ty1 ty2 =
   if ty1 `eqType` ty2
-  then return True
+  then return Nothing
   else
   runTcForSolver env dflags guts $ do
     famInstEnvs <- tcGetFamInstEnvs
-    let reduction1 = normaliseType famInstEnvs Nominal ty1
-    let reduction2 = normaliseType famInstEnvs Nominal ty2
-    return (reductionReducedType reduction1 `eqType` reductionReducedType reduction2)
+    let normalisedTy1 = reductionReducedType (normaliseType famInstEnvs Nominal ty1)
+    let normalisedTy2 = reductionReducedType (normaliseType famInstEnvs Nominal ty2)
+    if normalisedTy1 `eqType` normalisedTy2
+    then return Nothing
+    else return (Just (normalisedTy1, normalisedTy2))
 
 -- | run a DsM program inside IO
 runDsM :: HscEnv -> DynFlags -> ModGuts -> DsM a -> IO a
@@ -49,5 +52,8 @@ normaliseTypeM env dflags guts ty =
     let reduction = normaliseType famInstEnvs Nominal ty
     return (reductionReducedType reduction)
 #else
-eqTypeM _ _ _ ty1 ty2 = pure $ ty1 `eqType` ty2
+eqTypeM _ _ _ ty1 ty2 =
+  if ty1 `eqType` ty2
+  then return Nothing
+  else return (Just (ty1, ty2))
 #endif
