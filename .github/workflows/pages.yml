@@ -1,0 +1,47 @@
+concurrency:
+  cancel-in-progress: false
+  group: pages
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+    - uses: cachix/install-nix-action@v23
+      with:
+        extra_nix_config: |
+          extra-trusted-public-keys = cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g=
+          extra-substituters = https://cache.garnix.io
+    - uses: lriesebos/nix-develop-command@v1
+      with:
+        command: |
+          cabal haddock-project \
+            --haddock-option='--base-url=.' \
+            --haddock-option='--use-contents=../index.html' \
+            --haddock-option='--use-index=../doc-index.html' \
+            --local \
+            --output=_site
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+  deploy:
+    environment:
+      name: github-pages
+      url: "${{ steps.deployment.outputs.page_url }}"
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - id: deployment
+      name: Deploy to GitHub Pages
+      uses: actions/deploy-pages@v4
+name: Deploy generated docs to Pages
+'on':
+  push:
+    branches:
+    - master
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+  pages: write
