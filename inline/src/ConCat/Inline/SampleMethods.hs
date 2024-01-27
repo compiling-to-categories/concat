@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -Wall #-}
 -- {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
@@ -10,7 +11,10 @@
 -- {-# OPTIONS_GHC -ddump-rule-rewrites #-}
 -- {-# OPTIONS_GHC -ddump-rules #-}
 
+-- Haddock throws an exception if this plugin is enabled here.
+#ifdef D__HADDOCK_VERSION__
 {-# OPTIONS_GHC -fplugin=ConCat.Inline.Plugin #-}
+#endif
 
 module ConCat.Inline.SampleMethods where
 
