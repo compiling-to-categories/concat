@@ -23,6 +23,9 @@ jobs:
             --haddock-option='--use-index=../doc-index.html' \
             --local \
             --output=_site
+          ## Fix permissions to match the action’s expectations (see
+          ## https://github.com/actions/upload-pages-artifact#file-permissions)
+          chmod -c -R +rX "_site/"
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
   deploy:
