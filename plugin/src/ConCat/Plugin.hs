@@ -346,10 +346,12 @@ ccc (CccEnv {..}) (Ops {..}) cat =
        | FunCo' Representational co1 co2 <- optimizeCoercion co
        --, Just coA    <- mkCoerceC_maybe cat a a'
        --, Just coB    <- mkCoerceC_maybe cat b' b
-       , let coA    = goCoercion True co1 [] -- a a'
+       -- co1 is the other way around!
+       , let coA    = goCoercion False co1 [] -- a a'
        , let coB    = goCoercion True co2 [] -- b' b
        ->
           Doing("top representational cast")
+          dtrace "(co1, coA, co2, coB)" (ppr (co1, coA, co2, coB)) $
           -- Will I get unnecessary coerceCs due to nominal-able sub-coercions?
           return $ mkCompose cat coB $ mkCompose cat (mkCcc e') $ coA
      Trying("top cast unfold")
@@ -790,14 +792,14 @@ ccc (CccEnv {..}) (Ops {..}) cat =
    goCoercion' pol (AppCo co1 co2) ts
      = mkCast out_exp out_co
      where
-     Pair t11 t12 = (if pol then id else swap) $ coercionKind co1
-     Pair t21 t22 = (if pol then id else swap) $ coercionKind co2
+     Pair t11 t12 = coercionKind co1
+     Pair t21 t22 = coercionKind co2
      out_exp = goCoercion pol co1 (t21 : ts)
-     out_co = (if pol then id else mkSymCo) $ mkSubCo $
-        mkAppCos (mkReflCo Nominal cat)
-            [ mkReflCo Nominal (t11 `mkAppTys` (t21 : ts))
-            , mkAppCos (mkReflCo Nominal t12) (co2 : [ mkReflCo Nominal t | t <- ts ])
-            ]
+     t1_co = mkReflCo Nominal (t11 `mkAppTys` (t21 : ts))
+     t2_co = mkAppCos (mkReflCo Nominal t12) (co2 : [ mkReflCo Nominal t | t <- ts ])
+     out_co = mkSubCo $
+                mkAppCos (mkReflCo Nominal cat) $
+                  if pol then [t1_co, t2_co] else [t2_co, t1_co]
 
    -- Nominal coercions are a bit like the identity, but we cast the resulting categorial arrow
    goCoercion' pol (SubCo co) ts
@@ -805,8 +807,10 @@ ccc (CccEnv {..}) (Ops {..}) cat =
      where
      Pair t1 t2 = coercionKind co
      out_exp = mkId cat (t1 `mkAppTys` ts)
-     out_co = (if pol then id else mkSymCo) $ mkSubCo $
-        mkAppCos (mkReflCo Nominal cat) [mkReflCo Nominal t1, co]
+     t1_co = mkReflCo Nominal t1
+     out_co = mkSubCo $
+                mkAppCos (mkReflCo Nominal cat) $
+                  if pol then [t1_co, co] else [co, t1_co]
 
    -- Newtype wrapper
    -- This is (very likely) a newtype, so lets see if mkReprC (or mkAbstC) works
