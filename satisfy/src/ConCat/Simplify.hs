@@ -59,7 +59,8 @@ dumpIfSet_dyn' :: Err.Logger -> DynFlags -> DumpFlag -> String -> SDoc -> IO ()
 dumpIfSet_dyn' logger _dflags dumpFlag str =
   Err.putDumpFileMaybe logger dumpFlag str Err.FormatText
 dumpIfSet' :: Err.Logger -> DynFlags -> Bool -> String -> SDoc -> IO ()
-dumpIfSet' logger _dflags _opt hdr doc = Err.logDumpMsg logger hdr doc
+dumpIfSet' logger _dflags dumpFlag hdr doc =
+  if dumpFlag then Err.logDumpMsg logger hdr doc else return ()
 #elif MIN_VERSION_GLASGOW_HASKELL(9,2,0,0)
 dumpIfSet_dyn' :: Err.Logger -> DynFlags -> DumpFlag -> String -> SDoc -> IO ()
 dumpIfSet_dyn' logger dflags dumpFlag str =
